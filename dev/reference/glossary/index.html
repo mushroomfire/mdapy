@@ -1903,6 +1903,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/elastic-anisotropy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic anisotropy of copper and titanium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/molecular-dynamics/" class="md-nav__link">
         
   
@@ -8556,6 +8584,30 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td><code>bulk_modulus</code></td>
 <td>isothermal bulk modulus (GPa)</td>
+</tr>
+<tr>
+<td><code>young_modulus</code></td>
+<td>stress over strain of a stretch along a direction with no stress across it (GPa); without a direction, that of a polycrystal</td>
+</tr>
+<tr>
+<td><code>poisson_ratio</code></td>
+<td>contraction along a <code>transverse</code> direction over the stretch along another; without them, that of a polycrystal</td>
+</tr>
+<tr>
+<td><code>linear_compressibility</code></td>
+<td>relative shortening along a direction per unit of hydrostatic pressure (1/GPa)</td>
+</tr>
+<tr>
+<td><code>universal_anisotropy</code></td>
+<td>the universal anisotropy index of elastic constants: zero for an isotropic crystal, positive otherwise</td>
+</tr>
+<tr>
+<td><code>direction</code>, <code>normal</code>, <code>transverse</code></td>
+<td>of elastic constants: a vector (3,) or vectors (N, 3) in the axes of the box, of any length; the direction of a stretch or shear, the normal of the plane sheared, the direction of a contraction across a stretch</td>
+</tr>
+<tr>
+<td><code>extreme</code></td>
+<td><code>"min"</code> or <code>"max"</code>: the smallest or largest value of a quantity of two directions over the second</td>
 </tr>
 <tr>
 <td>isothermal, adiabatic</td>

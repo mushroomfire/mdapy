@@ -1905,6 +1905,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/elastic-anisotropy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic anisotropy of copper and titanium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/molecular-dynamics/" class="md-nav__link">
         
   
@@ -7983,6 +8011,19 @@ potential between two elements,</p>
 <p>The parameters are fitted to the pure metals; the pair potentials between
 elements come from the rule above, not from a fit to alloys. An unknown or
 repeated element raises <code>InvalidParameter</code>.</p>
+<div class="admonition warning">
+<p class="admonition-title">A cutoff on a shell of neighbors</p>
+<p>The cutoff, <span class="arithmatex">\(\sqrt{10}/2\)</span> times the fcc lattice constant, is the distance of
+the fifth neighbors in fcc. In a relaxed fcc crystal of one element they lie
+less than <span class="arithmatex">\(10^{-4}\)</span> Å beyond it, and a strain above about <span class="arithmatex">\(10^{-5}\)</span> brings
+some of them inside: the stress jumps, and what comes from small strains
+depends on their size. The elastic constant <span class="arithmatex">\(C_{11}\)</span> of relaxed copper from
+<a href="../elastic-constants/"><code>elastic_constants</code></a> is 168.6 GPa with the default
+<code>strain=1e-3</code>, 158.8 GPa with 1e-4, and 169.7 GPa with 1e-6, which leaves the
+fifth neighbors where they are. LAMMPS, with the same tables, does the same.
+Potentials that reach zero smoothly at their cutoff, such as <a href="../nep/">NEP</a>,
+do not.</p>
+</div>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#zhou2004">Zhou et al. (2004)</a>; with Cr, also <a href="../../../reference/references/#lin2008">Lin et al. (2008)</a>.</p>

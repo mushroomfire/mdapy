@@ -1905,6 +1905,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/elastic-anisotropy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic anisotropy of copper and titanium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/molecular-dynamics/" class="md-nav__link">
         
   
@@ -7872,8 +7900,8 @@
 and plots the results of MDAPY: parity plots of energies and forces, radial
 distribution functions, structure factors, bond angles, mean squared
 displacements, stacking fault energies, counts of structures, phonon
-band structures and densities of states, and two columns of the atoms
-against each other. It needs matplotlib.</p>
+band structures and densities of states, the moduli of a crystal along every
+direction, and two columns of the atoms against each other. It needs matplotlib.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">RadialDistributionFunction</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span><span class="p">,</span> <span class="n">random_alloy</span>
@@ -7997,6 +8025,14 @@ from its center.</em></p>
 <td><code>phonon_dos(result, *, ax=None, projected=False)</code></td>
 <td>a phonon density of states, frequencies upward to stand beside a band structure, and that of each atom of the cell</td>
 </tr>
+<tr>
+<td><code>elastic_surface(result, quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")</code></td>
+<td>the <code>"young_modulus"</code>, <code>"linear_compressibility"</code>, <code>"shear_modulus"</code> or <code>"poisson_ratio"</code> of <a href="../../simulation/elastic-constants/#along-directions">elastic constants</a> along every direction, as a surface as far from the origin along each direction as the size of the value there, in the color of the value, unshaded so that the colors read on the color bar; the shear modulus and the Poisson ratio take a second direction across the first, and <code>extreme</code>, <code>"min"</code> or <code>"max"</code>, draws their smallest or largest value over it; <code>points</code> directions from the z axis to its opposite, twice as many around it; <code>ax</code> must be in 3D, made with <code>projection="3d"</code></td>
+</tr>
+<tr>
+<td><code>elastic_section(result, quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360, color=None, label=None)</code></td>
+<td>the same along the directions of the plane normal to <code>normal</code>, as a curve, dashed where the value is negative; the axes of the plot are the axis of the box most nearly in the plane, laid into it, and the direction across it in the plane, named by their indices</td>
+</tr>
 </tbody>
 </table>
 <p>Each plot draws on <code>ax</code>, by default a new figure, and returns the axes.</p>
@@ -8013,7 +8049,11 @@ matplotlib's message. <code>figure</code> raises <code>InvalidParameter</code> f
 double nor a positive number, <code>parity</code> for values of different sizes,
 <code>scatter</code> for a column of several components or <code>max_points</code> below 1, and
 <code>warren_cowley</code> without a <code>shell</code> that exists for parameters of several shells,
-or with one for parameters of one shell.
+or with one for parameters of one shell. <code>elastic_surface</code> and <code>elastic_section</code>
+raise it for another <code>quantity</code>, a shear modulus or Poisson ratio without <code>extreme</code> or
+another quantity with one, and <code>points</code> below 3; <code>elastic_surface</code> for a colormap that
+matplotlib does not know or axes not in 3D, and <code>elastic_section</code> for a <code>normal</code> of
+another shape, zero or not finite.
 Without matplotlib the plots raise <code>ImportError</code>.</p>
 
 

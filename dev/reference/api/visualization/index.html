@@ -1903,6 +1903,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/elastic-anisotropy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic anisotropy of copper and titanium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/molecular-dynamics/" class="md-nav__link">
         
   
@@ -7546,6 +7574,28 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.visualization.plot.elastic_surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        elastic_surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.visualization.plot.elastic_section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        elastic_section
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8882,6 +8932,28 @@
     <span class="md-ellipsis">
       
         pressure_temperature
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.visualization.plot.elastic_surface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        elastic_surface
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.visualization.plot.elastic_section" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        elastic_section
       
     </span>
   </a>
@@ -13751,6 +13823,406 @@ is stable.</p>
             <td>
               <div class="doc-md-description">
                 <p>The axes.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.visualization.plot.elastic_surface" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">elastic_surface</span>
+
+
+<a href="#mdapy.visualization.plot.elastic_surface" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">elastic_surface</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'young_modulus'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extreme</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="mi">60</span><span class="p">,</span> <span class="n">colormap</span><span class="o">=</span><span class="s1">'viridis'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>A quantity of an <code>mdapy.lattice_dynamics.ElasticResult</code> along every
+direction, as a surface in 3D: along each direction it lies as far from
+the origin as the size of the value there, in the color of the value.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>result</code>
+            </td>
+            <td>
+                  <code><span title="ElasticResult">ElasticResult</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The elastic constants.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>quantity</code>
+            </td>
+            <td>
+                  <code>(<span title="young_modulus">young_modulus</span>, <span title="linear_compressibility">linear_compressibility</span>, <span title="shear_modulus">shear_modulus</span>, <span title="poisson_ratio">poisson_ratio</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default "young_modulus".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;young_modulus&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ax</code>
+            </td>
+            <td>
+                  <code><span title="matplotlib.axes.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Axes in 3D, made with <code>projection="3d"</code>; by default a new figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extreme</code>
+            </td>
+            <td>
+                  <code>(<span title="min">min</span>, <span title="max">max</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of the shear modulus and the Poisson ratio, which take a second
+direction across the first: their smallest or largest value over it.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;min&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>points</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directions from the z axis to its opposite; twice as many around it.
+Default 60.</p>
+              </div>
+            </td>
+            <td>
+                  <code>60</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>colormap</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The name of a colormap of matplotlib. Default "viridis".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;viridis&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="matplotlib.axes.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axes.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For another quantity, no extreme of a quantity of two directions or one
+of another, fewer than 3 points, a colormap that matplotlib does not
+know, or axes not in 3D.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.visualization.plot.elastic_section" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">elastic_section</span>
+
+
+<a href="#mdapy.visualization.plot.elastic_section" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">elastic_section</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">quantity</span><span class="o">=</span><span class="s1">'young_modulus'</span><span class="p">,</span> <span class="n">normal</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="o">*</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">extreme</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">points</span><span class="o">=</span><span class="mi">360</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>A quantity of an <code>mdapy.lattice_dynamics.ElasticResult</code> along the
+directions of a plane: a curve as far from the origin along each direction
+as the size of the value there, dashed where the value is negative.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>result</code>
+            </td>
+            <td>
+                  <code><span title="ElasticResult">ElasticResult</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The elastic constants.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>quantity</code>
+            </td>
+            <td>
+                  <code>(<span title="young_modulus">young_modulus</span>, <span title="linear_compressibility">linear_compressibility</span>, <span title="shear_modulus">shear_modulus</span>, <span title="poisson_ratio">poisson_ratio</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Default "young_modulus".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;young_modulus&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>normal</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The normal (3,) float64 of the plane, in the axes of the box. Default
+(0, 0, 1). The first axis of the plot is the axis of the box most
+nearly in the plane, laid into it.</p>
+              </div>
+            </td>
+            <td>
+                  <code>(0, 0, 1)</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ax</code>
+            </td>
+            <td>
+                  <code><span title="matplotlib.axes.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axes; by default a new figure.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>extreme</code>
+            </td>
+            <td>
+                  <code>(<span title="min">min</span>, <span title="max">max</span>)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of the shear modulus and the Poisson ratio, which take a second
+direction across the first: their smallest or largest value over it,
+in any direction across, not only in the plane.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;min&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>points</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Directions around the plane. Default 360.</p>
+              </div>
+            </td>
+            <td>
+                  <code>360</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>color</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Color of the curve.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>label</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Name of the curve in a legend.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="matplotlib.axes.Axes">Axes</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axes.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For another quantity, no extreme of a quantity of two directions or one
+of another, a normal of another shape, zero or not finite, or fewer
+than 3 points.</p>
               </div>
             </td>
           </tr>

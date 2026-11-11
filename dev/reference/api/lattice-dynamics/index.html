@@ -1903,6 +1903,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/elastic-anisotropy/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic anisotropy of copper and titanium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/molecular-dynamics/" class="md-nav__link">
         
   
@@ -6948,6 +6976,50 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.young_modulus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        young_modulus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.poisson_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        poisson_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.linear_compressibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        linear_compressibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.universal_anisotropy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        universal_anisotropy
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8218,6 +8290,50 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.young_modulus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        young_modulus
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.poisson_ratio" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        poisson_ratio
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.linear_compressibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        linear_compressibility
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ElasticResult.universal_anisotropy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        universal_anisotropy
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8923,12 +9039,502 @@ dynamics; None otherwise.</p>
 
 
 <a href="#mdapy.lattice_dynamics.ElasticResult.shear_modulus" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">shear_modulus</span><span class="p">(</span><span class="n">average</span><span class="o">=</span><span class="s1">'hill'</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">shear_modulus</span><span class="p">(</span><span class="n">average</span><span class="o">=</span><span class="s1">'hill'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">normal</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The shear modulus in GPa: the "voigt", "reuss" or "hill" average.</p>
+        <p>The shear modulus in GPa: of a polycrystal, or of the crystal sheared
+on a plane along a direction.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>average</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of a polycrystal, the "voigt", "reuss" or "hill" average. Default
+"hill".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;hill&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>normal</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The normal (3,) float64 of the plane sheared, in the axes of the box
+and of any length, or normals (N, 3) float64.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The direction (3,) or directions (N, 3) float64 of the shear,
+perpendicular to the normal. Give both normal and direction, or
+neither.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="float64">float64</span> or <span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The modulus, or (N,) float64 for each normal and direction.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an unknown average, an average with directions, a normal
+without a direction or the other way round, vectors of another
+shape, zero, not finite or not perpendicular.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ElasticResult.young_modulus" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">young_modulus</span>
+
+
+<a href="#mdapy.lattice_dynamics.ElasticResult.young_modulus" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">young_modulus</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s1">'hill'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The Young's modulus in GPa: of the crystal along a direction, or of a
+polycrystal.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A direction (3,) float64 in the axes of the box, of any length, or
+directions (N, 3) float64. Without one, the modulus of a
+polycrystal.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>average</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of a polycrystal, the Young's modulus of the "voigt", "reuss" or
+"hill" average of the bulk and shear moduli. Default "hill".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;hill&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="float64">float64</span> or <span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The modulus, or (N,) float64 along each direction.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an unknown average, an average with a direction, or a
+direction of another shape, zero or not finite.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ElasticResult.poisson_ratio" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">poisson_ratio</span>
+
+
+<a href="#mdapy.lattice_dynamics.ElasticResult.poisson_ratio" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">poisson_ratio</span><span class="p">(</span><span class="n">direction</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">transverse</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">average</span><span class="o">=</span><span class="s1">'hill'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The Poisson ratio: of the crystal stretched along a direction, the
+contraction along a transverse direction over the stretch; or of a
+polycrystal.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The direction (3,) float64 of the stretch, in the axes of the box
+and of any length, or directions (N, 3) float64.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>transverse</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The direction (3,) or directions (N, 3) float64 of the contraction,
+perpendicular to the stretch. Give both directions, or neither for
+a polycrystal.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>average</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of a polycrystal, the Poisson ratio of the "voigt", "reuss" or
+"hill" average of the bulk and shear moduli. Default "hill".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;hill&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="float64">float64</span> or <span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The ratio, or (N,) float64 for each pair of directions.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an unknown average, an average with directions, one direction
+without the other, or directions of another shape, zero, not finite
+or not perpendicular.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ElasticResult.linear_compressibility" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">linear_compressibility</span>
+
+
+<a href="#mdapy.lattice_dynamics.ElasticResult.linear_compressibility" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">linear_compressibility</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The linear compressibility of the crystal in 1/GPa along a direction.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A direction (3,) float64 in the axes of the box, of any length, or
+directions (N, 3) float64.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="float64">float64</span> or <span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The relative shortening along the direction per unit of hydrostatic
+pressure, or (N,) float64 along each.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a direction of another shape, zero or not finite.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ElasticResult.universal_anisotropy" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">universal_anisotropy</span>
+
+
+<a href="#mdapy.lattice_dynamics.ElasticResult.universal_anisotropy" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">universal_anisotropy</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The universal anisotropy index, zero for an isotropic crystal.</p>
 
 
     </div>

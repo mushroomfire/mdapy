@@ -38,6 +38,9 @@
 - `combine` gives the atoms of a system without masses or types those of their
   elements, and numbers the atoms of a system without ids from 1; it gave zero masses,
   which were refused, and id 0.
+- `add_graphene` takes a polycrystal with more columns than `build_polycrystal` gives,
+  such as velocities, types or masses, and gives the carbon atoms those of
+  `combine`; it raised `ColumnNotFoundError`.
 - `create_bonds` makes one bond per pair of atoms in a small box, where several images
   of a pair are close.
 

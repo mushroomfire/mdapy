@@ -239,8 +239,11 @@ system = system.with_columns(csp_average=total / (nl.counts + 1))
 picture and `show_image(render(system))` shows it in a notebook. A graphical
 application with fuller features is developed separately.
 
-**Coming in a later 2.x release**: `orthogonal_cell`, `set_pka`, `Spline` and
-`BondStiffness`. They will be additions, so code written for 2.0 keeps working (see
+**`set_pka`** is a few lines of NumPy, in the example of
+[a collision cascade](../examples/radiation-cascade.md#the-knock-on-atom) to copy.
+
+**Coming in a later 2.x release**: `orthogonal_cell`, `Spline` and `BondStiffness`.
+They will be additions, so code written for 2.0 keeps working (see
 [Compatibility](../about/compatibility.md)).
 
 **Threads**: `MDAPY_NUM_THREADS` sets the number of threads as in 1.x, and

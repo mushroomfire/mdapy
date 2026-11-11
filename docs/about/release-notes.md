@@ -17,6 +17,9 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
+  primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
+  Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.
 - `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
   crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
   cluster related to it, whose frame is fitted to many atoms; its spatial vector was off

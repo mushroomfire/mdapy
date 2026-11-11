@@ -35,6 +35,7 @@ one name everywhere.
 | selection | Some atoms of a system, given as a boolean mask of one value per atom or as their indices. |
 | mask | (N,) bool, true for the atoms of a selection; `System.where` gives the mask of conditions, and analyses take one as `atoms`. |
 | overlapping atoms | Atoms closer than a distance to another, such as the copies of an atom or the atoms where structures put together clash; `find_overlapping` selects them. |
+| orthogonal cell | A box of the same crystal whose lattice vectors lie along x, y and z: along each, the shortest combination of the lattice vectors of the box that lies along it; `orthogonal_cell` makes one. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |

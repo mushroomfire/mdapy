@@ -23,6 +23,9 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
+  puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
+  orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).
 - `combine` fills a column of arrays of more than one dimension, such as the
   `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
   system; it raised a polars error.

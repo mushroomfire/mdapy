@@ -3,6 +3,9 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import threading
+import time
+
 import numpy as np
 import pytest
 
@@ -199,6 +202,21 @@ def test_threads_progress_and_cancel():
     token.cancel()
     with pytest.raises(Cancelled):
         RingStatistics(8, cutoff=1.8).compute(system, cancel=token)
+
+
+def test_a_cancel_stops_the_search_from_one_root():
+    """Rings up to 14 in a dense random network take about a minute per
+    root; a cancellation stops the search inside it."""
+    rng = np.random.default_rng(0)
+    system = mdapy.System(rng.random((300, 3)) * 12.0, mdapy.Box(12.0), elements="C")
+    token = mdapy.CancelToken()
+    timer = threading.Timer(0.3, token.cancel)
+    start = time.perf_counter()
+    timer.start()
+    with mdapy.num_threads(1), pytest.raises(Cancelled):
+        RingStatistics(14, cutoff=2.6).compute(system, cancel=token)
+    timer.join()
+    assert time.perf_counter() - start < 5.0  # 128 s before
 
 
 def test_errors():

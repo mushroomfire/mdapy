@@ -23,6 +23,7 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
 - `CommonNeighborAnalysis` with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
   that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took
   (1 + √2)/2.

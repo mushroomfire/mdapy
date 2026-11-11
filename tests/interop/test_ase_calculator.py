@@ -249,3 +249,19 @@ def test_atomic_stresses_of_an_ase_calculator():
     np.testing.assert_allclose(
         result.atomic_virials, -stresses * system.box.volume, atol=1e-12
     )
+
+
+def test_a_molecule_without_a_cell():
+    """Energy and forces of atoms without a cell; no stress."""
+    import ase
+    from ase.calculators.calculator import PropertyNotImplementedError
+
+    from mdapy.calculators import EAM
+
+    pair = ase.Atoms("Cu2", positions=[[0, 0, 0], [0, 0, 2.4]])
+    pair.calc = to_ase_calculator(EAM.zhou(["Cu"]))
+    energy = pair.get_potential_energy()
+    forces = pair.get_forces()
+    assert np.isfinite(energy) and np.allclose(forces[0], -forces[1])
+    with pytest.raises(PropertyNotImplementedError):
+        pair.get_stress()

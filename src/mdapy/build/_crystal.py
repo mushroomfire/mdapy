@@ -206,6 +206,15 @@ def _upright(vectors: np.ndarray) -> np.ndarray:
     return upright
 
 
+def _positive(x: object) -> bool:
+    """Whether x is a positive number, not text or a bool."""
+    return (
+        isinstance(x, (int, float, np.integer, np.floating))
+        and not isinstance(x, bool)
+        and bool(x > 0)
+    )
+
+
 def build_crystal(
     structure: str,
     a: float,
@@ -236,8 +245,9 @@ def build_crystal(
         The crystal directions along the three box vectors: [hkl] in the
         cubic cell, orthogonal; or [uvw] or [hkil] in the hexagonal cell,
         linearly independent. Default the cell itself.
-    repeat : sequence of int32, optional
-        Number of periods along each box vector. Default (1, 1, 1).
+    repeat : int32 or sequence of 3 int32, optional
+        Number of periods along each box vector, or along all three.
+        Default (1, 1, 1).
 
     Returns
     -------
@@ -249,14 +259,14 @@ def build_crystal(
             f"structure must be one of {tuple(STRUCTURES)}, not {structure!r}"
         )
     kind = STRUCTURES[structure]
-    if not a > 0:
-        raise InvalidParameter(f"a must be positive, not {a!r}")
+    if not _positive(a):
+        raise InvalidParameter(f"a must be a positive number, not {a!r}")
     if kind.hexagonal:
         if c is None and kind.c_ratio is None:
             raise InvalidParameter(f"{structure} needs c")
         c = kind.c_ratio * a if c is None else c
-        if not c > 0:
-            raise InvalidParameter(f"c must be positive, not {c!r}")
+        if not _positive(c):
+            raise InvalidParameter(f"c must be a positive number, not {c!r}")
     elif c is not None:
         raise InvalidParameter("c is for hexagonal structures only")
     names = (elements,) if isinstance(elements, str) else tuple(elements)
@@ -267,13 +277,15 @@ def build_crystal(
             f"not {len(names)}"
         )
     counts = np.array(repeat)
+    if counts.ndim == 0:  # the same along every vector, as replicate
+        counts = np.full(3, counts)
     if (
         counts.shape != (3,)
         or not np.issubdtype(counts.dtype, np.integer)
         or (counts < 1).any()
     ):
         raise InvalidParameter(
-            f"repeat must be three positive integers, not {repeat!r}"
+            f"repeat must be a positive integer or three, not {repeat!r}"
         )
 
     cell = _cell(kind, a, c)

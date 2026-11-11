@@ -9,9 +9,10 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy._core import neighbor as _search
+from mdapy.build._alloy import _with_elements
 from mdapy.core.box import Box
 from mdapy.core.system import System
-from mdapy.elements import SYMBOLS
+from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor._neighbor_list import _run
 
@@ -115,7 +116,7 @@ def substitute(
     else:
         elements = np.full(len(system), "X", dtype=object)
     elements[chosen] = element
-    return system.with_columns(element=elements.tolist())
+    return _with_elements(system, elements)
 
 
 def add_interstitials(
@@ -213,15 +214,41 @@ def add_interstitials(
     table = system.table
     if "element" not in table.columns:
         system = system.with_columns(element=["X"] * len(system))
-    # rows like the first atom's, with the new positions, element and ids
-    rows = System(table=system.table[[0] * len(added)], box=box)
-    extra = rows.with_columns(positions=added).with_columns(
-        element=[element] * len(added)
-    )
+    # rows of the columns of the system: the new positions, element, ids and
+    # masses, the others zero (still: movable), no charges or velocities
+    # taken from another atom
+    k = len(added)
+    rows = System(table=system.table[[0] * k], box=box)
+    fill = {}
+    for name in rows.table.columns:
+        if name in ("positions", "element", "id", "mass", "type"):
+            continue
+        values = np.asarray(rows[name])
+        if values.dtype.kind in "biuf":
+            fill[name] = (
+                np.ones_like(values) if name == "movable" else np.zeros_like(values)
+            )
+    extra = rows.with_columns(positions=added, element=[element] * k, **fill)
     if "id" in table.columns:
         first = int(table["id"].max()) + 1
-        extra = extra.with_columns(id=np.arange(first, first + len(added)))
-    return System(table=system.table.vstack(extra.table), box=box, info=system.info)
+        extra = extra.with_columns(id=np.arange(first, first + k))
+    if "mass" in table.columns:
+        extra = extra.with_columns(mass=atomic_masses([element] * k))
+    joined = System(
+        table=system.table.vstack(extra.table),
+        box=box,
+        info=system.info,
+        topology=system.topology,
+    )
+    if "type" not in table.columns:
+        return joined
+    # the type of the element's atoms there, or none
+    elements = np.array(system.table["element"].to_list(), dtype=object)
+    kinds = set(np.asarray(system["type"])[elements == element].tolist())
+    if len(kinds) == 1:
+        filled = np.concatenate([np.asarray(system["type"]), np.full(k, kinds.pop())])
+        return joined.with_columns(type=filled.astype(np.asarray(system["type"]).dtype))
+    return joined.drop("type")
 
 
 def _axis(axis: int | str) -> int:

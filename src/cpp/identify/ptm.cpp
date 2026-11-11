@@ -302,7 +302,9 @@ void consider(const Reference& ref, const std::int8_t* mapping, const Point* obs
             }
         }
     }
-    const Quaternion q = ptm::best_rotation(S, 0.5 * (g1 + g2));
+    // sqrt(g1 g2) bounds the largest eigenvalue from above whatever the unit of
+    // the lengths, where (g1 + g2) / 2 lies far above it unless they are near 1
+    const Quaternion q = ptm::best_rotation(S, std::sqrt(g1 * g2));
     double R[9];
     ptm::rotation_matrix(q, R);
     double k0 = 0.0;

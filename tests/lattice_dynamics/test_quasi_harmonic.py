@@ -13,6 +13,7 @@ from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics import elastic_constants, primitive_cell, quasi_harmonic
+from mdapy.lattice_dynamics._phonons import _crossing
 from mdapy.lattice_dynamics._quasi_harmonic import _Fit
 from mdapy.simulation import minimize
 
@@ -124,6 +125,45 @@ def test_unstable_volumes():
     cell = build_crystal("sc", 2.5, elements="Ar")
     with pytest.raises(InvalidParameter, match="at volume ratio .*imaginary"):
         quasi_harmonic(cell, Harmonic(k=1.0, r0=3.0), [300.0], supercell=3, mesh=4)
+
+
+def test_a_pair_that_crosses_the_cutoff(copper):
+    # the fifth shell, 5.20 Å at zero stress, comes inside the cutoff of 5 Å
+    # below 0.89 of the volume; raised before any phonons
+    potential, _, cell = copper
+    with pytest.raises(
+        InvalidParameter,
+        match=r"reaches the cutoff of the calculator, 5 Å, between the volumes, "
+        r"give or take the displacement of 0\.01 Å: it is 4\.93\d\d Å apart at "
+        r"volume ratio 0\.85 and 5\.20\d\d Å at volume ratio 1, and its force "
+        r"constants jump",
+    ):
+        quasi_harmonic(cell, potential, [300.0], volumes=np.linspace(0.85, 1.0, 5))
+
+
+def test_crossing_follows_the_atoms_across_the_box():
+    # fcc of 4 Å: the second shell at 4 Å, the third at 4.90 Å
+    crystal = build_crystal("fcc", 4.0, elements="Cu", repeat=(2, 2, 2))
+    cells = [
+        crystal.with_box(crystal.box.matrix * s, scale_positions=True)
+        for s in (0.99, 1.0, 1.01)
+    ]
+    found = _crossing(cells, 4.02, 0.0)
+    assert found[1::2] == (0, 2)
+    assert found[0::2] == pytest.approx((3.96, 4.04), rel=1e-12)
+    assert _crossing(cells, 4.5, 0.0) is None
+    assert _crossing(cells, 3.9, 0.0) is None
+    # give or take a displacement: the shell within it of the cutoff counts
+    assert _crossing(cells, 4.045, 0.0) is None
+    assert _crossing(cells, 4.045, 0.01) == found
+    assert _crossing(cells, 3.955, 0.01) == found
+    assert _crossing(cells, 3.945, 0.01) is None
+    # an atom wrapped to the other side of the box in one cell
+    positions = cells[1]["positions"].copy()
+    positions[0] += cells[1].box.matrix[0]
+    cells[1] = cells[1].with_columns(positions=positions)
+    assert _crossing(cells, 4.02, 0.0) == found
+    assert _crossing(cells, 4.5, 0.0) is None
 
 
 def test_fit_without_a_minimum():

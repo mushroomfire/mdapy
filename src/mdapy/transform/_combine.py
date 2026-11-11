@@ -10,6 +10,7 @@ import polars as pl
 
 from mdapy.core.system import System
 from mdapy.core.topology import KINDS, Topology
+from mdapy.elements import atomic_masses
 from mdapy.errors import InvalidParameter
 from mdapy.transform._periodic import _EXTENSIVE_INFO
 
@@ -54,6 +55,41 @@ def _stack(first: pl.DataFrame, second: pl.DataFrame, what: str) -> pl.DataFrame
     return pl.concat(parts, how="vertical_relaxed")
 
 
+def _masses_of(table: pl.DataFrame) -> pl.Series:
+    """The masses of the elements of a table that has none."""
+    if "element" not in table.columns or (table["element"] == "X").any():
+        raise InvalidParameter(
+            "the atoms of one system have masses and those of the other neither "
+            "masses nor elements to take them from"
+        )
+    return pl.Series("mass", atomic_masses(table["element"].to_list()))
+
+
+def _types_for(table: pl.DataFrame, typed: pl.DataFrame) -> pl.Series:
+    """Types for the atoms of a table that has none: that of an element in the
+    other where it has one, new ones numbered on otherwise."""
+    known: dict = {}
+    if "element" in typed.columns:
+        for element, kind in zip(typed["element"].to_list(), typed["type"].to_list()):
+            known.setdefault(element, set()).add(int(kind))
+    elements = (
+        table["element"].to_list() if "element" in table.columns else ["X"] * len(table)
+    )
+    largest = int(typed["type"].max()) if len(typed) else 0
+    given: dict = {}
+    types = []
+    for element in elements:
+        if element not in given:
+            kinds = known.get(element, set())
+            if len(kinds) == 1:
+                given[element] = next(iter(kinds))
+            else:
+                largest += 1
+                given[element] = largest
+        types.append(given[element])
+    return pl.Series("type", types).cast(typed.schema["type"])
+
+
 def combine(system: System, other: System) -> System:
     """The atoms of other added after those of system, as OVITO's combine
     datasets.
@@ -69,10 +105,12 @@ def combine(system: System, other: System) -> System:
     -------
     System
         The atoms of both in the box of system, with the columns of either:
-        zeros where one has no column (the element X for ``element``). Where
-        system has an ``id`` column, the added atoms are numbered on from
-        its largest id in their order; molecules of other above 0 are offset
-        by the largest molecule of system. The topology terms of both, those
+        zeros where one has no column (the element X for ``element``), but
+        masses of the elements for ``mass``, and for ``type`` the type of an
+        element in the other or new types numbered on. Where either has an
+        ``id`` column, the atoms of system keep theirs (or are numbered from
+        1) and the added atoms are numbered on in their order; molecules of
+        other above 0 are offset by the largest molecule of system. The topology terms of both, those
         of other moved to its atoms. The info of system, without ``energy``
         and ``virial``.
 
@@ -80,10 +118,23 @@ def combine(system: System, other: System) -> System:
     ------
     InvalidParameter
         If a column has types in the two that cannot be joined, such as
-        text in one and numbers in the other.
+        text in one and numbers in the other, or the atoms of one have
+        masses and the others neither masses nor elements.
     """
     n, m = len(system), len(other)
     first, second = system.table, other.table
+    # masses and types where only one has them, so that every atom has one
+    for name, fill in (("mass", _masses_of), ("type", None)):
+        if (name in first.columns) == (name in second.columns):
+            continue
+        if name in first.columns:
+            column = fill(second) if fill else _types_for(second, first)
+            second = second.with_columns(column)
+        else:
+            column = fill(first) if fill else _types_for(first, second)
+            first = first.with_columns(column)
+    if "id" in second.columns and "id" not in first.columns:
+        first = first.with_columns(pl.Series("id", np.arange(1, n + 1), dtype=pl.Int64))
     if "id" in first.columns:
         start = int(first["id"].max()) if n else 0
         second = second.with_columns(

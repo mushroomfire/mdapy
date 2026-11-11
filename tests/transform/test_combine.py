@@ -110,12 +110,12 @@ def test_topology():
 
 
 def test_without_ids_and_empty():
-    """Without ids in the first, its atoms get id 0 and the second keeps
-    its own; an empty first numbers the added atoms from 1."""
+    """Without ids in the first, its atoms are numbered from 1 and the
+    added ones on; an empty first numbers the added atoms from 1."""
     first = water(2, 1).drop("id")
     second = water(1, 5, seed=2)
     both = combine(first, second)
-    np.testing.assert_array_equal(both["id"], [0] * 6 + [2, 4, 6])
+    np.testing.assert_array_equal(both["id"], np.arange(1, 10))
     empty = water(1, 1).filter(np.zeros(3, dtype=bool))
     np.testing.assert_array_equal(combine(empty, second)["id"], [1, 2, 3])
     np.testing.assert_array_equal(combine(empty, second)["molecule"], [5, 5, 5])
@@ -175,3 +175,29 @@ def test_as_ovito(tmp_path):
         ours.topology.angles["atoms"].to_numpy(), particles.angles["Topology"]
     )
     np.testing.assert_array_equal(np.asarray(data.cell)[:, :3], first.box.matrix.T)
+
+
+def test_masses_and_types_of_one_go_to_both():
+    """Copper read from a data file, with masses and types, and hydrogen
+    with elements only: the hydrogen gets its mass and a type of its own,
+    copper added again the type of copper, either way round."""
+    from mdapy.build import build_crystal
+
+    copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2))
+    copper = copper.with_columns(
+        mass=np.full(len(copper), 63.546), type=np.ones(len(copper), dtype=np.int32)
+    )
+    hydrogen = mdapy.System(
+        [[1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], copper.box, elements="H"
+    )
+    both = combine(copper, hydrogen)
+    np.testing.assert_allclose(both["mass"][-2:], 1.008)
+    assert np.asarray(both["type"]).tolist() == [1] * len(copper) + [2, 2]
+    back = combine(hydrogen, copper)
+    np.testing.assert_allclose(back["mass"][:2], 1.008)
+    assert np.asarray(back["type"]).tolist() == [2, 2] + [1] * len(copper)
+    more = combine(copper, build_crystal("fcc", 3.615, elements="Cu"))
+    assert set(np.asarray(more["type"]).tolist()) == {1}
+    bare = mdapy.System([[0.5, 0.5, 0.5]], copper.box)
+    with pytest.raises(InvalidParameter, match="neither masses nor elements"):
+        combine(copper, bare)

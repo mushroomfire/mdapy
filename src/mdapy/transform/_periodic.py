@@ -38,11 +38,28 @@ def _counts(repeat: int | Sequence[int], box: Box) -> np.ndarray:
     return counts
 
 
-def _repeat_topology(topology: Topology, n: int, copies: int) -> Topology:
+def _repeat_topology(
+    topology: Topology,
+    n: int,
+    counts: np.ndarray,
+    cells: np.ndarray,
+    shifts: dict | None,
+) -> Topology:
+    """The terms of every copy. Without shifts, the atoms of a term stay in
+    its copy; with them, the shifts of the cells of the atoms of each term
+    from its first, those of the nearest images, take each to its copy."""
+    copies = len(cells)
     tables = {}
     for kind, df in topology.tables().items():
         atoms = df["atoms"].to_numpy().reshape(len(df), KINDS[kind])
-        shifted = atoms[None, :, :] + n * np.arange(copies)[:, None, None]
+        if shifts is None:
+            index = np.arange(copies)[:, None, None]
+        else:
+            # the cell of each atom of each term in each copy, wrapped into
+            # the copies: (copies, terms, atoms of a term)
+            cell = (cells[:, None, None, :] - shifts[kind][None]) % counts
+            index = cell[..., 0] + counts[0] * (cell[..., 1] + counts[1] * cell[..., 2])
+        shifted = atoms[None, :, :] + n * index
         tables[kind] = pl.concat([df] * copies).with_columns(
             pl.Series(
                 "atoms",
@@ -70,10 +87,12 @@ def replicate(system: System, repeat: int | Sequence[int]) -> System:
         The copies, one after another with the copy along a changing fastest,
         in a box with the lattice vectors multiplied by ``repeat``. Ids and
         molecules (those above 0) of each copy are offset by the largest of
-        the original; topology terms are copied within each copy. With an
-        ``image`` column, each atom is placed by its unwrapped position and
-        its image flags are those of the new box; without one, the copies
-        are translated. ``energy`` and ``virial`` are left out of the info.
+        the original. With an ``image`` column, each atom is placed by its
+        unwrapped position and its image flags are those of the new box, and
+        topology terms are copied within each copy; without one, the copies
+        are translated, and an atom of a term across a periodic boundary is
+        joined to the nearest image of its first atom in the next copy.
+        ``energy`` and ``virial`` are left out of the info.
 
     Raises
     ------
@@ -111,7 +130,18 @@ def replicate(system: System, repeat: int | Sequence[int]) -> System:
     info = {k: v for k, v in system.info.items() if k not in _EXTENSIVE_INFO}
     topology = system.topology
     if topology is not None:
-        topology = _repeat_topology(topology, n, copies)
+        shifts = None
+        if "image" not in table.columns:
+            # the atoms of a term across a boundary, the nearest images of the
+            # first: their partners lie in the next copies
+            shifts = {}
+            x = system["positions"]
+            for kind, df in topology.tables().items():
+                atoms = df["atoms"].to_numpy().reshape(len(df), KINDS[kind])
+                fractional = (x[atoms] - x[atoms[:, :1]]) @ box.inverse
+                step = np.where(box.pbc, np.round(fractional), 0.0)
+                shifts[kind] = step.astype(np.int64)
+        topology = _repeat_topology(topology, n, counts, cells, shifts)
     copied = System(table=table, box=new_box, info=info, topology=topology)
     return copied.with_columns(**columns)
 

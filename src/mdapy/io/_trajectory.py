@@ -215,9 +215,12 @@ class Trajectory(Sequence[System]):
     def __read(self, frame: int) -> System:
         file, position = self._frames.positions[frame]
         source = self._frames.source(file)
-        system = self._frames.formats[file].read(source, position, **self.__options)
+        found = self._frames.formats[file]
+        system = found.read(source, position, **self.__options)
         if self.__topology is not None:
-            system = _with_topology(system, self.__topology, source.name)
+            system = _with_topology(
+                system, self.__topology, source.name, found.name in _RECORD_PERIODICITY
+            )
         return system
 
     def map(self, function: Callable[[System], System]) -> Mapped:
@@ -295,7 +298,14 @@ def _formats(paths: list[str], format: str | None) -> list[Format]:
     return found
 
 
-def _with_topology(frame: System, topology: System, name: str) -> System:
+#: Formats whose frames tell along which directions the box is periodic; the
+#: others, such as POSCAR, are periodic by convention.
+_RECORD_PERIODICITY = frozenset({"lammps-dump", "extxyz", "mdapy"})
+
+
+def _with_topology(
+    frame: System, topology: System, name: str, periodic_frame: bool = True
+) -> System:
     """The frame in the order of the atoms of the topology, with their
     topology and the columns the frame lacks; atoms missing from the frame
     are left out, their topology terms with them."""
@@ -336,7 +346,9 @@ def _with_topology(frame: System, topology: System, name: str) -> System:
     columns = frame.table[rows].drop("id", strict=False)
     if "image" in system.table.columns and "image" not in columns.columns:
         system = system.drop("image")  # the flags of the topology are stale
-    box = Box(frame.box.matrix, frame.box.origin, topology.box.pbc)
+    # a LAMMPS data file cannot tell its boundaries: a dump can
+    pbc = frame.box.pbc if periodic_frame else topology.box.pbc
+    box = Box(frame.box.matrix, frame.box.origin, pbc)
     return (
         system.with_columns(*columns.get_columns())
         .with_box(box)

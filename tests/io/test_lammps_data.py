@@ -551,10 +551,14 @@ def test_written_text(tmp_path):
 def test_coefficients_keep_their_units(tmp_path):
     system = read_text(tmp_path, WATER)
     with pytest.raises(InvalidParameter, match="in real units and cannot be written"):
-        mdapy.io.write(tmp_path / "m.data", system)
+        mdapy.io.write(tmp_path / "m.data", system, units="metal")
+    # by default in the units the file was read in
+    mdapy.io.write(tmp_path / "r.data", system)
+    assert (tmp_path / "r.data").read_text().splitlines()[0].endswith("units = real")
+    assert mdapy.io.read(tmp_path / "r.data").table.equals(system.table)
     lammps = dict(system.info["lammps"])
     del lammps["coeffs"]
-    back = round_trip(tmp_path, system.with_info(lammps=lammps))  # metal units
+    back = round_trip(tmp_path, system.with_info(lammps=lammps), units="metal")
     np.testing.assert_array_equal(
         back.table["velocities"].to_numpy(), system.table["velocities"].to_numpy()
     )

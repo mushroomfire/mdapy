@@ -159,6 +159,28 @@ def test_coverage(polycrystal):
     assert add_graphene(single) is single
 
 
+def test_a_polycrystal_with_more_columns(polycrystal):
+    # the carbon atoms take the columns of the metal as combine fills them
+    n = len(polycrystal)
+    richer = polycrystal.with_columns(
+        velocities=np.ones((n, 3)),
+        type=np.ones(n, dtype=np.int32),
+        mass=np.full(n, 63.546),
+        id=np.arange(1, n + 1),
+    )
+    plain = add_graphene(polycrystal, seed=4)
+    both = add_graphene(richer, seed=4)
+    np.testing.assert_array_equal(both["positions"], plain["positions"])
+    carbon = (both.table["element"] == "C").to_numpy()
+    assert set(both["type"][carbon].tolist()) == {2}
+    np.testing.assert_allclose(both["mass"][carbon], 12.011)
+    np.testing.assert_array_equal(both["velocities"][carbon], 0)
+    np.testing.assert_array_equal(both["velocities"][~carbon], 1)
+    ids = both["id"]
+    assert len(np.unique(ids)) == len(both) and ids[carbon].min() > ids[~carbon].max()
+    assert both.info.keys() == polycrystal.info.keys()
+
+
 def test_invalid_arguments(polycrystal):
     with pytest.raises(MissingProperty, match="seeds"):
         add_graphene(build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3)))

@@ -215,9 +215,12 @@ def test_columns_and_options():
 
 
 def test_a_smaller_probe_sees_less_solid():
+    """Less solid, and more surface before smoothing: smoothing shrinks the
+    small shells about each atom that a probe below the nearest distance
+    leaves, as in OVITO."""
     system = with_void(radius=5.0, jitter=0.1)
-    large = SurfaceMesh(radius=4.0).compute(system)
-    small = SurfaceMesh(radius=1.6).compute(system)
+    large = SurfaceMesh(radius=4.0, smoothing=0).compute(system)
+    small = SurfaceMesh(radius=1.6, smoothing=0).compute(system)
     assert small.solid_volume < large.solid_volume
     assert small.area > large.area
 

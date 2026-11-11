@@ -17,6 +17,9 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
+  also after the time step changed, as with `fix dt/reset`; it gave the steps times the
+  first time step.
 - `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
   crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
   cluster related to it, whose frame is fitted to many atoms; its spatial vector was off

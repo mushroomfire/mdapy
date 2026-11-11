@@ -18,8 +18,8 @@ std::vector<double> closest_pairs(const Frames& frames, const double* radii, dou
         frames,
         [&](std::int64_t k) {
             const std::int64_t n = frames.atoms(k);
-            if (n < 2) {
-                return;
+            if (n < 1) {
+                return;  // one atom may still be too close to its own images
             }
             const double* r = radii + frames.starts[k];
             const double largest = *std::max_element(r, r + n);

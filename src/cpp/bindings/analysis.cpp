@@ -352,7 +352,7 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.defects.faces)), as_array(std::move(found.defects.shifts)),
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
-        as_array(std::move(found.interface.shifts)));
+        as_array(std::move(found.interface.shifts)), as_array(std::move(found.spatial)));
 }
 
 nb::object soap(Types species, int species_count, Vectors positions, Matrix3 matrix,

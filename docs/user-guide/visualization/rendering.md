@@ -102,7 +102,8 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 [`color_coding`, `color_by_type` and `assign_color`](colors.md) set, or
 without one the colors of the elements; a single color,
 `"#rrggbb"`, a name such as `"red"` or three numbers from 0 to 1; (N, 3)
-colors; a column name or (N,) values, through the colormap; or a structure
+colors; a column, a component such as `"positions.z"`, an expression over the
+columns or (N,) values, through the colormap; or a structure
 result such as that of [`CommonNeighborAnalysis`](../analysis/cna.md), in
 its colors. The colors and display radii of the elements are those of
 OVITO, and for the elements OVITO leaves out the colors of Jmol and the
@@ -163,7 +164,7 @@ it), `srgb` (light the colors as given in sRGB, as the renderers of OVITO
 do, in place of linear light: stronger contrast), `ao_samples`,
 `ao_distance` (Å, default 3 times the median radius), `ao_strength`,
 `shadows`, `shadow_strength`, `flat`, `toon_levels`, `outline_width`
-(pixels), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
+(pixels, at most 100), `outline_depth` (Å), `outline_color`, `fog`, `supersample`
 (rays per pixel along each axis), `samples` (rays per subpixel, the first
 through its middle and the others anywhere in it: more for smoother soft
 shadows, depth of field and global illumination), `light_size` (the
@@ -325,7 +326,7 @@ picture = scene.render(width=400, height=300, style="shiny", view="front")
 | `add_box(box, *, radius=0.15, color="black")` | the twelve edges of a box |
 
 Outlines separate primitives of different `ids`. `write_png(path, image)`
-writes a picture; `voxel_faces(values, box)` gives the cells of a grid over
+writes a picture, (H, W, 4) RGBA or (H, W, 3) RGB uint8; `voxel_faces(values, box)` gives the cells of a grid over
 the box as triangles on its faces, for `mesh` (see
 [Isosurfaces and voxels](../analysis/isosurface.md)); `colormap(values, name, value_range)`,
 `element_colors(elements)` and `element_radii(elements, kind="display")` give the colors

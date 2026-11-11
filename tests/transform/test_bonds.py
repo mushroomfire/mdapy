@@ -58,3 +58,15 @@ def test_bond_errors():
         transform.create_bonds(system, "vdw")
     with pytest.raises(InvalidParameter, match="positive"):
         transform.create_bonds(system, 0.0)
+
+
+def test_one_bond_per_pair_in_a_small_box():
+    """In a cell of bcc of two atoms, eight images of the other atom are
+    nearest neighbors: one bond; one atom alone has none."""
+    from mdapy.build import build_crystal
+
+    cell = build_crystal("bcc", 2.87, elements="Fe")
+    bonded = transform.create_bonds(cell, 2.6)
+    assert bonded.topology.bonds["atoms"].to_list() == [[0, 1]]
+    single = mdapy.System([[0.0, 0.0, 0.0]], mdapy.Box(2.5))
+    assert len(transform.create_bonds(single, 2.6).topology.bonds) == 0

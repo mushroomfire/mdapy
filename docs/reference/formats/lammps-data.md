@@ -64,7 +64,7 @@ Angles
 | Name | Type | Default | Meaning |
 |---|---|---|---|
 | `atom_style` | str | from the file | Reading: atom style of the Atoms section, when the file does not name it. Writing: the atom style to write. |
-| `units` | str | `"metal"` when writing | `"metal"` or `"real"`. Reading: overrides the units named in the first line (`units = ...`, written by `write_data`). |
+| `units` | str | from the file | `"metal"` or `"real"`. Reading: overrides the units named in the first line (`units = ...`, written by `write_data`), metal if it names none. Writing: the units to write, otherwise those the file was read in (`info["lammps"]["units"]`), otherwise metal. |
 | `elements` | list of str | | Reading: the element of each atom type, in type order. Writing: the order of the elements as atom types, for a system without a `type` column. |
 | `triclinic` | str | `"auto"` | Writing only: how to write the box, see [Box](#box). |
 

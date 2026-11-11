@@ -231,6 +231,22 @@ def moved(tmp_path):
     return topology, tmp_path / "water.*.dump"
 
 
+def test_frames_that_cannot_tell_their_periodicity_take_the_topologys(tmp_path):
+    """POSCAR is periodic by convention: its frames take the periodicity of
+    the topology; a dump tells its own."""
+    from mdapy.build import build_crystal
+
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2))
+    crystal = crystal.with_columns(id=np.arange(1, len(crystal) + 1))
+    slab = crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False)))
+    mdapy.io.write(tmp_path / "frame.vasp", crystal)
+    mdapy.io.write(tmp_path / "frame.dump", crystal)
+    poscar = mdapy.io.read_trajectory(tmp_path / "frame.vasp", topology=slab)
+    assert poscar[0].box.pbc.tolist() == [True, True, False]
+    dump = mdapy.io.read_trajectory(tmp_path / "frame.dump", topology=slab)
+    assert dump[0].box.pbc.tolist() == [True, True, True]
+
+
 def test_frames_of_a_topology(moved):
     """Each frame in the order of the topology, with its bonds, angles,
     charges and molecules; atoms missing from a frame left out."""
@@ -252,7 +268,7 @@ def test_frames_of_a_topology(moved):
                 frame[column].tolist() == np.asarray(topology[column])[source].tolist()
             )
         np.testing.assert_array_equal(frame.box.matrix, raw.box.matrix)
-        assert frame.box.pbc.tolist() == [True, True, True]  # of the topology
+        assert frame.box.pbc.tolist() == [True, True, False]  # of the dump
         assert frame.info["timestep"] == step
         assert "image" not in frame.table.columns  # stale flags go
         pairs = {tuple(ids[list(b)]) for b in frame.topology.bonds["atoms"].to_list()}

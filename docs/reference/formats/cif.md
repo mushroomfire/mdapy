@@ -76,7 +76,8 @@ compared without regard to case, and CIF 2 names with a dot, such as
 `_cell.length_a`, are read as those with `_`. Values may be quoted with `'`
 or `"`, or span lines between lines starting with `;`; `#` starts a
 comment. Other items are read and left out. Occupancies are not kept:
-sites partly occupied by different atoms give atoms on top of each other.
+sites partly occupied by different atoms give atoms on top of each other,
+and reading warns of them.
 
 ## Errors
 

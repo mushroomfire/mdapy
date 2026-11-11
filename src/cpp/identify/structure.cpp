@@ -212,7 +212,9 @@ Structure adaptive_common_neighbors(const double* v, std::int64_t m) {
         for (int a = 8; a < 14; ++a) {
             second += length(v + 3 * a);
         }
-        const double local = scale * (2.0 / std::sqrt(3.0) * first + second) / 14.0;
+        // OVITO's adaptive analysis writes this factor as 1.207, not (1 + sqrt 2)
+        // / 2: the same choice for atoms at the edge of the cutoff
+        const double local = 1.207 * (2.0 / std::sqrt(3.0) * first + second) / 14.0;
         type = fourteen(v, local * local);
     }
     return type;

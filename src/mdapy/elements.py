@@ -563,6 +563,11 @@ def atomic_numbers(symbols: Iterable[str]) -> np.ndarray:
     InvalidParameter
         If a symbol is not a chemical symbol.
     """
+    if isinstance(symbols, str):
+        raise InvalidParameter(
+            f"symbols must be a sequence of chemical symbols, not the text {symbols!r}; "
+            f"write [{symbols!r}]"
+        )
     try:
         return np.array([_ATOMIC_NUMBER[s] for s in symbols], dtype=np.int64)
     except (KeyError, TypeError) as exc:
@@ -658,8 +663,9 @@ def vdw_radii(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
     return _radii(VDW_RADII, elements, "van der Waals")
 
 
-# Elements with at least one stable isotope: Z = 1-83 except Tc (43) and Pm (61).
-_STABLE = tuple(z for z in range(1, 84) if z not in (43, 61))
+# Elements with a standard atomic weight: those with a stable isotope, Z = 1-83
+# except Tc (43) and Pm (61), and Th, Pa and U (90-92).
+_STABLE = tuple(z for z in range(1, 84) if z not in (43, 61)) + (90, 91, 92)
 
 
 def element_from_mass(
@@ -678,8 +684,9 @@ def element_from_mass(
         Largest accepted difference in amu between ``mass`` and the atomic
         weight. Default 0.01.
     candidates : iterable of str, optional
-        Chemical symbols to choose from. Default: the elements with at least
-        one stable isotope (H to Bi, without Tc and Pm). Radioactive elements
+        Chemical symbols to choose from. Default: the elements with a
+        standard atomic weight, those with at least one stable isotope (H to
+        Bi, without Tc and Pm) and Th, Pa and U. Other radioactive elements
         such as Po, whose atomic weights can lie within 0.01 amu of another
         element's, are only matched when listed here.
 

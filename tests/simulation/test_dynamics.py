@@ -162,6 +162,25 @@ def test_thermo_and_frames(potential):
     )
 
 
+def test_the_time_when_the_time_step_changes(potential):
+    """The time LAMMPS has run, also after the timestep command and with a
+    time step that fix dt/reset adapts, as for cascades."""
+    with MolecularDynamics(crystal(), potential) as md:
+        md.velocities(300, seed=1)
+        md.run(100, thermo=100)  # 0.1 ps at 1 fs
+        md.command("timestep 0.002")
+        md.run(100, thermo=50, save_every=100)  # 0.2 ps at 2 fs
+        md.command("fix adapt all dt/reset 1 NULL 0.0005 0.001 units box")
+        md.run(50, thermo=50)
+        thermo, frames = md.thermo, md.frames
+        elapsed = md.lammps.get_thermo("time")
+    assert thermo["time"].to_list()[:4] == pytest.approx([0, 0.1, 0.2, 0.3])
+    assert frames[-1].info["time"] == pytest.approx(0.3)
+    # shorter steps than 1 fs, no longer the step times one time step
+    assert thermo["time"][-1] == pytest.approx(elapsed)
+    assert 0.3 < thermo["time"][-1] < 0.3 + 50 * 0.0005
+
+
 def test_the_pressure_of_the_potential(potential):
     # at rest, the stress of LAMMPS is the virial of mdapy's EAM
     system = crystal()

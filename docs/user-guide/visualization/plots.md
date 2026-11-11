@@ -91,7 +91,8 @@ from its center.*
 | `structure_counts(result, *, ax=None)` | the atoms of each structure type, in its color |
 | `band_structure(result, *, ax=None, color=None)` | phonon frequencies along a path, the special points marked; a color for each branch, or one for all |
 | `phonon_dos(result, *, ax=None, projected=False)` | a phonon density of states, frequencies upward to stand beside a band structure, and that of each atom of the cell |
-| `elastic_surface(result, quantity="young_modulus", *, ax=None, points=60, colormap="viridis")` | the `"young_modulus"` or `"linear_compressibility"` of [elastic constants](../simulation/elastic-constants.md#along-directions) along every direction, as a surface as far from the origin along each direction as the size of the value there, in the color of the value, unshaded so that the colors read on the color bar; `points` directions from the z axis to its opposite, twice as many around it; `ax` must be in 3D, made with `projection="3d"` |
+| `elastic_surface(result, quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")` | the `"young_modulus"`, `"linear_compressibility"`, `"shear_modulus"` or `"poisson_ratio"` of [elastic constants](../simulation/elastic-constants.md#along-directions) along every direction, as a surface as far from the origin along each direction as the size of the value there, in the color of the value, unshaded so that the colors read on the color bar; the shear modulus and the Poisson ratio take a second direction across the first, and `extreme`, `"min"` or `"max"`, draws their smallest or largest value over it; `points` directions from the z axis to its opposite, twice as many around it; `ax` must be in 3D, made with `projection="3d"` |
+| `elastic_section(result, quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360, color=None, label=None)` | the same along the directions of the plane normal to `normal`, as a curve, dashed where the value is negative; the axes of the plot are the axis of the box most nearly in the plane, laid into it, and the direction across it in the plane, named by their indices | 
 
 Each plot draws on `ax`, by default a new figure, and returns the axes.
 
@@ -111,7 +112,9 @@ matplotlib's message. `figure` raises `InvalidParameter` for a width that is nei
 double nor a positive number, `parity` for values of different sizes,
 `scatter` for a column of several components or `max_points` below 1, and
 `warren_cowley` without a `shell` that exists for parameters of several shells,
-or with one for parameters of one shell, and `elastic_surface` for another
-`quantity`, `points` below 3, a colormap that matplotlib does not know, or axes not
-in 3D.
+or with one for parameters of one shell. `elastic_surface` and `elastic_section`
+raise it for another `quantity`, a shear modulus or Poisson ratio without `extreme` or
+another quantity with one, and `points` below 3; `elastic_surface` for a colormap that
+matplotlib does not know or axes not in 3D, and `elastic_section` for a `normal` of
+another shape, zero or not finite.
 Without matplotlib the plots raise `ImportError`.

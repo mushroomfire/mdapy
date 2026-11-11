@@ -40,6 +40,12 @@ On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
 { #bartok2013 }
 
+**Baughman et al. (1998).** R. H. Baughman, J. M. Shacklette, A. A. Zakhidov and S.
+Stafström, Negative Poisson's ratios as a common feature of cubic metals, *Nature*
+**392**, 362 (1998).
+[doi:10.1038/32842](https://doi.org/10.1038/32842)
+{ #baughman1998 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).

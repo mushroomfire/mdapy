@@ -142,6 +142,7 @@ nav:
       - Simulation:
           - Defect energies of copper: examples/defect-energies.md
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md
+          - Elastic anisotropy of copper and titanium: examples/elastic-anisotropy.md
           - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
       - Many calculations:

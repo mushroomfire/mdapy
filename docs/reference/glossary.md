@@ -162,10 +162,12 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
 | `thermal_expansion` | volumetric thermal expansion coefficient (1/K) |
 | `bulk_modulus` | isothermal bulk modulus (GPa) |
-| `young_modulus` | stress over strain of a stretch along a direction with no stress across it (GPa) |
+| `young_modulus` | stress over strain of a stretch along a direction with no stress across it (GPa); without a direction, that of a polycrystal |
+| `poisson_ratio` | contraction along a `transverse` direction over the stretch along another; without them, that of a polycrystal |
 | `linear_compressibility` | relative shortening along a direction per unit of hydrostatic pressure (1/GPa) |
 | `universal_anisotropy` | the universal anisotropy index of elastic constants: zero for an isotropic crystal, positive otherwise |
-| `direction` | a vector (3,) or vectors (N, 3) in the axes of the box, of any length |
+| `direction`, `normal`, `transverse` | of elastic constants: a vector (3,) or vectors (N, 3) in the axes of the box, of any length; the direction of a stretch or shear, the normal of the plane sheared, the direction of a contraction across a stretch |
+| `extreme` | `"min"` or `"max"`: the smallest or largest value of a quantity of two directions over the second |
 | isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |
 | `errors` | standard errors of the means of a molecular dynamics result, from block averages, in its units |
 | `thermo` | the thermodynamic state of a molecular dynamics run, a table of `step`, `time`, `temperature`, `potential_energy`, `kinetic_energy`, `total_energy`, `pressure`, `volume` and `stress` |

@@ -53,6 +53,20 @@ def _directions(direction: ArrayLike) -> np.ndarray:
     return n / length
 
 
+def _pair(
+    first: ArrayLike | None, second: ArrayLike | None, a: str, b: str
+) -> tuple[np.ndarray, np.ndarray]:
+    """Unit vectors of two perpendicular directions, or of pairs of them."""
+    if first is None or second is None:
+        raise InvalidParameter(f"give both {a} and {b}, or neither")
+    n, m = _directions(first), _directions(second)
+    if n.shape != m.shape:
+        raise InvalidParameter(f"{a} and {b} must have the same shape")
+    if np.any(np.abs((n * m).sum(axis=-1)) > 1e-6):
+        raise InvalidParameter(f"{a} and {b} must be perpendicular")
+    return n, m
+
+
 @dataclass(frozen=True)
 class ElasticResult(Result):
     """Elastic constants of a crystal.
@@ -78,15 +92,15 @@ class ElasticResult(Result):
             )
         return np.linalg.inv(self.constants)
 
-    def bulk_modulus(self, average: str = "hill") -> float:
-        """The bulk modulus in GPa: the "voigt", "reuss" or "hill" average."""
+    def __bulk(self) -> tuple[float, float]:
+        """The Voigt and Reuss bounds of the bulk modulus."""
         c, s = self.constants, self.__compliance()
         voigt = (c[0, 0] + c[1, 1] + c[2, 2] + 2 * (c[0, 1] + c[0, 2] + c[1, 2])) / 9
         reuss = 1 / (s[0, 0] + s[1, 1] + s[2, 2] + 2 * (s[0, 1] + s[0, 2] + s[1, 2]))
-        return float(self.__pick(average, voigt, reuss))
+        return voigt, reuss
 
-    def shear_modulus(self, average: str = "hill") -> float:
-        """The shear modulus in GPa: the "voigt", "reuss" or "hill" average."""
+    def __shear(self) -> tuple[float, float]:
+        """The Voigt and Reuss bounds of the shear modulus."""
         c, s = self.constants, self.__compliance()
         voigt = (
             c[0, 0] + c[1, 1] + c[2, 2] - (c[0, 1] + c[0, 2] + c[1, 2])
@@ -96,37 +110,157 @@ class ElasticResult(Result):
             4 * (s[0, 0] + s[1, 1] + s[2, 2]) - 4 * (s[0, 1] + s[0, 2] + s[1, 2])
             + 3 * (s[3, 3] + s[4, 4] + s[5, 5])
         )  # fmt: skip
-        return float(self.__pick(average, voigt, reuss))
+        return voigt, reuss
 
     def __compliance_tensor(self) -> np.ndarray:
         """The compliance as a tensor (3, 3, 3, 3) in 1/GPa."""
         s = self.__compliance() * _HALF_SHEAR[:, None] * _HALF_SHEAR[None, :]
         return s[_VOIGT[:, :, None, None], _VOIGT[None, None, :, :]]
 
-    def young_modulus(self, direction: ArrayLike) -> float | np.ndarray:
-        """The Young's modulus of the crystal in GPa along a direction.
+    @staticmethod
+    def __alone(average: str) -> None:
+        """A modulus along directions takes no average."""
+        if average != "hill":
+            raise InvalidParameter(
+                "average is that of a polycrystal: give it without directions"
+            )
+
+    def bulk_modulus(self, average: str = "hill") -> float:
+        """The bulk modulus in GPa: the "voigt", "reuss" or "hill" average."""
+        return float(self.__pick(average, *self.__bulk()))
+
+    def shear_modulus(
+        self,
+        average: str = "hill",
+        *,
+        normal: ArrayLike | None = None,
+        direction: ArrayLike | None = None,
+    ) -> float | np.ndarray:
+        """The shear modulus in GPa: of a polycrystal, or of the crystal sheared
+        on a plane along a direction.
 
         Parameters
         ----------
-        direction : array_like
-            A direction (3,) float64 in the axes of the box, of any length, or
-            directions (N, 3) float64.
+        average : str, optional
+            Of a polycrystal, the "voigt", "reuss" or "hill" average. Default
+            "hill".
+        normal : array_like, optional
+            The normal (3,) float64 of the plane sheared, in the axes of the box
+            and of any length, or normals (N, 3) float64.
+        direction : array_like, optional
+            The direction (3,) or directions (N, 3) float64 of the shear,
+            perpendicular to the normal. Give both normal and direction, or
+            neither.
 
         Returns
         -------
         float64 or numpy.ndarray
-            The modulus along the direction, or (N,) float64 along each.
+            The modulus, or (N,) float64 for each normal and direction.
 
         Raises
         ------
         InvalidParameter
-            For a direction of another shape, zero or not finite.
+            For an unknown average, an average with directions, a normal
+            without a direction or the other way round, vectors of another
+            shape, zero, not finite or not perpendicular.
         """
+        if normal is None and direction is None:
+            return float(self.__pick(average, *self.__shear()))
+        self.__alone(average)
+        n, m = _pair(normal, direction, "normal", "direction")
+        modulus = 1 / (
+            4
+            * np.einsum(
+                "...i,...j,...k,...l,ijkl->...", n, m, n, m, self.__compliance_tensor()
+            )
+        )
+        return float(modulus) if n.ndim == 1 else modulus
+
+    def young_modulus(
+        self, direction: ArrayLike | None = None, *, average: str = "hill"
+    ) -> float | np.ndarray:
+        """The Young's modulus in GPa: of the crystal along a direction, or of a
+        polycrystal.
+
+        Parameters
+        ----------
+        direction : array_like, optional
+            A direction (3,) float64 in the axes of the box, of any length, or
+            directions (N, 3) float64. Without one, the modulus of a
+            polycrystal.
+        average : str, optional
+            Of a polycrystal, the Young's modulus of the "voigt", "reuss" or
+            "hill" average of the bulk and shear moduli. Default "hill".
+
+        Returns
+        -------
+        float64 or numpy.ndarray
+            The modulus, or (N,) float64 along each direction.
+
+        Raises
+        ------
+        InvalidParameter
+            For an unknown average, an average with a direction, or a
+            direction of another shape, zero or not finite.
+        """
+        if direction is None:
+            bulk = self.__pick(average, *self.__bulk())
+            shear = self.__pick(average, *self.__shear())
+            return float(9 * bulk * shear / (3 * bulk + shear))
+        self.__alone(average)
         n = _directions(direction)
         modulus = 1 / np.einsum(
             "...i,...j,...k,...l,ijkl->...", n, n, n, n, self.__compliance_tensor()
         )
         return float(modulus) if n.ndim == 1 else modulus
+
+    def poisson_ratio(
+        self,
+        direction: ArrayLike | None = None,
+        transverse: ArrayLike | None = None,
+        *,
+        average: str = "hill",
+    ) -> float | np.ndarray:
+        """The Poisson ratio: of the crystal stretched along a direction, the
+        contraction along a transverse direction over the stretch; or of a
+        polycrystal.
+
+        Parameters
+        ----------
+        direction : array_like, optional
+            The direction (3,) float64 of the stretch, in the axes of the box
+            and of any length, or directions (N, 3) float64.
+        transverse : array_like, optional
+            The direction (3,) or directions (N, 3) float64 of the contraction,
+            perpendicular to the stretch. Give both directions, or neither for
+            a polycrystal.
+        average : str, optional
+            Of a polycrystal, the Poisson ratio of the "voigt", "reuss" or
+            "hill" average of the bulk and shear moduli. Default "hill".
+
+        Returns
+        -------
+        float64 or numpy.ndarray
+            The ratio, or (N,) float64 for each pair of directions.
+
+        Raises
+        ------
+        InvalidParameter
+            For an unknown average, an average with directions, one direction
+            without the other, or directions of another shape, zero, not finite
+            or not perpendicular.
+        """
+        if direction is None and transverse is None:
+            bulk = self.__pick(average, *self.__bulk())
+            shear = self.__pick(average, *self.__shear())
+            return float((3 * bulk - 2 * shear) / (2 * (3 * bulk + shear)))
+        self.__alone(average)
+        n, m = _pair(direction, transverse, "direction", "transverse")
+        s = self.__compliance_tensor()
+        across = np.einsum("...i,...j,...k,...l,ijkl->...", n, n, m, m, s)
+        along = np.einsum("...i,...j,...k,...l,ijkl->...", n, n, n, n, s)
+        ratio = -across / along
+        return float(ratio) if n.ndim == 1 else ratio
 
     def linear_compressibility(self, direction: ArrayLike) -> float | np.ndarray:
         """The linear compressibility of the crystal in 1/GPa along a direction.
@@ -156,9 +290,9 @@ class ElasticResult(Result):
 
     def universal_anisotropy(self) -> float:
         """The universal anisotropy index, zero for an isotropic crystal."""
-        shear = self.shear_modulus("voigt") / self.shear_modulus("reuss")
-        bulk = self.bulk_modulus("voigt") / self.bulk_modulus("reuss")
-        return float(5 * shear + bulk - 6)
+        shear_voigt, shear_reuss = self.__shear()
+        bulk_voigt, bulk_reuss = self.__bulk()
+        return float(5 * shear_voigt / shear_reuss + bulk_voigt / bulk_reuss - 6)
 
     @staticmethod
     def __pick(average: str, voigt: float, reuss: float) -> float:

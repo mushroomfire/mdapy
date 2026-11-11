@@ -40,9 +40,12 @@ A box periodic along two vectors in the x-y plane only makes the system a
 
 A crystal is stiffer along some directions than along others. The result gives its
 Young's modulus and its linear compressibility along any direction, or along each of
-many, and its anisotropy in one number, zero for an isotropic crystal;
-[`plot.elastic_surface`](../visualization/plots.md) draws either quantity along every
-direction:
+many, its shear modulus on any plane along any direction, its Poisson ratio for any
+stretch and direction across it, and its anisotropy in one number, zero for an
+isotropic crystal. [`plot.elastic_surface`](../visualization/plots.md) draws a quantity
+along every direction, and `plot.elastic_section` along the directions of a plane;
+[Elastic anisotropy of copper and titanium](../../examples/elastic-anisotropy.md) reads
+the results in detail:
 
 ```python
 from mdapy.build import build_crystal
@@ -136,7 +139,22 @@ $$
 A^\mathrm U = 5\,\frac{G_\mathrm V}{G_\mathrm R} + \frac{K_\mathrm V}{K_\mathrm R} - 6
 $$
 
-is zero for an isotropic crystal and positive for any other.
+is zero for an isotropic crystal and positive for any other. On the plane normal to
+$\mathbf n$ along $\mathbf m$, perpendicular to it, the shear modulus $G$, and for a
+stretch along $\mathbf n$ the Poisson ratio $\nu$, the contraction along $\mathbf m$
+over the stretch, are
+
+$$
+G(\mathbf n, \mathbf m) = \left(4\, s_{ijkl}\, n_i m_j n_k m_l\right)^{-1}, \qquad
+\nu(\mathbf n, \mathbf m) = -\frac{s_{ijkl}\, n_i n_j m_k m_l}{s_{ijkl}\, n_i n_j n_k n_l}.
+$$
+
+A polycrystal of grains in every orientation is isotropic, with the bulk modulus $K$
+and the shear modulus $G$ of an average, and
+
+$$
+E = \frac{9KG}{3K + G}, \qquad \nu = \frac{3K - 2G}{2(3K + G)}.
+$$
 
 ## Results
 
@@ -146,15 +164,17 @@ It returns an `ElasticResult`:
 |---|---|---|
 | `constants` | (6, 6) float64 | elastic constants $C$ in GPa, in Voigt order; read-only |
 | `bulk_modulus(average="hill")` | float64 | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
-| `shear_modulus(average="hill")` | float64 | the shear modulus in GPa, with the same averages |
-| `young_modulus(direction)` | float64 or (N,) float64 | the Young's modulus in GPa along a direction (3,) float64, in the axes of the box and of any length, or along each of directions (N, 3) float64 |
-| `linear_compressibility(direction)` | float64 or (N,) float64 | the linear compressibility in 1/GPa, along a direction or directions as above |
+| `shear_modulus(average="hill", *, normal=None, direction=None)` | float64 or (N,) float64 | the shear modulus in GPa with the same averages; with `normal` and `direction`, that of the crystal sheared on the plane normal to `normal` along `direction`, perpendicular to it, for a pair (3,) float64 or each of pairs (N, 3) float64 |
+| `young_modulus(direction=None, *, average="hill")` | float64 or (N,) float64 | the Young's modulus in GPa along a direction (3,) float64, in the axes of the box and of any length, or along each of directions (N, 3) float64; without one, that of a polycrystal from the bulk and shear moduli of `average` |
+| `poisson_ratio(direction=None, transverse=None, *, average="hill")` | float64 or (N,) float64 | the Poisson ratio for a stretch along `direction` and the contraction along `transverse`, perpendicular to it, for a pair or each of pairs; without them, that of a polycrystal |
+| `linear_compressibility(direction)` | float64 or (N,) float64 | the linear compressibility in 1/GPa, along a direction or directions as for `young_modulus` |
 | `universal_anisotropy()` | float64 | the universal anisotropy index $A^\mathrm U$ |
 | `errors` | (6, 6) float64 or `None` | standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
 in every direction and is not that of a [sheet](sheets.md), a non-positive `strain`, a calculator without the
 properties it needs, or a relaxation that does not converge within
-`max_steps`; `bulk_modulus` and `shear_modulus` raise it for an unknown
-`average`, `young_modulus` and `linear_compressibility` for a direction of another
-shape, zero or not finite, and all of them for constants that cannot be inverted.
+`max_steps`. The methods raise it for an unknown `average`, an `average` given with
+directions, one of a pair of directions without the other, directions of another shape,
+zero, not finite or, in a pair, not perpendicular or of different shapes, and for
+constants that cannot be inverted.

@@ -8243,7 +8243,7 @@ Longer circuits find dislocations of wider cores, and take longer.</p>
 <tr>
 <td><code>spatial_burgers</code></td>
 <td>(3,) float64</td>
-<td>the Burgers vector in Å along the axes of the box, as the crystal cluster is turned and stretched</td>
+<td>the Burgers vector in Å along the axes of the box, as the crystal cluster is turned and stretched; where the lattice about the line, within 7 Å, is turned from the cluster by more than 3°, as when one cluster holds two grains, as that lattice is turned</td>
 </tr>
 <tr>
 <td><code>cluster</code></td>
@@ -8388,7 +8388,7 @@ everywhere:</p>
 </tr>
 <tr>
 <td>polycrystals</td>
-<td>lines and the defect mesh at the grain boundaries may differ by 5 to 10 %</td>
+<td>lines and the defect mesh at the grain boundaries may differ by 5 to 20 %</td>
 </tr>
 </tbody>
 </table>
@@ -8411,9 +8411,17 @@ everywhere:</p>
   cluster the one closest to the axes of the box. When two are as close,
   they may take different ones: the lattice Burgers vectors then differ by
   a rotation of the lattice, the spatial ones do not. The Burgers vector
-  of a line is given in the frame of a cluster its first circuit touches;
-  in a distorted crystal two such clusters are turned slightly apart, and
-  the spatial Burgers vectors can differ by up to 0.1 Å.</li>
+  of a line is given in the frame of a cluster its first circuit touches,
+  or of the largest cluster related to it when that one is a sliver of
+  fewer than 100 atoms, such as the layer of crystal inside an extrinsic
+  fault. In a distorted crystal two such clusters are turned slightly
+  apart, and the spatial Burgers vectors can differ by up to 0.1 Å.</li>
+<li>Both programs may join two grains into one cluster across a boundary
+  whose atoms bridge them, and relate two clusters of unrelated grains by
+  a symmetry of the lattice. MDAPY gives a line in such a cluster the
+  spatial Burgers vector of the lattice about it; at junctions of lines in
+  different grains the spatial vectors need not add up to zero, by up to
+  1 Å.</li>
 </ul>
 <p>OVITO's options to analyze the selected atoms only and to mark the atoms of
 the cores, and its export to CA files, are not here.</p>

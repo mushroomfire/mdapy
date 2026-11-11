@@ -7923,8 +7923,7 @@
 <p><code>PlanarFaults</code> finds the planar faults of fcc crystals, stacking faults and
 coherent twin boundaries, from the hcp-like atoms that
 <a href="../ptm/">polyhedral template matching</a> finds in their {111} planes, and
-estimates their areas. It gives the same types as OVITO's Identify fcc
-planar faults, atom by atom.</p>
+estimates their areas, as OVITO's Identify fcc planar faults does.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span><span class="p">,</span> <span class="n">slip</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanarFaults</span>

@@ -7900,9 +7900,8 @@
 <h1 id="grain-segmentation">Grain segmentation<a class="headerlink" href="#grain-segmentation" title="Permanent link">&para;</a></h1>
 <p><code>GrainSegmentation</code> finds the grains of a polycrystal: groups of crystalline
 atoms whose lattices have nearly the same orientation, from the orientations
-<a href="../ptm/">polyhedral template matching</a> gives. It gives the same grains as
-OVITO's Grain segmentation, atom by atom, with its centers of mass and
-radii.</p>
+<a href="../ptm/">polyhedral template matching</a> gives, as OVITO's Grain segmentation
+does, with the centers of mass and the radii of the grains.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span><span class="p">,</span> <span class="n">build_polycrystal</span>
@@ -8157,9 +8156,7 @@ turned to the nearest equivalent:</p>
 <code>min_grain_size</code> atoms are the grains, numbered from the largest. The other
 atoms, the orphans (<a href="../../../reference/references/#hoffrogge2017">Hoffrogge and Barrales-Mora 2017</a>),
 join the grain whose nearest atom is the closest along the bonds. The
-orientations of the atoms enter in single precision, as OVITO keeps them,
-so that an atom between two choices of nearly the same misorientation goes
-the way OVITO sends it.</p>
+orientations of the atoms enter in single precision, as OVITO keeps them.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#larsen2016">Larsen et al. (2016)</a> for

@@ -8011,9 +8011,8 @@
 <p><code>PolyhedralTemplateMatching</code> gives each atom the crystal structure of its
 neighborhood, the rotation of that crystal, its elastic deformation and the
 chemical ordering of its elements, by matching the polyhedron of its
-nearest neighbors to the templates of nine structures. MDAPY implements
-the method of Larsen, Schmidt and Schiøtz itself and gives the same results
-as OVITO 3.17.1, atom by atom.</p>
+nearest neighbors to the templates of nine structures, by the method of
+Larsen, Schmidt and Schiøtz.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">PolyhedralTemplateMatching</span>

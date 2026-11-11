@@ -22,7 +22,7 @@ def _zeros(name: str, dtype: pl.DataType, count: int) -> pl.Series:
     if isinstance(dtype, pl.Enum):
         return pl.Series(name, [dtype.categories[0]] * count, dtype=dtype)
     if isinstance(dtype, pl.Array):
-        return pl.Series(name, np.zeros((count, dtype.size))).cast(dtype)
+        return pl.Series(name, np.zeros((count, *dtype.shape))).cast(dtype)
     if dtype == pl.String:
         return pl.Series(name, [""] * count)
     if dtype == pl.Boolean:

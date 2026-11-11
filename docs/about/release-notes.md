@@ -17,6 +17,9 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `combine` fills a column of arrays of more than one dimension, such as the
+  `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
+  system; it raised a polars error.
 - `io.write` writes beside the file and puts the new one in its place when complete: a
   write that fails leaves a file already there as it was; it removed it before.
 - `read_trajectory(..., topology=)` keeps the periodicity a frame's file tells (LAMMPS

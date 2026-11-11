@@ -171,8 +171,48 @@ def from_ase(atoms: Any) -> System:
                 xx, yy, zz, yz, xz, xy = s
                 s = np.array([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
             info["stress"] = s * units.EV_PER_A3_TO_GPA
-    box = Box(np.array(atoms.cell), origin=atoms.get_celldisp().ravel(), pbc=atoms.pbc)
+    box = _box_of(atoms)
     system = System(atoms.positions.copy(), box, elements=atoms.get_chemical_symbols())
     if columns:
         system = system.with_columns(**columns)
     return system.with_info(**info) if info else system
+
+
+def _box_of(atoms) -> Box | None:
+    """The box of ASE atoms. Without a cell, None: a box around the atoms,
+    open; a cell vector of zero along an open direction, a vector across the
+    others that spans the atoms with 1 Å to spare on each side."""
+    cell = np.array(atoms.cell, dtype=np.float64)
+    pbc = np.asarray(atoms.pbc, dtype=bool)
+    origin = np.asarray(atoms.get_celldisp(), dtype=np.float64).ravel()
+    missing = np.linalg.norm(cell, axis=1) == 0
+    if (missing & pbc).any():
+        raise InvalidParameter("the atoms are periodic along a cell vector of zero")
+    if missing.all():
+        return None
+    if not missing.any():
+        return Box(cell, origin=origin, pbc=pbc)
+    # unit vectors across the given ones
+    known = [cell[k] / np.linalg.norm(cell[k]) for k in np.flatnonzero(~missing)]
+    if len(known) == 2:
+        normal = np.cross(known[0], known[1])
+        if np.linalg.norm(normal) < 1e-9:
+            raise InvalidParameter("the cell vectors of the atoms are parallel")
+        others = [normal / np.linalg.norm(normal)]
+    else:
+        axis = np.eye(3)[np.argmin(np.abs(known[0]))]
+        first = np.cross(known[0], axis)
+        first /= np.linalg.norm(first)
+        others = [first, np.cross(known[0], first)]
+    across = iter(others)
+    positions = np.asarray(atoms.positions, dtype=np.float64).reshape(-1, 3)
+    for k in np.flatnonzero(missing):
+        u = next(across)
+        cell[k] = u
+        if np.linalg.det(cell) < 0:
+            u = -u
+        reach = positions @ u if len(positions) else np.zeros(1)
+        low, high = reach.min() - 1.0, reach.max() + 1.0
+        cell[k] = u * (high - low)
+        origin = origin + (low - origin @ u) * u
+    return Box(cell, origin=origin, pbc=pbc)

@@ -14,7 +14,7 @@ from mdapy.build import build_crystal
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.identify import PolyhedralTemplateMatching, PTMResult
 
-from lattices import icosahedron
+from lattices import crystal, icosahedron
 
 EVERY = PolyhedralTemplateMatching.NAMES[1:]
 
@@ -409,3 +409,19 @@ def test_a_polycrystal_like_ovito():
 def test_ordering_like_ovito(kind, a, elements):
     system = make(kind, a, elements, jitter=0.03, seed=5)
     same_as_ovito(system, EVERY, ordering=True)
+
+
+@pytest.mark.parametrize("scale", [1e-10, 1e-3, 1e3, 1e9])
+def test_any_unit_of_length(scale):
+    """Lengths in metres or in any other unit: the same structures and the
+    same deviations, which are relative to the size of the neighborhood."""
+    system = crystal("diamond", 5.43, (4, 4, 4), jitter=0.1, seed=4)
+    scaled = mdapy.System(
+        system["positions"] * scale,
+        mdapy.Box(system.box.matrix * scale),
+        elements=system.table["element"].to_list(),
+    )
+    ptm = PolyhedralTemplateMatching(("cubic_diamond", "fcc", "bcc"))
+    reference, result = ptm.compute(system), ptm.compute(scaled)
+    np.testing.assert_array_equal(result.structure, reference.structure)
+    np.testing.assert_allclose(result.rmsd, reference.rmsd, rtol=1e-9, atol=1e-12)

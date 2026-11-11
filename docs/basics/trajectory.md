@@ -149,16 +149,22 @@ for frame in read_trajectory("water.*.dump", topology=data):
     frame["charge"]  # its charges, in its order
 ```
 
-Each frame, as OVITO's load trajectory makes it:
+Each frame, much as OVITO's load trajectory makes it:
 
 - has the atoms of the topology in their order, matched by id, with the
   columns of the frame and those of the topology the frame lacks;
 - leaves out the atoms a frame lacks, with their bonds, angles, dihedrals
   and impropers, the others renumbered; frames with every atom share the
   `Topology` object of the system;
-- has the box of the frame with the periodicity of the topology, the
-  information of both, that of the frame first, and loses the image flags
+- has the box of the frame, periodic along the directions its file tells
+  (LAMMPS dumps, extended XYZ and MDAPY files), or along those of the
+  topology for files periodic by convention, such as POSCAR; the
+  information of both, that of the frame first; and loses the image flags
   of the topology when the frame has none.
+
+A LAMMPS data file cannot tell the boundaries of the simulation, while its
+dumps do: a slab read with its dumps stays a slab. OVITO keeps the
+periodicity of the topology.
 
 Without ids, a frame must have as many atoms as the topology, taken in
 order, and the ids of the topology, if any, must be 1 to N in order.

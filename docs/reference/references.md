@@ -40,6 +40,12 @@ On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
 { #bartok2013 }
 
+**Baughman et al. (1998).** R. H. Baughman, J. M. Shacklette, A. A. Zakhidov and S.
+Stafström, Negative Poisson's ratios as a common feature of cubic metals, *Nature*
+**392**, 362 (1998).
+[doi:10.1038/32842](https://doi.org/10.1038/32842)
+{ #baughman1998 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).
@@ -284,6 +290,10 @@ cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
 [doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
 { #nordlund1998 }
 
+**Nye (1985).** J. F. Nye, *Physical Properties of Crystals: Their Representation by
+Tensors and Matrices* (Oxford University Press, Oxford, 1985).
+{ #nye1985 }
+
 **Panzarino and Rupert (2014).** J. F. Panzarino and T. J. Rupert,
 Tracking microstructure of crystalline materials: a post-processing
 algorithm for atomistic simulations, *JOM* **66**, 417 (2014).
@@ -302,6 +312,12 @@ based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 114112 (2017).
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
+
+**Ranganathan and Ostoja-Starzewski (2008).** S. I. Ranganathan and M.
+Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101**,
+055504 (2008).
+[doi:10.1103/PhysRevLett.101.055504](https://doi.org/10.1103/PhysRevLett.101.055504)
+{ #ranganathan2008 }
 
 **Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
 High-throughput electronic band structure calculations: Challenges and

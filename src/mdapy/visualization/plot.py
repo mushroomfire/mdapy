@@ -214,7 +214,9 @@ def figure(
 
 def panel_label(ax: Any, text: str, *, x: float = -0.12, y: float = 1.02) -> None:
     """A bold lower-case label of a panel, at the top left of its axes."""
-    ax.text(
+    # axes in 3D place text in the plane of the figure with text2D
+    write = ax.text2D if getattr(ax, "name", None) == "3d" else ax.text
+    write(
         x,
         y,
         text,
@@ -723,4 +725,280 @@ def pressure_temperature(result: Any, *, ax: Any = None, labels: bool = True) ->
                 )
     ax.set_xlabel("Pressure (GPa)")
     ax.set_ylabel("Temperature (K)")
+    return ax
+
+
+#: The quantities of elastic constants along directions that ``elastic_surface``
+#: and ``elastic_section`` draw: their labels, units, and whether they take a
+#: second direction across the first.
+_ELASTIC_QUANTITIES = {
+    "young_modulus": ("Young's modulus", "GPa", False),
+    "linear_compressibility": ("linear compressibility", "1/GPa", False),
+    "shear_modulus": ("shear modulus", "GPa", True),
+    "poisson_ratio": ("Poisson ratio", "", True),
+}
+
+
+def _elastic_quantity(quantity: str, extreme: str | None) -> str:
+    """The label of a quantity, its unit in parentheses after it."""
+    if quantity not in _ELASTIC_QUANTITIES:
+        raise InvalidParameter(
+            f"quantity must be one of {list(_ELASTIC_QUANTITIES)}, not {quantity!r}"
+        )
+    name, _, across = _ELASTIC_QUANTITIES[quantity]
+    if across:
+        if extreme not in ("min", "max"):
+            raise InvalidParameter(
+                f'{quantity} takes a second direction: extreme must be "min" or "max", '
+                f"its smallest or largest value across each direction, not {extreme!r}"
+            )
+        name = ("smallest " if extreme == "min" else "largest ") + name
+    elif extreme is not None:
+        raise InvalidParameter(f"{quantity} takes no extreme, not {extreme!r}")
+    return name
+
+
+def _across(directions: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Two unit vectors perpendicular to each unit vector and to each other."""
+    axis = np.eye(3)[np.argmin(np.abs(directions), axis=-1)]
+    first = np.cross(directions, axis)
+    first /= np.linalg.norm(first, axis=-1, keepdims=True)
+    return first, np.cross(directions, first)
+
+
+def _elastic_values(
+    result: Any, quantity: str, extreme: str | None, directions: np.ndarray
+) -> np.ndarray:
+    """A quantity along unit vectors (N, 3); of a quantity of two directions,
+    its smallest or largest value over the directions across each."""
+    if not _ELASTIC_QUANTITIES[quantity][2]:
+        return getattr(result, quantity)(directions)
+    # across a direction, the inverse of the shear modulus and the Poisson ratio
+    # are quadratic forms of the second direction: a + b cos 2t + c sin 2t over
+    # the angle t in the plane across, known from three angles
+    first, second = _across(directions)
+    if quantity == "shear_modulus":
+        values = [
+            1 / result.shear_modulus(normal=directions, direction=m)
+            for m in (first, second, first + second)
+        ]
+    else:
+        values = [
+            result.poisson_ratio(directions, m) for m in (first, second, first + second)
+        ]
+    mean = (values[0] + values[1]) / 2
+    swing = np.hypot((values[0] - values[1]) / 2, values[2] - mean)
+    low, high = mean - swing, mean + swing
+    if quantity == "shear_modulus":
+        low, high = 1 / high, 1 / low
+    return low if extreme == "min" else high
+
+
+def elastic_surface(
+    result: Any,
+    quantity: str = "young_modulus",
+    *,
+    ax: Any = None,
+    extreme: str | None = None,
+    points: int = 60,
+    colormap: str = "viridis",
+) -> Any:
+    """A quantity of an ``mdapy.lattice_dynamics.ElasticResult`` along every
+    direction, as a surface in 3D: along each direction it lies as far from
+    the origin as the size of the value there, in the color of the value.
+
+    Parameters
+    ----------
+    result : ElasticResult
+        The elastic constants.
+    quantity : {"young_modulus", "linear_compressibility", "shear_modulus", "poisson_ratio"}, optional
+        Default "young_modulus".
+    ax : matplotlib.axes.Axes, optional
+        Axes in 3D, made with ``projection="3d"``; by default a new figure.
+    extreme : {"min", "max"}, optional
+        Of the shear modulus and the Poisson ratio, which take a second
+        direction across the first: their smallest or largest value over it.
+    points : int32, optional
+        Directions from the z axis to its opposite; twice as many around it.
+        Default 60.
+    colormap : str, optional
+        The name of a colormap of matplotlib. Default "viridis".
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+
+    Raises
+    ------
+    InvalidParameter
+        For another quantity, no extreme of a quantity of two directions or one
+        of another, fewer than 3 points, a colormap that matplotlib does not
+        know, or axes not in 3D.
+    """
+    plt = _pyplot()
+    name = _elastic_quantity(quantity, extreme)
+    unit = _ELASTIC_QUANTITIES[quantity][1]
+    if points < 3:
+        raise InvalidParameter(f"points must be at least 3, not {points}")
+    try:
+        colors = plt.matplotlib.colormaps[colormap]
+    except KeyError:
+        raise InvalidParameter(f"matplotlib has no colormap {colormap!r}") from None
+    if ax is None:
+        ax = figure(subplot_kw={"projection": "3d"})[1]
+    elif getattr(ax, "name", None) != "3d":
+        raise InvalidParameter('ax must be axes in 3D, made with projection="3d"')
+    polar, azimuth = np.meshgrid(
+        np.linspace(0, np.pi, points),
+        np.linspace(0, 2 * np.pi, 2 * points),
+        indexing="ij",
+    )
+    directions = np.stack(
+        [
+            np.sin(polar) * np.cos(azimuth),
+            np.sin(polar) * np.sin(azimuth),
+            np.cos(polar),
+        ],
+        axis=-1,
+    )
+    values = _elastic_values(
+        result, quantity, extreme, directions.reshape(-1, 3)
+    ).reshape(polar.shape)
+    surface = np.abs(values)[..., None] * directions
+    scale = plt.matplotlib.colors.Normalize(values.min(), values.max())
+    # no shading: the color of each face is its value on the color bar
+    ax.plot_surface(
+        *surface.transpose(2, 0, 1),
+        facecolors=colors(scale(values)),
+        rstride=1,
+        cstride=1,
+        linewidth=0,
+        antialiased=False,
+        shade=False,
+    )
+    reach = float(np.abs(values).max())
+    for axis in "xyz":
+        getattr(ax, f"set_{axis}lim")(-reach, reach)
+        getattr(ax, f"set_{axis}label")(f"{axis} ({unit})" if unit else axis)
+        getattr(ax, f"{axis}axis").pane.fill = False
+        getattr(ax, f"{axis}axis").set_major_locator(
+            plt.matplotlib.ticker.MaxNLocator(4)
+        )
+    ax.set_box_aspect((1, 1, 1))
+    bar = ax.figure.colorbar(
+        plt.matplotlib.cm.ScalarMappable(scale, colors), ax=ax, shrink=0.6, pad=0.12
+    )
+    bar.set_label(f"{name} ({unit})" if unit else name)
+    return ax
+
+
+def _indices(vector: np.ndarray) -> str:
+    """A direction as small whole numbers, such as [2 -1 -1], when it is one."""
+    v = vector / np.abs(vector).max()
+    for scale in range(1, 7):
+        whole = np.round(v * scale)
+        if np.allclose(v * scale, whole, atol=1e-6):
+            return "[" + " ".join(f"{int(k)}" for k in whole + 0.0) + "]"
+    return "[" + " ".join(f"{k:.2f}" for k in np.round(vector, 2) + 0.0) + "]"
+
+
+def elastic_section(
+    result: Any,
+    quantity: str = "young_modulus",
+    normal: ArrayLike = (0, 0, 1),
+    *,
+    ax: Any = None,
+    extreme: str | None = None,
+    points: int = 360,
+    color: str | None = None,
+    label: str | None = None,
+) -> Any:
+    """A quantity of an ``mdapy.lattice_dynamics.ElasticResult`` along the
+    directions of a plane: a curve as far from the origin along each direction
+    as the size of the value there, dashed where the value is negative.
+
+    Parameters
+    ----------
+    result : ElasticResult
+        The elastic constants.
+    quantity : {"young_modulus", "linear_compressibility", "shear_modulus", "poisson_ratio"}, optional
+        Default "young_modulus".
+    normal : array_like, optional
+        The normal (3,) float64 of the plane, in the axes of the box. Default
+        (0, 0, 1). The first axis of the plot is the axis of the box most
+        nearly in the plane, laid into it.
+    ax : matplotlib.axes.Axes, optional
+        The axes; by default a new figure.
+    extreme : {"min", "max"}, optional
+        Of the shear modulus and the Poisson ratio, which take a second
+        direction across the first: their smallest or largest value over it,
+        in any direction across, not only in the plane.
+    points : int32, optional
+        Directions around the plane. Default 360.
+    color : str, optional
+        Color of the curve.
+    label : str, optional
+        Name of the curve in a legend.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+
+    Raises
+    ------
+    InvalidParameter
+        For another quantity, no extreme of a quantity of two directions or one
+        of another, a normal of another shape, zero or not finite, or fewer
+        than 3 points.
+    """
+    _elastic_quantity(quantity, extreme)
+    unit = _ELASTIC_QUANTITIES[quantity][1]
+    n = np.asarray(normal, dtype=np.float64)
+    if n.shape != (3,) or not np.all(np.isfinite(n)) or not np.any(n):
+        raise InvalidParameter(
+            f"normal must be a vector (3,), finite and not zero, not {normal!r}"
+        )
+    if points < 3:
+        raise InvalidParameter(f"points must be at least 3, not {points}")
+    n = n / np.linalg.norm(n)
+    nearest = np.eye(3)[np.argmin(np.abs(n))]
+    first = nearest - (nearest @ n) * n
+    first /= np.linalg.norm(first)
+    second = np.cross(n, first)
+    angles = np.linspace(0, 2 * np.pi, points + 1)
+    directions = np.cos(angles)[:, None] * first + np.sin(angles)[:, None] * second
+    values = _elastic_values(result, quantity, extreme, directions)
+    x, y = np.abs(values) * np.cos(angles), np.abs(values) * np.sin(angles)
+    ax = _axes(ax)
+    negative = values < 0
+    # each part reaches into the next, so that the curve has no gap
+    near = negative | np.roll(negative, 1) | np.roll(negative, -1)
+    if not negative.all():
+        keep = ~negative | np.roll(~negative, 1) | np.roll(~negative, -1)
+        line = ax.plot(
+            np.where(keep, x, np.nan),
+            np.where(keep, y, np.nan),
+            color=color,
+            label=label,
+            solid_capstyle="round",  # the two ends of the closed curve meet
+        )
+        color = line[0].get_color()
+        label = None
+    if negative.any():
+        ax.plot(
+            np.where(near, x, np.nan),
+            np.where(near, y, np.nan),
+            color=color,
+            ls="--",
+            label=label,
+            dash_capstyle="round",
+        )
+    ax.axhline(0, color="0.8", lw=0.5, zorder=0)
+    ax.axvline(0, color="0.8", lw=0.5, zorder=0)
+    ax.set_aspect("equal", adjustable="datalim")
+    suffix = f" ({unit})" if unit else ""
+    ax.set_xlabel(_indices(first) + suffix)
+    ax.set_ylabel(_indices(second) + suffix)
     return ax

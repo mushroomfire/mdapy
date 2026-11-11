@@ -1,5 +1,23 @@
 # Release notes
 
+## 2.1.0 (not released)
+
+- Elastic constants along directions and in a polycrystal:
+  `ElasticResult.young_modulus(direction=None, *, average="hill")` and
+  `ElasticResult.linear_compressibility(direction)` along a direction or each of many,
+  `ElasticResult.shear_modulus(average="hill", *, normal=None, direction=None)` on a plane
+  along a direction, `ElasticResult.poisson_ratio(direction=None, transverse=None, *,
+  average="hill")` for a stretch and a direction across it, the Young's modulus and the
+  Poisson ratio of a polycrystal without directions, and
+  `ElasticResult.universal_anisotropy()`. `plot.elastic_surface(result,
+  quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")` draws
+  a quantity along every direction as a surface in 3D, and `plot.elastic_section(result,
+  quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360,
+  color=None, label=None)` along the directions of a plane. See
+  [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
+  the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
+- `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+
 ## 2.0.0
 
 MDAPY 2.0, written anew, in its first stable release: from here on

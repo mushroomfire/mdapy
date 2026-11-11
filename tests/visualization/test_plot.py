@@ -391,3 +391,258 @@ def test_warren_cowley_of_shells():
     one = WarrenCowley(num_neighbors=8).compute(crystal)
     with pytest.raises(InvalidParameter, match="of one shell"):
         plot.warren_cowley(one, shell=0)
+
+
+def elastic_result(c11=168.6, c12=121.6, c44=75.4):
+    from mdapy.lattice_dynamics import ElasticResult
+
+    c = np.zeros((6, 6))
+    c[:3, :3] = c12
+    np.fill_diagonal(c, [c11, c11, c11, c44, c44, c44])
+    return ElasticResult(c)
+
+
+def surface_of(ax, monkeypatch):
+    """What elastic_surface gives plot_surface: the points and their colors."""
+    calls = []
+    draw = ax.plot_surface
+
+    def record(*args, **options):
+        calls.append((args, options))
+        return draw(*args, **options)
+
+    monkeypatch.setattr(ax, "plot_surface", record)
+    return calls
+
+
+def test_elastic_surface_lies_at_the_moduli(monkeypatch):
+    result = elastic_result()
+    with plot.style():
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        calls = surface_of(ax, monkeypatch)
+        assert plot.elastic_surface(result, ax=ax, points=20) is ax
+    ((x, y, z), options) = calls[0]
+    assert x.shape == (20, 40)
+    points = np.stack([x, y, z], axis=-1).reshape(-1, 3)
+    young = result.young_modulus(points)
+    np.testing.assert_allclose(np.linalg.norm(points, axis=1), young, rtol=1e-12)
+    low, high = result.young_modulus([[1, 0, 0], [1, 1, 1]])
+    expected = matplotlib.colormaps["viridis"]((young - young.min()) / np.ptp(young))
+    np.testing.assert_allclose(options["facecolors"].reshape(-1, 4), expected)
+    assert young.min() == pytest.approx(low) and young.max() <= high
+    reach = np.abs(young).max()
+    assert ax.get_xlim() == pytest.approx((-reach, reach))
+    assert ax.get_zlabel() == "z (GPa)"
+    bar = fig.axes[-1]
+    assert bar.get_ylabel() == "Young's modulus (GPa)"
+    assert bar.get_ylim() == pytest.approx((young.min(), young.max()))
+
+
+def test_elastic_surface_of_the_compressibility(monkeypatch):
+    result = elastic_result(240.0, 140.0, 40.0)
+    ax = plot.elastic_surface(
+        result, "linear_compressibility", points=8, colormap="magma"
+    )
+    assert ax.name == "3d"
+    assert ax.get_zlabel() == "z (1/GPa)"
+    assert ax.figure.axes[-1].get_ylabel() == "linear compressibility (1/GPa)"
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    calls = surface_of(ax, monkeypatch)
+    plot.elastic_surface(result, "linear_compressibility", ax=ax, points=8)
+    points = np.stack(calls[0][0], axis=-1).reshape(-1, 3)
+    np.testing.assert_allclose(
+        np.linalg.norm(points, axis=1),
+        result.linear_compressibility(points),
+        rtol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"quantity": "bulk_modulus"}, "quantity"),
+        ({"quantity": "shear_modulus"}, "extreme"),
+        ({"quantity": "poisson_ratio", "extreme": "mean"}, "extreme"),
+        ({"extreme": "min"}, "no extreme"),
+        ({"points": 2}, "points"),
+        ({"colormap": "no such map"}, "colormap"),
+    ],
+)
+def test_elastic_surface_errors(options, message):
+    with pytest.raises(InvalidParameter, match=message):
+        plot.elastic_surface(elastic_result(), **options)
+
+
+def test_elastic_surface_needs_axes_in_3d():
+    _, ax = plot.figure()
+    with pytest.raises(InvalidParameter, match="3D"):
+        plot.elastic_surface(elastic_result(), ax=ax)
+
+
+def test_panel_label_on_axes_in_3d():
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    plot.panel_label(ax, "a")
+    (label,) = ax.texts
+    assert label.get_text() == "a" and label.get_transform() is ax.transAxes
+
+
+def test_the_extremes_across_a_direction():
+    from mdapy.visualization.plot import _elastic_values
+
+    c11, c12, c44 = 168.6, 121.6, 75.4
+    result = elastic_result(c11, c12, c44)
+    axes = unit = np.array([[0, 0, 1], [1, 1, 1], [1, 1, 0], [1, 0, 0]], dtype=float)
+    unit = axes / np.linalg.norm(axes, axis=1, keepdims=True)
+    low = _elastic_values(result, "shear_modulus", "min", unit)
+    high = _elastic_values(result, "shear_modulus", "max", unit)
+    # the same across a cube axis and across [111]: C44 and the slip shear
+    slip = 3 * c44 * (c11 - c12) / (4 * c44 + c11 - c12)
+    np.testing.assert_allclose(low[:2], [c44, slip], rtol=1e-12)
+    np.testing.assert_allclose(high[:2], [c44, slip], rtol=1e-12)
+    # across [110], from C' to C44
+    assert low[2] == pytest.approx((c11 - c12) / 2, rel=1e-12)
+    assert high[2] == pytest.approx(c44, rel=1e-12)
+    low = _elastic_values(result, "poisson_ratio", "min", unit)
+    high = _elastic_values(result, "poisson_ratio", "max", unit)
+    assert low[2] == pytest.approx(
+        result.poisson_ratio([1, 1, 0], [1, -1, 0]), rel=1e-12
+    )
+    assert high[2] == pytest.approx(
+        result.poisson_ratio([1, 1, 0], [0, 0, 1]), rel=1e-12
+    )
+    assert low[3] == pytest.approx(high[3]) and low[3] == pytest.approx(
+        result.poisson_ratio([1, 0, 0], [0, 1, 0])
+    )
+
+
+@pytest.mark.parametrize("quantity", ["shear_modulus", "poisson_ratio"])
+def test_the_extremes_against_every_direction_across(quantity):
+    from lattice_dynamics.test_elastic_anisotropy import triclinic
+
+    from mdapy.lattice_dynamics import ElasticResult
+    from mdapy.visualization.plot import _across, _elastic_values
+
+    result = ElasticResult(triclinic(17))
+    n = np.random.default_rng(18).normal(size=(30, 3))
+    n /= np.linalg.norm(n, axis=1, keepdims=True)
+    first, second = _across(n)
+    np.testing.assert_allclose((first * n).sum(1), 0, atol=1e-14)
+    np.testing.assert_allclose((second * n).sum(1), 0, atol=1e-14)
+    np.testing.assert_allclose((first * second).sum(1), 0, atol=1e-14)
+    angles = np.linspace(0, np.pi, 4001)
+    sampled = []
+    for k in range(len(n)):
+        m = np.cos(angles)[:, None] * first[k] + np.sin(angles)[:, None] * second[k]
+        a = np.repeat(n[k : k + 1], len(m), axis=0)
+        if quantity == "shear_modulus":
+            sampled.append(result.shear_modulus(normal=a, direction=m))
+        else:
+            sampled.append(result.poisson_ratio(a, m))
+    sampled = np.array(sampled)
+    low = _elastic_values(result, quantity, "min", n)
+    high = _elastic_values(result, quantity, "max", n)
+    assert np.all(low <= sampled.min(axis=1) + 1e-12)
+    assert np.all(high >= sampled.max(axis=1) - 1e-12)
+    span = sampled.max(axis=1) - sampled.min(axis=1)
+    # the samples miss the extremes by the square of half their spacing
+    size = np.abs(sampled).max(axis=1)
+    np.testing.assert_array_less(np.abs(low - sampled.min(axis=1)), 1e-5 * size)
+    np.testing.assert_array_less(np.abs(high - sampled.max(axis=1)), 1e-5 * size)
+    assert span.min() > 0
+
+
+def test_elastic_surface_of_the_smallest_poisson_ratio(monkeypatch):
+    result = elastic_result()
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    calls = surface_of(ax, monkeypatch)
+    plot.elastic_surface(result, "poisson_ratio", ax=ax, extreme="min", points=12)
+    points = np.stack(calls[0][0], axis=-1).reshape(-1, 3)
+    from mdapy.visualization.plot import _elastic_values
+
+    values = _elastic_values(
+        result, "poisson_ratio", "min", points / np.linalg.norm(points, axis=1)[:, None]
+    )
+    np.testing.assert_allclose(
+        np.linalg.norm(points, axis=1), np.abs(values), rtol=1e-12
+    )
+    assert values.min() < 0
+    assert ax.get_zlabel() == "z"
+    assert fig.axes[-1].get_ylabel() == "smallest Poisson ratio"
+    ax = plot.elastic_surface(result, "shear_modulus", extreme="max", points=6)
+    assert ax.figure.axes[-1].get_ylabel() == "largest shear modulus (GPa)"
+
+
+def test_elastic_section_in_the_cube_plane():
+    result = elastic_result()
+    ax = plot.elastic_section(result, points=8, label="Cu")
+    line, *guides = ax.lines
+    assert len(guides) == 2  # the axes through the origin
+    x, y = line.get_data()
+    angles = np.linspace(0, 2 * np.pi, 9)
+    directions = np.stack([np.cos(angles), np.sin(angles), np.zeros(9)], axis=1)
+    np.testing.assert_allclose(
+        np.hypot(x, y), result.young_modulus(directions), rtol=1e-12
+    )
+    np.testing.assert_allclose(x / np.hypot(x, y), np.cos(angles), atol=1e-12)
+    np.testing.assert_allclose(y / np.hypot(x, y), np.sin(angles), atol=1e-12)
+    assert line.get_label() == "Cu" and line.get_linestyle() == "-"
+    assert ax.get_xlabel() == "[1 0 0] (GPa)" and ax.get_ylabel() == "[0 1 0] (GPa)"
+
+
+@pytest.mark.parametrize(
+    "normal, first, second",
+    [
+        ((1, 1, 0), "[0 0 1]", "[1 -1 0]"),
+        ((1, 1, 1), "[2 -1 -1]", "[0 1 -1]"),
+        ((0, 0, -2), "[1 0 0]", "[0 -1 0]"),
+        ((0.3, 0.2, 0.9), "[-0.07 0.98 -0.20]", "[-3 0 1]"),
+    ],
+)
+def test_elastic_section_names_the_axes_of_its_plane(normal, first, second):
+    ax = plot.elastic_section(
+        elastic_result(), "linear_compressibility", normal, points=6
+    )
+    assert ax.get_xlabel() == first + " (1/GPa)"
+    assert ax.get_ylabel() == second + " (1/GPa)"
+
+
+def test_elastic_section_dashes_negative_values():
+    result = elastic_result()
+    _, ax = plot.figure()
+    plot.elastic_section(
+        result, "poisson_ratio", ax=ax, extreme="min", color="C1", label="min"
+    )
+    solid, dashed = ax.lines[:2]
+    assert solid.get_linestyle() == "-" and dashed.get_linestyle() == "--"
+    assert solid.get_label() == "min" and dashed.get_label().startswith("_")
+    assert solid.get_color() == dashed.get_color()
+    assert ax.get_xlabel() == "[1 0 0]"
+    x, y = dashed.get_data()
+    # dashed around [110], where a stretch makes [1-10] grow
+    angle = np.degrees(np.arctan2(y, x))[np.isfinite(x)]
+    assert np.any(np.isclose(angle % 90, 45))
+    negative = SimpleNamespace(young_modulus=lambda d: -np.ones(len(d)))
+    _, ax = plot.figure()
+    plot.elastic_section(negative, ax=ax, points=4, label="all")
+    line, *guides = ax.lines
+    assert len(guides) == 2
+    assert line.get_linestyle() == "--" and line.get_label() == "all"
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"normal": (0, 0, 0)}, "normal"),
+        ({"normal": (1, 0)}, "normal"),
+        ({"normal": (np.inf, 0, 1)}, "normal"),
+        ({"points": 2}, "points"),
+        ({"quantity": "poisson_ratio"}, "extreme"),
+    ],
+)
+def test_elastic_section_errors(options, message):
+    with pytest.raises(InvalidParameter, match=message):
+        plot.elastic_section(elastic_result(), **options)

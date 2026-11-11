@@ -391,3 +391,96 @@ def test_warren_cowley_of_shells():
     one = WarrenCowley(num_neighbors=8).compute(crystal)
     with pytest.raises(InvalidParameter, match="of one shell"):
         plot.warren_cowley(one, shell=0)
+
+
+def elastic_result(c11=168.6, c12=121.6, c44=75.4):
+    from mdapy.lattice_dynamics import ElasticResult
+
+    c = np.zeros((6, 6))
+    c[:3, :3] = c12
+    np.fill_diagonal(c, [c11, c11, c11, c44, c44, c44])
+    return ElasticResult(c)
+
+
+def surface_of(ax, monkeypatch):
+    """What elastic_surface gives plot_surface: the points and their colors."""
+    calls = []
+    draw = ax.plot_surface
+
+    def record(*args, **options):
+        calls.append((args, options))
+        return draw(*args, **options)
+
+    monkeypatch.setattr(ax, "plot_surface", record)
+    return calls
+
+
+def test_elastic_surface_lies_at_the_moduli(monkeypatch):
+    result = elastic_result()
+    with plot.style():
+        fig = plt.figure()
+        ax = fig.add_subplot(projection="3d")
+        calls = surface_of(ax, monkeypatch)
+        assert plot.elastic_surface(result, ax=ax, points=20) is ax
+    ((x, y, z), options) = calls[0]
+    assert x.shape == (20, 40)
+    points = np.stack([x, y, z], axis=-1).reshape(-1, 3)
+    young = result.young_modulus(points)
+    np.testing.assert_allclose(np.linalg.norm(points, axis=1), young, rtol=1e-12)
+    low, high = result.young_modulus([[1, 0, 0], [1, 1, 1]])
+    expected = matplotlib.colormaps["viridis"]((young - young.min()) / np.ptp(young))
+    np.testing.assert_allclose(options["facecolors"].reshape(-1, 4), expected)
+    assert young.min() == pytest.approx(low) and young.max() <= high
+    reach = np.abs(young).max()
+    assert ax.get_xlim() == pytest.approx((-reach, reach))
+    assert ax.get_zlabel() == "z (GPa)"
+    bar = fig.axes[-1]
+    assert bar.get_ylabel() == "Young's modulus (GPa)"
+    assert bar.get_ylim() == pytest.approx((young.min(), young.max()))
+
+
+def test_elastic_surface_of_the_compressibility(monkeypatch):
+    result = elastic_result(240.0, 140.0, 40.0)
+    ax = plot.elastic_surface(
+        result, "linear_compressibility", points=8, colormap="magma"
+    )
+    assert ax.name == "3d"
+    assert ax.get_zlabel() == "z (1/GPa)"
+    assert ax.figure.axes[-1].get_ylabel() == "linear compressibility (1/GPa)"
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    calls = surface_of(ax, monkeypatch)
+    plot.elastic_surface(result, "linear_compressibility", ax=ax, points=8)
+    points = np.stack(calls[0][0], axis=-1).reshape(-1, 3)
+    np.testing.assert_allclose(
+        np.linalg.norm(points, axis=1),
+        result.linear_compressibility(points),
+        rtol=1e-12,
+    )
+
+
+@pytest.mark.parametrize(
+    "options, message",
+    [
+        ({"quantity": "shear_modulus"}, "quantity"),
+        ({"points": 2}, "points"),
+        ({"colormap": "no such map"}, "colormap"),
+    ],
+)
+def test_elastic_surface_errors(options, message):
+    with pytest.raises(InvalidParameter, match=message):
+        plot.elastic_surface(elastic_result(), **options)
+
+
+def test_elastic_surface_needs_axes_in_3d():
+    _, ax = plot.figure()
+    with pytest.raises(InvalidParameter, match="3D"):
+        plot.elastic_surface(elastic_result(), ax=ax)
+
+
+def test_panel_label_on_axes_in_3d():
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
+    plot.panel_label(ax, "a")
+    (label,) = ax.texts
+    assert label.get_text() == "a" and label.get_transform() is ax.transAxes

@@ -214,7 +214,9 @@ def figure(
 
 def panel_label(ax: Any, text: str, *, x: float = -0.12, y: float = 1.02) -> None:
     """A bold lower-case label of a panel, at the top left of its axes."""
-    ax.text(
+    # axes in 3D place text in the plane of the figure with text2D
+    write = ax.text2D if getattr(ax, "name", None) == "3d" else ax.text
+    write(
         x,
         y,
         text,
@@ -723,4 +725,106 @@ def pressure_temperature(result: Any, *, ax: Any = None, labels: bool = True) ->
                 )
     ax.set_xlabel("Pressure (GPa)")
     ax.set_ylabel("Temperature (K)")
+    return ax
+
+
+#: The quantities ``elastic_surface`` draws: their labels and units.
+_ELASTIC_QUANTITIES = {
+    "young_modulus": ("Young's modulus", "GPa"),
+    "linear_compressibility": ("linear compressibility", "1/GPa"),
+}
+
+
+def elastic_surface(
+    result: Any,
+    quantity: str = "young_modulus",
+    *,
+    ax: Any = None,
+    points: int = 60,
+    colormap: str = "viridis",
+) -> Any:
+    """A quantity of an ``mdapy.lattice_dynamics.ElasticResult`` along every
+    direction, as a surface in 3D: along each direction it lies as far from
+    the origin as the size of the value there, in the color of the value.
+
+    Parameters
+    ----------
+    result : ElasticResult
+        The elastic constants.
+    quantity : {"young_modulus", "linear_compressibility"}, optional
+        Default "young_modulus".
+    ax : matplotlib.axes.Axes, optional
+        Axes in 3D, made with ``projection="3d"``; by default a new figure.
+    points : int32, optional
+        Directions from the z axis to its opposite; twice as many around it.
+        Default 60.
+    colormap : str, optional
+        The name of a colormap of matplotlib. Default "viridis".
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+
+    Raises
+    ------
+    InvalidParameter
+        For another quantity, fewer than 3 points, a colormap that matplotlib
+        does not know, or axes not in 3D.
+    """
+    plt = _pyplot()
+    if quantity not in _ELASTIC_QUANTITIES:
+        raise InvalidParameter(
+            f"quantity must be one of {list(_ELASTIC_QUANTITIES)}, not {quantity!r}"
+        )
+    if points < 3:
+        raise InvalidParameter(f"points must be at least 3, not {points}")
+    try:
+        colors = plt.matplotlib.colormaps[colormap]
+    except KeyError:
+        raise InvalidParameter(f"matplotlib has no colormap {colormap!r}") from None
+    if ax is None:
+        ax = figure(subplot_kw={"projection": "3d"})[1]
+    elif getattr(ax, "name", None) != "3d":
+        raise InvalidParameter('ax must be axes in 3D, made with projection="3d"')
+    polar, azimuth = np.meshgrid(
+        np.linspace(0, np.pi, points),
+        np.linspace(0, 2 * np.pi, 2 * points),
+        indexing="ij",
+    )
+    directions = np.stack(
+        [
+            np.sin(polar) * np.cos(azimuth),
+            np.sin(polar) * np.sin(azimuth),
+            np.cos(polar),
+        ],
+        axis=-1,
+    )
+    values = getattr(result, quantity)(directions.reshape(-1, 3)).reshape(polar.shape)
+    surface = np.abs(values)[..., None] * directions
+    scale = plt.matplotlib.colors.Normalize(values.min(), values.max())
+    # no shading: the color of each face is its value on the color bar
+    ax.plot_surface(
+        *surface.transpose(2, 0, 1),
+        facecolors=colors(scale(values)),
+        rstride=1,
+        cstride=1,
+        linewidth=0,
+        antialiased=False,
+        shade=False,
+    )
+    name, unit = _ELASTIC_QUANTITIES[quantity]
+    reach = float(np.abs(values).max())
+    for axis in "xyz":
+        getattr(ax, f"set_{axis}lim")(-reach, reach)
+        getattr(ax, f"set_{axis}label")(f"{axis} ({unit})")
+        getattr(ax, f"{axis}axis").pane.fill = False
+        getattr(ax, f"{axis}axis").set_major_locator(
+            plt.matplotlib.ticker.MaxNLocator(4)
+        )
+    ax.set_box_aspect((1, 1, 1))
+    bar = ax.figure.colorbar(
+        plt.matplotlib.cm.ScalarMappable(scale, colors), ax=ax, shrink=0.6, pad=0.12
+    )
+    bar.set_label(f"{name} ({unit})")
     return ax

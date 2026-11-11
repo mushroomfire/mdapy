@@ -36,6 +36,61 @@ shear.
 A box periodic along two vectors in the x-y plane only makes the system a
 [sheet](sheets.md), whose constants are in N/m.
 
+## Along directions
+
+A crystal is stiffer along some directions than along others. The result gives its
+Young's modulus and its linear compressibility along any direction, or along each of
+many, and its anisotropy in one number, zero for an isotropic crystal;
+[`plot.elastic_surface`](../visualization/plots.md) draws either quantity along every
+direction:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.lattice_dynamics import elastic_constants
+from mdapy.simulation import minimize
+from mdapy.visualization import plot
+
+
+def constants(structure, a, element, repeat, c=None):
+    potential = EAM.zhou([element])
+    crystal = build_crystal(structure, a, c=c, elements=element, repeat=repeat)
+    relaxed = minimize(crystal, potential, cell="full", max_stress=1e-4).system
+    return elastic_constants(relaxed, potential)
+
+
+copper = constants("fcc", 3.615, "Cu", (3, 3, 3))
+titanium = constants("hcp", 2.95, "Ti", (4, 4, 3), c=4.68)  # c along z
+print(copper.young_modulus([[1, 0, 0], [1, 1, 0], [1, 1, 1]]))  # GPa
+print(copper.universal_anisotropy(), titanium.universal_anisotropy())
+print(titanium.linear_compressibility([[1, 0, 0], [0, 0, 1]]))  # 1/GPa
+
+with plot.style():
+    fig, (left, right) = plot.figure(
+        "double", nrows=1, ncols=2, subplot_kw={"projection": "3d"}
+    )
+    plot.elastic_surface(copper, ax=left)
+    plot.elastic_surface(titanium, ax=right)
+    plot.panel_label(left, "a")
+    plot.panel_label(right, "b")
+    fig.savefig("images/elastic-surfaces.png", dpi=200)
+```
+
+```text
+[ 66.63540948 130.30363359 191.19854312]
+1.8275734112530406 0.3528895390792597
+[0.00347453 0.00256451]
+```
+
+![The Young's modulus of copper and of titanium along every direction](images/elastic-surfaces.png)
+
+*The Young's modulus along every direction, with the EAM potentials of Zhou et al.
+a: copper, cubic, stiffest along ⟨111⟩ and softest along ⟨100⟩. b: titanium,
+hexagonal, stiffest along its c axis and the same in every direction around it.*
+
+The directions are in the axes of the box: those of a crystal built with an
+`orientation` turn with it.
+
 ## Definition
 
 The box and the atoms are strained by $\pm\delta$ in each of the six
@@ -63,6 +118,26 @@ G_\mathrm H &= \tfrac12 (G_\mathrm V + G_\mathrm R).
 \end{aligned}
 $$
 
+Along a unit vector $\mathbf n$, the Young's modulus $E$, the stress over the strain of
+a stretch along $\mathbf n$ with no stress across it, and the linear compressibility
+$\beta$, the relative shortening along $\mathbf n$ per unit of hydrostatic pressure, are
+
+$$
+E(\mathbf n) = \left(s_{ijkl}\, n_i n_j n_k n_l\right)^{-1}, \qquad
+\beta(\mathbf n) = s_{ijkk}\, n_i n_j,
+$$
+
+summed over repeated indices, with the compliance tensor $s_{ijkl}$ the entry of $S$ in
+the Voigt order of the pairs $ij$ and $kl$, halved for each of the two that is a shear
+([Nye (1985)](../../reference/references.md#nye1985)). The universal anisotropy index
+([Ranganathan and Ostoja-Starzewski (2008)](../../reference/references.md#ranganathan2008))
+
+$$
+A^\mathrm U = 5\,\frac{G_\mathrm V}{G_\mathrm R} + \frac{K_\mathrm V}{K_\mathrm R} - 6
+$$
+
+is zero for an isotropic crystal and positive for any other.
+
 ## Results
 
 It returns an `ElasticResult`:
@@ -72,10 +147,14 @@ It returns an `ElasticResult`:
 | `constants` | (6, 6) float64 | elastic constants $C$ in GPa, in Voigt order; read-only |
 | `bulk_modulus(average="hill")` | float64 | the bulk modulus in GPa: the `"voigt"`, `"reuss"` or `"hill"` average |
 | `shear_modulus(average="hill")` | float64 | the shear modulus in GPa, with the same averages |
+| `young_modulus(direction)` | float64 or (N,) float64 | the Young's modulus in GPa along a direction (3,) float64, in the axes of the box and of any length, or along each of directions (N, 3) float64 |
+| `linear_compressibility(direction)` | float64 or (N,) float64 | the linear compressibility in 1/GPa, along a direction or directions as above |
+| `universal_anisotropy()` | float64 | the universal anisotropy index $A^\mathrm U$ |
 | `errors` | (6, 6) float64 or `None` | standard errors in GPa, from [molecular dynamics](md-elastic.md); None here |
 
 `elastic_constants` raises `InvalidParameter` for a box that is not periodic
 in every direction and is not that of a [sheet](sheets.md), a non-positive `strain`, a calculator without the
 properties it needs, or a relaxation that does not converge within
 `max_steps`; `bulk_modulus` and `shear_modulus` raise it for an unknown
-`average`.
+`average`, `young_modulus` and `linear_compressibility` for a direction of another
+shape, zero or not finite, and all of them for constants that cannot be inverted.

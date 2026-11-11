@@ -4,8 +4,8 @@
 and plots the results of MDAPY: parity plots of energies and forces, radial
 distribution functions, structure factors, bond angles, mean squared
 displacements, stacking fault energies, counts of structures, phonon
-band structures and densities of states, and two columns of the atoms
-against each other. It needs matplotlib.
+band structures and densities of states, the moduli of a crystal along every
+direction, and two columns of the atoms against each other. It needs matplotlib.
 
 ```python
 import numpy as np
@@ -91,6 +91,7 @@ from its center.*
 | `structure_counts(result, *, ax=None)` | the atoms of each structure type, in its color |
 | `band_structure(result, *, ax=None, color=None)` | phonon frequencies along a path, the special points marked; a color for each branch, or one for all |
 | `phonon_dos(result, *, ax=None, projected=False)` | a phonon density of states, frequencies upward to stand beside a band structure, and that of each atom of the cell |
+| `elastic_surface(result, quantity="young_modulus", *, ax=None, points=60, colormap="viridis")` | the `"young_modulus"` or `"linear_compressibility"` of [elastic constants](../simulation/elastic-constants.md#along-directions) along every direction, as a surface as far from the origin along each direction as the size of the value there, in the color of the value, unshaded so that the colors read on the color bar; `points` directions from the z axis to its opposite, twice as many around it; `ax` must be in 3D, made with `projection="3d"` |
 
 Each plot draws on `ax`, by default a new figure, and returns the axes.
 
@@ -110,5 +111,7 @@ matplotlib's message. `figure` raises `InvalidParameter` for a width that is nei
 double nor a positive number, `parity` for values of different sizes,
 `scatter` for a column of several components or `max_points` below 1, and
 `warren_cowley` without a `shell` that exists for parameters of several shells,
-or with one for parameters of one shell.
+or with one for parameters of one shell, and `elastic_surface` for another
+`quantity`, `points` below 3, a colormap that matplotlib does not know, or axes not
+in 3D.
 Without matplotlib the plots raise `ImportError`.

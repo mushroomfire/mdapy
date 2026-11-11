@@ -8,6 +8,7 @@
 from dataclasses import dataclass
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from mdapy.analysis._symmetry import _rotations
 from mdapy.calculators._base import Calculator
@@ -20,6 +21,11 @@ from mdapy.simulation._minimize import minimize
 
 # Voigt order xx, yy, zz, yz, xz, xy
 _PAIRS = ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
+# the Voigt index of each pair of Cartesian indices
+_VOIGT = np.array([[0, 5, 4], [5, 1, 3], [4, 3, 2]])
+# a shear component of the compliance in Voigt order holds its tensor entry
+# twice, as an engineering strain is twice the tensor one
+_HALF_SHEAR = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.5])
 # the same order in the plane of a sheet
 _SHEET_PAIRS = ((0, 0), (1, 1), (0, 1))
 # N/m per GPa Å
@@ -32,6 +38,19 @@ def _components(tensor: np.ndarray, pairs: tuple) -> np.ndarray:
 
 def _voigt(tensor: np.ndarray) -> np.ndarray:
     return _components(tensor, _PAIRS)
+
+
+def _directions(direction: ArrayLike) -> np.ndarray:
+    """Unit vectors along one direction (3,) or along each of (N, 3)."""
+    n = np.asarray(direction, dtype=np.float64)
+    if n.ndim not in (1, 2) or n.shape[-1] != 3:
+        raise InvalidParameter(
+            f"direction must be a vector (3,) or vectors (N, 3), not of shape {n.shape}"
+        )
+    length = np.linalg.norm(n, axis=-1, keepdims=True)
+    if not np.all(np.isfinite(n)) or np.any(length == 0):
+        raise InvalidParameter("a direction must be finite and not zero")
+    return n / length
 
 
 @dataclass(frozen=True)
@@ -78,6 +97,68 @@ class ElasticResult(Result):
             + 3 * (s[3, 3] + s[4, 4] + s[5, 5])
         )  # fmt: skip
         return float(self.__pick(average, voigt, reuss))
+
+    def __compliance_tensor(self) -> np.ndarray:
+        """The compliance as a tensor (3, 3, 3, 3) in 1/GPa."""
+        s = self.__compliance() * _HALF_SHEAR[:, None] * _HALF_SHEAR[None, :]
+        return s[_VOIGT[:, :, None, None], _VOIGT[None, None, :, :]]
+
+    def young_modulus(self, direction: ArrayLike) -> float | np.ndarray:
+        """The Young's modulus of the crystal in GPa along a direction.
+
+        Parameters
+        ----------
+        direction : array_like
+            A direction (3,) float64 in the axes of the box, of any length, or
+            directions (N, 3) float64.
+
+        Returns
+        -------
+        float64 or numpy.ndarray
+            The modulus along the direction, or (N,) float64 along each.
+
+        Raises
+        ------
+        InvalidParameter
+            For a direction of another shape, zero or not finite.
+        """
+        n = _directions(direction)
+        modulus = 1 / np.einsum(
+            "...i,...j,...k,...l,ijkl->...", n, n, n, n, self.__compliance_tensor()
+        )
+        return float(modulus) if n.ndim == 1 else modulus
+
+    def linear_compressibility(self, direction: ArrayLike) -> float | np.ndarray:
+        """The linear compressibility of the crystal in 1/GPa along a direction.
+
+        Parameters
+        ----------
+        direction : array_like
+            A direction (3,) float64 in the axes of the box, of any length, or
+            directions (N, 3) float64.
+
+        Returns
+        -------
+        float64 or numpy.ndarray
+            The relative shortening along the direction per unit of hydrostatic
+            pressure, or (N,) float64 along each.
+
+        Raises
+        ------
+        InvalidParameter
+            For a direction of another shape, zero or not finite.
+        """
+        n = _directions(direction)
+        compressibility = np.einsum(
+            "...i,...j,ijkk->...", n, n, self.__compliance_tensor()
+        )
+        return float(compressibility) if n.ndim == 1 else compressibility
+
+    def universal_anisotropy(self) -> float:
+        """The universal anisotropy index, zero for an isotropic crystal."""
+        shear = self.shear_modulus("voigt") / self.shear_modulus("reuss")
+        bulk = self.bulk_modulus("voigt") / self.bulk_modulus("reuss")
+        return float(5 * shear + bulk - 6)
 
     @staticmethod
     def __pick(average: str, voigt: float, reuss: float) -> float:

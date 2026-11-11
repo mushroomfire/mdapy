@@ -1,5 +1,16 @@
 # Release notes
 
+## 2.1.0 (not released)
+
+- The elastic constants along directions: `ElasticResult.young_modulus(direction)` and
+  `ElasticResult.linear_compressibility(direction)` give the Young's modulus and the
+  linear compressibility along a direction or along each of many,
+  `ElasticResult.universal_anisotropy()` the universal anisotropy index, and
+  `plot.elastic_surface(result, quantity="young_modulus", *, ax=None, points=60,
+  colormap="viridis")` draws either quantity along every direction as a surface in 3D.
+  See [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions).
+- `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+
 ## 2.0.0
 
 MDAPY 2.0, written anew, in its first stable release: from here on

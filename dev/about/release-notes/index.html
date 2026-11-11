@@ -8231,6 +8231,32 @@
   <a href="../../user-guide/simulation/elastic-constants/#along-directions">Elastic constants</a> and
   the example <a href="../../examples/elastic-anisotropy/">Elastic anisotropy of copper and titanium</a>.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>io.write</code> writes beside the file and puts the new one in its place when complete: a
+  write that fails leaves a file already there as it was; it removed it before.</li>
+<li><code>read_trajectory(..., topology=)</code> keeps the periodicity a frame's file tells (LAMMPS
+  dumps, extended XYZ, MDAPY files), as a LAMMPS data file cannot tell its boundaries: a
+  slab read with its dumps stays a slab. Before, the frames were periodic as the
+  topology, as in OVITO.</li>
+<li><code>random_alloy</code>, <code>sqs_alloy</code> and <code>substitute</code> give the atoms they change the mass of
+  their element, and keep types only where each element keeps one, so that a LAMMPS data
+  file written after them tells the elements apart; it gave every atom the old type.
+  <code>add_interstitials</code> gives the atoms it adds the mass and type of their element, and
+  zero charges and velocities, rather than those of the first atom, and keeps the
+  topology.</li>
+<li><code>replicate</code> without image flags joins a bond, angle, dihedral or improper across a
+  periodic boundary to the next copy, as LAMMPS <code>replicate ... bond/periodic</code>; it kept it
+  in one copy, across the box.</li>
+<li><code>from_ase</code> takes atoms without a cell, such as a molecule, and with cell vectors of
+  zero along open directions, such as a slab without vacuum; <code>to_ase_calculator</code> gives
+  them energies and forces, without stress.</li>
+<li><code>combine</code> gives the atoms of a system without masses or types those of their
+  elements, and numbers the atoms of a system without ids from 1; it gave zero masses,
+  which were refused, and id 0.</li>
+<li><code>add_graphene</code> takes a polycrystal with more columns than <code>build_polycrystal</code> gives,
+  such as velocities, types or masses, and gives the carbon atoms those of
+  <code>combine</code>; it raised <code>ColumnNotFoundError</code>.</li>
+<li><code>create_bonds</code> makes one bond per pair of atoms in a small box, where several images
+  of a pair are close.</li>
 <li><code>EntropyFingerprint</code> counts every neighbor within the cutoff: those farther than about
   40 <code>sigma</code>, beyond 7.9 Å with the default <code>sigma=0.2</code>, added nothing before, as their
   Gaussians underflowed.</li>

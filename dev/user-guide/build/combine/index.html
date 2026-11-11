@@ -7953,8 +7953,16 @@ of <code>system</code>:</p>
 <td>those of either, <code>system</code>'s first; where one has no column, zeros: 0, false, an empty text, the element X, and missing values for other types such as lists; integers in one and floats in the other become floats</td>
 </tr>
 <tr>
+<td><code>mass</code></td>
+<td>where one has masses and the other not, those of the elements of the other</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>where one has types and the other not, each atom of the other the type of its element in the one, or a new type numbered on for an element the one does not have</td>
+</tr>
+<tr>
 <td><code>id</code></td>
-<td>where <code>system</code> has ids, the added atoms are numbered on from its largest, in their order, whatever their own ids; without ids in <code>system</code>, its atoms get 0 and the added atoms keep theirs</td>
+<td>where either has ids, the atoms of <code>system</code> keep theirs, or are numbered from 1 without, and the added atoms are numbered on from the largest, in their order, whatever their own ids</td>
 </tr>
 <tr>
 <td><code>molecule</code></td>
@@ -7972,10 +7980,12 @@ of <code>system</code>:</p>
 </table>
 <p>OVITO offsets molecule 0 as well, so that atoms of <code>other</code> in no molecule
 join a molecule of <code>system</code>; it matches particle types by name, as the
-elements here are.</p>
+elements here are. It fills missing masses with 0 and, without ids in
+<code>system</code>, gives its atoms id 0.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>combine</code> raises <code>InvalidParameter</code> for a column whose types in the two
-cannot be joined, such as text in one and numbers in the other.</p>
+cannot be joined, such as text in one and numbers in the other, and for masses
+in one where the other has neither masses nor elements.</p>
 
 
 

@@ -8064,17 +8064,22 @@ one read from a data file, with all of these:</p>
 <a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a>    <span class="n">frame</span><span class="o">.</span><span class="n">topology</span><span class="o">.</span><span class="n">bonds</span>  <span class="c1"># the eight bonds of the data file</span>
 <a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a>    <span class="n">frame</span><span class="p">[</span><span class="s2">"charge"</span><span class="p">]</span>  <span class="c1"># its charges, in its order</span>
 </code></pre></div>
-<p>Each frame, as OVITO's load trajectory makes it:</p>
+<p>Each frame, much as OVITO's load trajectory makes it:</p>
 <ul>
 <li>has the atoms of the topology in their order, matched by id, with the
   columns of the frame and those of the topology the frame lacks;</li>
 <li>leaves out the atoms a frame lacks, with their bonds, angles, dihedrals
   and impropers, the others renumbered; frames with every atom share the
   <code>Topology</code> object of the system;</li>
-<li>has the box of the frame with the periodicity of the topology, the
-  information of both, that of the frame first, and loses the image flags
+<li>has the box of the frame, periodic along the directions its file tells
+  (LAMMPS dumps, extended XYZ and MDAPY files), or along those of the
+  topology for files periodic by convention, such as POSCAR; the
+  information of both, that of the frame first; and loses the image flags
   of the topology when the frame has none.</li>
 </ul>
+<p>A LAMMPS data file cannot tell the boundaries of the simulation, while its
+dumps do: a slab read with its dumps stays a slab. OVITO keeps the
+periodicity of the topology.</p>
 <p>Without ids, a frame must have as many atoms as the topology, taken in
 order, and the ids of the topology, if any, must be 1 to N in order.
 Reading a frame raises

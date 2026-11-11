@@ -7970,8 +7970,10 @@ later face closer than 0.85 bond lengths to those of an earlier one are
 left out: the pieces join with their edges, without bonds made across.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>The atoms of the polycrystal left, then the carbon atoms, whose <code>grain</code> is
-−1; the box and <code>info</code> of the polycrystal. With no face covered, the
-polycrystal itself.</p>
+−1; the box and <code>info</code> of the polycrystal. The carbon atoms get the other
+columns of the polycrystal as <a href="../combine/"><code>combine</code></a> fills them:
+the mass of carbon, a type of their own, ids numbered on, zeros elsewhere. With
+no face covered, the polycrystal itself.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>add_graphene</code> raises <code>MissingProperty</code> for a system without
 <code>info["seeds"]</code> or a <code>grain</code> column, and <code>InvalidParameter</code> for fewer than

@@ -11220,7 +11220,10 @@ are removed. Default 3, about the distance of graphene from copper.</p>
                 <p>The atoms of the polycrystal left and the carbon atoms of the
 graphene, whose <code>grain</code> is -1; of two carbon atoms of different
 faces closer than 0.85 bond, where faces meet, the later is left
-out.</p>
+out. The carbon atoms get the other columns of the polycrystal as
+<code>mdapy.transform.combine</code> gives them: the mass of carbon, a type
+of their own, ids numbered on, zeros elsewhere. The topology and
+the info of the polycrystal are kept.</p>
               </div>
             </td>
           </tr>
@@ -11349,10 +11352,12 @@ periodic directions.</p>
                 <p>The copies, one after another with the copy along a changing fastest,
 in a box with the lattice vectors multiplied by <code>repeat</code>. Ids and
 molecules (those above 0) of each copy are offset by the largest of
-the original; topology terms are copied within each copy. With an
-<code>image</code> column, each atom is placed by its unwrapped position and
-its image flags are those of the new box; without one, the copies
-are translated. <code>energy</code> and <code>virial</code> are left out of the info.</p>
+the original. With an <code>image</code> column, each atom is placed by its
+unwrapped position and its image flags are those of the new box, and
+topology terms are copied within each copy; without one, the copies
+are translated, and an atom of a term across a periodic boundary is
+joined to the nearest image of its first atom in the next copy.
+<code>energy</code> and <code>virial</code> are left out of the info.</p>
               </div>
             </td>
           </tr>
@@ -11829,10 +11834,12 @@ datasets.</p>
             <td>
               <div class="doc-md-description">
                 <p>The atoms of both in the box of system, with the columns of either:
-zeros where one has no column (the element X for <code>element</code>). Where
-system has an <code>id</code> column, the added atoms are numbered on from
-its largest id in their order; molecules of other above 0 are offset
-by the largest molecule of system. The topology terms of both, those
+zeros where one has no column (the element X for <code>element</code>), but
+masses of the elements for <code>mass</code>, and for <code>type</code> the type of an
+element in the other or new types numbered on. Where either has an
+<code>id</code> column, the atoms of system keep theirs (or are numbered from
+1) and the added atoms are numbered on in their order; molecules of
+other above 0 are offset by the largest molecule of system. The topology terms of both, those
 of other moved to its atoms. The info of system, without <code>energy</code>
 and <code>virial</code>.</p>
               </div>
@@ -11858,7 +11865,8 @@ and <code>virial</code>.</p>
             <td>
               <div class="doc-md-description">
                 <p>If a column has types in the two that cannot be joined, such as
-text in one and numbers in the other.</p>
+text in one and numbers in the other, or the atoms of one have
+masses and the others neither masses nor elements.</p>
               </div>
             </td>
           </tr>
@@ -12357,9 +12365,10 @@ bonds.</p>
             <td>
               <div class="doc-md-description">
                 <p>Bonds between atoms closer than this in Å, also across periodic
-boundaries; or "covalent", between atoms closer than 1.2 times the
-sum of their covalent radii, as <code>mdapy.visualization.covalent_bonds</code>
-finds them (needs an <code>element</code> column).</p>
+boundaries; or "covalent", between atoms closer than the sum of
+their covalent radii and 0.45 Å, as
+<code>mdapy.visualization.covalent_bonds</code> finds them (needs an
+<code>element</code> column).</p>
               </div>
             </td>
             <td>
@@ -12385,7 +12394,8 @@ finds them (needs an <code>element</code> column).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The system with these bonds in its topology, each pair once, the
+                <p>The system with these bonds in its topology, each pair of atoms
+once, even when several of their periodic images are close, the
 first atom before the second; bonds it had are replaced, its angles,
 dihedrals and impropers kept.</p>
               </div>

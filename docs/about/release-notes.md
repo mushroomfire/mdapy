@@ -17,6 +17,10 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `insert_dislocation` without `elastic`: an edge dislocation no longer leaves a fault
+  from its core to the surface when a plane of atoms lies just below the plane of cut.
+  The displacement lifted such atoms across the plane, and they were moved back as if
+  they had been above it, as atomsk does; above and below are now where the atoms were.
 
 ## 2.0.0
 

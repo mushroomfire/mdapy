@@ -16,10 +16,54 @@
   color=None, label=None)` along the directions of a plane. See
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
+- `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method raise
+  `InvalidParameter` when a pair of atoms comes within `displacement` of the cutoff of the
+  calculator between the volumes or the strained cells. The force constants of NEP and
+  tabulated EAM jump there, and the results jumped with them: with a NEP model, C33 of hcp
+  magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
+  54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
 - `combine` fills a column of arrays of more than one dimension, such as the
   `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
   system; it raised a polars error.
+- `StructureFactor` of the direct method refuses more than 10<sup>8</sup> wave vectors, which
+  take 1.6 GB, rather than 10<sup>9</sup>, which took 16 GB.
+- `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
+  also after the time step changed, as with `fix dt/reset`; it gave the steps times the
+  first time step.
+- `System.with_box` given lattice vectors keeps the origin and the periodicity of the
+  box; it made the box periodic at the origin, so a slab became periodic.
+- `write` of a LAMMPS data file is by default in the units the file was read in, as
+  for its atom style; a file in real units with coefficients could not be written back
+  without `units="real"`.
+- `build_crystal` takes one `repeat` for every vector, as `replicate` does, and refuses
+  `a` or `c` that are not numbers with `InvalidParameter`; text raised `TypeError`.
+- `render(color=)` takes a component such as `"positions.z"` or an expression over the
+  columns, as `color_coding` does, with its color bar in the legend.
+- `write_png` writes RGB images too, as `write_movie` takes them.
+- Reading a CIF file warns of partly occupied sites, whose atoms are all kept.
+- `element_from_mass` recognizes Th, Pa and U, which have standard atomic weights.
+- `set_num_threads` takes NumPy integers; `atomic_numbers("Cu")` says to pass a sequence
+  rather than complaining of the symbol `u`; `Topology` refuses atom indices that are
+  not whole numbers, which it truncated; `Box.from_lengths_angles` refuses angles
+  outside 0 to 180 degrees, which gave a mirrored box; `Box` says when its volume is
+  beyond float64, which it called linearly dependent vectors.
+- `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
+- `CommonNeighborAnalysis` with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
+  that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took
+  (1 + √2)/2.
+- `SurfaceMesh` gives an atom on two sheets of the surface a vertex on each, and smooths
+  each vertex over the faces about it, as OVITO: the smoothed area of porous solids is
+  OVITO's; it was larger by up to a fifth.
+- `PolyhedralTemplateMatching` finds the same structures in any unit of length; in metres
+  or in units a billion times larger than Å most structures were lost.
+- `RadialDistributionFunction` and `StructureFactor` keep at most 64 partial results in
+  memory; with many elements and bins they took gigabytes.
+- `render` refuses an `outline_width` above 100 pixels, which took minutes.
+- `Predictions.rmse()` and `Predictions.table()` average the errors of a virial over its
+  six independent components, as GPUMD; the shear components counted twice.
+- `check_frames` finds an atom too close to its own periodic images in a frame of one
+  atom.
 - `io.write` writes beside the file and puts the new one in its place when complete: a
   write that fails leaves a file already there as it was; it removed it before.
 - `read_trajectory(..., topology=)` keeps the periodicity a frame's file tells (LAMMPS

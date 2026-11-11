@@ -6,6 +6,7 @@
 """Crystallographic Information Files: the crystal of each data block."""
 
 import re
+import warnings
 from collections.abc import Iterator
 
 import numpy as np
@@ -269,6 +270,18 @@ def _read(source: Source, position: FramePosition) -> System:
             f"{kind} and the coordinates of the sites differ in number",
             name,
             lines[kind],
+        )
+    # occupancies are not kept; unknown ones, such as ?, are left alone
+    partial = sum(
+        1
+        for word in values.get("_atom_site_occupancy", ())
+        if (match := _NUMBER.fullmatch(word)) and float(match[1]) < 1 - 1e-6
+    )
+    if partial:
+        warnings.warn(
+            f"data_{block}: {partial} of {len(elements)} sites are partly occupied; "
+            "every atom of them is kept, so atoms may lie on top of each other",
+            stacklevel=2,
         )
 
     tag = next((t for t in _OPERATIONS if t in values), None)

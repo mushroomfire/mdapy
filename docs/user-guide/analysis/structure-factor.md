@@ -77,7 +77,8 @@ The constructor raises `InvalidParameter` for a `q_max` that is not
 positive, fewer than one bin, an unknown method, or a `cutoff` that is not
 positive or given to the direct method; `compute` raises it for a box that
 is not periodic in every direction, a neighbor list given to the direct
-method or one that does not fit, and `pair` for a pair of elements without a
+method or one that does not fit, more than 10<sup>8</sup> wave vectors for the
+direct method, which would take 1.6 GB, and `pair` for a pair of elements without a
 factor.
 
 ## Definition

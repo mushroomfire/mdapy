@@ -63,7 +63,8 @@ class Predictions(Result):
     def table(self) -> pl.DataFrame:
         """The errors of each frame: of the energy per atom in eV, the root
         mean square and the largest error of the force components in eV/Å,
-        and the root mean square error of the virial per atom in eV.
+        and the root mean square error of the virial per atom in eV over its
+        six independent components.
 
         Returns
         -------
@@ -79,9 +80,7 @@ class Predictions(Result):
             largest = np.full(count, np.nan)
             np.fmax.at(largest, frame, np.sqrt(error).max(axis=1))
             force_rmse = np.sqrt(sums / (3 * np.maximum(self.atoms, 1)))
-            virial = np.sqrt(
-                ((self.virial[:, 1] - self.virial[:, 0]) ** 2).mean(axis=(1, 2))
-            )
+            virial = np.sqrt((self.__virial_errors() ** 2).mean(axis=1))
         return pl.DataFrame(
             {
                 "frame": np.arange(count),
@@ -94,6 +93,13 @@ class Predictions(Result):
             }
         )
 
+    def __virial_errors(self) -> np.ndarray:
+        """(F, 6) the errors of the six independent components of each
+        virial, xx, yy, zz, xy, yz, zx, as GPUMD counts them."""
+        rows, columns = zip(*_GPUMD_VIRIAL)
+        difference = self.virial[:, 1] - self.virial[:, 0]
+        return difference[:, list(rows), list(columns)]
+
     def rmse(self) -> dict[str, float]:
         """The root mean square errors over all frames with labels.
 
@@ -101,11 +107,12 @@ class Predictions(Result):
         -------
         dict
             ``energy`` in eV per atom, ``forces`` in eV/Å over the force
-            components, ``virial`` in eV per atom over the components.
+            components, ``virial`` in eV per atom over the six independent
+            components, as GPUMD.
         """
         energy = self.energy[:, 1] - self.energy[:, 0]
         forces = (self.forces[:, 1] - self.forces[:, 0]).ravel()
-        virial = (self.virial[:, 1] - self.virial[:, 0]).ravel()
+        virial = self.__virial_errors().ravel()
         return {
             name: float(np.sqrt(np.mean(v[np.isfinite(v)] ** 2)))
             if np.isfinite(v).any()

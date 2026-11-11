@@ -3,8 +3,7 @@
 `PlanarFaults` finds the planar faults of fcc crystals, stacking faults and
 coherent twin boundaries, from the hcp-like atoms that
 [polyhedral template matching](ptm.md) finds in their {111} planes, and
-estimates their areas. It gives the same types as OVITO's Identify fcc
-planar faults, atom by atom.
+estimates their areas, as OVITO's Identify fcc planar faults does.
 
 ```python
 import numpy as np

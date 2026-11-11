@@ -133,9 +133,10 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
     if (out.clusters.structure.empty()) {
         return out;
     }
-    // tetrahedra with a circumscribed sphere wider than five times the
-    // largest neighbor cutoff, in Å^2, are empty space; the walls of the
-    // open directions lie beyond the reach of such a sphere
+    // tetrahedra whose circumscribed sphere has a squared radius above five
+    // Å times the largest neighbor cutoff are empty space, as in OVITO (the
+    // positions are in Å); the walls of the open directions lie beyond the
+    // reach of such a sphere
     const double alpha = 5 * dxa::neighbor_cutoff(input);
     double walls[9], corner[3];
     std::copy(matrix, matrix + 9, walls);

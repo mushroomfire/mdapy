@@ -10668,7 +10668,7 @@ samples, bounces, light_size.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Writes an RGBA image to a PNG file.</p>
+        <p>Writes an RGBA or RGB image to a PNG file.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -10707,7 +10707,7 @@ samples, bounces, light_size.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>(H, W, 4) uint8 image, rows from the top.</p>
+                <p>(H, W, 4) or (H, W, 3) uint8 image, rows from the top.</p>
               </div>
             </td>
             <td>
@@ -10896,7 +10896,8 @@ element X, named after their type: <code>Type 1</code>, <code>Type 2</code> and 
               <div class="doc-md-description">
                 <p>None for the <code>color</code> column of the system where it has one, else
 the colors of the elements; one color for all; (N, 3) colors; a
-column name or (N,) values through the colormap; or a structure
+column, a component such as <code>"positions.z"</code>, an expression over
+the columns or (N,) values through the colormap; or a structure
 result, with <code>structure</code> and <code>colors</code>.</p>
               </div>
             </td>

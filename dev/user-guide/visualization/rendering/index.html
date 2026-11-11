@@ -8387,7 +8387,8 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 <a href="../colors/"><code>color_coding</code>, <code>color_by_type</code> and <code>assign_color</code></a> set, or
 without one the colors of the elements; a single color,
 <code>"#rrggbb"</code>, a name such as <code>"red"</code> or three numbers from 0 to 1; (N, 3)
-colors; a column name or (N,) values, through the colormap; or a structure
+colors; a column, a component such as <code>"positions.z"</code>, an expression over the
+columns or (N,) values, through the colormap; or a structure
 result such as that of <a href="../../analysis/cna/"><code>CommonNeighborAnalysis</code></a>, in
 its colors. The colors and display radii of the elements are those of
 OVITO, and for the elements OVITO leaves out the colors of Jmol and the
@@ -8731,7 +8732,7 @@ viewer by default. Zero vectors and atoms not shown get no arrow.</p>
 </tbody>
 </table>
 <p>Outlines separate primitives of different <code>ids</code>. <code>write_png(path, image)</code>
-writes a picture; <code>voxel_faces(values, box)</code> gives the cells of a grid over
+writes a picture, (H, W, 4) RGBA or (H, W, 3) RGB uint8; <code>voxel_faces(values, box)</code> gives the cells of a grid over
 the box as triangles on its faces, for <code>mesh</code> (see
 <a href="../../analysis/isosurface/">Isosurfaces and voxels</a>); <code>colormap(values, name, value_range)</code>,
 <code>element_colors(elements)</code> and <code>element_radii(elements, kind="display")</code> give the colors

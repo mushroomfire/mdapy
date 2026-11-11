@@ -8024,8 +8024,8 @@ starting with <code>data.</code>, are recognized.</p>
 <tr>
 <td><code>units</code></td>
 <td>str</td>
-<td><code>"metal"</code> when writing</td>
-<td><code>"metal"</code> or <code>"real"</code>. Reading: overrides the units named in the first line (<code>units = ...</code>, written by <code>write_data</code>).</td>
+<td>from the file</td>
+<td><code>"metal"</code> or <code>"real"</code>. Reading: overrides the units named in the first line (<code>units = ...</code>, written by <code>write_data</code>), metal if it names none. Writing: the units to write, otherwise those the file was read in (<code>info["lammps"]["units"]</code>), otherwise metal.</td>
 </tr>
 <tr>
 <td><code>elements</code></td>

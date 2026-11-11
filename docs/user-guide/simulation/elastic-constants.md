@@ -33,6 +33,10 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 A cubic crystal takes 3 strains instead of 12: a stretch both ways and a
 shear.
 
+The constants of a potential that does not reach zero smoothly at its cutoff can
+depend on `strain`, when neighbors lie at the cutoff: so do those of the
+[Zhou potentials](eam.md#potentials-of-zhou-johnson-and-wadley) for fcc metals.
+
 A box periodic along two vectors in the x-y plane only makes the system a
 [sheet](sheets.md), whose constants are in N/m.
 

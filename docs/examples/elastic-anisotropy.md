@@ -1,13 +1,28 @@
 # Elastic anisotropy of copper and titanium
 
 Elastic constants hold everything about how a crystal answers a small load, but a
-6 × 6 matrix is hard to read. This page turns the constants of copper and of titanium,
-with the EAM potentials of Zhou et al., into the numbers and pictures that answer the
-usual questions: how stiff is the crystal along a direction, what does a polycrystal of
-it do, which shear does a dislocation feel, and does a stretch make it wider somewhere.
-See [Elastic constants](../user-guide/simulation/elastic-constants.md) for the functions
+6 × 6 matrix is hard to read. This page turns the constants of copper and of titanium
+into the numbers and pictures that answer the usual questions: how stiff is the crystal
+along a direction, what does a polycrystal of it do, which shear does a dislocation
+feel, and does a stretch make it wider somewhere. See
+[Elastic constants](../user-guide/simulation/elastic-constants.md) for the functions
 themselves and their definitions, and [Plots](../user-guide/visualization/plots.md) for
 the figures.
+
+!!! note "Cite the model and the data"
+
+    The NEP model for 16 metals and their alloys was trained with TorchNEP
+    ([Wu et al. (2026)](../reference/references.md#wu2026torchnep)) on the
+    data of [Song et al. (2024)](../reference/references.md#song2024). Cite
+    both papers when you use it.
+
+<!-- files: high-throughput -->
+
+Download the model [`nep.txt`](high-throughput/nep.txt), a copy of
+`UNEP16/n44/nep_torchnep_seed0.txt` in the
+[TorchNEP_models repository](https://github.com/mushroomfire/TorchNEP_models),
+into the working directory; [Screening alloys in many processes](high-throughput.md)
+uses it too.
 
 ## The constants of copper
 
@@ -16,17 +31,21 @@ Relax the cubic crystal at zero stress, then compute its constants:
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM
+from mdapy.calculators import NEP
 from mdapy.lattice_dynamics import elastic_constants
 from mdapy.simulation import minimize
+
+nep = NEP("nep.txt")
 
 
 def relaxed(structure, a, element, repeat, **options):
     crystal = build_crystal(structure, a, elements=element, repeat=repeat, **options)
-    return minimize(crystal, EAM.zhou([element]), cell="full", max_stress=1e-6).system
+    return minimize(crystal, nep, cell="full", max_stress=1e-6).system
 
 
-copper = elastic_constants(relaxed("fcc", 3.615, "Cu", (3, 3, 3)), EAM.zhou(["Cu"]))
+crystal = relaxed("fcc", 3.63, "Cu", (3, 3, 3))
+copper = elastic_constants(crystal, nep)
+print(f"a = {crystal.box.matrix[0, 0] / 3:.3f} Å")
 print(np.round(copper.constants, 1))
 c = copper.constants
 print(f"Zener ratio {2 * c[3, 3] / (c[0, 0] - c[0, 1]):.2f}")
@@ -34,19 +53,20 @@ print(f"universal anisotropy {copper.universal_anisotropy():.2f}")
 ```
 
 ```text
-[[168.6 121.6 121.6   0.   -0.    0. ]
- [121.6 168.6 121.6   0.    0.    0. ]
- [121.6 121.6 168.6   0.   -0.    0. ]
- [ -0.   -0.    0.   75.4  -0.   -0. ]
- [ -0.    0.   -0.    0.   75.4  -0. ]
- [ -0.    0.    0.   -0.    0.   75.4]]
-Zener ratio 3.21
-universal anisotropy 1.83
+a = 3.631 Å
+[[173.9 127.4 127.4   0.    0.   -0. ]
+ [127.4 173.9 127.4   0.    0.   -0. ]
+ [127.4 127.4 173.9   0.    0.    0. ]
+ [  0.    0.   -0.   83.5  -0.   -0. ]
+ [  0.   -0.    0.    0.   83.5  -0. ]
+ [  0.   -0.   -0.   -0.   -0.   83.5]]
+Zener ratio 3.58
+universal anisotropy 2.24
 ```
 
 A cubic crystal has three independent constants. Its Zener ratio $2C_{44}/(C_{11} -
 C_{12})$ is 1 when it is isotropic; copper's, above 3, is far from it. The universal
-anisotropy index measures the same for any crystal: zero when isotropic, 1.83 here.
+anisotropy index measures the same for any crystal: zero when isotropic, 2.24 here.
 
 ## A polycrystal
 
@@ -66,14 +86,14 @@ for average in ("voigt", "reuss", "hill"):
 ```
 
 ```text
-voigt  K 137.3 GPa  G 54.6 GPa  E 144.7 GPa  nu 0.324
-reuss  K 137.3 GPa  G 40.0 GPa  E 109.4 GPa  nu 0.367
-hill   K 137.3 GPa  G 47.3 GPa  E 127.3 GPa  nu 0.345
+voigt  K 142.9 GPa  G 59.4 GPa  E 156.5 GPa  nu 0.317
+reuss  K 142.9 GPa  G 41.0 GPa  E 112.4 GPa  nu 0.369
+hill   K 142.9 GPa  G 50.2 GPa  E 134.9 GPa  nu 0.343
 ```
 
 The bulk modulus has no spread: a cubic crystal shrinks alike in every direction under
-pressure. The shear modulus spreads by nearly a third between the bounds, as copper's
-anisotropy lies in shear.
+pressure. The shear modulus spreads by more than a third between the bounds, as
+copper's anisotropy lies in shear.
 
 ## Stiff and soft directions
 
@@ -85,14 +105,14 @@ for direction in ([1, 0, 0], [1, 1, 0], [1, 1, 1]):
 ```
 
 ```text
-[1, 0, 0] 66.6 GPa
-[1, 1, 0] 130.3 GPa
-[1, 1, 1] 191.2 GPa
+[1, 0, 0] 66.3 GPa
+[1, 1, 0] 136.0 GPa
+[1, 1, 1] 209.6 GPa
 ```
 
-Copper is nearly three times stiffer along ⟨111⟩ than along ⟨100⟩, and the polycrystal,
-at 127 GPa, lies in between. The modulus along every direction is a surface, drawn on
-[Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions);
+Copper is more than three times stiffer along ⟨111⟩ than along ⟨100⟩, and the
+polycrystal, at 135 GPa, lies in between. The modulus along every direction is a
+surface, drawn on [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions);
 its sections in three planes are easier to read:
 
 ```python
@@ -127,12 +147,12 @@ print(f"{{111}}<110> {slip:.1f}  {{100}}<010> {cube:.1f}  {{110}}<1-10> {soft:.1
 ```
 
 ```text
-{111}<110> 30.5  {100}<010> 75.4  {110}<1-10> 23.5 GPa
+{111}<110> 30.7  {100}<010> 83.5  {110}<1-10> 23.3 GPa
 ```
 
 The shear of the cube faces is $C_{44}$, that of {110} along ⟨1-10⟩ is $(C_{11} -
-C_{12})/2$, and the slip systems, at 30.5 GPa, are much softer than the polycrystal's
-47.3 GPa. On a (111) plane the modulus is the same along every direction of the shear.
+C_{12})/2$, and the slip systems, at 30.7 GPa, are much softer than the polycrystal's
+50.2 GPa. On a (111) plane the modulus is the same along every direction of the shear.
 Across each direction $\mathbf n$, the shear modulus ranges between a smallest and a
 largest value over the directions of the shear; `elastic_surface` draws either:
 
@@ -163,15 +183,18 @@ grows along [1-10]:
 ```python
 print(f"{copper.poisson_ratio([1, 1, 0], [0, 0, 1]):.3f}")
 print(f"{copper.poisson_ratio([1, 1, 0], [1, -1, 0]):.3f}")
+print(f"{copper.poisson_ratio([1, 0, 0], [0, 1, 0]):.3f}")
 ```
 
 ```text
-0.820
--0.136
+0.868
+-0.185
+0.423
 ```
 
 A negative Poisson ratio along some direction is common among cubic metals
-([Baughman et al. (1998)](../reference/references.md#baughman1998)). Drawn for the
+([Baughman et al. (1998)](../reference/references.md#baughman1998)). Stretched along a
+cube axis, copper narrows by 0.423 in every direction across it. Drawn for the
 stretches in the cube face, the smallest ratio turns negative around ⟨110⟩, where its
 curve is dashed:
 
@@ -182,7 +205,7 @@ with plot.style():
     plot.elastic_section(
         copper, "poisson_ratio", ax=ax, extreme="min", label="smallest"
     )
-    ax.legend(loc="upper right")
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncols=2)
     fig.savefig("images/elastic-poisson.png", dpi=200)
 ```
 
@@ -190,7 +213,7 @@ with plot.style():
 
 *For each direction of stretch in the (001) plane, the largest and the smallest Poisson
 ratio over the directions across it, as far from the center as their size; dashed where
-negative. Along the cube axes both are 0.42.*
+negative.*
 
 ## Titanium
 
@@ -198,28 +221,28 @@ Hexagonal titanium has five independent constants. In the box that `build_crysta
 makes, its c axis lies along z:
 
 ```python
-crystal = relaxed("hcp", 2.95, "Ti", (4, 4, 3), c=4.68)
-titanium = elastic_constants(crystal, EAM.zhou(["Ti"]))
+crystal = relaxed("hcp", 2.94, "Ti", (4, 4, 3), c=4.65)
+titanium = elastic_constants(crystal, nep)
 print(np.round(titanium.constants, 1))
 print(np.round(titanium.young_modulus([[1, 0, 0], [0, 1, 0], [0, 0, 1]]), 1))
 print(np.round(titanium.linear_compressibility([[1, 0, 0], [0, 0, 1]]), 5))
 ```
 
 ```text
-[[148.8  88.1  68.9  -0.   -0.   -0. ]
- [ 88.1 148.8  68.9  -0.    0.    0. ]
- [ 68.9  68.9 203.1  -0.   -0.    0. ]
- [  0.   -0.    0.   36.8   0.    0. ]
- [ -0.   -0.    0.   -0.   36.8  -0. ]
- [ -0.   -0.   -0.   -0.   -0.   30.3]]
-[ 92.  92. 163.]
-[0.00347 0.00256]
+[[171.1  81.7  80.1   0.    0.   -0. ]
+ [ 81.7 171.1  80.1  -0.    0.   -0. ]
+ [ 80.1  80.1 208.1  -0.    0.    0. ]
+ [ -0.    0.    0.   47.7   0.    0. ]
+ [ -0.    0.    0.   -0.   47.7  -0. ]
+ [  0.    0.    0.    0.   -0.   44.7]]
+[121.8 121.8 157.3]
+[0.00322 0.00233]
 ```
 
 $C_{66}$ is $(C_{11} - C_{12})/2$, and in the basal plane every direction is alike: the
-Young's modulus is 92 GPa along x and along y, and along any direction between them.
-Along the c axis it is 163 GPa, and under pressure the crystal shrinks about a quarter
-less along c than across it. A plane through the c axis shows both:
+Young's modulus is 121.8 GPa along x and along y, and along any direction between them.
+Along the c axis it is 157.3 GPa, and under pressure the crystal shrinks some 28 % less
+along c than across it. A plane through the c axis shows both:
 
 ```python
 with plot.style():
@@ -236,6 +259,34 @@ with plot.style():
 *Titanium along the directions of the x-z plane, its c axis upward: a, the Young's
 modulus; b, the linear compressibility.*
 
-The directions of all these functions are in the axes of the box. For a crystal built
-with an `orientation`, its lattice directions turn with the box: `young_modulus([0, 0,
-1])` of a crystal with [111] along z is its modulus along [111].
+## A crystal in other axes
+
+The constants, and every direction given to these functions, are in the axes of the
+box. Build copper with [1-10], [11-2] and [111] along x, y and z, and its constants
+change, as they are those of the turned crystal, but nothing physical does:
+
+```python
+turned = elastic_constants(
+    relaxed(
+        "fcc", 3.63, "Cu", (2, 1, 1), orientation=[(1, -1, 0), (1, 1, -2), (1, 1, 1)]
+    ),
+    nep,
+)
+print(np.round(turned.constants, 1))
+print(f"{turned.young_modulus([0, 0, 1]):.1f} GPa along z")
+print(f"universal anisotropy {turned.universal_anisotropy():.2f}")
+```
+
+```text
+[[234.1 107.3  87.3 -28.4   0.   -0. ]
+ [107.3 234.1  87.3  28.4   0.   -0. ]
+ [ 87.3  87.3 254.2   0.    0.   -0. ]
+ [-28.4  28.4  -0.   43.3  -0.    0. ]
+ [ -0.    0.    0.    0.   43.3 -28.4]
+ [  0.   -0.   -0.   -0.  -28.4  63.4]]
+209.6 GPa along z
+universal anisotropy 2.24
+```
+
+Along z, now [111], the Young's modulus is that of ⟨111⟩ above, and the anisotropy
+index, which belongs to the crystal and not to its axes, is the same.

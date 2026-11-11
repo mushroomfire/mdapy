@@ -103,6 +103,18 @@ The parameters are fitted to the pure metals; the pair potentials between
 elements come from the rule above, not from a fit to alloys. An unknown or
 repeated element raises `InvalidParameter`.
 
+!!! warning "A cutoff on a shell of neighbors"
+    The cutoff, $\sqrt{10}/2$ times the fcc lattice constant, is the distance of
+    the fifth neighbors in fcc. In a relaxed fcc crystal of one element they lie
+    less than $10^{-4}$ Å beyond it, and a strain above about $10^{-5}$ brings
+    some of them inside: the stress jumps, and what comes from small strains
+    depends on their size. The elastic constant $C_{11}$ of relaxed copper from
+    [`elastic_constants`](elastic-constants.md) is 168.6 GPa with the default
+    `strain=1e-3`, 158.8 GPa with 1e-4, and 169.7 GPa with 1e-6, which leaves the
+    fifth neighbors where they are. LAMMPS, with the same tables, does the same.
+    Potentials that reach zero smoothly at their cutoff, such as [NEP](nep.md),
+    do not.
+
 !!! quote "Please cite"
     [Zhou et al. (2004)](../../reference/references.md#zhou2004); with Cr, also [Lin et al. (2008)](../../reference/references.md#lin2008).
 

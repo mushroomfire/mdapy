@@ -982,6 +982,7 @@ def elastic_section(
             np.where(keep, y, np.nan),
             color=color,
             label=label,
+            solid_capstyle="round",  # the two ends of the closed curve meet
         )
         color = line[0].get_color()
         label = None
@@ -992,6 +993,7 @@ def elastic_section(
             color=color,
             ls="--",
             label=label,
+            dash_capstyle="round",
         )
     ax.axhline(0, color="0.8", lw=0.5, zorder=0)
     ax.axvline(0, color="0.8", lw=0.5, zorder=0)

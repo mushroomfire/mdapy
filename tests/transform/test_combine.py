@@ -201,3 +201,30 @@ def test_masses_and_types_of_one_go_to_both():
     bare = mdapy.System([[0.5, 0.5, 0.5]], copper.box)
     with pytest.raises(InvalidParameter, match="neither masses nor elements"):
         combine(copper, bare)
+
+
+def test_columns_of_arrays_of_any_shape():
+    """A relaxed system keeps the 3 x 3 virial of each atom: the atoms of the
+    other get zeros of that shape, as for vectors and flags."""
+    box = mdapy.Box(10.0)
+    plain = mdapy.System(np.array([[1.0, 1, 1], [2, 2, 2]]), box, elements="W")
+    relaxed = plain.with_columns(
+        atomic_virials=np.arange(18.0).reshape(2, 3, 3),
+        movable=np.ones((2, 3), dtype=bool),
+    )
+    for first, second in (
+        (plain, relaxed),
+        (relaxed, plain),
+        (plain.gather([]), relaxed),
+    ):
+        joined = combine(first, second)
+        assert joined.table.schema["atomic_virials"] == pl.Array(pl.Float64, (3, 3))
+        assert joined["atomic_virials"].shape == (len(joined), 3, 3)
+    joined = combine(plain, relaxed)
+    np.testing.assert_array_equal(joined["atomic_virials"][:2], 0)
+    np.testing.assert_array_equal(
+        joined["atomic_virials"][2:], relaxed["atomic_virials"]
+    )
+    np.testing.assert_array_equal(
+        joined["movable"], [[False] * 3] * 2 + [[True] * 3] * 2
+    )

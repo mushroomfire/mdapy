@@ -99,7 +99,11 @@ give the speed of sound and the stability of the crystal under it.
 `thermal_elastic_constants` raises `InvalidParameter` for an unknown method,
 a strain that is not positive, a result without cells, a relaxation that
 does not converge within `max_steps`, imaginary frequencies in a strained
-cell, and `symmetry=True` without spglib.
+cell, and `symmetry=True` without spglib. With the quasi-harmonic method it
+also raises it, before any phonons, for a pair of atoms that comes within
+`displacement` of the cutoff of the calculator in some strained cells and not
+in others, where the force constants jump, as in
+[`quasi_harmonic`](quasi-harmonic.md#errors); a smaller `strain` avoids it.
 
 ## Definition
 

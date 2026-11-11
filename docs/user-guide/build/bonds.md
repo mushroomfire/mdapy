@@ -59,7 +59,7 @@ boundaries drawn up to the box. Right: the covalent bonds of ethanol.*
 | Name | Type | Unit | Meaning |
 |---|---|---|---|
 | `system` | `System` | | the atoms |
-| `cutoff` | float64 or `"covalent"` | Å | bonds between atoms closer than this, also across periodic boundaries; or `"covalent"`, between atoms closer than 1.2 times the sum of their covalent radii, as [`covalent_bonds`](../visualization/rendering.md#molecules) finds them |
+| `cutoff` | float64 or `"covalent"` | Å | bonds between atoms closer than this, also across periodic boundaries; or `"covalent"`, between atoms closer than the sum of their covalent radii and 0.45 Å, as [`covalent_bonds`](../visualization/rendering.md#molecules) finds them |
 
 ## Results
 

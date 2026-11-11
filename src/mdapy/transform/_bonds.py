@@ -23,14 +23,16 @@ def create_bonds(system: System, cutoff: float | str) -> System:
         The atoms.
     cutoff : float64 or "covalent"
         Bonds between atoms closer than this in Å, also across periodic
-        boundaries; or "covalent", between atoms closer than 1.2 times the
-        sum of their covalent radii, as ``mdapy.visualization.covalent_bonds``
-        finds them (needs an ``element`` column).
+        boundaries; or "covalent", between atoms closer than the sum of
+        their covalent radii and 0.45 Å, as
+        ``mdapy.visualization.covalent_bonds`` finds them (needs an
+        ``element`` column).
 
     Returns
     -------
     System
-        The system with these bonds in its topology, each pair once, the
+        The system with these bonds in its topology, each pair of atoms
+        once, even when several of their periodic images are close, the
         first atom before the second; bonds it had are replaced, its angles,
         dihedrals and impropers kept.
 
@@ -53,6 +55,10 @@ def create_bonds(system: System, cutoff: float | str) -> System:
         neighbors = NeighborList.build(system, float(cutoff))
     first = neighbors.i < neighbors.j
     pairs = np.column_stack([neighbors.i[first], neighbors.j[first]]).astype(np.int64)
+    # in a small box several images of one pair are close: one bond
+    if len(pairs):
+        _, kept = np.unique(pairs, axis=0, return_index=True)
+        pairs = pairs[np.sort(kept)]
     old = system.topology
     topology = Topology(
         bonds=pairs,

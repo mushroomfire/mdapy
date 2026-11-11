@@ -59,14 +59,6 @@ struct Edge {
     std::array<std::int8_t, 3> shift;
 };
 
-bool operator<(const Edge& a, const Edge& b) {
-    return a.to < b.to || (a.to == b.to && a.shift < b.shift);
-}
-
-bool operator==(const Edge& a, const Edge& b) {
-    return a.to == b.to && a.shift == b.shift;
-}
-
 }  // namespace
 
 SurfaceMesh alpha_shape(const Tetrahedra& tetrahedra, std::int64_t n, const double* positions,
@@ -139,20 +131,130 @@ SurfaceMesh alpha_shape(const Tetrahedra& tetrahedra, std::int64_t n, const doub
             }
         },
         stage(control, 1, 2));
-    // the atoms on the surface become the vertices, in order
-    std::vector<std::int64_t> vertex(static_cast<std::size_t>(n), -1);
-    for (const std::int64_t atom : mesh.faces) {
-        vertex[static_cast<std::size_t>(atom)] = 0;
-    }
-    for (std::int64_t i = 0; i < n; ++i) {
-        if (vertex[static_cast<std::size_t>(i)] == 0) {
-            vertex[static_cast<std::size_t>(i)] = static_cast<std::int64_t>(mesh.atoms.size());
-            mesh.atoms.push_back(i);
-            mesh.vertices.insert(mesh.vertices.end(), positions + 3 * i, positions + 3 * i + 3);
+    // the corners of each face in the tetrahedron, as above
+    const auto corner_of = [&](std::int64_t face, int m) {
+        const std::int64_t t = mesh.cells[static_cast<std::size_t>(2 * face)];
+        int side = 0;
+        for (int s = 0, seen = 0; s < 4; ++s) {
+            if (faces_surface(mesh, tetrahedra, t, s)) {
+                if (first[static_cast<std::size_t>(t)] + seen == face) {
+                    side = s;
+                    break;
+                }
+                ++seen;
+            }
+        }
+        int order[3] = {kOutward[side][0], kOutward[side][1], kOutward[side][2]};
+        if (turn[static_cast<std::size_t>(t)] < 0) {
+            std::swap(order[1], order[2]);
+        }
+        return std::array<int, 4>{order[m], order[(m + 1) % 3], order[(m + 2) % 3], side};
+    };
+    const auto face_of = [&](std::int64_t t, int side) {
+        std::int64_t f = first[static_cast<std::size_t>(t)];
+        for (int s = 0; s < side; ++s) {
+            f += faces_surface(mesh, tetrahedra, t, s) ? 1 : 0;
+        }
+        return f;
+    };
+    const auto atom = [&](std::int64_t t, int k) {
+        return tetrahedra.atoms[static_cast<std::size_t>(4 * t + k)];
+    };
+    // the half-edge of the next face on the same sheet across each edge: the
+    // face reached by turning about the edge through the solid tetrahedra
+    std::vector<std::int64_t> across(static_cast<std::size_t>(3 * triangles), -1);
+    bool closed = true;
+    for (std::int64_t f = 0; f < triangles && closed; ++f) {
+        for (int m = 0; m < 3; ++m) {
+            std::int64_t t = mesh.cells[static_cast<std::size_t>(2 * f)];
+            const std::array<int, 4> c = corner_of(f, m);
+            const std::int64_t a = atom(t, c[0]), b = atom(t, c[1]);
+            int kc = c[2], kd = c[3];
+            std::int64_t found = -1;
+            for (int step = 0; step < 1000; ++step) {
+                const std::int64_t next =
+                    tetrahedra.neighbors[static_cast<std::size_t>(4 * t + kc)];
+                if (next < 0 || mesh.solid[static_cast<std::size_t>(next)] == 0) {
+                    found = face_of(t, kc);
+                    break;
+                }
+                const std::int64_t d = atom(t, kd);
+                const int e = tetrahedra.sides[static_cast<std::size_t>(4 * t + kc)];
+                int kd2 = e, kc2 = -1;
+                for (int k = 0; k < 4; ++k) {
+                    if (k != e && atom(next, k) == d) {
+                        kc2 = k;
+                    }
+                }
+                if (kc2 < 0) {
+                    break;
+                }
+                t = next;
+                kc = kc2;
+                kd = kd2;
+            }
+            std::int64_t partner = -1;
+            if (found >= 0) {
+                for (int k = 0; k < 3; ++k) {
+                    const std::array<int, 4> g = corner_of(found, k);
+                    const std::int64_t tg = mesh.cells[static_cast<std::size_t>(2 * found)];
+                    if (atom(tg, g[0]) == b && atom(tg, g[1]) == a) {
+                        partner = 3 * found + k;
+                    }
+                }
+            }
+            if (partner < 0) {
+                closed = false;
+                break;
+            }
+            across[static_cast<std::size_t>(3 * f + m)] = partner;
         }
     }
-    for (std::int64_t& atom : mesh.faces) {
-        atom = vertex[static_cast<std::size_t>(atom)];
+    // a vertex for each fan of faces about an atom, so that two sheets of the
+    // surface through one atom smooth apart, as OVITO's; the vertices in the
+    // order of their atoms, one for each atom where the surface is a manifold
+    std::vector<std::int64_t> start(static_cast<std::size_t>(3 * triangles), -1);
+    std::vector<std::int64_t> offsets(static_cast<std::size_t>(n) + 1, 0);
+    for (std::int64_t h = 0; h < 3 * triangles; ++h) {
+        ++offsets[static_cast<std::size_t>(mesh.faces[static_cast<std::size_t>(h)]) + 1];
+    }
+    prefix_sum(offsets.data(), n + 1);
+    std::vector<std::int64_t> from(static_cast<std::size_t>(3 * triangles));
+    {
+        std::vector<std::int64_t> fill(offsets.begin(), offsets.end() - 1);
+        for (std::int64_t h = 0; h < 3 * triangles; ++h) {
+            from[static_cast<std::size_t>(
+                fill[static_cast<std::size_t>(mesh.faces[static_cast<std::size_t>(h)])]++)] = h;
+        }
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        for (std::int64_t at = offsets[static_cast<std::size_t>(i)];
+             at < offsets[static_cast<std::size_t>(i) + 1]; ++at) {
+            const std::int64_t h0 = from[static_cast<std::size_t>(at)];
+            if (start[static_cast<std::size_t>(h0)] >= 0) {
+                continue;
+            }
+            const auto v = static_cast<std::int64_t>(mesh.atoms.size());
+            mesh.atoms.push_back(i);
+            mesh.vertices.insert(mesh.vertices.end(), positions + 3 * i, positions + 3 * i + 3);
+            if (!closed) {
+                // one vertex for the atom
+                for (std::int64_t k = offsets[static_cast<std::size_t>(i)];
+                     k < offsets[static_cast<std::size_t>(i) + 1]; ++k) {
+                    start[static_cast<std::size_t>(from[static_cast<std::size_t>(k)])] = v;
+                }
+                break;
+            }
+            std::int64_t h = h0;
+            do {
+                start[static_cast<std::size_t>(h)] = v;
+                const std::int64_t back = across[static_cast<std::size_t>(h)];
+                h = 3 * (back / 3) + (back % 3 + 1) % 3;
+            } while (h != h0 && start[static_cast<std::size_t>(h)] < 0);
+        }
+    }
+    for (std::int64_t h = 0; h < 3 * triangles; ++h) {
+        mesh.faces[static_cast<std::size_t>(h)] = start[static_cast<std::size_t>(h)];
     }
     return mesh;
 }
@@ -164,10 +266,11 @@ void smooth_mesh(SurfaceMesh& mesh, const double* matrix, int iterations,
     if (iterations <= 0 || triangles == 0) {
         return;
     }
-    // the edges of each vertex, each once
+    // the edges out of each vertex, one for each face about it, as OVITO goes
+    // round the vertex: a neighbor met twice counts twice
     std::vector<std::int64_t> start(static_cast<std::size_t>(vertices) + 1, 0);
     for (const std::int64_t v : mesh.faces) {
-        start[static_cast<std::size_t>(v) + 1] += 2;
+        start[static_cast<std::size_t>(v) + 1] += 1;
     }
     prefix_sum(start.data(), vertices + 1);
     std::vector<Edge> edges(static_cast<std::size_t>(start.back()));
@@ -176,7 +279,7 @@ void smooth_mesh(SurfaceMesh& mesh, const double* matrix, int iterations,
         for (int m = 0; m < 3; ++m) {
             const auto from = static_cast<std::size_t>(3 * f + m);
             const std::int8_t* s = mesh.shifts.data() + 3 * from;
-            for (const int other : {(m + 1) % 3, (m + 2) % 3}) {
+            for (const int other : {(m + 1) % 3}) {
                 const auto to = static_cast<std::size_t>(3 * f + other);
                 const std::int8_t* r = mesh.shifts.data() + 3 * to;
                 Edge edge{mesh.faces[to],
@@ -193,10 +296,8 @@ void smooth_mesh(SurfaceMesh& mesh, const double* matrix, int iterations,
         vertices, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t v = begin; v < end; ++v) {
-                const auto b = edges.begin() + start[static_cast<std::size_t>(v)];
-                const auto e = edges.begin() + start[static_cast<std::size_t>(v) + 1];
-                std::sort(b, e);
-                kept[static_cast<std::size_t>(v)] = std::unique(b, e) - b;
+                kept[static_cast<std::size_t>(v)] =
+                    start[static_cast<std::size_t>(v) + 1] - start[static_cast<std::size_t>(v)];
             }
         },
         control);

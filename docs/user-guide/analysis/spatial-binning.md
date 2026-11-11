@@ -105,5 +105,5 @@ $V / (n_1 n_2 n_3)$.
 ## See also
 
 - OVITO [Spatial binning](https://docs.ovito.org/reference/pipelines/modifiers/spatial_binning.html),
-  whose values `SpatialBinning` gives for the bins that hold atoms (OVITO
-  gives 0 for empty ones).
+  which gives 0 for the mean, minimum and maximum of an empty bin, where
+  `SpatialBinning` gives NaN, as an empty bin has no value.

@@ -22,6 +22,7 @@ from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import FileFormatError, InvalidParameter
 from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
+from mdapy.neighbor import NeighborList
 
 # the frequency in THz of an eigenvalue of 1 eV/(Å² amu) of a dynamical matrix
 _THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
@@ -448,6 +449,45 @@ def _widths(matrix: np.ndarray) -> np.ndarray:
     """The distances between opposite faces of a box of these vectors."""
     areas = np.linalg.norm(np.cross(matrix[[1, 2, 0]], matrix[[2, 0, 1]]), axis=1)
     return abs(np.linalg.det(matrix)) / areas
+
+
+def _crossing(
+    cells: Sequence[System], cutoff: float, displacement: float
+) -> tuple[float, int, float, int] | None:
+    """A pair of atoms whose length, give or take the displacement of the
+    force constants, is on both sides of the cutoff over the cells: its
+    shortest length, the cell of it, its longest length and the cell of
+    that; None if every pair keeps one side. The cells hold the same atoms
+    in the same order, each a deformation of the first with the atoms moved
+    by less than half the box."""
+    first = cells[0]
+    # far enough to see in the first cell every pair within the cutoff of any
+    stretch = max(
+        np.linalg.norm(np.linalg.solve(c.box.matrix, first.box.matrix), 2)
+        for c in cells
+    )
+    pairs = NeighborList.build(first, (cutoff + displacement) * stretch * 1.05 + 0.5)
+    i, j, shifts = pairs.i, pairs.j, pairs.shifts
+    start = first.box.to_fractional(first["positions"])
+    shortest = np.full(len(i), np.inf)
+    longest = np.zeros(len(i))
+    near = np.zeros(len(i), dtype=np.int64)
+    far = np.zeros(len(i), dtype=np.int64)
+    for k, cell in enumerate(cells):
+        moved = cell.box.to_fractional(cell["positions"]) - start
+        s = start + moved - np.round(moved)  # each atom on the side of the first
+        lengths = np.linalg.norm((s[j] - s[i] + shifts) @ cell.box.matrix, axis=1)
+        near = np.where(lengths < shortest, k, near)
+        far = np.where(lengths > longest, k, far)
+        shortest = np.minimum(shortest, lengths)
+        longest = np.maximum(longest, lengths)
+    inside = cutoff - (shortest - displacement)
+    outside = longest + displacement - cutoff
+    across = np.flatnonzero((inside > 0) & (outside >= 0))
+    if len(across) == 0:
+        return None
+    p = across[np.argmax(np.minimum(inside, outside)[across])]
+    return float(shortest[p]), int(near[p]), float(longest[p]), int(far[p])
 
 
 def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:

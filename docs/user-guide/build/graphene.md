@@ -74,8 +74,10 @@ left out: the pieces join with their edges, without bonds made across.
 ## Results
 
 The atoms of the polycrystal left, then the carbon atoms, whose `grain` is
-−1; the box and `info` of the polycrystal. With no face covered, the
-polycrystal itself.
+−1; the box and `info` of the polycrystal. The carbon atoms get the other
+columns of the polycrystal as [`combine`](combine.md) fills them:
+the mass of carbon, a type of their own, ids numbered on, zeros elsewhere. With
+no face covered, the polycrystal itself.
 
 ## Errors
 

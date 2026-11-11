@@ -67,6 +67,11 @@ def test_atomic_numbers_rejects_non_symbols(bad):
         elements.atomic_numbers(bad)
 
 
+def test_atomic_numbers_of_one_text():
+    with pytest.raises(InvalidParameter, match=r"not the text 'Cu'; write \['Cu'\]"):
+        elements.atomic_numbers("Cu")
+
+
 @pytest.mark.parametrize(
     "bad, named", [(["X"], "'X'"), ([0], "'X'"), ([119], "119"), ([-1], "-1")]
 )
@@ -83,7 +88,8 @@ STABLE = [elements.SYMBOLS[z] for z in range(1, 84) if z not in (43, 61)]
 
 def test_element_from_mass_recovers_every_stable_element():
     assert len(STABLE) == 81 and "Bi" in STABLE and "Tc" not in STABLE
-    for symbol in STABLE:
+    # and the radioactive elements with a standard atomic weight
+    for symbol in STABLE + ["Th", "Pa", "U"]:
         m = elements.atomic_masses([symbol])[0]
         assert elements.element_from_mass(m) == symbol
         assert elements.element_from_mass(m + 0.009) == symbol
@@ -91,7 +97,7 @@ def test_element_from_mass_recovers_every_stable_element():
 
 
 def test_no_two_stable_elements_are_within_twice_the_tolerance():
-    m = elements.atomic_masses(STABLE)
+    m = elements.atomic_masses(STABLE + ["Th", "Pa", "U"])
     gaps = np.abs(m[:, None] - m[None, :])[~np.eye(len(m), dtype=bool)]
     assert gaps.min() > 0.02
 

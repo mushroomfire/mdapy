@@ -63,16 +63,20 @@ of `system`:
 | What | How it is combined |
 |---|---|
 | columns | those of either, `system`'s first; where one has no column, zeros: 0, false, an empty text, the element X, and missing values for other types such as lists; integers in one and floats in the other become floats |
-| `id` | where `system` has ids, the added atoms are numbered on from its largest, in their order, whatever their own ids; without ids in `system`, its atoms get 0 and the added atoms keep theirs |
+| `mass` | where one has masses and the other not, those of the elements of the other |
+| `type` | where one has types and the other not, each atom of the other the type of its element in the one, or a new type numbered on for an element the one does not have |
+| `id` | where either has ids, the atoms of `system` keep theirs, or are numbered from 1 without, and the added atoms are numbered on from the largest, in their order, whatever their own ids |
 | `molecule` | the molecules of `other` above 0 offset by the largest of `system`; 0, no molecule, stays 0 |
 | topology | the bonds, angles, dihedrals and impropers of both, those of `other` moved to its atoms; types as they are |
 | info | that of `system`, without `energy` and `virial`, which no longer describe the atoms |
 
 OVITO offsets molecule 0 as well, so that atoms of `other` in no molecule
 join a molecule of `system`; it matches particle types by name, as the
-elements here are.
+elements here are. It fills missing masses with 0 and, without ids in
+`system`, gives its atoms id 0.
 
 ## Errors
 
 `combine` raises `InvalidParameter` for a column whose types in the two
-cannot be joined, such as text in one and numbers in the other.
+cannot be joined, such as text in one and numbers in the other, and for masses
+in one where the other has neither masses nor elements.

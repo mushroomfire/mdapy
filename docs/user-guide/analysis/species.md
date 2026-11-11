@@ -87,7 +87,7 @@ ready:
 - `"vdw"`: 0.6 of the van der Waals radii, without tolerance, and two
   hydrogen atoms never bonded, the rule of VMD and of OVITO's *Create
   bonds* in its van der Waals mode. VMD and OVITO have tables of radii of
-  their own; with the same radii, the bonds are the same. A cutoff for
+  their own, so their bonds can differ from these. A cutoff for
   `("H", "H")` bonds hydrogen atoms again, as in the H<sub>2</sub>
   molecule.
 

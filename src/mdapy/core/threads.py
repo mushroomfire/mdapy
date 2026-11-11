@@ -10,6 +10,8 @@ import warnings
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 
+import numpy as np
+
 from mdapy import _core
 from mdapy.errors import InvalidParameter
 
@@ -28,8 +30,9 @@ _MOST_THREADS = 1 << 16
 
 
 def _validate(n: object, name: str) -> int:
-    if isinstance(n, bool) or not isinstance(n, int):
+    if isinstance(n, (bool, np.bool_)) or not isinstance(n, (int, np.integer)):
         raise InvalidParameter(f"{name} must be a positive integer, got {n!r}")
+    n = int(n)
     if n < 1:
         raise InvalidParameter(f"{name} must be a positive integer, got {n}")
     if n > _MOST_THREADS:

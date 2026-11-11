@@ -16,6 +16,12 @@
   color=None, label=None)` along the directions of a plane. See
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
+- `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method raise
+  `InvalidParameter` when a pair of atoms comes within `displacement` of the cutoff of the
+  calculator between the volumes or the strained cells. The force constants of NEP and
+  tabulated EAM jump there, and the results jumped with them: with a NEP model, C33 of hcp
+  magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
+  54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
 
 ## 2.0.0

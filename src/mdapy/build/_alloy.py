@@ -10,7 +10,7 @@ from collections.abc import Mapping
 import numpy as np
 
 from mdapy.core.system import System
-from mdapy.elements import SYMBOLS
+from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import InvalidParameter
 
 
@@ -56,4 +56,36 @@ def random_alloy(
     counts[np.argsort(-(exact - counts), kind="stable")[:left]] += 1
     elements = np.repeat(np.array(names, dtype=object), counts)
     np.random.default_rng(seed).shuffle(elements)
-    return system.with_columns(element=elements.tolist())
+    return _with_elements(system, elements)
+
+
+def _with_elements(system: System, elements) -> System:
+    """The system with these elements. Atoms whose element changed get its
+    mass, where there are masses; types stay where each element keeps one
+    type, the new one that of its atoms already there, and go otherwise, so
+    that a writer gives each element a type of its own."""
+    new = np.array(list(elements), dtype=object)
+    columns = system.table.columns
+    old = (
+        np.array(system.table["element"].to_list(), dtype=object)
+        if "element" in columns
+        else np.full(len(system), "X", dtype=object)
+    )
+    changed = old != new
+    updates = {"element": new.tolist()}
+    if "mass" in columns and changed.any():
+        mass = np.array(system["mass"], dtype=float)
+        mass[changed] = atomic_masses(new[changed].tolist())
+        updates["mass"] = mass
+    result = system.with_columns(**updates)
+    if "type" in columns and changed.any():
+        types = np.asarray(system["type"])
+        known: dict = {}
+        for element, kind in zip(old[~changed], types[~changed]):
+            known.setdefault(element, set()).add(int(kind))
+        if all(len(kinds) == 1 for kinds in known.values()) and set(new) <= set(known):
+            mapped = np.array([next(iter(known[e])) for e in new], dtype=types.dtype)
+            result = result.with_columns(type=mapped)
+        else:
+            result = result.drop("type")
+    return result

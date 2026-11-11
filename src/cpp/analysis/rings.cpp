@@ -147,7 +147,12 @@ Rings find_rings(const RingBonds& bonds, int min_size, int max_size, const Contr
     parallel_for(
         n, 1,
         [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t root = begin; root < end; ++root) {
+            // the search from one root can take minutes for large rings in a
+            // dense network: a cancellation stops it at once
+            const auto stopped = [&] {
+                return control.cancel != nullptr && control.cancel->cancelled();
+            };
+            for (std::int64_t root = begin; root < end && !stopped(); ++root) {
                 const Ball ball(bonds, root, {0, 0, 0}, max_size / 2);
                 Paths paths(ball);
                 const auto& nodes = ball.nodes();
@@ -155,6 +160,9 @@ Rings find_rings(const RingBonds& bonds, int min_size, int max_size, const Contr
                 std::vector<std::vector<int>> found;
                 auto try_ring = [&](const std::vector<int>& p, const std::vector<int>& q,
                                     bool shared_end) {
+                    if (stopped()) {
+                        return;
+                    }
                     std::unordered_set<int> seen(p.begin() + 1, p.end());
                     const std::size_t last = shared_end ? q.size() - 1 : q.size();
                     for (std::size_t k = 1; k < last; ++k) {
@@ -180,7 +188,7 @@ Rings find_rings(const RingBonds& bonds, int min_size, int max_size, const Contr
                     }
                     found.push_back(std::move(ring));
                 };
-                for (std::size_t a = 1; a < nodes.size(); ++a) {
+                for (std::size_t a = 1; a < nodes.size() && !stopped(); ++a) {
                     const int depth = nodes[a].depth;
                     const auto& to_a = paths.to(static_cast<int>(a));
                     // even rings: two paths to a node opposite the root
@@ -242,6 +250,10 @@ Rings find_rings(const RingBonds& bonds, int min_size, int max_size, const Contr
             }
         },
         control);
+    // a search stopped inside a root leaves its chunk finished but incomplete
+    if (control.cancel != nullptr && control.cancel->cancelled()) {
+        throw Cancelled();
+    }
     Rings out;
     out.starts.push_back(0);
     for (std::size_t r = 0; r < static_cast<std::size_t>(n); ++r) {

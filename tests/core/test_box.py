@@ -131,7 +131,14 @@ def test_hexagonal_box():
 
 @pytest.mark.parametrize(
     "args",
-    [(0, 1, 1), (1, 1, 1, 90, 90, 0), (1, 1, 1, 10, 10, 120), (1, 1, 1, 150, 150, 150)],
+    [
+        (0, 1, 1),
+        (1, 1, 1, 90, 90, 0),
+        (1, 1, 1, 10, 10, 120),
+        (1, 1, 1, 150, 150, 150),
+        (1, 1, 1, 90, 90, 200),
+        (1, 1, 1, -90, 90, 90),
+    ],
 )
 def test_invalid_lengths_angles(args):
     with pytest.raises(InvalidParameter):

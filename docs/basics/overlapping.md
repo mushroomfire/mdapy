@@ -69,7 +69,7 @@ A boolean mask of one value per atom. With `keep_one`, deleting the atoms
 selected leaves no pair closer than `distance`, and of each group of atoms
 that all overlap one another, as the copies of an atom, one is kept: that of
 the lowest index. Along a chain of atoms each closer than `distance` to the
-next only, every atom but the first is selected. OVITO keeps an atom of each
+next only, every second atom is selected and the two ends are kept. OVITO keeps an atom of each
 group picked at random, so the atoms it selects can differ from these, their
 number in each group not.
 

@@ -105,11 +105,14 @@ def insert_dislocation(
     if b[a1] != 0:
         # edge part: the cut is the half plane x1 > 0, as atomsk makes it;
         # the atoms there below the plane first move by half the Burgers
-        # vector, and those above it after the elastic displacement move back
+        # vector, and those above it after the elastic displacement move back.
+        # Above and below are where the atoms were: one close below the plane
+        # that the displacement lifts across it stays below
         nu = float(poisson)
         half = 0.5 * abs(b[a1])
         side = np.sign(b[a1])
-        start = x1 + np.where((x1 > 0) & (x2 * side <= 0), half, 0.0)
+        below = x2 * side <= 0
+        start = x1 + np.where((x1 > 0) & below, half, 0.0)
         r2 = start * start + x2 * x2
         if (r2 == 0).any():
             raise InvalidParameter("an atom lies on the dislocation line")
@@ -120,7 +123,7 @@ def insert_dislocation(
             (1 - 2 * nu) / (4 * (1 - nu)) * np.log(r2)
             + (start * start - x2 * x2) / (4 * (1 - nu) * r2)
         )
-        end1 -= np.where((end1 > 0) & (end2 * side >= 0), half, 0.0)
+        end1 -= np.where((end1 > 0) & ~below, half, 0.0)
         u[:, a1] = end1 - x1
         u[:, a2] = end2 - x2
     return system.with_columns(positions=system["positions"] + u)

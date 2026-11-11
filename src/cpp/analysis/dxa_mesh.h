@@ -56,7 +56,8 @@ struct InterfaceMesh {
 double neighbor_cutoff(const ClusterInput& atoms);
 
 // The mesh between the tetrahedra where good is set and whose
-// circumscribed sphere has a squared radius below alpha (Å^2) and the
+// circumscribed sphere has a squared radius below alpha (Å^2; five Å times
+// the largest neighbor cutoff, as in OVITO) and the
 // rest; jittered: the positions the tetrahedra were found from. Throws
 // std::invalid_argument when an edge spans half of a periodic box or more.
 InterfaceMesh interface_mesh(const ClusterInput& atoms, const Mapping& mapping,

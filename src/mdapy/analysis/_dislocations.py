@@ -193,7 +193,7 @@ class DislocationResult(Result):
     defect_mesh : TriangleMesh
         The surface around the defects that are not dislocations, such as
         grain boundaries, free surfaces and voids, closed at the free ends
-        of the lines, its normals pointing out of the crystal.
+        of the lines, its normals pointing into the crystal.
     defect_atoms : numpy.ndarray
         (V,) int64 the atom at each vertex of the defect mesh, -1 at the
         end of a line.
@@ -407,7 +407,7 @@ class DislocationAnalysis:
                 progress,
                 _native_token(cancel),
             )
-        except (ValueError, RuntimeError) as error:  # periodic images too close
+        except ValueError as error:  # periodic images too close
             raise InvalidParameter(
                 f"{error}: replicate the system along its short periodic directions"
             ) from None

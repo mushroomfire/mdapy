@@ -136,7 +136,8 @@ struct Polygon {
 // For each vertex of finished cells, the atoms across its three faces with
 // their periodic images, in order, and its distance from the atom.
 struct Triples : VoronoiVertices::Chunk {
-    bool odd = false;  // a vertex of other than three faces, or an image outside int8
+    bool odd = false;       // a vertex of atoms across other than three faces
+    bool overflow = false;  // an image outside int8
 };
 
 // The shapes of finished cells: their vertices and all their faces.
@@ -147,7 +148,7 @@ struct Shapes {
 };
 
 // The atoms across the faces of each vertex of a finished cell, into
-// triples.
+// triples; a vertex on a wall gets (-1, -1, -1).
 void add_triples(const Cell& cell, const Neighbors& neighbors, Triples& triples) {
     struct Across {
         index_t j;
@@ -156,10 +157,8 @@ void add_triples(const Cell& cell, const Neighbors& neighbors, Triples& triples)
     const std::vector<Vec>& points = cell.points();
     std::vector<std::array<Across, 3>> across(points.size());
     std::vector<int> filled(points.size(), 0);
+    std::vector<std::uint8_t> walled(points.size(), 0);
     for (const Face& face : cell.faces()) {
-        if (!(cell.area(face) > 0.0)) {
-            continue;
-        }
         Across a{-1, {0, 0, 0}};
         if (face.id >= 0) {
             const Candidate& other = neighbors[static_cast<std::size_t>(face.id)];
@@ -173,9 +172,19 @@ void add_triples(const Cell& cell, const Neighbors& neighbors, Triples& triples)
                 across[loop[k]][static_cast<std::size_t>(slot)] = a;
             }
             ++slot;
+            walled[loop[k]] = walled[loop[k]] != 0 || face.id < 0 ? 1 : 0;
         }
     }
     for (std::size_t v = 0; v < points.size(); ++v) {
+        if (walled[v] != 0) {
+            // no tetrahedron: a wall bounds the cell here
+            for (int k = 0; k < 3; ++k) {
+                triples.atoms.push_back(-1);
+                triples.shifts.insert(triples.shifts.end(), 3, std::int8_t{0});
+            }
+            triples.radii.push_back(std::sqrt(dot(points[v], points[v])));
+            continue;
+        }
         if (filled[v] != 3) {
             triples.odd = true;
             continue;
@@ -188,13 +197,124 @@ void add_triples(const Cell& cell, const Neighbors& neighbors, Triples& triples)
             for (int e = 0; e < 3; ++e) {
                 if (a.shift[e] < std::numeric_limits<std::int8_t>::min() ||
                     a.shift[e] > std::numeric_limits<std::int8_t>::max()) {
-                    triples.odd = true;
+                    triples.overflow = true;
                 }
                 triples.shifts.push_back(static_cast<std::int8_t>(a.shift[e]));
             }
         }
         triples.radii.push_back(std::sqrt(dot(points[v], points[v])));
     }
+}
+
+// An atom in one of its periodic images.
+struct Site {
+    index_t atom;
+    std::array<std::int32_t, 3> shift;
+};
+
+bool before(const Site& a, const Site& b) {
+    return a.atom < b.atom || (a.atom == b.atom && a.shift < b.shift);
+}
+
+double det3(const Vec& a, const Vec& b, const Vec& c) {
+    return a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) +
+           a[2] * (b[0] * c[1] - b[1] * c[0]);
+}
+
+// Whether site which of five lies inside the sphere through the other four:
+// +1 inside, -1 outside. The sites are put in order and measured from the
+// first, so that the cells of all five atoms compute the same numbers and
+// agree, however close to a sphere the five lie.
+int inside(const std::array<Site, 5>& sites, std::size_t which, const double* x,
+           const double* h) {
+    std::array<std::size_t, 5> order = {0, 1, 2, 3, 4};
+    std::sort(order.begin(), order.end(),
+              [&](std::size_t a, std::size_t b) { return before(sites[a], sites[b]); });
+    const Site& first = sites[order[0]];
+    std::array<Vec, 5> d{};
+    std::size_t m = 0;  // where the site asked about lies in the order
+    for (std::size_t k = 0; k < 5; ++k) {
+        const Site& s = sites[order[k]];
+        const double ds[3] = {static_cast<double>(s.shift[0] - first.shift[0]),
+                              static_cast<double>(s.shift[1] - first.shift[1]),
+                              static_cast<double>(s.shift[2] - first.shift[2])};
+        for (std::size_t e = 0; e < 3; ++e) {
+            d[k][e] = (x[3 * s.atom + static_cast<index_t>(e)] -
+                       x[3 * first.atom + static_cast<index_t>(e)]) +
+                      (ds[0] * h[e] + ds[1] * h[3 + e] + ds[2] * h[6 + e]);
+        }
+        if (order[k] == which) {
+            m = k;
+        }
+    }
+    // the determinant of the rows (d_k, |d_k|^2), k = 1 to 4, along its last
+    // column, and the orientation of the four sites other than the one asked
+    double lifted = 0.0;
+    for (std::size_t r = 0; r < 4; ++r) {
+        std::array<Vec, 3> rest{};
+        std::size_t q = 0;
+        for (std::size_t k = 1; k < 5; ++k) {
+            if (k != r + 1) {
+                rest[q++] = d[k];
+            }
+        }
+        const double minor = det3(rest[0], rest[1], rest[2]);
+        lifted += (r % 2 == 0 ? -1.0 : 1.0) * dot(d[r + 1], d[r + 1]) * minor;
+    }
+    double orientation;
+    if (m == 0) {
+        Vec a, b, c;
+        for (std::size_t e = 0; e < 3; ++e) {
+            a[e] = d[2][e] - d[1][e];
+            b[e] = d[3][e] - d[1][e];
+            c[e] = d[4][e] - d[1][e];
+        }
+        orientation = det3(a, b, c);
+    } else {
+        std::array<Vec, 3> rest{};
+        std::size_t q = 0;
+        for (std::size_t k = 1; k < 5; ++k) {
+            if (k != m) {
+                rest[q++] = d[k];
+            }
+        }
+        orientation = det3(rest[0], rest[1], rest[2]);
+    }
+    if (orientation == 0.0) {
+        return -1;  // four sites in a plane: never seen with displaced atoms
+    }
+    // a tie, lifted exactly zero, counts as positive: any fixed rule of the
+    // sites in order keeps the cells in agreement
+    const double sign = lifted == 0.0 ? 1.0 : lifted;
+    const double value = -(m % 2 == 0 ? 1.0 : -1.0) * sign * orientation;
+    return value > 0.0 ? 1 : -1;
+}
+
+// The center of the sphere through the atom i and three sites, from atom i,
+// by Cramer's rule; false when the three lie in a plane with it.
+bool circumcenter(const std::array<Site, 3>& sites, std::int64_t i, const double* x,
+                  const double* h, Vec& center) {
+    std::array<Vec, 3> r{};
+    std::array<double, 3> half{};
+    for (std::size_t q = 0; q < 3; ++q) {
+        const Site& s = sites[q];
+        for (std::size_t e = 0; e < 3; ++e) {
+            r[q][e] = x[3 * s.atom + static_cast<index_t>(e)] - x[3 * i + static_cast<index_t>(e)] +
+                      s.shift[0] * h[e] + s.shift[1] * h[3 + e] + s.shift[2] * h[6 + e];
+        }
+        half[q] = 0.5 * dot(r[q], r[q]);
+    }
+    const double det = det3(r[0], r[1], r[2]);
+    if (det == 0.0) {
+        return false;
+    }
+    center[0] = det3({half[0], r[0][1], r[0][2]}, {half[1], r[1][1], r[1][2]},
+                     {half[2], r[2][1], r[2][2]}) / det;
+    center[1] = det3({r[0][0], half[0], r[0][2]}, {r[1][0], half[1], r[1][2]},
+                     {r[2][0], half[2], r[2][2]}) / det;
+    center[2] = det3({r[0][0], r[0][1], half[0]}, {r[1][0], r[1][1], half[1]},
+                     {r[2][0], r[2][1], half[2]}) / det;
+    return true;
 }
 
 // The cell of the atom i from its sorted neighbors, all those closer than
@@ -232,7 +352,34 @@ bool build_cell(Cell& cell, const std::vector<Wall>& walls, const Vec& x, const 
             for (int e = 0; e < 3; ++e) {
                 normal[e] = (xj[e] - xi[e] + s[0] * h[e] + s[1] * h[3 + e] + s[2] * h[6 + e]) / d;
             }
-            cell.cut(normal, 0.5 * d, static_cast<std::int64_t>(c));
+            if (triples == nullptr) {
+                cell.cut(normal, 0.5 * d, static_cast<std::int64_t>(c));
+                continue;
+            }
+            // vertices of the cell: a point too close to the plane to tell
+            // goes to the side the five atoms decide, in every cell alike
+            const auto site = [&](std::int64_t face) {
+                const Candidate& o = neighbors[static_cast<std::size_t>(face)];
+                return Site{o.j, o.shift};
+            };
+            cell.cut(
+                normal, 0.5 * d, static_cast<std::int64_t>(c),
+                [&](std::uint32_t v) {
+                    std::array<std::int64_t, 3> ids{};
+                    if (cell.planes_of(v, ids) != 3 || ids[0] < 0 || ids[1] < 0 || ids[2] < 0) {
+                        return 0;
+                    }
+                    const std::array<Site, 5> five = {Site{static_cast<index_t>(i), {0, 0, 0}}, site(ids[0]),
+                                                      site(ids[1]), site(ids[2]),
+                                                      Site{other.j, other.shift}};
+                    return inside(five, 4, positions, h);
+                },
+                [&](std::int64_t f1, std::int64_t f2, std::int64_t f3, Vec& point) {
+                    if (f1 < 0 || f2 < 0 || f3 < 0) {
+                        return false;
+                    }
+                    return circumcenter({site(f1), site(f2), site(f3)}, i, positions, h, point);
+                });
         }
     }
     complete = complete || cell.radius() <= 0.5 * reach + eps;
@@ -370,9 +517,15 @@ struct Collector {
     // their chunks.
     void assemble_vertices(std::int64_t n, VoronoiVertices& out) {
         for (const Triples& chunk : triples) {
+            if (chunk.overflow) {
+                throw std::invalid_argument(
+                    "a periodic image of a neighbor lies more than 127 boxes away");
+            }
             if (chunk.odd) {
-                throw std::runtime_error(
-                    "a vertex of a Voronoi cell is shared by other than three faces");
+                // atoms exactly on one sphere: a lattice not moved first
+                throw std::logic_error(
+                    "a vertex of a Voronoi cell is shared by other than three faces: move "
+                    "the atoms at random a little first");
             }
         }
         out.offsets.assign(static_cast<std::size_t>(n) + 1, 0);
@@ -436,7 +589,7 @@ struct Collector {
 // it cannot close with a larger reach.
 void build_cells(const double* positions, std::int64_t n, const double* matrix,
                  const double* origin, const bool* pbc, const VoronoiThresholds& thresholds,
-                 bool faces, bool polyhedra, bool vertices, Collector& collector,
+                 bool faces, bool polyhedra, bool vertices, double window, Collector& collector,
                  VoronoiCells& cells, const Control& control) {
     const std::vector<Wall> walls = make_walls(n, positions, matrix, origin, pbc);
     cells.volumes.assign(static_cast<std::size_t>(n), 0.0);
@@ -486,7 +639,7 @@ void build_cells(const double* positions, std::int64_t n, const double* matrix,
             collector.triples.resize(collector.buffers.size());
         }
         std::vector<std::uint8_t> open(todo.size(), 0);
-        const double eps = 1e-10 * reach;
+        const double eps = window * reach;
         if (control.monitor) {
             pass.monitor = [&control, before](std::int64_t done, std::int64_t total) {
                 return done == total || control.monitor(before + done, before + total);
@@ -578,18 +731,19 @@ VoronoiCells voronoi(const double* positions, std::int64_t n, const double* matr
                      bool faces, bool polyhedra, const Control& control) {
     VoronoiCells cells;
     Collector collector(n, faces, polyhedra);
-    build_cells(positions, n, matrix, origin, pbc, thresholds, faces, polyhedra, false,
+    build_cells(positions, n, matrix, origin, pbc, thresholds, faces, polyhedra, false, 1e-10,
                 collector, cells, control);
     collector.assemble(n, faces, cells);
     return cells;
 }
 
 VoronoiVertices voronoi_vertices(const double* positions, std::int64_t n, const double* matrix,
-                                 const double* origin, const bool* pbc, const Control& control) {
+                                 const double* origin, const bool* pbc, const Control& control,
+                                 double window) {
     VoronoiCells cells;
     Collector collector(n, false, false, true);
     build_cells(positions, n, matrix, origin, pbc, VoronoiThresholds{}, false, false, true,
-                collector, cells, control);
+                window, collector, cells, control);
     VoronoiVertices out;
     collector.assemble_vertices(n, out);
     return out;

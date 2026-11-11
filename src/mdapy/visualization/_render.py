@@ -105,7 +105,8 @@ def atom_colors(
     color : optional
         None for the ``color`` column of the system where it has one, else
         the colors of the elements; one color for all; (N, 3) colors; a
-        column name or (N,) values through the colormap; or a structure
+        column, a component such as ``"positions.z"``, an expression over
+        the columns or (N,) values through the colormap; or a structure
         result, with ``structure`` and ``colors``.
     colormap : str, optional
         The colormap of values. Default viridis.
@@ -134,8 +135,24 @@ def atom_colors(
     if hasattr(color, "structure") and hasattr(color, "colors"):
         palette = np.asarray(color.colors, dtype=float)
         return palette[np.asarray(color.structure, dtype=np.int64)]
-    if isinstance(color, str) and color in system.table.columns:
-        return _colormap(system.table[color].to_numpy(), colormap, value_range)
+    if isinstance(color, str):
+        if color in system.table.columns:
+            values = system.table[color].to_numpy()
+        else:
+            try:
+                return np.broadcast_to(_color(color), (n, 3)).copy()
+            except InvalidParameter:
+                # not a color: a component or an expression, as in color_coding
+                try:
+                    values = np.asarray(system[color], dtype=float)
+                except (InvalidParameter, TypeError, ValueError):
+                    raise InvalidParameter(
+                        f"unknown color {color!r}: not a color, a column, a "
+                        "component or an expression of numbers"
+                    ) from None
+        if values.ndim != 1:
+            raise InvalidParameter(f"{color} has components: give one of them")
+        return _colormap(values, colormap, value_range)
     array = np.asarray(color) if not isinstance(color, str) else None
     if array is not None and array.dtype.kind not in "fiub":
         raise InvalidParameter(f"color must hold numbers, not {array.dtype}")
@@ -177,7 +194,12 @@ def _legend_items(
     values = None
     if isinstance(color, str) and color in system.table.columns:
         values, title = system.table[color].to_numpy(), title or color
-    elif color is not None and not isinstance(color, str):
+    elif isinstance(color, str):
+        try:  # a component or an expression; a single color has no legend
+            _color(color)
+        except InvalidParameter:
+            values, title = np.asarray(system[color], dtype=float), title or color
+    elif color is not None:
         array = np.asarray(color)
         if array.shape == (len(system),) and len(system) != 3:
             values = array

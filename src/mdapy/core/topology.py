@@ -40,6 +40,10 @@ def _normalize(kind: str, terms: pl.DataFrame | ArrayLike | None) -> pl.DataFram
                 f"{kind} must be an (M, {width}) array of atom indices, "
                 f"got shape {atoms.shape}"
             )
+        if atoms.size and (
+            atoms.dtype.kind not in "iuf" or not np.array_equal(atoms, np.round(atoms))
+        ):
+            raise InvalidParameter(f"{kind} must be atom indices, whole numbers")
         df = pl.DataFrame(
             {
                 "atoms": pl.Series(

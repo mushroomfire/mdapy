@@ -42,7 +42,7 @@ from mdapy.visualization import _render as render_module
 
 
 def read_png(path):
-    """The RGBA pixels of a PNG file written by write_png."""
+    """The RGBA or RGB pixels of a PNG file written by write_png."""
     with open(path, "rb") as f:
         data = f.read()
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
@@ -57,14 +57,15 @@ def read_png(path):
         assert crc == zlib.crc32(tag + body) & 0xFFFFFFFF
         if tag == b"IHDR":
             width, height = struct.unpack(">II", body[:8])
+            channels = {6: 4, 2: 3}[body[9]]
         elif tag == b"IDAT":
             stream += body
         position += 12 + length
     raw = np.frombuffer(zlib.decompress(stream), np.uint8).reshape(
-        height, 1 + 4 * width
+        height, 1 + channels * width
     )
     assert (raw[:, 0] == 0).all()
-    return raw[:, 1:].reshape(height, width, 4)
+    return raw[:, 1:].reshape(height, width, channels)
 
 
 def srgb(linear):
@@ -425,8 +426,11 @@ def test_png_round_trip(tmp_path):
     scene.add_spheres([[0.0, 0, 0]], 1.0, (1, 1, 1))
     written = scene.render(tmp_path / "b.png", width=30, height=20)
     np.testing.assert_array_equal(read_png(tmp_path / "b.png"), written)
-    with pytest.raises(InvalidParameter, match="RGBA"):
-        write_png(tmp_path / "c.png", image[..., :3])
+    # RGB too, as write_movie takes
+    write_png(tmp_path / "c.png", image[..., :3])
+    np.testing.assert_array_equal(read_png(tmp_path / "c.png"), image[..., :3])
+    with pytest.raises(InvalidParameter, match="RGBA or .* RGB"):
+        write_png(tmp_path / "d.png", image[..., :2])
 
 
 def test_progress_cancel_and_errors():
@@ -514,6 +518,14 @@ def test_colors():
         colormap([0.0, 1.0])[1],
     )
     np.testing.assert_allclose(atom_colors(system, "#ff0000")[5], [1, 0, 0])
+    # a component or an expression, as in color_coding
+    z = system["positions"][:, 2]
+    np.testing.assert_allclose(atom_colors(system, "positions.z"), colormap(z))
+    np.testing.assert_allclose(atom_colors(system, "positions.z * -1"), colormap(-z))
+    with pytest.raises(InvalidParameter, match="unknown color 'mauve': not a color"):
+        atom_colors(system, "mauve")
+    with pytest.raises(InvalidParameter, match="positions has components"):
+        atom_colors(system, "positions")
     np.testing.assert_allclose(atom_colors(system, np.ones((32, 3)))[0], [1, 1, 1])
     bare = mdapy.System(system["positions"], system.box)
     np.testing.assert_allclose(atom_colors(bare)[0], [1, 1, 1])
@@ -1472,6 +1484,10 @@ def test_a_legend_names_what_is_shown(monkeypatch):
     assert drawn["title"] == "height" and name == "viridis"
     assert low == pytest.approx(system["height"].min())
     assert high == pytest.approx(system["height"].max())
+    render(system, color="positions.z", legend=True, **LEGEND)
+    z = system["positions"][:, 2]
+    assert drawn["title"] == "positions.z"
+    assert drawn["bar"][:2] == pytest.approx((z.min(), z.max()))
     values = system["height"] * 2
     render(
         system,

@@ -83,6 +83,8 @@ def test_dataframe_input_keeps_types_labels_and_extra_columns():
         ({"bonds": [[0, 1, 2]]}, r"\(M, 2\)"),
         ({"angles": [0, 1, 2]}, r"\(M, 3\)"),
         ({"bonds": [[0, -1]]}, "negative"),
+        ({"bonds": [[0.5, 1]]}, "whole numbers"),
+        ({"bonds": [["0", "1"]]}, "whole numbers"),
         ({"angles": [[1, 0, 1]]}, "repeats an atom"),
         ({"dihedrals": [[0, 1, 2, 2]]}, "repeats an atom"),
         ({"bonds": pl.DataFrame({"atoms": [[0, 1]], "type": [0]})}, "at least 1"),

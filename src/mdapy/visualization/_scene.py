@@ -468,25 +468,27 @@ def gpu_available() -> bool:
 
 
 def write_png(path: str | PathLike, image: np.ndarray) -> None:
-    """Writes an RGBA image to a PNG file.
+    """Writes an RGBA or RGB image to a PNG file.
 
     Parameters
     ----------
     path : str or path-like
         The file.
     image : numpy.ndarray
-        (H, W, 4) uint8 image, rows from the top.
+        (H, W, 4) or (H, W, 3) uint8 image, rows from the top.
     """
     Path(path).write_bytes(_png(image))
 
 
 def _png(image: np.ndarray) -> bytes:
-    """The bytes of a PNG file of an RGBA image."""
+    """The bytes of a PNG file of an RGBA or RGB image."""
     image = np.ascontiguousarray(image, dtype=np.uint8)
-    if image.ndim != 3 or image.shape[2] != 4:
-        raise InvalidParameter("the image must be (height, width, 4) RGBA")
-    height, width = image.shape[:2]
-    raw = np.zeros((height, 1 + 4 * width), dtype=np.uint8)  # filter 0 on each row
+    if image.ndim != 3 or image.shape[2] not in (3, 4):
+        raise InvalidParameter(
+            "the image must be (height, width, 4) RGBA or (height, width, 3) RGB"
+        )
+    height, width, channels = image.shape
+    raw = np.zeros((height, 1 + channels * width), dtype=np.uint8)  # filter 0 per row
     raw[:, 1:] = image.reshape(height, -1)
 
     def chunk(tag: bytes, data: bytes) -> bytes:
@@ -499,7 +501,13 @@ def _png(image: np.ndarray) -> bytes:
 
     return (
         b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
+        # color type 6 for RGBA, 2 for RGB
+        + chunk(
+            b"IHDR",
+            struct.pack(
+                ">IIBBBBB", width, height, 8, 6 if channels == 4 else 2, 0, 0, 0
+            ),
+        )
         # the fastest level: 3 to 5 times the speed of the default for pictures
         # of atoms, for 1 to 10 % more bytes
         + chunk(b"IDAT", zlib.compress(raw.tobytes(), 1))

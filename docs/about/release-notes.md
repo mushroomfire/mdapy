@@ -23,6 +23,23 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `System.with_box` given lattice vectors keeps the origin and the periodicity of the
+  box; it made the box periodic at the origin, so a slab became periodic.
+- `write` of a LAMMPS data file is by default in the units the file was read in, as
+  for its atom style; a file in real units with coefficients could not be written back
+  without `units="real"`.
+- `build_crystal` takes one `repeat` for every vector, as `replicate` does, and refuses
+  `a` or `c` that are not numbers with `InvalidParameter`; text raised `TypeError`.
+- `render(color=)` takes a component such as `"positions.z"` or an expression over the
+  columns, as `color_coding` does, with its color bar in the legend.
+- `write_png` writes RGB images too, as `write_movie` takes them.
+- Reading a CIF file warns of partly occupied sites, whose atoms are all kept.
+- `element_from_mass` recognizes Th, Pa and U, which have standard atomic weights.
+- `set_num_threads` takes NumPy integers; `atomic_numbers("Cu")` says to pass a sequence
+  rather than complaining of the symbol `u`; `Topology` refuses atom indices that are
+  not whole numbers, which it truncated; `Box.from_lengths_angles` refuses angles
+  outside 0 to 180 degrees, which gave a mirrored box; `Box` says when its volume is
+  beyond float64, which it called linearly dependent vectors.
 - `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
 - `CommonNeighborAnalysis` with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
   that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took

@@ -17,6 +17,11 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `melting_point` takes a run as the answer only when the mean temperatures of its last two
+  stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
+  the drift within the last. Before, one stretch could pass while the temperature still rose:
+  for copper from guesses of 1000, 1327 and 1700 K the answers spread by 4 to 17 K, now by 1
+  to 7 K. `error` is the statistical error of one run, smaller than that spread.
 
 ## 2.0.0
 

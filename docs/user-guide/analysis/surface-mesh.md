@@ -187,10 +187,16 @@ $$
 the others and the space outside the tessellation empty: the alpha shape
 of the atoms. The surface is made of the faces between a solid and an empty
 tetrahedron, turned so that their normals point to the empty side; its
-vertices are the atoms on it. The volume of the solid is that of its
-tetrahedra. Solid tetrahedra that share faces make a region, and so do
+vertices are the atoms on it, one for each sheet of the surface through the
+atom, as where two pores touch at an atom. The volume of the solid is that
+of its tetrahedra. Solid tetrahedra that share faces make a region, and so do
 empty ones; a region that meets itself in another periodic image runs
-without end.
+without end. OVITO joins two empty regions also where their surfaces meet
+along an edge, so in a very porous solid it finds fewer and larger empty
+regions: in fcc with 30 % and 50 % of its atoms removed at random, 28 and 12
+where MDAPY finds 38 and 79. Pores that touch only along a line are apart
+here. The solid regions, the total volumes and the area of the surface are
+the same.
 
 Smoothing moves every vertex $\mathbf x$ toward the mean of its $n$
 neighbors along the edges of the mesh,

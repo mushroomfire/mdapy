@@ -17,7 +17,7 @@ srtio3 = build_crystal(
 )
 titanium = np.asarray(srtio3["element"]) == "Ti"
 octahedra = CoordinationPolyhedra(2.2).compute(srtio3, atoms=titanium)
-octahedra.volumes  # 27 octahedra of 4/3 (a/2)³ = 9.93 Å³
+octahedra.volumes  # 27 octahedra of 4/3 (a/2)³ = 9.92 Å³
 
 # the octahedra in blue, strontium and oxygen as small atoms
 strontium = np.asarray(srtio3["element"]) == "Sr"

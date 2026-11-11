@@ -98,11 +98,49 @@ public:
 
     // Keeps the part with normal . x <= offset; the plane's face gets id.
     void cut(const Vec& normal, double offset, std::int64_t id) {
+        cut(normal, offset, id, [](std::uint32_t) { return 0; },
+            [](std::int64_t, std::int64_t, std::int64_t, Vec&) { return false; });
+    }
+
+    // The faces of point v: their number, and the ids of the first three.
+    int planes_of(std::uint32_t v, std::array<std::int64_t, 3>& ids) const {
+        int count = 0;
+        for (const Face& face : faces_) {
+            const std::uint32_t* loop = corners_.data() + face.start;
+            for (std::size_t k = 0; k < face.count; ++k) {
+                if (loop[k] == v) {
+                    if (count < 3) {
+                        ids[static_cast<std::size_t>(count)] = face.id;
+                    }
+                    ++count;
+                    break;
+                }
+            }
+        }
+        return count;
+    }
+
+    // As cut(), but a point within eps of the plane is first given to
+    // resolve(v): +1 puts it beyond the plane, -1 on the side kept, 0 in the
+    // plane. Where an edge from such a point crosses the plane,
+    // place(f1, f2, id, x) may set the point x where the faces f1 and f2 of
+    // the edge meet the plane, and returns whether it did.
+    template <class Resolve, class Place>
+    void cut(const Vec& normal, double offset, std::int64_t id, Resolve&& resolve,
+             Place&& place) {
         const std::size_t n = points_.size();
         side_.resize(n);
+        forced_.assign(n, 0);
         bool beyond = false;
         for (std::size_t v = 0; v < n; ++v) {
             side_[v] = dot(normal, points_[v]) - offset;
+            if (side_[v] <= eps_ && side_[v] >= -eps_) {
+                const int s = resolve(static_cast<std::uint32_t>(v));
+                if (s != 0) {
+                    side_[v] = s > 0 ? 2.0 * eps_ : -2.0 * eps_;
+                    forced_[v] = 1;
+                }
+            }
             beyond = beyond || side_[v] > eps_;
         }
         if (!beyond) {
@@ -143,7 +181,7 @@ public:
                 const std::uint32_t b = loop[k];
                 const double db = side_[b];
                 if ((da < -eps_ && db > eps_) || (da > eps_ && db < -eps_)) {
-                    out[size++] = crossing(a, b, largest);
+                    out[size++] = crossing(a, b, largest, id, place);
                 }
                 out[size] = renumber_[b];
                 size += static_cast<std::size_t>(db <= eps_);  // no branch: hard to predict
@@ -214,7 +252,9 @@ private:
 
     // The point where the plane crosses the edge from a to b, made once for
     // the two faces of the edge.
-    std::uint32_t crossing(std::uint32_t a, std::uint32_t b, double& largest) {
+    template <class Place>
+    std::uint32_t crossing(std::uint32_t a, std::uint32_t b, double& largest, std::int64_t id,
+                           Place&& place) {
         const std::uint32_t low = std::min(a, b), high = std::max(a, b);
         for (const auto& known : crossings_) {
             if (known[0] == low && known[1] == high) {
@@ -224,8 +264,29 @@ private:
         const double t = side_[low] / (side_[low] - side_[high]);
         const Vec& p = points_[low];
         const Vec& q = points_[high];
-        const Vec x = {p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]),
-                       p[2] + t * (q[2] - p[2])};
+        Vec x = {p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1]), p[2] + t * (q[2] - p[2])};
+        if (forced_[low] != 0 || forced_[high] != 0) {
+            // an end was put on its side by resolve: its distance is made up,
+            // so the point comes from the planes of the two faces of the edge
+            std::array<std::int64_t, 2> ids{};
+            int found = 0;
+            for (const Face& face : faces_) {
+                const std::uint32_t* loop = corners_.data() + face.start;
+                for (std::size_t k = 0; k < face.count; ++k) {
+                    const std::uint32_t c = loop[k], d = loop[(k + 1) % face.count];
+                    if ((c == low && d == high) || (c == high && d == low)) {
+                        if (found < 2) {
+                            ids[static_cast<std::size_t>(found)] = face.id;
+                        }
+                        ++found;
+                        break;
+                    }
+                }
+            }
+            if (found == 2) {
+                place(ids[0], ids[1], id, x);
+            }
+        }
         const auto index = static_cast<std::uint32_t>(next_points_.size());
         next_points_.push_back(x);
         largest = std::max(largest, dot(x, x));
@@ -283,6 +344,7 @@ private:
     double radius_ = 0.0;
     std::vector<Vec> points_, next_points_;
     std::vector<double> side_;
+    std::vector<std::uint8_t> forced_;  // put on its side by resolve in this cut
     std::vector<std::uint32_t> corners_, next_corners_, renumber_, section_;
     std::vector<std::array<std::uint32_t, 3>> crossings_;
     std::vector<Face> faces_, next_faces_;

@@ -108,8 +108,8 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
   must be installed (`pip install seekpath`); its special points are
   turned into wave vectors of the cell;
 - `"sc"`, `"fcc"`, `"bcc"` or `"hexagonal"`: the standard path of that
-  lattice ([Setyawan and Curtarolo (2010)](../../reference/references.md#setyawan2010)),
-  without seekpath, for a cell with the axes of its conventional cell along
+  lattice, that of [Setyawan and Curtarolo (2010)](../../reference/references.md#setyawan2010)
+  for sc, bcc and hexagonal and that of seekpath for fcc, without seekpath, for a cell with the axes of its conventional cell along
   x, y and z, or with a along x and c along z, as `build_crystal` makes
   them;
 - the sections of a path by hand, each a list of labeled wave vectors

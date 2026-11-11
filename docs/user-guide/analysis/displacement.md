@@ -89,7 +89,7 @@ rounded to the nearest integers and those taken away.
 ## See also
 
 - OVITO [Displacement vectors](https://docs.ovito.org/reference/pipelines/modifiers/displacement_vectors.html),
-  whose displacements `AtomicDisplacement` gives, with and without the
-  minimum image and the affine mapping to the reference.
+  with and without the minimum image and the affine mapping to the
+  reference.
 - [Mean squared displacement](msd.md) over a trajectory, and
   [Atomic strain](atomic-strain.md) against a reference.

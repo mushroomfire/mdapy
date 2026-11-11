@@ -66,8 +66,8 @@ A `StructureFactorResult`:
 | `edges` | (bins + 1,) float64 | bin edges in 1/Å |
 | `s` | (bins,) float64 | S(q); with the direct method NaN in bins without wave vectors |
 | `vectors` | (bins,) int64 or `None` | with the direct method, the number of wave vectors in each bin, one of each pair $\pm\mathbf q$ |
-| `partial` | dict of (str, str) to (B,) float64 | $S_{ab}(q)$ of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
-| `faber_ziman` | dict of (str, str) to (B,) float64 | $A_{ab}(q)$, keyed as `partial` |
+| `partial` | dict of (str, str) to (bins,) float64 | $S_{ab}(q)$ of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
+| `faber_ziman` | dict of (str, str) to (bins,) float64 | $A_{ab}(q)$, keyed as `partial` |
 | `method` | str | `"direct"` or `"debye"` |
 | `pair(a, b)` | (bins,) float64 | $S_{ab}(q)$, with `a` and `b` in either order |
 

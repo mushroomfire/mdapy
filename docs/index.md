@@ -116,7 +116,7 @@ run the tests and what a complete run needs.
 If MDAPY contributes to a publication, please cite
 [Wu and Shao (2023)](reference/references.md#wu2023), and the papers that
 the pages of the features you use ask to cite.
-[Papers citing MDAPY](about/citations.md) lists, by year, the work done with it.
+[Papers citing MDAPY](about/citations.md) lists, by year, the papers that cite it.
 
 See the [release notes](about/release-notes.md) for what each
 release contains.

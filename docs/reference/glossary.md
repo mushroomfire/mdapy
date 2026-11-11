@@ -1,8 +1,7 @@
 # Glossary
 
 These are the names MDAPY uses. Every module follows them, so a concept has
-one name everywhere. Some entries describe components that are still being
-implemented.
+one name everywhere.
 
 ## Data model
 
@@ -101,9 +100,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 
 | Column | Type | Unit | Meaning |
 |---|---|---|---|
-| `positions` | 3 float64 | Å | positions |
-| `velocities` | 3 float64 | Å/ps | velocities |
-| `forces` | 3 float64 | eV/Å | forces |
+| `positions` | (3,) float64 | Å | positions |
+| `velocities` | (3,) float64 | Å/ps | velocities |
+| `forces` | (3,) float64 | eV/Å | forces |
 | `element` | element | | chemical symbol |
 | `type` | int32 | | LAMMPS atom type, starting at 1 |
 | `id` | int64 | | atom ID, starting at 1 |
@@ -112,7 +111,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `type_label` | str | | name of the atom type, for example a force-field type |
 | `mass` | float64 | amu | mass |
 | `charge` | float64 | e | charge |
-| `image` | 3 int32 | | periodic image flags |
+| `image` | (3,) int32 | | periodic image flags |
 | `atom_name` | str | | name of the atom in its residue, as in PDB files, such as `CA` |
 | `residue`, `residue_number` | str, int64 | | name and number of the residue of an atom, as in PDB files |
 | `movable` | (3,) bool | | whether the atom may move along x, y, z (VASP selective dynamics) |
@@ -131,7 +130,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `entropy` | float64 | k<sub>B</sub> | pair entropy fingerprint, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
 | `temperature` | float64 | K | temperature of an atom and its neighbors |
 | `lindemann` | float64 | | Lindemann index of an atom over a trajectory |
-| `displacement`, `displacement_magnitude` | 3 float64, float64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |
+| `displacement`, `displacement_magnitude` | (3,) float64, float64 | Å, Å | displacement of an atom from a reference, and its length (`AtomicDisplacement`) |
 | `site`, `occupancy` | `index_dtype`, int64 | | the nearest reference site of an atom, and the number of atoms on it |
 | `ptm_rmsd`, `ptm_interatomic_distance` | float64 | , Å | deviation from the best template of polyhedral template matching, and the distance between nearest neighbors of its lattice |
 | `ptm_orientation` | 4 float64 | | rotation of the local lattice from its standard orientation, a quaternion (x, y, z, w) |

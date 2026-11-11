@@ -73,16 +73,16 @@ system is made and by `with_columns` and `with_table`, so the rest of MDAPY can 
 
 | Column | Type | Unit | Meaning |
 |---|---|---|---|
-| `positions` | 3 float64 | Å | positions, required |
-| `velocities` | 3 float64 | Å/ps | velocities |
-| `forces` | 3 float64 | eV/Å | forces |
+| `positions` | (3,) float64 | Å | positions, required |
+| `velocities` | (3,) float64 | Å/ps | velocities |
+| `forces` | (3,) float64 | eV/Å | forces |
 | `element` | element | | chemical symbol |
 | `type` | int32 | | atom type, from 1 |
 | `id` | int64 | | atom identifier |
 | `molecule` | int64 | | molecule identifier |
 | `mass` | float64 | amu | mass |
 | `charge` | float64 | e | charge |
-| `image` | 3 int32 | | periodic image flags |
+| `image` | (3,) int32 | | periodic image flags |
 | `movable` | (3,) bool | | whether the atom may move along x, y and z |
 
 A conversion that would change a value raises an error. Small `int64` image flags become

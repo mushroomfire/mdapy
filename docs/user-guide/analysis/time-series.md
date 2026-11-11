@@ -12,7 +12,7 @@ from mdapy.build import build_crystal
 # copper heated from 300 K to 1200 K over 20 frames 1000 steps apart:
 # velocities in Å/ps of the Maxwell-Boltzmann distribution of each temperature
 copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))
-mass, kB, unit = 63.546, 8.617333e-5, 1.0364269e-4  # amu, eV/K, amu Å²/ps² per eV
+mass, kB, unit = 63.546, 8.617333e-5, 1.0364269e-4  # amu, eV/K, eV per amu Å²/ps²
 rng = np.random.default_rng(3)
 frames = []
 for k, T in enumerate(np.linspace(300, 1200, 20)):

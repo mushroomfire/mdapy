@@ -187,9 +187,7 @@ class SurfaceMesh:
                 progress,
                 _native_token(cancel),
             )
-        except ValueError as error:
-            raise InvalidParameter(str(error)) from None
-        except RuntimeError as error:  # cells that touch their own images
+        except ValueError as error:  # periodic images too close
             raise InvalidParameter(
                 f"{error}: replicate the system along its short periodic directions"
             ) from None

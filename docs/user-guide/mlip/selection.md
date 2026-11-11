@@ -86,7 +86,7 @@ the order chosen. `principal_components` returns a `PrincipalComponents`:
 `farthest_point_sampling` raises `InvalidParameter` for points that are not
 (M, D), a count outside 0 to M, a start outside the points, and
 `start=None` without `selected`. `principal_components` raises it for fewer
-than two points and an `n` outside 1 to D.
+than two points and a `count` outside 1 to D.
 
 ## Definition
 

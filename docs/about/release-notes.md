@@ -23,6 +23,8 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `StructureFactor` of the direct method refuses more than 10<sup>8</sup> wave vectors, which
+  take 1.6 GB, rather than 10<sup>9</sup>, which took 16 GB.
 - `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
   also after the time step changed, as with `fix dt/reset`; it gave the steps times the
   first time step.

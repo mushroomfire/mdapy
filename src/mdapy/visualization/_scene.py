@@ -93,6 +93,9 @@ STYLES: dict[str, dict[str, Any]] = {
 # each side takes about 5 GB, and four times as much at twice the size
 _MOST_PIXELS = 8192
 _MOST_SUBPIXELS = 16384
+#: The widest outline, in pixels.
+_WIDEST_OUTLINE = 100
+
 _FINITE_SETTINGS = (
     "ambient",
     "diffuse",
@@ -936,6 +939,12 @@ class Scene:
         for name in _FINITE_SETTINGS:
             if settings[name] is not None and not np.isfinite(settings[name]):
                 raise InvalidParameter(f"{name} must be finite, not {settings[name]!r}")
+        # the outlines cost the pixels times the square of their width
+        if not 0 <= settings["outline_width"] <= _WIDEST_OUTLINE:
+            raise InvalidParameter(
+                f"outline_width must be from 0 to {_WIDEST_OUTLINE} pixels, "
+                f"not {settings['outline_width']!r}"
+            )
         for name in ("key", "fill", "highlight"):
             if settings[name] is not None and not _direction(settings[name]):
                 raise InvalidParameter(

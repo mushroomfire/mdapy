@@ -10,7 +10,7 @@ from mdapy.io import read, write
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(4, 4, 4))
 write("copper.data", crystal)  # atom_style atomic, Cu as type 1
-read("copper.data").table["element"]  # Cu, from the masses
+read("copper.data").table["element"]  # Cu, from the comment after its mass
 ```
 
 A LAMMPS input then starts from the file, and its dumps come back as a

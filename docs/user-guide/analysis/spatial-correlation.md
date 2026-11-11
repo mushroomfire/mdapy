@@ -97,8 +97,9 @@ These are OVITO's tables `correlation-real-space`,
 `mean1`, `mean2`, `variance1`, `variance2` and `covariance`, which are the
 means, the mean squares and the mean product. OVITO's plots offer three
 normalizations, each a line of NumPy as above: by the radial distribution
-function, `correlation / rdf`; by the covariance, divided by
-`mean_product`; and the difference correlation,
+function, `correlation / rdf`; by the covariance,
+`(correlation - means.prod()) / (mean_product - means.prod())`; and the
+difference correlation,
 `(mean_squares.sum() / 2) - correlation`. Atoms whose value is NaN are left
 out of the grid and make the means NaN.
 

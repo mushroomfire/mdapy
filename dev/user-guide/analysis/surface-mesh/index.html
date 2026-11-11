@@ -8259,10 +8259,15 @@ R &lt; r ,
 <p>the others and the space outside the tessellation empty: the alpha shape
 of the atoms. The surface is made of the faces between a solid and an empty
 tetrahedron, turned so that their normals point to the empty side; its
-vertices are the atoms on it. The volume of the solid is that of its
-tetrahedra. Solid tetrahedra that share faces make a region, and so do
+vertices are the atoms on it, one for each sheet of the surface through the
+atom, as where two pores touch at an atom. The volume of the solid is that
+of its tetrahedra. Solid tetrahedra that share faces make a region, and so do
 empty ones; a region that meets itself in another periodic image runs
-without end.</p>
+without end. OVITO joins two empty regions also where their surfaces meet
+along an edge, so in a very porous solid it finds fewer and larger empty
+regions: in fcc with 30 % and 50 % of its atoms removed at random, 28 and 12
+where MDAPY finds 38 and 79. Pores that touch only along a line are apart
+here, as no probe passes between them.</p>
 <p>Smoothing moves every vertex <span class="arithmatex">\(\mathbf x\)</span> toward the mean of its <span class="arithmatex">\(n\)</span>
 neighbors along the edges of the mesh,</p>
 <div class="arithmatex">\[
@@ -8276,8 +8281,7 @@ the factors OVITO takes.</p>
 can be split into two triangles along either diagonal. The atoms are moved
 at random by up to <span class="arithmatex">\(10^{-4}\)</span> Å first, always the same way, which settles
 each such choice. The area and the volumes are those of either choice; the
-smoothed mesh can differ from OVITO's where OVITO chose otherwise, and is
-the same as OVITO's when the atoms are not on a perfect lattice.</p>
+smoothed mesh can differ from OVITO's where OVITO chose otherwise.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#edelsbrunner1994">Edelsbrunner and Mücke (1994)</a>
@@ -8287,7 +8291,7 @@ smoothing <a href="../../../reference/references/#taubin1995">Taubin (1995)</a>.
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li>OVITO <a href="https://docs.ovito.org/reference/pipelines/modifiers/construct_surface_mesh.html">Construct surface mesh</a>,
-  the same with its alpha-shape method.</li>
+  with its alpha-shape method.</li>
 <li><a href="../voronoi/">Voronoi analysis</a> for the empty space around single atoms,
   and <a href="../clusters/">cluster analysis</a> for groups of atoms.</li>
 </ul>

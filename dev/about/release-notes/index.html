@@ -8231,6 +8231,21 @@
   <a href="../../user-guide/simulation/elastic-constants/#along-directions">Elastic constants</a> and
   the example <a href="../../examples/elastic-anisotropy/">Elastic anisotropy of copper and titanium</a>.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>CommonNeighborAnalysis</code> with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
+  that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took
+  (1 + √2)/2.</li>
+<li><code>SurfaceMesh</code> gives an atom on two sheets of the surface a vertex on each, and smooths
+  each vertex over the faces about it, as OVITO: the smoothed area of porous solids is
+  OVITO's; it was larger by up to a fifth.</li>
+<li><code>PolyhedralTemplateMatching</code> finds the same structures in any unit of length; in metres
+  or in units a billion times larger than Å most structures were lost.</li>
+<li><code>RadialDistributionFunction</code> and <code>StructureFactor</code> keep at most 64 partial results in
+  memory; with many elements and bins they took gigabytes.</li>
+<li><code>render</code> refuses an <code>outline_width</code> above 100 pixels, which took minutes.</li>
+<li><code>Predictions.rmse()</code> and <code>Predictions.table()</code> average the errors of a virial over its
+  six independent components, as GPUMD; the shear components counted twice.</li>
+<li><code>check_frames</code> finds an atom too close to its own periodic images in a frame of one
+  atom.</li>
 <li><code>io.write</code> writes beside the file and puts the new one in its place when complete: a
   write that fails leaves a file already there as it was; it removed it before.</li>
 <li><code>read_trajectory(..., topology=)</code> keeps the periodicity a frame's file tells (LAMMPS

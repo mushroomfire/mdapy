@@ -9601,7 +9601,8 @@ frame, in eV per atom; NaN where either is missing.</p>
 
         <p>The errors of each frame: of the energy per atom in eV, the root
 mean square and the largest error of the force components in eV/Å,
-and the root mean square error of the virial per atom in eV.</p>
+and the root mean square error of the virial per atom in eV over its
+six independent components.</p>
 
 
     <p><span class="doc-section-title">Returns:</span></p>
@@ -9664,7 +9665,8 @@ force_rmse, force_max_error, virial_rmse.</p>
             <td>
               <div class="doc-md-description">
                 <p><code>energy</code> in eV per atom, <code>forces</code> in eV/Å over the force
-components, <code>virial</code> in eV per atom over the components.</p>
+components, <code>virial</code> in eV per atom over the six independent
+components, as GPUMD.</p>
               </div>
             </td>
           </tr>

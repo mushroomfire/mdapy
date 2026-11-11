@@ -17,6 +17,7 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
 
 ## 2.0.0
 

@@ -205,23 +205,26 @@ class _GzipWriter(io.BufferedIOBase):
 def open_output(path: str | os.PathLike) -> Iterator[BinaryIO]:
     """Opens a file for writing in binary mode.
 
-    The suffix .gz, .bz2, .xz or .zst selects compression. If writing fails,
-    the incomplete file is removed.
+    The suffix .gz, .bz2, .xz or .zst selects compression. The file is written
+    beside the target under another name and takes its place when complete;
+    if writing fails, it is removed and a file already at the target stays.
     """
     path = Path(path)
     compression = COMPRESSION_SUFFIXES.get(path.suffix.lower())
+    part = path.with_name(f".{path.name}.{os.getpid()}.{id(path):x}.part")
     if compression is None:
-        file = open(path, "wb")
+        file = open(part, "wb")
     elif compression == "gzip":
-        file = _GzipWriter(open(path, "wb"))
+        file = _GzipWriter(open(part, "wb"))
     else:
-        file = _module(compression).open(path, "wb")
+        file = _module(compression).open(part, "wb")
     try:
         yield file
         file.close()
+        os.replace(part, path)
     except BaseException:
         try:
             file.close()
         finally:
-            path.unlink(missing_ok=True)
+            part.unlink(missing_ok=True)
         raise

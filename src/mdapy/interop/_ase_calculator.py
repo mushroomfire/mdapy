@@ -87,9 +87,10 @@ def to_ase_calculator(calculator: Calculator) -> Any:
                 self.results["energies"] = np.array(result.atomic_energies)
             if result.forces is not None:
                 self.results["forces"] = np.array(result.forces)
-            if result.virial is not None:
+            # atoms without a cell, such as a molecule, have no stress
+            if result.virial is not None and volume > 0:
                 self.results["stress"] = _voigt(-np.asarray(result.virial) / volume)
-            if result.atomic_virials is not None:
+            if result.atomic_virials is not None and volume > 0:
                 self.results["stresses"] = _voigt(
                     -np.asarray(result.atomic_virials) / volume
                 )

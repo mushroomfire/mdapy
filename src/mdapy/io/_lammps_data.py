@@ -1027,22 +1027,26 @@ def _write(
     systems: Iterable[System],
     *,
     atom_style: str | None = None,
-    units: str = "metal",
+    units: str | None = None,
     elements: Sequence[str] | None = None,
     triclinic: str = "auto",
 ) -> None:
     if atom_style is not None and atom_style not in _STYLES:
         raise _unsupported_style(atom_style)
-    if units not in _UNITS:
+    if units is not None and units not in _UNITS:
         raise InvalidParameter(f"units must be 'metal' or 'real', not {units!r}")
     if triclinic not in ("auto", "general", "restricted"):
         raise InvalidParameter(
             f"triclinic must be 'auto', 'general' or 'restricted', not {triclinic!r}"
         )
     for system in systems:
-        plan = _plan(system, atom_style, units, elements, triclinic)
+        # by default the units the file was read in, as for the atom style
+        chosen = units or _lammps_info(system).get("units") or "metal"
+        if chosen not in _UNITS:
+            chosen = "metal"
+        plan = _plan(system, atom_style, chosen, elements, triclinic)
         table = system.table
-        file.write(_header_text(system, plan, units).encode())
+        file.write(_header_text(system, plan, chosen).encode())
         columns: list[tuple] = [("i", plan["ids"])]
         for name in _STYLES[plan["style"]]:
             if name == "molecule":
@@ -1064,7 +1068,7 @@ def _write(
         write_rows(file, columns)
         if plan["velocities"] is not None:
             file.write(b"\nVelocities\n\n")
-            shift = -3 if units == "real" else 0  # Å/ps to Å/fs, exactly
+            shift = -3 if chosen == "real" else 0  # Å/ps to Å/fs, exactly
             write_rows(file, [("i", plan["ids"]), ("f", plan["velocities"], shift)])
         for kind, (atom_ids, numbers) in plan["terms"].items():
             file.write(f"\n{kind.capitalize()}\n\n".encode())

@@ -115,6 +115,11 @@ unchanged. `info` cannot use the keys `Lattice`, `pbc`, `Origin` and
 - **ASE** stores momenta rather than velocities; MDAPY reads them and writes
   `vel`, which ASE keeps as an array named `vel`. ASE reads a `charge`
   property as charges computed by a calculator.
+- **OVITO** writes velocities as `velo`, in the units it was given them, and
+  reads MDAPY's `vel` as a property of that name. MDAPY keeps `velo` as a
+  column of that name, since its units are not in the file; for velocities
+  that came from LAMMPS in metal units, `system.with_columns(velocities=system["velo"])`
+  takes them in Å/ps.
 - **GPUMD** training files (`train.xyz`) give `energy`, `virial` in eV or
   `stress` in eV/Å<sup>3</sup> with the sign above, and `force` per atom.
   GPUMD's `dump_exyz` writes its pressure tensor under the key `stress`; it is

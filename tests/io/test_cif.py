@@ -281,3 +281,19 @@ def test_a_missing_coordinate(tmp_path):
     )
     with pytest.raises(FileFormatError, match="_atom_site_fract_y is missing"):
         mdapy.io.read(path)
+
+
+def test_partly_occupied_sites_warn(tmp_path):
+    # Cu and Au sharing a site at random: both atoms are kept, on one place
+    path = tmp_path / "alloy.cif"
+    path.write_text(
+        "data_cuau\n_cell_length_a 3.8\n_cell_length_b 3.8\n_cell_length_c 3.8\n"
+        "_cell_angle_alpha 90\n_cell_angle_beta 90\n_cell_angle_gamma 90\n"
+        "loop_\n_atom_site_type_symbol\n_atom_site_fract_x\n_atom_site_fract_y\n"
+        "_atom_site_fract_z\n_atom_site_occupancy\n"
+        "Cu 0 0 0 0.5(1)\nAu 0 0 0 0.5\nO 0.5 0.5 0.5 1.0\nN 0.5 0 0 ?\n"
+    )
+    with pytest.warns(UserWarning, match="data_cuau: 2 of 4 sites are partly occupied"):
+        system = mdapy.io.read(path)
+    assert len(system) == 4
+    np.testing.assert_array_equal(system["positions"][0], system["positions"][1])

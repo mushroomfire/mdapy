@@ -234,12 +234,13 @@ def test_debye_of_an_ideal_gas():
     assert np.abs(result.s[10:] - 1.0).max() < 0.05
 
 
-@pytest.mark.parametrize("length", [1e5, 1e12, 1e18])
+@pytest.mark.parametrize("length", [1000.0, 1e5, 1e12, 1e18])
 def test_too_many_wave_vectors(length):
+    # at 1000 Å, 2.3e8 vectors up to 3 1/Å, 3.6 GB: refused too
     # the indices did not fit an integer, which crashed
     rng = np.random.default_rng(1)
     system = mdapy.System(
         rng.random((20, 3)) * length, mdapy.Box(length), elements="Cu"
     )
     with pytest.raises(InvalidParameter, match="too many wave vectors"):
-        StructureFactor(5.0).compute(system)
+        StructureFactor(3.0).compute(system)

@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import build as _native
-from mdapy.build._alloy import random_alloy
+from mdapy.build._alloy import _with_elements, random_alloy
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.errors import InvalidParameter
@@ -116,4 +116,4 @@ def sqs_alloy(
         progress,
         _native_token(cancel),
     )
-    return system.with_columns(element=[names[t] for t in best])
+    return _with_elements(system, [names[t] for t in best])

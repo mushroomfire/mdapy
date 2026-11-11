@@ -241,6 +241,28 @@ nb::tuple voronoi(Positions3 positions, Matrix3 matrix, Origin3 origin, Periodic
                           as_array(std::move(cells.coordination)), found, shapes);
 }
 
+// The Delaunay tetrahedra of the vertices of Voronoi cells, for the tests of
+// the tessellation: atoms (T, 4), shifts (T, 4, 3), neighbors (T, 4), sides
+// (T, 4) and whether an atom met its own image; window as voronoi_vertices.
+nb::tuple delaunay_tetrahedra(Positions3 positions, Matrix3 matrix, Origin3 origin,
+                              Periodic pbc, double window) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    analysis::Tetrahedra tetrahedra;
+    run_released(
+        [&](const Control& control) {
+            tetrahedra = analysis::delaunay(
+                analysis::voronoi_vertices(positions.data(), n, matrix.data(), origin.data(),
+                                           pbc.data(), control, window),
+                control);
+        },
+        nb::none(), nullptr);
+    const bool repeated = tetrahedra.repeated;
+    return nb::make_tuple(as_array(std::move(tetrahedra.atoms)),
+                          as_array(std::move(tetrahedra.shifts)),
+                          as_array(std::move(tetrahedra.neighbors)),
+                          as_array(std::move(tetrahedra.sides)), repeated);
+}
+
 nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix,
                        Origin3 origin, Periodic pbc, double radius, int smoothing, bool regions,
                        nb::handle progress, const CancelToken* cancel) {
@@ -258,9 +280,7 @@ nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix
                                            pbc.data(), stage(control, 0, 4)),
                 stage(control, 1, 4));
             if (tetrahedra.repeated) {
-                throw std::invalid_argument(
-                    "an atom meets its own periodic image: replicate the system along its "
-                    "short periodic directions");
+                throw std::invalid_argument("an atom meets its own periodic image");
             }
             mesh = analysis::alpha_shape(tetrahedra, n, positions.data(), jittered.data(),
                                          matrix.data(), radius, stage(control, 2, 4));
@@ -332,7 +352,7 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.defects.faces)), as_array(std::move(found.defects.shifts)),
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
-        as_array(std::move(found.interface.shifts)));
+        as_array(std::move(found.interface.shifts)), as_array(std::move(found.spatial)));
 }
 
 nb::object soap(Types species, int species_count, Vectors positions, Matrix3 matrix,
@@ -914,6 +934,8 @@ void bind_analysis(nb::module_& m) {
     m.def("elastic_strain", &elastic_strain, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("crystal"), nb::arg("a"),
           nb::arg("axial"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("delaunay_tetrahedra", &delaunay_tetrahedra, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("origin"), nb::arg("pbc"), nb::arg("window") = 1e-10);
     m.def("surface_mesh", &surface_mesh, nb::arg("positions"), nb::arg("jittered"),
           nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"), nb::arg("radius"),
           nb::arg("smoothing"), nb::arg("regions"), nb::arg("progress") = nb::none(),

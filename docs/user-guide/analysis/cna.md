@@ -101,9 +101,10 @@ $$
 
 With `cutoff`, the conventional analysis, the neighbors of an atom are those
 closer than the cutoff, and an atom must have exactly 12 or 14 of them; the
-same cutoff decides the bonds between neighbors. A cutoff between the first
-and second shells is $0.854\,a$ for fcc and $1.207\,a$ for bcc of lattice
-constant $a$.
+same cutoff decides the bonds between neighbors. For a lattice constant $a$,
+a cutoff between the first and second shells of fcc is $0.854\,a$; for bcc,
+whose 14 neighbors are its first two shells, a cutoff between the second and
+third is $1.207\,a$.
 
 In a system without periodic directions and fewer than 15 atoms, the
 neighbors of each atom are all the others.

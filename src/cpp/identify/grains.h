@@ -55,7 +55,7 @@ struct GrainInput {
 
 struct GrainOutput {
     std::vector<std::int64_t> grain;  // of each atom, -1 for none
-    // of each grain, largest first
+    // of each grain; ranked by size before the atoms in no grain join them
     std::vector<std::int64_t> size;
     std::vector<std::int8_t> structure;
     std::vector<double> orientation;  // x, y, z, w

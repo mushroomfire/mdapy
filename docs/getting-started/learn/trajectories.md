@@ -151,6 +151,8 @@ with read_trajectory("melt.xyz") as trajectory:
     print(np.round(again.values, 2))
 ```
 
+The melting differs a little from one computer to another, so your numbers may too:
+
 ```text
 61
 [0.61 0.6  0.49 0.3  0.03 0.   0.  ]
@@ -167,8 +169,8 @@ with read_trajectory("melt.xyz") as trajectory:
     ```python
     from mdapy.analysis import LindemannIndex
 
-    print(LindemannIndex().compute(frames[:20]).index)  # solid: 0.014
-    print(LindemannIndex().compute(frames[-20:]).index)  # liquid: 0.127
+    print(LindemannIndex().compute(frames[:20]).index)  # solid: about 0.01
+    print(LindemannIndex().compute(frames[-20:]).index)  # liquid: about 0.13
     ```
 
 Next: [your own files](your-files.md). See also

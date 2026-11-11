@@ -163,7 +163,7 @@ If MDAPY contributes to a publication, please cite:
 > (2023). [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 
 [Papers citing MDAPY](https://mushroomfire.github.io/mdapy/about/citations/) lists, by year,
-the work done with it.
+the papers that cite it.
 
 ## 📄 License
 

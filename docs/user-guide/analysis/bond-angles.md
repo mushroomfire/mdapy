@@ -75,7 +75,7 @@ A `BondAngleResult`:
 | `edges` | (bins + 1,) float64 | bin edges in degrees |
 | `counts` | (bins,) int64 | number of angles in each bin |
 | `density` | (bins,) float64 | the counts normalized so that their integral over degrees is 1 |
-| `partial` | dict of (str, str, str) to (B,) int64 | counts for each triplet `(a, b, c)`: an atom of element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after `c` by atomic number; they add up to `counts` |
+| `partial` | dict of (str, str, str) to (bins,) int64 | counts for each triplet `(a, b, c)`: an atom of element `a` at the vertex and neighbors of elements `b` and `c`, `b` not after `c` by atomic number; they add up to `counts` |
 | `triplet(a, b, c)` | (bins,) int64 | the counts of the triplet, with `b` and `c` in either order |
 
 ## Errors

@@ -66,7 +66,7 @@ jobs:
       # the headers of Vulkan, for the pictures on the GPU (no GPU here)
       - name: Vulkan headers
         if: runner.os == 'Linux'
-        run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
+        run: sudo sed -i -E 's#https?://security.ubuntu.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true; sudo apt-get update -q && sudo apt-get install -y -q -o Acquire::Retries=5 libvulkan-dev
       # the lower bounds of the dependencies in pyproject.toml, as exact versions
       - name: Lowest NumPy and polars
         if: matrix.lowest
@@ -88,7 +88,7 @@ jobs:
       # and of Vulkan run on drivers on the processor, which pictures never use otherwise.
       - name: A Vulkan driver on the processor
         if: runner.os == 'Linux' && matrix.python == '3.14'
-        run: sudo apt-get install -y -q libvulkan1 mesa-vulkan-drivers
+        run: sudo apt-get install -y -q -o Acquire::Retries=5 libvulkan1 mesa-vulkan-drivers
       - name: Pictures on a driver on the processor
         if: runner.os == 'Windows' || (runner.os == 'Linux' && matrix.python == '3.14')
         shell: bash
@@ -164,7 +164,7 @@ jobs:
       - run: pip install dscribe==2.1.2
       # atomsk for the comparisons of the structure builder, at its reference
       # version, built once; it needs the Fortran and LAPACK libraries to run
-      - run: sudo apt-get update -q && sudo apt-get install -y -q gfortran liblapack-dev
+      - run: sudo sed -i -E 's#https?://security.ubuntu.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true; sudo apt-get update -q && sudo apt-get install -y -q -o Acquire::Retries=5 gfortran liblapack-dev
       - uses: actions/cache@v4
         id: atomsk
         with:
@@ -257,7 +257,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: Clang with libFuzzer
-        run: sudo apt-get update -q && sudo apt-get install -y -q clang-18 libclang-rt-18-dev
+        run: sudo sed -i -E 's#https?://security.ubuntu.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true; sudo apt-get update -q && sudo apt-get install -y -q -o Acquire::Retries=5 clang-18 libclang-rt-18-dev
       - name: Build
         run: |
           for target in numbers table; do

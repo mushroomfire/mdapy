@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.15"
       - name: Vulkan headers
-        run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
+        run: sudo sed -i -E 's#https?://security.ubuntu.com/ubuntu#http://azure.archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list.d/*.sources /etc/apt/sources.list 2>/dev/null || true; sudo apt-get update -q && sudo apt-get install -y -q -o Acquire::Retries=5 libvulkan-dev
       - name: Install
         run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=ON
       - name: Newest releases

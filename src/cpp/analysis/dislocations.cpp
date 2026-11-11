@@ -7,17 +7,214 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstddef>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "analysis/dxa_mapping.h"
 #include "analysis/dxa_mesh.h"
 #include "analysis/tessellation.h"
 #include "analysis/voronoi.h"
+#include "neighbor/cell_list.h"
 
 namespace mdapy::analysis {
 namespace {
+
+// Clusters of the crystal's structure smaller than this are slivers, such as
+// the one layer of crystal inside an extrinsic stacking fault: their frame
+// rests on a few atoms.
+constexpr std::int64_t kSliver = 100;
+
+// About a line, the atoms of its cluster closer than this (Å) to a point of
+// it fit the lattice there; turned from the frame of the cluster by more
+// than kTurned, with at least kFewest atoms, the lattice there gives the
+// spatial Burgers vector instead of the cluster's mean orientation, as when
+// one cluster holds two grains.
+constexpr double kAbout = 7.0;
+constexpr double kTurned = 3.0 * 3.14159265358979323846 / 180.0;
+constexpr std::int64_t kFewest = 10;
+
+// The rotation of the polar decomposition of m, by Newton's iteration.
+dxa::Mat rotation_of(dxa::Mat r) {
+    for (int step = 0; step < 100; ++step) {
+        const auto inverse = dxa::inverse(r);
+        if (!inverse) {
+            break;
+        }
+        const dxa::Mat back = dxa::transpose(*inverse);
+        double change = 0.0;
+        for (std::size_t k = 0; k < 9; ++k) {
+            const double next = 0.5 * (r[k] + back[k]);
+            change = std::max(change, std::abs(next - r[k]));
+            r[k] = next;
+        }
+        if (change < 1e-15) {
+            break;
+        }
+    }
+    return r;
+}
+
+// The vector from atom a to atom b, the nearest image along periodic axes.
+dxa::Vec bond(const dxa::ClusterInput& input, std::int64_t a, std::int64_t b) {
+    const double* x = input.positions;
+    double f[3];
+    for (int e = 0; e < 3; ++e) {
+        f[e] = 0.0;
+        for (int k = 0; k < 3; ++k) {
+            f[e] += (x[3 * b + k] - x[3 * a + k]) * input.inverse[3 * k + e];
+        }
+        if (input.pbc[e]) {
+            f[e] -= std::round(f[e]);
+        }
+    }
+    dxa::Vec d{};
+    for (int k = 0; k < 3; ++k) {
+        d[static_cast<std::size_t>(k)] =
+            f[0] * input.matrix[k] + f[1] * input.matrix[3 + k] + f[2] * input.matrix[6 + k];
+    }
+    return d;
+}
+
+// The spatial Burgers vector of each line (3 each): its vector turned by the
+// orientation of its cluster, or, where the lattice about the line is turned
+// from the cluster's frame, by that rotation times the stretch of the cluster.
+std::vector<double> spatial_burgers(const dxa::Network& network, const dxa::Clusters& clusters,
+                                    const dxa::ClusterInput& input, const double* origin,
+                                    const bool* pbc) {
+    const std::int64_t n = input.n;
+    const auto& segments = network.segments;
+    // the points of the lines, put into the box, after the atoms
+    std::vector<double> places(input.positions, input.positions + 3 * n);
+    std::vector<std::int64_t> owner;
+    for (std::size_t s = 0; s < segments.size(); ++s) {
+        const std::vector<double>& points = segments[s].points;
+        for (std::size_t q = 0; q + 2 < points.size(); q += 3) {
+            double f[3];
+            for (int e = 0; e < 3; ++e) {
+                f[e] = 0.0;
+                for (int k = 0; k < 3; ++k) {
+                    f[e] += (points[q + static_cast<std::size_t>(k)] - origin[k]) *
+                            input.inverse[3 * k + e];
+                }
+                if (pbc[e]) {
+                    f[e] -= std::floor(f[e]);
+                }
+            }
+            for (int k = 0; k < 3; ++k) {
+                places.push_back(origin[k] + f[0] * input.matrix[k] + f[1] * input.matrix[3 + k] +
+                                 f[2] * input.matrix[6 + k]);
+            }
+            owner.push_back(static_cast<std::int64_t>(s));
+        }
+    }
+    std::vector<std::pair<std::int64_t, std::int64_t>> near;  // (line, atom)
+    if (!owner.empty() && n > 0) {
+        const auto total = n + static_cast<std::int64_t>(owner.size());
+        const neighbor::CellGrid grid(places.data(), total, input.matrix, origin, pbc, kAbout);
+        for (std::int64_t t = 0; t < total; ++t) {
+            const auto i = static_cast<std::int64_t>(grid.atom(t));
+            if (i < n) {
+                continue;
+            }
+            const std::int64_t s = owner[static_cast<std::size_t>(i - n)];
+            const std::int64_t c = segments[static_cast<std::size_t>(s)].cluster;
+            grid.visit(t, [&](index_t j, const std::int32_t*, double) {
+                if (j < n && c >= 0 && clusters.cluster[static_cast<std::size_t>(j)] == c) {
+                    near.emplace_back(s, static_cast<std::int64_t>(j));
+                }
+            });
+        }
+        std::sort(near.begin(), near.end());
+        near.erase(std::unique(near.begin(), near.end()), near.end());
+    }
+    // the sums of the fits of the lattice about each line
+    std::vector<dxa::Mat> real(segments.size(), dxa::Mat{}), ideal(segments.size(), dxa::Mat{});
+    std::vector<std::int64_t> count(segments.size(), 0);
+    for (const auto& [s, a] : near) {
+        const dxa::Lattice* l = dxa::lattice(input.structure[a]);
+        if (l == nullptr) {
+            continue;
+        }
+        const dxa::Mat& turn = l->group[static_cast<std::size_t>(clusters.rotation[static_cast<std::size_t>(a)])];
+        dxa::Mat& r = real[static_cast<std::size_t>(s)];
+        dxa::Mat& v2 = ideal[static_cast<std::size_t>(s)];
+        for (int k = 0; k < l->neighbors; ++k) {
+            const auto j = static_cast<std::int64_t>(input.neighbors[16 * a + k]);
+            if (j < 0) {
+                continue;
+            }
+            const dxa::Vec v = dxa::turn(turn, l->vectors[static_cast<std::size_t>(k)]);
+            const dxa::Vec d = bond(input, a, j);
+            for (std::size_t p = 0; p < 3; ++p) {
+                for (std::size_t q = 0; q < 3; ++q) {
+                    r[3 * p + q] += d[p] * v[q];
+                    v2[3 * p + q] += v[p] * v[q];
+                }
+            }
+        }
+        ++count[static_cast<std::size_t>(s)];
+    }
+    std::vector<double> out;
+    out.reserve(3 * segments.size());
+    for (std::size_t s = 0; s < segments.size(); ++s) {
+        const dxa::Segment& segment = segments[s];
+        dxa::Mat orientation{};
+        if (segment.cluster >= 0) {
+            std::copy_n(clusters.orientation.begin() + 9 * segment.cluster, 9, orientation.begin());
+        }
+        dxa::Vec spatial = dxa::turn(orientation, segment.burgers);
+        const auto fitted = dxa::inverse(ideal[s]);
+        if (segment.cluster >= 0 && count[s] >= kFewest && fitted) {
+            const dxa::Mat here = rotation_of(dxa::multiply(real[s], *fitted));
+            const dxa::Mat mean = rotation_of(orientation);
+            const dxa::Mat between = dxa::multiply(here, dxa::transpose(mean));
+            const double cosine =
+                std::clamp(0.5 * (between[0] + between[4] + between[8] - 1.0), -1.0, 1.0);
+            if (std::acos(cosine) > kTurned) {
+                const dxa::Mat stretch = dxa::multiply(dxa::transpose(mean), orientation);
+                spatial = dxa::turn(dxa::multiply(here, stretch), segment.burgers);
+            }
+        }
+        out.insert(out.end(), spatial.begin(), spatial.end());
+    }
+    return out;
+}
+
+// A line traced in a sliver of the crystal gets its Burgers vector in the
+// frame of the largest cluster of the crystal related to the sliver, through
+// one cluster at most; the frame of a sliver is fitted to a few atoms only.
+void out_of_slivers(dxa::Network& network, const dxa::Clusters& clusters,
+                    const dxa::Mapping& mapping, int crystal) {
+    const auto count = static_cast<std::int64_t>(clusters.structure.size());
+    for (dxa::Segment& segment : network.segments) {
+        const std::int64_t c = segment.cluster;
+        if (c < 0 || clusters.structure[static_cast<std::size_t>(c)] != crystal ||
+            clusters.size[static_cast<std::size_t>(c)] >= kSliver) {
+            continue;
+        }
+        std::int64_t best = -1;
+        dxa::Mat into{};
+        for (std::int64_t k = 0; k < count; ++k) {
+            const auto size = clusters.size[static_cast<std::size_t>(k)];
+            if (k == c || clusters.structure[static_cast<std::size_t>(k)] != crystal ||
+                size <= clusters.size[static_cast<std::size_t>(c)] ||
+                (best >= 0 && size <= clusters.size[static_cast<std::size_t>(best)])) {
+                continue;
+            }
+            if (const auto m = mapping.transition(c, k)) {
+                best = k;
+                into = *m;
+            }
+        }
+        if (best >= 0) {
+            segment.burgers = dxa::turn(into, segment.burgers);
+            segment.cluster = best;
+        }
+    }
+}
 
 // The mesh of the triangles faces of the interface mesh and of caps, the
 // corners of each triangle images of its vertices, the vertices those it
@@ -133,9 +330,10 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
     if (out.clusters.structure.empty()) {
         return out;
     }
-    // tetrahedra with a circumscribed sphere wider than five times the
-    // largest neighbor cutoff, in Å^2, are empty space; the walls of the
-    // open directions lie beyond the reach of such a sphere
+    // tetrahedra whose circumscribed sphere has a squared radius above five
+    // Å times the largest neighbor cutoff are empty space, as in OVITO (the
+    // positions are in Å); the walls of the open directions lie beyond the
+    // reach of such a sphere
     const double alpha = 5 * dxa::neighbor_cutoff(input);
     double walls[9], corner[3];
     std::copy(matrix, matrix + 9, walls);
@@ -187,7 +385,9 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
         dxa::interface_mesh(input, mapping, tetrahedra, good, jittered, alpha);
     out.network = dxa::trace_dislocations(mesh, input, out.clusters, options.max_circuit,
                                           options.stretch, stage(control, 4, kStages));
+    out_of_slivers(out.network, out.clusters, mapping, options.crystal);
     dxa::smooth_lines(out.network, options.separation, options.smoothing);
+    out.spatial = spatial_burgers(out.network, out.clusters, input, origin, pbc);
     out.defects =
         triangles(mesh, out.network.faces, out.network.caps, matrix, inverse, origin, pbc);
     smooth_mesh(out.defects, matrix, options.mesh_smoothing);

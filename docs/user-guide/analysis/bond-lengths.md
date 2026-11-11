@@ -72,7 +72,7 @@ A `BondLengthResult`:
 | `counts` | (bins,) int64 | number of bonds in each bin |
 | `density` | (bins,) float64 | the counts normalized so that their integral over Å is 1 |
 | `bond_lengths` | (bonds,) float64 | the length of each bond, in the order of the topology |
-| `partial` | dict of (str, str) to (B,) int64 | counts for each pair of elements `(a, b)`, `a` not after `b` by atomic number; they add up to `counts` |
+| `partial` | dict of (str, str) to (bins,) int64 | counts for each pair of elements `(a, b)`, `a` not after `b` by atomic number; they add up to `counts` |
 | `pair(a, b)` | (bins,) int64 | the counts of the pair, `a` and `b` in either order |
 
 ## Errors

@@ -65,7 +65,7 @@ A `RadialDistributionResult`:
 | `edges` | (bins + 1,) float64 | bin edges in Å |
 | `g` | (bins,) float64 | g(r) |
 | `coordination` | (bins,) float64 | mean number of neighbors closer than the upper edge of each bin |
-| `partial` | dict of (str, str) to (B,) float64 | g_ab(r) of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
+| `partial` | dict of (str, str) to (bins,) float64 | g_ab(r) of each pair of elements `(a, b)`, `a` not after `b` by atomic number |
 | `pair(a, b)` | (bins,) float64 | g_ab(r), with `a` and `b` in either order |
 
 ## Errors

@@ -3,6 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
+import tempfile
+
 import numpy as np
 import pytest
 
@@ -182,3 +184,62 @@ def test_a_slip_keeps_atoms_outside_the_box_with_their_images():
         plain["positions"]
     )
     np.testing.assert_allclose(apart - np.round(apart), 0.0, atol=1e-9)
+
+
+def lammps_copper():
+    """Copper as read from a LAMMPS data file: types, masses, charges,
+    velocities, ids and a bond."""
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2))
+    n = len(crystal)
+    return mdapy.System(
+        table=crystal.with_columns(
+            id=np.arange(1, n + 1),
+            type=np.ones(n, dtype=np.int32),
+            mass=np.full(n, 63.546),
+            charge=np.full(n, 0.5),
+            velocities=np.ones((n, 3)),
+        ).table,
+        box=crystal.box,
+        topology=mdapy.Topology(bonds=[[0, 1]]),
+    )
+
+
+def test_new_elements_get_their_masses_and_types():
+    """Changed atoms take the mass of their element; types stay where each
+    element keeps one, and go otherwise, so that a data file tells the
+    elements apart."""
+    from mdapy.build import random_alloy
+
+    copper = lammps_copper()
+    alloy = random_alloy(copper, {"Cu": 1, "Ni": 1}, seed=1)
+    nickel = np.asarray(alloy["element"]) == "Ni"
+    np.testing.assert_allclose(alloy["mass"][nickel], 58.6934)
+    np.testing.assert_allclose(alloy["mass"][~nickel], 63.546)
+    assert "type" not in alloy.table.columns
+    with tempfile.TemporaryDirectory() as folder:
+        path = f"{folder}/alloy.data"
+        mdapy.io.write(path, alloy)
+        back = mdapy.io.read(path)
+    assert sorted(set(np.asarray(back["element"]).tolist())) == ["Cu", "Ni"]
+    # a known element keeps its type
+    two = alloy.with_columns(type=np.where(nickel, 2, 1).astype(np.int32))
+    more = substitute(two, "Ni", atoms=[0, 1, 2])
+    assert set(np.asarray(more["type"])[np.asarray(more["element"]) == "Ni"]) == {2}
+    assert np.asarray(more["mass"])[:3].tolist() == [58.6934] * 3
+
+
+def test_interstitials_are_atoms_of_their_own():
+    """Added atoms take no charge, velocity or type of another atom; the
+    bonds stay."""
+    copper = lammps_copper()
+    hydrogen = add_interstitials(copper, "H", positions=[[0.9, 0.9, 0.9]])
+    added = hydrogen.table[-1]
+    assert added["mass"][0] == pytest.approx(1.008)
+    assert added["charge"][0] == 0.0
+    assert added["velocities"].to_list() == [[0.0, 0.0, 0.0]]
+    assert added["id"][0] == len(copper) + 1
+    assert "type" not in hydrogen.table.columns
+    assert hydrogen.topology is not None and len(hydrogen.topology.bonds) == 1
+    again = add_interstitials(copper, "Cu", positions=[[0.9, 0.9, 0.9]])
+    assert np.asarray(again["type"]).tolist() == [1] * (len(copper) + 1)
+    assert again.table[-1]["mass"][0] == pytest.approx(63.546)

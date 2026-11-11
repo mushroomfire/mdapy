@@ -193,7 +193,7 @@ class DislocationResult(Result):
     defect_mesh : TriangleMesh
         The surface around the defects that are not dislocations, such as
         grain boundaries, free surfaces and voids, closed at the free ends
-        of the lines, its normals pointing out of the crystal.
+        of the lines, its normals pointing into the crystal.
     defect_atoms : numpy.ndarray
         (V,) int64 the atom at each vertex of the defect mesh, -1 at the
         end of a line.
@@ -407,7 +407,7 @@ class DislocationAnalysis:
                 progress,
                 _native_token(cancel),
             )
-        except (ValueError, RuntimeError) as error:  # periodic images too close
+        except ValueError as error:  # periodic images too close
             raise InvalidParameter(
                 f"{error}: replicate the system along its short periodic directions"
             ) from None
@@ -432,6 +432,7 @@ class DislocationAnalysis:
             interface_vertices,
             interface_faces,
             interface_shifts,
+            spatial_burgers,
         ) = found
         # the PTM types as indices into NAMES
         index = np.zeros(8, dtype=np.int8)
@@ -447,7 +448,7 @@ class DislocationAnalysis:
             p = points[offsets[s] : offsets[s + 1]]
             p.flags.writeable = False
             b = burgers[s].copy()
-            spatial = orientation[line_cluster[s]] @ b
+            spatial = spatial_burgers[3 * s : 3 * s + 3].copy()
             b.flags.writeable = spatial.flags.writeable = False
             loop = bool(closed[s])
             for end, at in zip(ends[s], (p[0], p[-1])):

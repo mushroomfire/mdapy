@@ -70,12 +70,9 @@ An `ElasticStrainResult`:
 | `strain_tensor` | (N, 3, 3) float64 | the elastic strain $\varepsilon$ of each atom of the crystal in the spatial frame, zero for the other atoms; its column `elastic_strain` |
 | `volumetric` | (N,) float64 | $\operatorname{tr}\varepsilon / 3$, zero for the atoms not of the crystal; its column `elastic_volumetric_strain` |
 
-The structures, the strain tensors and the volumetric strains are those of
-OVITO 3.17.1 atom by atom, within 1e-12, on dislocations, stacking faults
-and deformed crystals of the five lattices. Where OVITO joins crystal
-regions across a stacking fault of a hexagonal crystal, it keeps their
-relation in single precision, and its strains of those atoms differ by
-up to 1e-7. OVITO can also give the strain in the frame of the lattice and
+Where OVITO joins crystal regions across a stacking fault of a hexagonal
+crystal, it keeps the relation between them in single precision, so its
+strains of those atoms differ from these by up to 1e-7. OVITO can also give the strain in the frame of the lattice and
 the deformation gradient, which depend on which of the equivalent frames
 of the lattice it takes for a crystal region; MDAPY gives the strain in the
 spatial frame only, OVITO's default.

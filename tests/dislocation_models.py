@@ -151,3 +151,99 @@ def hexagonal(structure, a, element, kind):
     return insert_dislocation(
         cell, burgers, center=cell.box.matrix.diagonal() / 2 + [0.3, 0.2, 0]
     )
+
+
+def inclined_dislocation(system, burgers, center, cut, poisson=0.33):
+    """A straight dislocation along z whose plane of cut runs from the core
+    along the unit vector cut in the xy plane, the glide plane of burgers:
+    the isotropic field of a screw and an edge part, with OVITO's sign."""
+    b = -np.asarray(burgers, float)
+    cut = np.asarray(cut, float)[:2] / np.linalg.norm(np.asarray(cut, float)[:2])
+    ex = -cut
+    ey = np.array([-ex[1], ex[0]])
+    p = system["positions"]
+    d = p[:, :2] - np.asarray(center)[:2]
+    angle = np.arctan2(d @ ey, d @ ex)
+    r2 = np.einsum("ij,ij->i", d, d)
+    u = np.zeros_like(p)
+    u[:, 2] = b[2] * angle / (2 * np.pi)
+    edge = np.hypot(b[0], b[1])
+    if edge > 1e-12:
+        e1 = b[:2] / edge
+        e2 = np.array([-e1[1], e1[0]])
+        turn = np.arctan2(d @ e2, d @ e1)
+        nu = poisson
+        u1 = edge / (2 * np.pi) * (angle + np.sin(2 * turn) / (4 * (1 - nu)))
+        u2 = (
+            -edge
+            / (2 * np.pi)
+            * (
+                (1 - 2 * nu) / (4 * (1 - nu)) * np.log(r2)
+                + np.cos(2 * turn) / (4 * (1 - nu))
+            )
+        )
+        u[:, :2] += np.outer(u1, e1) + np.outer(u2, e2)
+    return system.with_columns(positions=p + u)
+
+
+def lock(first=(-1, 0, -1), second=(0, -1, 1)):
+    """Two a/2<110> dislocations of copper on (111) and (11-1), along [1-10],
+    driven together in a relaxation with the Zhou potential: the system, the
+    sum of their Burgers vectors in Å, and the axes of the crystal in the box."""
+    from mdapy.calculators import EAM
+    from mdapy.simulation import minimize
+
+    a = 3.615
+    orientation = [(1, 1, 0), (0, 0, 1), (1, -1, 0)]
+    axes = np.array(orientation, float)
+    axes /= np.linalg.norm(axes, axis=1)[:, None]
+    crystal = build_crystal(
+        "fcc", a, elements="Cu", orientation=orientation, repeat=(30, 20, 3)
+    )
+    crystal = crystal.with_box(
+        mdapy.Box(
+            crystal.box.matrix, origin=crystal.box.origin, pbc=(False, False, True)
+        )
+    )
+    middle = crystal.box.matrix.diagonal() / 2 + [0.3, 0.45, 0]
+    system = crystal
+    total = np.zeros(3)
+    for b, normal in ((first, (1, 1, 2.0)), (second, (1, 1, -2.0))):
+        burgers = a / 2 * axes @ np.array(b, float)
+        cut = axes @ np.array(normal)
+        cut = np.sign(cut[0]) * cut / np.linalg.norm(cut)
+        system = inclined_dislocation(system, burgers, middle + 10 * cut, cut)
+        total += burgers
+    p = system["positions"]
+    inner = np.ones(len(p), bool)
+    for k in range(2):
+        inner &= (p[:, k] > p[:, k].min() + 7) & (p[:, k] < p[:, k].max() - 7)
+    system = system.with_columns(movable=np.repeat(inner[:, None], 3, axis=1))
+    relaxed = minimize(system, EAM.zhou(["Cu"]), max_force=5e-3, max_steps=6000)
+    assert relaxed.converged
+    return relaxed.system, total, axes
+
+
+def bicrystal(half_angle=5.0, a=3.615):
+    """Two grains of fcc copper turned by +half_angle and -half_angle degrees
+    about z, left and right of x = 50 Å, open in x and y; and the rotation of
+    the left grain."""
+
+    def turn(degrees):
+        t = np.radians(degrees)
+        return np.array(
+            [[np.cos(t), -np.sin(t), 0], [np.sin(t), np.cos(t), 0], [0, 0, 1]]
+        )
+
+    base = build_crystal("fcc", a, elements="Cu", repeat=(30, 30, 3))
+    lengths = base.box.matrix.diagonal()
+    parts = []
+    for sign in (1, -1):
+        p = (base["positions"] - lengths / 2) @ turn(sign * half_angle).T
+        keep = (p[:, 0] * sign < 0) & (np.abs(p[:, 0]) < 40) & (np.abs(p[:, 1]) < 40)
+        parts.append(p[keep])
+    box = mdapy.Box(np.diag([100.0, 100.0, lengths[2]]), pbc=(False, False, True))
+    system = mdapy.System(np.vstack(parts) + [50.0, 50.0, 0.0], box, elements="Cu")
+    pairs = mdapy.NeighborList.build(system, 1.8)
+    crowded = np.unique(np.maximum(pairs.i, pairs.j))
+    return system.filter(~np.isin(np.arange(len(system)), crowded)), turn(half_angle)

@@ -32,6 +32,52 @@
   six independent components, as GPUMD; the shear components counted twice.
 - `check_frames` finds an atom too close to its own periodic images in a frame of one
   atom.
+- `io.write` writes beside the file and puts the new one in its place when complete: a
+  write that fails leaves a file already there as it was; it removed it before.
+- `read_trajectory(..., topology=)` keeps the periodicity a frame's file tells (LAMMPS
+  dumps, extended XYZ, MDAPY files), as a LAMMPS data file cannot tell its boundaries: a
+  slab read with its dumps stays a slab. Before, the frames were periodic as the
+  topology, as in OVITO.
+- `random_alloy`, `sqs_alloy` and `substitute` give the atoms they change the mass of
+  their element, and keep types only where each element keeps one, so that a LAMMPS data
+  file written after them tells the elements apart; it gave every atom the old type.
+  `add_interstitials` gives the atoms it adds the mass and type of their element, and
+  zero charges and velocities, rather than those of the first atom, and keeps the
+  topology.
+- `replicate` without image flags joins a bond, angle, dihedral or improper across a
+  periodic boundary to the next copy, as LAMMPS `replicate ... bond/periodic`; it kept it
+  in one copy, across the box.
+- `from_ase` takes atoms without a cell, such as a molecule, and with cell vectors of
+  zero along open directions, such as a slab without vacuum; `to_ase_calculator` gives
+  them energies and forces, without stress.
+- `combine` gives the atoms of a system without masses or types those of their
+  elements, and numbers the atoms of a system without ids from 1; it gave zero masses,
+  which were refused, and id 0.
+- `add_graphene` takes a polycrystal with more columns than `build_polycrystal` gives,
+  such as velocities, types or masses, and gives the carbon atoms those of
+  `combine`; it raised `ColumnNotFoundError`.
+- `create_bonds` makes one bond per pair of atoms in a small box, where several images
+  of a pair are close.
+- `EntropyFingerprint` counts every neighbor within the cutoff: those farther than about
+  40 `sigma`, beyond 7.9 Å with the default `sigma=0.2`, added nothing before, as their
+  Gaussians underflowed.
+- `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
+  crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
+  cluster related to it, whose frame is fitted to many atoms; its spatial vector was off
+  by up to 0.5 Å. Where one cluster holds two grains, the spatial Burgers vector of a
+  line follows the lattice about it, not the mean orientation of the cluster; it was
+  off by half the angle between the grains. Elsewhere the results are unchanged.
+- `DislocationAnalysis` and `SurfaceMesh` analyze every crystal: perfect fcc, hcp and
+  diamond crystals from some 15 000 atoms on, built systems and hot crystals were refused
+  at random, more often the larger they were, with a message to replicate the system. The
+  tessellation under them left four atoms nearly on one sphere with an atom's Voronoi
+  cell undecided; such atoms are now settled by their order, alike in every cell.
+- The normals of `DislocationResult.defect_mesh` point into the crystal, as the
+  documentation says; the docstring said out of it.
+- `insert_dislocation` without `elastic`: an edge dislocation no longer leaves a fault
+  from its core to the surface when a plane of atoms lies just below the plane of cut.
+  The displacement lifted such atoms across the plane, and they were moved back as if
+  they had been above it, as atomsk does; above and below are now where the atoms were.
 
 ## 2.0.0
 

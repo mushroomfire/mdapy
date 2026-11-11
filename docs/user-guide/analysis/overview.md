@@ -20,8 +20,8 @@ nl = mp.NeighborList.build(system, 6.0)  # one search for several analyses
 rdf = RadialDistributionFunction(cutoff=6.0).compute(system, neighbors=nl)
 ```
 
-Structure identification is in `mdapy.identify`; every other analysis is in
-`mdapy.analysis`.
+Structure identification is in `mdapy.identify`; every other analysis, the
+space group among them, is in `mdapy.analysis`.
 
 ## Parameters
 
@@ -87,8 +87,8 @@ the system lacks a column the analysis needs; and
 
 | Section | Classes |
 |---|---|
-| Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`PolyhedralTemplateMatching`](ptm.md) · [`PlanarFaults`](planar-faults.md) · [`GrainSegmentation`](grain-segmentation.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
-| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`SpatialCorrelation`](spatial-correlation.md) · [`BondAngleDistribution`](bond-angles.md) · [`BondLengthDistribution`](bond-lengths.md) · [`RingStatistics`](rings.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`VoronoiAnalysis`](voronoi.md) · [`SpatialBinning`](spatial-binning.md) · [`isosurface`](isosurface.md) |
+| Structure identification | [`CommonNeighborAnalysis`](cna.md) · [`AcklandJonesAnalysis`](ackland-jones.md) · [`PolyhedralTemplateMatching`](ptm.md) · [`PlanarFaults`](planar-faults.md) · [`GrainSegmentation`](grain-segmentation.md) · [`SpaceGroup`](space-group.md) · [`DiamondStructure`](diamond.md) · [`ChillPlus`](chill-plus.md) · [`CentroSymmetryParameter`](csp.md) · [`CommonNeighborParameter`](cnp.md) |
+| Local order and distributions | [`RadialDistributionFunction`](rdf.md) · [`CoordinationNumber`](coordination.md) · [`StructureFactor`](structure-factor.md) · [`SpatialCorrelation`](spatial-correlation.md) · [`BondAngleDistribution`](bond-angles.md) · [`BondLengthDistribution`](bond-lengths.md) · [`RingStatistics`](rings.md) · [`WarrenCowley`](warren-cowley.md) · [`SteinhardtParameters`](steinhardt.md) · [`EntropyFingerprint`](entropy.md) · [`VoronoiAnalysis`](voronoi.md) · [`CoordinationPolyhedra`](../visualization/polyhedra.md) · [`SpatialBinning`](spatial-binning.md) · [`isosurface`](isosurface.md) |
 | Statistics | [`Histogram`](histogram.md) · [`reduce`](reduce.md) |
-| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`SurfaceMesh`](surface-mesh.md) · [`DislocationAnalysis`](dislocations.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicDisplacement`](displacement.md) · [`AtomicStrain`](atomic-strain.md) · [`ElasticStrain`](elastic-strain.md) |
+| Defects and deformation | [`ClusterAnalysis`](clusters.md) · [`SurfaceMesh`](surface-mesh.md) · [`ChemicalSpecies`](species.md) · [`DislocationAnalysis`](dislocations.md) · [`WignerSeitz`](wigner-seitz.md) · [`AtomicDisplacement`](displacement.md) · [`AtomicStrain`](atomic-strain.md) · [`ElasticStrain`](elastic-strain.md) |
 | Dynamics | [`MeanSquaredDisplacement`](msd.md) · [`LindemannIndex`](lindemann.md) · [`TimeAverage`](time-average.md) · [`TimeSeries`](time-series.md) · [`FrameDifference`](frame-difference.md) · [`freeze`](freeze.md) · [`smooth_trajectory`](smooth-trajectory.md) · [`trajectory_lines`](trajectory-lines.md) · [`remove_drift`](drift.md) · [`AtomicTemperature`](temperature.md) |

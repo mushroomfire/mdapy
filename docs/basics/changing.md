@@ -237,7 +237,7 @@ if __name__ == "__main__":
 ```
 
 Pickle is no file format, though: a pickle of one version of MDAPY may not
-load in another. Save systems with [mdapy.io.write](io.md).
+load in another. Save systems with [`mdapy.io.write`](io.md).
 
 ## Why nothing changes a system in place
 

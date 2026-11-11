@@ -18,7 +18,7 @@ water = ice.with_columns(positions=ice["positions"] + shake * upper[:, None])
 
 result = ChillPlus(cutoff=3.5).compute(water)
 result.counts()  # {'other': 719, 'hexagonal_ice': 698, ...}
-water = water.with_columns(result)  # the column 'structure'
+water = water.with_columns(result)  # the column 'chill_plus_structure'
 ```
 
 For water of more than oxygen, `water.filter(element="O")` keeps one atom per

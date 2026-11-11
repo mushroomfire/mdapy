@@ -69,7 +69,7 @@ from mdapy.analysis import RingStatistics
 from mdapy.visualization import render, write_png
 
 rings = RingStatistics(20, cutoff=1.8).compute(settled)
-rings.counts[6], rings.counts.sum()  # 2412 of 2564 are hexagons
+rings.counts[6] / rings.counts.sum()  # about 0.94 of the rings are hexagons
 mesh, ring = rings.polygons(settled)
 colors = {
     3: (0.30, 0.69, 0.29),

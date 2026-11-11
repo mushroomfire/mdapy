@@ -98,7 +98,7 @@ box of the same height.
 A sheet has no thickness of its own, so its constants are in N/m. With a thickness
 $h$ chosen by convention, such as the 3.35 Å between the layers of graphite, the
 constants of a material of that thickness are $C[\mathrm{GPa}] = 10\, C[\mathrm{N/m}]
-/ h[\text{Å}]$: 356 N/m is 1063 GPa.
+/ h[\text{Å}]$: 331 N/m is 988 GPa.
 
 ## Molecular dynamics
 

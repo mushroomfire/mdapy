@@ -24,7 +24,7 @@ result = ptm.compute(alloy)
 result.counts()["fcc"]  # 256
 result.interatomic_distance.mean()  # about 2.65 Å, 3.75 / sqrt(2)
 result.orientation[0]  # near (0, 0, 0, 1): the cubic axes along x, y and z
-result.ordering_names[result.ordering[0]]  # "L12_A": a Cu site
+result.ordering_names[result.ordering[0]]  # "L12_B": an Au site, at a corner
 alloy = alloy.with_columns(result)  # structure, rmsd, orientation and more
 ```
 
@@ -154,9 +154,9 @@ with plot.style():
 ![The RMSD of shaken copper](images/ptm-rmsd.png)
 
 *Copper with every atom shaken by a normal distribution of 0.05 to 0.4 Å along each
-axis. The default cutoff of 0.1 (dashed) keeps a crystal shaken by 0.05 Å, about room
-temperature, and a good part of one shaken by 0.1 Å, near melting; a
-crystal shaken by 0.4 Å is no longer one. Raise the cutoff for hot crystals, or use
+axis; at room temperature the atoms of copper vibrate by about 0.08 Å along each axis.
+The default cutoff of 0.1 (dashed) keeps a crystal shaken by 0.05 Å and a good part of
+one shaken by 0.1 Å; a crystal shaken by 0.4 Å is no longer one. Raise the cutoff for hot crystals, or use
 0 to classify every atom by its best template.*
 
 ## Orientations

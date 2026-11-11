@@ -290,6 +290,16 @@ def test_with_box_keeps_or_scales_positions():
     assert s.with_box([[5, 0, 0], [0, 5, 0], [0, 0, 5]]).box == Box(5.0)
 
 
+def test_with_box_of_lattice_vectors_keeps_origin_and_periodicity():
+    slab = water_dimer().with_box(Box(10.0, origin=(1, 2, 3), pbc=(True, True, False)))
+    wider = slab.with_box(np.diag([12.0, 12.0, 10.0]))
+    assert wider.box == Box(
+        [12.0, 12.0, 10.0], origin=(1, 2, 3), pbc=(True, True, False)
+    )
+    # a Box is taken as it is
+    assert slab.with_box(Box(10.0)).box.pbc.all()
+
+
 def test_with_info_adds_replaces_and_removes():
     s = water_dimer()
     s2 = s.with_info(energy=-30.0, timestep=100, virial=None)

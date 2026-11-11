@@ -127,3 +127,37 @@ def test_atoms_made_by_ase():
     atoms.set_constraint(FixBondLength(0, 1))
     with pytest.raises(InvalidParameter, match="FixBondLengths has no equivalent"):
         from_ase(atoms)
+
+
+def test_atoms_without_a_full_cell():
+    """A molecule, an empty Atoms, a slab and a wire whose open directions
+    have cell vectors of zero: open boxes that hold the atoms."""
+    import ase
+    import ase.build
+
+    molecule = from_ase(ase.build.molecule("H2O"))
+    assert molecule.box.pbc.tolist() == [False] * 3
+    fractions = molecule.box.to_fractional(molecule["positions"])
+    assert np.all((fractions > 0) & (fractions < 1))
+    assert len(from_ase(ase.Atoms())) == 0
+    slab = from_ase(ase.build.fcc111("Cu", (2, 2, 3)))
+    assert slab.box.pbc.tolist() == [True, True, False]
+    np.testing.assert_allclose(
+        slab.box.matrix[:2], ase.build.fcc111("Cu", (2, 2, 3)).cell[:2]
+    )
+    np.testing.assert_allclose(
+        slab.box.matrix[2], [0.0, 0.0, 2 * 2.0842344697034 + 2.0]
+    )
+    z = slab.box.to_fractional(slab["positions"])[:, 2]
+    assert z.min() > 0 and z.max() < 1
+    wire = ase.Atoms(
+        "Cu2",
+        positions=[[0, 0, 0], [0, 0, 2.5]],
+        cell=[0, 0, 2.5],
+        pbc=[False, False, True],
+    )
+    line = from_ase(wire)
+    assert line.box.pbc.tolist() == [False, False, True]
+    assert np.linalg.det(line.box.matrix) > 0
+    with pytest.raises(InvalidParameter, match="periodic along a cell vector of zero"):
+        from_ase(ase.Atoms("Cu", pbc=True))

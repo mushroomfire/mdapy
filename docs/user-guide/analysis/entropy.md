@@ -93,7 +93,7 @@ of the neighbors closer than it.
 
 LAMMPS `compute entropy/atom` spreads each neighbor over seven points only;
 MDAPY uses the whole Gaussian, so that equivalent atoms get equal values.
-The two agree to about 0.5 %.
+The two agree to within about 0.7 %.
 
 ## See also
 

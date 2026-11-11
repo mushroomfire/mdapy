@@ -108,6 +108,13 @@ def test_ordered_crystals(structure, elements, first, counts):
             assert r.min() == pytest.approx(distance * a, rel=1e-12)
 
 
+def test_one_repeat_for_every_vector():
+    one = build_crystal("bcc", 2.87, elements="Fe", repeat=3)
+    three = build_crystal("bcc", 2.87, elements="Fe", repeat=(3, 3, 3))
+    assert one.box == three.box and one.table.equals(three.table)
+    assert len(build_crystal("bcc", 2.87, elements="Fe", repeat=np.int64(2))) == 16
+
+
 def test_fcc_of_two_elements_in_layers():
     system = build_crystal("fcc", 3.6, elements=("Cu", "Au"), repeat=(2, 2, 2))
     kinds = np.array(system.table["element"].to_list())
@@ -422,9 +429,11 @@ def test_as_atomsk(tmp_path, structure, a, elements, c, orientation):
     "arguments, message",
     [
         ({"structure": "bct"}, "structure must be one of"),
-        ({"a": 0.0}, "a must be positive"),
-        ({"repeat": (1, 0, 1)}, "repeat must be three positive integers"),
-        ({"repeat": (1.5, 1, 1)}, "repeat must be three positive integers"),
+        ({"a": 0.0}, "a must be a positive number"),
+        ({"a": "3.6"}, "a must be a positive number, not '3.6'"),
+        ({"repeat": (1, 0, 1)}, "repeat must be a positive integer or three"),
+        ({"repeat": 0}, "repeat must be a positive integer or three"),
+        ({"repeat": (1.5, 1, 1)}, "repeat must be a positive integer or three"),
         ({"orientation": [(1, 0, 0), (0, 1, 0)]}, "three directions"),
         ({"orientation": 3}, "three directions"),
         (
@@ -441,7 +450,8 @@ def test_as_atomsk(tmp_path, structure, a, elements, c, orientation):
         ({"c": 4.0}, "c is for hexagonal structures only"),
         ({"elements": ("Cu", "Au", "Ag")}, "fcc takes 1 or 2 elements, not 3"),
         ({"elements": "Cuu"}, "unknown element"),
-        ({"structure": "hcp", "c": -1.0}, "c must be positive"),
+        ({"structure": "hcp", "c": -1.0}, "c must be a positive number"),
+        ({"structure": "hcp", "c": True}, "c must be a positive number"),
         ({"structure": "graphene"}, "graphene needs c"),
         (
             {"structure": "hcp", "orientation": [(1, 0, 0), (2, 0, 0), (0, 0, 1)]},

@@ -51,8 +51,9 @@ Some files, such as LAMMPS data files, give masses but no chemical symbols.
 [`InvalidParameter`](api/utilities.md#mdapy.errors.InvalidParameter) when no element or
 more than one element matches.
 
-By default only elements with at least one stable isotope are considered:
-H to Bi, except Tc and Pm. No two of them have atomic weights within 0.02 amu
-of each other, so the match is unique. Radioactive elements must be listed in
+By default only elements with a standard atomic weight are considered: those
+with at least one stable isotope, H to Bi except Tc and Pm, and Th, Pa and U.
+No two of them have atomic weights within 0.02 amu of each other, so the match
+is unique. Other radioactive elements must be listed in
 `candidates`, because their atomic weights can be almost equal to another
 element's: ²⁰⁹Po and Bi differ by 0.002 amu, ²⁴⁷Cm and ²⁴⁷Bk by 0.00004 amu.

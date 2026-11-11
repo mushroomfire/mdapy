@@ -12,6 +12,7 @@ from mdapy._core import neighbor as _search
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.transform._combine import combine
 
 
 def _boundaries(
@@ -174,7 +175,10 @@ def add_graphene(
         The atoms of the polycrystal left and the carbon atoms of the
         graphene, whose ``grain`` is -1; of two carbon atoms of different
         faces closer than 0.85 bond, where faces meet, the later is left
-        out.
+        out. The carbon atoms get the other columns of the polycrystal as
+        ``mdapy.transform.combine`` gives them: the mass of carbon, a type
+        of their own, ids numbered on, zeros elsewhere. The topology and
+        the info of the polycrystal are kept.
 
     Raises
     ------
@@ -232,7 +236,4 @@ def add_graphene(
     graphene = System(carbon, box, elements="C").with_columns(
         grain=pl.Series(np.full(len(carbon), -1), dtype=metal.table["grain"].dtype)
     )
-    table = pl.concat(
-        [metal.table, graphene.table.select(metal.table.columns)], how="vertical"
-    )
-    return System(table=table, box=box, info=polycrystal.info)
+    return combine(metal, graphene).with_info(polycrystal.info)

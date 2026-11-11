@@ -22,8 +22,9 @@ std::vector<std::int64_t> pair_histogram(const double* positions, std::int64_t n
     const neighbor::CellGrid grid(positions, n, matrix, origin, pbc, r_max);
     using Histogram = std::vector<std::int64_t>;
     const std::size_t size = static_cast<std::size_t>(types) * types * bins;
+    // at most 64 histograms in flight, whatever the number of types
     return parallel_reduce(
-        n, 0, Histogram(size, 0),
+        n, std::max(default_grain(n), (n + 63) / 64), Histogram(size, 0),
         [&](std::int64_t begin, std::int64_t end) {
             Histogram local(size, 0);
             for (std::int64_t t = begin; t < end; ++t) {
@@ -52,8 +53,9 @@ std::vector<std::int64_t> pair_histogram_list(std::int64_t n, const std::int64_t
                                               int types, const Control& control) {
     using Histogram = std::vector<std::int64_t>;
     const std::size_t size = static_cast<std::size_t>(types) * types * bins;
+    // at most 64 histograms in flight, whatever the number of types
     return parallel_reduce(
-        n, 0, Histogram(size, 0),
+        n, std::max(default_grain(n), (n + 63) / 64), Histogram(size, 0),
         [&](std::int64_t begin, std::int64_t end) {
             Histogram local(size, 0);
             for (std::int64_t i = begin; i < end; ++i) {
@@ -145,8 +147,9 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
         b[i][1] = kTwoPi * (u[2] * w[0] - u[0] * w[2]) / det;
         b[i][2] = kTwoPi * (u[0] * w[1] - u[1] * w[0]) / det;
     }
-    // the vectors of a half sphere, some words each, and the indices that reach them
-    constexpr double kMostVectors = 1e9;
+    // the vectors of a half sphere, 16 bytes each, and the indices that reach
+    // them: at most 1e8, 1.6 GB, which already cost hours of sums over atoms
+    constexpr double kMostVectors = 1e8;
     const char* const too_many =
         "q_max gives too many wave vectors in this box: use a smaller q_max or the method debye";
     if (q_max * q_max * q_max * std::fabs(det) / (3.0 * kTwoPi * kTwoPi) > kMostVectors) {
@@ -284,8 +287,10 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
     // the products by pair of types, summed in bins
     const std::size_t pairs = static_cast<std::size_t>(types) * types;
     using Partial = std::pair<std::vector<double>, std::vector<std::int64_t>>;
+    // at most 64 sums in flight, whatever the number of types
     Partial total = parallel_reduce(
-        count, 0, Partial(std::vector<double>(pairs * bins, 0.0), std::vector<std::int64_t>(bins, 0)),
+        count, std::max(default_grain(count), (count + 63) / 64),
+        Partial(std::vector<double>(pairs * bins, 0.0), std::vector<std::int64_t>(bins, 0)),
         [&](std::int64_t begin, std::int64_t end) {
             Partial local(std::vector<double>(pairs * bins, 0.0), std::vector<std::int64_t>(bins, 0));
             for (std::int64_t v = begin; v < end; ++v) {

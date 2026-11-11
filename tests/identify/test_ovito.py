@@ -164,3 +164,18 @@ def test_boxes_smaller_than_the_neighbor_shells(kind, repeat):
         rtol=1e-12,
         atol=1e-12,
     )
+
+
+@pytest.mark.parametrize("jitter", [0.2, 0.25])
+def test_adaptive_cna_of_hot_bcc(jitter):
+    """Many hot bcc atoms, some with a neighbor at the edge of the adaptive
+    cutoff: OVITO's factor 1.207 decides them."""
+    system = crystal("bcc", 2.87, (20, 20, 20), jitter=jitter, seed=3)
+    mode = CommonNeighborAnalysisModifier.Mode
+    adaptive = ovito_particles(
+        system, CommonNeighborAnalysisModifier(mode=mode.AdaptiveCutoff)
+    )
+    check_types(
+        CommonNeighborAnalysis().compute(system).structure,
+        np.asarray(adaptive["Structure Type"]),
+    )

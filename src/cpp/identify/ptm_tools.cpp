@@ -515,8 +515,8 @@ Quaternion best_rotation(const double* S, double bound) {
     const double c2 = -2.0 * squares, c1 = -8.0 * det_s, c0 = determinant4(N);
     // the largest root, by Newton's method from above
     double lambda = bound;
-    if (lambda > 1e-11) {
-        for (int it = 0; it < 50; ++it) {
+    if (lambda > 0.0 && squares > 0.0) {
+        for (int it = 0; it < 100; ++it) {
             const double l2 = lambda * lambda;
             const double f = (l2 + c2) * l2 + c1 * lambda + c0;
             const double df = 4.0 * l2 * lambda + 2.0 * c2 * lambda + c1;

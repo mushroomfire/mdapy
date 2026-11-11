@@ -102,18 +102,30 @@ class Box:
         a0, a1, a2, b0, b1, b2, c0, c1, c2 = m.ravel().tolist()
         if not all(map(math.isfinite, (a0, a1, a2, b0, b1, b2, c0, c1, c2))):
             raise InvalidParameter("box matrix must be finite")
-        scale = (
-            math.sqrt(a0 * a0 + a1 * a1 + a2 * a2)
-            * math.sqrt(b0 * b0 + b1 * b1 + b2 * b2)
-            * math.sqrt(c0 * c0 + c1 * c1 + c2 * c2)
+        # the determinant of the vectors made unit long, which neither
+        # overflows nor underflows for very long or very short vectors
+        la, lb, lc = (
+            math.hypot(a0, a1, a2),
+            math.hypot(b0, b1, b2),
+            math.hypot(c0, c1, c2),
         )
+        if la == 0.0 or lb == 0.0 or lc == 0.0:
+            raise InvalidParameter("box lattice vectors are linearly dependent")
+        a0, a1, a2 = a0 / la, a1 / la, a2 / la
+        b0, b1, b2 = b0 / lb, b1 / lb, b2 / lb
+        c0, c1, c2 = c0 / lc, c1 / lc, c2 / lc
         det = (
             a0 * (b1 * c2 - b2 * c1)
             + a1 * (b2 * c0 - b0 * c2)
             + a2 * (b0 * c1 - b1 * c0)
         )
-        if scale == 0.0 or abs(det) <= _EPS * scale:
+        if abs(det) <= _EPS:
             raise InvalidParameter("box lattice vectors are linearly dependent")
+        if not 0.0 < abs(det) * la * lb * lc < math.inf:
+            raise InvalidParameter(
+                f"box lattice vectors of {la:g}, {lb:g} and {lc:g} Å give a volume "
+                "beyond the range of float64"
+            )
 
         try:
             o = np.array(origin, dtype=np.float64)
@@ -195,6 +207,10 @@ class Box:
         """
         if min(a, b, c) <= 0:
             raise InvalidParameter(f"edge lengths must be positive, got {(a, b, c)}")
+        if not all(0 < angle < 180 for angle in (alpha, beta, gamma)):
+            raise InvalidParameter(
+                f"angles must lie between 0 and 180 degrees, got {(alpha, beta, gamma)}"
+            )
         ca, cb, cg = np.cos(np.radians([alpha, beta, gamma]))
         sg = np.sin(np.radians(gamma))
         if abs(sg) < _EPS:

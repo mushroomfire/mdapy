@@ -533,13 +533,15 @@ class System:
         Parameters
         ----------
         box : Box or array_like
-            The new box, or lattice vectors for ``Box``.
+            The new box, or (3, 3) float64 lattice vectors of a box with the
+            origin and the periodicity of this one.
         scale_positions : bool, optional
             If True, keep the fractional coordinates of the atoms, so that
             they deform with the box. If False (default), keep the Cartesian
             positions.
         """
-        box = self.__checked_box(box)
+        if not isinstance(box, Box):
+            box = Box(box, origin=self.__box.origin, pbc=self.__box.pbc)
         system = self.__derived(box=box)
         if scale_positions:
             frac = self.__box.to_fractional(self["positions"])

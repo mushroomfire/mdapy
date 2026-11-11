@@ -222,3 +222,28 @@ def lock(first=(-1, 0, -1), second=(0, -1, 1)):
     relaxed = minimize(system, EAM.zhou(["Cu"]), max_force=5e-3, max_steps=6000)
     assert relaxed.converged
     return relaxed.system, total, axes
+
+
+def bicrystal(half_angle=5.0, a=3.615):
+    """Two grains of fcc copper turned by +half_angle and -half_angle degrees
+    about z, left and right of x = 50 Å, open in x and y; and the rotation of
+    the left grain."""
+
+    def turn(degrees):
+        t = np.radians(degrees)
+        return np.array(
+            [[np.cos(t), -np.sin(t), 0], [np.sin(t), np.cos(t), 0], [0, 0, 1]]
+        )
+
+    base = build_crystal("fcc", a, elements="Cu", repeat=(30, 30, 3))
+    lengths = base.box.matrix.diagonal()
+    parts = []
+    for sign in (1, -1):
+        p = (base["positions"] - lengths / 2) @ turn(sign * half_angle).T
+        keep = (p[:, 0] * sign < 0) & (np.abs(p[:, 0]) < 40) & (np.abs(p[:, 1]) < 40)
+        parts.append(p[keep])
+    box = mdapy.Box(np.diag([100.0, 100.0, lengths[2]]), pbc=(False, False, True))
+    system = mdapy.System(np.vstack(parts) + [50.0, 50.0, 0.0], box, elements="Cu")
+    pairs = mdapy.NeighborList.build(system, 1.8)
+    crowded = np.unique(np.maximum(pairs.i, pairs.j))
+    return system.filter(~np.isin(np.arange(len(system)), crowded)), turn(half_angle)

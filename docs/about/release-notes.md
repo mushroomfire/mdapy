@@ -17,6 +17,12 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
+  crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
+  cluster related to it, whose frame is fitted to many atoms; its spatial vector was off
+  by up to 0.5 Å. Where one cluster holds two grains, the spatial Burgers vector of a
+  line follows the lattice about it, not the mean orientation of the cluster; it was
+  off by half the angle between the grains. Elsewhere the results are unchanged.
 
 ## 2.0.0
 

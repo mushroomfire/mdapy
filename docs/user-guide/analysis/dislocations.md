@@ -173,7 +173,7 @@ A `DislocationLine`:
 |---|---|---|
 | `points` | (P, 3) float64 | the points along the line in Å, unwrapped: consecutive points are close also across a periodic boundary |
 | `burgers` | (3,) float64 | the Burgers vector in the lattice frame of its crystal cluster, in units of the lattice constant |
-| `spatial_burgers` | (3,) float64 | the Burgers vector in Å along the axes of the box, as the crystal cluster is turned and stretched |
+| `spatial_burgers` | (3,) float64 | the Burgers vector in Å along the axes of the box, as the crystal cluster is turned and stretched; where the lattice about the line, within 7 Å, is turned from the cluster by more than 3°, as when one cluster holds two grains, as that lattice is turned |
 | `cluster` | int32 | the crystal cluster of the lattice frame |
 | `family` | str | the family of the Burgers vector, or `other` |
 | `length` | float64 | the length in Å |
@@ -235,7 +235,7 @@ everywhere:
 | single loops, a loop on a twin boundary, a stacking-fault tetrahedron | the same lines and Burgers vectors, lengths within 3 % |
 | lines that meet: crossing loops, networks | where two lines meet, a short junction line in one and a node of four lines in the other may come out; the same Burgers vectors, total lengths within about 5 % |
 | strongly disordered crystal: large thermal displacements, many vacancies | lines through such regions may end or run otherwise; lengths may differ by up to 20 % |
-| polycrystals | lines and the defect mesh at the grain boundaries may differ by 5 to 10 % |
+| polycrystals | lines and the defect mesh at the grain boundaries may differ by 5 to 20 % |
 
 Where they differ, and why:
 
@@ -256,9 +256,17 @@ Where they differ, and why:
   cluster the one closest to the axes of the box. When two are as close,
   they may take different ones: the lattice Burgers vectors then differ by
   a rotation of the lattice, the spatial ones do not. The Burgers vector
-  of a line is given in the frame of a cluster its first circuit touches;
-  in a distorted crystal two such clusters are turned slightly apart, and
-  the spatial Burgers vectors can differ by up to 0.1 Å.
+  of a line is given in the frame of a cluster its first circuit touches,
+  or of the largest cluster related to it when that one is a sliver of
+  fewer than 100 atoms, such as the layer of crystal inside an extrinsic
+  fault. In a distorted crystal two such clusters are turned slightly
+  apart, and the spatial Burgers vectors can differ by up to 0.1 Å.
+- Both programs may join two grains into one cluster across a boundary
+  whose atoms bridge them, and relate two clusters of unrelated grains by
+  a symmetry of the lattice. MDAPY gives a line in such a cluster the
+  spatial Burgers vector of the lattice about it; at junctions of lines in
+  different grains the spatial vectors need not add up to zero, by up to
+  1 Å.
 
 OVITO's options to analyze the selected atoms only and to mark the atoms of
 the cores, and its export to CA files, are not here.

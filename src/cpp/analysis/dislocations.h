@@ -41,6 +41,7 @@ struct Dislocations {
     dxa::Structures structures;
     dxa::Clusters clusters;
     dxa::Network network;
+    std::vector<double> spatial;  // the spatial Burgers vector of each line, 3 each
     SurfaceMesh defects;
     SurfaceMesh interface;
 };

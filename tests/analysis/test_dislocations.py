@@ -436,3 +436,53 @@ def test_the_lines_of_a_lock_add_up_in_space():
     assert all(result.clusters.sizes[line.cluster] >= 100 for line in result.lines)
     found = sum(line.spatial_burgers for line in result.lines)
     np.testing.assert_allclose(axes @ found, axes @ total, atol=0.03)
+
+
+def test_a_line_in_one_grain_of_a_cluster_of_two():
+    """Two grains 10 degrees apart make one cluster, whose orientation is
+    their mean; the spatial Burgers vector of a dislocation in one of them
+    follows the lattice about it, not the mean, 5 degrees away."""
+    from dislocation_models import bicrystal, inclined_dislocation
+
+    system, left = bicrystal(5.0)
+    b = left @ (np.array([1.0, 1.0, 0.0]) * 3.615 / 2)
+    result = DislocationAnalysis("fcc").compute(
+        inclined_dislocation(system, b, [30.13, 50.07, 0.0], b)
+    )
+    (line,) = [
+        line
+        for line in result.lines
+        if np.linalg.norm(line.points.mean(0)[:2] - [30, 50]) < 3
+    ]
+    assert result.clusters.sizes[line.cluster] > 0.8 * len(system)  # both grains
+    cosine = (
+        line.spatial_burgers
+        @ b
+        / np.linalg.norm(line.spatial_burgers)
+        / np.linalg.norm(b)
+    )
+    assert np.degrees(np.arccos(min(cosine, 1.0))) < 0.3
+    # the mean orientation is 5 degrees away
+    mean = result.clusters.orientation[line.cluster] @ line.burgers
+    cosine = mean @ b / np.linalg.norm(mean) / np.linalg.norm(b)
+    assert np.degrees(np.arccos(min(cosine, 1.0))) > 4
+
+
+def test_a_single_crystal_keeps_the_mean_orientation():
+    """Where the lattice about a line is turned from its cluster by little,
+    the spatial vector is the orientation of the cluster times the lattice
+    vector, exactly."""
+    from mdapy.build import dislocation_quadrupole
+
+    from dislocation_models import CU
+
+    quadrupole = dislocation_quadrupole(
+        "fcc edge", 3.615, CU, (28, 16, 4), elements="Cu", dissociation=10
+    )
+    result = DislocationAnalysis("fcc").compute(quadrupole)
+    assert len(result.lines) == 4
+    for line in result.lines:
+        expected = result.clusters.orientation[line.cluster] @ line.burgers
+        np.testing.assert_allclose(
+            line.spatial_burgers, expected, rtol=1e-14, atol=1e-14
+        )

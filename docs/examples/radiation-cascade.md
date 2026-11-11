@@ -96,7 +96,7 @@ with MolecularDynamics(start, gpu, timestep=0.001) as md:
     )
     md.run(20000, ensemble="nve", thermo=200, save_every=500)
     thermo, frames = md.thermo, md.frames
-frames[-1].info["time"]  # ps, about 15
+frames[-1].info["time"]  # ps, about 20: the steps grew from 0.2 fs to 1 fs
 ```
 
 ## The defects
@@ -122,14 +122,17 @@ with plot.style():
     bottom.set_ylabel("Frenkel pairs")
     bottom.set_xlabel("Time (ps)")
     plot.save(fig, "images/radiation-cascade", formats=("png",))
-pairs.max(), pairs[-1]  # at the peak of the cascade and at the end
+pairs.max(), pairs[-1]  # 26 at the peak of the cascade, about 5 at the end
 ```
 
 ![The temperature and the Frenkel pairs of a cascade of 2 keV in tungsten](images/radiation-cascade.png)
 
-*A cascade of 2 keV in 54000 atoms of tungsten: the temperature of the whole box rises
-by tens of kelvin as the energy of the PKA spreads, and most of the atoms knocked out
-of their places in the first picosecond fall back into vacancies.*
+*A cascade of 2 keV in 54000 atoms of tungsten. The temperature of the box starts near
+580 K, as the 2 keV of the PKA count in the kinetic energy of all the atoms, and falls
+back to 300 K as the border takes the heat away. Of the 26 Frenkel pairs at half a
+picosecond, 5 are left after 3 ps: most of the atoms knocked out of their places fall
+back into vacancies as the cascade cools. The dynamics are chaotic, so another run, or
+another GPU, leaves a few more or fewer.*
 
 The vacancies and the interstitials at the end:
 
@@ -144,13 +147,15 @@ vacancies = crystal.gather(results[-1].vacancies)  # the empty sites
 defects = combine(vacancies, interstitials)
 blue, red = (0.15, 0.39, 0.92), (0.86, 0.15, 0.47)
 colors = np.where(np.arange(len(defects))[:, None] < len(vacancies), blue, red)
-render(defects, "images/radiation-cascade-defects.png", color=colors, width=900, height=700)
+render(
+    defects, "images/radiation-cascade-defects.png", color=colors, width=900, height=700
+)
 ```
 
 ![The vacancies and interstitials left by the cascade](images/radiation-cascade-defects.png)
 
-*The vacancies in blue and the atoms of the interstitials in red, left about the center
-of the box, where the cascade began.*
+*The five vacancies in blue, at the center of the box where the cascade began, and the
+five interstitials around them in red, each two atoms sharing one site.*
 
 ## See also
 

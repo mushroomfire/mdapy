@@ -8030,7 +8030,7 @@ as OVITO 3.17.1, atom by atom.</p>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">]</span>  <span class="c1"># 256</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">result</span><span class="o">.</span><span class="n">interatomic_distance</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>  <span class="c1"># about 2.65 Å, 3.75 / sqrt(2)</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">result</span><span class="o">.</span><span class="n">orientation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># near (0, 0, 0, 1): the cubic axes along x, y and z</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">result</span><span class="o">.</span><span class="n">ordering_names</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">ordering</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>  <span class="c1"># "L12_A": a Cu site</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">result</span><span class="o">.</span><span class="n">ordering_names</span><span class="p">[</span><span class="n">result</span><span class="o">.</span><span class="n">ordering</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>  <span class="c1"># "L12_B": an Au site, at a corner</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">alloy</span> <span class="o">=</span> <span class="n">alloy</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># structure, rmsd, orientation and more</span>
 </code></pre></div>
 <h2 id="the-structures">The structures<a class="headerlink" href="#the-structures" title="Permanent link">&para;</a></h2>
@@ -8186,9 +8186,9 @@ where the crystal ends and the disorder begins:</p>
 </code></pre></div>
 <p><img alt="The RMSD of shaken copper" src="../images/ptm-rmsd.png" /></p>
 <p><em>Copper with every atom shaken by a normal distribution of 0.05 to 0.4 Å along each
-axis. The default cutoff of 0.1 (dashed) keeps a crystal shaken by 0.05 Å, about room
-temperature, and a good part of one shaken by 0.1 Å, near melting; a
-crystal shaken by 0.4 Å is no longer one. Raise the cutoff for hot crystals, or use
+axis; at room temperature the atoms of copper vibrate by about 0.08 Å along each axis.
+The default cutoff of 0.1 (dashed) keeps a crystal shaken by 0.05 Å and a good part of
+one shaken by 0.1 Å; a crystal shaken by 0.4 Å is no longer one. Raise the cutoff for hot crystals, or use
 0 to classify every atom by its best template.</em></p>
 <h2 id="orientations">Orientations<a class="headerlink" href="#orientations" title="Permanent link">&para;</a></h2>
 <p><code>orientation</code> is the rotation of the lattice of each atom from its standard

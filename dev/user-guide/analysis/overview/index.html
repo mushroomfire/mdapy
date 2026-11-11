@@ -7913,8 +7913,8 @@ returns a result.</p>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">nl</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">NeighborList</span><span class="o">.</span><span class="n">build</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="mf">6.0</span><span class="p">)</span>  <span class="c1"># one search for several analyses</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">rdf</span> <span class="o">=</span> <span class="n">RadialDistributionFunction</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">neighbors</span><span class="o">=</span><span class="n">nl</span><span class="p">)</span>
 </code></pre></div>
-<p>Structure identification is in <code>mdapy.identify</code>; every other analysis is in
-<code>mdapy.analysis</code>.</p>
+<p>Structure identification is in <code>mdapy.identify</code>; every other analysis, the
+space group among them, is in <code>mdapy.analysis</code>.</p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <p>The constructor of an analysis takes its parameters and checks them, so a
 wrong value fails before any computation. <code>compute</code> takes:</p>
@@ -8033,11 +8033,11 @@ the system lacks a column the analysis needs; and
 <tbody>
 <tr>
 <td>Structure identification</td>
-<td><a href="../cna/"><code>CommonNeighborAnalysis</code></a> · <a href="../ackland-jones/"><code>AcklandJonesAnalysis</code></a> · <a href="../ptm/"><code>PolyhedralTemplateMatching</code></a> · <a href="../planar-faults/"><code>PlanarFaults</code></a> · <a href="../grain-segmentation/"><code>GrainSegmentation</code></a> · <a href="../diamond/"><code>DiamondStructure</code></a> · <a href="../chill-plus/"><code>ChillPlus</code></a> · <a href="../csp/"><code>CentroSymmetryParameter</code></a> · <a href="../cnp/"><code>CommonNeighborParameter</code></a></td>
+<td><a href="../cna/"><code>CommonNeighborAnalysis</code></a> · <a href="../ackland-jones/"><code>AcklandJonesAnalysis</code></a> · <a href="../ptm/"><code>PolyhedralTemplateMatching</code></a> · <a href="../planar-faults/"><code>PlanarFaults</code></a> · <a href="../grain-segmentation/"><code>GrainSegmentation</code></a> · <a href="../space-group/"><code>SpaceGroup</code></a> · <a href="../diamond/"><code>DiamondStructure</code></a> · <a href="../chill-plus/"><code>ChillPlus</code></a> · <a href="../csp/"><code>CentroSymmetryParameter</code></a> · <a href="../cnp/"><code>CommonNeighborParameter</code></a></td>
 </tr>
 <tr>
 <td>Local order and distributions</td>
-<td><a href="../rdf/"><code>RadialDistributionFunction</code></a> · <a href="../coordination/"><code>CoordinationNumber</code></a> · <a href="../structure-factor/"><code>StructureFactor</code></a> · <a href="../spatial-correlation/"><code>SpatialCorrelation</code></a> · <a href="../bond-angles/"><code>BondAngleDistribution</code></a> · <a href="../bond-lengths/"><code>BondLengthDistribution</code></a> · <a href="../rings/"><code>RingStatistics</code></a> · <a href="../warren-cowley/"><code>WarrenCowley</code></a> · <a href="../steinhardt/"><code>SteinhardtParameters</code></a> · <a href="../entropy/"><code>EntropyFingerprint</code></a> · <a href="../voronoi/"><code>VoronoiAnalysis</code></a> · <a href="../spatial-binning/"><code>SpatialBinning</code></a> · <a href="../isosurface/"><code>isosurface</code></a></td>
+<td><a href="../rdf/"><code>RadialDistributionFunction</code></a> · <a href="../coordination/"><code>CoordinationNumber</code></a> · <a href="../structure-factor/"><code>StructureFactor</code></a> · <a href="../spatial-correlation/"><code>SpatialCorrelation</code></a> · <a href="../bond-angles/"><code>BondAngleDistribution</code></a> · <a href="../bond-lengths/"><code>BondLengthDistribution</code></a> · <a href="../rings/"><code>RingStatistics</code></a> · <a href="../warren-cowley/"><code>WarrenCowley</code></a> · <a href="../steinhardt/"><code>SteinhardtParameters</code></a> · <a href="../entropy/"><code>EntropyFingerprint</code></a> · <a href="../voronoi/"><code>VoronoiAnalysis</code></a> · <a href="../../visualization/polyhedra/"><code>CoordinationPolyhedra</code></a> · <a href="../spatial-binning/"><code>SpatialBinning</code></a> · <a href="../isosurface/"><code>isosurface</code></a></td>
 </tr>
 <tr>
 <td>Statistics</td>
@@ -8045,7 +8045,7 @@ the system lacks a column the analysis needs; and
 </tr>
 <tr>
 <td>Defects and deformation</td>
-<td><a href="../clusters/"><code>ClusterAnalysis</code></a> · <a href="../surface-mesh/"><code>SurfaceMesh</code></a> · <a href="../dislocations/"><code>DislocationAnalysis</code></a> · <a href="../wigner-seitz/"><code>WignerSeitz</code></a> · <a href="../displacement/"><code>AtomicDisplacement</code></a> · <a href="../atomic-strain/"><code>AtomicStrain</code></a> · <a href="../elastic-strain/"><code>ElasticStrain</code></a></td>
+<td><a href="../clusters/"><code>ClusterAnalysis</code></a> · <a href="../surface-mesh/"><code>SurfaceMesh</code></a> · <a href="../species/"><code>ChemicalSpecies</code></a> · <a href="../dislocations/"><code>DislocationAnalysis</code></a> · <a href="../wigner-seitz/"><code>WignerSeitz</code></a> · <a href="../displacement/"><code>AtomicDisplacement</code></a> · <a href="../atomic-strain/"><code>AtomicStrain</code></a> · <a href="../elastic-strain/"><code>ElasticStrain</code></a></td>
 </tr>
 <tr>
 <td>Dynamics</td>

@@ -7914,7 +7914,7 @@ neighboring molecules.</p>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">ChillPlus</span><span class="p">(</span><span class="n">cutoff</span><span class="o">=</span><span class="mf">3.5</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">water</span><span class="p">)</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">result</span><span class="o">.</span><span class="n">counts</span><span class="p">()</span>  <span class="c1"># {'other': 719, 'hexagonal_ice': 698, ...}</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">water</span> <span class="o">=</span> <span class="n">water</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># the column 'structure'</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">water</span> <span class="o">=</span> <span class="n">water</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># the column 'chill_plus_structure'</span>
 </code></pre></div>
 <p>For water of more than oxygen, <code>water.filter(element="O")</code> keeps one atom per
 molecule. Each molecule in the color of its structure:</p>

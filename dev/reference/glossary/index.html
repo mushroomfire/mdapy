@@ -7908,8 +7908,7 @@
 
 <h1 id="glossary">Glossary<a class="headerlink" href="#glossary" title="Permanent link">&para;</a></h1>
 <p>These are the names MDAPY uses. Every module follows them, so a concept has
-one name everywhere. Some entries describe components that are still being
-implemented.</p>
+one name everywhere.</p>
 <h2 id="data-model">Data model<a class="headerlink" href="#data-model" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8276,19 +8275,19 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tbody>
 <tr>
 <td><code>positions</code></td>
-<td>3 float64</td>
+<td>(3,) float64</td>
 <td>Å</td>
 <td>positions</td>
 </tr>
 <tr>
 <td><code>velocities</code></td>
-<td>3 float64</td>
+<td>(3,) float64</td>
 <td>Å/ps</td>
 <td>velocities</td>
 </tr>
 <tr>
 <td><code>forces</code></td>
-<td>3 float64</td>
+<td>(3,) float64</td>
 <td>eV/Å</td>
 <td>forces</td>
 </tr>
@@ -8342,7 +8341,7 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 </tr>
 <tr>
 <td><code>image</code></td>
-<td>3 int32</td>
+<td>(3,) int32</td>
 <td></td>
 <td>periodic image flags</td>
 </tr>
@@ -8456,7 +8455,7 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 </tr>
 <tr>
 <td><code>displacement</code>, <code>displacement_magnitude</code></td>
-<td>3 float64, float64</td>
+<td>(3,) float64, float64</td>
 <td>Å, Å</td>
 <td>displacement of an atom from a reference, and its length (<code>AtomicDisplacement</code>)</td>
 </tr>

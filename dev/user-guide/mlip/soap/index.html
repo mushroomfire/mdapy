@@ -8032,7 +8032,7 @@ side by side, each spread by its strains and shaking.</em></p>
 a system with an <code>element</code> column of the species, and optionally a
 <a href="../../../basics/neighbor/">neighbor list</a> reaching <code>reach</code>. The
 property <code>reach</code> is the reach of the neighbors: <code>cutoff</code> and the distance
-over which the Gaussian of a neighbor decays to a thousandth, 1.86 <code>sigma</code>.
+over which the Gaussian of a neighbor decays to a thousandth, 3.72 <code>sigma</code>.
 <code>dimension</code> is the number of values per atom.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A (N, <code>dimension</code>) float64 array: for each atom, for each pair of species
@@ -8059,7 +8059,7 @@ not among the species.</p>
 <p>The density of the neighbors of element Z about atom i is a Gaussian of
 width σ on each, the atom itself included:</p>
 <div class="arithmatex">\[
-\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} &lt; r_\text{cut} + 1.86\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2}.
+\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} &lt; r_\text{cut} + 3.72\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2}.
 \]</div>
 <p>Its coefficients in radial functions <span class="arithmatex">\(g_{nl}\)</span> and real spherical harmonics
 <span class="arithmatex">\(Y_{lm}\)</span> are <span class="arithmatex">\(c^Z_{nlm} = \int g_{nl}(r)\, Y_{lm}(\hat{\mathbf r})\, \rho^Z_i(\mathbf r)\, d\mathbf r\)</span>,

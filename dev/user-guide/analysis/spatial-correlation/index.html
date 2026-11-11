@@ -8123,8 +8123,9 @@ along the others they are left out.</p>
 <code>mean1</code>, <code>mean2</code>, <code>variance1</code>, <code>variance2</code> and <code>covariance</code>, which are the
 means, the mean squares and the mean product. OVITO's plots offer three
 normalizations, each a line of NumPy as above: by the radial distribution
-function, <code>correlation / rdf</code>; by the covariance, divided by
-<code>mean_product</code>; and the difference correlation,
+function, <code>correlation / rdf</code>; by the covariance,
+<code>(correlation - means.prod()) / (mean_product - means.prod())</code>; and the
+difference correlation,
 <code>(mean_squares.sum() / 2) - correlation</code>. Atoms whose value is NaN are left
 out of the grid and make the means NaN.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>

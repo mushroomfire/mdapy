@@ -241,7 +241,7 @@ create_box {len(potential.elements)} box
             pl.Series("image", image.astype(np.int32), dtype=pl.Array(pl.Int32, 3)),
         )
         step = self.step
-        info = self.__info | {"timestep": step, "time": step * self.timestep}
+        info = self.__info | {"timestep": step, "time": self.__time()}
         return System(table=table, box=Box(matrix, origin=origin, pbc=pbc), info=info)
 
     @property
@@ -263,10 +263,15 @@ create_box {len(potential.elements)} box
         """The atoms every ``save_every`` steps of the runs."""
         return tuple(self.__frames)
 
+    def __time(self) -> float:
+        # the time LAMMPS has run, in ps: also when the time step changed on
+        # the way, as with fix dt/reset or the timestep command
+        return float(self.lammps.get_thermo("time"))
+
     def __record(self) -> None:
         lmp = self.lammps
         step = self.step
-        row = {"step": step, "time": step * self.timestep}
+        row = {"step": step, "time": self.__time()}
         for keyword, name in _THERMO:
             row[name] = float(lmp.get_thermo(keyword))
         row["pressure"] *= units.BAR_TO_GPA

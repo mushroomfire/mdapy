@@ -23,6 +23,9 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
+  also after the time step changed, as with `fix dt/reset`; it gave the steps times the
+  first time step.
 - `System.with_box` given lattice vectors keeps the origin and the periodicity of the
   box; it made the box periodic at the origin, so a slab became periodic.
 - `write` of a LAMMPS data file is by default in the units the file was read in, as

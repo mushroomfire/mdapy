@@ -260,6 +260,10 @@ nav:
           - Coloring atoms: user-guide/visualization/colors.md
           - Coordination polyhedra: user-guide/visualization/polyhedra.md
           - Plots: user-guide/visualization/plots.md
+      - Fitting:
+          - Interpolation: user-guide/fitting/interpolation.md
+          - Curve fitting: user-guide/fitting/curve-fitting.md
+          - Equations of state: user-guide/fitting/equation-of-state.md
       - Interoperability:
           - ASE: user-guide/interop/ase.md
           - ASE calculators: user-guide/interop/ase-calculators.md
@@ -291,6 +295,7 @@ nav:
               - Thermodynamics: reference/api/thermodynamics.md
           - MLIP: reference/api/mlip.md
           - Visualization: reference/api/visualization.md
+          - Fitting: reference/api/fitting.md
           - Interoperability: reference/api/interop.md
           - Threads, errors, elements and units: reference/api/utilities.md
       - Conventions:

@@ -35,6 +35,9 @@ one name everywhere.
 | selection | Some atoms of a system, given as a boolean mask of one value per atom or as their indices. |
 | mask | (N,) bool, true for the atoms of a selection; `System.where` gives the mask of conditions, and analyses take one as `atoms`. |
 | overlapping atoms | Atoms closer than a distance to another, such as the copies of an atom or the atoms where structures put together clash; `find_overlapping` selects them. |
+| spline | A curve through values, cubic between neighboring points, whose first and second derivatives are continuous; `Spline` along a line and `GridSpline` on a grid. |
+| least squares | A fit that makes the sum of the squared residuals, the values less the curve, as small as it can, each weighed by 1/σ² when the values have standard deviations σ; `fit_polynomial`, `fit_surface`, `fit_curve`. |
+| equation of state | The energy of a crystal as a function of its volume, of four parameters: the energy and the volume at the minimum, the bulk modulus there and its derivative with respect to the pressure; `fit_eos`. |
 | copy | One of the systems `replicate` places side by side; copy (i, j, l) of (n<sub>a</sub>, n<sub>b</sub>, n<sub>c</sub>) is number i + n<sub>a</sub>(j + n<sub>b</sub> l). |
 | lag | The number of frames between two frames of a trajectory. |
 | time average | The mean of a quantity over the frames of a trajectory, of each atom for a column of the atoms. |

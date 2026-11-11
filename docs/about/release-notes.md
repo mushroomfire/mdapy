@@ -17,6 +17,20 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `mdapy.fitting`, curves and surfaces through data: `Spline` and `GridSpline`, cubic
+  splines along a line and on a grid, with derivatives, `Spline.integral` and the
+  `BOUNDARIES` at their ends, periodic among them; `fit_polynomial` and `fit_surface`,
+  least-squares polynomials of one and two variables, which give a `PolynomialFit` and a
+  `SurfaceFit`; `fit_curve`, functions with parameters fitted by the Levenberg–Marquardt
+  method into a `CurveFit`, from a `Model` (its `name`, `function`, parameters and
+  `guess`) or a plain function, with the `MODELS` `exponential`,
+  `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
+  `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
+  Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
+  parameters with their errors and covariance. See
+  [Interpolation](../user-guide/fitting/interpolation.md),
+  [Curve fitting](../user-guide/fitting/curve-fitting.md) and
+  [Equations of state](../user-guide/fitting/equation-of-state.md).
 - `DislocationAnalysis` and `SurfaceMesh` analyze every crystal: perfect fcc, hcp and
   diamond crystals from some 15 000 atoms on, built systems and hot crystals were refused
   at random, more often the larger they were, with a message to replicate the system. The

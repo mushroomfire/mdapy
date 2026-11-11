@@ -7,20 +7,21 @@ import os
 import subprocess
 import sys
 
+import numpy as np
 import pytest
 
 import mdapy
 from mdapy.core.threads import _init_from_environment, _native_token
 from mdapy.errors import InvalidParameter
 
-BAD_COUNTS = [0, -1, 1.5, True, "2", None]
+BAD_COUNTS = [0, -1, 1.5, True, "2", None, np.bool_(True), np.int64(0)]
 
 
 def test_default_is_positive():
     assert mdapy.get_num_threads() >= 1
 
 
-@pytest.mark.parametrize("n", [1, 2, 7])
+@pytest.mark.parametrize("n", [1, 2, 7, np.int64(3), np.int32(2)])
 def test_set_and_get(n):
     mdapy.set_num_threads(n)
     assert mdapy.get_num_threads() == n

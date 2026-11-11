@@ -17,6 +17,23 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `System.with_box` given lattice vectors keeps the origin and the periodicity of the
+  box; it made the box periodic at the origin, so a slab became periodic.
+- `write` of a LAMMPS data file is by default in the units the file was read in, as
+  for its atom style; a file in real units with coefficients could not be written back
+  without `units="real"`.
+- `build_crystal` takes one `repeat` for every vector, as `replicate` does, and refuses
+  `a` or `c` that are not numbers with `InvalidParameter`; text raised `TypeError`.
+- `render(color=)` takes a component such as `"positions.z"` or an expression over the
+  columns, as `color_coding` does, with its color bar in the legend.
+- `write_png` writes RGB images too, as `write_movie` takes them.
+- Reading a CIF file warns of partly occupied sites, whose atoms are all kept.
+- `element_from_mass` recognizes Th, Pa and U, which have standard atomic weights.
+- `set_num_threads` takes NumPy integers; `atomic_numbers("Cu")` says to pass a sequence
+  rather than complaining of the symbol `u`; `Topology` refuses atom indices that are
+  not whole numbers, which it truncated; `Box.from_lengths_angles` refuses angles
+  outside 0 to 180 degrees, which gave a mirrored box; `Box` says when its volume is
+  beyond float64, which it called linearly dependent vectors.
 
 ## 2.0.0
 

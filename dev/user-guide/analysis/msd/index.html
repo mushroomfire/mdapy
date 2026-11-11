@@ -7992,9 +7992,12 @@ periodic boundaries:</p>
   frame, which needs every atom to move less than half the box between two
   frames.</li>
 </ul>
-<p>The box may change from frame to frame. With <code>unwrap=False</code>, for positions
-already unwrapped, such as <code>xu yu zu</code> of a LAMMPS dump, the positions are
-used as they are.</p>
+<p>The box may change from frame to frame. With image flags, the position of an
+atom in a frame is its position plus its flags times the lattice vectors of that
+frame, as LAMMPS and OVITO unwrap it: when the box changes, an atom some boxes
+away from where it started moves with the box by that many times the change.
+With <code>unwrap=False</code>, for positions already unwrapped, such as <code>xu yu zu</code> of a
+LAMMPS dump, the positions are used as they are.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>DisplacementResult</code>:</p>
 <table>

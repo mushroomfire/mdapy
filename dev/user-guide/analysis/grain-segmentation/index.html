@@ -7916,7 +7916,7 @@ radii.</p>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">GrainSegmentation</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">grains</span><span class="p">)</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">result</span><span class="o">.</span><span class="n">count</span>  <span class="c1"># 8</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span><span class="o">.</span><span class="n">sizes</span>  <span class="c1"># [2885, 2666, ..., 1353] atoms, largest first</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span><span class="o">.</span><span class="n">sizes</span>  <span class="c1"># [2885, 2666, ..., 1353] atoms, about largest first</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">result</span><span class="o">.</span><span class="n">orientation</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># mean lattice orientation of the largest, (x, y, z, w)</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">result</span><span class="o">.</span><span class="n">center</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">radius_of_gyration</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Å</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">grains</span> <span class="o">=</span> <span class="n">grains</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>  <span class="c1"># the column grain, -1 for none</span>
@@ -8045,7 +8045,7 @@ must be at least twice as wide as the bonds along its periodic directions.</p>
 <td><code>sizes</code></td>
 <td>(G,) int64</td>
 <td>atoms</td>
-<td>of each grain, largest first</td>
+<td>of each grain; the grains are ranked by size before <code>adopt_orphans</code> adds the atoms in no grain, as in OVITO, so a grain can end a little larger than the one before it</td>
 </tr>
 <tr>
 <td><code>structure</code></td>

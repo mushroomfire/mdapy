@@ -154,7 +154,8 @@ class ThermalProperties:
 # Special points of the standard paths in Cartesian coordinates, in units of
 # 2π/a for the cubic lattices with a along x, y and z, and of 2π/a in the
 # plane and 2π/c along z for the hexagonal lattice with a along x
-# (Setyawan and Curtarolo 2010).
+# (Setyawan and Curtarolo 2010; for fcc the path of seekpath, Hinuma et
+# al. 2017).
 _S3 = np.sqrt(3)
 _PATHS = {
     "sc": (

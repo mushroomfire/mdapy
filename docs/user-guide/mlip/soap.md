@@ -75,7 +75,7 @@ side by side, each spread by its strains and shaking.*
 a system with an `element` column of the species, and optionally a
 [neighbor list](../../basics/neighbor.md) reaching `reach`. The
 property `reach` is the reach of the neighbors: `cutoff` and the distance
-over which the Gaussian of a neighbor decays to a thousandth, 1.86 `sigma`.
+over which the Gaussian of a neighbor decays to a thousandth, 3.72 `sigma`.
 `dimension` is the number of values per atom.
 
 ## Results
@@ -110,7 +110,7 @@ The density of the neighbors of element Z about atom i is a Gaussian of
 width σ on each, the atom itself included:
 
 $$
-\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} < r_\text{cut} + 1.86\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2}.
+\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} < r_\text{cut} + 3.72\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2}.
 $$
 
 Its coefficients in radial functions $g_{nl}$ and real spherical harmonics

@@ -27,7 +27,7 @@ jobs:
         with:
           python-version: "3.15"
       - name: Vulkan headers
-        run: sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
+        run: .github/ubuntu-dns.sh && sudo apt-get update -q && sudo apt-get install -y -q libvulkan-dev
       - name: Install
         run: pip install ".[dev]" -Ccmake.define.MDAPY_WERROR=ON
       - name: Newest releases

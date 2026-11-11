@@ -24,6 +24,10 @@
   cell undecided; such atoms are now settled by their order, alike in every cell.
 - The normals of `DislocationResult.defect_mesh` point into the crystal, as the
   documentation says; the docstring said out of it.
+- `insert_dislocation` without `elastic`: an edge dislocation no longer leaves a fault
+  from its core to the surface when a plane of atoms lies just below the plane of cut.
+  The displacement lifted such atoms across the plane, and they were moved back as if
+  they had been above it, as atomsk does; above and below are now where the atoms were.
 
 ## 2.0.0
 

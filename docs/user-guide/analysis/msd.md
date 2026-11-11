@@ -59,9 +59,12 @@ periodic boundaries:
   frame, which needs every atom to move less than half the box between two
   frames.
 
-The box may change from frame to frame. With `unwrap=False`, for positions
-already unwrapped, such as `xu yu zu` of a LAMMPS dump, the positions are
-used as they are.
+The box may change from frame to frame. With image flags, the position of an
+atom in a frame is its position plus its flags times the lattice vectors of that
+frame, as LAMMPS and OVITO unwrap it: when the box changes, an atom some boxes
+away from where it started moves with the box by that many times the change.
+With `unwrap=False`, for positions already unwrapped, such as `xu yu zu` of a
+LAMMPS dump, the positions are used as they are.
 
 ## Results
 

@@ -56,6 +56,29 @@ def test_matches_numpy(options):
     assert result.average == ("average_cutoff" in options)
 
 
+@pytest.mark.parametrize("cutoff, sigma", [(6.0, 0.1), (9.0, 0.2)])
+def test_neighbors_beyond_forty_sigma_count(cutoff, sigma):
+    """Neighbors farther than some 40 sigma: their Gaussians underflowed when
+    built up from r = sigma, and the neighbors were lost."""
+    system = crystal("fcc", 3.6, (3, 3, 3), jitter=0.2, seed=2)
+    for local in (False, True):
+        result = EntropyFingerprint(cutoff, sigma, local_density=local).compute(system)
+        expected = reference(system, cutoff, sigma, local)
+        np.testing.assert_allclose(result.entropy, expected, rtol=1e-11)
+
+
+def test_two_atoms_far_apart():
+    """One neighbor at 40 sigma, 4 Å with sigma 0.1: its Gaussian is all of
+    g(r), and the entropy that of one peak."""
+    box = mdapy.Box(30.0, pbc=False)
+    pair = mdapy.System([[0.0, 0.0, 0.0], [4.0, 0.0, 0.0]], box)
+    result = EntropyFingerprint(6.0, 0.1, local_density=True).compute(pair)
+    np.testing.assert_allclose(
+        result.entropy, reference(pair, 6.0, 0.1, True), rtol=1e-11
+    )
+    assert result.entropy[0] < -1.0  # -0.50 when the neighbor was lost
+
+
 def test_order_lowers_the_entropy():
     perfect = EntropyFingerprint(5.0).compute(crystal("fcc", 3.6, (4, 4, 4))).entropy
     np.testing.assert_allclose(perfect, perfect[0], rtol=1e-13)  # every atom alike

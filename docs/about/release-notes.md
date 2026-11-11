@@ -17,6 +17,9 @@
   [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `EntropyFingerprint` counts every neighbor within the cutoff: those farther than about
+  40 `sigma`, beyond 7.9 Å with the default `sigma=0.2`, added nothing before, as their
+  Gaussians underflowed.
 
 ## 2.0.0
 

@@ -8130,7 +8130,11 @@ default nine volumes it is good to about 1 %.</p>
 both volumes and pressures, fewer than five of them, a relaxation that does
 not converge within <code>max_steps</code>, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of
-<a href="../phonons/"><code>phonons</code></a>.</p>
+<a href="../phonons/"><code>phonons</code></a>. It also raises it, before any phonons, for a pair of
+atoms that comes within <code>displacement</code> of the cutoff of the calculator at some
+volumes and not at others: the force constants of most potentials, NEP and
+tabulated EAM among them, jump there, and the free energy with them. Narrow
+the volumes or the pressures, or choose another potential.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>At each temperature <span class="arithmatex">\(T\)</span>, the free energy</p>
 <div class="arithmatex">\[

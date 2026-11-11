@@ -8049,7 +8049,11 @@ give the speed of sound and the stability of the crystal under it.</p>
 <p><code>thermal_elastic_constants</code> raises <code>InvalidParameter</code> for an unknown method,
 a strain that is not positive, a result without cells, a relaxation that
 does not converge within <code>max_steps</code>, imaginary frequencies in a strained
-cell, and <code>symmetry=True</code> without spglib.</p>
+cell, and <code>symmetry=True</code> without spglib. With the quasi-harmonic method it
+also raises it, before any phonons, for a pair of atoms that comes within
+<code>displacement</code> of the cutoff of the calculator in some strained cells and not
+in others, where the force constants jump, as in
+<a href="../quasi-harmonic/#errors"><code>quasi_harmonic</code></a>; a smaller <code>strain</code> avoids it.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>A cell of the grid, of volume <span class="arithmatex">\(V\)</span>, is deformed by the Lagrangian strain
 <span class="arithmatex">\(\eta\)</span> as <span class="arithmatex">\(\sqrt{1 + 2\eta}\)</span>, its positions relax, and</p>

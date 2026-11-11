@@ -8230,6 +8230,12 @@
   color=None, label=None)</code> along the directions of a plane. See
   <a href="../../user-guide/simulation/elastic-constants/#along-directions">Elastic constants</a> and
   the example <a href="../../examples/elastic-anisotropy/">Elastic anisotropy of copper and titanium</a>.</li>
+<li><code>quasi_harmonic</code> and <code>thermal_elastic_constants</code> with the quasi-harmonic method raise
+  <code>InvalidParameter</code> when a pair of atoms comes within <code>displacement</code> of the cutoff of the
+  calculator between the volumes or the strained cells. The force constants of NEP and
+  tabulated EAM jump there, and the results jumped with them: with a NEP model, C33 of hcp
+  magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
+  54 GPa.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
 <li><code>CommonNeighborAnalysis</code> with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
   that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took

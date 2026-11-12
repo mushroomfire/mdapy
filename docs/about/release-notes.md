@@ -23,6 +23,12 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `mdapy.lattice_dynamics.ForceConstants(cell, supercell, second)` holds the second order
+  force constants of a crystal in a supercell; `phonons()` gives their `Phonons`, and
+  `write(path, *, full=False)` and `read_force_constants(path, cell, supercell)` write and
+  read phonopy's `FORCE_CONSTANTS`, compact or full, for any supercell matrix: force
+  constants of phonopy, from VASP for example, give MDAPY's phonons. See
+  [Force constants](../user-guide/simulation/force-constants.md).
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).

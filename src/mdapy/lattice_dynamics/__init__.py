@@ -4,12 +4,16 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Lattice dynamics: elastic constants, at rest and at finite temperature,
-phonons and the quasi-harmonic approximation."""
+force constants, phonons and the quasi-harmonic approximation."""
 
 from mdapy.lattice_dynamics._elastic import (
     ElasticResult,
     SheetElasticResult,
     elastic_constants,
+)
+from mdapy.lattice_dynamics._force_constants import (
+    ForceConstants,
+    read_force_constants,
 )
 from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
 from mdapy.lattice_dynamics._phonons import (
@@ -34,6 +38,7 @@ from mdapy.lattice_dynamics._thermal_phonons import (
 __all__ = [
     "BandStructure",
     "ElasticResult",
+    "ForceConstants",
     "PhononDOS",
     "Phonons",
     "QuasiHarmonicResult",
@@ -47,6 +52,7 @@ __all__ = [
     "primitive_cell",
     "quasi_harmonic",
     "read_band_structure",
+    "read_force_constants",
     "thermal_elastic_constants",
     "thermal_phonons",
 ]

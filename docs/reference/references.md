@@ -407,6 +407,12 @@ Methods* **4**, 2384822 (2024).
 [doi:10.1080/27660400.2024.2384822](https://doi.org/10.1080/27660400.2024.2384822)
 { #togo2024 }
 
+**van de Walle and Ceder (2002).** A. van de Walle and G. Ceder, The effect of
+lattice vibrations on substitutional alloy thermodynamics, *Rev. Mod. Phys.* **74**,
+11 (2002).
+[doi:10.1103/RevModPhys.74.11](https://doi.org/10.1103/RevModPhys.74.11)
+{ #vandewalle2002 }
+
 **Varvenne et al. (2016).** C. Varvenne, A. Luque, W. G. Nöhring and
 W. A. Curtin, Average-atom interatomic potential for random alloys,
 *Phys. Rev. B* **93**, 104201 (2016).
@@ -429,6 +435,12 @@ efficient analysis software for molecular dynamics simulations, *Comput.
 Phys. Commun.* **290**, 108764 (2023).
 [doi:10.1016/j.cpc.2023.108764](https://doi.org/10.1016/j.cpc.2023.108764)
 { #wu2023 }
+
+**Wu et al. (2003).** E. J. Wu, G. Ceder and A. van de Walle, Using
+bond-length-dependent transferable force constants to predict vibrational entropies
+in Au-Cu, Au-Pd, and Cu-Pd alloys, *Phys. Rev. B* **67**, 134103 (2003).
+[doi:10.1103/PhysRevB.67.134103](https://doi.org/10.1103/PhysRevB.67.134103)
+{ #wu2003 }
 
 **Wu et al. (2026).** Y.-C. Wu, T. Mäkinen, M. Alava and A. Esfandiarpour,
 Machine-learned interatomic potential for large-scale simulations of the

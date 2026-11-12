@@ -41,6 +41,13 @@
   farther apart than it, under every operation of the crystal also in supercells of less
   symmetry, and zero beyond; `ForceConstants.cutoff` says which. The page gives how far
   the frequencies of copper move with the cutoff.
+- `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
+  across bonds, of stiffnesses polynomial in the length for each pair of elements in each
+  shell, to the forces of displaced supercells of several crystals, after van de Walle and
+  Ceder. Its `BondStiffness` gives the `stiffness` of any bond and the `force_constants`,
+  so the phonons and vibrational free energy, of any arrangement of the elements, such as
+  a special quasirandom structure. See
+  [Bond stiffness](../user-guide/simulation/bond-stiffness.md).
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).

@@ -34,6 +34,10 @@
 
 ::: mdapy.lattice_dynamics.read_force_constants
 
+::: mdapy.lattice_dynamics.bond_stiffness
+
+::: mdapy.lattice_dynamics.BondStiffness
+
 ::: mdapy.lattice_dynamics.PhononDOS
 
 ::: mdapy.lattice_dynamics.ThermalProperties

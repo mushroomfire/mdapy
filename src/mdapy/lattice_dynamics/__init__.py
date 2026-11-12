@@ -4,8 +4,10 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Lattice dynamics: elastic constants, at rest and at finite temperature,
-force constants, phonons and the quasi-harmonic approximation."""
+force constants, bond stiffness, phonons and the quasi-harmonic
+approximation."""
 
+from mdapy.lattice_dynamics._bond_stiffness import BondStiffness, bond_stiffness
 from mdapy.lattice_dynamics._elastic import (
     ElasticResult,
     SheetElasticResult,
@@ -39,6 +41,7 @@ from mdapy.lattice_dynamics._thermal_phonons import (
 
 __all__ = [
     "BandStructure",
+    "BondStiffness",
     "ElasticResult",
     "ForceConstants",
     "PhononDOS",
@@ -47,6 +50,7 @@ __all__ = [
     "SheetElasticResult",
     "ThermalElasticResult",
     "ThermalProperties",
+    "bond_stiffness",
     "displaced_supercells",
     "elastic_constants",
     "force_constants",

@@ -15,6 +15,7 @@ from functools import reduce
 
 import polars as pl
 
+from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter
 
 # names of the components of array columns by their number; any component
@@ -220,8 +221,29 @@ class _Translation(ast.NodeVisitor):
             self.__refuse(f"the operator {type(node.op).__name__} is not supported")
         return op(self.visit(node.left), self.visit(node.right))
 
+    def __symbols(self, node, values) -> None:
+        """Refuse texts that are not chemical symbols compared with the
+        element column, which would select nothing."""
+        if isinstance(node, ast.Name) and self.__name(node) == "element":
+            unknown = [v for v in values if isinstance(v, str) and v not in SYMBOLS]
+            if unknown:
+                self.__refuse(
+                    f"unknown chemical symbol {unknown[0]!r} (symbols are written "
+                    "as 'Cu')"
+                )
+
     def visit_Compare(self, node):
         parts, left = [], self.visit(node.left)
+        nodes = [node.left, *node.comparators]
+        for a, b in zip(nodes, nodes[1:]):
+            for one, other in ((a, b), (b, a)):
+                if isinstance(other, ast.Constant):
+                    self.__symbols(one, [other.value])
+                elif isinstance(other, (ast.List, ast.Tuple, ast.Set)):
+                    self.__symbols(
+                        one,
+                        [e.value for e in other.elts if isinstance(e, ast.Constant)],
+                    )
         for op, comparator in zip(node.ops, node.comparators):
             if isinstance(op, (ast.In, ast.NotIn)):
                 if not isinstance(comparator, (ast.List, ast.Tuple, ast.Set)):

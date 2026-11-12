@@ -199,6 +199,7 @@ pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 seekpath==2.2.2 \
 | [DScribe](https://singroup.github.io/dscribe) | SOAP descriptors, against DScribe |
 | [pymatgen](https://pymatgen.org) | conversions to and from it |
 | [NetworkX](https://networkx.org) | rings, against a brute-force search |
+| [SciPy](https://scipy.org), installed with ASE | splines and curve fits, against SciPy |
 | [torchnep](https://github.com/mushroomfire/torchnep), with [PyTorch](https://pytorch.org) | the files of training and of predictions |
 
 [LAMMPS](https://www.lammps.org) stable_30Sep2026 is built from source, with

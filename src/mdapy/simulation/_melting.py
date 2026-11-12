@@ -85,7 +85,9 @@ class MeltingPointResult(Result):
         The melting point in K: the temperature at which the two phases
         coexist, averaged over the second half of the last stretch.
     error : float64
-        The standard error of that mean in K, from blocks of the run.
+        The standard error of that mean in K, from blocks of the stretch: the
+        statistical error of one run, smaller than the spread of runs from
+        other guesses or seeds.
     pressure : float64
         The pressure in GPa.
     attempts : tuple of MeltingAttempt
@@ -123,6 +125,7 @@ class _Run:
 
     attempts: tuple[MeltingAttempt, ...]
     error: float
+    steady: bool
     time: np.ndarray
     temperatures: np.ndarray
     pressures: np.ndarray
@@ -297,6 +300,7 @@ def _one_run(
                     MeltingAttempt(temperature, _MELTED, temperature, ordered / 2, 0.0),
                 ),
                 error=0.0,
+                steady=False,
                 time=np.zeros(0),
                 temperatures=np.zeros(0),
                 pressures=np.zeros(0),
@@ -306,6 +310,8 @@ def _one_run(
             )
         begin_step = md.step
         attempts = []
+        means = []  # of the second half of each stretch, with its error
+        steady = False
         for segment in range(_SEGMENTS):
             begin = len(md.thermo)
             times, fractions, outcome = [], [], _COEXISTING
@@ -338,6 +344,7 @@ def _one_run(
             third, fourth = np.array_split(second, 2)
             error = _block_error(second)
             drift = float(fourth.mean() - third.mean())
+            means.append((float(second.mean()), error))
             attempts.append(
                 MeltingAttempt(
                     start=temperature,
@@ -350,12 +357,14 @@ def _one_run(
             enough = _ENOUGH <= fractions[-1] <= 1 - _ENOUGH
             if outcome != _COEXISTING or not enough:
                 break
-            if abs(drift) <= max(tolerance, 2 * error):
+            if _steady(means, drift, tolerance):
+                steady = True
                 break
         final = md.system.with_columns(solid=solid_like)
     return _Run(
         attempts=tuple(attempts),
         error=error,
+        steady=steady,
         time=(rows["step"].to_numpy() - begin_step) * timestep,
         temperatures=temperatures,
         pressures=rows["pressure"].to_numpy(),
@@ -365,12 +374,15 @@ def _one_run(
     )
 
 
-def _is_answer(last: MeltingAttempt, error: float, tolerance: float) -> bool:
-    """Whether a run ended with enough of both phases and a steady temperature."""
-    return (
-        last.outcome == _COEXISTING
-        and _ENOUGH <= last.fraction <= 1 - _ENOUGH
-        and abs(last.drift) <= max(tolerance, 2 * error)
+def _steady(means: list[tuple[float, float]], drift: float, tolerance: float) -> bool:
+    """Whether the temperature no longer drifts, from the third quarter of the
+    last stretch to its fourth and from the stretch before to the last, each
+    by no more than the tolerance or twice its statistical error."""
+    if len(means) < 2:
+        return False
+    (before, spread), (mean, error) = means[-2:]
+    return abs(drift) <= max(tolerance, 2 * error) and abs(mean - before) <= max(
+        tolerance, 2 * float(np.hypot(error, spread))
     )
 
 
@@ -438,13 +450,14 @@ def melting_point(
     equilibration : float64, optional
         Time in ps of each stage before the two phases meet. Default 10.
     coexistence : float64, optional
-        Time in ps of each stretch of the two phases, of which a run has up to
-        five while the temperature drifts. Default 500; a larger box needs
-        longer, as heat takes longer to cross it.
+        Time in ps of each stretch of the two phases, of which a run has two
+        or more, up to five, while the temperature drifts. Default 500; a
+        larger box needs longer, as heat takes longer to cross it.
     tolerance : float64, optional
         How much in K the temperature may still drift, from the third quarter
-        of a stretch of coexistence to the last, for it to be the answer; twice
-        its statistical error, if that is larger. Default 3.
+        of a stretch of coexistence to the last and from the stretch before
+        to this one, for it to be the answer; twice its statistical error, if
+        that is larger. Default 3.
     max_runs : int32, optional
         Largest number of runs. Default 8.
     barostat_damping : float64, optional
@@ -529,7 +542,7 @@ def melting_point(
             counter,
         )
         attempts.extend(run.attempts)
-        if _is_answer(attempts[-1], run.error, float(tolerance)):
+        if run.steady:
             return MeltingPointResult(
                 temperature=attempts[-1].temperature,
                 error=run.error,

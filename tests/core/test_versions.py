@@ -169,6 +169,7 @@ def test_the_top_level_holds_the_foundations():
         "calculators",
         "elements",
         "errors",
+        "fitting",
         "identify",
         "interop",
         "io",

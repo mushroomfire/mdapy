@@ -144,6 +144,7 @@ nav:
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md
           - Elastic anisotropy of copper and titanium: examples/elastic-anisotropy.md
           - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
+          - A collision cascade in tungsten: examples/radiation-cascade.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md
@@ -262,6 +263,10 @@ nav:
           - Coloring atoms: user-guide/visualization/colors.md
           - Coordination polyhedra: user-guide/visualization/polyhedra.md
           - Plots: user-guide/visualization/plots.md
+      - Fitting:
+          - Interpolation: user-guide/fitting/interpolation.md
+          - Curve fitting: user-guide/fitting/curve-fitting.md
+          - Equations of state: user-guide/fitting/equation-of-state.md
       - Interoperability:
           - ASE: user-guide/interop/ase.md
           - ASE calculators: user-guide/interop/ase-calculators.md
@@ -293,6 +298,7 @@ nav:
               - Thermodynamics: reference/api/thermodynamics.md
           - MLIP: reference/api/mlip.md
           - Visualization: reference/api/visualization.md
+          - Fitting: reference/api/fitting.md
           - Interoperability: reference/api/interop.md
           - Threads, errors, elements and units: reference/api/utilities.md
       - Conventions:

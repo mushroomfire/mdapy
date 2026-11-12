@@ -32,5 +32,6 @@ import mdapy as mp
 
 - [MLIP](mlip.md)
 - [Visualization](visualization.md)
+- [Fitting](fitting.md)
 - [Interoperability](interop.md)
 - [Threads, errors, elements and units](utilities.md)

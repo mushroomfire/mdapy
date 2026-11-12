@@ -63,6 +63,7 @@ flowchart TB
     lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons<br/>sheets · finite temperature"]
     thermodynamics["<b>Thermodynamics</b><br/>free energy · melting points · phase diagrams<br/>stacking faults with temperature"]
     packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
+    fitting["<b>Fitting</b><br/>splines · least squares<br/>equations of state"]
 
     files <--> system
     build --> system
@@ -77,6 +78,8 @@ flowchart TB
     calculators --> minimization
     minimization --> lattice
     minimization --> thermodynamics
+    analysis --> fitting
+    lattice --> fitting
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
@@ -87,7 +90,7 @@ flowchart TB
     classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
     class system,neighbors core
     class files,packages data
-    class analysis analysis
+    class analysis,fitting analysis
     class calculators,minimization,lattice,thermodynamics simulation
     class build build
     class visual visual

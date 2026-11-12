@@ -2,6 +2,11 @@
 
 ## 2.1.0 (not released)
 
+- `DislocationAnalysis(..., core_atoms=True)` marks the atoms of the core of each
+  dislocation line, the bad crystal its Burgers circuits enclose, as OVITO's option to
+  mark the dislocation core atoms: `DislocationResult.core_atoms` holds the line of each
+  atom, −1 for none, and is the column `dxa_core_atoms`. See
+  [Core atoms](../user-guide/analysis/dislocations.md#core-atoms).
 - `DislocationLine.character()` gives the angle between a dislocation line and its
   Burgers vector at each point, 0° for screw and 90° for edge; see
   [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).

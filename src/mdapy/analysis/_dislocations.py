@@ -227,6 +227,9 @@ class DislocationResult(Result):
     interface_atoms : numpy.ndarray or None
         (V,) int64 the atom at each vertex of the interface mesh, when asked
         for.
+    core_atoms : numpy.ndarray or None
+        (N,) int64, the index into ``lines`` of the line whose core holds
+        each atom, -1 for the atoms in no core, when asked for.
     """
 
     crystal: str
@@ -241,6 +244,7 @@ class DislocationResult(Result):
     defect_atoms: np.ndarray
     interface_mesh: TriangleMesh | None = None
     interface_atoms: np.ndarray | None = None
+    core_atoms: np.ndarray | None = None
 
     @property
     def total_length(self) -> float:
@@ -272,10 +276,13 @@ class DislocationResult(Result):
         return found
 
     def columns(self) -> dict[str, np.ndarray]:
-        return {
+        found = {
             "dxa_structure": self.structure,
             "dxa_crystal_cluster": self.crystal_cluster,
         }
+        if self.core_atoms is not None:
+            found["dxa_core_atoms"] = self.core_atoms
+        return found
 
     def write(self, path: str | os.PathLike) -> None:
         """Writes the lines, the crystal clusters and the defect mesh as a
@@ -323,6 +330,9 @@ class DislocationAnalysis:
         For hcp of a low c/a, below some 1.15: an atom whose 12 nearest
         neighbors are not hcp is tried again with them stretched along its c
         axis to the ideal c/a. Default False.
+    core_atoms : bool, optional
+        Also give the atoms of the core of each line: those of the bad
+        crystal its Burgers circuits enclose. Default False.
     """
 
     #: Names of the structure types.
@@ -382,6 +392,7 @@ class DislocationAnalysis:
         mesh_smoothing: int = 8,
         interface_mesh: bool = False,
         low_ca_ratio: bool = False,
+        core_atoms: bool = False,
     ):
         if crystal not in _CRYSTALS:
             raise InvalidParameter(
@@ -411,6 +422,7 @@ class DislocationAnalysis:
         self.mesh_smoothing = int(mesh_smoothing)
         self.interface_mesh = bool(interface_mesh)
         self.low_ca_ratio = bool(low_ca_ratio)
+        self.core_atoms = bool(core_atoms)
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -460,6 +472,7 @@ class DislocationAnalysis:
                 self.mesh_smoothing,
                 self.interface_mesh,
                 self.low_ca_ratio,
+                self.core_atoms,
                 progress,
                 _native_token(cancel),
             )
@@ -489,6 +502,7 @@ class DislocationAnalysis:
             interface_faces,
             interface_shifts,
             spatial_burgers,
+            core_atoms,
         ) = found
         # the PTM types as indices into NAMES
         index = np.zeros(8, dtype=np.int8)
@@ -553,6 +567,7 @@ class DislocationAnalysis:
                 box,
             ),
             interface_atoms=interface_atoms if self.interface_mesh else None,
+            core_atoms=core_atoms if self.core_atoms else None,
         )
 
     def __repr__(self) -> str:
@@ -562,7 +577,7 @@ class DislocationAnalysis:
             f"point_separation={self.point_separation!r}, smoothing={self.smoothing!r}, "
             f"mesh_smoothing={self.mesh_smoothing!r}, "
             f"interface_mesh={self.interface_mesh!r}, "
-            f"low_ca_ratio={self.low_ca_ratio!r})"
+            f"low_ca_ratio={self.low_ca_ratio!r}, core_atoms={self.core_atoms!r})"
         )
 
 

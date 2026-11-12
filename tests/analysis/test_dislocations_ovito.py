@@ -293,3 +293,160 @@ def test_the_defect_mesh_of_free_surfaces():
     area = 0.5 * np.linalg.norm(np.cross(*sides), axis=1).sum()
     assert len(ours.defect_mesh.faces) == len(faces)
     assert ours.defect_mesh.areas.sum() == pytest.approx(area, rel=1e-6)
+
+
+def cores(system, crystal):
+    """Our analysis with the core atoms and OVITO's with those it marks:
+    ours, whether OVITO marks each atom and its segment there, and the atoms
+    at the vertices of the interface mesh of one and not of the other, where
+    the tessellations of the two differ."""
+    ours = DislocationAnalysis(crystal, core_atoms=True, interface_mesh=True).compute(
+        system
+    )
+    data = ovito_compute(
+        system,
+        DislocationAnalysisModifier(
+            input_crystal_structure=LATTICE[crystal],
+            mark_dislocation_core_atoms=True,
+            output_interface_mesh=True,
+        ),
+    )
+    segment = np.asarray(data.particles["Dislocation"])
+    box = system.box
+    theirs = np.zeros(len(system), dtype=bool)
+    for vertex in np.asarray(data.surfaces["dxa-interface-mesh"].vertices["Position"]):
+        gap = (system["positions"] - vertex) @ box.inverse
+        gap -= np.where(box.pbc, np.round(gap), 0.0)
+        theirs[np.argmin(np.linalg.norm(gap @ box.matrix, axis=1))] = True
+    mine = np.zeros(len(system), dtype=bool)
+    mine[ours.interface_atoms] = True
+    # the line of ours nearest each segment of OVITO
+    nearest = []
+    for line in data.dislocations.lines:
+        distances = []
+        for candidate in ours.lines:
+            gap = np.asarray(line.points)[:, None, :] - candidate.points[None, :, :]
+            gap = gap @ box.inverse
+            gap -= np.where(box.pbc, np.round(gap), 0.0)
+            distances.append(
+                np.linalg.norm(gap @ box.matrix, axis=2).min(axis=1).mean()
+            )
+        nearest.append(int(np.argmin(distances)))
+    line = np.where(segment >= 0, np.array([*nearest, -1])[segment], -1)
+    return ours, segment >= 0, line, mine ^ theirs
+
+
+def assert_same_cores(ours, marked, apart, lines=None):
+    """The same core atoms as OVITO's but where the interface meshes differ,
+    by few atoms; with lines, those of the same line."""
+    core = ours.core_atoms >= 0
+    assert not ((core ^ marked) & ~apart).any()
+    assert apart.sum() <= 3 and core.sum() > 10
+    if lines is not None:
+        both = core & marked
+        np.testing.assert_array_equal(ours.core_atoms[both], lines[both])
+
+
+@pytest.mark.parametrize("name", ["perfect fcc loop", "shockley loop", "bcc loop"])
+def test_core_atoms_of_loops(name):
+    """The atoms OVITO marks as the cores, atom by atom."""
+    crystal, system = cubic_loops()[name]
+    ours, marked, _, apart = cores(system, crystal)
+    assert_same_cores(ours, marked, apart)
+
+
+@pytest.mark.parametrize(
+    "name, repeat",
+    [
+        ("bcc screw", (6, 10, 3)),
+        ("bcc edge", (16, 10, 1)),
+        ("fcc screw", (6, 10, 3)),
+        ("diamond screw", (6, 10, 3)),
+    ],
+)
+def test_core_atoms_of_short_lines_through_the_box(name, repeat):
+    """Lines through a periodic box short along them: the same atoms as
+    OVITO's, each in the core of the same line."""
+    crystal, args, options = QUADRUPOLES[name]
+    system = dislocation_quadrupole(*args[:3], repeat, **options)
+    ours, marked, lines, apart = cores(system, crystal)
+    assert len(ours.lines) == 2
+    assert_same_cores(ours, marked, apart, lines)
+
+
+def test_core_atoms_at_junctions():
+    """Crossing loops with junctions: the same atoms in cores."""
+    ours, marked, _, apart = cores(crossing_loops(), "fcc")
+    assert len(ours.junctions) >= 2
+    assert_same_cores(ours, marked, apart)
+
+
+def loop_and_spot():
+    """A loop of copper and a point on it."""
+    a = 3.615
+    cu = build_crystal(
+        "fcc", a, elements="Cu", orientation=PLANE_FCC, repeat=(12, 7, 6)
+    )
+    center = cu.box.matrix.diagonal() / 2 + [0.1, 0.1, 0.05]
+    loop = shear_loop(cu, [a / np.sqrt(2), 0, 0], center, 14.0)
+    return loop, np.linalg.norm(loop["positions"] - center - [14.0, 0, 0], axis=1)
+
+
+def test_core_atoms_of_bad_crystal_on_a_line():
+    """Atoms out of place within 7 Å of a point of a loop, which the
+    circuits pass around: all in the core, as in OVITO; and those around a
+    void there."""
+    loop, distance = loop_and_spot()
+    noise = np.random.default_rng(3).normal(0, 0.5, (len(loop), 3))
+    blob = distance < 7.0
+    system = loop.with_columns(positions=loop["positions"] + noise * blob[:, None])
+    ours, marked, _, apart = cores(system, "fcc")
+    assert_same_cores(ours, marked, apart)
+    assert (ours.core_atoms[blob] >= 0).all() and blob.sum() > 60
+    ours, marked, _, apart = cores(loop.filter(distance >= 4.5), "fcc")
+    assert_same_cores(ours, marked, apart)
+
+
+def test_core_atoms_where_lines_end():
+    """Partials that end on free surfaces: the atoms of the surfaces the
+    circuits spread over at the ends are in no core, as in OVITO; the ends
+    of the lines wander on the surfaces, ours and OVITO's apart, and the
+    cores differ by a few atoms there."""
+    system = dislocation_cylinder(
+        "fcc edge", 3.615, CU, 22.0, elements="Cu", length=3, dissociation=8
+    )
+    system = system.with_box(
+        mdapy.Box(system.box.matrix, origin=system.box.origin, pbc=False)
+    )
+    ours, marked, lines, apart = cores(system, "fcc")
+    core = ours.core_atoms >= 0
+    assert len(ours.lines) == 2
+    assert core.sum() == pytest.approx(marked.sum(), abs=5) and 35 < core.sum() < 55
+    differ = core ^ marked
+    assert differ.sum() <= 8
+    z = system["positions"][differ, 2]
+    low, high = system["positions"][:, 2].min(), system["positions"][:, 2].max()
+    assert (np.minimum(z - low, high - z) < 3.0).all()
+    both = core & marked
+    np.testing.assert_array_equal(ours.core_atoms[both], lines[both])
+
+
+@pytest.mark.parametrize(
+    "name", ["bcc screw", "bcc edge", "fcc edge, dissociated", "diamond 60"]
+)
+def test_core_atoms_of_long_lines_through_the_box(name):
+    """Along lines through a periodic box longer than some 10 Å, OVITO marks
+    atoms of the good crystal next to the core at one place, off its
+    interface mesh, and may leave part of the line unmarked; the atoms it
+    marks on its interface mesh are core atoms of ours, of the same line."""
+    crystal, args, options = QUADRUPOLES[name]
+    system = dislocation_quadrupole(*args, **options)
+    ours, marked, lines, apart = cores(system, crystal)
+    core = ours.core_atoms >= 0
+    mesh = np.zeros(len(system), dtype=bool)
+    mesh[ours.interface_atoms] = True
+    assert not (marked & mesh & ~core & ~apart).any()
+    assert apart.sum() <= 3
+    both = core & marked
+    assert both.sum() > 0.5 * core.sum()
+    np.testing.assert_array_equal(ours.core_atoms[both], lines[both])

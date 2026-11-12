@@ -95,6 +95,7 @@ one name everywhere.
 | interface mesh | The triangles between the good tetrahedra and the rest, on which Burgers circuits run. |
 | Burgers circuit | A closed path along the edges of the interface mesh; the sum of the ideal vectors of its edges is the Burgers vector of the dislocations it encloses. |
 | defect mesh | The surface around the defects that are not dislocations: the interface mesh without the triangles the lines took, closed over their free ends. |
+| dislocation core, core atoms | The bad crystal the Burgers circuits of a dislocation line enclose: the tetrahedra that are not good and not empty space behind the triangles of the interface mesh the circuits took. Its core atoms are the atoms at their corners, of any structure. |
 | family of Burgers vectors | The Burgers vectors of one kind, the same in any order and sign of their components, such as `1/2<110>` or `1/6<112>`. |
 | CA file | OVITO's crystal analysis file: the box, the structures and their families of Burgers vectors, the crystal clusters, the dislocation lines with their junctions and the defect mesh, as `DislocationResult.write` writes it and `read_dislocations` reads it. |
 
@@ -131,6 +132,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `cluster` | int64 | | cluster of bonded atoms, numbered by decreasing size |
 | `surface` | bool | | whether an atom lies on the surface of the solid (`SurfaceMesh`, `surface=True`) |
 | `dxa_structure`, `dxa_crystal_cluster` | int8, int64 | | structure of an atom and its crystal cluster, −1 for none, in the dislocation analysis (`DislocationAnalysis`) |
+| `dxa_core_atoms` | int64 | | the dislocation line whose core holds an atom, an index into the lines, −1 for none, with `core_atoms=True` (`DislocationAnalysis`) |
 | `voronoi_volume`, `voronoi_coordination`, `cavity_radius` | float64, int64, float64 | Å³, , Å | volume and number of faces shared with atoms of the Voronoi cell, and the distance to its farthest vertex |
 | `entropy` | float64 | k<sub>B</sub> | pair entropy fingerprint, with the options in the name: `entropy_average`, `entropy_local_density`, `entropy_average_local_density` |
 | `temperature` | float64 | K | temperature of an atom and its neighbors |
@@ -247,6 +249,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | sparseness of the points of dislocation lines, smoothing steps of the lines and of the defect mesh | `point_separation`, `smoothing`, `mesh_smoothing` | `line_point_separation`, `line_smoothing_level`, `defect_mesh_smoothing_level` |
 | hcp of low c/a in a dislocation analysis | `low_ca_ratio` | `low_ca_ratio` |
 | also the interface mesh of a dislocation analysis | `interface_mesh=True` | `output_interface_mesh` |
+| also the atoms of the dislocation cores, and the line of each | `core_atoms=True`, `core_atoms` | `mark_dislocation_core_atoms`, the particle property `Dislocation` |
 | arrows of vectors: the vectors, their scale, the radius of the shafts, color, point at the atom | `vectors`, `vector_scale`, `vector_radius`, `vector_color`, `vector_alignment` | `scaling`, `width`, `arrow_width`, `reverse` |
 | polylines in pictures: the points, radius, color, cut at the periodic faces | `lines`, `line_radius`, `line_color`, `wrap_lines` | `width`, `wrapped_lines` |
 | follow atoms through the periodic boundaries | `unwrap` (bool) | `wrapped`, `unwrapped` |

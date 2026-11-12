@@ -69,6 +69,7 @@ private:
         std::int64_t cluster;
         std::array<std::int64_t, 2> nodes;  // at the last point, at the first
         bool alive = true;
+        std::int64_t into = -1;  // the line it became part of
     };
     struct Search {
         std::int64_t vertex;
@@ -871,6 +872,7 @@ void Tracer::join(int length) {
             }
         }
         line2.alive = false;
+        line2.into = node1.line;
         nodes_[static_cast<std::size_t>(far2)].line = node1.line;
         nodes_[static_cast<std::size_t>(far2)].opposite = far1;
         nodes_[static_cast<std::size_t>(far1)].opposite = far2;
@@ -1022,13 +1024,29 @@ Network Tracer::finish(const Clusters& clusters, int crystal) {
     }
     Network network;
     // the mesh of the other defects: the triangles no circuit took for good,
-    // and a cap on the circuit at each free end
+    // and a cap on the circuit at each free end; the others are those of
+    // the line of their circuit
+    std::vector<std::int64_t> segment_of(lines_.size(), -1);
+    std::int64_t alive = 0;
+    for (std::size_t l = 0; l < lines_.size(); ++l) {
+        if (lines_[l].alive) {
+            segment_of[l] = alive++;
+        }
+    }
+    network.face_line.assign(static_cast<std::size_t>(mesh_.faces()), -1);
     for (std::int64_t f = 0; f < mesh_.faces(); ++f) {
         const std::int64_t c = face_circuit_[static_cast<std::size_t>(f)];
         if (c < 0 || (!face_primary_[static_cast<std::size_t>(f)] &&
                       circuits_[static_cast<std::size_t>(c)].dangling)) {
             network.faces.push_back(f);
+            continue;
         }
+        auto l = static_cast<std::size_t>(nodes_[static_cast<std::size_t>(
+            circuits_[static_cast<std::size_t>(c)].node)].line);
+        while (!lines_[l].alive) {
+            l = static_cast<std::size_t>(lines_[l].into);
+        }
+        network.face_line[static_cast<std::size_t>(f)] = segment_of[l];
     }
     for (const std::int64_t node : dangling_) {
         network.caps.push_back(

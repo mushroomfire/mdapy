@@ -17,6 +17,7 @@ from mdapy.build import (
 from mdapy.calculators import EAM
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.simulation import minimize
+from mdapy.transform import replicate
 
 from dislocation_models import hexagonal, shear_loop
 
@@ -354,8 +355,159 @@ def test_results():
     assert repr(DislocationAnalysis("bcc")) == (
         "DislocationAnalysis('bcc', circuit_length=14, stretch=9, perfect_only=False, "
         "point_separation=2.5, smoothing=1, mesh_smoothing=8, interface_mesh=False, "
-        "low_ca_ratio=False)"
+        "low_ca_ratio=False, core_atoms=False)"
     )
+
+
+def across(system, atoms, line):
+    """The distance in Å of atoms from the points of a line, across z."""
+    gap = system["positions"][atoms][:, None, :] - line.points[None, :, :]
+    gap = gap @ system.box.inverse
+    gap -= np.where(system.box.pbc, np.round(gap), 0.0)
+    return np.linalg.norm((gap @ system.box.matrix)[:, :, :2], axis=2).min(axis=1)
+
+
+def test_core_atoms():
+    """Off unless asked for; the core of a screw dislocation of iron is its
+    three columns of atoms, three atoms per Burgers vector along the line,
+    and the other results stay as they are."""
+    system = dislocation_quadrupole("bcc screw", 2.865, FE, (6, 10, 5), elements="Fe")
+    plain = DislocationAnalysis("bcc").compute(system)
+    assert plain.core_atoms is None
+    result = DislocationAnalysis("bcc", core_atoms=True).compute(system)
+    core = result.core_atoms
+    assert core.dtype == np.int64 and core.shape == (len(system),)
+    np.testing.assert_array_equal(np.bincount(core[core >= 0]), [15, 15])
+    assert (core >= -1).all()
+    for k, line in enumerate(result.lines):
+        assert across(system, core == k, line).max() < 1.5
+        assert across(system, core != k, line).min() > 2.0
+    assert set(result.columns()) == {
+        "dxa_structure",
+        "dxa_crystal_cluster",
+        "dxa_core_atoms",
+    }
+    assert "dxa_core_atoms" in system.with_columns(result).table.columns
+    with pytest.raises(ValueError):
+        core[0] = 0
+    np.testing.assert_array_equal(result.structure, plain.structure)
+    np.testing.assert_array_equal(
+        result.defect_mesh.vertices, plain.defect_mesh.vertices
+    )
+    for ours, theirs in zip(result.lines, plain.lines, strict=True):
+        np.testing.assert_array_equal(ours.points, theirs.points)
+        np.testing.assert_array_equal(ours.burgers, theirs.burgers)
+    assert "core_atoms=True" in repr(DislocationAnalysis("bcc", core_atoms=True))
+
+
+def test_core_atoms_invariance():
+    """The same atoms for any number of threads, moved through the periodic
+    boundaries, in another order, and in each period of a longer line."""
+    system = dislocation_quadrupole("bcc screw", 2.865, FE, (6, 10, 5), elements="Fe")
+    analysis = DislocationAnalysis("bcc", core_atoms=True)
+    core = analysis.compute(system).core_atoms
+    with mdapy.num_threads(1):
+        np.testing.assert_array_equal(analysis.compute(system).core_atoms, core)
+    moved = system.with_columns(positions=system["positions"] + [7.3, -4.1, 2.2])
+    np.testing.assert_array_equal(analysis.compute(moved).core_atoms >= 0, core >= 0)
+    order = np.random.default_rng(3).permutation(len(system))
+    shuffled = analysis.compute(system.gather(order)).core_atoms
+    np.testing.assert_array_equal(shuffled >= 0, core[order] >= 0)
+    longer = analysis.compute(replicate(system, (1, 1, 3))).core_atoms
+    np.testing.assert_array_equal(longer >= 0, np.tile(core >= 0, 3))
+
+
+def test_core_atoms_of_partials_and_of_the_perfect_dislocation():
+    """Each partial has its own core and the stacking fault between them
+    is crystal; of perfect dislocations only, the fault is bad crystal the
+    circuits enclose, part of the core."""
+    system = dislocation_quadrupole(
+        "fcc edge", 3.615, CU, (14, 8, 3), elements="Cu", dissociation=10
+    )
+    partials = DislocationAnalysis("fcc", core_atoms=True).compute(system)
+    core = partials.core_atoms
+    assert [line.family for line in partials.lines] == ["1/6<112>"] * 4
+    np.testing.assert_array_equal(np.bincount(core[core >= 0]), [21] * 4)
+    for k, line in enumerate(partials.lines):
+        assert across(system, core == k, line).max() < 4.0
+    fault = (partials.structure == 2) & (core < 0)
+    assert fault.sum() > 40
+    perfect = DislocationAnalysis("fcc", perfect_only=True, core_atoms=True).compute(
+        system
+    )
+    assert len(perfect.lines) == 2
+    whole = perfect.core_atoms >= 0
+    assert whole[partials.structure == 2].all()
+    assert (perfect.structure[whole] == 0).all()
+    assert whole.sum() > (core >= 0).sum()
+    assert np.bincount(perfect.core_atoms[whole]).min() > 2 * 21
+
+
+def test_core_atoms_of_a_loop_and_at_free_ends():
+    """The core of a loop follows the loop; that of a line ending on free
+    surfaces follows the line between them."""
+    a = 3.615
+    cu = build_crystal(
+        "fcc", a, elements="Cu", orientation=PLANE_FCC, repeat=(16, 9, 6)
+    )
+    center = cu.box.matrix.diagonal() / 2 + [0.1, 0.1, 0.05]
+    system = shear_loop(cu, [a / np.sqrt(2), 0, 0], center, 14.0)
+    result = DislocationAnalysis("fcc", core_atoms=True).compute(system)
+    (line,) = result.lines
+    core = result.core_atoms
+    assert set(np.unique(core)) == {-1, 0}
+    p = system["positions"][core == 0] - center
+    assert np.abs(np.linalg.norm(p[:, :2], axis=1) - 14.0).max() < 4.0
+    assert np.abs(p[:, 2]).max() < 4.0
+    # every 30 degrees of the loop holds some
+    sectors = np.floor(np.degrees(np.arctan2(p[:, 1], p[:, 0])) / 30).astype(int)
+    assert len(np.unique(sectors)) == 12
+    assert 1.0 < len(p) / line.length < 2.0  # atoms per Å
+    plate = build_crystal(
+        "fcc",
+        a,
+        elements="Cu",
+        orientation=[(1, 1, -2), (1, 1, 1), (1, -1, 0)],
+        repeat=(8, 5, 6),
+    )
+    plate = plate.with_box(mdapy.Box(plate.box.matrix, pbc=False))
+    middle = plate.box.matrix.diagonal() / 2 + [0.3, 0.2, 0]
+    screw = insert_dislocation(plate, [0, 0, a / np.sqrt(2)], center=middle)
+    result = DislocationAnalysis("fcc", core_atoms=True).compute(screw)
+    (line,) = result.lines
+    core = result.core_atoms
+    q = screw["positions"][core == 0]
+    height = screw.box.matrix[2, 2]
+    inner = (q[:, 2] > 4.0) & (q[:, 2] < height - 4.0)
+    # inside, the four columns of atoms around the line; at the ends the
+    # bad crystal of the steps on the surfaces
+    assert np.linalg.norm(q[inner, :2] - middle[:2], axis=1).max() < 4.0
+    assert inner.sum() == pytest.approx(4 * (height - 8.0) / (a / np.sqrt(2)), abs=3)
+    assert np.linalg.norm(q[~inner, :2] - middle[:2], axis=1).max() < 12.0
+    assert len(q) < 0.1 * len(screw)
+
+
+def test_core_atoms_without_lines():
+    """No cores in a crystal without dislocations, around a void, among
+    atoms of no crystal, and of no atoms."""
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 6))
+    analysis = DislocationAnalysis("fcc", core_atoms=True)
+    for system in (
+        shaken(crystal, 0.05),
+        crystal.filter(
+            np.linalg.norm(
+                crystal["positions"] - crystal.box.matrix.diagonal() / 2, axis=1
+            )
+            > 5.0
+        ),
+        crystal.gather(np.arange(10)).with_box(mdapy.Box(30.0, pbc=False)),
+        crystal.filter(np.zeros(len(crystal), dtype=bool)),
+    ):
+        result = analysis.compute(system)
+        assert result.lines == ()
+        assert result.core_atoms.shape == (len(system),)
+        assert result.core_atoms.dtype == np.int64
+        assert (result.core_atoms == -1).all()
 
 
 def test_hcp_of_low_c_over_a():

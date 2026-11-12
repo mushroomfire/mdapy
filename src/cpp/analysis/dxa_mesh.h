@@ -41,6 +41,8 @@ struct InterfaceMesh {
     std::vector<Mat> matrices;
     // the half-edges from each vertex
     std::vector<std::int64_t> offsets, edges;
+    // of each triangle: the tetrahedron on its other side, -1 for none
+    std::vector<std::int64_t> outside;
 
     std::int64_t vertices() const { return static_cast<std::int64_t>(atoms.size()); }
     std::int64_t faces() const { return static_cast<std::int64_t>(start.size()) / 3; }

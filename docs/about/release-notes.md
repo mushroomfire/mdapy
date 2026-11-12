@@ -236,6 +236,11 @@
   from its core to the surface when a plane of atoms lies just below the plane of cut.
   The displacement lifted such atoms across the plane, and they were moved back as if
   they had been above it, as atomsk does; above and below are now where the atoms were.
+- `elastic_constants` relaxes the atoms under each strain until the forces left are
+  10<sup>−4</sup> of those the strain makes, where that is below `max_force`: a fixed
+  tolerance near those forces left the atoms half relaxed, most where they relax most.
+  C44 of silicon with the Tersoff potential, 10.31 GPa, came out 10.20 GPa at the
+  default strain of 10<sup>−3</sup> and 13.9 GPa at 10<sup>−4</sup>.
 - `md_elastic_constants` keeps the strained crystal at the temperature with a Langevin
   thermostat, whose noise the two runs of a component share; the Nosé–Hoover thermostat
   it had, being deterministic, did not bring all the vibrations back to the

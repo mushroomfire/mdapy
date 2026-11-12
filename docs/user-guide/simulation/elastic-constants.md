@@ -26,7 +26,7 @@ result.bulk_modulus(), result.shear_modulus("voigt")
 | `calculator` | `Calculator` | | | computes the virial, and energies and forces when the positions relax |
 | `strain` | float64 | 1e-3 | | the magnitude $\delta$ of the strains |
 | `relax` | bool | `True` | | whether the positions relax in each strained box (relaxed-ion constants) or stay put (clamped-ion constants) |
-| `max_force` | float64 | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize` |
+| `max_force` | float64 | 1e-4 | eV/Å | convergence of each relaxation, as in `minimize`: the largest force left, or 10<sup>−4</sup> of the largest force the strain makes if that is smaller, but no less than 10<sup>−3</sup> `max_force` |
 | `max_steps` | int32 | 5000 | | largest number of steps of each relaxation |
 | `symmetry` | bool or `None` | `None` | | take the stress under a strain that an operation makes from another as the image of its stress, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 

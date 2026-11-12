@@ -7438,6 +7438,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.Phonons.group_velocities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group_velocities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.Phonons.band_structure" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8895,6 +8906,17 @@
     <span class="md-ellipsis">
       
         modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.Phonons.group_velocities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        group_velocities
       
     </span>
   </a>
@@ -11337,6 +11359,125 @@ lattice vectors of the cell.</p>
 mode, normalized over the atoms of the cell; atom b of the cell
 in the cell at R moves along its vector divided by the square
 root of its mass, times exp(i q · (R + r_b)).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.Phonons.group_velocities" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">group_velocities</span>
+
+
+<a href="#mdapy.lattice_dynamics.Phonons.group_velocities" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">group_velocities</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Group velocities of the phonons at wave vectors.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>q</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A wave vector or (K, 3) wave vectors, in units of the reciprocal
+lattice vectors of the cell.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symmetry</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Average the velocities over the rotations of the crystal, found
+by spglib, that keep each wave vector: True, False, or by default
+whenever spglib is installed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3n, 3) or (K, 3n, 3) float64 Cartesian group velocity of each
+mode in Å/ps, the modes in the order of <code>frequencies</code>; zero for
+modes below 1e-4 THz.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For wave vectors that are not three numbers each, or symmetry
+True without spglib.</p>
               </div>
             </td>
           </tr>

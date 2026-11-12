@@ -8318,6 +8318,11 @@ lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)<
 <td>the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode</td>
 </tr>
 <tr>
+<td><code>group_velocities(q, *, symmetry=None)</code></td>
+<td>(3n, 3) or (K, 3n, 3) float64</td>
+<td>the group velocity of each mode in Å/ps (THz Å), in the order of the frequencies</td>
+</tr>
+<tr>
 <td><code>band_structure(path, *, points=51, connected=False)</code></td>
 <td><code>BandStructure</code></td>
 <td>the frequencies along a path</td>
@@ -8334,6 +8339,18 @@ lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)<
 </tr>
 </tbody>
 </table>
+<p><strong>Group velocities.</strong> The velocity of a mode is the derivative of its angular
+frequency with respect to the wave vector, from the derivative of the dynamical
+matrix. Modes of the same frequency, within 1e-4 THz, share a space in which any basis
+is as good; their velocities are those of the basis in which the derivative of the
+dynamical matrix along the direction (1, 2, 3) is diagonal, as in
+<a href="https://phonopy.github.io/phonopy/">phonopy</a>. With <code>symmetry</code>, the velocities are
+averaged over the rotations of the crystal, found by spglib, that keep the wave vector
+itself, which makes those of such modes keep the symmetry of the crystal. Modes below
+1e-4 THz, the translations at Γ, have none.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">result</span><span class="o">.</span><span class="n">group_velocities</span><span class="p">([</span><span class="mf">0.25</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">])</span>  <span class="c1"># (3, 3) Å/ps</span>
+</code></pre></div>
 <p><strong>Band structures.</strong> <code>path</code> is one of:</p>
 <ul>
 <li><code>"auto"</code>: the standard path of the crystal from its symmetry, any crystal
@@ -8404,14 +8421,14 @@ does not hold. To draw a band structure of another calculation on one of
 MDAPY's along the same path, its distances can be moved line by line onto
 those of MDAPY, which differ as the lattice constants do:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_band_structure</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">read_band_structure</span><span class="p">(</span><span class="s2">"band.dat"</span><span class="p">)</span>  <span class="c1"># from phonopy</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">ends</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">dft</span><span class="o">.</span><span class="n">labels</span><span class="p">]</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">distances</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">bands</span><span class="o">.</span><span class="n">labels</span><span class="p">])</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">ax</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dft</span><span class="o">.</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"k"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_band_structure</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">read_band_structure</span><span class="p">(</span><span class="s2">"band.dat"</span><span class="p">)</span>  <span class="c1"># from phonopy</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">ends</span> <span class="o">=</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">dft</span><span class="o">.</span><span class="n">labels</span><span class="p">]</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">x</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">distances</span><span class="p">,</span> <span class="n">ends</span><span class="p">,</span> <span class="p">[</span><span class="n">d</span> <span class="k">for</span> <span class="n">d</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">bands</span><span class="o">.</span><span class="n">labels</span><span class="p">])</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">ax</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="n">bands</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">ax</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">dft</span><span class="o">.</span><span class="n">frequencies</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"k"</span><span class="p">,</span> <span class="n">lw</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
 </code></pre></div>
 <p><strong>Densities of states.</strong> The modes on a mesh through Γ of <code>mesh</code> wave
 vectors along each reciprocal lattice vector give the density by the linear
@@ -8501,8 +8518,8 @@ calculator that does not compute forces, a supercell that is not positive
 integers or a matrix of integers with a positive determinant, a
 displacement that is not positive, and <code>symmetry=True</code> without spglib;
 <code>primitive_cell</code> for a box that is not
-periodic. <code>frequencies</code> and <code>modes</code> raise it for wave vectors that are not
-three numbers each; <code>band_structure</code> for an unknown lattice, a cell that
+periodic. <code>frequencies</code>, <code>modes</code> and <code>group_velocities</code> raise it for wave vectors that are
+not three numbers each, and <code>group_velocities</code> for <code>symmetry=True</code> without spglib; <code>band_structure</code> for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and <code>ImportError</code> for <code>"auto"</code>
 without seekpath; <code>dos</code> and <code>thermal</code> for a mesh or a <code>sigma</code> that is not

@@ -243,8 +243,11 @@ application with fuller features is developed separately.
 [Orthogonal cells](../user-guide/build/orthogonal-cell.md)), and `Spline` is
 `mdapy.fitting.Spline` (see [Interpolation](../user-guide/fitting/interpolation.md)).
 
-**Coming in a later 2.x release**: `set_pka` and `BondStiffness`. They will be additions,
-so code written for 2.0 keeps working (see [Compatibility](../about/compatibility.md)).
+**`set_pka`** is a few lines of NumPy, in the example of
+[a collision cascade](../examples/radiation-cascade.md#the-knock-on-atom) to copy.
+
+**Coming in a later 2.x release**: `BondStiffness`. It will be an addition, so code
+written for 2.0 keeps working (see [Compatibility](../about/compatibility.md)).
 
 **Threads**: `MDAPY_NUM_THREADS` sets the number of threads as in 1.x, and
 `mp.set_num_threads(n)` changes it while running (see

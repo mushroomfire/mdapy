@@ -23,6 +23,9 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
+  primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
+  Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.
 - `mdapy.fitting`, curves and surfaces through data: `Spline` and `GridSpline`, cubic
   splines along a line and on a grid, with derivatives, `Spline.integral` and the
   `BOUNDARIES` at their ends, periodic among them; `fit_polynomial` and `fit_surface`,

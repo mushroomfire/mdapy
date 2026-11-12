@@ -233,3 +233,18 @@ def test_neighbor_lists_must_be_symmetric(tmp_path):
     )
     with pytest.raises(ValueError, match="not symmetric"):
         potential.compute(system, neighbors=broken)
+
+
+def test_progress_runs_once_from_start_to_end(tmp_path):
+    """The passes of the computation make one count: it never falls, and it
+    reaches its total only at the end."""
+    potential = NEP(write_nep(tmp_path / "nep.txt"))
+    calls = []
+    potential.compute(
+        alloy(seed=1, repeat=6), progress=lambda d, t: calls.append((d, t))
+    )
+    done = [d for d, _ in calls]
+    assert len({t for _, t in calls}) == 1
+    assert done == sorted(done)
+    assert calls[-1][0] == calls[-1][1]
+    assert all(d < t for d, t in calls[:-1])

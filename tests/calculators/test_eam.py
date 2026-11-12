@@ -131,3 +131,19 @@ def test_values_may_span_lines_and_have_comments(tmp_path):
     b = EAM(path)
     system = alloy(seed=7)
     assert a.compute(system).energy == b.compute(system).energy
+
+
+def test_progress_runs_once_from_start_to_end(potential):
+    """The passes of the computation make one count: it never falls, and it
+    reaches its total only at the end."""
+    from .eam_files import alloy
+
+    calls = []
+    potential.compute(
+        alloy(seed=1, repeat=8), progress=lambda d, t: calls.append((d, t))
+    )
+    done = [d for d, _ in calls]
+    assert len({t for _, t in calls}) == 1
+    assert done == sorted(done)
+    assert calls[-1][0] == calls[-1][1]
+    assert all(d < t for d, t in calls[:-1])

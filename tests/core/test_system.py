@@ -121,7 +121,7 @@ def test_box_from_array():
         ({"table": {"positions": [[0, 0, 0]]}}, "polars DataFrame"),
         ({"table": pl.DataFrame({"x": [0.0]})}, "'positions' column"),
         ({"positions": np.zeros((2, 3)), "elements": ["H"]}, "1 values for 2 atoms"),
-        ({"positions": np.zeros((1, 3)), "elements": ["Hx"]}, "standard column"),
+        ({"positions": np.zeros((1, 3)), "elements": ["Hx"]}, "unknown chemical"),
         ({"positions": np.zeros((1, 3)), "types": [0]}, "at least 1"),
         ({"positions": np.zeros((1, 3)), "types": [1.5]}, "must hold integers"),
         (
@@ -155,6 +155,10 @@ def test_box_from_array():
             "atom 2",
         ),
         ({"positions": np.zeros((2, 3)), "topology": "bonds"}, "Topology"),
+        (
+            {"positions": np.zeros((2, 3)), "elements": ["Cu", "cu"]},
+            r"unknown chemical symbols \['cu'\]",
+        ),
     ],
 )
 def test_invalid_construction(kwargs, message):
@@ -248,7 +252,7 @@ def test_with_columns():
         s.with_columns(charge=[1.0, 2.0, 3.0])
     with pytest.raises(InvalidParameter, match="cannot add columns"):
         s.with_columns(pl.col("missing") * 2)
-    with pytest.raises(InvalidParameter, match="standard column"):
+    with pytest.raises(InvalidParameter, match="unknown chemical"):
         s.with_columns(element="Xx")
 
 

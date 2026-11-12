@@ -8582,7 +8582,7 @@
   with Gaussians of width <code>sigma</code>, on the irreducible wave vectors of a mesh. Its
   <code>ThermalConductivity</code> holds <code>kappa</code>, the <code>q</code> and <code>weights</code> of the irreducible wave
   vectors, and the <code>frequencies</code>, <code>group_velocities</code>, <code>gamma</code>, <code>lifetimes</code> and
-  <code>heat_capacities</code> of their modes. See
+  <code>heat_capacities</code> of their modes, the scattering computed in parallel in C++. See
   <a href="../../user-guide/simulation/thermal-conductivity/">Thermal conductivity</a>.</li>
 <li><code>Phonons.thermal_displacements(temperatures, *, mesh=20)</code> gives the mean products of the
   displacements of each atom along each pair of axes, with the zero point motion: the

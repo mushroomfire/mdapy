@@ -172,6 +172,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `symmetry` | whether phonons and elastic constants use the symmetry of the crystal, found by spglib: `True`, `False`, or `None`, whenever spglib is installed |
 | `gibbs_energy` | Gibbs energy per atom (eV), with the static energy, the free energy of the vibrations and the pressure times the volume |
 | `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
+| mode Grüneisen parameter | −(V/ω) dω/dV of a mode, from `Phonons.gruneisen` |
 | thermal displacements | ⟨u<sub>α</sub>u<sub>β</sub>⟩ (Å²) of each atom of a crystal by its vibrations, with the zero point motion, (T, n, 3, 3), from `Phonons.thermal_displacements` |
 | `kappa` | thermal conductivity (W/(m K)), (T, 3, 3), of the phonons in the relaxation-time approximation, from `thermal_conductivity` |
 | `gamma` | of `ThermalConductivity`: the imaginary part of the self energy of each mode by three-phonon scattering (THz), half its linewidth |

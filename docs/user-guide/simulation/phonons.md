@@ -99,6 +99,7 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |
 | `dos(mesh=20, *, frequencies=None, sigma=None, projected=False)` | `PhononDOS` | the density of states |
 | `thermal(temperatures, *, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
+| `gruneisen(q, *, smaller, larger)` | (3n,) or (K, 3n) float64 | the mode Grüneisen parameters, from the phonons at a smaller and a larger volume |
 | `thermal_displacements(temperatures, *, mesh=20)` | (T, n, 3, 3) float64 | the mean products of the displacements of each atom of the cell along each pair of axes, in Å² |
 
 **Group velocities.** The velocity of a mode is the derivative of its angular
@@ -200,6 +201,30 @@ exist.
 | `entropy` | (T,) float64 | eV/K | their entropy $S$ |
 | `heat_capacity` | (T,) float64 | eV/K | their heat capacity at constant volume $C_V$ |
 
+**Mode Grüneisen parameters.** How much the frequency of each mode falls as the
+crystal grows, γ = −(V/ω) dω/dV, from the phonons of the same crystal at a smaller and a
+larger volume, its atoms in the same order, such as the cell scaled by ±1 % of its
+volume; the atoms of a crystal with free coordinates are relaxed at each volume first,
+with the box fixed. The change of the dynamical matrix between the two volumes, over
+that of the volume, gives dω/dV of each mode; modes of nearly the same frequency, their
+squared frequencies closer than 1e-4 eV/(Å² amu) as phonopy takes them, are set apart in
+the basis in which that change is diagonal. Modes below 1e-3 THz, the translations,
+have none: NaN.
+
+<!-- skip-test -->
+```python
+def scaled(cell, volume):
+    s = volume ** (1 / 3)
+    return cell.with_box(cell.box.matrix * s).with_columns(
+        positions=cell["positions"] * s
+    )
+
+
+smaller = phonons(scaled(cell, 0.99), potential, supercell=result.supercell)
+larger = phonons(scaled(cell, 1.01), potential, supercell=result.supercell)
+result.gruneisen([0.5, 0.5, 0.5], smaller=smaller, larger=larger)  # at L
+```
+
 **Thermal displacements.** The mean products ⟨u<sub>α</sub>u<sub>β</sub>⟩ of the
 displacements of each atom, with the zero point motion, by sums over the modes on the
 mesh; modes below 1e-3 THz, the translations, are left out. The diagonal holds the mean
@@ -222,8 +247,9 @@ calculator that does not compute forces, a supercell that is not positive
 integers or a matrix of integers with a positive determinant, a
 displacement that is not positive, and `symmetry=True` without spglib;
 `primitive_cell` for a box that is not
-periodic. `frequencies`, `modes` and `group_velocities` raise it for wave vectors that are
-not three numbers each, and `group_velocities` for `symmetry=True` without spglib; `band_structure` for an unknown lattice, a cell that
+periodic. `frequencies`, `modes`, `group_velocities` and `gruneisen` raise it for wave vectors that
+are not three numbers each, `gruneisen` for phonons of other atoms or of volumes that are
+not smaller and larger, and `group_velocities` for `symmetry=True` without spglib; `band_structure` for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and `ImportError` for `"auto"`
 without seekpath; `dos`, `thermal` and `thermal_displacements` for a mesh or a `sigma` that is not
@@ -273,6 +299,13 @@ the frequencies at their corners
 ([Blöchl et al. (1994)](../../reference/references.md#blochl1994)), or a
 Gaussian. The projected density of atom $a$ weighs each mode by
 $|\mathbf e_a|^2$, over the corners of each tetrahedron.
+
+The mode Grüneisen parameter of a mode of eigenvalue ω² and polarization **e** is
+
+$$
+\gamma = -\frac{V}{\omega}\frac{\partial \omega}{\partial V}
+= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e .
+$$
 
 The thermal displacements of atom $a$ are
 

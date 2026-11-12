@@ -35,6 +35,9 @@ _DEGENERATE = 1e-3
 # modes of a frequency closer than this in THz to another share their group
 # velocities, and those below it have none, as in phonopy
 _SAME_VELOCITY = 1e-4
+# modes whose eigenvalues of the dynamical matrix are closer than this in
+# eV/(Å² amu) share their Grüneisen parameters, as in phonopy
+_SAME_EIGENVALUE = 1e-4
 # a direction in which the derivative of the dynamical matrix sets apart the
 # modes of equal frequency, as phonopy's
 _APART = np.array([1.0, 2.0, 3.0]) / np.sqrt(14.0)
@@ -946,6 +949,78 @@ class Phonons:
                     ]
                     v = np.mean([v @ r.T for r in kept], axis=0)
                 out[start + k] = v
+        return out[0] if single else out
+
+    def gruneisen(
+        self, q: ArrayLike, *, smaller: "Phonons", larger: "Phonons"
+    ) -> np.ndarray:
+        """Mode Grüneisen parameters: how the frequency of each mode changes
+        with the volume, from the phonons of the crystal at a smaller and a
+        larger volume.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+        smaller, larger : Phonons
+            The phonons of the same crystal, its atoms in the same order, in a
+            cell of a smaller and of a larger volume, such as from ``phonons``
+            of the cell scaled by a little.
+
+        Returns
+        -------
+        numpy.ndarray
+            (3n,) or (K, 3n) float64 mode Grüneisen parameters, -(V/ω) dω/dV,
+            of the modes of these phonons in the order of ``frequencies``;
+            NaN for modes below 1e-3 THz, the translations.
+
+        Raises
+        ------
+        InvalidParameter
+            For wave vectors that are not three numbers each, or phonons of
+            another number of atoms, or whose volumes are not smaller and
+            larger than that of these.
+        """
+        q, single = self.__wave_vectors(q)
+        volume = abs(np.linalg.det(self.cell.box.matrix))
+        low = abs(np.linalg.det(smaller.cell.box.matrix))
+        high = abs(np.linalg.det(larger.cell.box.matrix))
+        if len(smaller.cell) != len(self.cell) or len(larger.cell) != len(self.cell):
+            raise InvalidParameter(
+                "the phonons at other volumes must be of the same atoms"
+            )
+        if not low < volume < high:
+            raise InvalidParameter(
+                f"the volumes must be smaller and larger than {volume:.6g} Å³, "
+                f"not {low:.6g} and {high:.6g}"
+            )
+        n3 = 3 * len(self.cell)
+        out = np.zeros((len(q), n3))
+        for start in range(0, len(q), 512):
+            chunk = q[start : start + 512]
+            values, vectors = np.linalg.eigh(self.__dynamical(chunk))
+            change = larger.__dynamical(chunk) - smaller.__dynamical(chunk)
+            frequencies = np.sign(values) * np.sqrt(np.abs(values)) * _THZ
+            for k in range(len(chunk)):
+                # modes of nearly one frequency, as phonopy takes them: their
+                # eigenvalues closer than 1e-4 eV/(Å² amu); the basis in which
+                # the change is diagonal
+                apart = np.flatnonzero(np.diff(values[k]) >= _SAME_EIGENVALUE) + 1
+                for modes in np.split(np.arange(n3), apart):
+                    e = vectors[k][:, modes]
+                    out[start + k, modes] = np.linalg.eigvalsh(
+                        e.conj().T @ change[k] @ e
+                    )
+            moving = frequencies > _LOWEST
+            out[start : start + len(chunk)] = np.where(
+                moving,
+                -out[start : start + len(chunk)]
+                * volume
+                / (high - low)
+                / (2 * np.where(moving, values, 1.0)),
+                np.nan,
+            )
         return out[0] if single else out
 
     def __in_plane(self, sections: list) -> list:

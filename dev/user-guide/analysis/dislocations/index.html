@@ -8772,8 +8772,13 @@ mesh.</p>
 <h3 id="ca-files">CA files<a class="headerlink" href="#ca-files" title="Permanent link">&para;</a></h3>
 <p><code>result.write("dislocations.ca")</code> writes the result as a crystal analysis
 file of OVITO, version 6, which OVITO opens as it opens the files of its
-own dislocation analysis:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+own dislocation analysis; <code>read_dislocations</code> reads such a file back, and
+those OVITO writes:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
 </code></pre></div>
 <p>The file holds the box, the structures and their families of Burgers
 vectors with the colors of <code>FAMILY_COLORS</code>, the crystal clusters with their
@@ -8785,6 +8790,14 @@ space it gives differ from <code>spatial_burgers</code> by some <span class="ari
 suffix <code>.gz</code>, <code>.bz2</code>, <code>.xz</code> or <code>.zst</code> compresses the file; OVITO reads
 <code>.gz</code>. OVITO names the families in its statistics by a vector of each, such
 as <code>1/2&lt;011&gt;</code>.</p>
+<p>A file holds no atoms: the result read has empty <code>structure</code> and
+<code>crystal_cluster</code>, and <code>defect_atoms</code> −1 at every vertex. Its
+<code>spatial_burgers</code> are those of the orientation of each cluster, also where
+the lattice about a line is turned from it, and the crystal is the one the
+file names, or for the files of OVITO the structure of the most atoms in
+clusters. <code>read_dislocations</code> reads versions 5 to 7, the first frame of a
+file of several, and raises <code>FileFormatError</code> for a file that does not
+follow the format.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>The constructor raises <code>InvalidParameter</code> for an unknown <code>crystal</code>, a
 <code>circuit_length</code> below 3, a <code>stretch</code>, <code>smoothing</code> or <code>mesh_smoothing</code> that

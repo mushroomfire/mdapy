@@ -85,7 +85,7 @@ The velocities of `system`, if it has them, are where the dynamics starts.
 | `ensemble` | str | `"nve"` | | `"nve"`, or `"nvt"` with a Nosé–Hoover thermostat, or `"npt"` with a thermostat and a barostat, or `"nph"` with a barostat alone (LAMMPS `fix nve`, `nvt`, `npt`, `nph`) |
 | `temperature` | float64 or (float64, float64) | | K | the temperature of the thermostat, or its values at the start and end of the run; for `"nvt"` and `"npt"` |
 | `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"` and `"nph"` |
-| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), or alike along its first two vectors with the third kept (`"xy"`, as for [a sheet](sheets.md#molecular-dynamics)) |
+| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), or alike along its first two vectors with the third kept (`"xy"`); [a sheet](sheets.md#molecular-dynamics) changes in its plane only |
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |

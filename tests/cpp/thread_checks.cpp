@@ -1245,6 +1245,37 @@ void polyhedral_template_matching() {
         check(std::count(types.begin(), types.end(), mdapy::identify::kPtmFcc) > n / 2,
               "polyhedral template matching finds fcc");
     }
+    // the neighbors found in a tree as they are needed, in one pass (fcc,
+    // hcp and bcc) or two (every structure): as from the list
+    const mdapy::neighbor::KdTree tree(positions.data(), n, matrix, origin, pbc);
+    for (const std::int32_t structures : {0xff, 0x7}) {
+        std::vector<std::int8_t> listed(static_cast<std::size_t>(n));
+        std::vector<double> listed_rmsd(static_cast<std::size_t>(n));
+        mdapy::identify::PtmOutput listed_output;
+        listed_output.structure = listed.data();
+        listed_output.rmsd = listed_rmsd.data();
+        input.structures = structures;
+        mdapy::set_num_threads(kThreads[0]);
+        mdapy::identify::polyhedral_template_matching(input, listed_output);
+        mdapy::identify::PtmInput searched = input;
+        searched.offsets = nullptr;
+        searched.j = nullptr;
+        searched.shifts = nullptr;
+        searched.tree = &tree;
+        searched.k = 18;
+        for (int threads : kThreads) {
+            mdapy::set_num_threads(threads);
+            std::vector<std::int8_t> types(static_cast<std::size_t>(n));
+            std::vector<double> rmsd(static_cast<std::size_t>(n));
+            mdapy::identify::PtmOutput output;
+            output.structure = types.data();
+            output.rmsd = rmsd.data();
+            mdapy::identify::polyhedral_template_matching(searched, output);
+            check(types == listed && rmsd == listed_rmsd,
+                  "polyhedral template matching without a list is the same as with one");
+        }
+    }
+    input.structures = 0xff;
     // a slip of a/6 [11-2] above a (111) plane: stacking faults of hcp atoms
     for (std::int64_t i = 0; i < n; ++i) {
         double* x = positions.data() + 3 * i;

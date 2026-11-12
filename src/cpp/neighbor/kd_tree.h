@@ -71,6 +71,29 @@ public:
         std::int32_t shift[3];
     };
 
+    // The atom in slot t of the tree; slot after slot, near atoms come one
+    // after the other.
+    std::int64_t atom(std::int64_t t) const { return static_cast<std::int64_t>(points_[t].atom); }
+
+    // The working space of nearest_of, one per thread; found holds the
+    // neighbors of the last search, its first k nearest first.
+    struct Workspace {
+        std::vector<Candidate> candidates;
+        std::vector<Neighbor> found;
+    };
+
+    // Checks k as nearest_atoms and gives the reach that nearest_of needs.
+    double reach(int k) const {
+        check_count(k, size() - 1);
+        return lattice_reach(k);
+    }
+
+    // The k nearest neighbors of atom i at x, its position, in work.found,
+    // as for_each_nearest gives them; reach from reach(k).
+    void nearest_of(const double* x, std::int64_t i, int k, double reach, Workspace& work) const {
+        search(x, i, k, reach, work.candidates, work.found);
+    }
+
 private:
     struct Point {
         double y[3];  // the image of the atom in the box

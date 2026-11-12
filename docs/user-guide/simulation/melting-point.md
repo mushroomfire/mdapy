@@ -20,7 +20,7 @@ crystal = minimize(
 ).system
 
 result = melting_point(crystal, potential, 1000.0)
-result.temperature, result.error  # 1326 K, 1 K
+result.temperature, result.error  # 1323 K, 0.7 K
 result.attempts  # how the search went
 ```
 
@@ -44,7 +44,8 @@ with plot.style():
 ![The two phases reaching their common temperature](images/melting-point.png)
 
 *Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K. The
-runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases and gave 1326 K.
+runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases; its fifth stretch
+agreed with the fourth and gave 1323 K.
 Here is its last stretch.*
 
 The crystal is repeated to about `num_atoms` atoms in a box three times as long along its
@@ -55,8 +56,9 @@ third vector as along the others; the interface lies across that vector. Each ru
    temperature, hotter until its atoms have moved by about the distance between them;
 3. cools the melted half to the temperature and lets it settle;
 4. releases the crystal, relaxes the pressure of the box for a moment at this
-   temperature, and runs both at constant enthalpy, in stretches of `coexistence`, up
-   to five, until the temperature no longer drifts.
+   temperature, and runs both at constant enthalpy, in stretches of `coexistence`, two
+   or more and up to five, until the temperature no longer drifts: neither within the
+   last stretch nor from the one before.
 
 A run that melts started too hot and one that freezes too cold, whatever its
 temperature became; the next guess is 15 % away, or halfway between two such bounds.
@@ -78,7 +80,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `equilibration` | float64 | 10 | ps | the time of each stage before the phases meet |
 | `coexistence` | float64 | 500 | ps | the time of each stretch of the two phases; a larger box needs longer |
-| `tolerance` | float64 | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger |
+| `tolerance` | float64 | 3 | K | how much the temperature may still drift, from the third quarter of a stretch to the last and from the stretch before to this one, for it to be the answer; twice its statistical error, if that is larger |
 | `max_runs` | int32 | 8 | | the largest number of runs |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | 1 | | the seed of the random numbers |
@@ -92,10 +94,10 @@ spread. For the copper above, from guesses of 1000, 1327 and 1700 K:
 
 | Atoms | `coexistence` (ps) | Melting point (K) |
 |---|---|---|
-| 4000 | 100 | 1316, 1325, 1326 |
-| 4000 | 500 | 1326, 1318, 1328 |
-| 16000 | 100 | 1322, 1319, 1336 |
-| 16000 | 500 | 1327, 1328, 1324 |
+| 4000 | 100 | 1328, 1333, 1326 |
+| 4000 | 500 | 1321, 1322, 1321 |
+| 16000 | 100 | 1321, 1322, 1320 |
+| 16000 | 500 | 1325, 1323, 1325 |
 
 where [the free energies](free-energy.md) of 16384 atoms cross at 1326 K. `error` is the
 statistical error of one run and smaller than this spread, so repeating a run with another
@@ -108,7 +110,7 @@ It returns a `MeltingPointResult`; arrays are read-only.
 | Attribute | Type | Unit | Meaning |
 |---|---|---|---|
 | `temperature` | float64 | K | the melting point: the mean temperature over the second half of the last stretch |
-| `error` | float64 | K | the standard error of that mean, from blocks of the stretch |
+| `error` | float64 | K | the standard error of that mean, from blocks of the stretch: the statistical error of one run, smaller than the spread of runs from other guesses or seeds |
 | `pressure` | float64 | GPa | the pressure |
 | `attempts` | tuple of `MeltingAttempt` | | each stretch of each run, in order |
 | `time` | (S,) float64 | ps | the time along the last stretch |

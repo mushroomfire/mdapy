@@ -50,15 +50,20 @@ def attempt(start, outcome, temperature=None, fraction=0.5, drift=0.0):
     )
 
 
-def test_the_answer_needs_both_phases_and_a_steady_temperature():
-    is_answer = module._is_answer
-    assert is_answer(attempt(1000, "coexisting", 1005), 0.5, 3.0)
-    assert not is_answer(attempt(1000, "melted", 1005), 0.5, 3.0)
-    assert not is_answer(attempt(1000, "coexisting", 1005, 0.15), 0.5, 3.0)
-    assert not is_answer(attempt(1000, "coexisting", 1005, 0.85), 0.5, 3.0)
-    assert not is_answer(attempt(1000, "coexisting", 1005, drift=4.0), 0.5, 3.0)
+def test_a_steady_temperature_needs_two_stretches_that_agree():
+    steady = module._steady
+    assert steady([(1002.0, 0.5), (1005.0, 0.5)], 0.0, 3.0)
+    # one stretch is not enough, however steady
+    assert not steady([(1005.0, 0.5)], 0.0, 3.0)
+    # still drifting within the stretch, or from the one before
+    assert not steady([(1002.0, 0.5), (1005.0, 0.5)], 4.0, 3.0)
+    assert not steady([(1001.0, 0.5), (1005.0, 0.5)], 0.0, 3.0)
     # a drift within the noise of the temperature is no drift
-    assert is_answer(attempt(1000, "coexisting", 1005, drift=4.0), 3.0, 3.0)
+    assert steady([(1002.0, 0.5), (1005.0, 3.0)], 4.0, 3.0)
+    assert steady([(1001.0, 1.6), (1005.0, 1.6)], 0.0, 3.0)  # 2 √2 × 1.6 = 4.5
+    assert not steady([(1000.0, 1.6), (1005.0, 1.6)], 0.0, 3.0)
+    # only the last two count
+    assert steady([(900.0, 0.5), (1002.0, 0.5), (1005.0, 0.5)], 0.0, 3.0)
 
 
 def test_the_next_temperature():
@@ -90,6 +95,7 @@ def run_with(outcomes, seen):
         return module._Run(
             attempts=(MeltingAttempt(temperature, outcome, mean, fraction, 0.0),),
             error=1.0,
+            steady=outcome == "coexisting" and 0.2 <= fraction <= 0.8,
             time=np.zeros(2),
             temperatures=np.full(2, mean),
             pressures=np.zeros(2),
@@ -191,6 +197,7 @@ def test_what_a_run_gives(potential, argon):
     assert len(run.time) == len(run.temperatures) == len(run.pressures) > 1
     assert run.fractions[-1] == last.fraction
     assert abs(run.pressures.mean()) < 0.1  # GPa
+    assert not run.steady or len(run.attempts) >= 2
 
 
 def test_a_run_far_too_hot_melts_at_once(potential, argon):

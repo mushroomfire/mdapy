@@ -5272,6 +5272,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/thermal-conductivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8548,6 +8576,14 @@
   Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
   apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
   phonopy does.</li>
+<li><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma,
+  symmetry=None)</code> gives the lattice thermal conductivity in the relaxation-time
+  approximation from second and third order force constants, by three-phonon scattering
+  with Gaussians of width <code>sigma</code>, on the irreducible wave vectors of a mesh. Its
+  <code>ThermalConductivity</code> holds <code>kappa</code>, the <code>q</code> and <code>weights</code> of the irreducible wave
+  vectors, and the <code>frequencies</code>, <code>group_velocities</code>, <code>gamma</code>, <code>lifetimes</code> and
+  <code>heat_capacities</code> of their modes. See
+  <a href="../../user-guide/simulation/thermal-conductivity/">Thermal conductivity</a>.</li>
 <li><code>mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)</code> fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

@@ -5274,6 +5274,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/thermal-conductivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -7658,6 +7686,45 @@
   
 </li>
         
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thermal-conductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Thermal conductivity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Thermal conductivity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.thermal_conductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_conductivity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ThermalConductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ThermalConductivity
+      
+    </span>
+  </a>
+  
+</li>
+        
           <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.PhononDOS" class="md-nav__link">
     <span class="md-ellipsis">
@@ -9130,6 +9197,45 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#thermal-conductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Thermal conductivity
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Thermal conductivity">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.thermal_conductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_conductivity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ThermalConductivity" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ThermalConductivity
+      
+    </span>
+  </a>
   
 </li>
         
@@ -13843,6 +13949,360 @@ supercell is not valid or too small for the shells.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="thermal-conductivity">Thermal conductivity<a class="headerlink" href="#thermal-conductivity" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.thermal_conductivity" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">thermal_conductivity</span>
+
+
+<a href="#mdapy.lattice_dynamics.thermal_conductivity" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The lattice thermal conductivity of a crystal in the relaxation-time
+approximation, from three-phonon scattering.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>constants</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ForceConstants
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._force_constants.ForceConstants)" href="#mdapy.lattice_dynamics.ForceConstants">ForceConstants</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Second and third order force constants of a crystal periodic in every
+direction, each atom with an element or a mass, such as those of
+<code>force_constants</code> with <code>cutoff_third</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperatures</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperatures in K, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of wave vectors along each reciprocal lattice vector, of a
+mesh through Γ.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>sigma</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Width in THz of the Gaussian that stands for the conservation of
+energy in each scattering.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symmetry</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Compute the irreducible wave vectors only, and average the group
+velocities, with the rotations of the crystal found by spglib: True,
+False, or by default whenever spglib is installed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ThermalConductivity
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._conductivity.ThermalConductivity)" href="#mdapy.lattice_dynamics.ThermalConductivity">ThermalConductivity</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity at each temperature, with the frequencies, group
+velocities, lifetimes and heat capacities of the modes of the
+irreducible wave vectors.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the force constants have no third order, the box is not periodic
+in every direction, an atom has no mass, a temperature is not
+positive, the mesh is not positive integers, sigma is not positive,
+or symmetry is True without spglib.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.ThermalConductivity" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ThermalConductivity</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.ThermalConductivity" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ThermalConductivity</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">weights</span><span class="p">,</span> <span class="n">frequencies</span><span class="p">,</span> <span class="n">group_velocities</span><span class="p">,</span> <span class="n">gamma</span><span class="p">,</span> <span class="n">lifetimes</span><span class="p">,</span> <span class="n">heat_capacities</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The lattice thermal conductivity of a crystal in the relaxation-time
+approximation, with the phonons of the irreducible wave vectors of the
+mesh.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.temperatures">temperatures</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 temperatures in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.kappa">kappa</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T, 3, 3) float64 thermal conductivity in W/(m K).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.q">q</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(Q, 3) float64 the irreducible wave vectors of the mesh, in units of
+the reciprocal lattice vectors of the cell.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.weights">weights</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(Q,) int64 the number of wave vectors of the mesh that each stands
+for.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.frequencies">frequencies</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(Q, 3n) float64 frequencies in THz.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.group_velocities">group_velocities</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(Q, 3n, 3) float64 group velocities in Å/ps.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.gamma">gamma</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T, Q, 3n) float64 the imaginary part of the self energy of each
+mode by three-phonon scattering, half its linewidth, in THz.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.lifetimes">lifetimes</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T, Q, 3n) float64 lifetimes in ps, 1/(4π gamma); infinite for modes
+that do not scatter.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ThermalConductivity.heat_capacities">heat_capacities</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T, Q, 3n) float64 heat capacity of each mode in eV/K.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
 
 
 

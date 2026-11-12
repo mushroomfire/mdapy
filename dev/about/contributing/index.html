@@ -5270,6 +5270,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/thermal-conductivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8498,8 +8526,8 @@ tools, <a href="https://matplotlib.org">matplotlib</a>, <a href="https://ase-lib
 where it is missing, so a plain run passes on any machine; <code>pytest -rs</code> lists
 the skipped tests and why. A complete run needs the following.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev]"</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">ovito</span><span class="o">==</span><span class="m">3</span>.17.1<span class="w"> </span>freud-analysis<span class="o">==</span><span class="m">3</span>.6.1<span class="w"> </span><span class="nv">phonopy</span><span class="o">==</span><span class="m">4</span>.8.6<span class="w"> </span><span class="nv">seekpath</span><span class="o">==</span><span class="m">2</span>.2.2<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nv">dscribe</span><span class="o">==</span><span class="m">2</span>.1.2<span class="w"> </span>pymatgen-core<span class="w"> </span>networkx<span class="w"> </span>torch<span class="w"> </span>torchnep
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="nv">ovito</span><span class="o">==</span><span class="m">3</span>.17.1<span class="w"> </span>freud-analysis<span class="o">==</span><span class="m">3</span>.6.1<span class="w"> </span><span class="nv">phonopy</span><span class="o">==</span><span class="m">4</span>.8.6<span class="w"> </span><span class="nv">phono3py</span><span class="o">==</span><span class="m">4</span>.8.2<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span><span class="nv">symfc</span><span class="o">==</span><span class="m">1</span>.7.3<span class="w"> </span><span class="nv">seekpath</span><span class="o">==</span><span class="m">2</span>.2.2<span class="w"> </span><span class="nv">dscribe</span><span class="o">==</span><span class="m">2</span>.1.2<span class="w"> </span>pymatgen-core<span class="w"> </span>networkx<span class="w"> </span>torch<span class="w"> </span>torchnep
 </code></pre></div>
 <table>
 <thead>
@@ -8519,7 +8547,11 @@ the skipped tests and why. A complete run needs the following.</p>
 </tr>
 <tr>
 <td><a href="https://phonopy.github.io/phonopy">phonopy</a></td>
-<td>phonons, against phonopy; its dependency symfc for phonons at finite temperature</td>
+<td>phonons and their files, against phonopy; its dependency symfc for fitted force constants, against symfc</td>
+</tr>
+<tr>
+<td><a href="https://phonopy.github.io/phono3py">phono3py</a></td>
+<td>the thermal conductivity, against phono3py; installed with phonopy and symfc, as a newer phono3py upgrades them</td>
 </tr>
 <tr>
 <td><a href="https://seekpath.readthedocs.io">seekpath</a></td>

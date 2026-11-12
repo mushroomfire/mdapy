@@ -5274,6 +5274,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/thermal-conductivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8911,6 +8939,22 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td><code>free_energy</code></td>
 <td>Helmholtz free energy (eV); of the vibrations in <code>ThermalProperties</code>, with the zero-point energy</td>
+</tr>
+<tr>
+<td><code>kappa</code></td>
+<td>thermal conductivity (W/(m K)), (T, 3, 3), of the phonons in the relaxation-time approximation, from <code>thermal_conductivity</code></td>
+</tr>
+<tr>
+<td><code>gamma</code></td>
+<td>of <code>ThermalConductivity</code>: the imaginary part of the self energy of each mode by three-phonon scattering (THz), half its linewidth</td>
+</tr>
+<tr>
+<td><code>lifetimes</code></td>
+<td>of phonons (ps), 1/(4π <code>gamma</code>)</td>
+</tr>
+<tr>
+<td><code>sigma</code></td>
+<td>the width of a Gaussian in the units of what it spreads, THz for frequencies</td>
 </tr>
 <tr>
 <td><code>thermal_expansion</code></td>

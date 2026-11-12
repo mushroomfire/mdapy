@@ -133,6 +133,11 @@ def test_straight_lines_through_the_box(
         sum(line.spatial_burgers for line in result.lines), 0, atol=1e-6
     )
     assert result.lengths()[family] == pytest.approx(result.total_length)
+    # lines of the length of the box, count of them, per volume
+    volume = system.box.volume
+    assert result.density == pytest.approx(count * length / volume, rel=0.02)
+    assert result.densities()[family] == pytest.approx(result.density)
+    assert sum(result.densities().values()) == pytest.approx(result.density)
 
 
 def test_partials():

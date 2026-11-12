@@ -115,6 +115,12 @@ def compare(system, crystal, rel, lines=True, low_ca_ratio=False):
             (line.is_loop, line.is_infinite_line) for line in theirs
         )
     attributes = data.attributes
+    assert ours.density == pytest.approx(
+        attributes["DislocationAnalysis.total_line_length"]
+        / attributes["DislocationAnalysis.cell_volume"],
+        rel=rel,
+        abs=0.5 / system.box.volume,
+    )
     lengths = dict(ours.lengths())
     for family in UNNAMED_BY_OVITO:  # OVITO counts these stair-rods as other
         lengths["other"] += lengths.pop(family, 0.0)
@@ -187,6 +193,40 @@ def test_low_c_over_a_atom_by_atom(ratio):
     system = system.with_columns(positions=system["positions"] + noise)
     ours, _ = compare(system, "hcp", rel=0.01, low_ca_ratio=True)
     assert (ours.structure == 2).mean() > (0.95 if ratio >= 0.75 else 0.4)
+
+
+def test_some_atoms_only():
+    """The gallium of zinc blende analyzed alone as fcc, as OVITO analyzes the
+    atoms selected: the same structures of those atoms, the others other,
+    and the same lines."""
+    from ovito.modifiers import DislocationAnalysisModifier
+
+    from dislocation_models import SI
+
+    system = dislocation_quadrupole(
+        "diamond screw", 5.431, SI, (6, 10, 3), elements=("Ga", "As")
+    )
+    gallium = system["element"] == "Ga"
+    ours = DislocationAnalysis("fcc").compute(system.filter(gallium))
+
+    def select(frame, data):
+        data.particles_.create_property("Selection", data=gallium.astype(np.int32))
+
+    data = ovito_compute(
+        system,
+        select,
+        DislocationAnalysisModifier(
+            input_crystal_structure=LATTICE["fcc"], only_selected=True
+        ),
+    )
+    structure = np.asarray(data.particles["Structure Type"])
+    np.testing.assert_array_equal(structure[gallium], ours.structure)
+    assert (structure[~gallium] == 0).all()
+    assert len(ours.lines) == len(data.dislocations.segments) == 2
+    assert all(line.family == "1/2<110>" for line in ours.lines)
+    assert ours.total_length == pytest.approx(
+        data.attributes["DislocationAnalysis.total_line_length"], rel=0.01
+    )
 
 
 def test_a_loop_on_a_twin_boundary():

@@ -172,6 +172,8 @@ A `DislocationResult`:
 | `interface_atoms` | (V,) int64 or `None` | the atom at each of its vertices |
 | `lengths()` | dict of str to float64 | the total length of the lines of each family of the crystal in Å, `other` last |
 | `total_length` | float64 | the total length of the lines in Å |
+| `densities()` | dict of str to float64 | the length of the lines of each family per volume of the box in Å⁻², `other` last; times 10<sup>20</sup> in m⁻² |
+| `density` | float64 | the total length of the lines per volume of the box in Å⁻² |
 | `counts()` | dict of str to int64 | the number of atoms of each structure, by name |
 | `write(path)` | | writes the lines, the crystal clusters and the defect mesh as a CA file, below |
 
@@ -220,6 +222,27 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 `burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
 mesh.
+
+### Some atoms only
+
+To analyze some atoms only, as a sublattice of an alloy, analyze the system
+of those atoms; the others are as if they were not there. The gallium of
+gallium arsenide, a zinc blende of two fcc lattices, is fcc:
+
+```python
+from mdapy.build import dislocation_quadrupole
+
+gaas = dislocation_quadrupole(
+    "diamond screw", 5.65, (119.0, 53.8, 59.5), (6, 10, 3), elements=("Ga", "As")
+)
+gallium = gaas["element"] == "Ga"
+found = DislocationAnalysis("fcc").compute(gaas.filter(gallium))
+[line.family for line in found.lines]  # ["1/2<110>", "1/2<110>"]
+structure = np.zeros(len(gaas), dtype=np.int8)  # of every atom, other for As
+structure[gallium] = found.structure
+```
+
+The per-atom results are those of the atoms analyzed, in their order.
 
 ### CA files
 

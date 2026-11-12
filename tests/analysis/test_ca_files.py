@@ -273,6 +273,8 @@ def test_read_back(tmp_path, name):
             getattr(back.clusters, name), getattr(result.clusters, name)
         )
     assert back.lengths() == result.lengths()
+    assert back.densities() == result.densities()
+    assert back.density == result.density
     mesh, written = back.defect_mesh, result.defect_mesh
     box = system.box
     np.testing.assert_array_equal(mesh.faces, written.faces)

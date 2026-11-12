@@ -41,6 +41,33 @@
   farther apart than it, under every operation of the crystal also in supercells of less
   symmetry, and zero beyond; `ForceConstants.cutoff` says which. The page gives how far
   the frequencies of copper move with the cutoff.
+- The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
+  primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
+  Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.
+- `mdapy.fitting`, curves and surfaces through data: `Spline` and `GridSpline`, cubic
+  splines along a line and on a grid, with derivatives, `Spline.integral` and the
+  `BOUNDARIES` at their ends, periodic among them; `fit_polynomial` and `fit_surface`,
+  least-squares polynomials of one and two variables, which give a `PolynomialFit` and a
+  `SurfaceFit`; `fit_curve`, functions with parameters fitted by the Levenberg–Marquardt
+  method into a `CurveFit`, from a `Model` (its `name`, `function`, parameters and
+  `guess`) or a plain function, with the `MODELS` `exponential`,
+  `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
+  `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
+  Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
+  parameters with their errors and covariance. See
+  [Interpolation](../user-guide/fitting/interpolation.md),
+  [Curve fitting](../user-guide/fitting/curve-fitting.md) and
+  [Equations of state](../user-guide/fitting/equation-of-state.md).
+- `DislocationAnalysis` is no longer experimental. Its page lists the
+  [limits](../user-guide/analysis/dislocations.md#limits), general grain boundaries
+  first, and [where the results differ from OVITO](../user-guide/analysis/dislocations.md#where-the-results-differ-from-ovito)
+  and why. The stair-rods `1/6<310>` and `1/3<110>` of fcc have their own families, which
+  were `other`.
+- `melting_point` takes a run as the answer only when the mean temperatures of its last two
+  stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
+  the drift within the last. Before, one stretch could pass while the temperature still rose:
+  for copper from guesses of 1000, 1327 and 1700 K the answers spread by 4 to 17 K, now by 1
+  to 7 K. `error` is the statistical error of one run, smaller than that spread.
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).

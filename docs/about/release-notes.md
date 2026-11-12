@@ -228,6 +228,11 @@
   from its core to the surface when a plane of atoms lies just below the plane of cut.
   The displacement lifted such atoms across the plane, and they were moved back as if
   they had been above it, as atomsk does; above and below are now where the atoms were.
+- `elastic_constants` relaxes the atoms under each strain until the forces left are
+  10<sup>−4</sup> of those the strain makes, where that is below `max_force`: a fixed
+  tolerance near those forces left the atoms half relaxed, most where they relax most.
+  C44 of silicon with the Tersoff potential, 10.31 GPa, came out 10.20 GPa at the
+  default strain of 10<sup>−3</sup> and 13.9 GPa at 10<sup>−4</sup>.
 - `PolyhedralTemplateMatching` without a neighbor list finds the 18 nearest neighbors of
   each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
   take 293 MB beyond the system rather than 752 MB, in the same time, and its progress

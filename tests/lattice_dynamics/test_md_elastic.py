@@ -66,6 +66,20 @@ def test_hot_crystal_is_softer(copper):
     assert (hot.errors > cold.errors).all()
 
 
+def test_symmetric_and_reproducible(copper):
+    """Each entry off the diagonal the mean of its two estimates; the same
+    seed the same constants, another seed others."""
+    _, potential, relaxed = copper
+    options = {"equilibration": 200, "production": 400, "every": 10}
+    first = md_elastic_constants(relaxed, potential, 300.0, **options)
+    again = md_elastic_constants(relaxed, potential, 300.0, **options)
+    other = md_elastic_constants(relaxed, potential, 300.0, seed=2, **options)
+    np.testing.assert_array_equal(first.constants, first.constants.T)
+    np.testing.assert_array_equal(first.errors, first.errors.T)
+    np.testing.assert_array_equal(first.constants, again.constants)
+    assert not np.array_equal(first.constants, other.constants)
+
+
 @pytest.mark.parametrize(
     "options, message",
     [

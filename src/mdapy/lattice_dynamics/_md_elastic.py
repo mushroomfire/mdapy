@@ -77,7 +77,8 @@ def md_elastic_constants(
         How the box changes while it finds its mean shape under pressure; a
         sheet changes in its plane only. Default "tri".
     seed : int32, optional
-        Seed of the starting velocities. Default 1.
+        Seed of the starting velocities and of the thermostat of the
+        strained runs. Default 1.
 
     Returns
     -------
@@ -129,11 +130,18 @@ def md_elastic_constants(
             tensor[a, b] = tensor[b, a] = sign * strain * (1 if a == b else 0.5)
             deformed = _strained(reference, tensor)
             with MolecularDynamics(deformed, potential, timestep=timestep) as md:
-                md.run(
-                    int(equilibration), ensemble="nvt", temperature=temperature, **run
+                # a Langevin thermostat, as a Nose-Hoover one, being
+                # deterministic, does not bring all the vibrations of a crystal
+                # to the temperature after the strain; the same noise for both
+                # signs, which the difference of their stresses then cancels
+                damping = 100 * md.timestep
+                md.command(
+                    f"fix mdapy_langevin all langevin {float(temperature)!r} "
+                    f"{float(temperature)!r} {damping!r} {int(seed) + k + 1} zero yes"
                 )
+                md.run(int(equilibration), ensemble="nve", **run)
                 start = md.step
-                md.run(int(production), ensemble="nvt", temperature=temperature, **run)
+                md.run(int(production), ensemble="nve", **run)
                 table = md.thermo.filter(md.thermo["step"] > start)
             stresses = np.stack(table["stress"].to_numpy())[:, columns]
             if sheet:  # the tension, N/m: the stress times the height of the box
@@ -146,6 +154,12 @@ def md_elastic_constants(
             spreads.append(error)
         constants[:, k] = (means[0] - means[1]) / (2 * strain)
         errors[:, k] = np.hypot(spreads[0], spreads[1]) / (2 * strain)
+    # the constants are symmetric: the mean of the two estimates of each
+    # entry off the diagonal, from independent runs
+    constants = (constants + constants.T) / 2
+    diagonal = np.diag(errors).copy()
+    errors = np.hypot(errors, errors.T) / 2
+    np.fill_diagonal(errors, diagonal)
     if sheet:
         return SheetElasticResult(constants, errors)
     return ElasticResult(constants, errors)

@@ -8540,6 +8540,13 @@ the hcp atoms of its faces and the other atoms of its corners (white).</em></p>
 <td></td>
 <td>also give the interface mesh, on which the circuits run</td>
 </tr>
+<tr>
+<td><code>low_ca_ratio</code></td>
+<td>bool</td>
+<td><code>False</code></td>
+<td></td>
+<td>for <code>hcp</code> of a low c/a: an atom whose 12 nearest neighbors are not hcp is tried again with them stretched along its c axis to the ideal c/a</td>
+</tr>
 </tbody>
 </table>
 <p><code>compute(system, *, progress=None, cancel=None)</code> takes the <code>progress</code> and
@@ -8549,6 +8556,18 @@ No two atoms may be at the same position.</p>
 crystal: fcc and hcp for <code>fcc</code> or <code>hcp</code> (each the stacking fault of the
 other), bcc for <code>bcc</code>, cubic and hexagonal diamond for either diamond.
 Longer circuits find dislocations of wider cores, and take longer.</p>
+<p>Below a c/a of some 1.15 the 12 nearest neighbors of hcp no longer form
+its shells, and its atoms are other. With <code>low_ca_ratio=True</code> the c axis of
+an atom is that between the two triangles of its 6 nearest neighbors, and
+its 14 nearest neighbors are stretched along it to the ideal c/a; a hot
+crystal is then hcp down to a c/a of some 0.75, as in OVITO. The option
+does nothing for the other crystals.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">hcp</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"hcp"</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">3.0</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Mg"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"hcp"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">hcp</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"hcp"</span><span class="p">]</span>  <span class="c1"># 0</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"hcp"</span><span class="p">,</span> <span class="n">low_ca_ratio</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">hcp</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"hcp"</span><span class="p">]</span>  <span class="c1"># 400, all</span>
+</code></pre></div>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>DislocationResult</code>:</p>
 <table>
@@ -8774,11 +8793,11 @@ mesh.</p>
 file of OVITO, version 6, which OVITO opens as it opens the files of its
 own dislocation analysis; <code>read_dislocations</code> reads such a file back, and
 those OVITO writes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
 </code></pre></div>
 <p>The file holds the box, the structures and their families of Burgers
 vectors with the colors of <code>FAMILY_COLORS</code>, the crystal clusters with their

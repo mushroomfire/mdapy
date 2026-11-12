@@ -9707,7 +9707,7 @@
 
 
 <a href="#mdapy.analysis.DislocationAnalysis" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DislocationAnalysis</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">circuit_length</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">stretch</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">perfect_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">point_separation</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mesh_smoothing</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">interface_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DislocationAnalysis</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">circuit_length</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">stretch</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">perfect_only</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">point_separation</span><span class="o">=</span><span class="mf">2.5</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mesh_smoothing</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">interface_mesh</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">low_ca_ratio</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9858,6 +9858,24 @@ keeps them all. Default 2.5.</p>
               <div class="doc-md-description">
                 <p>Also give the interface mesh, between the tetrahedra of the good
 crystal and the rest, on which the circuits run. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>low_ca_ratio</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For hcp of a low c/a, below some 1.15: an atom whose 12 nearest
+neighbors are not hcp is tried again with them stretched along its c
+axis to the ideal c/a. Default False.</p>
               </div>
             </td>
             <td>

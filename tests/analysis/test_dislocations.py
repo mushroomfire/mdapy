@@ -438,6 +438,28 @@ def test_the_lines_of_a_lock_add_up_in_space():
     np.testing.assert_allclose(axes @ found, axes @ total, atol=0.03)
 
 
+@pytest.mark.parametrize(
+    "sides, family, components",
+    [((1, 1), "1/6<310>", (0, 1 / 6, 1 / 2)), ((-1, 1), "1/3<110>", (0, 1 / 3, 1 / 3))],
+)
+def test_the_stair_rods_of_other_locks_have_names(sides, family, components):
+    """1/2[101] on (111) and 1/2[01-1] on (11-1), cut on either side of the
+    first plane, relax into two Shockley partials joined by a stair-rod of
+    1/6<310> or of 1/3<110>, named by their families rather than other."""
+    from dislocation_models import lock
+
+    system, total, axes = lock((1, 0, 1), (0, 1, -1), sides)
+    result = DislocationAnalysis("fcc").compute(system)
+    families = sorted(line.family for line in result.lines)
+    assert families == sorted(["1/6<112>", "1/6<112>", family])
+    rod = next(line for line in result.lines if line.family == family)
+    np.testing.assert_allclose(np.sort(np.abs(rod.burgers)), components, atol=1e-6)
+    found = sum(line.spatial_burgers for line in result.lines)
+    np.testing.assert_allclose(axes @ found, axes @ total, atol=0.03)
+    assert result.lengths()[family] > 0
+    assert family in DislocationAnalysis.FAMILY_COLORS["fcc"]
+
+
 def test_a_line_in_one_grain_of_a_cluster_of_two():
     """Two grains 10 degrees apart make one cluster, whose orientation is
     their mean; the spatial Burgers vector of a dislocation in one of them

@@ -9373,9 +9373,9 @@ third is made even.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Time in ps of each stretch of the two phases, of which a run has up to
-five while the temperature drifts. Default 500; a larger box needs
-longer, as heat takes longer to cross it.</p>
+                <p>Time in ps of each stretch of the two phases, of which a run has two
+or more, up to five, while the temperature drifts. Default 500; a
+larger box needs longer, as heat takes longer to cross it.</p>
               </div>
             </td>
             <td>
@@ -9392,8 +9392,9 @@ longer, as heat takes longer to cross it.</p>
             <td>
               <div class="doc-md-description">
                 <p>How much in K the temperature may still drift, from the third quarter
-of a stretch of coexistence to the last, for it to be the answer; twice
-its statistical error, if that is larger. Default 3.</p>
+of a stretch of coexistence to the last and from the stretch before
+to this one, for it to be the answer; twice its statistical error, if
+that is larger. Default 3.</p>
               </div>
             </td>
             <td>
@@ -9623,7 +9624,9 @@ coexist, averaged over the second half of the last stretch.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The standard error of that mean in K, from blocks of the run.</p>
+                <p>The standard error of that mean in K, from blocks of the stretch: the
+statistical error of one run, smaller than the spread of runs from
+other guesses or seeds.</p>
               </div>
             </td>
           </tr>

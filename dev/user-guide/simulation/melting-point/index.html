@@ -7900,7 +7900,7 @@ temperature. A run in which one phase takes over gives a new guess, until both l
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">melting_point</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">result</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span>  <span class="c1"># 1326 K, 1 K</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">result</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span>  <span class="c1"># 1323 K, 0.7 K</span>
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span><span class="o">.</span><span class="n">attempts</span>  <span class="c1"># how the search went</span>
 </code></pre></div>
 <p>The last run, whose temperature and fraction of solid atoms no longer drift:</p>
@@ -7919,7 +7919,8 @@ temperature. A run in which one phase takes over gives a new guess, until both l
 </code></pre></div>
 <p><img alt="The two phases reaching their common temperature" src="../images/melting-point.png" /></p>
 <p><em>Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K. The
-runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases and gave 1326 K.
+runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases; its fifth stretch
+agreed with the fourth and gave 1323 K.
 Here is its last stretch.</em></p>
 <p>The crystal is repeated to about <code>num_atoms</code> atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:</p>
@@ -7929,8 +7930,9 @@ third vector as along the others; the interface lies across that vector. Each ru
    temperature, hotter until its atoms have moved by about the distance between them;</li>
 <li>cools the melted half to the temperature and lets it settle;</li>
 <li>releases the crystal, relaxes the pressure of the box for a moment at this
-   temperature, and runs both at constant enthalpy, in stretches of <code>coexistence</code>, up
-   to five, until the temperature no longer drifts.</li>
+   temperature, and runs both at constant enthalpy, in stretches of <code>coexistence</code>, two
+   or more and up to five, until the temperature no longer drifts: neither within the
+   last stretch nor from the one before.</li>
 </ol>
 <p>A run that melts started too hot and one that freezes too cold, whatever its
 temperature became; the next guess is 15 % away, or halfway between two such bounds.
@@ -8018,7 +8020,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.</p>
 <td>float64</td>
 <td>3</td>
 <td>K</td>
-<td>how much the temperature may still drift, from the third quarter of a stretch to the last, for it to be the answer; twice its statistical error, if that is larger</td>
+<td>how much the temperature may still drift, from the third quarter of a stretch to the last and from the stretch before to this one, for it to be the answer; twice its statistical error, if that is larger</td>
 </tr>
 <tr>
 <td><code>max_runs</code></td>
@@ -8073,22 +8075,22 @@ spread. For the copper above, from guesses of 1000, 1327 and 1700 K:</p>
 <tr>
 <td>4000</td>
 <td>100</td>
-<td>1316, 1325, 1326</td>
+<td>1328, 1333, 1326</td>
 </tr>
 <tr>
 <td>4000</td>
 <td>500</td>
-<td>1326, 1318, 1328</td>
+<td>1321, 1322, 1321</td>
 </tr>
 <tr>
 <td>16000</td>
 <td>100</td>
-<td>1322, 1319, 1336</td>
+<td>1321, 1322, 1320</td>
 </tr>
 <tr>
 <td>16000</td>
 <td>500</td>
-<td>1327, 1328, 1324</td>
+<td>1325, 1323, 1325</td>
 </tr>
 </tbody>
 </table>
@@ -8117,7 +8119,7 @@ statistical error of one run and smaller than this spread, so repeating a run wi
 <td><code>error</code></td>
 <td>float64</td>
 <td>K</td>
-<td>the standard error of that mean, from blocks of the stretch</td>
+<td>the standard error of that mean, from blocks of the stretch: the statistical error of one run, smaller than the spread of runs from other guesses or seeds</td>
 </tr>
 <tr>
 <td><code>pressure</code></td>

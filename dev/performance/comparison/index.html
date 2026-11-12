@@ -8358,8 +8358,8 @@ the same parameters, from 4 000 to 2 million atoms. A program is timed only
 where it gives the result of MDAPY, atom by atom.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A node of the Triton cluster of Aalto University, alone for the run: two
-Intel Xeon Gold 6230 (40 cores, two hardware threads each, two NUMA nodes),
-191 GB, Linux. Python 3.13, MDAPY 2.0.0 built with GCC 12.3, OVITO 3.17.1
+Intel Xeon Gold 6248 (40 cores, two NUMA nodes), 191 GB, Linux. Python
+3.13, MDAPY 2.1.0rc1 built with GCC 12.3, OVITO 3.17.1
 and freud 3.6.1 from pip, each with 40 threads. <a href="../files/">Reading and writing
 files</a> and <a href="../builders/">building structures</a> ran on another
 node, with Intel Xeon Gold 6148, so their times do not compare with these.</p>
@@ -8371,35 +8371,39 @@ is faster.</em></p>
 <h3 id="what-they-show">What they show<a class="headerlink" href="#what-they-show" title="Permanent link">&para;</a></h3>
 <ul>
 <li><strong>OVITO</strong>: at 2 million atoms MDAPY is faster in every analysis they
-  share. It builds neighbor lists 6.4 times faster in a quarter of the
-  memory, Voronoi cells 20 to 21 times faster, computes Steinhardt
-  parameters over Voronoi faces 472 times faster (1.5 s against 11
-  minutes) and finds clusters 5.8 times faster; the other analyses take 1.3
-  to 3.5 times less time. From 32 000 atoms on, only atomic strain is not
-  faster: OVITO is faster below some 250 000 atoms (3 times at 4 000 and 2
-  times at 32 000), the two are on par at 256 000, and MDAPY is 1.3 times
-  faster at 2 million.</li>
+  share. It builds neighbor lists 7.5 times faster in a quarter of the
+  memory, Voronoi cells 22 to 24 times faster, computes Steinhardt
+  parameters over Voronoi faces 502 times faster (1.3 s against 11
+  minutes) and finds clusters 5.7 times faster; the other analyses take 1.2
+  to 3.7 times less time. From 32 000 atoms on, only atomic strain is not
+  faster: OVITO is faster below some 100 000 atoms (3 times at 4 000 and
+  1.3 times at 32 000), and MDAPY is 1.1 times faster at 256 000 and 1.2
+  times at 2 million.</li>
 <li><strong>freud</strong>: from 256 000 atoms on, MDAPY is faster in every analysis:
-  neighbor lists 20 to 23 times, in a seventh of the memory; the 12 nearest
-  neighbors 6 to 8 times; Voronoi cells 28 to 34 times; Steinhardt
-  parameters over Voronoi faces 37 times; Steinhardt parameters and the
-  radial distribution function 3.2 to 5.5 times; cluster analysis 1.8 to
-  2.6 times. At 32 000 atoms the two are on par in cluster analysis.</li>
+  neighbor lists 23 to 26 times, in a seventh of the memory; the 12 nearest
+  neighbors 6 to 9 times; Voronoi cells 32 to 39 times; Steinhardt
+  parameters over Voronoi faces 39 to 42 times; Steinhardt parameters and
+  the radial distribution function 2.9 to 4.7 times; cluster analysis 2.2
+  to 2.5 times. At 32 000 atoms the two are on par in cluster analysis.</li>
 <li><strong>One neighbor search for several analyses</strong>: the six analyses of copper
-  from one list take 0.89 s at 2 million atoms, against 1.55 s for the six
-  cases timed apart (0.12 s against 0.23 s at 256 000; the radial
+  from one list take 0.80 s at 2 million atoms, against 1.54 s for the six
+  cases timed apart (0.11 s against 0.21 s at 256 000; the radial
   distribution function apart reaches 6 Å instead of 5 Å). OVITO's pipeline
-  of the six takes about the sum of its cases (3.15 s against 3.32 s).</li>
+  of the six takes about the sum of its cases (2.97 s against 3.11 s).</li>
 <li><strong>Voronoi faces on demand</strong>: the volumes and coordination of 2 million
-  cells take MDAPY 1.10 s and 205 MB; with every face, its neighbor, area
-  and edges, 1.27 s and 1.7 GB.</li>
+  cells take MDAPY 0.99 s and 205 MB; with every face, its neighbor, area
+  and edges, 1.17 s and 1.7 GB.</li>
+<li><strong>Polyhedral template matching</strong> finds the neighbors of each atom as it
+  needs them: 174 MB beyond the system at 2 million atoms, against 248 MB
+  for OVITO.</li>
 <li><strong>A trajectory</strong>: the mean squared displacement of 20 frames read from a
   dump, most of the time spent reading, takes 1.6 to 1.7 times less time
   than with OVITO from 32 000 atoms on.</li>
 <li><strong>4 000 atoms</strong> take a few milliseconds; MDAPY is faster there in every
   analysis but cluster analysis, Wigner–Seitz occupancies and atomic
-  strain against OVITO, and cluster analysis against freud (0.006 s
-  against 0.001 s).</li>
+  strain against OVITO, with the mean squared displacement on par, and
+  cluster analysis against freud (0.0056 s against 0.0009 s), with the 12
+  nearest neighbors on par.</li>
 </ul>
 <h3 id="times-and-memory">Times and memory<a class="headerlink" href="#times-and-memory" title="Permanent link">&para;</a></h3>
 <p>Every case at every size: the shortest of three times, and the memory each
@@ -8411,7 +8415,7 @@ process minus its peak before the timings.</p>
 <tr>
 <th>Case</th>
 <th style="text-align: right;">Atoms</th>
-<th style="text-align: right;">MDAPY 2.0.0 (s)</th>
+<th style="text-align: right;">MDAPY 2.1.0rc1 (s)</th>
 <th style="text-align: right;">OVITO 3.17.1 (s)</th>
 <th style="text-align: right;">OVITO / MDAPY</th>
 <th style="text-align: right;">MDAPY (MB)</th>
@@ -8423,179 +8427,179 @@ process minus its peak before the timings.</p>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">4,000</td>
 <td style="text-align: right;">0.0038</td>
-<td style="text-align: right;">0.0086</td>
+<td style="text-align: right;">0.0084</td>
 <td style="text-align: right;">2.2</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">13</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">12</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0082</td>
+<td style="text-align: right;">0.0088</td>
 <td style="text-align: right;">0.035</td>
-<td style="text-align: right;">4.3</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">133</td>
+<td style="text-align: right;">4.0</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">93</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.028</td>
-<td style="text-align: right;">0.184</td>
-<td style="text-align: right;">6.5</td>
-<td style="text-align: right;">178</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">0.175</td>
+<td style="text-align: right;">6.9</td>
+<td style="text-align: right;">180</td>
 <td style="text-align: right;">726</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.218</td>
-<td style="text-align: right;">1.386</td>
-<td style="text-align: right;">6.4</td>
-<td style="text-align: right;">1432</td>
-<td style="text-align: right;">5417</td>
+<td style="text-align: right;">0.185</td>
+<td style="text-align: right;">1.381</td>
+<td style="text-align: right;">7.5</td>
+<td style="text-align: right;">1431</td>
+<td style="text-align: right;">5416</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0024</td>
-<td style="text-align: right;">0.0083</td>
-<td style="text-align: right;">3.4</td>
+<td style="text-align: right;">0.0025</td>
+<td style="text-align: right;">0.0082</td>
+<td style="text-align: right;">3.3</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">1</td>
+<td style="text-align: right;">3</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0059</td>
-<td style="text-align: right;">0.014</td>
-<td style="text-align: right;">2.3</td>
+<td style="text-align: right;">0.0051</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">2.4</td>
 <td style="text-align: right;">1</td>
-<td style="text-align: right;">12</td>
+<td style="text-align: right;">13</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.033</td>
-<td style="text-align: right;">0.054</td>
-<td style="text-align: right;">1.7</td>
-<td style="text-align: right;">53</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.049</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">55</td>
 <td style="text-align: right;">111</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.201</td>
-<td style="text-align: right;">0.474</td>
+<td style="text-align: right;">0.181</td>
+<td style="text-align: right;">0.439</td>
 <td style="text-align: right;">2.4</td>
-<td style="text-align: right;">412</td>
+<td style="text-align: right;">414</td>
 <td style="text-align: right;">828</td>
 </tr>
 <tr>
 <td>Adaptive common neighbor analysis</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0019</td>
-<td style="text-align: right;">0.016</td>
-<td style="text-align: right;">8.1</td>
+<td style="text-align: right;">0.0018</td>
+<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">8.3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Adaptive common neighbor analysis</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0055</td>
-<td style="text-align: right;">0.021</td>
-<td style="text-align: right;">3.8</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0050</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">4.1</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">8</td>
 </tr>
 <tr>
 <td>Adaptive common neighbor analysis</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.038</td>
-<td style="text-align: right;">0.080</td>
-<td style="text-align: right;">2.1</td>
-<td style="text-align: right;">10</td>
-<td style="text-align: right;">47</td>
+<td style="text-align: right;">0.039</td>
+<td style="text-align: right;">0.075</td>
+<td style="text-align: right;">2.0</td>
+<td style="text-align: right;">13</td>
+<td style="text-align: right;">48</td>
 </tr>
 <tr>
 <td>Adaptive common neighbor analysis</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.262</td>
-<td style="text-align: right;">0.636</td>
-<td style="text-align: right;">2.4</td>
+<td style="text-align: right;">0.214</td>
+<td style="text-align: right;">0.598</td>
+<td style="text-align: right;">2.8</td>
 <td style="text-align: right;">128</td>
-<td style="text-align: right;">193</td>
+<td style="text-align: right;">194</td>
 </tr>
 <tr>
 <td>Common neighbor analysis, cutoff 3.09 Å</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0034</td>
-<td style="text-align: right;">0.0064</td>
-<td style="text-align: right;">1.9</td>
+<td style="text-align: right;">0.0029</td>
+<td style="text-align: right;">0.0066</td>
+<td style="text-align: right;">2.3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Common neighbor analysis, cutoff 3.09 Å</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0042</td>
-<td style="text-align: right;">0.0086</td>
-<td style="text-align: right;">2.1</td>
+<td style="text-align: right;">0.0045</td>
+<td style="text-align: right;">0.0091</td>
+<td style="text-align: right;">2.0</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">4</td>
+<td style="text-align: right;">6</td>
 </tr>
 <tr>
 <td>Common neighbor analysis, cutoff 3.09 Å</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">0.011</td>
 <td style="text-align: right;">0.024</td>
-<td style="text-align: right;">2.4</td>
-<td style="text-align: right;">33</td>
-<td style="text-align: right;">25</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">21</td>
+<td style="text-align: right;">26</td>
 </tr>
 <tr>
 <td>Common neighbor analysis, cutoff 3.09 Å</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.079</td>
-<td style="text-align: right;">0.167</td>
-<td style="text-align: right;">2.1</td>
-<td style="text-align: right;">209</td>
+<td style="text-align: right;">0.068</td>
+<td style="text-align: right;">0.156</td>
+<td style="text-align: right;">2.3</td>
+<td style="text-align: right;">210</td>
 <td style="text-align: right;">90</td>
 </tr>
 <tr>
 <td>Ackland–Jones analysis</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0021</td>
-<td style="text-align: right;">0.0046</td>
-<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">0.0012</td>
+<td style="text-align: right;">0.0045</td>
+<td style="text-align: right;">3.7</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr>
 <td>Ackland–Jones analysis</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0070</td>
-<td style="text-align: right;">0.012</td>
-<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">0.0069</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">1.5</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">8</td>
 </tr>
 <tr>
 <td>Ackland–Jones analysis</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.043</td>
-<td style="text-align: right;">0.073</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">0.067</td>
 <td style="text-align: right;">1.7</td>
-<td style="text-align: right;">11</td>
-<td style="text-align: right;">47</td>
+<td style="text-align: right;">14</td>
+<td style="text-align: right;">45</td>
 </tr>
 <tr>
 <td>Ackland–Jones analysis</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.303</td>
-<td style="text-align: right;">0.609</td>
-<td style="text-align: right;">2.0</td>
+<td style="text-align: right;">0.301</td>
+<td style="text-align: right;">0.559</td>
+<td style="text-align: right;">1.9</td>
 <td style="text-align: right;">128</td>
 <td style="text-align: right;">194</td>
 </tr>
@@ -8603,260 +8607,260 @@ process minus its peak before the timings.</p>
 <td>Polyhedral template matching</td>
 <td style="text-align: right;">4,000</td>
 <td style="text-align: right;">0.015</td>
-<td style="text-align: right;">0.027</td>
-<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">1.7</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr>
 <td>Polyhedral template matching</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.043</td>
-<td style="text-align: right;">0.045</td>
+<td style="text-align: right;">0.036</td>
+<td style="text-align: right;">0.040</td>
 <td style="text-align: right;">1.1</td>
-<td style="text-align: right;">5</td>
-<td style="text-align: right;">9</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">12</td>
 </tr>
 <tr>
 <td>Polyhedral template matching</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.260</td>
-<td style="text-align: right;">0.312</td>
+<td style="text-align: right;">0.235</td>
+<td style="text-align: right;">0.275</td>
 <td style="text-align: right;">1.2</td>
-<td style="text-align: right;">77</td>
-<td style="text-align: right;">37</td>
+<td style="text-align: right;">24</td>
+<td style="text-align: right;">40</td>
 </tr>
 <tr>
 <td>Polyhedral template matching</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.967</td>
-<td style="text-align: right;">2.512</td>
+<td style="text-align: right;">1.777</td>
+<td style="text-align: right;">2.222</td>
 <td style="text-align: right;">1.3</td>
-<td style="text-align: right;">591</td>
-<td style="text-align: right;">245</td>
+<td style="text-align: right;">174</td>
+<td style="text-align: right;">248</td>
 </tr>
 <tr>
 <td>Centro-symmetry parameter, 12 neighbors</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0019</td>
+<td style="text-align: right;">0.0018</td>
 <td style="text-align: right;">0.010</td>
-<td style="text-align: right;">5.5</td>
+<td style="text-align: right;">5.7</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Centro-symmetry parameter, 12 neighbors</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0060</td>
-<td style="text-align: right;">0.016</td>
+<td style="text-align: right;">0.0058</td>
+<td style="text-align: right;">0.015</td>
 <td style="text-align: right;">2.6</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">8</td>
 </tr>
 <tr>
 <td>Centro-symmetry parameter, 12 neighbors</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.037</td>
-<td style="text-align: right;">0.062</td>
-<td style="text-align: right;">1.7</td>
-<td style="text-align: right;">11</td>
-<td style="text-align: right;">39</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">12</td>
+<td style="text-align: right;">40</td>
 </tr>
 <tr>
 <td>Centro-symmetry parameter, 12 neighbors</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.233</td>
-<td style="text-align: right;">0.516</td>
-<td style="text-align: right;">2.2</td>
-<td style="text-align: right;">140</td>
+<td style="text-align: right;">0.252</td>
+<td style="text-align: right;">0.483</td>
+<td style="text-align: right;">1.9</td>
+<td style="text-align: right;">142</td>
 <td style="text-align: right;">185</td>
 </tr>
 <tr>
 <td>Diamond structure</td>
 <td style="text-align: right;">4,096</td>
-<td style="text-align: right;">0.0028</td>
-<td style="text-align: right;">0.0035</td>
+<td style="text-align: right;">0.0026</td>
+<td style="text-align: right;">0.0033</td>
 <td style="text-align: right;">1.3</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">2</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr>
 <td>Diamond structure</td>
 <td style="text-align: right;">32,768</td>
-<td style="text-align: right;">0.0051</td>
-<td style="text-align: right;">0.0092</td>
-<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">0.0049</td>
+<td style="text-align: right;">0.010</td>
+<td style="text-align: right;">2.1</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">20</td>
+<td style="text-align: right;">21</td>
 </tr>
 <tr>
 <td>Diamond structure</td>
 <td style="text-align: right;">262,144</td>
 <td style="text-align: right;">0.034</td>
-<td style="text-align: right;">0.066</td>
-<td style="text-align: right;">1.9</td>
-<td style="text-align: right;">14</td>
-<td style="text-align: right;">78</td>
+<td style="text-align: right;">0.068</td>
+<td style="text-align: right;">2.0</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">76</td>
 </tr>
 <tr>
 <td>Diamond structure</td>
 <td style="text-align: right;">2,000,376</td>
-<td style="text-align: right;">0.216</td>
-<td style="text-align: right;">0.542</td>
-<td style="text-align: right;">2.5</td>
-<td style="text-align: right;">171</td>
+<td style="text-align: right;">0.197</td>
+<td style="text-align: right;">0.514</td>
+<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">173</td>
 <td style="text-align: right;">354</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0023</td>
+<td style="text-align: right;">0.0021</td>
 <td style="text-align: right;">0.014</td>
-<td style="text-align: right;">6.2</td>
+<td style="text-align: right;">6.7</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0081</td>
+<td style="text-align: right;">0.0066</td>
 <td style="text-align: right;">0.017</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">7</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, 12 neighbors</td>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">0.047</td>
+<td style="text-align: right;">0.062</td>
+<td style="text-align: right;">1.3</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">57</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, 12 neighbors</td>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">0.368</td>
+<td style="text-align: right;">0.518</td>
+<td style="text-align: right;">1.4</td>
+<td style="text-align: right;">141</td>
+<td style="text-align: right;">155</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
+<td style="text-align: right;">4,000</td>
+<td style="text-align: right;">0.0033</td>
+<td style="text-align: right;">0.295</td>
+<td style="text-align: right;">89.1</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.022</td>
+<td style="text-align: right;">1.399</td>
+<td style="text-align: right;">62.3</td>
+<td style="text-align: right;">26</td>
+<td style="text-align: right;">12</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">0.172</td>
+<td style="text-align: right;">22.574</td>
+<td style="text-align: right;">131.4</td>
+<td style="text-align: right;">227</td>
+<td style="text-align: right;">47</td>
+</tr>
+<tr>
+<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">1.311</td>
+<td style="text-align: right;">658.063</td>
+<td style="text-align: right;">501.9</td>
+<td style="text-align: right;">1736</td>
+<td style="text-align: right;">139</td>
+</tr>
+<tr>
+<td>Radial distribution function, 6 Å, 200 bins</td>
+<td style="text-align: right;">4,000</td>
+<td style="text-align: right;">0.0037</td>
+<td style="text-align: right;">0.0060</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">0</td>
+<td style="text-align: right;">0</td>
+</tr>
+<tr>
+<td>Radial distribution function, 6 Å, 200 bins</td>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.0043</td>
+<td style="text-align: right;">0.0095</td>
 <td style="text-align: right;">2.2</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">8</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, 12 neighbors</td>
-<td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.053</td>
-<td style="text-align: right;">0.068</td>
-<td style="text-align: right;">1.3</td>
-<td style="text-align: right;">18</td>
-<td style="text-align: right;">54</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, 12 neighbors</td>
-<td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.347</td>
-<td style="text-align: right;">0.557</td>
-<td style="text-align: right;">1.6</td>
-<td style="text-align: right;">141</td>
-<td style="text-align: right;">156</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
-<td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0038</td>
-<td style="text-align: right;">0.296</td>
-<td style="text-align: right;">77.6</td>
-<td style="text-align: right;">1</td>
-<td style="text-align: right;">1</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
-<td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.024</td>
-<td style="text-align: right;">1.413</td>
-<td style="text-align: right;">60.0</td>
-<td style="text-align: right;">26</td>
-<td style="text-align: right;">11</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
-<td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.180</td>
-<td style="text-align: right;">23.417</td>
-<td style="text-align: right;">130.1</td>
-<td style="text-align: right;">226</td>
-<td style="text-align: right;">43</td>
-</tr>
-<tr>
-<td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
-<td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.451</td>
-<td style="text-align: right;">684.316</td>
-<td style="text-align: right;">471.7</td>
-<td style="text-align: right;">1744</td>
-<td style="text-align: right;">141</td>
-</tr>
-<tr>
-<td>Radial distribution function, 6 Å, 200 bins</td>
-<td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0045</td>
-<td style="text-align: right;">0.0059</td>
-<td style="text-align: right;">1.3</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
-</tr>
-<tr>
-<td>Radial distribution function, 6 Å, 200 bins</td>
-<td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0071</td>
-<td style="text-align: right;">0.011</td>
-<td style="text-align: right;">1.5</td>
-<td style="text-align: right;">2</td>
 <td style="text-align: right;">4</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.025</td>
-<td style="text-align: right;">0.049</td>
-<td style="text-align: right;">2.0</td>
-<td style="text-align: right;">9</td>
-<td style="text-align: right;">16</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.045</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">18</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.190</td>
-<td style="text-align: right;">0.391</td>
-<td style="text-align: right;">2.1</td>
-<td style="text-align: right;">143</td>
-<td style="text-align: right;">64</td>
+<td style="text-align: right;">0.199</td>
+<td style="text-align: right;">0.355</td>
+<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">142</td>
+<td style="text-align: right;">69</td>
 </tr>
 <tr>
 <td>Bond angle distribution, 3 Å, 180 bins</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0038</td>
-<td style="text-align: right;">0.013</td>
-<td style="text-align: right;">3.5</td>
+<td style="text-align: right;">0.0037</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">3.8</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">1</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td>Bond angle distribution, 3 Å, 180 bins</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0082</td>
+<td style="text-align: right;">0.0083</td>
 <td style="text-align: right;">0.020</td>
 <td style="text-align: right;">2.4</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">33</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">35</td>
 </tr>
 <tr>
 <td>Bond angle distribution, 3 Å, 180 bins</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.030</td>
-<td style="text-align: right;">0.083</td>
-<td style="text-align: right;">2.8</td>
-<td style="text-align: right;">38</td>
-<td style="text-align: right;">268</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.079</td>
+<td style="text-align: right;">3.0</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">254</td>
 </tr>
 <tr>
 <td>Bond angle distribution, 3 Å, 180 bins</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.216</td>
-<td style="text-align: right;">0.612</td>
-<td style="text-align: right;">2.8</td>
-<td style="text-align: right;">235</td>
-<td style="text-align: right;">1412</td>
+<td style="text-align: right;">0.203</td>
+<td style="text-align: right;">0.595</td>
+<td style="text-align: right;">2.9</td>
+<td style="text-align: right;">236</td>
+<td style="text-align: right;">1423</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0058</td>
-<td style="text-align: right;">0.045</td>
-<td style="text-align: right;">7.7</td>
+<td style="text-align: right;">0.0054</td>
+<td style="text-align: right;">0.046</td>
+<td style="text-align: right;">8.6</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
@@ -8864,280 +8868,280 @@ process minus its peak before the timings.</p>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">32,000</td>
 <td style="text-align: right;">0.022</td>
-<td style="text-align: right;">0.358</td>
-<td style="text-align: right;">16.2</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.372</td>
+<td style="text-align: right;">16.7</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.139</td>
-<td style="text-align: right;">2.905</td>
-<td style="text-align: right;">20.9</td>
-<td style="text-align: right;">20</td>
+<td style="text-align: right;">0.124</td>
+<td style="text-align: right;">2.957</td>
+<td style="text-align: right;">23.8</td>
+<td style="text-align: right;">22</td>
 <td style="text-align: right;">10</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.100</td>
-<td style="text-align: right;">23.019</td>
-<td style="text-align: right;">20.9</td>
+<td style="text-align: right;">0.991</td>
+<td style="text-align: right;">23.851</td>
+<td style="text-align: right;">24.1</td>
 <td style="text-align: right;">205</td>
 <td style="text-align: right;">91</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0069</td>
-<td style="text-align: right;">0.047</td>
-<td style="text-align: right;">6.8</td>
+<td style="text-align: right;">0.0030</td>
+<td style="text-align: right;">0.049</td>
+<td style="text-align: right;">16.2</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.022</td>
-<td style="text-align: right;">0.391</td>
-<td style="text-align: right;">17.4</td>
-<td style="text-align: right;">23</td>
-<td style="text-align: right;">17</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.392</td>
+<td style="text-align: right;">21.6</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">18</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.170</td>
-<td style="text-align: right;">3.149</td>
-<td style="text-align: right;">18.6</td>
-<td style="text-align: right;">208</td>
-<td style="text-align: right;">129</td>
+<td style="text-align: right;">0.151</td>
+<td style="text-align: right;">3.159</td>
+<td style="text-align: right;">21.0</td>
+<td style="text-align: right;">223</td>
+<td style="text-align: right;">151</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.274</td>
-<td style="text-align: right;">25.218</td>
-<td style="text-align: right;">19.8</td>
-<td style="text-align: right;">1715</td>
+<td style="text-align: right;">1.168</td>
+<td style="text-align: right;">25.336</td>
+<td style="text-align: right;">21.7</td>
+<td style="text-align: right;">1682</td>
 <td style="text-align: right;">989</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">3,998</td>
-<td style="text-align: right;">0.0062</td>
-<td style="text-align: right;">0.0023</td>
-<td style="text-align: right;">0.4</td>
+<td style="text-align: right;">0.0056</td>
+<td style="text-align: right;">0.0028</td>
+<td style="text-align: right;">0.5</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">31,966</td>
-<td style="text-align: right;">0.0092</td>
+<td style="text-align: right;">0.0084</td>
 <td style="text-align: right;">0.019</td>
-<td style="text-align: right;">2.1</td>
+<td style="text-align: right;">2.3</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">6</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">255,756</td>
-<td style="text-align: right;">0.041</td>
-<td style="text-align: right;">0.154</td>
-<td style="text-align: right;">3.8</td>
-<td style="text-align: right;">32</td>
-<td style="text-align: right;">24</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.174</td>
+<td style="text-align: right;">5.3</td>
+<td style="text-align: right;">38</td>
+<td style="text-align: right;">26</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">2,046,192</td>
-<td style="text-align: right;">0.352</td>
-<td style="text-align: right;">2.035</td>
-<td style="text-align: right;">5.8</td>
-<td style="text-align: right;">218</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">2.000</td>
+<td style="text-align: right;">5.7</td>
+<td style="text-align: right;">220</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Wigner–Seitz occupancies</td>
 <td style="text-align: right;">3,974</td>
-<td style="text-align: right;">0.0020</td>
+<td style="text-align: right;">0.0014</td>
 <td style="text-align: right;">0.0010</td>
-<td style="text-align: right;">0.5</td>
+<td style="text-align: right;">0.7</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">1</td>
 </tr>
 <tr>
 <td>Wigner–Seitz occupancies</td>
 <td style="text-align: right;">31,811</td>
-<td style="text-align: right;">0.0036</td>
-<td style="text-align: right;">0.0061</td>
-<td style="text-align: right;">1.7</td>
+<td style="text-align: right;">0.0027</td>
+<td style="text-align: right;">0.0055</td>
+<td style="text-align: right;">2.0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">8</td>
 </tr>
 <tr>
 <td>Wigner–Seitz occupancies</td>
 <td style="text-align: right;">254,734</td>
-<td style="text-align: right;">0.024</td>
+<td style="text-align: right;">0.022</td>
 <td style="text-align: right;">0.036</td>
-<td style="text-align: right;">1.5</td>
+<td style="text-align: right;">1.7</td>
 <td style="text-align: right;">10</td>
 <td style="text-align: right;">44</td>
 </tr>
 <tr>
 <td>Wigner–Seitz occupancies</td>
 <td style="text-align: right;">2,037,841</td>
-<td style="text-align: right;">0.102</td>
-<td style="text-align: right;">0.320</td>
-<td style="text-align: right;">3.1</td>
-<td style="text-align: right;">124</td>
+<td style="text-align: right;">0.091</td>
+<td style="text-align: right;">0.322</td>
+<td style="text-align: right;">3.5</td>
+<td style="text-align: right;">126</td>
 <td style="text-align: right;">262</td>
 </tr>
 <tr>
 <td>Mean squared displacement, 20 frames read from a dump</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.040</td>
 <td style="text-align: right;">0.043</td>
-<td style="text-align: right;">1.1</td>
+<td style="text-align: right;">0.041</td>
+<td style="text-align: right;">1.0</td>
 <td style="text-align: right;">22</td>
+<td style="text-align: right;">10</td>
+</tr>
+<tr>
+<td>Mean squared displacement, 20 frames read from a dump</td>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.166</td>
+<td style="text-align: right;">0.260</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">181</td>
+<td style="text-align: right;">50</td>
+</tr>
+<tr>
+<td>Mean squared displacement, 20 frames read from a dump</td>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">1.169</td>
+<td style="text-align: right;">1.891</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">585</td>
+<td style="text-align: right;">303</td>
+</tr>
+<tr>
+<td>Mean squared displacement, 20 frames read from a dump</td>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">9.061</td>
+<td style="text-align: right;">14.999</td>
+<td style="text-align: right;">1.7</td>
+<td style="text-align: right;">2448</td>
+<td style="text-align: right;">862</td>
+</tr>
+<tr>
+<td>Six analyses of copper, one neighbor search</td>
+<td style="text-align: right;">4,000</td>
+<td style="text-align: right;">0.0081</td>
+<td style="text-align: right;">0.065</td>
+<td style="text-align: right;">8.0</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">8</td>
 </tr>
 <tr>
-<td>Mean squared displacement, 20 frames read from a dump</td>
-<td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.163</td>
-<td style="text-align: right;">0.257</td>
-<td style="text-align: right;">1.6</td>
-<td style="text-align: right;">179</td>
-<td style="text-align: right;">48</td>
-</tr>
-<tr>
-<td>Mean squared displacement, 20 frames read from a dump</td>
-<td style="text-align: right;">256,000</td>
-<td style="text-align: right;">1.154</td>
-<td style="text-align: right;">1.881</td>
-<td style="text-align: right;">1.6</td>
-<td style="text-align: right;">569</td>
-<td style="text-align: right;">318</td>
-</tr>
-<tr>
-<td>Mean squared displacement, 20 frames read from a dump</td>
-<td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">8.917</td>
-<td style="text-align: right;">14.884</td>
-<td style="text-align: right;">1.7</td>
-<td style="text-align: right;">2435</td>
-<td style="text-align: right;">963</td>
-</tr>
-<tr>
-<td>Six analyses of copper, one neighbor search</td>
-<td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.012</td>
-<td style="text-align: right;">0.064</td>
-<td style="text-align: right;">5.6</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">7</td>
-</tr>
-<tr>
 <td>Six analyses of copper, one neighbor search</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.023</td>
-<td style="text-align: right;">0.105</td>
-<td style="text-align: right;">4.5</td>
-<td style="text-align: right;">20</td>
-<td style="text-align: right;">76</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.094</td>
+<td style="text-align: right;">5.1</td>
+<td style="text-align: right;">24</td>
+<td style="text-align: right;">79</td>
 </tr>
 <tr>
 <td>Six analyses of copper, one neighbor search</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.122</td>
-<td style="text-align: right;">0.397</td>
+<td style="text-align: right;">0.110</td>
+<td style="text-align: right;">0.367</td>
 <td style="text-align: right;">3.3</td>
-<td style="text-align: right;">195</td>
-<td style="text-align: right;">508</td>
+<td style="text-align: right;">180</td>
+<td style="text-align: right;">459</td>
 </tr>
 <tr>
 <td>Six analyses of copper, one neighbor search</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.889</td>
-<td style="text-align: right;">3.148</td>
-<td style="text-align: right;">3.5</td>
+<td style="text-align: right;">0.798</td>
+<td style="text-align: right;">2.971</td>
+<td style="text-align: right;">3.7</td>
 <td style="text-align: right;">1432</td>
-<td style="text-align: right;">1808</td>
+<td style="text-align: right;">1781</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0032</td>
-<td style="text-align: right;">0.019</td>
-<td style="text-align: right;">6.0</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0056</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">3.6</td>
+<td style="text-align: right;">2</td>
 <td style="text-align: right;">1</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.012</td>
-<td style="text-align: right;">0.028</td>
-<td style="text-align: right;">2.4</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.025</td>
+<td style="text-align: right;">1.8</td>
 <td style="text-align: right;">19</td>
-<td style="text-align: right;">9</td>
+<td style="text-align: right;">12</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.079</td>
-<td style="text-align: right;">0.100</td>
-<td style="text-align: right;">1.3</td>
-<td style="text-align: right;">180</td>
-<td style="text-align: right;">44</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">0.095</td>
+<td style="text-align: right;">1.6</td>
+<td style="text-align: right;">197</td>
+<td style="text-align: right;">84</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.469</td>
-<td style="text-align: right;">0.793</td>
-<td style="text-align: right;">1.7</td>
-<td style="text-align: right;">1431</td>
-<td style="text-align: right;">177</td>
+<td style="text-align: right;">0.427</td>
+<td style="text-align: right;">0.753</td>
+<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">1432</td>
+<td style="text-align: right;">191</td>
 </tr>
 <tr>
 <td>Atomic strain, 3 Å</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0036</td>
+<td style="text-align: right;">0.0033</td>
 <td style="text-align: right;">0.0011</td>
-<td style="text-align: right;">0.3</td>
+<td style="text-align: right;">0.4</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Atomic strain, 3 Å</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0065</td>
-<td style="text-align: right;">0.0033</td>
-<td style="text-align: right;">0.5</td>
-<td style="text-align: right;">1</td>
+<td style="text-align: right;">0.0043</td>
+<td style="text-align: right;">0.0034</td>
+<td style="text-align: right;">0.8</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
 </tr>
 <tr>
 <td>Atomic strain, 3 Å</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.015</td>
+<td style="text-align: right;">0.013</td>
 <td style="text-align: right;">0.014</td>
-<td style="text-align: right;">0.9</td>
-<td style="text-align: right;">28</td>
-<td style="text-align: right;">43</td>
+<td style="text-align: right;">1.1</td>
+<td style="text-align: right;">46</td>
+<td style="text-align: right;">45</td>
 </tr>
 <tr>
 <td>Atomic strain, 3 Å</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.069</td>
-<td style="text-align: right;">0.092</td>
-<td style="text-align: right;">1.3</td>
-<td style="text-align: right;">241</td>
-<td style="text-align: right;">247</td>
+<td style="text-align: right;">0.075</td>
+<td style="text-align: right;">0.090</td>
+<td style="text-align: right;">1.2</td>
+<td style="text-align: right;">242</td>
+<td style="text-align: right;">248</td>
 </tr>
 </tbody>
 </table>
@@ -9147,7 +9151,7 @@ process minus its peak before the timings.</p>
 <tr>
 <th>Case</th>
 <th style="text-align: right;">Atoms</th>
-<th style="text-align: right;">MDAPY 2.0.0 (s)</th>
+<th style="text-align: right;">MDAPY 2.1.0rc1 (s)</th>
 <th style="text-align: right;">freud 3.6.1 (s)</th>
 <th style="text-align: right;">freud / MDAPY</th>
 <th style="text-align: right;">MDAPY (MB)</th>
@@ -9159,79 +9163,79 @@ process minus its peak before the timings.</p>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">4,000</td>
 <td style="text-align: right;">0.0038</td>
-<td style="text-align: right;">0.0073</td>
-<td style="text-align: right;">1.9</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">12</td>
+<td style="text-align: right;">0.0075</td>
+<td style="text-align: right;">2.0</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">21</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0082</td>
-<td style="text-align: right;">0.062</td>
-<td style="text-align: right;">7.6</td>
-<td style="text-align: right;">17</td>
-<td style="text-align: right;">195</td>
+<td style="text-align: right;">0.0088</td>
+<td style="text-align: right;">0.067</td>
+<td style="text-align: right;">7.7</td>
+<td style="text-align: right;">23</td>
+<td style="text-align: right;">200</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.028</td>
+<td style="text-align: right;">0.025</td>
 <td style="text-align: right;">0.581</td>
-<td style="text-align: right;">20.5</td>
-<td style="text-align: right;">178</td>
-<td style="text-align: right;">1584</td>
+<td style="text-align: right;">23.0</td>
+<td style="text-align: right;">180</td>
+<td style="text-align: right;">1593</td>
 </tr>
 <tr>
 <td>Neighbor list, 5 Å</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.218</td>
-<td style="text-align: right;">4.946</td>
-<td style="text-align: right;">22.7</td>
-<td style="text-align: right;">1432</td>
-<td style="text-align: right;">9711</td>
+<td style="text-align: right;">0.185</td>
+<td style="text-align: right;">4.871</td>
+<td style="text-align: right;">26.3</td>
+<td style="text-align: right;">1431</td>
+<td style="text-align: right;">9710</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0024</td>
-<td style="text-align: right;">0.0027</td>
-<td style="text-align: right;">1.1</td>
+<td style="text-align: right;">0.0025</td>
+<td style="text-align: right;">0.0023</td>
+<td style="text-align: right;">0.9</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">3</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0059</td>
-<td style="text-align: right;">0.023</td>
-<td style="text-align: right;">3.8</td>
+<td style="text-align: right;">0.0051</td>
+<td style="text-align: right;">0.020</td>
+<td style="text-align: right;">3.9</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">53</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.033</td>
-<td style="text-align: right;">0.202</td>
-<td style="text-align: right;">6.1</td>
-<td style="text-align: right;">53</td>
-<td style="text-align: right;">423</td>
+<td style="text-align: right;">0.030</td>
+<td style="text-align: right;">0.186</td>
+<td style="text-align: right;">6.2</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">432</td>
 </tr>
 <tr>
 <td>12 nearest neighbors</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.201</td>
-<td style="text-align: right;">1.657</td>
-<td style="text-align: right;">8.2</td>
-<td style="text-align: right;">412</td>
-<td style="text-align: right;">3307</td>
+<td style="text-align: right;">0.181</td>
+<td style="text-align: right;">1.646</td>
+<td style="text-align: right;">9.1</td>
+<td style="text-align: right;">414</td>
+<td style="text-align: right;">3310</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0023</td>
-<td style="text-align: right;">0.0037</td>
+<td style="text-align: right;">0.0021</td>
+<td style="text-align: right;">0.0034</td>
 <td style="text-align: right;">1.6</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">1</td>
@@ -9239,108 +9243,108 @@ process minus its peak before the timings.</p>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0081</td>
-<td style="text-align: right;">0.026</td>
-<td style="text-align: right;">3.3</td>
-<td style="text-align: right;">0</td>
-<td style="text-align: right;">16</td>
+<td style="text-align: right;">0.0066</td>
+<td style="text-align: right;">0.022</td>
+<td style="text-align: right;">3.4</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">15</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.053</td>
-<td style="text-align: right;">0.218</td>
-<td style="text-align: right;">4.1</td>
-<td style="text-align: right;">18</td>
-<td style="text-align: right;">126</td>
+<td style="text-align: right;">0.047</td>
+<td style="text-align: right;">0.199</td>
+<td style="text-align: right;">4.2</td>
+<td style="text-align: right;">22</td>
+<td style="text-align: right;">127</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, 12 neighbors</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.347</td>
-<td style="text-align: right;">1.902</td>
-<td style="text-align: right;">5.5</td>
+<td style="text-align: right;">0.368</td>
+<td style="text-align: right;">1.713</td>
+<td style="text-align: right;">4.7</td>
 <td style="text-align: right;">141</td>
-<td style="text-align: right;">954</td>
+<td style="text-align: right;">951</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0038</td>
-<td style="text-align: right;">0.107</td>
-<td style="text-align: right;">28.1</td>
-<td style="text-align: right;">1</td>
+<td style="text-align: right;">0.0033</td>
+<td style="text-align: right;">0.103</td>
+<td style="text-align: right;">31.1</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.024</td>
-<td style="text-align: right;">0.816</td>
-<td style="text-align: right;">34.6</td>
+<td style="text-align: right;">0.022</td>
+<td style="text-align: right;">0.841</td>
+<td style="text-align: right;">37.5</td>
 <td style="text-align: right;">26</td>
-<td style="text-align: right;">62</td>
+<td style="text-align: right;">61</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.180</td>
-<td style="text-align: right;">6.613</td>
-<td style="text-align: right;">36.7</td>
-<td style="text-align: right;">226</td>
+<td style="text-align: right;">0.172</td>
+<td style="text-align: right;">6.692</td>
+<td style="text-align: right;">39.0</td>
+<td style="text-align: right;">227</td>
 <td style="text-align: right;">465</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6, Voronoi faces weighted by area</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.451</td>
-<td style="text-align: right;">53.477</td>
-<td style="text-align: right;">36.9</td>
-<td style="text-align: right;">1744</td>
-<td style="text-align: right;">3714</td>
+<td style="text-align: right;">1.311</td>
+<td style="text-align: right;">54.447</td>
+<td style="text-align: right;">41.5</td>
+<td style="text-align: right;">1736</td>
+<td style="text-align: right;">3715</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0045</td>
-<td style="text-align: right;">0.0081</td>
-<td style="text-align: right;">1.8</td>
+<td style="text-align: right;">0.0037</td>
+<td style="text-align: right;">0.0084</td>
+<td style="text-align: right;">2.3</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">0</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.0071</td>
-<td style="text-align: right;">0.018</td>
-<td style="text-align: right;">2.6</td>
-<td style="text-align: right;">2</td>
+<td style="text-align: right;">0.0043</td>
+<td style="text-align: right;">0.017</td>
+<td style="text-align: right;">3.9</td>
+<td style="text-align: right;">0</td>
 <td style="text-align: right;">34</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.025</td>
-<td style="text-align: right;">0.090</td>
-<td style="text-align: right;">3.6</td>
-<td style="text-align: right;">9</td>
+<td style="text-align: right;">0.029</td>
+<td style="text-align: right;">0.083</td>
+<td style="text-align: right;">2.9</td>
+<td style="text-align: right;">29</td>
 <td style="text-align: right;">62</td>
 </tr>
 <tr>
 <td>Radial distribution function, 6 Å, 200 bins</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.190</td>
-<td style="text-align: right;">0.770</td>
-<td style="text-align: right;">4.1</td>
-<td style="text-align: right;">143</td>
-<td style="text-align: right;">229</td>
+<td style="text-align: right;">0.199</td>
+<td style="text-align: right;">0.724</td>
+<td style="text-align: right;">3.6</td>
+<td style="text-align: right;">142</td>
+<td style="text-align: right;">231</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0058</td>
-<td style="text-align: right;">0.072</td>
-<td style="text-align: right;">12.5</td>
+<td style="text-align: right;">0.0054</td>
+<td style="text-align: right;">0.074</td>
+<td style="text-align: right;">13.8</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
 </tr>
@@ -9348,79 +9352,79 @@ process minus its peak before the timings.</p>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">32,000</td>
 <td style="text-align: right;">0.022</td>
-<td style="text-align: right;">0.611</td>
-<td style="text-align: right;">27.7</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.603</td>
+<td style="text-align: right;">27.1</td>
+<td style="text-align: right;">1</td>
 <td style="text-align: right;">61</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.139</td>
-<td style="text-align: right;">4.671</td>
-<td style="text-align: right;">33.6</td>
-<td style="text-align: right;">20</td>
+<td style="text-align: right;">0.124</td>
+<td style="text-align: right;">4.814</td>
+<td style="text-align: right;">38.8</td>
+<td style="text-align: right;">22</td>
 <td style="text-align: right;">465</td>
 </tr>
 <tr>
 <td>Voronoi volumes and coordination</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.100</td>
-<td style="text-align: right;">37.732</td>
-<td style="text-align: right;">34.3</td>
+<td style="text-align: right;">0.991</td>
+<td style="text-align: right;">38.785</td>
+<td style="text-align: right;">39.1</td>
 <td style="text-align: right;">205</td>
-<td style="text-align: right;">3690</td>
+<td style="text-align: right;">3692</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0069</td>
-<td style="text-align: right;">0.076</td>
-<td style="text-align: right;">10.9</td>
+<td style="text-align: right;">0.0030</td>
+<td style="text-align: right;">0.072</td>
+<td style="text-align: right;">24.0</td>
 <td style="text-align: right;">0</td>
 <td style="text-align: right;">6</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.022</td>
-<td style="text-align: right;">0.603</td>
-<td style="text-align: right;">26.9</td>
-<td style="text-align: right;">23</td>
+<td style="text-align: right;">0.018</td>
+<td style="text-align: right;">0.597</td>
+<td style="text-align: right;">32.9</td>
+<td style="text-align: right;">22</td>
 <td style="text-align: right;">61</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.170</td>
-<td style="text-align: right;">4.826</td>
-<td style="text-align: right;">28.4</td>
-<td style="text-align: right;">208</td>
-<td style="text-align: right;">466</td>
+<td style="text-align: right;">0.151</td>
+<td style="text-align: right;">4.799</td>
+<td style="text-align: right;">31.9</td>
+<td style="text-align: right;">223</td>
+<td style="text-align: right;">465</td>
 </tr>
 <tr>
 <td>Voronoi cells with their faces</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">1.274</td>
-<td style="text-align: right;">38.844</td>
-<td style="text-align: right;">30.5</td>
-<td style="text-align: right;">1715</td>
-<td style="text-align: right;">3692</td>
+<td style="text-align: right;">1.168</td>
+<td style="text-align: right;">37.586</td>
+<td style="text-align: right;">32.2</td>
+<td style="text-align: right;">1682</td>
+<td style="text-align: right;">3693</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">3,998</td>
-<td style="text-align: right;">0.0062</td>
+<td style="text-align: right;">0.0056</td>
 <td style="text-align: right;">0.0009</td>
-<td style="text-align: right;">0.1</td>
+<td style="text-align: right;">0.2</td>
 <td style="text-align: right;">0</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">2</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">31,966</td>
-<td style="text-align: right;">0.0092</td>
-<td style="text-align: right;">0.0082</td>
+<td style="text-align: right;">0.0084</td>
+<td style="text-align: right;">0.0075</td>
 <td style="text-align: right;">0.9</td>
 <td style="text-align: right;">1</td>
 <td style="text-align: right;">0</td>
@@ -9428,55 +9432,55 @@ process minus its peak before the timings.</p>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">255,756</td>
-<td style="text-align: right;">0.041</td>
-<td style="text-align: right;">0.074</td>
-<td style="text-align: right;">1.8</td>
-<td style="text-align: right;">32</td>
-<td style="text-align: right;">26</td>
+<td style="text-align: right;">0.033</td>
+<td style="text-align: right;">0.072</td>
+<td style="text-align: right;">2.2</td>
+<td style="text-align: right;">38</td>
+<td style="text-align: right;">25</td>
 </tr>
 <tr>
 <td>Cluster analysis, 2 Å</td>
 <td style="text-align: right;">2,046,192</td>
-<td style="text-align: right;">0.352</td>
-<td style="text-align: right;">0.901</td>
-<td style="text-align: right;">2.6</td>
-<td style="text-align: right;">218</td>
-<td style="text-align: right;">248</td>
+<td style="text-align: right;">0.350</td>
+<td style="text-align: right;">0.867</td>
+<td style="text-align: right;">2.5</td>
+<td style="text-align: right;">220</td>
+<td style="text-align: right;">250</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">4,000</td>
-<td style="text-align: right;">0.0032</td>
-<td style="text-align: right;">0.014</td>
-<td style="text-align: right;">4.3</td>
-<td style="text-align: right;">0</td>
+<td style="text-align: right;">0.0056</td>
+<td style="text-align: right;">0.012</td>
+<td style="text-align: right;">2.2</td>
 <td style="text-align: right;">2</td>
+<td style="text-align: right;">32</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">32,000</td>
-<td style="text-align: right;">0.012</td>
-<td style="text-align: right;">0.042</td>
-<td style="text-align: right;">3.6</td>
+<td style="text-align: right;">0.014</td>
+<td style="text-align: right;">0.040</td>
+<td style="text-align: right;">2.8</td>
 <td style="text-align: right;">19</td>
-<td style="text-align: right;">14</td>
+<td style="text-align: right;">17</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">0.079</td>
-<td style="text-align: right;">0.254</td>
-<td style="text-align: right;">3.2</td>
-<td style="text-align: right;">180</td>
-<td style="text-align: right;">148</td>
+<td style="text-align: right;">0.058</td>
+<td style="text-align: right;">0.231</td>
+<td style="text-align: right;">4.0</td>
+<td style="text-align: right;">197</td>
+<td style="text-align: right;">149</td>
 </tr>
 <tr>
 <td>Steinhardt q2–q6 and the RDF, one neighbor search</td>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">0.469</td>
-<td style="text-align: right;">2.105</td>
-<td style="text-align: right;">4.5</td>
-<td style="text-align: right;">1431</td>
+<td style="text-align: right;">0.427</td>
+<td style="text-align: right;">1.797</td>
+<td style="text-align: right;">4.2</td>
+<td style="text-align: right;">1432</td>
 <td style="text-align: right;">872</td>
 </tr>
 </tbody>

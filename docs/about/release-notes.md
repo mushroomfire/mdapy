@@ -41,6 +41,15 @@
   farther apart than it, under every operation of the crystal also in supercells of less
   symmetry, and zero beyond; `ForceConstants.cutoff` says which. The page gives how far
   the frequencies of copper move with the cutoff.
+- `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
+  across bonds, of stiffnesses polynomial in the length for each pair of elements in each
+  shell, to the forces of displaced supercells of several crystals, after van de Walle and
+  Ceder. Its `BondStiffness` holds the `pairs`, the `shells`, the `degree`, the
+  `longitudinal` and `transverse` coefficients, the `lengths` of the bonds fitted and the
+  `error`, and gives the `stiffness` of any bond and the `force_constants`, so the phonons
+  and vibrational free energy, of any arrangement of the elements, such as a special
+  quasirandom structure. See
+  [Bond stiffness](../user-guide/simulation/bond-stiffness.md).
 - The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
   primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
   Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.

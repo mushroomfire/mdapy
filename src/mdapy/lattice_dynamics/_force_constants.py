@@ -485,12 +485,14 @@ def _shortest(vectors: np.ndarray) -> float:
     return float(lengths[lengths > 1e-9].min())
 
 
-def _cutoff_pairs(
-    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def _pair_table(
+    cell: System, matrix: np.ndarray, cutoff: float, what: str = "cutoff"
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """The pairs of atoms of the crystal no farther apart than the cutoff,
-    the first in the cell, as ``_torus_pairs`` gives them: with every
-    operation of the crystal, and each pair at its atom of the supercell."""
+    the first in the cell: the first atom, the second, and the cell of the
+    second, in units of the cell. The cutoff is at most half the shortest
+    vector of the supercell less a margin, so that each pair is its own
+    shortest image in the supercell."""
     n = len(cell)
     box, positions = cell.box.matrix, cell["positions"]
     sheet = _is_sheet(cell.box, "force constants")
@@ -502,7 +504,7 @@ def _cutoff_pairs(
         limit = 0.5 * _shortest(big)
     if not 0 < cutoff <= limit - _MARGIN:
         raise InvalidParameter(
-            f"cutoff must be positive and at most {limit - _MARGIN:.4g} Å, half "
+            f"{what} must be positive and at most {limit - _MARGIN:.4g} Å, half "
             f"the shortest vector of the supercell less {_MARGIN} Å, not {cutoff!r}"
         )
     reach = np.ceil((cutoff + _SHELL) / _widths(box)).astype(int) + 1
@@ -518,7 +520,17 @@ def _cutoff_pairs(
         first.append(np.full(len(g), a))
         second.append(b)
         cells.append(grid[g])
-    a, b, lattice = (np.concatenate(x) for x in (first, second, cells))
+    return tuple(np.concatenate(x) for x in (first, second, cells))
+
+
+def _cutoff_pairs(
+    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The pairs of atoms of the crystal no farther apart than the cutoff,
+    the first in the cell, as ``_torus_pairs`` gives them: with every
+    operation of the crystal, and each pair at its atom of the supercell."""
+    n = len(cell)
+    a, b, lattice = _pair_table(cell, matrix, cutoff)
     # a table of the pairs by their atoms and cell
     low = lattice.min(axis=0)
     span = np.ptp(lattice, axis=0) + 1
@@ -660,6 +672,48 @@ def _displacements(
     return displacements, forces
 
 
+def _design(
+    cell: System, matrix: np.ndarray, basis: np.ndarray, frames: Sequence[System]
+) -> tuple[np.ndarray, np.ndarray]:
+    """The forces of each of the K parameters of a basis, (n N 9, K) by the
+    layout of ``_basis``, on the atoms of the frames, and the forces of the
+    frames, both flat over the frames, atoms and axes."""
+    n = len(cell)
+    big = _supercell(cell, matrix)
+    points = _lattice_points(matrix)
+    size, count = len(points), len(big)
+    parameters = basis.shape[1]
+    # the atom of the supercell that each atom is, moved by each cell
+    moved = _cell_of(points[:, None, :] + points[None, :, :], matrix)
+    atom = np.arange(count)
+    translated = moved[:, atom // n] * n + atom % n  # (S, N)
+    # the forces of each parameter: F of atom b of cell c is minus the sum
+    # over j of the force constants of b and j times the displacement of j
+    # moved by c
+    weights = (
+        basis.reshape(n, count, 3, 3, parameters)
+        .transpose(1, 3, 0, 2, 4)
+        .reshape(count * 3, n * 3 * parameters)
+    )
+    rows, values = [], []
+    for k, frame in enumerate(frames):
+        u, f = _displacements(big, frame, k, 1e-4)
+        rows.append(
+            -(u[translated].reshape(size, count * 3) @ weights).reshape(-1, parameters)
+        )
+        values.append(f.reshape(-1))
+    return np.concatenate(rows), np.concatenate(values)
+
+
+def _supercell_of(cell: System, frames: Sequence[System]) -> np.ndarray:
+    """The matrix of the supercell of the cell that the box of the first
+    frame is."""
+    repeats = np.asarray(frames[0].box.matrix) @ np.linalg.inv(cell.box.matrix)
+    if np.abs(repeats - np.round(repeats)).max() > 1e-6:
+        raise InvalidParameter("the box of frame 0 is not a supercell of the cell")
+    return _matrix(cell, np.round(repeats).astype(np.int64))
+
+
 def force_constants(
     cell: System,
     frames: Sequence[System],
@@ -715,37 +769,12 @@ def force_constants(
         )
     if not frames:
         raise InvalidParameter("force constants need frames with forces")
-    repeats = np.asarray(frames[0].box.matrix) @ np.linalg.inv(cell.box.matrix)
-    if np.abs(repeats - np.round(repeats)).max() > 1e-6:
-        raise InvalidParameter("the box of frame 0 is not a supercell of the cell")
-    matrix = _matrix(cell, np.round(repeats).astype(np.int64))
-    n = len(cell)
-    big = _supercell(cell, matrix)
-    points = _lattice_points(matrix)
-    size, count = len(points), len(big)
+    matrix = _supercell_of(cell, frames)
+    n, count = len(cell), len(cell) * round(np.linalg.det(matrix))
     if cutoff is not None:
         cutoff = float(cutoff)
     basis, parameters = _basis(cell, matrix, cutoff, symmetry)
-    # the atom of the supercell that each atom is, moved by each cell
-    moved = _cell_of(points[:, None, :] + points[None, :, :], matrix)
-    atom = np.arange(count)
-    translated = moved[:, atom // n] * n + atom % n  # (S, N)
-    # the forces of each parameter: F of atom b of cell c is minus the sum
-    # over j of the force constants of b and j times the displacement of j
-    # moved by c
-    weights = (
-        basis.reshape(n, count, 3, 3, parameters)
-        .transpose(1, 3, 0, 2, 4)
-        .reshape(count * 3, n * 3 * parameters)
-    )
-    rows, values = [], []
-    for k, frame in enumerate(frames):
-        u, f = _displacements(big, frame, k, 1e-4)
-        rows.append(
-            -(u[translated].reshape(size, count * 3) @ weights).reshape(-1, parameters)
-        )
-        values.append(f.reshape(-1))
-    design, forces = np.concatenate(rows), np.concatenate(values)
+    design, forces = _design(cell, matrix, basis, frames)
     solution, _, rank, _ = np.linalg.lstsq(design, forces)
     if rank < parameters:
         raise InvalidParameter(

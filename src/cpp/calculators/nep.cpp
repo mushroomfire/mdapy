@@ -550,7 +550,7 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 }
             }
         },
-        control);
+        stage(control, 0, 2));
 
     if (!derivatives) {
         return;
@@ -558,7 +558,9 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
     // Forces and virials: each atom gathers the derivatives of its own energy
     // and those of its neighbors' energies by the reverse pairs, r_ji = -r_ij;
     // the virial of a derivative of a neighbor's energy goes to the atom.
-    const std::vector<std::int64_t> reverse = reverse_pairs(n, offsets, neighbors, shifts, control);
+    // the pairs reversed are quick: cancelled, but not in the progress
+    const std::vector<std::int64_t> reverse =
+        reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -587,7 +589,7 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                 }
             }
         },
-        control);
+        stage(control, 1, 2));
 }
 
 void compute_nep_frames(const NepModel& model, const neighbor::Frames& frames,

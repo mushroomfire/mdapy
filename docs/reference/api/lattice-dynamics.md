@@ -44,6 +44,12 @@
 
 ::: mdapy.lattice_dynamics.ThermalConductivity
 
+::: mdapy.lattice_dynamics.green_kubo
+
+::: mdapy.lattice_dynamics.green_kubo_from_flux
+
+::: mdapy.lattice_dynamics.GreenKubo
+
 ::: mdapy.lattice_dynamics.PhononDOS
 
 ::: mdapy.lattice_dynamics.ThermalProperties

@@ -64,6 +64,18 @@
   mean square displacements and the Debye–Waller factors.
 - `Phonons.gruneisen(q, *, smaller, larger)` gives the mode Grüneisen parameters from the
   phonons of the crystal at a smaller and a larger volume, as phonopy does.
+- `mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)` gives the thermal
+  conductivity from the heat flux of equilibrium molecular dynamics in LAMMPS by the
+  Green–Kubo relation, with the centroid stress of each atom for many-body potentials;
+  `green_kubo_from_flux` does it with a flux from any dynamics. Its `GreenKubo` holds the
+  `temperature`, `volume`, the `times` of the correlation, the `running` integral,
+  `kappa`, its `errors` from blocks and the `flux`. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+- A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
+  the forces of a few displaced supercells to its thermal conductivity: phonons, the files
+  of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
+  order force constants, and the conductivity of the phonons against that of molecular
+  dynamics.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and
@@ -194,6 +206,14 @@
   each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
   take 293 MB beyond the system rather than 752 MB, in the same time, and its progress
   counts once from start to end.
+- `Box.minimum_image` gives the shortest vector in boxes of any tilt; with tilts beyond
+  half a box length it could give a longer image.
+- `Box.wrap` raises `InvalidParameter` for atoms so many boxes away that their image
+  flags do not fit in int64; it gave wrong flags.
+- Conditions such as `"element == 'cu'"` refuse texts that are not chemical symbols;
+  they selected nothing. `System` names such symbols when it refuses them.
+- The progress of `EAM` and `NEP` counts once from start to end over their passes; it
+  started again at each pass.
 
 ## 2.0.0
 

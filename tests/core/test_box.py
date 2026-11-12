@@ -225,6 +225,59 @@ def test_minimum_image_matches_brute_force(rng):
         np.testing.assert_allclose(shift, np.round(shift), atol=1e-9)
 
 
+def shortest(d, lattice, reach):
+    """The shortest of the vectors d plus combinations, of whole numbers up to
+    reach, of the rows of lattice, around the nearest by rounding."""
+    base = d - np.round(d @ np.linalg.pinv(lattice)) @ lattice
+    steps = np.array(
+        list(itertools.product(range(-reach, reach + 1), repeat=len(lattice)))
+    )
+    return np.min(
+        np.linalg.norm(base[:, None, :] + (steps @ lattice)[None], axis=2), axis=1
+    )
+
+
+def test_minimum_image_in_boxes_tilted_far(rng):
+    """Tilts of many edge lengths and lattice vectors in any direction, as
+    LAMMPS does not allow: still the shortest image, against the shortest
+    found in a basis of the lattice reduced by the LLL method of the phonons."""
+    from mdapy.lattice_dynamics._phonons import _reduced
+
+    for k in range(40):
+        if k % 2:
+            matrix = np.diag(rng.uniform(2, 6, 3))
+            matrix[1, 0], matrix[2, 0], matrix[2, 1] = rng.uniform(-30, 30, 3)
+        else:
+            matrix = rng.normal(size=(3, 3)) * 5
+            if abs(np.linalg.det(matrix)) < 1:
+                continue
+        d = rng.normal(size=(40, 3)) * 20
+        got = Box(matrix).minimum_image(d)
+        expected = shortest(d, _reduced(matrix), 3)
+        np.testing.assert_allclose(np.linalg.norm(got, axis=1), expected, rtol=1e-12)
+        shift = (got - d) @ np.linalg.inv(matrix)
+        np.testing.assert_allclose(shift, np.round(shift), atol=1e-7)
+    # a sheet tilted far in its plane: against every image within 60 cells
+    matrix = np.array([[3.0, 0, 0], [40.0, 2.5, 0], [0, 0, 10.0]])
+    d = rng.normal(size=(40, 3)) * 20
+    got = Box(matrix, pbc=[True, True, False]).minimum_image(d)
+    np.testing.assert_allclose(
+        np.linalg.norm(got, axis=1), shortest(d, matrix[:2], 60), rtol=1e-12
+    )
+    np.testing.assert_allclose(got[:, 2], d[:, 2])
+    # a box periodic along no direction leaves the vectors as they are
+    d = rng.normal(size=(5, 3))
+    np.testing.assert_array_equal(Box(10.0, pbc=False).minimum_image(d), d)
+
+
+def test_wrap_refuses_atoms_too_far_away():
+    with pytest.raises(InvalidParameter, match="would not fit in int64"):
+        Box(1.0).wrap([[1e20, 0.0, 0.0]])
+    # far along a direction that is not periodic: left as it is
+    wrapped, image = Box(1.0, pbc=[True, True, False]).wrap([[0.5, 0.5, 1e20]])
+    np.testing.assert_array_equal(wrapped, [[0.5, 0.5, 1e20]])
+
+
 def test_minimum_image_leaves_non_periodic_directions(rng):
     b = Box(random_lammps_like_box(rng), pbc=[True, True, False])
     d = rng.normal(scale=15, size=(50, 3))

@@ -12207,6 +12207,30 @@ non-periodic directions.</p>
     </table>
 
 
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For positions so far from the box along a periodic direction that
+the image flags would not fit in int64.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
     </div>
 
 </div>
@@ -12274,9 +12298,8 @@ non-periodic directions.</p>
             <td>
               <div class="doc-md-description">
                 <p>(N, 3) float64 vectors, each the shortest among all vectors that differ
-from the input by a lattice vector along periodic directions.
-Exact for boxes whose tilt factors stay within half the
-corresponding edge length, as LAMMPS requires.</p>
+from the input by a lattice vector along periodic directions, in a
+box of any tilt.</p>
               </div>
             </td>
           </tr>

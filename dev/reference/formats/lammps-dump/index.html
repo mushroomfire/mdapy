@@ -8446,7 +8446,9 @@ elements as for <a href="../lammps-data/#types-masses-and-elements">LAMMPS data<
 <code>element</code> and <code>typelabel</code> if present, and <code>x y z</code> come first, followed by
 <code>mol</code>, <code>q</code>, <code>mass</code>, <code>ix iy iz</code>, <code>vx vy vz</code> and <code>fx fy fz</code> for the columns
 that exist, and then every other numeric column under its own name, array
-columns as <code>name[1]</code> to <code>name[k]</code>. Booleans are written as 0 and 1. The
+columns as <code>name[1]</code> to <code>name[k]</code>. Booleans are written as 0 and 1, and
+columns other than those of LAMMPS's own integers come back as <code>float64</code>, as
+a dump holds no types; the <a href="../mdapy/">MDAPY format</a> keeps them. The
 first frame starts with <code>ITEM: UNITS</code>; <code>ITEM: TIME</code> is written when <code>info</code>
 has <code>time</code>. Other <code>info</code> values are not written.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

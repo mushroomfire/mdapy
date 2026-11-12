@@ -8784,6 +8784,14 @@
   from its core to the surface when a plane of atoms lies just below the plane of cut.
   The displacement lifted such atoms across the plane, and they were moved back as if
   they had been above it, as atomsk does; above and below are now where the atoms were.</li>
+<li><code>Box.minimum_image</code> gives the shortest vector in boxes of any tilt; with tilts beyond
+  half a box length it could give a longer image.</li>
+<li><code>Box.wrap</code> raises <code>InvalidParameter</code> for atoms so many boxes away that their image
+  flags do not fit in int64; it gave wrong flags.</li>
+<li>Conditions such as <code>"element == 'cu'"</code> refuse texts that are not chemical symbols;
+  they selected nothing. <code>System</code> names such symbols when it refuses them.</li>
+<li>The progress of <code>EAM</code> and <code>NEP</code> counts once from start to end over their passes; it
+  started again at each pass.</li>
 </ul>
 <h2 id="200">2.0.0<a class="headerlink" href="#200" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.0, written anew, in its first stable release: from here on

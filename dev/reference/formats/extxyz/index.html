@@ -8398,6 +8398,10 @@ a frame has <code>species:S:1:pos:R:3</code>, as plain XYZ files do.</p>
 <p>When writing, <code>element</code> is written as <code>species</code>, <code>positions</code> as <code>pos</code>,
 <code>velocities</code> as <code>vel</code> in Å/fs, and <code>atomic_energies</code> as <code>energies</code>. Other
 columns keep their names; nested array columns are flattened row by row.
+The file holds numbers and text without their widths, so integer columns of
+any width come back as <code>int64</code>, <code>float32</code> as <code>float64</code>, and nested arrays
+other than <code>atomic_virials</code> as their flat components; the
+<a href="../mdapy/">MDAPY format</a> keeps every type and shape.
 Columns of other types, missing values, and strings that are empty or
 contain blanks cannot be written.</p>
 <h2 id="the-comment-line">The comment line<a class="headerlink" href="#the-comment-line" title="Permanent link">&para;</a></h2>

@@ -45,7 +45,7 @@ under a pressure, the stress–strain coefficients.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the crystal, periodic in every direction, with an `element` column |
+| `system` | `System` | | | the crystal, periodic in every direction, or a [sheet](sheets.md#elastic-constants-from-molecular-dynamics), with an `element` column |
 | `potential` | `LAMMPS` | | | the interaction, as a [LAMMPS calculator](lammps.md) |
 | `temperature` | float64 | | K | the temperature, positive |
 | `pressure` | float64 | 0 | GPa | the pressure |
@@ -65,7 +65,7 @@ An `ElasticResult`, as of [`elastic_constants`](elastic-constants.md), with
 
 ## Errors
 
-`md_elastic_constants` raises `InvalidParameter` for a box that is not
-periodic, a temperature, strain or numbers of steps that are not positive,
+`md_elastic_constants` raises `InvalidParameter` for a box that is neither
+periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
 fewer than two blocks or fewer samples than blocks, and the errors of
 [`MolecularDynamics`](dynamics.md).

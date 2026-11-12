@@ -316,9 +316,13 @@ class SheetElasticResult(Result):
     constants : numpy.ndarray
         (3, 3) float64 elastic constants in N/m, in the order xx, yy, xy; column k
         is the tension per unit of strain component k.
+    errors : numpy.ndarray or None
+        (3, 3) float64 standard errors of the constants in N/m, from molecular
+        dynamics; None from a static calculation.
     """
 
     constants: np.ndarray
+    errors: np.ndarray | None = None
 
     def __compliance(self) -> np.ndarray:
         if np.linalg.cond(self.constants) > 1e12:

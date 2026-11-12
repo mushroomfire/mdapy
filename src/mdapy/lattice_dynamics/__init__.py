@@ -38,7 +38,11 @@ from mdapy.lattice_dynamics._phonons import (
     primitive_cell,
     read_band_structure,
 )
-from mdapy.lattice_dynamics._quasi_harmonic import QuasiHarmonicResult, quasi_harmonic
+from mdapy.lattice_dynamics._quasi_harmonic import (
+    QuasiHarmonicResult,
+    SheetQuasiHarmonicResult,
+    quasi_harmonic,
+)
 from mdapy.lattice_dynamics._thermal_elastic import (
     ThermalElasticResult,
     thermal_elastic_constants,
@@ -57,6 +61,7 @@ __all__ = [
     "PhononDOS",
     "Phonons",
     "QuasiHarmonicResult",
+    "SheetQuasiHarmonicResult",
     "SheetElasticResult",
     "ThermalElasticResult",
     "ThermalConductivity",

@@ -71,7 +71,7 @@ default nine volumes it is good to about 1 %.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `system` | `System` | | | the cell of the crystal, periodic in every direction, with an `element` or a `mass` column; best relaxed and primitive |
+| `system` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md#quasi-harmonic-approximation), with an `element` or a `mass` column; best relaxed and primitive |
 | `calculator` | `Calculator` | | | computes energies and forces |
 | `temperatures` | (T,) float64 | | K | the temperatures, not negative |
 | `volumes` | (V,) float64 | 9 from 0.97 to 1.09 | | the volumes of the phonons, as ratios to the volume of `system`; five or more |
@@ -106,7 +106,8 @@ It returns a `QuasiHarmonicResult`, all per atom; arrays are read-only.
 
 ## Errors
 
-`quasi_harmonic` raises `InvalidParameter` for a negative temperature,
+`quasi_harmonic` raises `InvalidParameter` for a box neither periodic in
+every direction nor that of a sheet, a negative temperature,
 both volumes and pressures, fewer than five of them, a relaxation that does
 not converge within `max_steps`, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of

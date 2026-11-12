@@ -11,7 +11,15 @@ from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics._elastic import _PAIRS, ElasticResult, _strained
+from mdapy.lattice_dynamics._elastic import (
+    _N_PER_M,
+    _PAIRS,
+    _SHEET_PAIRS,
+    ElasticResult,
+    SheetElasticResult,
+    _strained,
+)
+from mdapy.lattice_dynamics._sheets import _is_sheet
 from mdapy.simulation._dynamics import MolecularDynamics
 
 
@@ -36,21 +44,22 @@ def md_elastic_constants(
     blocks: int = 5,
     barostat: str = "tri",
     seed: int = 1,
-) -> ElasticResult:
+) -> ElasticResult | SheetElasticResult:
     """Isothermal elastic constants of a crystal at a temperature, from the
     mean stress of molecular dynamics in LAMMPS under small strains.
 
     Parameters
     ----------
     system : System
-        The crystal, periodic in every direction, with an ``element``
-        column.
+        The crystal, periodic in every direction, or a sheet: periodic along
+        two vectors in the x-y plane and not along a third along z; with an
+        ``element`` column.
     potential : LAMMPS
         The interaction, as a LAMMPS calculator.
     temperature : float64
         Temperature in K, positive.
     pressure : float64, optional
-        Pressure in GPa. Default 0.
+        Pressure in GPa; of a sheet, over the height of its box. Default 0.
     strain : float64, optional
         Magnitude of the strains, positive and negative; shears are
         engineering strains. Default 0.01.
@@ -65,27 +74,26 @@ def md_elastic_constants(
     blocks : int32, optional
         Number of blocks of each average for its standard error. Default 5.
     barostat : {"iso", "aniso", "tri"}, optional
-        How the box changes while it finds its mean shape under pressure.
-        Default "tri".
+        How the box changes while it finds its mean shape under pressure; a
+        sheet changes in its plane only. Default "tri".
     seed : int32, optional
         Seed of the starting velocities. Default 1.
 
     Returns
     -------
-    ElasticResult
-        The (6, 6) elastic constants in GPa and their standard errors.
+    ElasticResult or SheetElasticResult
+        The (6, 6) elastic constants in GPa and their standard errors; of a
+        sheet, the (3, 3) elastic constants per unit of its area in N/m and
+        their standard errors.
 
     Raises
     ------
     InvalidParameter
-        For a box that is not periodic, a temperature, strain or numbers of
-        steps that are not positive, fewer than two blocks, or the errors of
-        ``MolecularDynamics``.
+        For a box that is neither periodic nor that of a sheet, a
+        temperature, strain or numbers of steps that are not positive, fewer
+        than two blocks, or the errors of ``MolecularDynamics``.
     """
-    if not system.box.pbc.all():
-        raise InvalidParameter(
-            "elastic constants need a box periodic in every direction"
-        )
+    sheet = _is_sheet(system.box, "elastic constants")
     if not temperature > 0:
         raise InvalidParameter(f"temperature must be positive, not {temperature!r}")
     if not strain > 0:
@@ -111,25 +119,33 @@ def md_elastic_constants(
     reference = last.with_box(mean).with_columns(
         positions=mean.to_cartesian(last.box.to_fractional(last["positions"]))
     )
-    constants, errors = np.zeros((6, 6)), np.zeros((6, 6))
-    for k, (a, b) in enumerate(_PAIRS):
+    pairs = _SHEET_PAIRS if sheet else _PAIRS
+    columns = [_PAIRS.index(pair) for pair in pairs]  # of the stress, in Voigt order
+    constants, errors = np.zeros((len(pairs),) * 2), np.zeros((len(pairs),) * 2)
+    for k, (a, b) in enumerate(pairs):
         means, spreads = [], []
         for sign in (1.0, -1.0):
             tensor = np.zeros((3, 3))
             tensor[a, b] = tensor[b, a] = sign * strain * (1 if a == b else 0.5)
-            with MolecularDynamics(
-                _strained(reference, tensor), potential, timestep=timestep
-            ) as md:
+            deformed = _strained(reference, tensor)
+            with MolecularDynamics(deformed, potential, timestep=timestep) as md:
                 md.run(
                     int(equilibration), ensemble="nvt", temperature=temperature, **run
                 )
                 start = md.step
                 md.run(int(production), ensemble="nvt", temperature=temperature, **run)
                 table = md.thermo.filter(md.thermo["step"] > start)
-            stresses = np.stack(table["stress"].to_numpy())
+            stresses = np.stack(table["stress"].to_numpy())[:, columns]
+            if sheet:  # the tension, N/m: the stress times the height of the box
+                matrix = deformed.box.matrix
+                area = float(np.linalg.norm(np.cross(matrix[0], matrix[1])))
+                volume = table["volume"].to_numpy()[:, None]
+                stresses = stresses * volume / area * _N_PER_M
             mean_stress, error = _averaged(stresses, int(blocks))
             means.append(mean_stress)
             spreads.append(error)
         constants[:, k] = (means[0] - means[1]) / (2 * strain)
         errors[:, k] = np.hypot(spreads[0], spreads[1]) / (2 * strain)
+    if sheet:
+        return SheetElasticResult(constants, errors)
     return ElasticResult(constants, errors)

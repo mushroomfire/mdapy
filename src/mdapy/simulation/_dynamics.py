@@ -345,7 +345,10 @@ create_box {len(potential.elements)} box
         barostat : {"iso", "aniso", "tri", "xy"}, optional
             The box changes alike in every direction, along each axis, in
             any way, or alike along its first two vectors with the third
-            kept. Default "iso".
+            kept. A sheet, periodic along its first two vectors only, changes
+            in its plane only: alike along them for "iso" and "xy", along
+            each for "aniso", and in any way in the plane for "tri". Default
+            "iso".
         thermostat_damping : float64, optional
             Damping time of the thermostat in ps. Default 100 time steps.
         barostat_damping : float64, optional
@@ -387,14 +390,16 @@ create_box {len(potential.elements)} box
             raise InvalidParameter(f"{ensemble} needs a temperature")
         if ensemble in ("npt", "nph") and pressures is None:
             raise InvalidParameter(f"{ensemble} needs a pressure")
+        sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
         if ensemble in ("npt", "nph"):
             if barostat == "xy" and not self.__pbc[:2].all():
                 raise InvalidParameter(
                     "this barostat needs a box periodic along its first two vectors"
                 )
-            if barostat in ("aniso", "tri") and not self.__pbc.all():
+            if not (self.__pbc.all() or sheet):
                 raise InvalidParameter(
-                    "a barostat needs a box periodic in every direction"
+                    "a barostat needs a box periodic in every direction, or along "
+                    "its first two vectors for a sheet"
                 )
         tdamp = (
             100 * self.timestep if thermostat_damping is None else thermostat_damping
@@ -407,9 +412,14 @@ create_box {len(potential.elements)} box
         if ensemble in ("npt", "nph"):
             p0, p1 = (p * units.GPA_TO_BAR for p in pressures)
             span = f"{p0!r} {p1!r} {float(pdamp)!r}"
-            if barostat == "xy":
-                other = "z" if self.__swapped else "y"
+            # the second vector of the box is the z axis of LAMMPS when swapped
+            other = "z" if self.__swapped else "y"
+            if barostat == "xy" or (sheet and barostat == "iso"):
                 fix += f" x {span} {other} {span} couple x{other}"
+            elif sheet:  # in the plane only
+                fix += f" x {span} {other} {span}"
+                if barostat == "tri":
+                    fix += f" x{other} {span}"
             else:
                 fix += f" {barostat} {span}"
         self.command(f"fix mdapy_integrate all {fix}")

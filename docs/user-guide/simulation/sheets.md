@@ -1,6 +1,8 @@
 # Sheets
 
-[Elastic constants](elastic-constants.md) and [phonons](phonons.md) of
+[Elastic constants](elastic-constants.md), [phonons](phonons.md), the
+[quasi-harmonic approximation](quasi-harmonic.md), [elastic constants from
+molecular dynamics](md-elastic.md) and [molecular dynamics](dynamics.md) of
 two-dimensional materials such as graphene. A box that is periodic along two
 vectors in the x-y plane and not along a third along z makes a system a sheet;
 nothing else changes in the calls.
@@ -93,6 +95,75 @@ these differences:
 `primitive_cell` takes a sheet and gives the primitive cell of its plane, in a
 box of the same height.
 
+## Quasi-harmonic approximation
+
+`quasi_harmonic` computes the phonons of a sheet at several areas, the
+height of its box kept, and returns a `SheetQuasiHarmonicResult`:
+
+<!-- skip-test -->
+```python
+import numpy as np
+from mdapy.lattice_dynamics import quasi_harmonic
+
+qha = quasi_harmonic(
+    sheet, potential, [0, 100, 300], volumes=np.linspace(1.0, 1.025, 6), mesh=100
+)
+qha.area  # Å² per atom: 2.641, 2.639, 2.630, the relaxed sheet 2.619
+qha.thermal_expansion  # 1/K: 0, -1.1e-5, -2.3e-5, as the sheet shrinks
+qha.area_modulus  # N/m: 191, 178, 134
+```
+
+`volumes` gives the areas, as ratios to the area of `sheet`, and
+`pressures` and `pressure` are in the plane, in N/m: a tension is a negative
+pressure. The default areas are 9 from 1 to 1.04, as a sheet compressed in
+its plane bends: its vibrations across the plane, quadratic in the wave
+vector, have imaginary frequencies under any compression the mesh can
+resolve, and `quasi_harmonic` then raises `InvalidParameter`. A sheet that
+shrinks on heating, as graphene, can therefore be followed only while its
+equilibrium area stays above that of the relaxed sheet: with LCBOP up to some
+400 K, its zero-point vibrations stretching it by 0.8 %. A tension, through
+`pressure`, keeps it stretched. The long-range part of LCBOP reaches its
+cutoff between the default areas, so the example takes fewer.
+
+| Attribute | Type | Meaning |
+|---|---|---|
+| `temperatures` | (T,) float64 | the temperatures in K |
+| `pressure` | float64 | the pressure in the plane in N/m |
+| `area` | (T,) float64 | the equilibrium area per atom in Å² |
+| `gibbs_energy` | (T,) float64 | the Gibbs energy per atom in eV: static, vibrational and the pressure times the area |
+| `entropy` | (T,) float64 | the entropy per atom in eV/K |
+| `area_modulus` | (T,) float64 | the isothermal area modulus in N/m |
+| `thermal_expansion` | (T,) float64 | the thermal expansion of the area in 1/K |
+| `heat_capacity` | (T,) float64 | the heat capacity at constant pressure per atom in eV/K |
+| `areas`, `energies` | (A,) float64 | the areas per atom of the phonons in Å² and the static energy at each in eV |
+| `free_energies` | (A, T) float64 | the vibrational free energy per atom at each area and temperature in eV |
+| `cells` | tuple of `System` | the relaxed cell at each area |
+
+The free energy is fitted, at each temperature, by a cubic polynomial in
+$1/A$, the form of the third-order Birch–Murnaghan equation in two dimensions;
+the area modulus is $K = A\, \partial^2 G / \partial A^2$, the thermal
+expansion $\alpha = (\partial S/\partial A)/K$ and the heat capacity
+$C_\sigma = C_A + T A K \alpha^2$.
+
+## Elastic constants from molecular dynamics
+
+`md_elastic_constants` takes a sheet and returns its `SheetElasticResult` in
+N/m, with the standard errors in `errors`: the mean shape of the sheet under
+`pressure` in its plane, then the mean tensions under strains along xx, yy
+and xy. `pressure` is in GPa over the height of the box, as in molecular
+dynamics below, and the barostats change the sheet in its plane only.
+
+<!-- skip-test -->
+```python
+from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.transform import replicate
+
+hot = md_elastic_constants(
+    replicate(sheet, (8, 8, 1)), potential, 300.0, timestep=0.0005
+)
+hot.constants, hot.errors  # (3, 3) N/m
+```
+
 ## In gigapascals
 
 A sheet has no thickness of its own, so its constants are in N/m. With a thickness
@@ -102,8 +173,10 @@ constants of a material of that thickness are $C[\mathrm{GPa}] = 10\, C[\mathrm{
 
 ## Molecular dynamics
 
-[`MolecularDynamics`](dynamics.md) runs a sheet as it is. `barostat="xy"` controls the
-pressure in the plane and keeps the height of the box:
+[`MolecularDynamics`](dynamics.md) runs a sheet as it is. Its barostats change the
+sheet in its plane and keep the height of the box: alike along its two vectors
+for `"iso"` and `"xy"`, along each for `"aniso"`, and in any way in the plane,
+with the angle between them, for `"tri"`:
 
 <!-- skip-test -->
 ```python
@@ -120,14 +193,16 @@ box $h$ in Å; at zero pressure the height does not matter.
 
 ## Errors
 
-`elastic_constants`, `phonons` and `primitive_cell` raise `InvalidParameter`
-for a box that is not periodic in every direction and is not that of a sheet.
+`elastic_constants`, `md_elastic_constants`, `quasi_harmonic`, `phonons` and
+`primitive_cell` raise `InvalidParameter` for a box that is not periodic in every
+direction and is not that of a sheet, and `MolecularDynamics.run` for a barostat
+of such a box.
 `phonons` raises it for a supercell that leaves the plane, `dos` and `thermal`
 for a mesh with more than one wave vector along z. The methods of
 `SheetElasticResult` raise it for an axis other than `"x"` or `"y"` and for
 constants that cannot be inverted.
 
-[`quasi_harmonic`](quasi-harmonic.md) and [elastic constants from molecular
-dynamics](md-elastic.md) need a box periodic in every direction: a sheet has
-no volume to scan. The moduli of `ElasticResult`, for a sheet in a periodic box
-with vacuum, raise `InvalidParameter`, as its constants cannot be inverted.
+`quasi_harmonic` raises it at an area where the sheet has imaginary frequencies,
+as when it is compressed, and where its equilibrium area is outside the areas.
+The moduli of `ElasticResult`, for a sheet in a periodic box with vacuum, raise
+`InvalidParameter`, as its constants cannot be inverted.

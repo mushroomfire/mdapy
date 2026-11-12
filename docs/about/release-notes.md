@@ -2,6 +2,16 @@
 
 ## 2.1.0 (not released)
 
+- Sheets in the quasi-harmonic approximation, in elastic constants from molecular
+  dynamics and under every barostat: `quasi_harmonic` of a sheet computes its phonons
+  at several areas and returns a `SheetQuasiHarmonicResult`, with pressures in its
+  plane in N/m: per atom its `area`, `gibbs_energy`, `entropy`, `area_modulus` in N/m,
+  `thermal_expansion` of the area and `heat_capacity` at each temperature, and the
+  `areas`, `energies` and `free_energies` of the phonons;
+  `md_elastic_constants` of a sheet returns its `SheetElasticResult` in N/m, which
+  gains `errors`; and `MolecularDynamics.run` changes a sheet in its plane with the
+  barostats `"iso"`, `"aniso"` and `"tri"`, as with `"xy"`. See
+  [Sheets](../user-guide/simulation/sheets.md).
 - Elastic constants along directions and in a polycrystal:
   `ElasticResult.young_modulus(direction=None, *, average="hill")` and
   `ElasticResult.linear_compressibility(direction)` along a direction or each of many,

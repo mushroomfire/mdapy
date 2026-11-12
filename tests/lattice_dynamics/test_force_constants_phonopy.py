@@ -191,3 +191,26 @@ def test_group_velocities_of_phonopy(crystal, tmp_path):
     np.testing.assert_allclose(
         found, expected, rtol=0, atol=1e-6 * np.abs(expected).max()
     )
+
+
+def test_thermal_displacements_of_phonopy(crystal, tmp_path):
+    """phonopy on the same force constants and mesh through Γ, without the
+    modes below 1e-3 THz."""
+    from phonopy.file_IO import parse_FORCE_CONSTANTS
+
+    cell, matrix, result = crystal
+    path = tmp_path / "FORCE_CONSTANTS"
+    ForceConstants(cell, matrix, result.force_constants).write(path)
+    theirs = of_phonopy(cell, matrix, "P")
+    theirs.force_constants = parse_FORCE_CONSTANTS(path, theirs.primitive.p2s_map)
+    theirs.run_mesh(
+        [6, 6, 6], is_gamma_center=True, is_mesh_symmetry=False, with_eigenvectors=True
+    )
+    temperatures = [0.0, 100.0, 300.0, 900.0]
+    theirs.run_thermal_displacement_matrices(temperatures=temperatures, freq_min=1e-3)
+    expected = theirs.thermal_displacement_matrices.thermal_displacement_matrices
+    found = result.thermal_displacements(temperatures, mesh=6)
+    # phonopy's physical constants are older, by a few parts in 10^7
+    np.testing.assert_allclose(
+        found, expected, rtol=0, atol=1e-5 * np.abs(expected).max()
+    )

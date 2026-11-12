@@ -99,6 +99,7 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |
 | `dos(mesh=20, *, frequencies=None, sigma=None, projected=False)` | `PhononDOS` | the density of states |
 | `thermal(temperatures, *, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
+| `thermal_displacements(temperatures, *, mesh=20)` | (T, n, 3, 3) float64 | the mean products of the displacements of each atom of the cell along each pair of axes, in Å² |
 
 **Group velocities.** The velocity of a mode is the derivative of its angular
 frequency with respect to the wave vector, from the derivative of the dynamical
@@ -199,6 +200,20 @@ exist.
 | `entropy` | (T,) float64 | eV/K | their entropy $S$ |
 | `heat_capacity` | (T,) float64 | eV/K | their heat capacity at constant volume $C_V$ |
 
+**Thermal displacements.** The mean products ⟨u<sub>α</sub>u<sub>β</sub>⟩ of the
+displacements of each atom, with the zero point motion, by sums over the modes on the
+mesh; modes below 1e-3 THz, the translations, are left out. The diagonal holds the mean
+square displacements along x, y and z; the isotropic one is a third of the trace, and the
+Debye–Waller factor of X-ray and neutron diffraction is B = 8π² ⟨u<sup>2</sup>⟩ along the
+scattering vector. Copper with `EAM.zhou` at 300 K moves by 0.0067 Å² along each axis,
+so B = 0.53 Å².
+
+<!-- skip-test -->
+```python
+u = result.thermal_displacements([300.0], mesh=20)  # (1, n, 3, 3) Å²
+isotropic = np.trace(u, axis1=2, axis2=3) / 3
+```
+
 ## Errors
 
 `phonons` raises `InvalidParameter` for a box that is not periodic in every
@@ -211,8 +226,8 @@ periodic. `frequencies`, `modes` and `group_velocities` raise it for wave vector
 not three numbers each, and `group_velocities` for `symmetry=True` without spglib; `band_structure` for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and `ImportError` for `"auto"`
-without seekpath; `dos` and `thermal` for a mesh or a `sigma` that is not
-positive, and `thermal` for a negative temperature and for imaginary
+without seekpath; `dos`, `thermal` and `thermal_displacements` for a mesh or a `sigma` that is not
+positive, and `thermal` and `thermal_displacements` for a negative temperature and for imaginary
 frequencies below −0.01 THz on the mesh, which mean that the crystal is not
 stable or the supercell is too small.
 
@@ -258,6 +273,16 @@ the frequencies at their corners
 ([Blöchl et al. (1994)](../../reference/references.md#blochl1994)), or a
 Gaussian. The projected density of atom $a$ weighs each mode by
 $|\mathbf e_a|^2$, over the corners of each tetrahedron.
+
+The thermal displacements of atom $a$ are
+
+$$
+\langle u_{a\alpha} u_{a\beta} \rangle = \frac{1}{K m_a} \sum_{\mathbf q, s}
+\frac{\hbar}{\omega_{\mathbf q s}}\left(n_{\mathbf q s} + \frac12\right)
+\mathrm{Re}\, e_{a\alpha}(\mathbf q s)\, e^*_{a\beta}(\mathbf q s),
+$$
+
+with $n$ the Bose–Einstein occupation of the mode.
 
 With $x = h\nu/k_B T$, each mode adds
 

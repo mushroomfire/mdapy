@@ -1231,6 +1231,63 @@ class Phonons:
             projected=None if parts is None else parts / count,
         )
 
+    def thermal_displacements(
+        self, temperatures: ArrayLike, *, mesh: int | ArrayLike = 20
+    ) -> np.ndarray:
+        """The thermal displacements of the atoms of the cell: the mean of the
+        products of their displacements along each pair of axes, by sums over
+        the modes on a mesh.
+
+        Parameters
+        ----------
+        temperatures : array_like of float64
+            Temperatures in K, not negative.
+        mesh : int32 or array_like, optional
+            Number of wave vectors along each reciprocal lattice vector, of
+            a mesh through Γ. Default 20.
+
+        Returns
+        -------
+        numpy.ndarray
+            (T, n, 3, 3) float64 mean products of the displacements of each
+            atom along x, y and z, in Å², with the zero point motion; the
+            diagonal is the mean square displacement along each axis. Modes
+            below 1e-3 THz, the translations of the crystal, are left out.
+
+        Raises
+        ------
+        InvalidParameter
+            For a negative temperature, a mesh that is not positive, or
+            imaginary frequencies on the mesh.
+        """
+        temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
+        if temperatures.ndim != 1 or not (temperatures >= 0).all():
+            raise InvalidParameter("temperatures must not be negative")
+        _, values, vectors = self.__on_mesh(
+            self.__mesh_counts(mesh), vectors=True, stable=True
+        )
+        moving = values > _LOWEST
+        omega = 2 * np.pi * np.where(moving, values, 1.0)  # rad/ps
+        quanta = units.PLANCK * np.where(moving, values, 1.0)  # eV
+        hbar = units.PLANCK / (2 * np.pi)  # eV ps
+        n = len(self.cell)
+        out = np.zeros((len(temperatures), n, 3, 3))
+        # e e* of each mode and atom: (K, 3n, n, 3, 3)
+        products = np.einsum("kmax,kmay->kmaxy", vectors, vectors.conj()).real
+        for t, temperature in enumerate(temperatures):
+            if temperature > 0:
+                # 1/(e^x - 1), without overflow where x is large
+                x = quanta / (units.BOLTZMANN * temperature)
+                occupation = np.exp(-x) / -np.expm1(-x)
+            else:
+                occupation = np.zeros_like(quanta)
+            # hbar (n + 1/2) / omega, in eV ps², per mass in amu: Å² from
+            # the factor of eV in amu Å²/ps²
+            weight = np.where(moving, hbar * (occupation + 0.5) / omega, 0.0)
+            out[t] = np.einsum("km,kmaxy->axy", weight, products)
+        out /= len(values) * self.__masses[None, :, None, None]
+        return out / units.AMU_A2_PER_PS2_TO_EV
+
     def thermal(
         self, temperatures: ArrayLike, *, mesh: int | ArrayLike = 20
     ) -> ThermalProperties:

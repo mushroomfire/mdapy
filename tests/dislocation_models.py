@@ -186,10 +186,11 @@ def inclined_dislocation(system, burgers, center, cut, poisson=0.33):
     return system.with_columns(positions=p + u)
 
 
-def lock(first=(-1, 0, -1), second=(0, -1, 1)):
+def lock(first=(-1, 0, -1), second=(0, -1, 1), sides=(1, 1)):
     """Two a/2<110> dislocations of copper on (111) and (11-1), along [1-10],
-    driven together in a relaxation with the Zhou potential: the system, the
-    sum of their Burgers vectors in Å, and the axes of the crystal in the box."""
+    driven together in a relaxation with the Zhou potential, each cut on the
+    side of its plane given by sides: the system, the sum of their Burgers
+    vectors in Å, and the axes of the crystal in the box."""
     from mdapy.calculators import EAM
     from mdapy.simulation import minimize
 
@@ -208,10 +209,13 @@ def lock(first=(-1, 0, -1), second=(0, -1, 1)):
     middle = crystal.box.matrix.diagonal() / 2 + [0.3, 0.45, 0]
     system = crystal
     total = np.zeros(3)
-    for b, normal in ((first, (1, 1, 2.0)), (second, (1, 1, -2.0))):
+    for b, normal, side in (
+        (first, (1, 1, 2.0), sides[0]),
+        (second, (1, 1, -2.0), sides[1]),
+    ):
         burgers = a / 2 * axes @ np.array(b, float)
         cut = axes @ np.array(normal)
-        cut = np.sign(cut[0]) * cut / np.linalg.norm(cut)
+        cut = side * np.sign(cut[0]) * cut / np.linalg.norm(cut)
         system = inclined_dislocation(system, burgers, middle + 10 * cut, cut)
         total += burgers
     p = system["positions"]

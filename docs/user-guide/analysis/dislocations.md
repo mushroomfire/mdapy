@@ -7,15 +7,6 @@ dislocations at the edges of stacking faults are found as well. The defects
 that are not dislocations, such as grain boundaries, free surfaces and
 voids, make the defect mesh around them.
 
-!!! warning "Experimental"
-    This is a new implementation of OVITO's method, and still a young one.
-    On straight dislocations, single loops and simple relaxed defects it
-    finds what OVITO finds; where lines meet in networks, in strongly
-    disordered crystal and at grain boundaries, its lines can differ from
-    OVITO's by several per cent (see
-    [how the results compare with OVITO](#how-the-results-compare-with-ovito)).
-    OVITO remains the reference: check results that matter against it.
-
 ```python
 import numpy as np
 from mdapy.analysis import DislocationAnalysis
@@ -185,7 +176,7 @@ The families of Burgers vectors, by crystal:
 
 | Crystal | Families |
 |---|---|
-| `fcc` | `1/2<110>` perfect, `1/6<112>` Shockley, `1/6<110>` stair-rod, `1/3<100>` Hirth, `1/3<111>` Frank |
+| `fcc` | `1/2<110>` perfect, `1/6<112>` Shockley, `1/6<110>` stair-rod of the Lomer–Cottrell lock, `1/3<100>` Hirth, `1/3<111>` Frank, `1/6<310>` and `1/3<110>` the stair-rods where Shockley partials on two {111} planes meet in other ways |
 | `bcc` | `1/2<111>`, `<100>`, `<110>` |
 | `cubic_diamond` | `1/2<110>`, `1/6<112>`, `1/6<110>`, `1/3<111>` |
 | `hcp` | `1/3<11-20>`, `<0001>`, `<1-100>`, `1/3<1-100>`, `1/3<11-23>` |
@@ -222,51 +213,69 @@ or not finite; `compute` raises it for a periodic box so short that an atom
 meets its own periodic image or an edge of the mesh spans half of it
 (replicate the system first).
 
-## How the results compare with OVITO
+## Limits
 
-The tests of MDAPY compare the analysis with that of OVITO 3.17.1 on the
-same atoms. It is a separate program, and does not give OVITO's numbers
-everywhere:
+- **Grain boundaries.** In low-angle grain boundaries and twin boundaries the
+  analysis finds the dislocations well. In general grain boundaries it finds
+  a part of them only, and it is not clear what the lines it finds there are;
+  their number and length depend on which grain the atoms of the boundary are
+  given to. Draw no conclusions from the lines in such boundaries. OVITO says
+  the same of its own analysis.
+- **Small loops** come out shorter than 2πR, as the lines are smoothed: by
+  7 % for a radius of 10 Å, by 2 % for 18 Å.
+- **Wide partials.** With `perfect_only`, two partials more than about 12 Å
+  apart are not joined into one perfect line, and are left out; larger
+  `circuit_length` and `stretch`, such as 20 and 12, reach 20 Å.
+- **Disorder.** Lines hold in crystals whose atoms are moved at random by
+  0.15 Å; at 0.2 Å they break, at 0.25 Å none is found. The atoms of copper
+  vibrate by about 0.08 Å at room temperature.
+- **Units.** Positions are in Å: the test of empty space between atoms takes
+  five times the cutoff as a square of a length, as OVITO does, so that
+  lengths in other units find nothing.
+- **Order of the atoms.** Where a circuit could go two ways, the order of the
+  atoms decides; another order changes the lengths by about 1 %. For the same
+  order the results are the same on every run and for any number of threads.
+- **Turned lattices.** Where the lattice about a line is turned by more than
+  3° from the mean orientation of its cluster, as in a cluster that holds two
+  grains or in a strongly bent crystal, the spatial Burgers vector is that of
+  the lattice about the line. The spatial vectors of lines in differently
+  turned lattices then need not add up to zero at a junction; the lattice
+  vectors `burgers` of one cluster do.
 
-| Atoms | Compared with OVITO |
-|---|---|
-| any | the same structure of each atom |
-| straight dislocations of fcc, bcc, hcp and both diamonds, perfect or split into partials | the same lines and Burgers vectors, lengths within 0.5 % |
-| single loops, a loop on a twin boundary, a stacking-fault tetrahedron | the same lines and Burgers vectors, lengths within 3 % |
-| lines that meet: crossing loops, networks | where two lines meet, a short junction line in one and a node of four lines in the other may come out; the same Burgers vectors, total lengths within about 5 % |
-| strongly disordered crystal: large thermal displacements, many vacancies | lines through such regions may end or run otherwise; lengths may differ by up to 20 % |
-| polycrystals | lines and the defect mesh at the grain boundaries may differ by 5 to 20 % |
+## Where the results differ from OVITO
 
-Where they differ, and why:
+On straight, split and bent dislocations, loops, locks, stacking-fault
+tetrahedra, twins, low-angle boundaries and crystals at temperature the two
+programs find the same lines, of the same families and Burgers vectors, with
+lengths within about 0.5 %. They differ in these ways:
 
-- The circuits choose among equal paths, where a search starts, and, by a
-  fixed random sequence, where a circuit is swept from; the choices depend
-  on the order of the atoms and on the inner workings of each program.
-  OVITO's results change too when the atoms come in another order. Those
-  of MDAPY are the same on every run and for any number of threads.
-- At a grain boundary an atom outside the crystal takes the cluster of most
-  of the crystal atoms around it; OVITO takes that of the first one its
-  tessellation lists, which another program cannot repeat. The good
-  crystal reaches into the boundaries a little differently.
-- The tessellation of a perfect lattice has equal choices, such as the two
-  diagonals of four atoms on a circle. MDAPY settles them by moving the
-  atoms by up to $10^{-4}$ Å, OVITO by its own rule: the triangles of the
+- **Junctions.** Where lines meet, one program can give a short junction line
+  where the other gives a node of four lines, or split a line in two; the
+  Burgers vectors add up the same. Two crossing loops of bcc make one node of
+  eight lines in MDAPY and two of four in OVITO, 4 % longer in all.
+- **Slivers of crystal.** A line traced in a cluster of fewer than 100 atoms,
+  such as the layer of crystal inside an extrinsic fault next to a lock, is
+  given in the largest crystal cluster related to it. OVITO keeps the frame
+  of the sliver, whose orientation is poorly fitted: its Burgers vector there
+  is off by up to 0.5 Å and need not be a lattice vector.
+- **Grain boundaries.** An atom outside the crystal takes the cluster of most
+  of the crystal atoms around it, where OVITO takes that of the first its
+  tessellation lists. The interface mesh of MDAPY then lies on the atoms of
+  the boundary, OVITO's a layer further out, and MDAPY finds 6 to 11 % more
+  line length in general boundaries; OVITO's own length changes by about 4 %
+  with the order of the atoms.
+- **Turned lattices.** MDAPY gives the spatial Burgers vector of the lattice
+  about a line, as above; OVITO that of the mean orientation of the cluster.
+- **Families.** OVITO names the stair-rods `1/6<310>` and `1/3<110>` of fcc
+  "Other".
+- **Ties of the tessellation.** In a perfect lattice four atoms on a circle
+  can be split along either diagonal. MDAPY moves the atoms by up to
+  $10^{-4}$ Å to settle it, OVITO has its own rule: the triangles of the
   meshes there can differ, their areas do not.
-- Of the lattice frames the symmetry of the lattice allows, both give a
-  cluster the one closest to the axes of the box. When two are as close,
-  they may take different ones: the lattice Burgers vectors then differ by
-  a rotation of the lattice, the spatial ones do not. The Burgers vector
-  of a line is given in the frame of a cluster its first circuit touches,
-  or of the largest cluster related to it when that one is a sliver of
-  fewer than 100 atoms, such as the layer of crystal inside an extrinsic
-  fault. In a distorted crystal two such clusters are turned slightly
-  apart, and the spatial Burgers vectors can differ by up to 0.1 Å.
-- Both programs may join two grains into one cluster across a boundary
-  whose atoms bridge them, and relate two clusters of unrelated grains by
-  a symmetry of the lattice. MDAPY gives a line in such a cluster the
-  spatial Burgers vector of the lattice about it; at junctions of lines in
-  different grains the spatial vectors need not add up to zero, by up to
-  1 Å.
+- **Lattice frames.** Of the frames the symmetry of the lattice allows, both
+  give a cluster the one closest to the axes of the box; when two are as
+  close, they may take different ones, and the lattice Burgers vectors then
+  differ by a rotation of the lattice, the spatial ones do not.
 
 OVITO's options to analyze the selected atoms only and to mark the atoms of
 the cores, and its export to CA files, are not here.

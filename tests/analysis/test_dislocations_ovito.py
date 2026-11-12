@@ -45,6 +45,9 @@ LATTICE = {
     "hexagonal_diamond": DislocationAnalysisModifier.Lattice.HexagonalDiamond,
 }
 # OVITO's names of the hexagonal families in its attributes
+# families of fcc that MDAPY names and OVITO counts as other
+UNNAMED_BY_OVITO = ("1/6<310>", "1/3<110>")
+
 SPELLING = {
     "1/3<11-20>": "1/3<11-20>",
     "<1-100>": "<-1100>",
@@ -109,7 +112,10 @@ def compare(system, crystal, rel, lines=True):
             (line.is_loop, line.is_infinite_line) for line in theirs
         )
     attributes = data.attributes
-    for family, length in ours.lengths().items():
+    lengths = dict(ours.lengths())
+    for family in UNNAMED_BY_OVITO:  # OVITO counts these stair-rods as other
+        lengths["other"] += lengths.pop(family, 0.0)
+    for family, length in lengths.items():
         assert length == pytest.approx(
             attributes[f"DislocationAnalysis.length.{SPELLING.get(family, family)}"],
             rel=rel,

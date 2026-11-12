@@ -128,7 +128,8 @@ def test_components_by_name_and_index():
     )
     # numbers stay numbers, backticks and dots inside strings stay text
     assert kept(s, "positions.x > 1.5") == where(s["positions"][:, 0] > 1.5)
-    assert kept(s, "element == '`.1'") == []
+    with pytest.raises(InvalidParameter, match=r"unknown chemical symbol '`\.1'"):
+        kept(s, "element == '`.1'")
 
 
 @pytest.mark.parametrize(
@@ -153,6 +154,9 @@ def test_components_by_name_and_index():
         ("stress.xx > 0", "stress has no component 'xx'; write one of stress.0"),
         ("group.2 > 0", "group has no component '2'"),
         ("charge.x > 0", "charge has no components"),
+        ("element == 'cu'", "unknown chemical symbol 'cu'"),
+        ("'cu' != element", "unknown chemical symbol 'cu'"),
+        ("element in ['Cu', 'ni']", "unknown chemical symbol 'ni'"),
     ],
 )
 def test_errors(condition, message):

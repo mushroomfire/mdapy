@@ -202,6 +202,14 @@
   from its core to the surface when a plane of atoms lies just below the plane of cut.
   The displacement lifted such atoms across the plane, and they were moved back as if
   they had been above it, as atomsk does; above and below are now where the atoms were.
+- `Box.minimum_image` gives the shortest vector in boxes of any tilt; with tilts beyond
+  half a box length it could give a longer image.
+- `Box.wrap` raises `InvalidParameter` for atoms so many boxes away that their image
+  flags do not fit in int64; it gave wrong flags.
+- Conditions such as `"element == 'cu'"` refuse texts that are not chemical symbols;
+  they selected nothing. `System` names such symbols when it refuses them.
+- The progress of `EAM` and `NEP` counts once from start to end over their passes; it
+  started again at each pass.
 
 ## 2.0.0
 

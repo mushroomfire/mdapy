@@ -37,6 +37,14 @@
   [Interpolation](../user-guide/fitting/interpolation.md),
   [Curve fitting](../user-guide/fitting/curve-fitting.md) and
   [Equations of state](../user-guide/fitting/equation-of-state.md).
+- `melting_point` takes a run as the answer only when the mean temperatures of its last two
+  stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
+  the drift within the last. Before, one stretch could pass while the temperature still rose:
+  for copper from guesses of 1000, 1327 and 1700 K the answers spread by 4 to 17 K, now by 1
+  to 7 K. `error` is the statistical error of one run, smaller than that spread.
+- `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
+  puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
+  orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).
 - `combine` fills a column of arrays of more than one dimension, such as the
   `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
   system; it raised a polars error.

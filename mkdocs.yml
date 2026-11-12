@@ -166,6 +166,7 @@ nav:
               - Graphene on grain boundaries: user-guide/build/graphene.md
           - Transforming:
               - Periodic copies and images: user-guide/build/transform.md
+              - Orthogonal cells: user-guide/build/orthogonal-cell.md
               - Affine transformation: user-guide/build/affine.md
               - Slices: user-guide/build/slice.md
               - Combining systems: user-guide/build/combine.md

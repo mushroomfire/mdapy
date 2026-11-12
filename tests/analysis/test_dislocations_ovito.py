@@ -76,13 +76,16 @@ def oriented(burgers, points, loop, infinite):
     return np.asarray(burgers)
 
 
-def compare(system, crystal, rel, lines=True):
+def compare(system, crystal, rel, lines=True, low_ca_ratio=False):
     """Our analysis and OVITO's of a system: the same structures atom by
     atom, lengths of each family within rel, and, with lines, lines of the
     same Burgers vectors and the same loops."""
-    ours = DislocationAnalysis(crystal).compute(system)
+    ours = DislocationAnalysis(crystal, low_ca_ratio=low_ca_ratio).compute(system)
     data = ovito_compute(
-        system, DislocationAnalysisModifier(input_crystal_structure=LATTICE[crystal])
+        system,
+        DislocationAnalysisModifier(
+            input_crystal_structure=LATTICE[crystal], low_ca_ratio=low_ca_ratio
+        ),
     )
     np.testing.assert_array_equal(
         ours.structure, np.asarray(data.particles["Structure Type"])
@@ -112,6 +115,12 @@ def compare(system, crystal, rel, lines=True):
             (line.is_loop, line.is_infinite_line) for line in theirs
         )
     attributes = data.attributes
+    assert ours.density == pytest.approx(
+        attributes["DislocationAnalysis.total_line_length"]
+        / attributes["DislocationAnalysis.cell_volume"],
+        rel=rel,
+        abs=0.5 / system.box.volume,
+    )
     lengths = dict(ours.lengths())
     for family in UNNAMED_BY_OVITO:  # OVITO counts these stair-rods as other
         lengths["other"] += lengths.pop(family, 0.0)
@@ -163,6 +172,61 @@ def test_crossing_loops():
 def test_hexagonal_crystals(crystal, structure, a, element, kind):
     ours, _ = compare(hexagonal(structure, a, element, kind), crystal, rel=0.005)
     assert [line.family for line in ours.lines] == ["1/3<11-20>"]
+
+
+@pytest.mark.parametrize("ratio", [0.8, 1.0, 1.1])
+@pytest.mark.parametrize("kind", ["screw", "edge"])
+def test_hcp_of_low_c_over_a(ratio, kind):
+    """Stretched along c, the atoms of hcp of low c/a are found as OVITO
+    finds them, and the lines in them."""
+    system = hexagonal("hcp", 3.0, "Mg", kind, c=ratio * 3.0, layers=7)
+    ours, _ = compare(system, "hcp", rel=0.01, low_ca_ratio=True)
+    assert [line.family for line in ours.lines] == ["1/3<11-20>"]
+
+
+@pytest.mark.parametrize("ratio", [0.72, 0.75, 0.9, 1.633, 1.9])
+def test_low_c_over_a_atom_by_atom(ratio):
+    """A hot crystal of any c/a: the same structures as OVITO, nearly all hcp
+    from 0.75 on."""
+    system = build_crystal("hcp", 3.0, c=ratio * 3.0, elements="Mg", repeat=(8, 5, 5))
+    noise = np.random.default_rng(0).normal(0, 0.03, (len(system), 3))
+    system = system.with_columns(positions=system["positions"] + noise)
+    ours, _ = compare(system, "hcp", rel=0.01, low_ca_ratio=True)
+    assert (ours.structure == 2).mean() > (0.95 if ratio >= 0.75 else 0.4)
+
+
+def test_some_atoms_only():
+    """The gallium of zinc blende analyzed alone as fcc, as OVITO analyzes the
+    atoms selected: the same structures of those atoms, the others other,
+    and the same lines."""
+    from ovito.modifiers import DislocationAnalysisModifier
+
+    from dislocation_models import SI
+
+    system = dislocation_quadrupole(
+        "diamond screw", 5.431, SI, (6, 10, 3), elements=("Ga", "As")
+    )
+    gallium = system["element"] == "Ga"
+    ours = DislocationAnalysis("fcc").compute(system.filter(gallium))
+
+    def select(frame, data):
+        data.particles_.create_property("Selection", data=gallium.astype(np.int32))
+
+    data = ovito_compute(
+        system,
+        select,
+        DislocationAnalysisModifier(
+            input_crystal_structure=LATTICE["fcc"], only_selected=True
+        ),
+    )
+    structure = np.asarray(data.particles["Structure Type"])
+    np.testing.assert_array_equal(structure[gallium], ours.structure)
+    assert (structure[~gallium] == 0).all()
+    assert len(ours.lines) == len(data.dislocations.segments) == 2
+    assert all(line.family == "1/2<110>" for line in ours.lines)
+    assert ours.total_length == pytest.approx(
+        data.attributes["DislocationAnalysis.total_line_length"], rel=0.01
+    )
 
 
 def test_a_loop_on_a_twin_boundary():

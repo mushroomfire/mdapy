@@ -258,11 +258,76 @@ int classify(int crystal, bool defects, const std::uint32_t* bonds, int m, int* 
     return n421 == 6 && n422 == 6 && (defects || crystal == kPtmHcp) ? kPtmHcp : 0;
 }
 
+// The stretch along the c axis that takes the neighbors of an atom of hcp
+// of low c/a to the ideal c/a, from its 6 nearest neighbors v (3 each): two
+// triangles, above and below it, the split of the 6 into two triplets whose
+// centroids lie farthest apart; their distance is c, and a the mean side
+// of the two triangles seen along the c axis. False for no split.
+bool stretch_to_ideal(const double* v, double* stretch) {
+    double best = 0.0, axis[3] = {0.0, 0.0, 0.0};
+    int top[3] = {0, 1, 2}, bottom[3] = {3, 4, 5};
+    for (int p = 1; p < 6; ++p) {
+        for (int q = p + 1; q < 6; ++q) {
+            double d[3] = {0.0, 0.0, 0.0};
+            for (int a = 0; a < 6; ++a) {
+                const double sign = (a == 0 || a == p || a == q) ? 1.0 : -1.0;
+                for (int e = 0; e < 3; ++e) {
+                    d[e] += sign * v[3 * a + e] / 3.0;
+                }
+            }
+            const double l = length(d);
+            if (l > best) {
+                best = l;
+                std::copy(d, d + 3, axis);
+                for (int a = 0, t = 0, b = 0; a < 6; ++a) {
+                    if (a == 0 || a == p || a == q) {
+                        top[t++] = a;
+                    } else {
+                        bottom[b++] = a;
+                    }
+                }
+            }
+        }
+    }
+    if (!(best > 0.0)) {
+        return false;
+    }
+    for (double& x : axis) {
+        x /= best;
+    }
+    // the corners of the triangles seen along c
+    double flat[18];
+    for (int a = 0; a < 6; ++a) {
+        const double* w = v + 3 * a;
+        const double along = w[0] * axis[0] + w[1] * axis[1] + w[2] * axis[2];
+        for (int e = 0; e < 3; ++e) {
+            flat[3 * a + e] = w[e] - along * axis[e];
+        }
+    }
+    double side = 0.0;
+    for (const int* corner : {top, bottom}) {
+        for (int k = 0; k < 3; ++k) {
+            const double* x = flat + 3 * corner[k];
+            const double* y = flat + 3 * corner[(k + 1) % 3];
+            const double d[3] = {x[0] - y[0], x[1] - y[1], x[2] - y[2]};
+            side += length(d) / 6.0;
+        }
+    }
+    const double ratio = best / side;
+    const double s = std::sqrt(8.0 / 3.0) / ratio - 1.0;
+    for (int e = 0; e < 3; ++e) {
+        for (int f = 0; f < 3; ++f) {
+            stretch[3 * e + f] = (e == f ? 1.0 : 0.0) + s * axis[e] * axis[f];
+        }
+    }
+    return true;
+}
+
 }  // namespace
 
 Structures find_structures(const double* positions, std::int64_t n, const double* matrix,
                            const double* origin, const bool* pbc, int crystal, bool defects,
-                           const Control& control) {
+                           const Control& control, bool low_ca) {
     if (lattice(crystal) == nullptr) {
         throw std::invalid_argument("no lattice for this structure");
     }
@@ -277,49 +342,81 @@ Structures find_structures(const double* positions, std::int64_t n, const double
     const neighbor::KdTree tree(positions, n, matrix, origin, pbc);
     // classifies atom i from its m neighbors (vectors v, atoms j) and their
     // bonds, and orders them
+    // only is the one structure allowed, or 0 for any; false for none
     auto finish = [&](std::int64_t i, const double* v, const index_t* j, const std::uint32_t* bonds,
-                      int m) {
+                      int m, int only = 0) {
         int codes[16];
         const int type = classify(crystal, defects, bonds, m, codes);
-        if (type == 0) {
-            return;
+        if (type == 0 || (only != 0 && type != only)) {
+            return false;
         }
         int places[16];
         if (!order(pattern(type), v, bonds, codes, places)) {
-            return;
+            return false;
         }
         out.structure[static_cast<std::size_t>(i)] = static_cast<std::int8_t>(type);
         for (int k = 0; k < m; ++k) {
             out.neighbors[static_cast<std::size_t>(16 * i + k)] = j[places[k]];
         }
+        return true;
     };
     if (!diamond(crystal)) {
         const int m = crystal == identify::kPtmBcc ? 14 : 12;
+        const bool low = low_ca && crystal == identify::kPtmHcp;
+        // classifies atom i from its m + 1 nearest neighbors (v, j)
+        auto attempt = [&](std::int64_t i, const double* v, const index_t* j, int only) {
+            double scale = 0.0;
+            const int first = crystal == identify::kPtmBcc ? 8 : 12;
+            for (int a = 0; a < first; ++a) {
+                scale += length(v + 3 * a);
+            }
+            scale /= first;
+            const double cutoff =
+                kHalfway * scale * (crystal == identify::kPtmBcc ? 2 / std::sqrt(3.0) : 1.0);
+            if (length(v + 3 * m) <= cutoff) {
+                return false;
+            }
+            std::uint32_t bonds[16];
+            bond_masks(v, m, cutoff * cutoff, bonds);
+            return finish(i, v, j, bonds, m, only);
+        };
         tree.for_each_nearest(
-            m + 1,
+            m + (low ? 2 : 1),
             [&](std::int64_t i, const neighbor::Neighbor* found) {
                 double v[3 * 15];
                 index_t j[15];
                 const double* xi = positions + 3 * i;
-                for (int a = 0; a <= m; ++a) {
+                const int count = m + (low ? 2 : 1);
+                for (int a = 0; a < count; ++a) {
                     neighbor::pair_vector(xi, positions + 3 * static_cast<std::int64_t>(found[a].j),
                                           found[a].shift, matrix, v + 3 * a);
                     j[a] = found[a].j;
                 }
-                double scale = 0.0;
-                const int first = crystal == identify::kPtmBcc ? 8 : 12;
-                for (int a = 0; a < first; ++a) {
-                    scale += length(v + 3 * a);
-                }
-                scale /= first;
-                const double cutoff =
-                    kHalfway * scale * (crystal == identify::kPtmBcc ? 2 / std::sqrt(3.0) : 1.0);
-                if (length(v + 3 * m) <= cutoff) {
+                double stretch[9];
+                if (attempt(i, v, j, 0) || !low || !stretch_to_ideal(v, stretch)) {
                     return;
                 }
-                std::uint32_t bonds[16];
-                bond_masks(v, m, cutoff * cutoff, bonds);
-                finish(i, v, j, bonds, m);
+                // the 14 stretched, the 13 nearest of them in order
+                double w[3 * 14];
+                int sorted[14];
+                for (int a = 0; a < 14; ++a) {
+                    const double* x = v + 3 * a;
+                    for (int e = 0; e < 3; ++e) {
+                        const double* row = stretch + 3 * e;
+                        w[3 * a + e] = row[0] * x[0] + row[1] * x[1] + row[2] * x[2];
+                    }
+                    sorted[a] = a;
+                }
+                std::stable_sort(sorted, sorted + 14, [&](int a, int b) {
+                    return length(w + 3 * a) < length(w + 3 * b);
+                });
+                double u[3 * 13];
+                index_t k[13];
+                for (int a = 0; a < 13; ++a) {
+                    std::copy(w + 3 * sorted[a], w + 3 * sorted[a] + 3, u + 3 * a);
+                    k[a] = j[sorted[a]];
+                }
+                attempt(i, u, k, identify::kPtmHcp);
             },
             control);
         return out;

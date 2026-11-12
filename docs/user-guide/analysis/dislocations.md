@@ -126,6 +126,7 @@ the hcp atoms of its faces and the other atoms of its corners (white).*
 | `smoothing` | int32 | 1 | | the number of smoothing steps of the lines |
 | `mesh_smoothing` | int32 | 8 | | the number of smoothing steps of the defect mesh |
 | `interface_mesh` | bool | `False` | | also give the interface mesh, on which the circuits run |
+| `low_ca_ratio` | bool | `False` | | for `hcp` of a low c/a: an atom whose 12 nearest neighbors are not hcp is tried again with them stretched along its c axis to the ideal c/a |
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
 `cancel` of [every analysis](overview.md#parameters), but no neighbor list.
@@ -135,6 +136,21 @@ The structures are those of OVITO's dislocation analysis, found with the
 crystal: fcc and hcp for `fcc` or `hcp` (each the stacking fault of the
 other), bcc for `bcc`, cubic and hexagonal diamond for either diamond.
 Longer circuits find dislocations of wider cores, and take longer.
+
+Below a c/a of some 1.15 the 12 nearest neighbors of hcp no longer form
+its shells, and its atoms are other. With `low_ca_ratio=True` the c axis of
+an atom is that between the two triangles of its 6 nearest neighbors, and
+its 14 nearest neighbors are stretched along it to the ideal c/a; a hot
+crystal is then hcp down to a c/a of some 0.75, as in OVITO. The option
+does nothing for the other crystals.
+
+```python
+from mdapy.build import build_crystal
+
+hcp = build_crystal("hcp", 3.0, c=3.0, elements="Mg", repeat=(8, 5, 5))
+DislocationAnalysis("hcp").compute(hcp).counts()["hcp"]  # 0
+DislocationAnalysis("hcp", low_ca_ratio=True).compute(hcp).counts()["hcp"]  # 400, all
+```
 
 ## Results
 
@@ -156,7 +172,10 @@ A `DislocationResult`:
 | `interface_atoms` | (V,) int64 or `None` | the atom at each of its vertices |
 | `lengths()` | dict of str to float64 | the total length of the lines of each family of the crystal in Å, `other` last |
 | `total_length` | float64 | the total length of the lines in Å |
+| `densities()` | dict of str to float64 | the length of the lines of each family per volume of the box in Å⁻², `other` last; times 10<sup>20</sup> in m⁻² |
+| `density` | float64 | the total length of the lines per volume of the box in Å⁻² |
 | `counts()` | dict of str to int64 | the number of atoms of each structure, by name |
+| `write(path)` | | writes the lines, the crystal clusters and the defect mesh as a CA file, below |
 
 A `DislocationLine`:
 
@@ -171,6 +190,7 @@ A `DislocationLine`:
 | `loop` | bool | whether the line closes on itself: a loop, or a line through periodic boundaries |
 | `infinite` | bool | whether it closes through periodic boundaries |
 | `junctions` | (int32, int32) | the junctions at its first and last point, −1 for a free end and for the ends of a closed line |
+| `character()` | (P,) float64 | the angle in degrees between the line and `spatial_burgers` at each point: 0 for screw, 90 for edge |
 
 The families of Burgers vectors, by crystal:
 
@@ -203,6 +223,79 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 `burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
 mesh.
+
+### Screw and edge
+
+`line.character()` gives the angle between the line and its Burgers vector
+at each point, from the points before and after it, across the ends of a
+closed line: 0° where the line is screw and 90° where it is edge. The
+Shockley partials of an edge dislocation of fcc, as those of the first
+example, are 60° partials, and those of a screw dislocation 30° partials:
+
+```python
+angles = result.lines[0].character()  # degrees, about 60 at every point
+weights = np.linalg.norm(np.gradient(result.lines[0].points, axis=0), axis=1)
+np.average(angles, weights=weights)  # 60, the mean along the line
+```
+
+Around a loop the angle runs from screw where the line runs along its
+Burgers vector to edge where it runs across it.
+
+### Some atoms only
+
+To analyze some atoms only, as a sublattice of an alloy, analyze the system
+of those atoms; the others are as if they were not there. The gallium of
+gallium arsenide, a zinc blende of two fcc lattices, is fcc:
+
+```python
+from mdapy.build import dislocation_quadrupole
+
+gaas = dislocation_quadrupole(
+    "diamond screw", 5.65, (119.0, 53.8, 59.5), (6, 10, 3), elements=("Ga", "As")
+)
+gallium = gaas["element"] == "Ga"
+found = DislocationAnalysis("fcc").compute(gaas.filter(gallium))
+[line.family for line in found.lines]  # ["1/2<110>", "1/2<110>"]
+structure = np.zeros(len(gaas), dtype=np.int8)  # of every atom, other for As
+structure[gallium] = found.structure
+```
+
+The per-atom results are those of the atoms analyzed, in their order.
+
+### CA files
+
+`result.write("dislocations.ca")` writes the result as a crystal analysis
+file of OVITO, version 6, which OVITO opens as it opens the files of its
+own dislocation analysis; `read_dislocations` reads such a file back, and
+those OVITO writes:
+
+```python
+from mdapy.analysis import read_dislocations
+
+result.write("dislocations.ca")
+again = read_dislocations("dislocations.ca")
+again.lengths()  # Å, as result.lengths()
+```
+
+The file holds the box, the structures and their families of Burgers
+vectors with the colors of `FAMILY_COLORS`, the crystal clusters with their
+structure, orientation and size, each line with its points, its Burgers
+vector in the lattice frame and its cluster, the junctions, and the defect
+mesh, its triangles run the other way round as OVITO keeps them. OVITO
+keeps the orientations of the clusters in float32, so the Burgers vectors in
+space it gives differ from `spatial_burgers` by some $10^{-6}$ Å. The
+suffix `.gz`, `.bz2`, `.xz` or `.zst` compresses the file; OVITO reads
+`.gz`. OVITO names the families in its statistics by a vector of each, such
+as `1/2<011>`.
+
+A file holds no atoms: the result read has empty `structure` and
+`crystal_cluster`, and `defect_atoms` −1 at every vertex. Its
+`spatial_burgers` are those of the orientation of each cluster, also where
+the lattice about a line is turned from it, and the crystal is the one the
+file names, or for the files of OVITO the structure of the most atoms in
+clusters. `read_dislocations` reads versions 5 to 7, the first frame of a
+file of several, and raises `FileFormatError` for a file that does not
+follow the format.
 
 ## Errors
 
@@ -278,7 +371,7 @@ lengths within about 0.5 %. They differ in these ways:
   differ by a rotation of the lattice, the spatial ones do not.
 
 OVITO's options to analyze the selected atoms only and to mark the atoms of
-the cores, and its export to CA files, are not here.
+the cores are not here.
 
 ## Definition
 

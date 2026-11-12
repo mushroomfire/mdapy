@@ -7,12 +7,14 @@
 algorithm: Burgers circuits on the mesh between the good crystal and the
 rest, swept along the lines."""
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.analysis._ca_files import read_ca, write_ca
 from mdapy.core.mesh import TriangleMesh
 from mdapy.core.result import Result
 from mdapy.core.system import System
@@ -145,6 +147,26 @@ class DislocationLine:
     infinite: bool
     junctions: tuple[int, int]
 
+    def character(self) -> np.ndarray:
+        """The angle between the line and its Burgers vector in space at
+        each point: 0 for screw, 90 for edge.
+
+        Returns
+        -------
+        numpy.ndarray
+            (P,) float64 angles in degrees, from 0 to 90.
+        """
+        p = self.points
+        # the points before and after each, across the ends of a closed line
+        period = p[-1] - p[0]
+        before = np.concatenate([[p[-2] - period if self.loop else p[0]], p[:-1]])
+        after = np.concatenate([p[1:], [p[1] + period if self.loop else p[-1]]])
+        tangent = after - before
+        b = self.spatial_burgers
+        lengths = np.linalg.norm(tangent, axis=1) * np.linalg.norm(b)
+        cosine = np.abs(tangent @ b) / np.where(lengths > 0, lengths, 1.0)
+        return np.degrees(np.arccos(np.clip(cosine, 0.0, 1.0)))
+
 
 @dataclass(frozen=True)
 class CrystalClusters(Result):
@@ -225,6 +247,17 @@ class DislocationResult(Result):
         """Total length of the lines in Å."""
         return float(sum(line.length for line in self.lines))
 
+    @property
+    def density(self) -> float:
+        """Total length of the lines per volume of the box, in Å⁻²."""
+        return self.total_length / self.defect_mesh.box.volume
+
+    def densities(self) -> dict[str, float]:
+        """Length per volume of the box in Å⁻² of the lines of each family
+        of Burgers vectors of the crystal, "other" last."""
+        volume = self.defect_mesh.box.volume
+        return {name: length / volume for name, length in self.lengths().items()}
+
     def counts(self) -> dict[str, int]:
         """Number of atoms of each structure, by name."""
         found = np.bincount(self.structure, minlength=len(self.names))
@@ -243,6 +276,18 @@ class DislocationResult(Result):
             "dxa_structure": self.structure,
             "dxa_crystal_cluster": self.crystal_cluster,
         }
+
+    def write(self, path: str | os.PathLike) -> None:
+        """Writes the lines, the crystal clusters and the defect mesh as a
+        crystal analysis file of OVITO (CA, version 6), which OVITO opens.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file, usually ending in .ca; the suffix .gz, .bz2, .xz or
+            .zst compresses it.
+        """
+        write_ca(self, path)
 
 
 class DislocationAnalysis:
@@ -274,6 +319,10 @@ class DislocationAnalysis:
     interface_mesh : bool, optional
         Also give the interface mesh, between the tetrahedra of the good
         crystal and the rest, on which the circuits run. Default False.
+    low_ca_ratio : bool, optional
+        For hcp of a low c/a, below some 1.15: an atom whose 12 nearest
+        neighbors are not hcp is tried again with them stretched along its c
+        axis to the ideal c/a. Default False.
     """
 
     #: Names of the structure types.
@@ -332,6 +381,7 @@ class DislocationAnalysis:
         smoothing: int = 1,
         mesh_smoothing: int = 8,
         interface_mesh: bool = False,
+        low_ca_ratio: bool = False,
     ):
         if crystal not in _CRYSTALS:
             raise InvalidParameter(
@@ -360,6 +410,7 @@ class DislocationAnalysis:
         self.smoothing = int(smoothing)
         self.mesh_smoothing = int(mesh_smoothing)
         self.interface_mesh = bool(interface_mesh)
+        self.low_ca_ratio = bool(low_ca_ratio)
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -408,6 +459,7 @@ class DislocationAnalysis:
                 self.smoothing,
                 self.mesh_smoothing,
                 self.interface_mesh,
+                self.low_ca_ratio,
                 progress,
                 _native_token(cancel),
             )
@@ -509,5 +561,33 @@ class DislocationAnalysis:
             f"stretch={self.stretch!r}, perfect_only={self.perfect_only!r}, "
             f"point_separation={self.point_separation!r}, smoothing={self.smoothing!r}, "
             f"mesh_smoothing={self.mesh_smoothing!r}, "
-            f"interface_mesh={self.interface_mesh!r})"
+            f"interface_mesh={self.interface_mesh!r}, "
+            f"low_ca_ratio={self.low_ca_ratio!r})"
         )
+
+
+def read_dislocations(path: str | os.PathLike) -> DislocationResult:
+    """Reads a crystal analysis file of OVITO (CA, versions 5 to 7), as
+    ``DislocationResult.write`` and OVITO write them, as a result of the
+    dislocation analysis.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file, compressed or not; of several frames, the first.
+
+    Returns
+    -------
+    DislocationResult
+        The lines, the crystal clusters and the defect mesh; ``structure``
+        and ``crystal_cluster`` are empty, as the file holds no atoms, and
+        ``defect_atoms`` is -1 at every vertex. The crystal is the one the
+        file names, or else the structure of the most atoms in clusters.
+
+    Raises
+    ------
+    FileFormatError
+        For a file that is not a CA file of these versions or that does not
+        follow its format.
+    """
+    return read_ca(path)

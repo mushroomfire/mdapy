@@ -310,7 +310,7 @@ nb::tuple surface_mesh(Positions3 positions, Positions3 jittered, Matrix3 matrix
 nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix3 matrix,
                                Matrix3 inverse, Origin3 origin, Periodic pbc, int crystal,
                                bool defects, int max_circuit, int stretch, double separation,
-                               int smoothing, int mesh_smoothing, bool interface,
+                               int smoothing, int mesh_smoothing, bool interface, bool low_ca,
                                nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     if (static_cast<std::int64_t>(jittered.shape(0)) != n) {
@@ -325,6 +325,7 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
     options.smoothing = smoothing;
     options.mesh_smoothing = mesh_smoothing;
     options.interface = interface;
+    options.low_ca = low_ca;
     analysis::Dislocations found;
     run_released(
         [&](const Control& control) {
@@ -1000,8 +1001,8 @@ void bind_analysis(nb::module_& m) {
           nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
-          nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("low_ca"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("soap", &soap, nb::arg("species"), nb::arg("species_count"), nb::arg("positions"),
           nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),
           nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"), nb::arg("alphas"), nb::arg("betas"),

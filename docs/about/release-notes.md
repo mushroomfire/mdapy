@@ -12,6 +12,22 @@
   gains `errors`; and `MolecularDynamics.run` changes a sheet in its plane with the
   barostats `"iso"`, `"aniso"` and `"tri"`, as with `"xy"`. See
   [Sheets](../user-guide/simulation/sheets.md).
+- `DislocationLine.character()` gives the angle between a dislocation line and its
+  Burgers vector at each point, 0° for screw and 90° for edge; see
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
+- `DislocationResult.density` and `DislocationResult.densities()` give the length of
+  the lines per volume of the box, in all and of each family of Burgers vectors. The
+  page shows how to analyze some atoms only, such as one sublattice of an alloy, as
+  OVITO's option to analyze the selected atoms does: see
+  [Some atoms only](../user-guide/analysis/dislocations.md#some-atoms-only).
+- `DislocationAnalysis(..., low_ca_ratio=True)` finds the atoms of hcp of a low c/a,
+  below some 1.15, stretched along their c axis to the ideal c/a, as OVITO's option of
+  the name: a hot crystal is then hcp down to a c/a of some 0.75. See
+  [Parameters](../user-guide/analysis/dislocations.md#parameters).
+- `DislocationResult.write(path)` writes the lines, the crystal clusters and the defect
+  mesh of a dislocation analysis as a crystal analysis (CA) file of OVITO, which OVITO
+  opens, and `mdapy.analysis.read_dislocations(path)` reads such files back, also those
+  OVITO writes; see [CA files](../user-guide/analysis/dislocations.md#ca-files).
 - Elastic constants along directions and in a polycrystal:
   `ElasticResult.young_modulus(direction=None, *, average="hill")` and
   `ElasticResult.linear_compressibility(direction)` along a direction or each of many,

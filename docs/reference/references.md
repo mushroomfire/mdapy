@@ -329,6 +329,12 @@ Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101*
 [doi:10.1103/PhysRevLett.101.055504](https://doi.org/10.1103/PhysRevLett.101.055504)
 { #ranganathan2008 }
 
+**Schelling et al. (2002).** P. K. Schelling, S. R. Phillpot and P. Keblinski,
+Comparison of atomic-level simulation methods for computing thermal conductivity,
+*Phys. Rev. B* **65**, 144306 (2002).
+[doi:10.1103/PhysRevB.65.144306](https://doi.org/10.1103/PhysRevB.65.144306)
+{ #schelling2002 }
+
 **Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
 High-throughput electronic band structure calculations: Challenges and
 tools, *Comput. Mater. Sci.* **49**, 299 (2010).
@@ -387,6 +393,12 @@ Eng.* **20**, 045021 (2012).
 atomistic modeling of crystals, *JOM* **66**, 399 (2014).
 [doi:10.1007/s11837-013-0827-5](https://doi.org/10.1007/s11837-013-0827-5)
 { #stukowski2014 }
+
+**Surblys et al. (2019).** D. Surblys, H. Matsubara, G. Kikugawa and T. Ohara,
+Application of atomic stress to compute heat flux via molecular dynamics for systems
+with many-body interactions, *Phys. Rev. E* **99**, 051301 (2019).
+[doi:10.1103/PhysRevE.99.051301](https://doi.org/10.1103/PhysRevE.99.051301)
+{ #surblys2019 }
 
 **Taubin (1995).** G. Taubin, A signal processing approach to fair surface
 design, in *Proceedings of SIGGRAPH 95* (ACM, New York, 1995), p. 351.

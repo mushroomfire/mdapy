@@ -8278,7 +8278,7 @@ under a pressure, the stress–strain coefficients.</p>
 <td><code>System</code></td>
 <td></td>
 <td></td>
-<td>the crystal, periodic in every direction, with an <code>element</code> column</td>
+<td>the crystal, periodic in every direction, or a <a href="../sheets/#elastic-constants-from-molecular-dynamics">sheet</a>, with an <code>element</code> column</td>
 </tr>
 <tr>
 <td><code>potential</code></td>
@@ -8363,8 +8363,8 @@ under a pressure, the stress–strain coefficients.</p>
 <p>An <code>ElasticResult</code>, as of <a href="../elastic-constants/"><code>elastic_constants</code></a>, with
 <code>errors</code>, the (6, 6) standard errors in GPa.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
-<p><code>md_elastic_constants</code> raises <code>InvalidParameter</code> for a box that is not
-periodic, a temperature, strain or numbers of steps that are not positive,
+<p><code>md_elastic_constants</code> raises <code>InvalidParameter</code> for a box that is neither
+periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
 fewer than two blocks or fewer samples than blocks, and the errors of
 <a href="../dynamics/"><code>MolecularDynamics</code></a>.</p>
 

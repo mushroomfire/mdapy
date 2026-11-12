@@ -7936,6 +7936,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.SheetQuasiHarmonicResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SheetQuasiHarmonicResult
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9505,6 +9516,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.SheetQuasiHarmonicResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SheetQuasiHarmonicResult
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -10384,7 +10406,7 @@ pressure, or (N,) float64 along each.</p>
   </span>
 
 <a href="#mdapy.lattice_dynamics.SheetElasticResult" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SheetElasticResult</span><span class="p">(</span><span class="n">constants</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SheetElasticResult</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">errors</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10420,6 +10442,18 @@ pressure, or (N,) float64 along each.</p>
               <div class="doc-md-description">
                 <p>(3, 3) float64 elastic constants in N/m, in the order xx, yy, xy; column k
 is the tension per unit of strain component k.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetElasticResult.errors">errors</span></code></td>
+            <td>
+                  <code>ndarray or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3, 3) float64 standard errors of the constants in N/m, from molecular
+dynamics; None from a static calculation.</p>
               </div>
             </td>
           </tr>
@@ -10841,8 +10875,9 @@ mean stress of molecular dynamics in LAMMPS under small strains.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The crystal, periodic in every direction, with an <code>element</code>
-column.</p>
+                <p>The crystal, periodic in every direction, or a sheet: periodic along
+two vectors in the x-y plane and not along a third along z; with an
+<code>element</code> column.</p>
               </div>
             </td>
             <td>
@@ -10890,7 +10925,7 @@ column.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Pressure in GPa. Default 0.</p>
+                <p>Pressure in GPa; of a sheet, over the height of its box. Default 0.</p>
               </div>
             </td>
             <td>
@@ -11003,8 +11038,8 @@ engineering strains. Default 0.01.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>How the box changes while it finds its mean shape under pressure.
-Default "tri".</p>
+                <p>How the box changes while it finds its mean shape under pressure; a
+sheet changes in its plane only. Default "tri".</p>
               </div>
             </td>
             <td>
@@ -11047,11 +11082,18 @@ Default "tri".</p>
 
   
       dataclass
-   (mdapy.lattice_dynamics._elastic.ElasticResult)" href="#mdapy.lattice_dynamics.ElasticResult">ElasticResult</a></code>
+   (mdapy.lattice_dynamics._elastic.ElasticResult)" href="#mdapy.lattice_dynamics.ElasticResult">ElasticResult</a> or <a class="autorefs autorefs-internal" title="SheetElasticResult
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._elastic.SheetElasticResult)" href="#mdapy.lattice_dynamics.SheetElasticResult">SheetElasticResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The (6, 6) elastic constants in GPa and their standard errors.</p>
+                <p>The (6, 6) elastic constants in GPa and their standard errors; of a
+sheet, the (3, 3) elastic constants per unit of its area in N/m and
+their standard errors.</p>
               </div>
             </td>
           </tr>
@@ -11074,9 +11116,9 @@ Default "tri".</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For a box that is not periodic, a temperature, strain or numbers of
-steps that are not positive, fewer than two blocks, or the errors of
-<code>MolecularDynamics</code>.</p>
+                <p>For a box that is neither periodic nor that of a sheet, a
+temperature, strain or numbers of steps that are not positive, fewer
+than two blocks, or the errors of <code>MolecularDynamics</code>.</p>
               </div>
             </td>
           </tr>
@@ -16050,7 +16092,8 @@ frames for the force constants.</p>
     <div class="doc doc-contents first">
 
         <p>Thermodynamic properties of a crystal in the quasi-harmonic
-approximation: harmonic phonons at several volumes.</p>
+approximation: harmonic phonons at several volumes; of a sheet, at
+several areas.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -16073,8 +16116,10 @@ approximation: harmonic phonons at several volumes.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The cell of the crystal, periodic in every direction, best relaxed
-and primitive. Each atom needs an element or a mass.</p>
+                <p>The cell of the crystal, periodic in every direction, or of a sheet,
+periodic along two vectors in the x-y plane and not along a third
+along z; best relaxed and primitive. Each atom needs an element or a
+mass.</p>
               </div>
             </td>
             <td>
@@ -16124,7 +16169,9 @@ and primitive. Each atom needs an element or a mass.</p>
               <div class="doc-md-description">
                 <p>The volumes at which to compute the phonons, five or more, as ratios
 to the volume of system; at each the box keeps its volume while its
-shape and the positions relax. Default 9 from 0.97 to 1.09.</p>
+shape and the positions relax. Default 9 from 0.97 to 1.09. Of a
+sheet, the areas, as ratios to its area; default 9 from 1 to 1.04, as
+a sheet compressed in its plane bends.</p>
               </div>
             </td>
             <td>
@@ -16141,7 +16188,7 @@ shape and the positions relax. Default 9 from 0.97 to 1.09.</p>
             <td>
               <div class="doc-md-description">
                 <p>Instead of volumes, the pressures in GPa under which the box and the
-positions relax, five or more.</p>
+positions relax, five or more; of a sheet, in its plane, in N/m.</p>
               </div>
             </td>
             <td>
@@ -16157,7 +16204,8 @@ positions relax, five or more.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Pressure in GPa. Default 0.</p>
+                <p>Pressure in GPa; of a sheet, in its plane in N/m, the opposite of a
+tension. Default 0.</p>
               </div>
             </td>
             <td>
@@ -16298,13 +16346,19 @@ GPa. Default 1e-4.</p>
 
   
       dataclass
-   (mdapy.lattice_dynamics._quasi_harmonic.QuasiHarmonicResult)" href="#mdapy.lattice_dynamics.QuasiHarmonicResult">QuasiHarmonicResult</a></code>
+   (mdapy.lattice_dynamics._quasi_harmonic.QuasiHarmonicResult)" href="#mdapy.lattice_dynamics.QuasiHarmonicResult">QuasiHarmonicResult</a> or <a class="autorefs autorefs-internal" title="SheetQuasiHarmonicResult
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._quasi_harmonic.SheetQuasiHarmonicResult)" href="#mdapy.lattice_dynamics.SheetQuasiHarmonicResult">SheetQuasiHarmonicResult</a></code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Per atom: the equilibrium volume, Gibbs energy, entropy, bulk
 modulus, thermal expansion and heat capacity at each temperature,
-and the static and vibrational energies at each volume.</p>
+and the static and vibrational energies at each volume; of a sheet,
+the area, the area modulus and the thermal expansion of the area.</p>
               </div>
             </td>
           </tr>
@@ -16327,11 +16381,12 @@ and the static and vibrational energies at each volume.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For a box not periodic in every direction, a negative temperature,
-both volumes and pressures, fewer than five of them, a relaxation
-that does not converge, a pair of atoms that reaches the cutoff of
-the calculator between the volumes, imaginary frequencies at a
-volume, or an equilibrium volume outside the volumes.</p>
+                <p>For a box neither periodic in every direction nor that of a sheet, a
+negative temperature, both volumes and pressures, fewer than five of
+them, a relaxation that does not converge, a pair of atoms that
+reaches the cutoff of the calculator between the volumes, imaginary
+frequencies at a volume, or an equilibrium volume outside the
+volumes.</p>
               </div>
             </td>
           </tr>
@@ -16515,6 +16570,213 @@ in eV.</p>
             <td>
               <div class="doc-md-description">
                 <p>The relaxed cell at each volume.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.SheetQuasiHarmonicResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">SheetQuasiHarmonicResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.SheetQuasiHarmonicResult" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SheetQuasiHarmonicResult</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">pressure</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">gibbs_energy</span><span class="p">,</span> <span class="n">entropy</span><span class="p">,</span> <span class="n">area_modulus</span><span class="p">,</span> <span class="n">thermal_expansion</span><span class="p">,</span> <span class="n">heat_capacity</span><span class="p">,</span> <span class="n">areas</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">free_energies</span><span class="p">,</span> <span class="n">cells</span><span class="o">=</span><span class="p">())</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Result
+
+
+  
+      dataclass
+   (mdapy.core.result.Result)" href="../utilities/#mdapy.core.Result">Result</a></code></p>
+
+
+
+        <p>Thermodynamic properties of a sheet in the quasi-harmonic
+approximation, per atom.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.temperatures">temperatures</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 temperatures in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.pressure">pressure</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pressure in the plane in N/m, the opposite of a tension.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.area">area</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 equilibrium area in Å².</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.gibbs_energy">gibbs_energy</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 Gibbs energy in eV: the static energy, the free energy of the
+vibrations and the pressure times the area.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.entropy">entropy</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 entropy in eV/K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.area_modulus">area_modulus</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 isothermal area modulus in N/m.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.thermal_expansion">thermal_expansion</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 thermal expansion coefficient of the area in 1/K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.heat_capacity">heat_capacity</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T,) float64 heat capacity at constant pressure in eV/K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.areas">areas</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(A,) float64, the areas in Å² at which the phonons were computed.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.energies">energies</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(A,) float64 static energy at each area in eV.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.free_energies">free_energies</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(A, T) float64 free energy of the vibrations at each area and temperature
+in eV.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.SheetQuasiHarmonicResult.cells">cells</span></code></td>
+            <td>
+                  <code>tuple of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The relaxed cell at each area.</p>
               </div>
             </td>
           </tr>

@@ -8584,6 +8584,16 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li>Sheets in the quasi-harmonic approximation, in elastic constants from molecular
+  dynamics and under every barostat: <code>quasi_harmonic</code> of a sheet computes its phonons
+  at several areas and returns a <code>SheetQuasiHarmonicResult</code>, with pressures in its
+  plane in N/m: per atom its <code>area</code>, <code>gibbs_energy</code>, <code>entropy</code>, <code>area_modulus</code> in N/m,
+  <code>thermal_expansion</code> of the area and <code>heat_capacity</code> at each temperature, and the
+  <code>areas</code>, <code>energies</code> and <code>free_energies</code> of the phonons;
+  <code>md_elastic_constants</code> of a sheet returns its <code>SheetElasticResult</code> in N/m, which
+  gains <code>errors</code>; and <code>MolecularDynamics.run</code> changes a sheet in its plane with the
+  barostats <code>"iso"</code>, <code>"aniso"</code> and <code>"tri"</code>, as with <code>"xy"</code>. See
+  <a href="../../user-guide/simulation/sheets/">Sheets</a>.</li>
 <li><code>DislocationLine.character()</code> gives the angle between a dislocation line and its
   Burgers vector at each point, 0° for screw and 90° for edge; see
   <a href="../../user-guide/analysis/dislocations/#screw-and-edge">Screw and edge</a>.</li>

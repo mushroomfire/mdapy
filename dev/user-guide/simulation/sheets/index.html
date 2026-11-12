@@ -5516,6 +5516,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quasi-harmonic-approximation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quasi-harmonic approximation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#elastic-constants-from-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elastic constants from molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#in-gigapascals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8238,6 +8260,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#quasi-harmonic-approximation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quasi-harmonic approximation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#elastic-constants-from-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Elastic constants from molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#in-gigapascals" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8291,7 +8335,9 @@
 
 
 <h1 id="sheets">Sheets<a class="headerlink" href="#sheets" title="Permanent link">&para;</a></h1>
-<p><a href="../elastic-constants/">Elastic constants</a> and <a href="../phonons/">phonons</a> of
+<p><a href="../elastic-constants/">Elastic constants</a>, <a href="../phonons/">phonons</a>, the
+<a href="../quasi-harmonic/">quasi-harmonic approximation</a>, <a href="../md-elastic/">elastic constants from
+molecular dynamics</a> and <a href="../dynamics/">molecular dynamics</a> of
 two-dimensional materials such as graphene. A box that is periodic along two
 vectors in the x-y plane and not along a third along z makes a system a sheet;
 nothing else changes in the calls.</p>
@@ -8397,35 +8443,150 @@ these differences:</p>
 </ul>
 <p><code>primitive_cell</code> takes a sheet and gives the primitive cell of its plane, in a
 box of the same height.</p>
+<h2 id="quasi-harmonic-approximation">Quasi-harmonic approximation<a class="headerlink" href="#quasi-harmonic-approximation" title="Permanent link">&para;</a></h2>
+<p><code>quasi_harmonic</code> computes the phonons of a sheet at several areas, the
+height of its box kept, and returns a <code>SheetQuasiHarmonicResult</code>:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">quasi_harmonic</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">qha</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span> <span class="n">volumes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.025</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">100</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">qha</span><span class="o">.</span><span class="n">area</span>  <span class="c1"># Å² per atom: 2.641, 2.639, 2.630, the relaxed sheet 2.619</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">qha</span><span class="o">.</span><span class="n">thermal_expansion</span>  <span class="c1"># 1/K: 0, -1.1e-5, -2.3e-5, as the sheet shrinks</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span>  <span class="c1"># N/m: 191, 178, 134</span>
+</code></pre></div>
+<p><code>volumes</code> gives the areas, as ratios to the area of <code>sheet</code>, and
+<code>pressures</code> and <code>pressure</code> are in the plane, in N/m: a tension is a negative
+pressure. The default areas are 9 from 1 to 1.04, as a sheet compressed in
+its plane bends: its vibrations across the plane, quadratic in the wave
+vector, have imaginary frequencies under any compression the mesh can
+resolve, and <code>quasi_harmonic</code> then raises <code>InvalidParameter</code>. A sheet that
+shrinks on heating, as graphene, can therefore be followed only while its
+equilibrium area stays above that of the relaxed sheet: with LCBOP up to some
+400 K, its zero-point vibrations stretching it by 0.8 %. A tension, through
+<code>pressure</code>, keeps it stretched. The long-range part of LCBOP reaches its
+cutoff between the default areas, so the example takes fewer.</p>
+<table>
+<thead>
+<tr>
+<th>Attribute</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>temperatures</code></td>
+<td>(T,) float64</td>
+<td>the temperatures in K</td>
+</tr>
+<tr>
+<td><code>pressure</code></td>
+<td>float64</td>
+<td>the pressure in the plane in N/m</td>
+</tr>
+<tr>
+<td><code>area</code></td>
+<td>(T,) float64</td>
+<td>the equilibrium area per atom in Å²</td>
+</tr>
+<tr>
+<td><code>gibbs_energy</code></td>
+<td>(T,) float64</td>
+<td>the Gibbs energy per atom in eV: static, vibrational and the pressure times the area</td>
+</tr>
+<tr>
+<td><code>entropy</code></td>
+<td>(T,) float64</td>
+<td>the entropy per atom in eV/K</td>
+</tr>
+<tr>
+<td><code>area_modulus</code></td>
+<td>(T,) float64</td>
+<td>the isothermal area modulus in N/m</td>
+</tr>
+<tr>
+<td><code>thermal_expansion</code></td>
+<td>(T,) float64</td>
+<td>the thermal expansion of the area in 1/K</td>
+</tr>
+<tr>
+<td><code>heat_capacity</code></td>
+<td>(T,) float64</td>
+<td>the heat capacity at constant pressure per atom in eV/K</td>
+</tr>
+<tr>
+<td><code>areas</code>, <code>energies</code></td>
+<td>(A,) float64</td>
+<td>the areas per atom of the phonons in Å² and the static energy at each in eV</td>
+</tr>
+<tr>
+<td><code>free_energies</code></td>
+<td>(A, T) float64</td>
+<td>the vibrational free energy per atom at each area and temperature in eV</td>
+</tr>
+<tr>
+<td><code>cells</code></td>
+<td>tuple of <code>System</code></td>
+<td>the relaxed cell at each area</td>
+</tr>
+</tbody>
+</table>
+<p>The free energy is fitted, at each temperature, by a cubic polynomial in
+<span class="arithmatex">\(1/A\)</span>, the form of the third-order Birch–Murnaghan equation in two dimensions;
+the area modulus is <span class="arithmatex">\(K = A\, \partial^2 G / \partial A^2\)</span>, the thermal
+expansion <span class="arithmatex">\(\alpha = (\partial S/\partial A)/K\)</span> and the heat capacity
+<span class="arithmatex">\(C_\sigma = C_A + T A K \alpha^2\)</span>.</p>
+<h2 id="elastic-constants-from-molecular-dynamics">Elastic constants from molecular dynamics<a class="headerlink" href="#elastic-constants-from-molecular-dynamics" title="Permanent link">&para;</a></h2>
+<p><code>md_elastic_constants</code> takes a sheet and returns its <code>SheetElasticResult</code> in
+N/m, with the standard errors in <code>errors</code>: the mean shape of the sheet under
+<code>pressure</code> in its plane, then the mean tensions under strains along xx, yy
+and xy. <code>pressure</code> is in GPa over the height of the box, as in molecular
+dynamics below, and the barostats change the sheet in its plane only.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">md_elastic_constants</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">replicate</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">hot</span> <span class="o">=</span> <span class="n">md_elastic_constants</span><span class="p">(</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">hot</span><span class="o">.</span><span class="n">constants</span><span class="p">,</span> <span class="n">hot</span><span class="o">.</span><span class="n">errors</span>  <span class="c1"># (3, 3) N/m</span>
+</code></pre></div>
 <h2 id="in-gigapascals">In gigapascals<a class="headerlink" href="#in-gigapascals" title="Permanent link">&para;</a></h2>
 <p>A sheet has no thickness of its own, so its constants are in N/m. With a thickness
 <span class="arithmatex">\(h\)</span> chosen by convention, such as the 3.35 Å between the layers of graphite, the
 constants of a material of that thickness are <span class="arithmatex">\(C[\mathrm{GPa}] = 10\, C[\mathrm{N/m}]
 / h[\text{Å}]\)</span>: 331 N/m is 988 GPa.</p>
 <h2 id="molecular-dynamics">Molecular dynamics<a class="headerlink" href="#molecular-dynamics" title="Permanent link">&para;</a></h2>
-<p><a href="../dynamics/"><code>MolecularDynamics</code></a> runs a sheet as it is. <code>barostat="xy"</code> controls the
-pressure in the plane and keeps the height of the box:</p>
+<p><a href="../dynamics/"><code>MolecularDynamics</code></a> runs a sheet as it is. Its barostats change the
+sheet in its plane and keep the height of the box: alike along its two vectors
+for <code>"iso"</code> and <code>"xy"</code>, along each for <code>"aniso"</code>, and in any way in the plane,
+with the angle between them, for <code>"tri"</code>:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">20000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s2">"xy"</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">20000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s2">"xy"</span><span class="p">)</span>
 </code></pre></div>
 <p>LAMMPS divides the forces by the volume of the box, with its vacuum. A tension of
 <span class="arithmatex">\(\sigma\)</span> in N/m is therefore the pressure <span class="arithmatex">\(-10\, \sigma / h\)</span> GPa, with the height of the
 box <span class="arithmatex">\(h\)</span> in Å; at zero pressure the height does not matter.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
-<p><code>elastic_constants</code>, <code>phonons</code> and <code>primitive_cell</code> raise <code>InvalidParameter</code>
-for a box that is not periodic in every direction and is not that of a sheet.
+<p><code>elastic_constants</code>, <code>md_elastic_constants</code>, <code>quasi_harmonic</code>, <code>phonons</code> and
+<code>primitive_cell</code> raise <code>InvalidParameter</code> for a box that is not periodic in every
+direction and is not that of a sheet, and <code>MolecularDynamics.run</code> for a barostat
+of such a box.
 <code>phonons</code> raises it for a supercell that leaves the plane, <code>dos</code> and <code>thermal</code>
 for a mesh with more than one wave vector along z. The methods of
 <code>SheetElasticResult</code> raise it for an axis other than <code>"x"</code> or <code>"y"</code> and for
 constants that cannot be inverted.</p>
-<p><a href="../quasi-harmonic/"><code>quasi_harmonic</code></a> and <a href="../md-elastic/">elastic constants from molecular
-dynamics</a> need a box periodic in every direction: a sheet has
-no volume to scan. The moduli of <code>ElasticResult</code>, for a sheet in a periodic box
-with vacuum, raise <code>InvalidParameter</code>, as its constants cannot be inverted.</p>
+<p><code>quasi_harmonic</code> raises it at an area where the sheet has imaginary frequencies,
+as when it is compressed, and where its equilibrium area is outside the areas.
+The moduli of <code>ElasticResult</code>, for a sheet in a periodic box with vacuum, raise
+<code>InvalidParameter</code>, as its constants cannot be inverted.</p>
 
 
 

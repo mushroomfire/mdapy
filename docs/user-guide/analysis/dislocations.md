@@ -420,8 +420,10 @@ lengths within about 0.5 %. They differ in these ways:
   cross with junctions, on a loop through a region of bad crystal 7 Å in
   radius or past a void 4.5 Å in radius, and on straight lines through
   periodic boxes of 7 to 11 Å along them, the two mark the same atoms, but
-  for up to three where their tessellations differ (ties, above). They
-  differ in these ways:
+  for up to three where their tessellations differ (ties, above), with
+  OVITO on macOS; on Linux OVITO 3.17 marks next to some loops up to 11 atoms
+  more, of the good crystal, as it does next to long lines below, while
+  MDAPY's are the same on both. They differ in these ways:
     - On a line through a periodic box longer along it, from some 9 Å in
       copper and 12 Å in iron, OVITO 3.17.1 marks at one place of the line 3
       to 15 atoms of the good crystal next to the core, which are not on or

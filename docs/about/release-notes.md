@@ -23,6 +23,20 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `mdapy.fitting`, curves and surfaces through data: `Spline` and `GridSpline`, cubic
+  splines along a line and on a grid, with derivatives, `Spline.integral` and the
+  `BOUNDARIES` at their ends, periodic among them; `fit_polynomial` and `fit_surface`,
+  least-squares polynomials of one and two variables, which give a `PolynomialFit` and a
+  `SurfaceFit`; `fit_curve`, functions with parameters fitted by the Levenberg–Marquardt
+  method into a `CurveFit`, from a `Model` (its `name`, `function`, parameters and
+  `guess`) or a plain function, with the `MODELS` `exponential`,
+  `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
+  `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
+  Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
+  parameters with their errors and covariance. See
+  [Interpolation](../user-guide/fitting/interpolation.md),
+  [Curve fitting](../user-guide/fitting/curve-fitting.md) and
+  [Equations of state](../user-guide/fitting/equation-of-state.md).
 - `DislocationAnalysis` is no longer experimental. Its page lists the
   [limits](../user-guide/analysis/dislocations.md#limits), general grain boundaries
   first, and [where the results differ from OVITO](../user-guide/analysis/dislocations.md#where-the-results-differ-from-ovito)

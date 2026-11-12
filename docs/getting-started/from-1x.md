@@ -239,9 +239,12 @@ system = system.with_columns(csp_average=total / (nl.counts + 1))
 picture and `show_image(render(system))` shows it in a notebook. A graphical
 application with fuller features is developed separately.
 
-**Coming in a later 2.x release**: `orthogonal_cell`, `set_pka`, `Spline` and
-`BondStiffness`. They will be additions, so code written for 2.0 keeps working (see
-[Compatibility](../about/compatibility.md)).
+**Since 2.1**: `orthogonal_cell` is `mdapy.transform.orthogonal_cell` (see
+[Orthogonal cells](../user-guide/build/orthogonal-cell.md)), and `Spline` is
+`mdapy.fitting.Spline` (see [Interpolation](../user-guide/fitting/interpolation.md)).
+
+**Coming in a later 2.x release**: `set_pka` and `BondStiffness`. They will be additions,
+so code written for 2.0 keeps working (see [Compatibility](../about/compatibility.md)).
 
 **Threads**: `MDAPY_NUM_THREADS` sets the number of threads as in 1.x, and
 `mp.set_num_threads(n)` changes it while running (see

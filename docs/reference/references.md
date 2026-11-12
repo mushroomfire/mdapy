@@ -46,6 +46,11 @@ Stafström, Negative Poisson's ratios as a common feature of cubic metals, *Natu
 [doi:10.1038/32842](https://doi.org/10.1038/32842)
 { #baughman1998 }
 
+**Birch (1947).** F. Birch, Finite elastic strain of cubic crystals,
+*Phys. Rev.* **71**, 809 (1947).
+[doi:10.1103/PhysRev.71.809](https://doi.org/10.1103/PhysRev.71.809)
+{ #birch1947 }
+
 **Bitzek et al. (2006).** E. Bitzek, P. Koskinen, F. Gähler, M. Moseler and
 P. Gumbsch, Structural relaxation made simple, *Phys. Rev. Lett.* **97**,
 170201 (2006).
@@ -277,6 +282,11 @@ line of aluminum from simulations of coexisting phases, *Phys. Rev. B* **49**, 3
 [doi:10.1103/PhysRevB.49.3109](https://doi.org/10.1103/PhysRevB.49.3109)
 { #morris1994 }
 
+**Murnaghan (1944).** F. D. Murnaghan, The compressibility of media under
+extreme pressures, *Proc. Natl. Acad. Sci. USA* **30**, 244 (1944).
+[doi:10.1073/pnas.30.9.244](https://doi.org/10.1073/pnas.30.9.244)
+{ #murnaghan1944 }
+
 **Nguyen and Molinero (2015).** A. H. Nguyen and V. Molinero,
 Identification of clathrate hydrates, hexagonal ice, cubic ice, and liquid
 water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
@@ -412,6 +422,12 @@ W. A. Curtin, Average-atom interatomic potential for random alloys,
 *Phys. Rev. B* **93**, 104201 (2016).
 [doi:10.1103/PhysRevB.93.104201](https://doi.org/10.1103/PhysRevB.93.104201)
 { #varvenne2016 }
+
+**Vinet et al. (1987).** P. Vinet, J. R. Smith, J. Ferrante and J. H. Rose,
+Temperature effects on the universal equation of state of solids, *Phys. Rev. B*
+**35**, 1945 (1987).
+[doi:10.1103/PhysRevB.35.1945](https://doi.org/10.1103/PhysRevB.35.1945)
+{ #vinet1987 }
 
 **Voronoi (1908).** G. Voronoi, Nouvelles applications des paramètres
 continus à la théorie des formes quadratiques. Deuxième mémoire. Recherches

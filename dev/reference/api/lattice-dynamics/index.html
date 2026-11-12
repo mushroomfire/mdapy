@@ -5218,6 +5218,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/force-constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Force constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -7470,6 +7498,56 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ForceConstants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ForceConstants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants.phonons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phonons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants.write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.read_force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        read_force_constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.PhononDOS" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8805,6 +8883,56 @@
     <span class="md-ellipsis">
       
         read_band_structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ForceConstants
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ForceConstants">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants.phonons" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phonons
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.ForceConstants.write" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        write
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.read_force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        read_force_constants
       
     </span>
   </a>
@@ -11854,6 +11982,493 @@ at the ends of the lines have no names.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the file is not in that format.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.ForceConstants" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ForceConstants</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.ForceConstants" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ForceConstants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Second order force constants of a crystal in a supercell.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cell of the crystal, periodic in every direction, or of a sheet,
+periodic along two vectors in the x-y plane and not along a third
+along z.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>supercell</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Repeats of the cell along its vectors, one or three, or a (3, 3)
+integer matrix whose rows times the vectors of the cell are the
+vectors of the supercell; a sheet repeats along its plane only.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>second</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n, n S, 3, 3) second derivatives of the energy in eV/Å² with respect
+to the positions of each atom of the cell and of each atom of the
+supercell, which holds S cells, each with the atoms of the cell in
+their order, the first cell that of the cell itself, as the
+<code>force_constants</code> of <code>Phonons</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.cell">cell</span></code></td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cell of the crystal.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.supercell">supercell</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3, 3) int64 matrix of the supercell; read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.second">second</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n, n S, 3, 3) float64 second order force constants in eV/Å²;
+read-only.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the box is neither periodic nor that of a sheet, there are no
+atoms, the supercell is not positive integers or a matrix of them
+with a positive determinant, or second is not of the shape of the
+cell and the supercell or not finite.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ForceConstants.phonons" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">phonons</span>
+
+
+<a href="#mdapy.lattice_dynamics.ForceConstants.phonons" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">phonons</span><span class="p">()</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The harmonic phonons of these force constants.</p>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Phonons (mdapy.lattice_dynamics._phonons.Phonons)" href="#mdapy.lattice_dynamics.Phonons">Phonons</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Frequencies, polarization vectors, band structures, densities of
+states and thermal properties, as <code>phonons</code> gives them.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If an atom of the cell has neither element nor mass.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.ForceConstants.write" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">write</span>
+
+
+<a href="#mdapy.lattice_dynamics.ForceConstants.write" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">full</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Writes the force constants in the format of phonopy's
+FORCE_CONSTANTS, in its order of the atoms of the supercell.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or <span title="path">path</span> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The file.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>full</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Write the force constants of every atom of the supercell, which
+phonopy reads whatever its primitive cell; otherwise those of the
+atoms of the cell, which phonopy reads when its primitive cell is
+the cell. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.read_force_constants" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">read_force_constants</span>
+
+
+<a href="#mdapy.lattice_dynamics.read_force_constants" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_force_constants</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Force constants from a file in the format of phonopy's
+FORCE_CONSTANTS.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or <span title="path">path</span> - <span title="like">like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The file, in eV/Å², such as one phonopy wrote from a calculation with
+VASP.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The unit cell of phonopy's calculation, its atoms in its order.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>supercell</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Repeats of the cell along its vectors, one or three, or a (3, 3)
+integer matrix whose rows times the vectors of the cell are the
+vectors of the supercell: the transpose of phonopy's supercell
+matrix, the same for repeats.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ForceConstants
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._force_constants.ForceConstants)" href="#mdapy.lattice_dynamics.ForceConstants">ForceConstants</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The force constants of the atoms of the cell, those of atoms that the
+file leaves out found from atoms that a translation of the crystal
+takes to them.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="FileFormatError (mdapy.errors.FileFormatError)" href="../utilities/#mdapy.errors.FileFormatError">FileFormatError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the file is not in that format.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the file holds the force constants of another number of atoms
+than the supercell has, or neither those of an atom of the cell nor
+those of an atom that a translation of the crystal takes to it.</p>
               </div>
             </td>
           </tr>

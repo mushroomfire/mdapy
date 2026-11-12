@@ -5218,6 +5218,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/force-constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Force constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8783,6 +8811,18 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td><code>force_constants</code></td>
 <td>second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell</td>
+</tr>
+<tr>
+<td><code>ForceConstants</code></td>
+<td>the second order force constants <code>second</code> of a cell in a supercell, from an array or a file; <code>phonons()</code> gives their <code>Phonons</code></td>
+</tr>
+<tr>
+<td><code>second</code></td>
+<td>of <code>ForceConstants</code>: the second order force constants, (n, nS, 3, 3) (eV/Å²), as the <code>force_constants</code> of <code>Phonons</code></td>
+</tr>
+<tr>
+<td><code>FORCE_CONSTANTS</code></td>
+<td>phonopy's text file of force constants (eV/Å²), compact (the atoms of the cell) or full (every atom of the supercell); <code>ForceConstants.write</code>, <code>read_force_constants</code></td>
 </tr>
 <tr>
 <td>frequencies</td>

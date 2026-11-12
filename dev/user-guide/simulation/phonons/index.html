@@ -16,7 +16,7 @@
         <link rel="prev" href="../md-elastic/">
       
       
-        <link rel="next" href="../thermal-phonons/">
+        <link rel="next" href="../force-constants/">
       
       
         
@@ -5318,6 +5318,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../force-constants/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Force constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../thermal-phonons/" class="md-nav__link">
         
   
@@ -8249,7 +8277,7 @@ lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)<
 <tr>
 <td><code>force_constants</code></td>
 <td>(n, nS, 3, 3) float64</td>
-<td>force constants <span class="arithmatex">\(\Phi\)</span> in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only</td>
+<td>force constants <span class="arithmatex">\(\Phi\)</span> in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only; <a href="../force-constants/"><code>ForceConstants</code></a> writes them for phonopy</td>
 </tr>
 <tr>
 <td><code>frequencies(q)</code></td>
@@ -8547,13 +8575,13 @@ C_V = k_B\frac{x^2 e^x}{(e^x - 1)^2},
         
         
           
-          <a href="../thermal-phonons/" class="md-footer__link md-footer__link--next" aria-label="Next: Phonons at finite temperature">
+          <a href="../force-constants/" class="md-footer__link md-footer__link--next" aria-label="Next: Force constants">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Phonons at finite temperature
+                Force constants
               </div>
             </div>
             <div class="md-footer__button md-icon">

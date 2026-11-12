@@ -8507,6 +8507,10 @@
   displacement=0.01, count=1, seed=None, symmetry=None)</code> makes the supercells, the moves of
   <code>phonons</code> or random patterns by plus and minus. The atoms of the frames are matched by
   position, so OUTCAR files of VASP serve as they are.</li>
+<li><code>force_constants</code> takes a <code>cutoff</code>: the force constants of the pairs of the crystal no
+  farther apart than it, under every operation of the crystal also in supercells of less
+  symmetry, and zero beyond; <code>ForceConstants.cutoff</code> says which. The page gives how far
+  the frequencies of copper move with the cutoff.</li>
 <li>The example <a href="../../examples/radiation-cascade/">A collision cascade in tungsten</a>: a
   primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
   Frenkel pairs over time; it holds the few lines of 1.x's <code>set_pka</code>.</li>

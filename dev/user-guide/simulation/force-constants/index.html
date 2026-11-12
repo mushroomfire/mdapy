@@ -8181,7 +8181,7 @@
 <!-- needs: spglib -->
 
 <h1 id="force-constants">Force constants<a class="headerlink" href="#force-constants" title="Permanent link">&para;</a></h1>
-<p><code>mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)</code> fits the second
+<p><code>mdapy.lattice_dynamics.force_constants(cell, frames, *, cutoff=None, symmetry=None)</code> fits the second
 order force constants of a crystal to the forces on atoms displaced in a supercell,
 from any calculator or from a calculation with DFT; <code>displaced_supercells</code> makes the
 supercells, and a <code>ForceConstants</code> gives the <a href="../phonons/">phonons</a> and passes to and
@@ -8257,6 +8257,13 @@ OUTCAR files, whose atoms VASP holds in the order of the POSCAR, grouped by elem
 <td></td>
 <td></td>
 <td>supercells of the cell with atoms displaced, each with a <code>forces</code> column in eV/Å, its atoms in any order</td>
+</tr>
+<tr>
+<td><code>cutoff</code></td>
+<td>float64 or <code>None</code></td>
+<td><code>None</code></td>
+<td>Å</td>
+<td>fit only the force constants of pairs no farther apart than this, at most half the shortest vector of the supercell less 1e-3 Å; by default those of every pair of the supercell</td>
 </tr>
 <tr>
 <td><code>symmetry</code></td>
@@ -8345,6 +8352,28 @@ determine every free force constant: with the symmetry of fcc, one finite move o
 random pattern does; without symmetry, a cell of n atoms needs at least 3n random
 patterns. Fewer raise <code>InvalidParameter</code>, which
 tells how many of the free force constants the frames determine.</p>
+<p>Frames of molecular dynamics serve too, as for
+<a href="../thermal-phonons/#from-frames-of-any-dynamics"><code>phonons_from_frames</code></a>: the force
+constants that best give the forces at the temperature of the frames, with the cell at
+their volume.</p>
+<p><strong>Within a cutoff.</strong> By default the force constants are those of the supercell with its
+periodic boundaries: every pair of an atom of the cell and an atom of the supercell, under
+the operations of the crystal that map the supercell onto itself. With <code>cutoff</code>, they are
+those of pairs of the crystal no farther apart than <code>cutoff</code>, and zero beyond, under every
+operation of the crystal, also in a supercell of less symmetry, such as 4 × 4 × 3 cells of
+fcc. Each pair is then its own shortest image in the supercell, which is why the cutoff is
+at most half the shortest vector of the supercell, and the phonons are those of these
+pairs. A cutoff typed at the distance of a shell of neighbors holds the whole shell.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">near</span> <span class="o">=</span> <span class="n">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">near</span><span class="o">.</span><span class="n">cutoff</span><span class="p">,</span> <span class="n">near</span><span class="o">.</span><span class="n">parameters</span>  <span class="c1"># 5.0 Å, 9 free force constants</span>
+</code></pre></div>
+<p>A cutoff leaves out the force constants of the pairs beyond it, which a many-body
+potential such as EAM or NEP couples through the atoms between them, up to twice its
+own cutoff. For copper with <code>EAM.zhou</code>, in a supercell of 6 × 6 × 6 primitive cells, the
+frequencies differ from those of the supercell by up to 0.3 THz with a cutoff of 2.6 Å,
+0.11 THz at 4.6 Å, 0.04 THz at 5.8 Å and 0.005 THz at 7.0 Å. <code>error</code> falls with the
+cutoff only until the anharmonic forces dominate it, here from 4.6 Å, so compare the
+frequencies of two cutoffs to choose one.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>force_constants</code> returns a <code>ForceConstants</code>.</p>
 <table>
@@ -8370,6 +8399,11 @@ tells how many of the free force constants the frames determine.</p>
 <td><code>second</code></td>
 <td>(n, nS, 3, 3) float64</td>
 <td>the force constants <span class="arithmatex">\(\Phi\)</span> in eV/Å² between each atom of the cell and each atom of the supercell, which holds S cells, each with the atoms of the cell in their order, the cell itself first, as the <code>force_constants</code> of <code>Phonons</code>; read-only</td>
+</tr>
+<tr>
+<td><code>cutoff</code></td>
+<td>float64 or <code>None</code></td>
+<td>the cutoff in Å of a fit, beyond which the force constants are zero; <code>None</code> for every pair of the supercell, or not a fit</td>
 </tr>
 <tr>
 <td><code>parameters</code></td>
@@ -8408,11 +8442,11 @@ supercell.</p>
 <h2 id="phonopys-force_constants">phonopy's FORCE_CONSTANTS<a class="headerlink" href="#phonopys-force_constants" title="Permanent link">&para;</a></h2>
 <p><code>write</code> writes the force constants as phonopy's <code>FORCE_CONSTANTS</code>, and
 <code>read_force_constants(path, cell, supercell)</code> reads such a file:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_force_constants</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">constants</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">)</span>  <span class="c1"># phonopy reads it</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">back</span> <span class="o">=</span> <span class="n">read_force_constants</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">back</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">frequencies</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_force_constants</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">constants</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">)</span>  <span class="c1"># phonopy reads it</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">back</span> <span class="o">=</span> <span class="n">read_force_constants</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">back</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">frequencies</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
 </code></pre></div>
 <table>
 <thead>
@@ -8481,6 +8515,8 @@ be converted first.</p>
   atoms are not one at each atom of the supercell, or whose atom has another element or
   type than its atom of the supercell;</li>
 <li>frames that do not determine every free force constant;</li>
+<li>a cutoff that is not positive, or longer than half the shortest vector of the supercell
+  less 1e-3 Å, the longest it can be, which the message gives;</li>
 <li><code>symmetry=True</code> without spglib;</li>
 <li>a fit too large for memory, over 2 GB, as a crystal of little symmetry with many atoms
   in its cell in a large supercell: <a href="../phonons/"><code>phonons</code></a> finds its force constants by
@@ -8510,11 +8546,12 @@ sites, are those of the harmonic energy:</p>
 <div class="arithmatex">\[
 F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta} .
 \]</div>
-<p>The force constants are those of the supercell with its periodic boundaries. They obey
-every relation that is exact:</p>
+<p>The force constants are those of the supercell with its periodic boundaries, or, with a
+cutoff, those of the pairs of the crystal no farther apart than it. They obey every
+relation that is exact:</p>
 <ul>
-<li>the operations <span class="arithmatex">\((R, \mathbf t)\)</span> of the crystal that map the supercell onto itself:
-  <span class="arithmatex">\(\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}\)</span>;</li>
+<li>the operations <span class="arithmatex">\((R, \mathbf t)\)</span> of the crystal, those that map the supercell onto itself
+  without a cutoff and all of them with one: <span class="arithmatex">\(\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}\)</span>;</li>
 <li>the exchange of the two atoms: <span class="arithmatex">\(\Phi_{i\alpha, j\beta} = \Phi_{j\beta, i\alpha}\)</span>;</li>
 <li>the sum rule, so that moving the whole crystal costs no energy:
   <span class="arithmatex">\(\sum_j \Phi_{i\alpha, j\beta} = 0\)</span>.</li>

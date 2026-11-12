@@ -8348,6 +8348,15 @@ enough apart in time to differ.</p>
 </tr>
 </tbody>
 </table>
+<p>For a crystal of some symmetry, <a href="../force-constants/"><code>force_constants</code></a> fits the same
+frames with the symmetry of the crystal and the sum rule exact, from fewer of them, and
+takes their atoms in any order: <code>force_constants(cell, frames).phonons()</code>. For copper in
+4 × 4 × 4 primitive cells, with frames of random displacements of 0.08 Å as of a crystal
+near room temperature, 3 to 5 frames give frequencies within 0.2 THz of those of 200
+frames, where <code>phonons_from_frames</code> needs 10 to 20; with 200 frames the two agree to
+0.006 THz. <code>phonons_from_frames</code> serves any crystal, also those of little symmetry with
+many atoms in the cell, such as special quasirandom structures, which are too large for
+the fit of <code>force_constants</code>.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>With <span class="arithmatex">\(u_i\)</span> the displacement of atom <span class="arithmatex">\(i\)</span> from its place and <span class="arithmatex">\(f_i\)</span> the force on it,
 the force constants <span class="arithmatex">\(\Phi\)</span> minimize</p>

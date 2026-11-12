@@ -12045,7 +12045,7 @@ at the ends of the lines have no names.</p>
 
 
 <a href="#mdapy.lattice_dynamics.force_constants" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -12103,6 +12103,26 @@ atoms in any order.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>cutoff</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fit only the force constants of pairs no farther apart than this, in
+Å, at most half the shortest vector of the supercell less 1e-3 Å,
+with every symmetry operation of the crystal; by default those of
+every pair of the supercell, with its periodic boundaries and the
+operations that map it onto itself.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>symmetry</code>
             </td>
             <td>
@@ -12143,10 +12163,9 @@ False, or by default whenever spglib is installed.</p>
             <td>
               <div class="doc-md-description">
                 <p>The force constants that give the forces best, symmetric under the
-operations of the crystal that map the supercell onto itself and in
-the two atoms, and summing to zero over the atoms of the supercell,
-with the number of free parameters and the relative error of the
-forces.</p>
+operations and in the two atoms, and summing to zero over the atoms
+of the supercell, with the cutoff, the number of free parameters and
+the relative error of the forces.</p>
               </div>
             </td>
           </tr>
@@ -12171,9 +12190,10 @@ forces.</p>
               <div class="doc-md-description">
                 <p>If the box is neither periodic nor that of a sheet, there are no
 atoms or no frames, a frame is not a supercell of the cell with
-forces, its atoms one at each atom of the supercell, the frames do
-not determine every free parameter, or symmetry is True without
-spglib.</p>
+forces, its atoms one at each atom of the supercell, the cutoff is
+not positive or too long for the supercell, the frames do not
+determine every free parameter, the fit is too large for memory, or
+symmetry is True without spglib.</p>
               </div>
             </td>
           </tr>
@@ -12527,6 +12547,19 @@ their order, the first cell that of the cell itself, as the
               <div class="doc-md-description">
                 <p>(n, n S, 3, 3) float64 second order force constants in eV/Å²;
 read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.cutoff">cutoff</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cutoff in Å of a fit by <code>force_constants</code> beyond which the
+force constants are zero; None for every pair of the supercell, or
+not a fit.</p>
               </div>
             </td>
           </tr>

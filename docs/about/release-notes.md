@@ -2,6 +2,14 @@
 
 ## 2.1.0 (not released)
 
+- `md_elastic_constants(..., method="fluctuation")` gives the elastic constants from the
+  fluctuations of the stress in one run at the mean box: the Born term, the
+  fluctuations of the virial stress and the kinetic term, as stress-strain
+  coefficients under the mean stress. For copper it agrees with the strains within
+  their errors, with errors 1.5 to 25 times smaller at equal steps and independent
+  of the size; for constants that relax strongly, as the shear of silicon, the
+  strains stay better. See
+  [From the fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress).
 - Sheets in the quasi-harmonic approximation, in elastic constants from molecular
   dynamics and under every barostat: `quasi_harmonic` of a sheet computes its phonons
   at several areas and returns a `SheetQuasiHarmonicResult`, with pressures in its
@@ -233,6 +241,13 @@
   tolerance near those forces left the atoms half relaxed, most where they relax most.
   C44 of silicon with the Tersoff potential, 10.31 GPa, came out 10.20 GPa at the
   default strain of 10<sup>−3</sup> and 13.9 GPa at 10<sup>−4</sup>.
+- `md_elastic_constants` keeps the strained crystal at the temperature with a Langevin
+  thermostat, whose noise the two runs of a component share; the Nosé–Hoover thermostat
+  it had, being deterministic, did not bring all the vibrations back to the
+  temperature after the strain: C11 and C12 of silicon with the Tersoff potential at
+  300 K came out about 2 GPa, 2 %, too high, with errors four to six times larger. The
+  constants are now symmetric, each entry off the diagonal the mean of its two
+  estimates.
 - `PolyhedralTemplateMatching` without a neighbor list finds the 18 nearest neighbors of
   each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
   take 293 MB beyond the system rather than 752 MB, in the same time, and its progress

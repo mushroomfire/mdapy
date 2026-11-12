@@ -2,6 +2,11 @@
 
 ## 2.1.0 (not released)
 
+- `DislocationAnalysis(..., core_atoms=True)` marks the atoms of the core of each
+  dislocation line, the bad crystal its Burgers circuits enclose, as OVITO's option to
+  mark the dislocation core atoms: `DislocationResult.core_atoms` holds the line of each
+  atom, −1 for none, and is the column `dxa_core_atoms`. See
+  [Core atoms](../user-guide/analysis/dislocations.md#core-atoms).
 - `md_elastic_constants(..., method="fluctuation")` gives the elastic constants from the
   fluctuations of the stress in one run at the mean box: the Born term, the
   fluctuations of the virial stress and the kinetic term, as stress-strain

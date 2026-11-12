@@ -127,6 +127,7 @@ the hcp atoms of its faces and the other atoms of its corners (white).*
 | `mesh_smoothing` | int32 | 8 | | the number of smoothing steps of the defect mesh |
 | `interface_mesh` | bool | `False` | | also give the interface mesh, on which the circuits run |
 | `low_ca_ratio` | bool | `False` | | for `hcp` of a low c/a: an atom whose 12 nearest neighbors are not hcp is tried again with them stretched along its c axis to the ideal c/a |
+| `core_atoms` | bool | `False` | | also give the atoms of the core of each line, [below](#core-atoms) |
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
 `cancel` of [every analysis](overview.md#parameters), but no neighbor list.
@@ -170,6 +171,7 @@ A `DislocationResult`:
 | `defect_atoms` | (V,) int64 | the atom at each vertex of the defect mesh, −1 at the end of a line |
 | `interface_mesh` | `TriangleMesh` or `None` | the mesh between the good crystal and the rest, with `interface_mesh=True` |
 | `interface_atoms` | (V,) int64 or `None` | the atom at each of its vertices |
+| `core_atoms` | (N,) int64 or `None` | the index into `lines` of the line whose core holds each atom, −1 for the atoms in no core, with `core_atoms=True`; its column `dxa_core_atoms` |
 | `lengths()` | dict of str to float64 | the total length of the lines of each family of the crystal in Å, `other` last |
 | `total_length` | float64 | the total length of the lines in Å |
 | `densities()` | dict of str to float64 | the length of the lines of each family per volume of the box in Å⁻², `other` last; times 10<sup>20</sup> in m⁻² |
@@ -240,6 +242,48 @@ np.average(angles, weights=weights)  # 60, the mean along the line
 
 Around a loop the angle runs from screw where the line runs along its
 Burgers vector to edge where it runs across it.
+
+### Core atoms
+
+With `core_atoms=True` the result tells which atoms make the core of each
+line: `core_atoms` holds for each atom the index into `lines` of its line,
+−1 for the atoms in no core. The core of a line is the bad crystal its
+Burgers circuits enclose, see the [definition](#definition). The structure
+of an atom does not count: an atom of the crystal at the rim of the bad
+crystal is a core atom too.
+
+```python
+cores = DislocationAnalysis("fcc", core_atoms=True).compute(system)
+core = cores.core_atoms  # the line of each atom, -1 for none
+np.bincount(core[core >= 0])  # atoms, [42, 42, 42, 42] in the cores of the partials
+np.bincount(cores.structure[core >= 0])  # [120, 23, 25]: other, fcc and hcp
+system.with_columns(cores)  # with the column dxa_core_atoms too
+
+shown = core >= 0
+picture = render(
+    system,
+    atoms=shown,
+    color=cores,
+    legend=legend(cores, shown),
+    radius=0.8,
+    dislocations=cores,
+    width=640,
+    height=500,
+)
+write_png("images/dislocation_cores.png", picture)
+```
+
+![The atoms of the cores of four partial dislocations](images/dislocation_cores.png)
+
+*The atoms of the cores of the four Shockley partials of the first example,
+in the colors of their structures, around the lines (green).*
+
+A line that ends on a free surface has in its core the bad crystal up to
+the surface, not the atoms of the surface its circuits spread over. Where a
+line ends in other bad crystal, as at a grain boundary, the atoms nearer its
+last circuits than the rest of the boundary are in its core. An atom in the
+cores of two lines, as at a junction, is given to the first of them in
+`lines`.
 
 ### Some atoms only
 
@@ -370,8 +414,34 @@ lengths within about 0.5 %. They differ in these ways:
   close, they may take different ones, and the lattice Burgers vectors then
   differ by a rotation of the lattice, the spatial ones do not.
 
-OVITO's options to analyze the selected atoms only and to mark the atoms of
-the cores are not here.
+- **Core atoms.** `core_atoms=True` gives what OVITO's option to mark the
+  atoms of the dislocation cores gives in its particle property
+  `Dislocation`, the numbers of the lines aside. On loops, on loops that
+  cross with junctions, on a loop through a region of bad crystal 7 Å in
+  radius or past a void 4.5 Å in radius, and on straight lines through
+  periodic boxes of 7 to 11 Å along them, the two mark the same atoms, but
+  for up to three where their tessellations differ (ties, above), with
+  OVITO on macOS; on Linux OVITO 3.17 marks next to some loops up to 11 atoms
+  more, of the good crystal, as it does next to long lines below, while
+  MDAPY's are the same on both. They differ in these ways:
+    - On a line through a periodic box longer along it, from some 9 Å in
+      copper and 12 Å in iron, OVITO 3.17.1 marks at one place of the line 3
+      to 15 atoms of the good crystal next to the core, which are not on or
+      inside its interface mesh, and in boxes of 25 Å and more it can leave
+      a part of the line without core atoms: 37 Å of a partial in a box of
+      53 Å. MDAPY marks the same atoms in every period of such a line.
+    - Where lines end on a free surface, the ends of the lines of the two
+      programs lie some Å apart on it, and the core atoms next to them
+      differ: 3 of 44 on two partials through a plate 13 Å thick.
+    - Where a line ends in bad crystal its circuits do not pass around, the
+      two share out its atoms differently, and the lines there differ too:
+      of a region of bad crystal 9 Å in radius that breaks a loop, MDAPY
+      marks 103 of 146 atoms and OVITO 80, 67 of them the same.
+    - Around a void 6 Å in radius on a loop, whose tetrahedra are close to
+      the size that counts as empty space, MDAPY marks 4 atoms more, of 169.
+
+OVITO's option to analyze the selected atoms only is not here: analyze the
+system of those atoms, [above](#some-atoms-only).
 
 ## Definition
 
@@ -408,6 +478,15 @@ the mesh no circuit took, closed over the free ends of the lines, are the
 defect mesh. Burgers vectors are then given in the frame of a cluster of
 the crystal, each line runs along the axis it runs along most, and the
 lines are coarsened and smoothed.
+
+The core of a line is made of the bad tetrahedra, those that are not good
+and not empty space, behind the triangles its circuits took, and of those
+reached from them through other bad tetrahedra. Where bad tetrahedra can be
+reached from the triangles of several lines, or from those of the defect
+mesh, each goes to the one it is the fewest steps from, tetrahedron to
+tetrahedron: a line before the defect mesh, and the first line before the
+others. The core atoms of a line are the atoms at the corners of its
+tetrahedra.
 
 The sense of a line and its Burgers vector are those of OVITO, which
 [`insert_dislocation`](../build/dislocations.md) and the dislocation

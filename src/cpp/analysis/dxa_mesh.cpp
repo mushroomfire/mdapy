@@ -137,6 +137,11 @@ InterfaceMesh interface_mesh(const ClusterInput& atoms, const Mapping& mapping,
         }
     }
     InterfaceMesh mesh;
+    mesh.outside.reserve(face_tet.size());
+    for (std::size_t f = 0; f < face_tet.size(); ++f) {
+        mesh.outside.push_back(tetrahedra.neighbors[static_cast<std::size_t>(
+            4 * face_tet[f] + face_side[f])]);
+    }
     const auto faces = static_cast<std::int64_t>(face_tet.size());
     const std::int64_t n = 3 * faces;
     std::vector<std::int64_t> from_atom(static_cast<std::size_t>(n));

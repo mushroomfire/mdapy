@@ -1166,6 +1166,7 @@ void dislocations() {
     const bool pbc[3] = {true, true, true};
     mdapy::analysis::DislocationOptions options;
     options.crystal = mdapy::identify::kPtmFcc;
+    options.core = true;
     std::vector<std::int8_t> first_structure;
     std::vector<double> first_vertices;
     for (int threads : kThreads) {
@@ -1182,6 +1183,8 @@ void dislocations() {
         check(found.network.segments.empty() && !found.defects.faces.empty() &&
                   found.clusters.size.size() == 1,
               "a void in a crystal is a defect without dislocations");
+        check(found.core == std::vector<std::int64_t>(static_cast<std::size_t>(n), -1),
+              "no atom is in the core of a line without lines");
     }
 }
 

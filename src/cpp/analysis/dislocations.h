@@ -30,6 +30,7 @@ struct DislocationOptions {
     int mesh_smoothing = 8;   // steps of smoothing of the defect mesh
     bool interface = false;   // also the interface mesh
     bool low_ca = false;      // hcp of low c/a: stretched along c where it is not found
+    bool core = false;        // also the atoms of the core of each line
 };
 
 // The structures and clusters of the atoms, the dislocation lines, the
@@ -37,7 +38,8 @@ struct DislocationOptions {
 // the interface mesh between the good crystal and the rest: of each, the
 // atom at each vertex (-1 at the end of a line), the positions of the
 // vertices, the vertices of each triangle and the periodic image of each
-// corner.
+// corner; and, when asked for, the line whose core holds each atom, -1
+// for none.
 struct Dislocations {
     dxa::Structures structures;
     dxa::Clusters clusters;
@@ -45,6 +47,7 @@ struct Dislocations {
     std::vector<double> spatial;  // the spatial Burgers vector of each line, 3 each
     SurfaceMesh defects;
     SurfaceMesh interface;
+    std::vector<std::int64_t> core;
 };
 
 // The dislocations of n atoms at positions (n x 3) whose tessellation comes

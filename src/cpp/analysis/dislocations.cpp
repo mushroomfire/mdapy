@@ -304,6 +304,79 @@ SurfaceMesh triangles(const dxa::InterfaceMesh& mesh, const std::vector<std::int
     return out;
 }
 
+// The line whose core holds each atom, -1 for none. The core of a line is
+// the bad crystal its circuits enclose: the tetrahedra that are not good and
+// not empty space behind the triangles its circuits took for good, and those
+// reached from them through such tetrahedra; where they meet those reached
+// from the triangles of the other defects, each tetrahedron goes to the
+// nearest in steps, a line before the other defects and the first line
+// before the others. An atom at a corner of tetrahedra of several lines
+// is of the first.
+std::vector<std::int64_t> core_atoms(const dxa::InterfaceMesh& mesh, const Tetrahedra& tetrahedra,
+                                     const std::vector<std::uint8_t>& good, double alpha,
+                                     const std::vector<std::int64_t>& face_line, std::int64_t n) {
+    constexpr std::int64_t kFree = -1, kDefect = -2, kNot = -3;
+    const std::size_t count = tetrahedra.radii.size();
+    // of each tetrahedron: the line, the other defects, not reached yet, or
+    // not of the bad crystal
+    std::vector<std::int64_t> owner(count);
+    for (std::size_t t = 0; t < count; ++t) {
+        const double r = tetrahedra.radii[t];
+        owner[t] = !good[t] && r * r < alpha ? kFree : kNot;
+    }
+    auto better = [](std::int64_t a, std::int64_t b) { return a >= 0 && (b < 0 || a < b); };
+    std::vector<std::int32_t> depth(count, 0);
+    std::vector<std::int64_t> reached;
+    for (std::int64_t f = 0; f < mesh.faces(); ++f) {
+        const std::int64_t t = mesh.outside[static_cast<std::size_t>(f)];
+        if (t < 0 || owner[static_cast<std::size_t>(t)] == kNot) {
+            continue;
+        }
+        const std::int64_t line = face_line[static_cast<std::size_t>(f)];
+        const std::int64_t label = line >= 0 ? line : kDefect;
+        std::int64_t& of = owner[static_cast<std::size_t>(t)];
+        if (of == kFree) {
+            reached.push_back(t);
+            of = label;
+        } else if (better(label, of)) {
+            of = label;
+        }
+    }
+    for (std::size_t head = 0; head < reached.size(); ++head) {
+        const auto t = static_cast<std::size_t>(reached[head]);
+        for (int s = 0; s < 4; ++s) {
+            const std::int64_t u = tetrahedra.neighbors[4 * t + static_cast<std::size_t>(s)];
+            if (u < 0) {
+                continue;
+            }
+            std::int64_t& of = owner[static_cast<std::size_t>(u)];
+            if (of == kFree) {
+                of = owner[t];
+                depth[static_cast<std::size_t>(u)] = depth[t] + 1;
+                reached.push_back(u);
+            } else if (of != kNot && depth[static_cast<std::size_t>(u)] == depth[t] + 1 &&
+                       better(owner[t], of)) {
+                of = owner[t];
+            }
+        }
+    }
+    std::vector<std::int64_t> core(static_cast<std::size_t>(n), -1);
+    for (const std::int64_t t : reached) {
+        const std::int64_t line = owner[static_cast<std::size_t>(t)];
+        if (line < 0) {
+            continue;
+        }
+        for (int k = 0; k < 4; ++k) {
+            std::int64_t& of = core[static_cast<std::size_t>(
+                tetrahedra.atoms[static_cast<std::size_t>(4 * t + k)])];
+            if (of < 0 || line < of) {
+                of = line;
+            }
+        }
+    }
+    return core;
+}
+
 }  // namespace
 
 Dislocations dislocation_analysis(const double* positions, const double* jittered, std::int64_t n,
@@ -315,6 +388,9 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
     }
     constexpr int kStages = 5;
     Dislocations out;
+    if (options.core) {
+        out.core.assign(static_cast<std::size_t>(n), -1);
+    }
     out.structures = dxa::find_structures(positions, n, matrix, origin, pbc, options.crystal,
                                           options.defects, stage(control, 0, kStages),
                                           options.low_ca);
@@ -386,6 +462,9 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
         dxa::interface_mesh(input, mapping, tetrahedra, good, jittered, alpha);
     out.network = dxa::trace_dislocations(mesh, input, out.clusters, options.max_circuit,
                                           options.stretch, stage(control, 4, kStages));
+    if (options.core) {
+        out.core = core_atoms(mesh, tetrahedra, good, alpha, out.network.face_line, n);
+    }
     out_of_slivers(out.network, out.clusters, mapping, options.crystal);
     dxa::smooth_lines(out.network, options.separation, options.smoothing);
     out.spatial = spatial_burgers(out.network, out.clusters, input, origin, pbc);

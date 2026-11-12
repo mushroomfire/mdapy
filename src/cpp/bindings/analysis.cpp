@@ -311,7 +311,7 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
                                Matrix3 inverse, Origin3 origin, Periodic pbc, int crystal,
                                bool defects, int max_circuit, int stretch, double separation,
                                int smoothing, int mesh_smoothing, bool interface, bool low_ca,
-                               nb::handle progress, const CancelToken* cancel) {
+                               bool core, nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     if (static_cast<std::int64_t>(jittered.shape(0)) != n) {
         throw std::invalid_argument("positions and jittered must have the same atoms");
@@ -326,6 +326,7 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
     options.mesh_smoothing = mesh_smoothing;
     options.interface = interface;
     options.low_ca = low_ca;
+    options.core = core;
     analysis::Dislocations found;
     run_released(
         [&](const Control& control) {
@@ -355,7 +356,8 @@ nb::tuple dislocation_analysis(Positions3 positions, Positions3 jittered, Matrix
         as_array(std::move(found.defects.faces)), as_array(std::move(found.defects.shifts)),
         as_array(std::move(found.interface.atoms)), as_array(std::move(found.interface.vertices)),
         as_array(std::move(found.interface.faces)),
-        as_array(std::move(found.interface.shifts)), as_array(std::move(found.spatial)));
+        as_array(std::move(found.interface.shifts)), as_array(std::move(found.spatial)),
+        as_array(std::move(found.core)));
 }
 
 nb::object soap(Types species, int species_count, Vectors positions, Matrix3 matrix,
@@ -1001,7 +1003,7 @@ void bind_analysis(nb::module_& m) {
           nb::arg("jittered"), nb::arg("matrix"), nb::arg("inverse"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("crystal"), nb::arg("defects"), nb::arg("max_circuit"),
           nb::arg("stretch"), nb::arg("separation"), nb::arg("smoothing"),
-          nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("low_ca"),
+          nb::arg("mesh_smoothing"), nb::arg("interface"), nb::arg("low_ca"), nb::arg("core"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("soap", &soap, nb::arg("species"), nb::arg("species_count"), nb::arg("positions"),
           nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),

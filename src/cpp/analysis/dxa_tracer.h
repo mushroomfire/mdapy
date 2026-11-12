@@ -42,12 +42,14 @@ struct Cap {
 
 // The lines, the number of junctions, and the mesh around the defects that
 // are not dislocations: the triangles of the interface mesh no circuit took
-// for good, and the caps.
+// for good, and the caps; of each triangle of the interface mesh, the line
+// whose circuits took it for good, -1 for those of the other defects.
 struct Network {
     std::vector<Segment> segments;
     std::int64_t junctions = 0;
     std::vector<std::int64_t> faces;
     std::vector<Cap> caps;
+    std::vector<std::int64_t> face_line;
 };
 
 // The lines of the mesh: circuits of at most max_circuit edges find them,

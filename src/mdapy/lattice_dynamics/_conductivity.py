@@ -12,6 +12,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy import units
+from mdapy._core import analysis as _scattering
 from mdapy.analysis._symmetry import _rotations
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._force_constants import ForceConstants
@@ -29,6 +30,11 @@ _AMU = units.ATOMIC_MASS_UNIT_SI  # kg
 _KB = units.BOLTZMANN_SI  # J/K
 # the wave vectors of a chunk of the mesh taken at once
 _CHUNK = 256
+# corner values closer than this are one value, as in phonopy
+_SAME_VERTEX = 1e-10
+# the elements (wave vectors times bands cubed) of a chunk of tetrahedron
+# weights
+_ELEMENTS = 40000
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -114,12 +120,49 @@ def _irreducible(
     return grid / counts, first, np.array(kept)
 
 
+def _tetrahedra_around(counts: np.ndarray, reciprocal: np.ndarray) -> np.ndarray:
+    """(24, 4, 3) int64 steps on the mesh to the corners of the 24 tetrahedra
+    that share a mesh point, the point itself first: six in each cell of the
+    mesh, around its shortest main diagonal (the first of those of one
+    length, as phonopy)."""
+    step = reciprocal / counts[:, None]  # rows: the vectors of a cell
+    signs = np.array([[1, 1, 1], [-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    lengths = ((signs @ step) ** 2).sum(axis=1)
+    # the first within rounding of the shortest
+    sign = signs[np.flatnonzero(lengths <= lengths.min() * (1 + 1e-10))[0]]
+    start = (1 - sign) // 2
+    cell = []
+    for a, b in ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)):
+        second = start.copy()
+        second[a] += sign[a]
+        third = second.copy()
+        third[b] += sign[b]
+        cell.append([start, second, third, start + sign])
+    cell = np.array(cell)  # (6, 4, 3) corners of the tetrahedra of a cell
+    around = []
+    for tetrahedron in cell:
+        for corner in range(4):
+            rest = [k for k in range(4) if k != corner]
+            around.append(tetrahedron[[corner, *rest]] - tetrahedron[corner])
+    return np.array(around, dtype=np.int64)
+
+
+def _degenerate_means(frequencies: np.ndarray) -> np.ndarray:
+    """(Q, B, B) the matrix of each wave vector that replaces values over its
+    bands by their means over each set of degenerate bands."""
+    new = np.ones(frequencies.shape, dtype=bool)
+    new[:, 1:] = np.diff(frequencies, axis=1) >= _SAME_VELOCITY
+    group = np.cumsum(new, axis=1)
+    same = group[:, :, None] == group[:, None, :]
+    return same / same.sum(axis=2, keepdims=True)
+
+
 def thermal_conductivity(
     constants: ForceConstants,
     temperatures: ArrayLike,
     *,
     mesh: int | ArrayLike,
-    sigma: float,
+    sigma: float | None = None,
     symmetry: bool | None = None,
 ) -> ThermalConductivity:
     """The lattice thermal conductivity of a crystal in the relaxation-time
@@ -136,9 +179,11 @@ def thermal_conductivity(
     mesh : int32 or array_like
         Number of wave vectors along each reciprocal lattice vector, of a
         mesh through Γ.
-    sigma : float64
-        Width in THz of the Gaussian that stands for the conservation of
-        energy in each scattering.
+    sigma : float64, optional
+        Width in THz of a Gaussian that stands for the conservation of
+        energy in each scattering; by default the linear tetrahedron method,
+        with the tetrahedra of every rotation of the crystal and the weights
+        averaged over modes of one frequency.
     symmetry : bool, optional
         Compute the irreducible wave vectors only, and average the group
         velocities, with the rotations of the crystal found by spglib: True,
@@ -172,7 +217,7 @@ def thermal_conductivity(
     temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
     if temperatures.ndim != 1 or not (temperatures > 0).all():
         raise InvalidParameter("temperatures must be positive")
-    if not sigma > 0:
+    if sigma is not None and not sigma > 0:
         raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
     counts = _repeat(mesh, "mesh")
     phonons = constants.phonons()
@@ -212,17 +257,41 @@ def thermal_conductivity(
     )
     occupation = np.where(live[None], 1.0 / np.expm1(x_), 0.0)  # (T, Q, 3n)
 
-    def delta(apart: np.ndarray) -> np.ndarray:
-        """The Gaussian of frequencies apart in THz, per rad/s."""
-        return np.exp(-0.5 * (apart / sigma) ** 2) / (
-            sigma * np.sqrt(2 * np.pi) * 2 * np.pi * 1e12
-        )
+    def flat(values: np.ndarray) -> np.ndarray:
+        """Complex values as float64 pairs, for the kernel."""
+        return np.ascontiguousarray(values, dtype=complex).view(np.float64)
 
-    gamma = np.zeros((len(temperatures), len(irreducible), modes))
+    def index_of(address: np.ndarray) -> np.ndarray:
+        """The index in the mesh of grid addresses, moved into it."""
+        address = address % counts
+        return (address[..., 0] * counts[1] + address[..., 1]) * counts[2] + address[
+            ..., 2
+        ]
+
+    chunk_size = _CHUNK
+    if sigma is None:
+        # the tetrahedra around each point, turned by every rotation, those
+        # that differ once each, so that the weights keep the symmetry
+        around = _tetrahedra_around(counts, reciprocal)
+        inverse = np.linalg.inv(reciprocal)
+        found = {}
+        for rotation in rotations:
+            turn = reciprocal @ rotation.T @ inverse
+            turned = np.round((around / counts) @ turn * counts).astype(np.int64)
+            key = frozenset(frozenset(map(tuple, t)) for t in turned.tolist())
+            found.setdefault(key, turned)
+        around = np.concatenate(list(found.values()))
+        clipped = np.maximum(frequencies, 0.0)
+        means = _degenerate_means(frequencies)
+        chunk_size = max(1, _ELEMENTS // modes**3)
+
+    rates = np.zeros((len(temperatures), len(irreducible), modes))
     grid = np.round(q * counts).astype(np.int64)
+    angular = 2 * np.pi * 1e12  # rad/s per THz
     for slot, index in enumerate(irreducible):
-        for start in range(0, total, _CHUNK):
-            chunk = np.arange(start, min(start + _CHUNK, total))
+        first = flat(weighted[index].reshape(modes, modes))
+        for start in range(0, total, chunk_size):
+            chunk = np.arange(start, min(start + chunk_size, total))
             # -q + q' + q'' = 0: q'' = q - q', not moved back into the mesh
             q2 = q[index] - q[chunk]
             f2, w2 = phonons.modes(q2)
@@ -231,48 +300,59 @@ def thermal_conductivity(
             g2 = (g2[:, 0] * counts[1] + g2[:, 1]) * counts[2] + g2[:, 2]
             phase1 = np.exp(1j * (q[chunk] @ reciprocal) @ first_vector.T)
             phase2 = np.exp(1j * (q2 @ reciprocal) @ second_vector.T)
-            strength = np.zeros((len(chunk), modes, modes, modes), dtype=complex)
+            # the third order force constants of q' and q'', by the atoms
+            # and axes of q, q' and q''
+            tensor = np.zeros((len(chunk), n, 3, n, 3, n, 3), dtype=complex)
             for x, y, z, members in groups:
                 v3 = (phase1[:, members] * phase2[:, members]) @ values[members]
-                strength += np.einsum(
-                    "qabc,la,qmb,qnc->qlmn",
-                    v3.reshape(-1, 3, 3, 3),
-                    weighted[index, :, x].conj(),
-                    weighted[chunk][:, :, y],
-                    w2[:, :, z],
-                    optimize=True,
+                tensor[:, x, :, y, :, z, :] += v3.reshape(-1, 3, 3, 3)
+            joined = parted = None
+            if sigma is None:
+                # q' steps to a corner as q'' steps back; the weights of
+                # modes of one frequency are their mean
+                joined, parted = _scattering.tetrahedron_triplet_weights(
+                    np.ascontiguousarray(
+                        clipped[index_of(grid[chunk][:, None, None] + around)]
+                    ),
+                    np.ascontiguousarray(
+                        clipped[
+                            index_of(
+                                (grid[index] - grid[chunk])[:, None, None] - around
+                            )
+                        ]
+                    ),
+                    np.ascontiguousarray(frequencies[index]),
+                    _SAME_VERTEX,
                 )
-            live2 = f2 > _SAME_VELOCITY
-            good = (
-                live[index][None, :, None, None]
-                & live[chunk][:, None, :, None]
-                & live2[:, None, None, :]
-            )
-            denominator = np.where(
-                good,
-                omega[index][None, :, None, None]
-                * omega[chunk][:, None, :, None]
-                * (2 * np.pi * f2 * 1e12)[:, None, None, :],
-                1.0,
-            )
-            strength = (
-                np.where(good, np.abs(strength) ** 2 / denominator, 0.0)
-                * (_HBAR / 2) ** 3
-                / 36
-                / total
-            )
-            f0 = frequencies[index][None, :, None, None]
-            f1 = frequencies[chunk][:, None, :, None]
-            f2_ = f2[:, None, None, :]
-            joined = delta(f0 - f1 - f2_)
-            parted = delta(f0 + f1 - f2_) - delta(f0 - f1 + f2_)
-            for t in range(len(temperatures)):
-                n1 = occupation[t][chunk][:, None, :, None]
-                n2 = occupation[t][g2][:, None, None, :]
-                weight = (n1 + n2 + 1) * joined + (n1 - n2) * parted
-                gamma[t, slot] += (
-                    18 * np.pi / _HBAR**2 * (strength * weight).sum(axis=(0, 2, 3))
+                shape = (len(chunk), modes, modes, modes)
+                joined, parted = (
+                    np.ascontiguousarray(
+                        np.einsum(
+                            "qmx,qlxy,qyn->qlmn",
+                            means[chunk],
+                            w.reshape(shape),
+                            means[g2],
+                        )
+                    )
+                    / angular
+                    for w in (joined, parted)
                 )
+            rates[:, slot] += _scattering.three_phonon_rates(
+                first,
+                flat(weighted[chunk].reshape(len(chunk), modes, modes)),
+                flat(w2.reshape(len(chunk), modes, modes)),
+                flat(tensor),
+                np.ascontiguousarray(omega[index]),
+                np.ascontiguousarray(omega[chunk]),
+                np.ascontiguousarray(angular * f2),
+                np.ascontiguousarray(occupation[:, chunk]),
+                np.ascontiguousarray(occupation[:, g2]),
+                joined,
+                parted,
+                0.0 if sigma is None else angular * sigma,
+                angular * _SAME_VELOCITY,
+            ).reshape(len(temperatures), modes)
+    gamma = rates * (18 * np.pi / _HBAR**2) * (_HBAR / 2) ** 3 / 36 / total
     gamma /= 2 * np.pi * 1e12  # THz
     # modes of one frequency share their width
     reduced = frequencies[irreducible]

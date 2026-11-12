@@ -87,6 +87,19 @@ def test_the_irreducible_wave_vectors_give_the_whole_mesh(copper):
     )
 
 
+def test_the_same_for_any_number_of_threads(copper):
+    before = mdapy.get_num_threads()
+    try:
+        mdapy.set_num_threads(1)
+        one = thermal_conductivity(copper, [300.0], mesh=5, sigma=0.2)
+        mdapy.set_num_threads(4)
+        four = thermal_conductivity(copper, [300.0], mesh=5, sigma=0.2)
+    finally:
+        mdapy.set_num_threads(before)
+    np.testing.assert_array_equal(one.gamma, four.gamma)
+    np.testing.assert_array_equal(one.kappa, four.kappa)
+
+
 def test_widths_go_as_the_square_of_the_third_order(copper):
     doubled = ForceConstants(
         copper.cell, copper.supercell, copper.second, 2 * copper.third
@@ -154,3 +167,71 @@ def test_errors(copper):
     )
     with pytest.raises(InvalidParameter, match="periodic in every direction"):
         thermal_conductivity(flat, [300.0], mesh=4, sigma=0.2)
+
+
+def single(values, levels):
+    """(M, L) the tetrahedron weights of M points, of (M, G, 4) values at the
+    corners of their tetrahedra, at the levels: those of three phonons whose
+    second frequencies are zero, from the kernel."""
+    from mdapy._core import analysis
+
+    count, around, _ = values.shape
+    found = []
+    for level in levels:
+        joined, _ = analysis.tetrahedron_triplet_weights(
+            np.ascontiguousarray(values[..., None], dtype=float),
+            np.zeros((count, around, 4, 1)),
+            np.array([level]),
+            1e-10,
+        )
+        found.append(joined)
+    return np.stack(found, axis=1)
+
+
+@pytest.mark.parametrize(
+    "corners",
+    [
+        (0.0, 1.0, 2.0, 3.5),
+        (2.0, 0.0, 3.0, 1.0),
+        (1.0, 1.0, 2.0, 3.0),
+        (0.0, 2.0, 2.0, 2.0),
+    ],
+)
+def test_the_weights_of_a_tetrahedron_integrate_to_one(corners):
+    """The weight of a corner of one tetrahedron, over all levels, is a
+    quarter of it, which the function returns as one; the point itself may
+    be any corner, and corners may be equal."""
+    corners = np.array(corners)
+    levels = np.linspace(-0.5, 4.0, 4501)
+    for first in range(4):
+        order = [first] + [k for k in range(4) if k != first]
+        weights = single(corners[order][None, None], levels)[0]
+        assert np.trapezoid(weights, levels) == pytest.approx(1.0, abs=2e-3)
+
+
+def test_the_weights_sum_to_the_density_of_states(copper):
+    """Over all points of the mesh, the weights of the frequencies of the
+    modes are the density of states of the tetrahedron method of Phonons."""
+    from mdapy.lattice_dynamics._conductivity import _tetrahedra_around
+
+    phonons = copper.phonons()
+    counts = np.array([6, 6, 6])
+    axes = [np.arange(c) for c in counts]
+    grid = np.stack(np.meshgrid(*axes, indexing="ij"), -1).reshape(-1, 3)
+    frequencies = phonons.frequencies(grid / counts)
+    reciprocal = 2 * np.pi * np.linalg.inv(copper.cell.box.matrix).T
+    around = _tetrahedra_around(counts, reciprocal)
+    corners = (grid[:, None, None] + around) % counts
+    flat = (corners[..., 0] * counts[1] + corners[..., 1]) * counts[2] + corners[..., 2]
+    levels = np.linspace(0.5, 8.0, 40)
+    total = sum(
+        single(frequencies[flat, band], levels).sum(axis=0) for band in range(3)
+    ) / len(grid)
+    expected = phonons.dos(6, frequencies=levels).dos  # per atom, one atom
+    np.testing.assert_allclose(total, expected, rtol=1e-10, atol=1e-12)
+
+
+def test_the_tetrahedra_keep_the_symmetry(copper):
+    result = thermal_conductivity(copper, [300.0], mesh=5)
+    kappa = result.kappa[0]
+    np.testing.assert_allclose(kappa, kappa[0, 0] * np.eye(3), atol=1e-10 * kappa[0, 0])

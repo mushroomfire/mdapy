@@ -50,19 +50,32 @@
   Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
   apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
   phonopy does.
-- `mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma,
+- `mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None,
   symmetry=None)` gives the lattice thermal conductivity in the relaxation-time
   approximation from second and third order force constants, by three-phonon scattering
-  with Gaussians of width `sigma`, on the irreducible wave vectors of a mesh. Its
+  with linear tetrahedra of every rotation of the crystal, or Gaussians of width `sigma`, on
+  the irreducible wave vectors of a mesh. Its
   `ThermalConductivity` holds `kappa`, the `q` and `weights` of the irreducible wave
   vectors, and the `frequencies`, `group_velocities`, `gamma`, `lifetimes` and
-  `heat_capacities` of their modes. See
+  `heat_capacities` of their modes, the scattering computed in parallel in C++. See
   [Thermal conductivity](../user-guide/simulation/thermal-conductivity.md).
 - `Phonons.thermal_displacements(temperatures, *, mesh=20)` gives the mean products of the
   displacements of each atom along each pair of axes, with the zero point motion: the
   mean square displacements and the Debye–Waller factors.
 - `Phonons.gruneisen(q, *, smaller, larger)` gives the mode Grüneisen parameters from the
   phonons of the crystal at a smaller and a larger volume, as phonopy does.
+- `mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)` gives the thermal
+  conductivity from the heat flux of equilibrium molecular dynamics in LAMMPS by the
+  Green–Kubo relation, with the centroid stress of each atom for many-body potentials;
+  `green_kubo_from_flux` does it with a flux from any dynamics. Its `GreenKubo` holds the
+  `temperature`, `volume`, the `times` of the correlation, the `running` integral,
+  `kappa`, its `errors` from blocks and the `flux`. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+- A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
+  the forces of a few displaced supercells to its thermal conductivity: phonons, the files
+  of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
+  order force constants, and the conductivity of the phonons against that of molecular
+  dynamics.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

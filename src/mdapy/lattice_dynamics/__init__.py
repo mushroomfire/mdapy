@@ -23,6 +23,11 @@ from mdapy.lattice_dynamics._force_constants import (
     force_constants,
     read_force_constants,
 )
+from mdapy.lattice_dynamics._green_kubo import (
+    GreenKubo,
+    green_kubo,
+    green_kubo_from_flux,
+)
 from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
 from mdapy.lattice_dynamics._phonons import (
     BandStructure,
@@ -48,6 +53,7 @@ __all__ = [
     "BondStiffness",
     "ElasticResult",
     "ForceConstants",
+    "GreenKubo",
     "PhononDOS",
     "Phonons",
     "QuasiHarmonicResult",
@@ -59,6 +65,8 @@ __all__ = [
     "displaced_supercells",
     "elastic_constants",
     "force_constants",
+    "green_kubo",
+    "green_kubo_from_flux",
     "md_elastic_constants",
     "phonons",
     "phonons_from_frames",

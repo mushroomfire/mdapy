@@ -2,7 +2,7 @@
 
 # Thermal conductivity
 
-`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma, symmetry=None)`
+`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None)`
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order [force constants](force-constants.md).
@@ -31,8 +31,8 @@ frames = [
 constants = force_constants(cell, frames, cutoff_third=4.5)  # three shells
 
 temperatures = np.arange(100.0, 801.0, 50.0)
-result = thermal_conductivity(constants, temperatures, mesh=11, sigma=0.1)
-result.kappa[:, 0, 0]  # W/(m K): 21.5 at 100 K, 7.5 at 300 K
+result = thermal_conductivity(constants, temperatures, mesh=11)
+result.kappa[:, 0, 0]  # W/(m K): 22.0 at 100 K, 7.7 at 300 K
 ```
 
 The conductivity of copper with `EAM.zhou`, and the lifetimes of its phonons at 300 K:
@@ -61,21 +61,33 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 | `constants` | `ForceConstants` | | | second and third order force constants of a crystal periodic in every direction, each atom with an element or a mass, such as those of [`force_constants`](force-constants.md) with `cutoff_third` |
 | `temperatures` | float64 or (T,) float64 | | K | the temperatures, positive |
 | `mesh` | int32 or (3,) int32 | | | the number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
-| `sigma` | float64 | | THz | the width of the Gaussian that stands for the conservation of energy in each scattering |
+| `sigma` | float64 or `None` | `None` | THz | the width of a Gaussian that stands for the conservation of energy in each scattering; by default the linear tetrahedron method |
 | `symmetry` | bool or `None` | `None` | | compute the irreducible wave vectors only and average the group velocities with the rotations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
-**Converging.** The conductivity depends on four choices, each to converge:
+**Conservation of energy.** Each scattering conserves energy, and on a mesh of wave
+vectors the delta functions that say so are spread. By default they are integrated over
+linear tetrahedra between the points of the mesh: the 24 that share each point, cut
+along the shortest main diagonal of the cells of the mesh, and those of every rotation
+of the crystal, so that the result keeps its symmetry; the weights of modes of one
+frequency are their mean, which does not depend on how the polarization vectors of such
+modes come out ([Togo et al. (2015)](../../reference/references.md#togo2015)). With
+`sigma`, each delta function is a Gaussian of that width instead, faster but too narrow
+on a coarse mesh, where few scatterings meet it: for copper at 300 K, a Gaussian of
+0.1 THz gives 222 W/(m K) on a mesh of 5 where the tetrahedra give 8.6, and 8.1 on a mesh
+of 7 where they give 7.4.
 
-- `cutoff_third`, the reach of the third order: for copper at 300 K, 11.4 W/(m K)
-  with the nearest neighbors or the second, 7.47 with three shells (4.5 Å) and 7.48 within
-  6 Å;
-- the supercell of the force constants: 7.47 in 4 × 4 × 4 primitive cells, 7.43 in
+**Converging.** The conductivity depends on three choices, each to converge:
+
+- `cutoff_third`, the reach of the third order: for copper at 300 K on a mesh of 11,
+  12.0 W/(m K) with the nearest neighbors, 11.6 with two shells, 7.67 with three (4.5 Å)
+  and 7.71 within 6 Å, in 5 × 5 × 5 primitive cells;
+- the supercell of the force constants: 7.72 in 4 × 4 × 4 primitive cells, 7.67 in
   5 × 5 × 5;
-- `mesh`: 7.47 with 11 wave vectors along each vector, 7.71 with 15;
-- `sigma`, which wants a denser mesh the narrower it is.
+- `mesh`: 7.72 with 11 wave vectors along each vector, 7.89 with 15 and 7.96 with 19.
 
 The time grows with the number of irreducible wave vectors times that of the whole
-mesh: about 2 s for copper with a mesh of 11, 10 s with 15.
+mesh, and as the fourth power of the number of modes of the cell: copper takes 4 s on
+a mesh of 11, 22 s on 15.
 
 The conductivity is that of the phonons alone. In a metal such as copper the
 electrons carry most of the heat, about 400 W/(m K), which this does not hold.
@@ -124,8 +136,8 @@ $$
 - \delta(\omega_\lambda - \omega_{\lambda'} + \omega_{\lambda''})\big)\Big],
 $$
 
-with $n$ the Bose–Einstein occupations at the temperature, each δ a Gaussian of width
-`sigma`, and
+with $n$ the Bose–Einstein occupations at the temperature, each δ integrated over the
+tetrahedra of the mesh or a Gaussian of width `sigma`, and
 
 $$
 \Phi_{\lambda\lambda'\lambda''} = \frac{1}{\sqrt N}\frac{1}{3!}

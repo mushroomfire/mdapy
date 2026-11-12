@@ -1,67 +1,16 @@
 # Release notes
 
-## 2.1.0 (not released)
+## 2.1.0rc1
 
-- `DislocationAnalysis(..., core_atoms=True)` marks the atoms of the core of each
-  dislocation line, the bad crystal its Burgers circuits enclose, as OVITO's option to
-  mark the dislocation core atoms: `DislocationResult.core_atoms` holds the line of each
-  atom, −1 for none, and is the column `dxa_core_atoms`. See
-  [Core atoms](../user-guide/analysis/dislocations.md#core-atoms).
-- `md_elastic_constants(..., method="fluctuation")` gives the elastic constants from the
-  fluctuations of the stress in one run at the mean box: the Born term, the
-  fluctuations of the virial stress and the kinetic term, as stress-strain
-  coefficients under the mean stress. For copper it agrees with the strains within
-  their errors, with errors 1.5 to 25 times smaller at equal steps and independent
-  of the size; for constants that relax strongly, as the shear of silicon, the
-  strains stay better. See
-  [From the fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress).
-- Sheets in the quasi-harmonic approximation, in elastic constants from molecular
-  dynamics and under every barostat: `quasi_harmonic` of a sheet computes its phonons
-  at several areas and returns a `SheetQuasiHarmonicResult`, with pressures in its
-  plane in N/m: per atom its `area`, `gibbs_energy`, `entropy`, `area_modulus` in N/m,
-  `thermal_expansion` of the area and `heat_capacity` at each temperature, and the
-  `areas`, `energies` and `free_energies` of the phonons;
-  `md_elastic_constants` of a sheet returns its `SheetElasticResult` in N/m, which
-  gains `errors`; and `MolecularDynamics.run` changes a sheet in its plane with the
-  barostats `"iso"`, `"aniso"` and `"tri"`, as with `"xy"`. See
-  [Sheets](../user-guide/simulation/sheets.md).
-- `DislocationLine.character()` gives the angle between a dislocation line and its
-  Burgers vector at each point, 0° for screw and 90° for edge; see
-  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
-- `DislocationResult.density` and `DislocationResult.densities()` give the length of
-  the lines per volume of the box, in all and of each family of Burgers vectors. The
-  page shows how to analyze some atoms only, such as one sublattice of an alloy, as
-  OVITO's option to analyze the selected atoms does: see
-  [Some atoms only](../user-guide/analysis/dislocations.md#some-atoms-only).
-- `DislocationAnalysis(..., low_ca_ratio=True)` finds the atoms of hcp of a low c/a,
-  below some 1.15, stretched along their c axis to the ideal c/a, as OVITO's option of
-  the name: a hot crystal is then hcp down to a c/a of some 0.75. See
-  [Parameters](../user-guide/analysis/dislocations.md#parameters).
-- `DislocationResult.write(path)` writes the lines, the crystal clusters and the defect
-  mesh of a dislocation analysis as a crystal analysis (CA) file of OVITO, which OVITO
-  opens, and `mdapy.analysis.read_dislocations(path)` reads such files back, also those
-  OVITO writes; see [CA files](../user-guide/analysis/dislocations.md#ca-files).
-- Elastic constants along directions and in a polycrystal:
-  `ElasticResult.young_modulus(direction=None, *, average="hill")` and
-  `ElasticResult.linear_compressibility(direction)` along a direction or each of many,
-  `ElasticResult.shear_modulus(average="hill", *, normal=None, direction=None)` on a plane
-  along a direction, `ElasticResult.poisson_ratio(direction=None, transverse=None, *,
-  average="hill")` for a stretch and a direction across it, the Young's modulus and the
-  Poisson ratio of a polycrystal without directions, and
-  `ElasticResult.universal_anisotropy()`. `plot.elastic_surface(result,
-  quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")` draws
-  a quantity along every direction as a surface in 3D, and `plot.elastic_section(result,
-  quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360,
-  color=None, label=None)` along the directions of a plane. See
-  [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
-  the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
-- `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method raise
-  `InvalidParameter` when a pair of atoms comes within `displacement` of the cutoff of the
-  calculator between the volumes or the strained cells. The force constants of NEP and
-  tabulated EAM jump there, and the results jumped with them: with a NEP model, C33 of hcp
-  magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
-  54 GPa.
-- `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from
+force constants of any calculator or of DFT to the thermal conductivity; elastic constants
+along directions, of polycrystals and from the fluctuations of the stress; the dislocation
+analysis, no longer experimental, with OVITO's CA files; sheets in every thermal method;
+and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named below. Until
+2.1.0 only fixes follow.
+
+### Lattice dynamics
+
 - `mdapy.lattice_dynamics.ForceConstants(cell, supercell, second)` holds the second order
   force constants of a crystal in a supercell; `phonons()` gives their `Phonons`, and
   `write(path, *, full=False)` and `read_force_constants(path, cell, supercell)` write and
@@ -85,10 +34,6 @@
   the atoms and summing to zero over the third, fitted with the second order from random
   patterns. `ForceConstants` holds them as `third`, (n, nS, nS, 3, 3, 3), with
   `cutoff_third` and `parameters_third`, and takes them as its fourth argument.
-- `Phonons.group_velocities(q, *, symmetry=None)` gives the group velocity of each mode in
-  Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
-  apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
-  phonopy does.
 - `mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None,
   symmetry=None)` gives the lattice thermal conductivity in the relaxation-time
   approximation from second and third order force constants, by three-phonon scattering
@@ -98,11 +43,6 @@
   vectors, and the `frequencies`, `group_velocities`, `gamma`, `lifetimes` and
   `heat_capacities` of their modes, the scattering computed in parallel in C++. See
   [Thermal conductivity](../user-guide/simulation/thermal-conductivity.md).
-- `Phonons.thermal_displacements(temperatures, *, mesh=20)` gives the mean products of the
-  displacements of each atom along each pair of axes, with the zero point motion: the
-  mean square displacements and the Debye–Waller factors.
-- `Phonons.gruneisen(q, *, smaller, larger)` gives the mode Grüneisen parameters from the
-  phonons of the crystal at a smaller and a larger volume, as phonopy does.
 - `mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)` gives the thermal
   conductivity from the heat flux of equilibrium molecular dynamics in LAMMPS by the
   Green–Kubo relation, with the centroid stress of each atom for many-body potentials;
@@ -110,11 +50,15 @@
   `temperature`, `volume`, the `times` of the correlation, the `running` integral,
   `kappa`, its `errors` from blocks and the `flux`. See
   [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
-- A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
-  the forces of a few displaced supercells to its thermal conductivity: phonons, the files
-  of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
-  order force constants, and the conductivity of the phonons against that of molecular
-  dynamics.
+- `Phonons.group_velocities(q, *, symmetry=None)` gives the group velocity of each mode in
+  Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
+  apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
+  phonopy does.
+- `Phonons.thermal_displacements(temperatures, *, mesh=20)` gives the mean products of the
+  displacements of each atom along each pair of axes, with the zero point motion: the
+  mean square displacements and the Debye–Waller factors.
+- `Phonons.gruneisen(q, *, smaller, larger)` gives the mode Grüneisen parameters from the
+  phonons of the crystal at a smaller and a larger volume, as phonopy does.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and
@@ -124,9 +68,116 @@
   and vibrational free energy, of any arrangement of the elements, such as a special
   quasirandom structure. See
   [Bond stiffness](../user-guide/simulation/bond-stiffness.md).
-- The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
-  primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
-  Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.
+- A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
+  the forces of a few displaced supercells to its thermal conductivity: phonons, the files
+  of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
+  order force constants, and the conductivity of the phonons against that of molecular
+  dynamics.
+- `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method raise
+  `InvalidParameter` when a pair of atoms comes within `displacement` of the cutoff of the
+  calculator between the volumes or the strained cells. The force constants of NEP and
+  tabulated EAM jump there, and the results jumped with them: with a NEP model, C33 of hcp
+  magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
+  54 GPa.
+
+### Elastic constants
+
+- Elastic constants along directions and in a polycrystal:
+  `ElasticResult.young_modulus(direction=None, *, average="hill")` and
+  `ElasticResult.linear_compressibility(direction)` along a direction or each of many,
+  `ElasticResult.shear_modulus(average="hill", *, normal=None, direction=None)` on a plane
+  along a direction, `ElasticResult.poisson_ratio(direction=None, transverse=None, *,
+  average="hill")` for a stretch and a direction across it, the Young's modulus and the
+  Poisson ratio of a polycrystal without directions, and
+  `ElasticResult.universal_anisotropy()`. `plot.elastic_surface(result,
+  quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")` draws
+  a quantity along every direction as a surface in 3D, and `plot.elastic_section(result,
+  quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360,
+  color=None, label=None)` along the directions of a plane. See
+  [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
+  the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
+- `md_elastic_constants(..., method="fluctuation")` gives the elastic constants from the
+  fluctuations of the stress in one run at the mean box: the Born term, the
+  fluctuations of the virial stress and the kinetic term, as stress-strain
+  coefficients under the mean stress. For copper it agrees with the strains within
+  their errors, with errors 1.5 to 25 times smaller at equal steps and independent
+  of the size; for constants that relax strongly, as the shear of silicon, the
+  strains stay better. See
+  [From the fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress).
+- `md_elastic_constants` keeps the strained crystal at the temperature with a Langevin
+  thermostat, whose noise the two runs of a component share; the Nosé–Hoover thermostat
+  it had, being deterministic, did not bring all the vibrations back to the
+  temperature after the strain: C11 and C12 of silicon with the Tersoff potential at
+  300 K came out about 2 GPa, 2 %, too high, with errors four to six times larger. The
+  constants are now symmetric, each entry off the diagonal the mean of its two
+  estimates.
+- `elastic_constants` relaxes the atoms under each strain until the forces left are
+  10<sup>−4</sup> of those the strain makes, where that is below `max_force`: a fixed
+  tolerance near those forces left the atoms half relaxed, most where they relax most.
+  C44 of silicon with the Tersoff potential, 10.31 GPa, came out 10.20 GPa at the
+  default strain of 10<sup>−3</sup> and 13.9 GPa at 10<sup>−4</sup>.
+
+### Dislocations
+
+- `DislocationAnalysis` is no longer experimental. Its page lists the
+  [limits](../user-guide/analysis/dislocations.md#limits), general grain boundaries
+  first, and [where the results differ from OVITO](../user-guide/analysis/dislocations.md#where-the-results-differ-from-ovito)
+  and why. The stair-rods `1/6<310>` and `1/3<110>` of fcc have their own families, which
+  were `other`.
+- `DislocationResult.write(path)` writes the lines, the crystal clusters and the defect
+  mesh of a dislocation analysis as a crystal analysis (CA) file of OVITO, which OVITO
+  opens, and `mdapy.analysis.read_dislocations(path)` reads such files back, also those
+  OVITO writes; see [CA files](../user-guide/analysis/dislocations.md#ca-files).
+- `DislocationAnalysis(..., core_atoms=True)` marks the atoms of the core of each
+  dislocation line, the bad crystal its Burgers circuits enclose, as OVITO's option to
+  mark the dislocation core atoms: `DislocationResult.core_atoms` holds the line of each
+  atom, −1 for none, and is the column `dxa_core_atoms`. See
+  [Core atoms](../user-guide/analysis/dislocations.md#core-atoms).
+- `DislocationAnalysis(..., low_ca_ratio=True)` finds the atoms of hcp of a low c/a,
+  below some 1.15, stretched along their c axis to the ideal c/a, as OVITO's option of
+  the name: a hot crystal is then hcp down to a c/a of some 0.75. See
+  [Parameters](../user-guide/analysis/dislocations.md#parameters).
+- `DislocationResult.density` and `DislocationResult.densities()` give the length of
+  the lines per volume of the box, in all and of each family of Burgers vectors. The
+  page shows how to analyze some atoms only, such as one sublattice of an alloy, as
+  OVITO's option to analyze the selected atoms does: see
+  [Some atoms only](../user-guide/analysis/dislocations.md#some-atoms-only).
+- `DislocationLine.character()` gives the angle between a dislocation line and its
+  Burgers vector at each point, 0° for screw and 90° for edge; see
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
+- `DislocationAnalysis` and `SurfaceMesh` analyze every crystal: perfect fcc, hcp and
+  diamond crystals from some 15 000 atoms on, built systems and hot crystals were refused
+  at random, more often the larger they were, with a message to replicate the system. The
+  tessellation under them left four atoms nearly on one sphere with an atom's Voronoi
+  cell undecided; such atoms are now settled by their order, alike in every cell.
+- `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
+  crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
+  cluster related to it, whose frame is fitted to many atoms; its spatial vector was off
+  by up to 0.5 Å. Where one cluster holds two grains, the spatial Burgers vector of a
+  line follows the lattice about it, not the mean orientation of the cluster; it was
+  off by half the angle between the grains. Elsewhere the results are unchanged.
+- `insert_dislocation` without `elastic`: an edge dislocation no longer leaves a fault
+  from its core to the surface when a plane of atoms lies just below the plane of cut.
+  The displacement lifted such atoms across the plane, and they were moved back as if
+  they had been above it, as atomsk does; above and below are now where the atoms were.
+- The normals of `DislocationResult.defect_mesh` point into the crystal, as the
+  documentation says; the docstring said out of it.
+
+### Sheets
+
+- Sheets in the quasi-harmonic approximation, in elastic constants from molecular
+  dynamics and under every barostat: `quasi_harmonic` of a sheet computes its phonons
+  at several areas and returns a `SheetQuasiHarmonicResult`, with pressures in its
+  plane in N/m: per atom its `area`, `gibbs_energy`, `entropy`, `area_modulus` in N/m,
+  `thermal_expansion` of the area and `heat_capacity` at each temperature, and the
+  `areas`, `energies` and `free_energies` of the phonons;
+  `md_elastic_constants` of a sheet returns its `SheetElasticResult` in N/m, which
+  gains `errors`; and `MolecularDynamics.run` changes a sheet in its plane with the
+  barostats `"iso"`, `"aniso"` and `"tri"`, as with `"xy"`. See
+  [Sheets](../user-guide/simulation/sheets.md).
+
+### Other additions and changes
+
 - `mdapy.fitting`, curves and surfaces through data: `Spline` and `GridSpline`, cubic
   splines along a line and on a grid, with derivatives, `Spline.integral` and the
   `BOUNDARIES` at their ends, periodic among them; `fit_polynomial` and `fit_surface`,
@@ -141,32 +192,9 @@
   [Interpolation](../user-guide/fitting/interpolation.md),
   [Curve fitting](../user-guide/fitting/curve-fitting.md) and
   [Equations of state](../user-guide/fitting/equation-of-state.md).
-- `DislocationAnalysis` is no longer experimental. Its page lists the
-  [limits](../user-guide/analysis/dislocations.md#limits), general grain boundaries
-  first, and [where the results differ from OVITO](../user-guide/analysis/dislocations.md#where-the-results-differ-from-ovito)
-  and why. The stair-rods `1/6<310>` and `1/3<110>` of fcc have their own families, which
-  were `other`.
-- `melting_point` takes a run as the answer only when the mean temperatures of its last two
-  stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
-  the drift within the last. Before, one stretch could pass while the temperature still rose:
-  for copper from guesses of 1000, 1327 and 1700 K the answers spread by 4 to 17 K, now by 1
-  to 7 K. `error` is the statistical error of one run, smaller than that spread.
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).
-- `combine` fills a column of arrays of more than one dimension, such as the
-  `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
-  system; it raised a polars error.
-- `StructureFactor` of the direct method refuses more than 10<sup>8</sup> wave vectors, which
-  take 1.6 GB, rather than 10<sup>9</sup>, which took 16 GB.
-- `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
-  also after the time step changed, as with `fix dt/reset`; it gave the steps times the
-  first time step.
-- `System.with_box` given lattice vectors keeps the origin and the periodicity of the
-  box; it made the box periodic at the origin, so a slab became periodic.
-- `write` of a LAMMPS data file is by default in the units the file was read in, as
-  for its atom style; a file in real units with coefficients could not be written back
-  without `units="real"`.
 - `build_crystal` takes one `repeat` for every vector, as `replicate` does, and refuses
   `a` or `c` that are not numbers with `InvalidParameter`; text raised `TypeError`.
 - `render(color=)` takes a component such as `"positions.z"` or an expression over the
@@ -174,29 +202,36 @@
 - `write_png` writes RGB images too, as `write_movie` takes them.
 - Reading a CIF file warns of partly occupied sites, whose atoms are all kept.
 - `element_from_mass` recognizes Th, Pa and U, which have standard atomic weights.
-- `set_num_threads` takes NumPy integers; `atomic_numbers("Cu")` says to pass a sequence
-  rather than complaining of the symbol `u`; `Topology` refuses atom indices that are
-  not whole numbers, which it truncated; `Box.from_lengths_angles` refuses angles
-  outside 0 to 180 degrees, which gave a mirrored box; `Box` says when its volume is
-  beyond float64, which it called linearly dependent vectors.
-- `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
+- The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
+  primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
+  Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.
+- `PolyhedralTemplateMatching` without a neighbor list finds the 18 nearest neighbors of
+  each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
+  take 293 MB beyond the system rather than 752 MB, in the same time, and its progress
+  counts once from start to end.
+
+### Fixes
+
+- `melting_point` takes a run as the answer only when the mean temperatures of its last two
+  stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
+  the drift within the last. Before, one stretch could pass while the temperature still rose:
+  for copper from guesses of 1000, 1327 and 1700 K the answers spread by 4 to 17 K, now by 1
+  to 7 K. `error` is the statistical error of one run, smaller than that spread.
 - `CommonNeighborAnalysis` with adaptive cutoffs takes OVITO's factor 1.207 for bcc, so
   that hot bcc atoms at the edge of the cutoff get OVITO's structure; it took
   (1 + √2)/2.
 - `SurfaceMesh` gives an atom on two sheets of the surface a vertex on each, and smooths
   each vertex over the faces about it, as OVITO: the smoothed area of porous solids is
   OVITO's; it was larger by up to a fifth.
-- `PolyhedralTemplateMatching` finds the same structures in any unit of length; in metres
-  or in units a billion times larger than Å most structures were lost.
-- `RadialDistributionFunction` and `StructureFactor` keep at most 64 partial results in
-  memory; with many elements and bins they took gigabytes.
-- `render` refuses an `outline_width` above 100 pixels, which took minutes.
 - `Predictions.rmse()` and `Predictions.table()` average the errors of a virial over its
   six independent components, as GPUMD; the shear components counted twice.
-- `check_frames` finds an atom too close to its own periodic images in a frame of one
-  atom.
-- `io.write` writes beside the file and puts the new one in its place when complete: a
-  write that fails leaves a file already there as it was; it removed it before.
+- `EntropyFingerprint` counts every neighbor within the cutoff: those farther than about
+  40 `sigma`, beyond 7.9 Å with the default `sigma=0.2`, added nothing before, as their
+  Gaussians underflowed.
+- `Box.minimum_image` gives the shortest vector in boxes of any tilt; with tilts beyond
+  half a box length it could give a longer image.
+- `PolyhedralTemplateMatching` finds the same structures in any unit of length; in metres
+  or in units a billion times larger than Å most structures were lost.
 - `read_trajectory(..., topology=)` keeps the periodicity a frame's file tells (LAMMPS
   dumps, extended XYZ, MDAPY files), as a LAMMPS data file cannot tell its boundaries: a
   slab read with its dumps stays a slab. Before, the frames were periodic as the
@@ -210,9 +245,17 @@
 - `replicate` without image flags joins a bond, angle, dihedral or improper across a
   periodic boundary to the next copy, as LAMMPS `replicate ... bond/periodic`; it kept it
   in one copy, across the box.
-- `from_ase` takes atoms without a cell, such as a molecule, and with cell vectors of
-  zero along open directions, such as a slab without vacuum; `to_ase_calculator` gives
-  them energies and forces, without stress.
+- `write` of a LAMMPS data file is by default in the units the file was read in, as
+  for its atom style; a file in real units with coefficients could not be written back
+  without `units="real"`.
+- `System.with_box` given lattice vectors keeps the origin and the periodicity of the
+  box; it made the box periodic at the origin, so a slab became periodic.
+- `MolecularDynamics` gives the time LAMMPS has run in `thermo` and in the info of frames,
+  also after the time step changed, as with `fix dt/reset`; it gave the steps times the
+  first time step.
+- `combine` fills a column of arrays of more than one dimension, such as the
+  `atomic_virials` a relaxation leaves, with zeros of their shape for the atoms of the other
+  system; it raised a polars error.
 - `combine` gives the atoms of a system without masses or types those of their
   elements, and numbers the atoms of a system without ids from 1; it gave zero masses,
   which were refused, and id 0.
@@ -221,48 +264,29 @@
   `combine`; it raised `ColumnNotFoundError`.
 - `create_bonds` makes one bond per pair of atoms in a small box, where several images
   of a pair are close.
-- `EntropyFingerprint` counts every neighbor within the cutoff: those farther than about
-  40 `sigma`, beyond 7.9 Å with the default `sigma=0.2`, added nothing before, as their
-  Gaussians underflowed.
-- `DislocationAnalysis`: a line traced in a sliver of crystal, such as the layer of
-  crystal inside an extrinsic fault, gets its Burgers vector in the largest crystal
-  cluster related to it, whose frame is fitted to many atoms; its spatial vector was off
-  by up to 0.5 Å. Where one cluster holds two grains, the spatial Burgers vector of a
-  line follows the lattice about it, not the mean orientation of the cluster; it was
-  off by half the angle between the grains. Elsewhere the results are unchanged.
-- `DislocationAnalysis` and `SurfaceMesh` analyze every crystal: perfect fcc, hcp and
-  diamond crystals from some 15 000 atoms on, built systems and hot crystals were refused
-  at random, more often the larger they were, with a message to replicate the system. The
-  tessellation under them left four atoms nearly on one sphere with an atom's Voronoi
-  cell undecided; such atoms are now settled by their order, alike in every cell.
-- The normals of `DislocationResult.defect_mesh` point into the crystal, as the
-  documentation says; the docstring said out of it.
-- `insert_dislocation` without `elastic`: an edge dislocation no longer leaves a fault
-  from its core to the surface when a plane of atoms lies just below the plane of cut.
-  The displacement lifted such atoms across the plane, and they were moved back as if
-  they had been above it, as atomsk does; above and below are now where the atoms were.
-- `elastic_constants` relaxes the atoms under each strain until the forces left are
-  10<sup>−4</sup> of those the strain makes, where that is below `max_force`: a fixed
-  tolerance near those forces left the atoms half relaxed, most where they relax most.
-  C44 of silicon with the Tersoff potential, 10.31 GPa, came out 10.20 GPa at the
-  default strain of 10<sup>−3</sup> and 13.9 GPa at 10<sup>−4</sup>.
-- `md_elastic_constants` keeps the strained crystal at the temperature with a Langevin
-  thermostat, whose noise the two runs of a component share; the Nosé–Hoover thermostat
-  it had, being deterministic, did not bring all the vibrations back to the
-  temperature after the strain: C11 and C12 of silicon with the Tersoff potential at
-  300 K came out about 2 GPa, 2 %, too high, with errors four to six times larger. The
-  constants are now symmetric, each entry off the diagonal the mean of its two
-  estimates.
-- `PolyhedralTemplateMatching` without a neighbor list finds the 18 nearest neighbors of
-  each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
-  take 293 MB beyond the system rather than 752 MB, in the same time, and its progress
-  counts once from start to end.
-- `Box.minimum_image` gives the shortest vector in boxes of any tilt; with tilts beyond
-  half a box length it could give a longer image.
+- `from_ase` takes atoms without a cell, such as a molecule, and with cell vectors of
+  zero along open directions, such as a slab without vacuum; `to_ase_calculator` gives
+  them energies and forces, without stress.
+- `StructureFactor` of the direct method refuses more than 10<sup>8</sup> wave vectors, which
+  take 1.6 GB, rather than 10<sup>9</sup>, which took 16 GB.
+- `RadialDistributionFunction` and `StructureFactor` keep at most 64 partial results in
+  memory; with many elements and bins they took gigabytes.
+- `RingStatistics` stops at once when cancelled, also inside the search from one atom, which for large rings in a dense network takes minutes: rings up to 14 in a random network of coordination 13 stopped after 128 s, now after 0.3 s.
+- `render` refuses an `outline_width` above 100 pixels, which took minutes.
+- `check_frames` finds an atom too close to its own periodic images in a frame of one
+  atom.
+- `io.write` writes beside the file and puts the new one in its place when complete: a
+  write that fails leaves a file already there as it was; it removed it before.
 - `Box.wrap` raises `InvalidParameter` for atoms so many boxes away that their image
   flags do not fit in int64; it gave wrong flags.
 - Conditions such as `"element == 'cu'"` refuse texts that are not chemical symbols;
   they selected nothing. `System` names such symbols when it refuses them.
+- `set_num_threads` takes NumPy integers; `atomic_numbers("Cu")` says to pass a sequence
+  rather than complaining of the symbol `u`; `Topology` refuses atom indices that are
+  not whole numbers, which it truncated; `Box.from_lengths_angles` refuses angles
+  outside 0 to 180 degrees, which gave a mirrored box; `Box` says when its volume is
+  beyond float64, which it called linearly dependent vectors.
+- `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
 - The progress of `EAM` and `NEP` counts once from start to end over their passes; it
   started again at each pass.
 

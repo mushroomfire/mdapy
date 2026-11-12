@@ -202,6 +202,10 @@
   from its core to the surface when a plane of atoms lies just below the plane of cut.
   The displacement lifted such atoms across the plane, and they were moved back as if
   they had been above it, as atomsk does; above and below are now where the atoms were.
+- `PolyhedralTemplateMatching` without a neighbor list finds the 18 nearest neighbors of
+  each atom as it needs them, rather than in a list first: 2 048 000 atoms of fcc copper
+  take 293 MB beyond the system rather than 752 MB, in the same time, and its progress
+  counts once from start to end.
 - `Box.minimum_image` gives the shortest vector in boxes of any tilt; with tilts beyond
   half a box length it could give a longer image.
 - `Box.wrap` raises `InvalidParameter` for atoms so many boxes away that their image

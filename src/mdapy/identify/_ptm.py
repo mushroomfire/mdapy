@@ -225,29 +225,45 @@ class PolyhedralTemplateMatching:
             types = np.array([numbers[e] for e in names], dtype=np.int32)
         # without periodic images, small systems have fewer neighbors
         k = _NEIGHBORS if system.box.pbc.any() else min(_NEIGHBORS, max(n - 1, 0))
-        if k > 0:
-            nl = _nearest_given_or_built(system, k, neighbors)
-            offsets, j, shifts, reading = nl.offsets, nl.j, nl.shifts, nl._reading()
-        else:
-            offsets = np.zeros(n + 1, dtype=np.int64)
-            j = np.zeros(0, dtype=np.int32)
-            shifts = np.zeros((0, 3), dtype=np.int8)
-            reading = nullcontext()
         bits = sum(1 << (self.NAMES.index(name) - 1) for name in self.structures)
-        with reading:
-            found = _native.polyhedral_template_matching(
-                np.ascontiguousarray(system["positions"]),
-                np.ascontiguousarray(system.box.matrix),
-                offsets,
-                j,
-                shifts,
-                types,
-                bits,
-                self.deformation_gradient,
-                self.template_neighbors,
-                progress,
-                _native_token(cancel),
+        options = (
+            types,
+            bits,
+            self.deformation_gradient,
+            self.template_neighbors,
+            progress,
+            _native_token(cancel),
+        )
+        positions = np.ascontiguousarray(system["positions"])
+        box = system.box
+        if neighbors is None and k > 0:
+            # the nearest neighbors found as they are needed, without a list
+            found = _native.polyhedral_template_matching_nearest(
+                positions,
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                k,
+                *options,
             )
+        else:
+            if k > 0:
+                nl = _nearest_given_or_built(system, k, neighbors)
+                offsets, j, shifts, reading = nl.offsets, nl.j, nl.shifts, nl._reading()
+            else:
+                offsets = np.zeros(n + 1, dtype=np.int64)
+                j = np.zeros(0, dtype=np.int32)
+                shifts = np.zeros((0, 3), dtype=np.int8)
+                reading = nullcontext()
+            with reading:
+                found = _native.polyhedral_template_matching(
+                    positions,
+                    np.ascontiguousarray(box.matrix),
+                    offsets,
+                    j,
+                    shifts,
+                    *options,
+                )
         structure = found["structure"]
         if self.rmsd_cutoff > 0:
             # as OVITO: the other results stay those of the best template

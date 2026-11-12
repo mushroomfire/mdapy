@@ -227,6 +227,17 @@ class DislocationResult(Result):
         """Total length of the lines in Å."""
         return float(sum(line.length for line in self.lines))
 
+    @property
+    def density(self) -> float:
+        """Total length of the lines per volume of the box, in Å⁻²."""
+        return self.total_length / self.defect_mesh.box.volume
+
+    def densities(self) -> dict[str, float]:
+        """Length per volume of the box in Å⁻² of the lines of each family
+        of Burgers vectors of the crystal, "other" last."""
+        volume = self.defect_mesh.box.volume
+        return {name: length / volume for name, length in self.lengths().items()}
+
     def counts(self) -> dict[str, int]:
         """Number of atoms of each structure, by name."""
         found = np.bincount(self.structure, minlength=len(self.names))

@@ -14271,7 +14271,7 @@ supercell is not valid or too small for the shells.</p>
 
 
 <a href="#mdapy.lattice_dynamics.thermal_conductivity" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -14356,12 +14356,14 @@ mesh through Γ.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Width in THz of the Gaussian that stands for the conservation of
-energy in each scattering.</p>
+                <p>Width in THz of a Gaussian that stands for the conservation of
+energy in each scattering; by default the linear tetrahedron method,
+with the tetrahedra of every rotation of the crystal and the weights
+averaged over modes of one frequency.</p>
               </div>
             </td>
             <td>
-                <em>required</em>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">

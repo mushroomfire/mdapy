@@ -8193,7 +8193,7 @@
 <!-- needs: spglib -->
 
 <h1 id="thermal-conductivity">Thermal conductivity<a class="headerlink" href="#thermal-conductivity" title="Permanent link">&para;</a></h1>
-<p><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma, symmetry=None)</code>
+<p><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None)</code>
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order <a href="../force-constants/">force constants</a>.</p>
@@ -8220,8 +8220,8 @@ second and third order <a href="../force-constants/">force constants</a>.</p>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">constants</span> <span class="o">=</span> <span class="n">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="n">cutoff_third</span><span class="o">=</span><span class="mf">4.5</span><span class="p">)</span>  <span class="c1"># three shells</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>
 <a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="mf">801.0</span><span class="p">,</span> <span class="mf">50.0</span><span class="p">)</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">result</span> <span class="o">=</span> <span class="n">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">)</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">result</span><span class="o">.</span><span class="n">kappa</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># W/(m K): 21.5 at 100 K, 7.5 at 300 K</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="n">result</span> <span class="o">=</span> <span class="n">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="n">result</span><span class="o">.</span><span class="n">kappa</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># W/(m K): 22.0 at 100 K, 7.7 at 300 K</span>
 </code></pre></div>
 <p>The conductivity of copper with <code>EAM.zhou</code>, and the lifetimes of its phonons at 300 K:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot</span>
@@ -8273,10 +8273,10 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 </tr>
 <tr>
 <td><code>sigma</code></td>
-<td>float64</td>
-<td></td>
+<td>float64 or <code>None</code></td>
+<td><code>None</code></td>
 <td>THz</td>
-<td>the width of the Gaussian that stands for the conservation of energy in each scattering</td>
+<td>the width of a Gaussian that stands for the conservation of energy in each scattering; by default the linear tetrahedron method</td>
 </tr>
 <tr>
 <td><code>symmetry</code></td>
@@ -8287,18 +8287,29 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 </tr>
 </tbody>
 </table>
-<p><strong>Converging.</strong> The conductivity depends on four choices, each to converge:</p>
+<p><strong>Conservation of energy.</strong> Each scattering conserves energy, and on a mesh of wave
+vectors the delta functions that say so are spread. By default they are integrated over
+linear tetrahedra between the points of the mesh: the 24 that share each point, cut
+along the shortest main diagonal of the cells of the mesh, and those of every rotation
+of the crystal, so that the result keeps its symmetry; the weights of modes of one
+frequency are their mean, which does not depend on how the polarization vectors of such
+modes come out (<a href="../../../reference/references/#togo2015">Togo et al. (2015)</a>). With
+<code>sigma</code>, each delta function is a Gaussian of that width instead, faster but too narrow
+on a coarse mesh, where few scatterings meet it: for copper at 300 K, a Gaussian of
+0.1 THz gives 222 W/(m K) on a mesh of 5 where the tetrahedra give 8.6, and 8.1 on a mesh
+of 7 where they give 7.4.</p>
+<p><strong>Converging.</strong> The conductivity depends on three choices, each to converge:</p>
 <ul>
-<li><code>cutoff_third</code>, the reach of the third order: for copper at 300 K, 11.4 W/(m K)
-  with the nearest neighbors or the second, 7.47 with three shells (4.5 Å) and 7.48 within
-  6 Å;</li>
-<li>the supercell of the force constants: 7.47 in 4 × 4 × 4 primitive cells, 7.43 in
+<li><code>cutoff_third</code>, the reach of the third order: for copper at 300 K on a mesh of 11,
+  12.0 W/(m K) with the nearest neighbors, 11.6 with two shells, 7.67 with three (4.5 Å)
+  and 7.71 within 6 Å, in 5 × 5 × 5 primitive cells;</li>
+<li>the supercell of the force constants: 7.72 in 4 × 4 × 4 primitive cells, 7.67 in
   5 × 5 × 5;</li>
-<li><code>mesh</code>: 7.47 with 11 wave vectors along each vector, 7.71 with 15;</li>
-<li><code>sigma</code>, which wants a denser mesh the narrower it is.</li>
+<li><code>mesh</code>: 7.72 with 11 wave vectors along each vector, 7.89 with 15 and 7.96 with 19.</li>
 </ul>
 <p>The time grows with the number of irreducible wave vectors times that of the whole
-mesh, and as the fourth power of the number of modes of the cell.</p>
+mesh, and as the fourth power of the number of modes of the cell: copper takes 4 s on
+a mesh of 11, 22 s on 15.</p>
 <p>The conductivity is that of the phonons alone. In a metal such as copper the
 electrons carry most of the heat, about 400 W/(m K), which this does not hold.</p>
 <p>Without symmetry, time reversal still pairs q with −q. The group velocities of modes of
@@ -8390,8 +8401,8 @@ with <strong>q</strong> = <strong>q</strong>′ + <strong>q</strong>″ up to a 
 + (n_{\lambda'} - n_{\lambda''})\big(\delta(\omega_\lambda + \omega_{\lambda'} - \omega_{\lambda''})
 - \delta(\omega_\lambda - \omega_{\lambda'} + \omega_{\lambda''})\big)\Big],
 \]</div>
-<p>with <span class="arithmatex">\(n\)</span> the Bose–Einstein occupations at the temperature, each δ a Gaussian of width
-<code>sigma</code>, and</p>
+<p>with <span class="arithmatex">\(n\)</span> the Bose–Einstein occupations at the temperature, each δ integrated over the
+tetrahedra of the mesh or a Gaussian of width <code>sigma</code>, and</p>
 <div class="arithmatex">\[
 \Phi_{\lambda\lambda'\lambda''} = \frac{1}{\sqrt N}\frac{1}{3!}
 \sum_{a\alpha, b\beta, c\gamma} \Psi_{a\alpha, b\beta, c\gamma}

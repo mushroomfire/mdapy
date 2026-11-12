@@ -8576,10 +8576,11 @@
   Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
   apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
   phonopy does.</li>
-<li><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma,
+<li><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None,
   symmetry=None)</code> gives the lattice thermal conductivity in the relaxation-time
   approximation from second and third order force constants, by three-phonon scattering
-  with Gaussians of width <code>sigma</code>, on the irreducible wave vectors of a mesh. Its
+  with linear tetrahedra of every rotation of the crystal, or Gaussians of width <code>sigma</code>, on
+  the irreducible wave vectors of a mesh. Its
   <code>ThermalConductivity</code> holds <code>kappa</code>, the <code>q</code> and <code>weights</code> of the irreducible wave
   vectors, and the <code>frequencies</code>, <code>group_velocities</code>, <code>gamma</code>, <code>lifetimes</code> and
   <code>heat_capacities</code> of their modes, the scattering computed in parallel in C++. See

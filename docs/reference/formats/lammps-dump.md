@@ -85,7 +85,9 @@ elements as for [LAMMPS data](lammps-data.md#types-masses-and-elements)),
 `element` and `typelabel` if present, and `x y z` come first, followed by
 `mol`, `q`, `mass`, `ix iy iz`, `vx vy vz` and `fx fy fz` for the columns
 that exist, and then every other numeric column under its own name, array
-columns as `name[1]` to `name[k]`. Booleans are written as 0 and 1. The
+columns as `name[1]` to `name[k]`. Booleans are written as 0 and 1, and
+columns other than those of LAMMPS's own integers come back as `float64`, as
+a dump holds no types; the [MDAPY format](mdapy.md) keeps them. The
 first frame starts with `ITEM: UNITS`; `ITEM: TIME` is written when `info`
 has `time`. Other `info` values are not written.
 

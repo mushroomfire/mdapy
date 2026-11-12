@@ -251,6 +251,72 @@ def test_neighbor_lists_threads_and_small_systems():
         assert len(analysis.compute(cluster).structure) == count
 
 
+RESULTS = (
+    "structure",
+    "rmsd",
+    "interatomic_distance",
+    "orientation",
+    "correspondences",
+    "template_index",
+    "deformation_gradient",
+    "ordering",
+    "neighbors",
+)
+
+
+def shuffled(system, seed=0):
+    return system.gather(np.random.default_rng(seed).permutation(len(system)))
+
+
+@pytest.mark.parametrize(
+    "system",
+    [
+        shuffled(make("hcp", 2.5, "Mg", jitter=0.08, seed=1)),
+        shuffled(make("diamond", 5.43, "Si", repeat=(3, 3, 3), jitter=0.1, seed=2)),
+        shuffled(make("graphene", 2.46, "C", repeat=(6, 6, 1), jitter=0.05, seed=3)),
+        shuffled(make("l1_2", 3.75, ("Cu", "Au"), jitter=0.05, seed=4)),
+        # a box of 4 atoms, whose 18 neighbors are images beyond it
+        make("fcc", 3.6, "Cu", repeat=(1, 1, 1), jitter=0.05, seed=5),
+        # a cluster, without periodic images
+        make("bcc", 2.87, "Fe", jitter=0.05, seed=6).with_box(
+            mdapy.Box(np.eye(3) * 11.48, pbc=False)
+        ),
+    ],
+    ids=["hcp", "diamond", "graphene", "l1_2", "small-box", "cluster"],
+)
+def test_the_same_without_a_list(system):
+    """The neighbors found as they are needed, without a list, give what a list
+    of the 18 nearest gives, bit for bit, in any order of the atoms."""
+    k = 18 if system.box.pbc.any() else min(18, len(system) - 1)
+    nl = mdapy.NeighborList.build(system, num_neighbors=k)
+    # with the shells of diamond and graphene, in two passes, and without
+    for structures in (EVERY, ("fcc", "hcp", "bcc", "ico", "sc")):
+        analysis = PolyhedralTemplateMatching(
+            structures,
+            deformation_gradient=True,
+            ordering=True,
+            template_neighbors=True,
+        )
+        found = analysis.compute(system)
+        listed = analysis.compute(system, neighbors=nl)
+        for name in RESULTS:
+            np.testing.assert_array_equal(getattr(found, name), getattr(listed, name))
+        if structures == EVERY:
+            assert (found.structure > 0).any()
+
+
+def test_progress_runs_once_from_start_to_end():
+    calls = []
+    PolyhedralTemplateMatching(EVERY).compute(
+        make("diamond", 5.43, "Si", repeat=(8, 8, 8)),
+        progress=lambda done, total: calls.append((done, total)),
+    )
+    done = [d for d, _ in calls]
+    assert len({t for _, t in calls}) == 1
+    assert done == sorted(done)
+    assert calls[-1][0] == calls[-1][1]
+
+
 def test_columns_errors_and_repr():
     system = make("l1_2", 3.75, ("Cu", "Au"), repeat=(2, 2, 2))
     result = PolyhedralTemplateMatching(

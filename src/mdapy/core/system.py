@@ -17,7 +17,7 @@ from mdapy.core import _conditions
 from mdapy.core.box import Box
 from mdapy.core.result import Result
 from mdapy.core.topology import Topology
-from mdapy.elements import ELEMENT_DTYPE
+from mdapy.elements import ELEMENT_DTYPE, SYMBOLS
 from mdapy.errors import InvalidParameter
 
 __all__ = ["System"]
@@ -93,6 +93,13 @@ def _normalize_table(
             values = flat.to_numpy()
             if not np.array_equal(values, np.round(values)):
                 raise InvalidParameter(f"column {name!r} must hold integers")
+        if name == "element" and source == pl.String:
+            unknown = set(table[name].drop_nulls().unique().to_list()) - set(SYMBOLS)
+            if unknown:
+                raise InvalidParameter(
+                    f"unknown chemical symbols {sorted(unknown)[:5]}; symbols are "
+                    "written as 'Cu', with one capital letter"
+                )
         if inner == pl.Boolean and source_inner.is_numeric():
             flat = table.select(pl.col(name).explode())[name].drop_nulls()
             if not np.isin(flat.to_numpy(), (0, 1)).all():

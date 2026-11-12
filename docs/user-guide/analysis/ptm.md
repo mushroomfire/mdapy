@@ -292,7 +292,10 @@ the [Warren–Cowley parameters](warren-cowley.md).
 
 `compute(system, *, neighbors=None, progress=None, cancel=None)` takes the
 arguments of [every analysis](overview.md#parameters). A given neighbor list
-must hold the 18 nearest neighbors of every atom.
+must hold the 18 nearest neighbors of every atom. Without one, the neighbors are
+found as they are needed, in less memory; the diamond and graphene structures
+look at the neighbors of neighbors too, which a list of the 18 nearest,
+`NeighborList.build(system, num_neighbors=18)`, gives faster.
 
 ## Results
 

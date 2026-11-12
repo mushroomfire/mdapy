@@ -13,6 +13,7 @@
 
 #include "core/index.h"
 #include "core/parallel.h"
+#include "neighbor/kd_tree.h"
 
 namespace mdapy::identify {
 
@@ -29,8 +30,9 @@ enum PtmStructure : std::int8_t {
     kPtmGraphene = 8,
 };
 
-// The atoms and their nearest neighbors, at most 18 each, nearest first, in
-// CSR form; the vector to neighbor j is x[j] - x[i] + shift . matrix.
+// The atoms and their nearest neighbors, at most 18 each, nearest first: in
+// CSR form, the vector to neighbor j x[j] - x[i] + shift . matrix, or found
+// in a tree of the atoms as they are needed, without a list.
 struct PtmInput {
     std::int64_t n = 0;
     const double* positions = nullptr;      // n x 3
@@ -38,6 +40,8 @@ struct PtmInput {
     const std::int64_t* offsets = nullptr;  // n + 1
     const index_t* j = nullptr;
     const std::int8_t* shifts = nullptr;    // 3 per pair
+    const neighbor::KdTree* tree = nullptr;  // instead of the list: the tree of the atoms
+    int k = 0;                               // and the number of neighbors to find in it
     const std::int32_t* types = nullptr;    // n chemical types, or none: no ordering
     std::int32_t structures = 0;            // the bits 1 << (structure - 1) to look for
     bool deformation = false;               // compute deformation gradients

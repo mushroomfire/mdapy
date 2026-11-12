@@ -43,9 +43,6 @@ do not name.
   using it warns with a `DeprecationWarning` that names what to use instead.
 - A result changes only when it was wrong. The release notes name every result that a
   fix changes.
-- Experimental features, marked by a box at the top of their page, such as the
-  [dislocation analysis](../user-guide/analysis/dislocations.md), may still change in a
-  minor release, and the release notes say how.
 
 ## Python, NumPy and polars
 

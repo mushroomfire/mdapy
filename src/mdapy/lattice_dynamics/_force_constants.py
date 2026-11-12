@@ -24,9 +24,11 @@ from mdapy.lattice_dynamics._phonons import (
     _lattice_points,
     _masses,
     _moves,
+    _reduced,
     _sheet_supercell,
     _supercell,
     _supercell_matrix,
+    _widths,
 )
 from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
 
@@ -35,6 +37,12 @@ from mdapy.lattice_dynamics._sheets import _in_periodic_box, _is_sheet
 _TOLERANCE = 1e-3
 # the most memory in bytes that the basis of a fit may take
 _MEMORY = 2e9
+# pairs this much farther apart in Å than the cutoff are within it, so that
+# a cutoff typed at the distance of a shell holds the whole shell
+_SHELL = 1e-4
+# the cutoff stays this much in Å below half the shortest vector of the
+# supercell, so that each pair has one shortest image
+_MARGIN = 1e-3
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -67,6 +75,10 @@ class ForceConstants:
     second : numpy.ndarray
         (n, n S, 3, 3) float64 second order force constants in eV/Å²;
         read-only.
+    cutoff : float64 or None
+        The cutoff in Å of a fit by ``force_constants`` beyond which the
+        force constants are zero; None for every pair of the supercell, or
+        not a fit.
     parameters : int64 or None
         The number of free force constants that symmetry and the sum rule
         leave, of a fit by ``force_constants``; None otherwise.
@@ -87,6 +99,7 @@ class ForceConstants:
     cell: System
     supercell: np.ndarray
     second: np.ndarray
+    cutoff: float | None = field(default=None, init=False)
     parameters: int | None = field(default=None, init=False)
     error: float | None = field(default=None, init=False)
 
@@ -425,36 +438,141 @@ def _orthogonal(matrices: np.ndarray) -> np.ndarray:
     return u @ vt
 
 
-def _basis(
+def _operations(
+    cell: System, symmetry: bool | None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+    """The symmetry operations of the cell, found by spglib when wanted: a
+    sheet's in a box periodic along z too; None without symmetry."""
+    sheet = _is_sheet(cell.box, "force constants")
+    return _symmetry(_in_periodic_box(cell) if sheet else cell, symmetry)
+
+
+def _torus_pairs(
     cell: System, matrix: np.ndarray, symmetry: bool | None
-) -> tuple[np.ndarray, int]:
-    """(n N 9, K) the force constants of the pairs of an atom of the cell and
-    an atom of the supercell, components by rows, of each of the K free
-    parameters that the symmetry of the crystal, the exchange of the two
-    atoms and the sum rule leave; and K."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Every pair of an atom of the cell and an atom of the supercell, with
+    its periodic boundaries: the first atom and the atom of the supercell of
+    each pair, the Cartesian rotation of each operation that maps the
+    supercell onto itself, and the pair it takes each pair to."""
     n = len(cell)
     repeats = _lattice_points(matrix)
     size = len(repeats)
     count = n * size
-    pairs = n * count
-    sheet = _is_sheet(cell.box, "force constants")
-    operations = _symmetry(_in_periodic_box(cell) if sheet else cell, symmetry)
-    rotations, cartesian, atoms, shifts = _kept(operations, matrix, n)
-    cartesian = _orthogonal(cartesian)
-    # the pair each operation takes each pair to, atom a of the cell moved
-    # back into the first cell, as _displaced_forces does
-    images = np.empty((len(rotations), pairs), dtype=np.int64)
+    rotations, cartesian, atoms, shifts = _kept(_operations(cell, symmetry), matrix, n)
+    # atom a of the cell moved back into the first cell, as _displaced_forces
+    # does
+    images = np.empty((len(rotations), n * count), dtype=np.int64)
     for k in range(len(rotations)):
         for a in range(n):
             lattice = (repeats @ rotations[k].T)[:, None, :] + shifts[k] - shifts[k, a]
             j = _cell_of(lattice.reshape(-1, 3), matrix) * n + np.tile(atoms[k], size)
             images[k, a * count : (a + 1) * count] = atoms[k, a] * count + j
-    # the pair of b in cell L and a in cell 0 is that of a in cell -L and b
     first = np.repeat(np.arange(n), count)
     second = np.tile(np.arange(count), n)
+    # the pair of b in cell L and a in cell 0 is that of a in cell -L and b
     opposite = _cell_of(-repeats, matrix)
     exchanged = second % n * count + opposite[second // n] * n + first
-    maps = np.concatenate([images, exchanged[images]])
+    return first, second, cartesian, np.concatenate([images, exchanged[images]])
+
+
+def _shortest(vectors: np.ndarray) -> float:
+    """The length of the shortest vector of the lattice of these vectors."""
+    reduced = _reduced(vectors)
+    combinations = np.stack(
+        np.meshgrid(*[np.arange(-2, 3)] * 3, indexing="ij"), -1
+    ).reshape(-1, 3)
+    lengths = np.linalg.norm(combinations @ reduced, axis=1)
+    return float(lengths[lengths > 1e-9].min())
+
+
+def _cutoff_pairs(
+    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The pairs of atoms of the crystal no farther apart than the cutoff,
+    the first in the cell, as ``_torus_pairs`` gives them: with every
+    operation of the crystal, and each pair at its atom of the supercell."""
+    n = len(cell)
+    box, positions = cell.box.matrix, cell["positions"]
+    sheet = _is_sheet(cell.box, "force constants")
+    big = matrix @ box
+    if sheet:
+        # a sheet has images in its plane only
+        limit = 0.5 * _shortest(np.vstack([big[:2], [0.0, 0.0, 1e6]]))
+    else:
+        limit = 0.5 * _shortest(big)
+    if not 0 < cutoff <= limit - _MARGIN:
+        raise InvalidParameter(
+            f"cutoff must be positive and at most {limit - _MARGIN:.4g} Å, half "
+            f"the shortest vector of the supercell less {_MARGIN} Å, not {cutoff!r}"
+        )
+    reach = np.ceil((cutoff + _SHELL) / _widths(box)).astype(int) + 1
+    if sheet:
+        reach[2] = 0
+    grid = np.stack(
+        np.meshgrid(*(np.arange(-r, r + 1) for r in reach), indexing="ij"), -1
+    ).reshape(-1, 3)
+    first, second, cells = [], [], []
+    for a in range(n):
+        vectors = (grid @ box)[:, None, :] + positions[None] - positions[a]
+        g, b = np.nonzero(np.linalg.norm(vectors, axis=2) <= cutoff + _SHELL)
+        first.append(np.full(len(g), a))
+        second.append(b)
+        cells.append(grid[g])
+    a, b, lattice = (np.concatenate(x) for x in (first, second, cells))
+    # a table of the pairs by their atoms and cell
+    low = lattice.min(axis=0)
+    span = np.ptp(lattice, axis=0) + 1
+
+    def key(a: np.ndarray, b: np.ndarray, cell: np.ndarray) -> np.ndarray:
+        r = cell - low
+        inside = ((r >= 0) & (r < span)).all(axis=-1)
+        k = (((a * n + b) * span[0] + r[..., 0]) * span[1] + r[..., 1]) * span[2] + r[
+            ..., 2
+        ]
+        return np.where(inside, k, -1)
+
+    table = np.full(n * n * int(np.prod(span)), -1, dtype=np.int64)
+    table[key(a, b, lattice)] = np.arange(len(a))
+
+    def find(a: np.ndarray, b: np.ndarray, cell: np.ndarray) -> np.ndarray:
+        k = key(a, b, cell)
+        return np.where(k >= 0, table[np.maximum(k, 0)], -1)
+
+    operations = _operations(cell, symmetry)
+    rotations, cartesian, atoms, shifts = _kept(operations, np.eye(3), n)
+    images = np.stack(
+        [
+            find(
+                atoms[k, a],
+                atoms[k, b],
+                lattice @ rotations[k].T + shifts[k, b] - shifts[k, a],
+            )
+            for k in range(len(rotations))
+        ]
+    )
+    maps = np.concatenate([images, find(b, a, -lattice)[images]])
+    # distances are kept, so every image is a pair of the table
+    assert (maps >= 0).all()
+    return a, _cell_of(lattice, matrix) * n + b, cartesian, maps
+
+
+def _basis(
+    cell: System,
+    matrix: np.ndarray,
+    cutoff: float | None,
+    symmetry: bool | None,
+) -> tuple[np.ndarray, int]:
+    """(n N 9, K) the force constants of the pairs of an atom of the cell and
+    an atom of the supercell, components by rows, of each of the K free
+    parameters that the symmetry of the crystal, the exchange of the two
+    atoms and the sum rule leave, zero for pairs beyond the cutoff; and K."""
+    n, count = len(cell), len(cell) * round(np.linalg.det(matrix))
+    if cutoff is None:
+        first, second, cartesian, maps = _torus_pairs(cell, matrix, symmetry)
+    else:
+        first, second, cartesian, maps = _cutoff_pairs(cell, matrix, cutoff, symmetry)
+    pairs = len(first)
+    cartesian = _orthogonal(cartesian)
     turns = np.einsum("kab,kcd->kacbd", cartesian, cartesian).reshape(-1, 9, 9)
     transpose = np.eye(9)[np.arange(9).reshape(3, 3).T.reshape(-1)]
     matrices = np.concatenate([turns, transpose @ turns])
@@ -473,12 +591,14 @@ def _basis(
         if free.shape[1]:
             blocks.append((orbit, matrices[by] @ free))
     total = sum(b.shape[2] for _, b in blocks)
-    if pairs * 9 * total * 8 > _MEMORY:
+    size = max(pairs, n * count) * 9 * total * 8
+    if size > _MEMORY:
         raise InvalidParameter(
             f"a fit of {total} free force constants of {pairs} pairs of atoms "
-            f"needs {pairs * 9 * total * 8 / 1e9:.0f} GB: too many for a crystal of "
-            "so little symmetry in so large a supercell; phonons finds its force "
-            "constants by finite differences"
+            f"needs {size / 1e9:.0f} GB: too many for a crystal of so little "
+            "symmetry in so large a supercell; phonons finds its force constants "
+            "by finite differences, phonons_from_frames from frames of any "
+            "dynamics"
         )
     basis = np.zeros((pairs, 9, total))
     column = 0
@@ -486,11 +606,14 @@ def _basis(
         basis[orbit, :, column : column + block.shape[2]] = block
         column += block.shape[2]
     # the sum rule: the force constants of each atom of the cell sum to zero
-    sums = basis.reshape(n, count, 9, total).sum(axis=1).reshape(9 * n, total)
-    _, s, vt = np.linalg.svd(sums)
+    sums = np.zeros((n, 9, total))
+    np.add.at(sums, first, basis)
+    _, s, vt = np.linalg.svd(sums.reshape(9 * n, total))
     rank = int((s > 1e-9 * max(1.0, s[0] if len(s) else 0.0)).sum())
     null = vt[rank:].T
-    return basis.reshape(pairs * 9, total) @ null, null.shape[1]
+    dense = np.zeros((n * count, 9, null.shape[1]))
+    dense[first * count + second] = basis @ null
+    return dense.reshape(n * count * 9, -1), null.shape[1]
 
 
 def _displacements(
@@ -538,7 +661,11 @@ def _displacements(
 
 
 def force_constants(
-    cell: System, frames: Sequence[System], *, symmetry: bool | None = None
+    cell: System,
+    frames: Sequence[System],
+    *,
+    cutoff: float | None = None,
+    symmetry: bool | None = None,
 ) -> ForceConstants:
     """Second order force constants of a crystal fitted to the forces on
     atoms displaced in a supercell.
@@ -553,6 +680,12 @@ def force_constants(
         Supercells of the cell with atoms displaced, such as those of
         ``displaced_supercells``, each with a ``forces`` column in eV/Å, its
         atoms in any order.
+    cutoff : float64, optional
+        Fit only the force constants of pairs no farther apart than this, in
+        Å, at most half the shortest vector of the supercell less 1e-3 Å,
+        with every symmetry operation of the crystal; by default those of
+        every pair of the supercell, with its periodic boundaries and the
+        operations that map it onto itself.
     symmetry : bool, optional
         Use the symmetry of the cell, found by spglib, in the fit: True,
         False, or by default whenever spglib is installed.
@@ -561,19 +694,19 @@ def force_constants(
     -------
     ForceConstants
         The force constants that give the forces best, symmetric under the
-        operations of the crystal that map the supercell onto itself and in
-        the two atoms, and summing to zero over the atoms of the supercell,
-        with the number of free parameters and the relative error of the
-        forces.
+        operations and in the two atoms, and summing to zero over the atoms
+        of the supercell, with the cutoff, the number of free parameters and
+        the relative error of the forces.
 
     Raises
     ------
     InvalidParameter
         If the box is neither periodic nor that of a sheet, there are no
         atoms or no frames, a frame is not a supercell of the cell with
-        forces, its atoms one at each atom of the supercell, the frames do
-        not determine every free parameter, or symmetry is True without
-        spglib.
+        forces, its atoms one at each atom of the supercell, the cutoff is
+        not positive or too long for the supercell, the frames do not
+        determine every free parameter, the fit is too large for memory, or
+        symmetry is True without spglib.
     """
     frames = list(frames)
     if len(cell) == 0:
@@ -590,7 +723,9 @@ def force_constants(
     big = _supercell(cell, matrix)
     points = _lattice_points(matrix)
     size, count = len(points), len(big)
-    basis, parameters = _basis(cell, matrix, symmetry)
+    if cutoff is not None:
+        cutoff = float(cutoff)
+    basis, parameters = _basis(cell, matrix, cutoff, symmetry)
     # the atom of the supercell that each atom is, moved by each cell
     moved = _cell_of(points[:, None, :] + points[None, :, :], matrix)
     atom = np.arange(count)
@@ -620,6 +755,7 @@ def force_constants(
     result = ForceConstants(cell, matrix, (basis @ solution).reshape(n, count, 3, 3))
     norm = np.linalg.norm(forces)
     error = np.linalg.norm(forces - design @ solution) / norm if norm > 0 else 0.0
+    object.__setattr__(result, "cutoff", cutoff)
     object.__setattr__(result, "parameters", int(parameters))
     object.__setattr__(result, "error", float(error))
     return result

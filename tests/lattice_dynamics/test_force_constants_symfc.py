@@ -77,3 +77,52 @@ def test_against_symfc(potential, name):
     np.testing.assert_allclose(
         ours.second[rows], theirs.force_constants[2], rtol=0, atol=1e-12
     )
+
+
+# supercells that keep every operation of the crystal, and cutoffs between
+# shells, which symfc leaves out when at a shell
+CUTOFFS = {
+    "fcc primitive cell": ("fcc", 3.29, "Cu", 4, True, 4.5),
+    "fcc cubic cell": ("fcc", 3.29, "Cu", 3, False, 4.8),
+    "bcc": ("bcc", 2.7, "Cu", 4, False, 5.0),
+    "hcp": ("hcp", 2.33, "Cu", (4, 4, 3), False, 4.4),
+    "L1_2 Cu3Ni": ("l1_2", 3.29, ("Cu", "Ni"), 3, False, 4.8),
+}
+
+
+@pytest.mark.parametrize("name", CUTOFFS)
+def test_against_symfc_within_a_cutoff(potential, name):
+    from symfc import Symfc
+    from symfc.utils.utils import SymfcAtoms
+
+    structure, a, elements, supercell, primitive, cutoff = CUTOFFS[name]
+    cell = minimize(
+        build_crystal(structure, a, elements=elements),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=10000,
+    ).system
+    if primitive:
+        cell = primitive_cell(cell)
+    frames = displaced_supercells(
+        cell, supercell=supercell, method="random", displacement=0.01, count=2, seed=3
+    )
+    frames = [
+        f.with_columns(forces=potential.compute(f, ("forces",)).forces) for f in frames
+    ]
+    ours = force_constants(cell, frames, cutoff=cutoff)
+    big = _supercell(cell, ours.supercell)
+    atoms = SymfcAtoms(
+        cell=big.box.matrix,
+        scaled_positions=big.box.to_fractional(big["positions"]),
+        numbers=big.table["element"].to_physical().to_numpy() + 1,
+    )
+    theirs = Symfc(atoms, cutoff={2: cutoff})
+    theirs.displacements = np.array([f["positions"] - big["positions"] for f in frames])
+    theirs.forces = np.array([f["forces"] for f in frames])
+    theirs.run(orders=[2])
+    np.testing.assert_allclose(
+        ours.second[theirs.p2s_map], theirs.force_constants[2], rtol=0, atol=1e-12
+    )

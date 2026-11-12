@@ -2,7 +2,7 @@
 
 # Force constants
 
-`mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)` fits the second
+`mdapy.lattice_dynamics.force_constants(cell, frames, *, cutoff=None, symmetry=None)` fits the second
 order force constants of a crystal to the forces on atoms displaced in a supercell,
 from any calculator or from a calculation with DFT; `displaced_supercells` makes the
 supercells, and a `ForceConstants` gives the [phonons](phonons.md) and passes to and
@@ -67,6 +67,7 @@ dft.write("FORCE_CONSTANTS")  # for phonopy
 |---|---|---|---|---|
 | `cell` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md), with atoms at rest (relax it first) |
 | `frames` | sequence of `System` | | | supercells of the cell with atoms displaced, each with a `forces` column in eV/Å, its atoms in any order |
+| `cutoff` | float64 or `None` | `None` | Å | fit only the force constants of pairs no farther apart than this, at most half the shortest vector of the supercell less 1e-3 Å; by default those of every pair of the supercell |
 | `symmetry` | bool or `None` | `None` | | fit with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 `displaced_supercells(cell, *, supercell, method="finite", displacement=0.01, count=1, seed=None, symmetry=None)`
@@ -98,6 +99,28 @@ random pattern does; without symmetry, a cell of n atoms needs at least 3n rando
 patterns. Fewer raise `InvalidParameter`, which
 tells how many of the free force constants the frames determine.
 
+**Within a cutoff.** By default the force constants are those of the supercell with its
+periodic boundaries: every pair of an atom of the cell and an atom of the supercell, under
+the operations of the crystal that map the supercell onto itself. With `cutoff`, they are
+those of pairs of the crystal no farther apart than `cutoff`, and zero beyond, under every
+operation of the crystal, also in a supercell of less symmetry, such as 4 × 4 × 3 cells of
+fcc. Each pair is then its own shortest image in the supercell, which is why the cutoff is
+at most half the shortest vector of the supercell, and the phonons are those of these
+pairs. A cutoff typed at the distance of a shell of neighbors holds the whole shell.
+
+```python
+near = force_constants(cell, frames, cutoff=5.0)
+near.cutoff, near.parameters  # 5.0 Å, 9 free force constants
+```
+
+A cutoff leaves out the force constants of the pairs beyond it, which a many-body
+potential such as EAM or NEP couples through the atoms between them, up to twice its
+own cutoff. For copper with `EAM.zhou`, in a supercell of 6 × 6 × 6 primitive cells, the
+frequencies differ from those of the supercell by up to 0.3 THz with a cutoff of 2.6 Å,
+0.11 THz at 4.6 Å, 0.04 THz at 5.8 Å and 0.005 THz at 7.0 Å. `error` falls with the
+cutoff only until the anharmonic forces dominate it, here from 4.6 Å, so compare the
+frequencies of two cutoffs to choose one.
+
 ## Results
 
 `force_constants` returns a `ForceConstants`.
@@ -107,6 +130,7 @@ tells how many of the free force constants the frames determine.
 | `cell` | `System` | the cell of the crystal |
 | `supercell` | (3, 3) int64 | the matrix of the supercell; read-only |
 | `second` | (n, nS, 3, 3) float64 | the force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell, which holds S cells, each with the atoms of the cell in their order, the cell itself first, as the `force_constants` of `Phonons`; read-only |
+| `cutoff` | float64 or `None` | the cutoff in Å of a fit, beyond which the force constants are zero; `None` for every pair of the supercell, or not a fit |
 | `parameters` | int64 or `None` | the number of free force constants that symmetry and the sum rule leave, of a fit; `None` otherwise |
 | `error` | float64 or `None` | the relative error of the forces of a fit; `None` otherwise |
 | `phonons()` | `Phonons` | the [phonons](phonons.md#results) of the force constants, as `phonons` gives them |
@@ -177,6 +201,8 @@ be converted first.
   atoms are not one at each atom of the supercell, or whose atom has another element or
   type than its atom of the supercell;
 - frames that do not determine every free force constant;
+- a cutoff that is not positive, or longer than half the shortest vector of the supercell
+  less 1e-3 Å, the longest it can be, which the message gives;
 - `symmetry=True` without spglib;
 - a fit too large for memory, over 2 GB, as a crystal of little symmetry with many atoms
   in its cell in a large supercell: [`phonons`](phonons.md) finds its force constants by
@@ -212,11 +238,12 @@ $$
 F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta} .
 $$
 
-The force constants are those of the supercell with its periodic boundaries. They obey
-every relation that is exact:
+The force constants are those of the supercell with its periodic boundaries, or, with a
+cutoff, those of the pairs of the crystal no farther apart than it. They obey every
+relation that is exact:
 
-- the operations $(R, \mathbf t)$ of the crystal that map the supercell onto itself:
-  $\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}$;
+- the operations $(R, \mathbf t)$ of the crystal, those that map the supercell onto itself
+  without a cutoff and all of them with one: $\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}$;
 - the exchange of the two atoms: $\Phi_{i\alpha, j\beta} = \Phi_{j\beta, i\alpha}$;
 - the sum rule, so that moving the whole crystal costs no energy:
   $\sum_j \Phi_{i\alpha, j\beta} = 0$.

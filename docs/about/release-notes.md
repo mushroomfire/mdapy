@@ -37,6 +37,10 @@
   displacement=0.01, count=1, seed=None, symmetry=None)` makes the supercells, the moves of
   `phonons` or random patterns by plus and minus. The atoms of the frames are matched by
   position, so OUTCAR files of VASP serve as they are.
+- `force_constants` takes a `cutoff`: the force constants of the pairs of the crystal no
+  farther apart than it, under every operation of the crystal also in supercells of less
+  symmetry, and zero beyond; `ForceConstants.cutoff` says which. The page gives how far
+  the frequencies of copper move with the cutoff.
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).

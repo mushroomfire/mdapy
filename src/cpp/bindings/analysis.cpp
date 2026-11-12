@@ -528,6 +528,34 @@ nb::object three_phonon_rates(Doubles first, Doubles second, Doubles third, Doub
     return as_array(std::move(rates));
 }
 
+// The weights of linear tetrahedra in the conservation of energy of three
+// phonons: first and second (count, g, 4, b), levels (b); returns joined and
+// parted (count, b, b, b) flat.
+nb::tuple tetrahedron_triplet_weights(Doubles first, Doubles second, Doubles levels,
+                                      double same, nb::handle progress,
+                                      const CancelToken* cancel) {
+    if (first.ndim() != 4 || first.shape(2) != 4) {
+        throw std::invalid_argument("tetrahedron_triplet_weights: first must be (count, g, 4, b)");
+    }
+    const auto count = static_cast<std::int64_t>(first.shape(0));
+    const auto g = static_cast<std::int64_t>(first.shape(1));
+    const auto b = static_cast<std::int64_t>(first.shape(3));
+    if (second.size() != first.size() || levels.size() != static_cast<std::size_t>(b)) {
+        throw std::invalid_argument("tetrahedron_triplet_weights: arrays of inconsistent sizes");
+    }
+    const std::size_t size = static_cast<std::size_t>(count) * static_cast<std::size_t>(b) *
+                             static_cast<std::size_t>(b) * static_cast<std::size_t>(b);
+    std::vector<double> joined(size), parted(size);
+    run_released(
+        [&](const Control& control) {
+            analysis::tetrahedron_triplet_weights(count, g, b, first.data(), second.data(),
+                                                  levels.data(), same, joined.data(),
+                                                  parted.data(), control);
+        },
+        progress, cancel);
+    return nb::make_tuple(as_array(std::move(joined)), as_array(std::move(parted)));
+}
+
 nb::object steinhardt_nearest(Positions3 positions, Matrix3 matrix, Origin3 origin,
                               Periodic pbc, int k, const std::vector<int>& degrees,
                               nb::handle progress, const CancelToken* cancel) {
@@ -991,6 +1019,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("third"), nb::arg("constants"), nb::arg("frequencies0"), nb::arg("frequencies1"),
           nb::arg("frequencies2"), nb::arg("occupation1"), nb::arg("occupation2"),
           nb::arg("joined").none(), nb::arg("parted").none(), nb::arg("sigma"), nb::arg("live"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("tetrahedron_triplet_weights", &tetrahedron_triplet_weights, nb::arg("first"),
+          nb::arg("second"), nb::arg("levels"), nb::arg("same"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("isosurface", &isosurface, nb::arg("values"), nb::arg("pbc"), nb::arg("level"),
           nb::arg("left_handed"));

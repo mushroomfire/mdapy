@@ -4,8 +4,10 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Thermal conductivity against phono3py, with the same second and third
-order force constants, mesh and Gaussian: the conductivity and the width of
-every mode. Skipped where phono3py is not installed."""
+order force constants and mesh: the conductivity and the width of every
+mode, with a Gaussian and with phono3py's tetrahedra of every rotation and
+weights averaged over modes of one frequency, as MDAPY takes them. Skipped
+where phono3py is not installed."""
 
 import warnings
 
@@ -45,8 +47,9 @@ def potential(tmp_path_factory):
     return EAM(write_setfl(tmp_path_factory.mktemp("eam") / "CuNi.eam.alloy"))
 
 
+@pytest.mark.parametrize("sigma", [SIGMA, None])
 @pytest.mark.parametrize("name", CRYSTALS)
-def test_against_phono3py(potential, name):
+def test_against_phono3py(potential, name, sigma):
     from phono3py import Phono3py
     from phonopy.structure.atoms import PhonopyAtoms
 
@@ -68,7 +71,7 @@ def test_against_phono3py(potential, name):
         f.with_columns(forces=potential.compute(f, ("forces",)).forces) for f in frames
     ]
     constants = force_constants(cell, frames, cutoff_third=2.8)
-    ours = thermal_conductivity(constants, TEMPERATURES, mesh=mesh, sigma=SIGMA)
+    ours = thermal_conductivity(constants, TEMPERATURES, mesh=mesh, sigma=sigma)
 
     order = _phonopy_atoms(constants.supercell, len(cell))
     names = cell.table["element"].cast(str).to_list()
@@ -89,8 +92,13 @@ def test_against_phono3py(potential, name):
     theirs.fc2 = np.ascontiguousarray(constants.second[:, order])
     theirs.fc3 = np.ascontiguousarray(constants.third[:, order][:, :, order])
     theirs.mesh_numbers = list(mesh)
-    theirs.sigmas = [SIGMA]
-    theirs.init_phph_interaction()
+    theirs.sigmas = [sigma]
+    if sigma is None:
+        theirs.init_phph_interaction(
+            symmetrize_tetrahedra=True, average_degenerate_weights=True
+        )
+    else:
+        theirs.init_phph_interaction()
     theirs.run_thermal_conductivity(temperatures=TEMPERATURES)
     result = theirs.thermal_conductivity
     # xx, yy, zz, yz, xz, xy; phono3py's physical constants are older, by a

@@ -96,7 +96,7 @@ one name everywhere.
 | Burgers circuit | A closed path along the edges of the interface mesh; the sum of the ideal vectors of its edges is the Burgers vector of the dislocations it encloses. |
 | defect mesh | The surface around the defects that are not dislocations: the interface mesh without the triangles the lines took, closed over their free ends. |
 | family of Burgers vectors | The Burgers vectors of one kind, the same in any order and sign of their components, such as `1/2<110>` or `1/6<112>`. |
-| CA file | OVITO's crystal analysis file: the box, the structures and their families of Burgers vectors, the crystal clusters, the dislocation lines with their junctions and the defect mesh, as `DislocationResult.write` writes it. |
+| CA file | OVITO's crystal analysis file: the box, the structures and their families of Burgers vectors, the crystal clusters, the dislocation lines with their junctions and the defect mesh, as `DislocationResult.write` writes it and `read_dislocations` reads it. |
 
 ## Per-atom properties
 

@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _native
-from mdapy.analysis._ca_files import write_ca
+from mdapy.analysis._ca_files import read_ca, write_ca
 from mdapy.core.mesh import TriangleMesh
 from mdapy.core.result import Result
 from mdapy.core.system import System
@@ -525,3 +525,30 @@ class DislocationAnalysis:
             f"mesh_smoothing={self.mesh_smoothing!r}, "
             f"interface_mesh={self.interface_mesh!r})"
         )
+
+
+def read_dislocations(path: str | os.PathLike) -> DislocationResult:
+    """Reads a crystal analysis file of OVITO (CA, versions 5 to 7), as
+    ``DislocationResult.write`` and OVITO write them, as a result of the
+    dislocation analysis.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file, compressed or not; of several frames, the first.
+
+    Returns
+    -------
+    DislocationResult
+        The lines, the crystal clusters and the defect mesh; ``structure``
+        and ``crystal_cluster`` are empty, as the file holds no atoms, and
+        ``defect_atoms`` is -1 at every vertex. The crystal is the one the
+        file names, or else the structure of the most atoms in clusters.
+
+    Raises
+    ------
+    FileFormatError
+        For a file that is not a CA file of these versions or that does not
+        follow its format.
+    """
+    return read_ca(path)

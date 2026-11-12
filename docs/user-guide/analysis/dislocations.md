@@ -209,10 +209,15 @@ mesh.
 
 `result.write("dislocations.ca")` writes the result as a crystal analysis
 file of OVITO, version 6, which OVITO opens as it opens the files of its
-own dislocation analysis:
+own dislocation analysis; `read_dislocations` reads such a file back, and
+those OVITO writes:
 
 ```python
+from mdapy.analysis import read_dislocations
+
 result.write("dislocations.ca")
+again = read_dislocations("dislocations.ca")
+again.lengths()  # Å, as result.lengths()
 ```
 
 The file holds the box, the structures and their families of Burgers
@@ -225,6 +230,15 @@ space it gives differ from `spatial_burgers` by some $10^{-6}$ Å. The
 suffix `.gz`, `.bz2`, `.xz` or `.zst` compresses the file; OVITO reads
 `.gz`. OVITO names the families in its statistics by a vector of each, such
 as `1/2<011>`.
+
+A file holds no atoms: the result read has empty `structure` and
+`crystal_cluster`, and `defect_atoms` −1 at every vertex. Its
+`spatial_burgers` are those of the orientation of each cluster, also where
+the lattice about a line is turned from it, and the crystal is the one the
+file names, or for the files of OVITO the structure of the most atoms in
+clusters. `read_dislocations` reads versions 5 to 7, the first frame of a
+file of several, and raises `FileFormatError` for a file that does not
+follow the format.
 
 ## Errors
 

@@ -10,6 +10,8 @@
 
 ::: mdapy.analysis.CrystalClusters
 
+::: mdapy.analysis.read_dislocations
+
 ## Wigner-Seitz analysis
 
 ::: mdapy.analysis.WignerSeitz

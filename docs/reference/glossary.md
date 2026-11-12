@@ -186,6 +186,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `poisson_ratio` | contraction along a `transverse` direction over the stretch along another; without them, that of a polycrystal |
 | `linear_compressibility` | relative shortening along a direction per unit of hydrostatic pressure (1/GPa) |
 | `universal_anisotropy` | the universal anisotropy index of elastic constants: zero for an isotropic crystal, positive otherwise |
+| stress fluctuations | elastic constants from one run at constant volume: the mean Born term, minus V/kT times the covariance of the virial stress, plus the kinetic term; `md_elastic_constants(..., method="fluctuation")` |
 | `direction`, `normal`, `transverse` | of elastic constants: a vector (3,) or vectors (N, 3) in the axes of the box, of any length; the direction of a stretch or shear, the normal of the plane sheared, the direction of a contraction across a stretch |
 | `extreme` | `"min"` or `"max"`: the smallest or largest value of a quantity of two directions over the second |
 | isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |

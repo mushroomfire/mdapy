@@ -12,7 +12,7 @@ A node of the Triton cluster of Aalto University, alone for the run: two
 Intel Xeon Gold 6148 (40 cores, two NUMA nodes), 191 GB, Linux. Python 3.13,
 MDAPY 2.0.0 built with GCC 12.3, OVITO 3.17.1 and ASE 3.29.0
 from pip. The [analyses](comparison.md) ran on another node, with Intel Xeon Gold
-6230, so their times do not compare with these.
+6248, so their times do not compare with these.
 
 ![Time of OVITO and of ASE over the time of MDAPY for each case and size](images/files.png)
 

@@ -9659,7 +9659,9 @@ negative; shear strains are engineering strains. Default 1e-3.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Convergence of each relaxation in eV/Å. Default 1e-4.</p>
+                <p>Convergence of each relaxation in eV/Å: the largest force left, or
+1e-4 of the largest force the strain makes, whichever is smaller,
+but no less than 1e-3 of max_force. Default 1e-4.</p>
               </div>
             </td>
             <td>

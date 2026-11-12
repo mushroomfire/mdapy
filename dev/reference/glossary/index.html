@@ -5969,7 +5969,7 @@
   <span class="md-ellipsis">
     
   
-    Interoperability
+    Fitting
   
 
     
@@ -5982,6 +5982,150 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fitting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/curve-fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curve fitting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/equation-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6984,6 +7128,34 @@
     
   
     Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fitting
   
 
     
@@ -8057,6 +8229,18 @@ one name everywhere.</p>
 <tr>
 <td>overlapping atoms</td>
 <td>Atoms closer than a distance to another, such as the copies of an atom or the atoms where structures put together clash; <code>find_overlapping</code> selects them.</td>
+</tr>
+<tr>
+<td>spline</td>
+<td>A curve through values, cubic between neighboring points, whose first and second derivatives are continuous; <code>Spline</code> along a line and <code>GridSpline</code> on a grid.</td>
+</tr>
+<tr>
+<td>least squares</td>
+<td>A fit that makes the sum of the squared residuals, the values less the curve, as small as it can, each weighed by 1/σ² when the values have standard deviations σ; <code>fit_polynomial</code>, <code>fit_surface</code>, <code>fit_curve</code>.</td>
+</tr>
+<tr>
+<td>equation of state</td>
+<td>The energy of a crystal as a function of its volume, of four parameters: the energy and the volume at the minimum, the bulk modulus there and its derivative with respect to the pressure; <code>fit_eos</code>.</td>
 </tr>
 <tr>
 <td>orthogonal cell</td>

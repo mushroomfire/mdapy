@@ -5967,7 +5967,7 @@
   <span class="md-ellipsis">
     
   
-    Interoperability
+    Fitting
   
 
     
@@ -5980,6 +5980,150 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fitting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/curve-fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curve fitting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/equation-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6974,6 +7118,34 @@
     
   
     Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fitting
   
 
     
@@ -8265,6 +8437,20 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.</li>
 <li><code>plot.panel_label</code> labels axes in 3D too; it raised <code>TypeError</code> there.</li>
+<li><code>mdapy.fitting</code>, curves and surfaces through data: <code>Spline</code> and <code>GridSpline</code>, cubic
+  splines along a line and on a grid, with derivatives, <code>Spline.integral</code> and the
+  <code>BOUNDARIES</code> at their ends, periodic among them; <code>fit_polynomial</code> and <code>fit_surface</code>,
+  least-squares polynomials of one and two variables, which give a <code>PolynomialFit</code> and a
+  <code>SurfaceFit</code>; <code>fit_curve</code>, functions with parameters fitted by the Levenberg–Marquardt
+  method into a <code>CurveFit</code>, from a <code>Model</code> (its <code>name</code>, <code>function</code>, parameters and
+  <code>guess</code>) or a plain function, with the <code>MODELS</code> <code>exponential</code>,
+  <code>stretched_exponential</code>, <code>gaussian</code>, <code>lorentzian</code>, <code>arrhenius</code> and <code>power_law</code>; and
+  <code>fit_eos</code>, an <code>EquationOfState</code> of one of the <code>FORMS</code> Birch–Murnaghan, Vinet and
+  Murnaghan, with its <code>energy</code> and <code>pressure</code> at any volume. Each fit gives its
+  parameters with their errors and covariance. See
+  <a href="../../user-guide/fitting/interpolation/">Interpolation</a>,
+  <a href="../../user-guide/fitting/curve-fitting/">Curve fitting</a> and
+  <a href="../../user-guide/fitting/equation-of-state/">Equations of state</a>.</li>
 <li><code>DislocationAnalysis</code> is no longer experimental. Its page lists the
   <a href="../../user-guide/analysis/dislocations/#limits">limits</a>, general grain boundaries
   first, and <a href="../../user-guide/analysis/dislocations/#where-the-results-differ-from-ovito">where the results differ from OVITO</a>

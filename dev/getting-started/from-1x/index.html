@@ -6139,7 +6139,7 @@
   <span class="md-ellipsis">
     
   
-    Interoperability
+    Fitting
   
 
     
@@ -6152,6 +6152,150 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fitting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/curve-fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curve fitting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/fitting/equation-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7146,6 +7290,34 @@
     
   
     Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fitting
   
 
     
@@ -8533,9 +8705,11 @@ mean of <code>csp</code> over each atom and its neighbors:</p>
 <p><strong>The notebook viewer <code>View</code></strong> is left out to keep MDAPY lean: <code>render</code> makes the
 picture and <code>show_image(render(system))</code> shows it in a notebook. A graphical
 application with fuller features is developed separately.</p>
-<p><strong>Coming in a later 2.x release</strong>: <code>orthogonal_cell</code>, <code>set_pka</code>, <code>Spline</code> and
-<code>BondStiffness</code>. They will be additions, so code written for 2.0 keeps working (see
-<a href="../../about/compatibility/">Compatibility</a>).</p>
+<p><strong>Since 2.1</strong>: <code>orthogonal_cell</code> is <code>mdapy.transform.orthogonal_cell</code> (see
+<a href="../../user-guide/build/orthogonal-cell/">Orthogonal cells</a>), and <code>Spline</code> is
+<code>mdapy.fitting.Spline</code> (see <a href="../../user-guide/fitting/interpolation/">Interpolation</a>).</p>
+<p><strong>Coming in a later 2.x release</strong>: <code>set_pka</code> and <code>BondStiffness</code>. They will be additions,
+so code written for 2.0 keeps working (see <a href="../../about/compatibility/">Compatibility</a>).</p>
 <p><strong>Threads</strong>: <code>MDAPY_NUM_THREADS</code> sets the number of threads as in 1.x, and
 <code>mp.set_num_threads(n)</code> changes it while running (see
 <a href="../../basics/parallelism/">Parallelism</a>).</p>

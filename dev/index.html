@@ -6067,7 +6067,7 @@
   <span class="md-ellipsis">
     
   
-    Interoperability
+    Fitting
   
 
     
@@ -6080,6 +6080,150 @@
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_5_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Fitting
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="user-guide/fitting/interpolation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interpolation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="user-guide/fitting/curve-fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Curve fitting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="user-guide/fitting/equation-of-state/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Equations of state
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Interoperability
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7094,6 +7238,34 @@
   
   
     <li class="md-nav__item">
+      <a href="reference/api/fitting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fitting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="reference/api/interop/" class="md-nav__link">
         
   
@@ -7974,6 +8146,7 @@ analyses and the calculators.</p>
     lattice["&lt;b&gt;Lattice dynamics&lt;/b&gt;&lt;br/&gt;elastic constants · phonons&lt;br/&gt;sheets · finite temperature"]
     thermodynamics["&lt;b&gt;Thermodynamics&lt;/b&gt;&lt;br/&gt;free energy · melting points · phase diagrams&lt;br/&gt;stacking faults with temperature"]
     packages["&lt;b&gt;Interoperability&lt;/b&gt;&lt;br/&gt;ASE · OVITO · pymatgen · freud&lt;br/&gt;LAMMPS · VASP · GPUMD"]
+    fitting["&lt;b&gt;Fitting&lt;/b&gt;&lt;br/&gt;splines · least squares&lt;br/&gt;equations of state"]
 
     files &lt;--&gt; system
     build --&gt; system
@@ -7988,6 +8161,8 @@ analyses and the calculators.</p>
     calculators --&gt; minimization
     minimization --&gt; lattice
     minimization --&gt; thermodynamics
+    analysis --&gt; fitting
+    lattice --&gt; fitting
 
     classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
     classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
@@ -7998,7 +8173,7 @@ analyses and the calculators.</p>
     classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
     class system,neighbors core
     class files,packages data
-    class analysis analysis
+    class analysis,fitting analysis
     class calculators,minimization,lattice,thermodynamics simulation
     class build build
     class visual visual

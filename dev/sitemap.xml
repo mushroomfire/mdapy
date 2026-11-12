@@ -213,6 +213,10 @@
          <lastmod>2026-11-12</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/fitting/</loc>
+         <lastmod>2026-11-12</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/identification/</loc>
          <lastmod>2026-11-12</lastmod>
     </url>
@@ -518,6 +522,18 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/build/transform/</loc>
+         <lastmod>2026-11-12</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/fitting/curve-fitting/</loc>
+         <lastmod>2026-11-12</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/fitting/equation-of-state/</loc>
+         <lastmod>2026-11-12</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/fitting/interpolation/</loc>
          <lastmod>2026-11-12</lastmod>
     </url>
     <url>

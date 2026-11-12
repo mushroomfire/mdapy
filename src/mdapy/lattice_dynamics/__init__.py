@@ -8,6 +8,10 @@ force constants, bond stiffness, phonons and the quasi-harmonic
 approximation."""
 
 from mdapy.lattice_dynamics._bond_stiffness import BondStiffness, bond_stiffness
+from mdapy.lattice_dynamics._conductivity import (
+    ThermalConductivity,
+    thermal_conductivity,
+)
 from mdapy.lattice_dynamics._elastic import (
     ElasticResult,
     SheetElasticResult,
@@ -49,6 +53,7 @@ __all__ = [
     "QuasiHarmonicResult",
     "SheetElasticResult",
     "ThermalElasticResult",
+    "ThermalConductivity",
     "ThermalProperties",
     "bond_stiffness",
     "displaced_supercells",
@@ -61,6 +66,7 @@ __all__ = [
     "quasi_harmonic",
     "read_band_structure",
     "read_force_constants",
+    "thermal_conductivity",
     "thermal_elastic_constants",
     "thermal_phonons",
 ]

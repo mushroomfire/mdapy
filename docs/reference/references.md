@@ -411,6 +411,16 @@ neighborhood, *Comput. Phys. Commun.* **177**, 518 (2007).
 [doi:10.1016/j.cpc.2007.05.018](https://doi.org/10.1016/j.cpc.2007.05.018)
 { #tsuzuki2007 }
 
+**Togo et al. (2015).** A. Togo, L. Chaput and I. Tanaka, Distributions of phonon
+lifetimes in Brillouin zones, *Phys. Rev. B* **91**, 094306 (2015).
+[doi:10.1103/PhysRevB.91.094306](https://doi.org/10.1103/PhysRevB.91.094306)
+{ #togo2015 }
+
+**Togo et al. (2023).** A. Togo, L. Chaput, T. Tadano and I. Tanaka, Implementation
+strategies in phonopy and phono3py, *J. Phys.: Condens. Matter* **35**, 353001 (2023).
+[doi:10.1088/1361-648X/acd831](https://doi.org/10.1088/1361-648X/acd831)
+{ #togo2023 }
+
 **Togo et al. (2024).** A. Togo, K. Shinohara and I. Tanaka, Spglib: a
 software library for crystal symmetry search, *Sci. Technol. Adv. Mater.:
 Methods* **4**, 2384822 (2024).

@@ -50,6 +50,14 @@
   Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
   apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
   phonopy does.
+- `mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma,
+  symmetry=None)` gives the lattice thermal conductivity in the relaxation-time
+  approximation from second and third order force constants, by three-phonon scattering
+  with Gaussians of width `sigma`, on the irreducible wave vectors of a mesh. Its
+  `ThermalConductivity` holds `kappa`, the `q` and `weights` of the irreducible wave
+  vectors, and the `frequencies`, `group_velocities`, `gamma`, `lifetimes` and
+  `heat_capacities` of their modes. See
+  [Thermal conductivity](../user-guide/simulation/thermal-conductivity.md).
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

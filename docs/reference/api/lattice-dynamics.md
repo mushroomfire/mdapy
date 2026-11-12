@@ -38,6 +38,12 @@
 
 ::: mdapy.lattice_dynamics.BondStiffness
 
+## Thermal conductivity
+
+::: mdapy.lattice_dynamics.thermal_conductivity
+
+::: mdapy.lattice_dynamics.ThermalConductivity
+
 ::: mdapy.lattice_dynamics.PhononDOS
 
 ::: mdapy.lattice_dynamics.ThermalProperties

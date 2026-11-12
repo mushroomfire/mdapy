@@ -12,6 +12,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy import units
+from mdapy._core import analysis as _scattering
 from mdapy.analysis._symmetry import _rotations
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._force_constants import ForceConstants
@@ -212,15 +213,15 @@ def thermal_conductivity(
     )
     occupation = np.where(live[None], 1.0 / np.expm1(x_), 0.0)  # (T, Q, 3n)
 
-    def delta(apart: np.ndarray) -> np.ndarray:
-        """The Gaussian of frequencies apart in THz, per rad/s."""
-        return np.exp(-0.5 * (apart / sigma) ** 2) / (
-            sigma * np.sqrt(2 * np.pi) * 2 * np.pi * 1e12
-        )
+    def flat(values: np.ndarray) -> np.ndarray:
+        """Complex values as float64 pairs, for the kernel."""
+        return np.ascontiguousarray(values, dtype=complex).view(np.float64)
 
-    gamma = np.zeros((len(temperatures), len(irreducible), modes))
+    rates = np.zeros((len(temperatures), len(irreducible), modes))
     grid = np.round(q * counts).astype(np.int64)
+    angular = 2 * np.pi * 1e12  # rad/s per THz
     for slot, index in enumerate(irreducible):
+        first = flat(weighted[index].reshape(modes, modes))
         for start in range(0, total, _CHUNK):
             chunk = np.arange(start, min(start + _CHUNK, total))
             # -q + q' + q'' = 0: q'' = q - q', not moved back into the mesh
@@ -231,48 +232,28 @@ def thermal_conductivity(
             g2 = (g2[:, 0] * counts[1] + g2[:, 1]) * counts[2] + g2[:, 2]
             phase1 = np.exp(1j * (q[chunk] @ reciprocal) @ first_vector.T)
             phase2 = np.exp(1j * (q2 @ reciprocal) @ second_vector.T)
-            strength = np.zeros((len(chunk), modes, modes, modes), dtype=complex)
+            # the third order force constants of q' and q'', by the atoms
+            # and axes of q, q' and q''
+            tensor = np.zeros((len(chunk), n, 3, n, 3, n, 3), dtype=complex)
             for x, y, z, members in groups:
                 v3 = (phase1[:, members] * phase2[:, members]) @ values[members]
-                strength += np.einsum(
-                    "qabc,la,qmb,qnc->qlmn",
-                    v3.reshape(-1, 3, 3, 3),
-                    weighted[index, :, x].conj(),
-                    weighted[chunk][:, :, y],
-                    w2[:, :, z],
-                    optimize=True,
-                )
-            live2 = f2 > _SAME_VELOCITY
-            good = (
-                live[index][None, :, None, None]
-                & live[chunk][:, None, :, None]
-                & live2[:, None, None, :]
-            )
-            denominator = np.where(
-                good,
-                omega[index][None, :, None, None]
-                * omega[chunk][:, None, :, None]
-                * (2 * np.pi * f2 * 1e12)[:, None, None, :],
-                1.0,
-            )
-            strength = (
-                np.where(good, np.abs(strength) ** 2 / denominator, 0.0)
-                * (_HBAR / 2) ** 3
-                / 36
-                / total
-            )
-            f0 = frequencies[index][None, :, None, None]
-            f1 = frequencies[chunk][:, None, :, None]
-            f2_ = f2[:, None, None, :]
-            joined = delta(f0 - f1 - f2_)
-            parted = delta(f0 + f1 - f2_) - delta(f0 - f1 + f2_)
-            for t in range(len(temperatures)):
-                n1 = occupation[t][chunk][:, None, :, None]
-                n2 = occupation[t][g2][:, None, None, :]
-                weight = (n1 + n2 + 1) * joined + (n1 - n2) * parted
-                gamma[t, slot] += (
-                    18 * np.pi / _HBAR**2 * (strength * weight).sum(axis=(0, 2, 3))
-                )
+                tensor[:, x, :, y, :, z, :] += v3.reshape(-1, 3, 3, 3)
+            rates[:, slot] += _scattering.three_phonon_rates(
+                first,
+                flat(weighted[chunk].reshape(len(chunk), modes, modes)),
+                flat(w2.reshape(len(chunk), modes, modes)),
+                flat(tensor),
+                np.ascontiguousarray(omega[index]),
+                np.ascontiguousarray(omega[chunk]),
+                np.ascontiguousarray(angular * f2),
+                np.ascontiguousarray(occupation[:, chunk]),
+                np.ascontiguousarray(occupation[:, g2]),
+                None,
+                None,
+                angular * sigma,
+                angular * _SAME_VELOCITY,
+            ).reshape(len(temperatures), modes)
+    gamma = rates * (18 * np.pi / _HBAR**2) * (_HBAR / 2) ** 3 / 36 / total
     gamma /= 2 * np.pi * 1e12  # THz
     # modes of one frequency share their width
     reduced = frequencies[irreducible]

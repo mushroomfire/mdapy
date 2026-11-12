@@ -87,6 +87,19 @@ def test_the_irreducible_wave_vectors_give_the_whole_mesh(copper):
     )
 
 
+def test_the_same_for_any_number_of_threads(copper):
+    before = mdapy.get_num_threads()
+    try:
+        mdapy.set_num_threads(1)
+        one = thermal_conductivity(copper, [300.0], mesh=5, sigma=0.2)
+        mdapy.set_num_threads(4)
+        four = thermal_conductivity(copper, [300.0], mesh=5, sigma=0.2)
+    finally:
+        mdapy.set_num_threads(before)
+    np.testing.assert_array_equal(one.gamma, four.gamma)
+    np.testing.assert_array_equal(one.kappa, four.kappa)
+
+
 def test_widths_go_as_the_square_of_the_third_order(copper):
     doubled = ForceConstants(
         copper.cell, copper.supercell, copper.second, 2 * copper.third

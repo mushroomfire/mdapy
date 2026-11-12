@@ -5302,6 +5302,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/green-kubo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8947,6 +8975,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>thermal displacements</td>
 <td>⟨u<sub>α</sub>u<sub>β</sub>⟩ (Å²) of each atom of a crystal by its vibrations, with the zero point motion, (T, n, 3, 3), from <code>Phonons.thermal_displacements</code></td>
+</tr>
+<tr>
+<td>heat flux</td>
+<td>the energy carried through a unit area per unit time by the atoms, (eV Å/ps) times the volume as LAMMPS's <code>compute heat/flux</code> gives it; the Green–Kubo conductivity integrates its correlation</td>
 </tr>
 <tr>
 <td><code>kappa</code></td>

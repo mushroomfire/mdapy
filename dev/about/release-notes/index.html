@@ -5300,6 +5300,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/green-kubo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8590,6 +8618,13 @@
   mean square displacements and the Debye–Waller factors.</li>
 <li><code>Phonons.gruneisen(q, *, smaller, larger)</code> gives the mode Grüneisen parameters from the
   phonons of the crystal at a smaller and a larger volume, as phonopy does.</li>
+<li><code>mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)</code> gives the thermal
+  conductivity from the heat flux of equilibrium molecular dynamics in LAMMPS by the
+  Green–Kubo relation, with the centroid stress of each atom for many-body potentials;
+  <code>green_kubo_from_flux</code> does it with a flux from any dynamics. Its <code>GreenKubo</code> holds the
+  <code>temperature</code>, <code>volume</code>, the <code>times</code> of the correlation, the <code>running</code> integral,
+  <code>kappa</code>, its <code>errors</code> from blocks and the <code>flux</code>. See
+  <a href="../../user-guide/simulation/green-kubo/">Green–Kubo conductivity</a>.</li>
 <li><code>mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)</code> fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

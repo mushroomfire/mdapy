@@ -5302,6 +5302,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/green-kubo/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -7748,6 +7776,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.green_kubo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        green_kubo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.green_kubo_from_flux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        green_kubo_from_flux
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.GreenKubo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GreenKubo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.PhononDOS" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9277,6 +9338,39 @@
     <span class="md-ellipsis">
       
         ThermalConductivity
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.green_kubo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        green_kubo
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.green_kubo_from_flux" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        green_kubo_from_flux
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.GreenKubo" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GreenKubo
       
     </span>
   </a>
@@ -14583,6 +14677,593 @@ that do not scatter.</p>
             <td>
               <div class="doc-md-description">
                 <p>(T, Q, 3n) float64 heat capacity of each mode in eV/K.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.green_kubo" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">green_kubo</span>
+
+
+<a href="#mdapy.lattice_dynamics.green_kubo" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">green_kubo</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">correlation</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The thermal conductivity of a crystal or liquid at a temperature, from
+the fluctuations of the heat flux in equilibrium molecular dynamics in
+LAMMPS, by the Green-Kubo relation.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The atoms in a box periodic in every direction, of its size at the
+temperature, with an <code>element</code> column.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>potential</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The interaction, as a LAMMPS calculator; a many-body one must give
+LAMMPS the centroid stress of each atom.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperature in K, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timestep</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time step in ps. Default 0.001.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.001</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>equilibration</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps at constant temperature first. Default 10000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>production</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps at constant energy whose heat flux is recorded. Default 100000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>every</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps between the samples of the flux. Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>correlation</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The longest lag of the correlation in ps. Default 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of blocks of the flux for the standard error. Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the starting velocities. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="GreenKubo
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._green_kubo.GreenKubo)" href="#mdapy.lattice_dynamics.GreenKubo">GreenKubo</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity, at the mean temperature of the run at constant
+energy, with its integral up to each lag and its error.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a box that is not periodic, a temperature or numbers of steps
+that are not positive, a potential without the centroid stress of
+each atom, the errors of <code>green_kubo_from_flux</code>, or those of
+<code>MolecularDynamics</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.green_kubo_from_flux" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">green_kubo_from_flux</span>
+
+
+<a href="#mdapy.lattice_dynamics.green_kubo_from_flux" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">green_kubo_from_flux</span><span class="p">(</span><span class="n">flux</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">interval</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">correlation</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The thermal conductivity from a heat flux of equilibrium molecular
+dynamics of any kind, by the Green-Kubo relation.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>flux</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S, 3) the heat flux times the volume in eV Å/ps, sampled at equal
+intervals, as LAMMPS's compute heat/flux gives it in metal units.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>interval</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The time between samples in ps.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>volume</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The volume in Å³.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The temperature in K.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>correlation</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The longest lag of the correlation in ps, over which it is
+integrated.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of blocks of the flux for the standard error, each at
+least as long as the correlation. Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="GreenKubo
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._green_kubo.GreenKubo)" href="#mdapy.lattice_dynamics.GreenKubo">GreenKubo</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity, its integral up to each lag and its error.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the flux is not (S, 3) and finite, the interval, volume,
+temperature or correlation is not positive, blocks is less than 2,
+or a block is shorter than the correlation.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.GreenKubo" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">GreenKubo</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.GreenKubo" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GreenKubo</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">running</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">flux</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The thermal conductivity of the fluctuations of the heat flux.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.temperature">temperature</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The temperature in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.volume">volume</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The volume in Å³.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.times">times</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(C,) float64 the lags of the correlation in ps, from 0.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.running">running</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(C, 3, 3) float64 the conductivity in W/(m K) of the integral of the
+correlation up to each lag.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.kappa">kappa</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3, 3) float64 the conductivity in W/(m K), that of the last lag.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.errors">errors</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3, 3) float64 the standard error of kappa in W/(m K), from blocks of
+the flux.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.GreenKubo.flux">flux</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S, 3) float64 the heat flux times the volume in eV Å/ps, at the
+samples.</p>
               </div>
             </td>
           </tr>

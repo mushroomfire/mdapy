@@ -126,3 +126,59 @@ def test_against_symfc_within_a_cutoff(potential, name):
     np.testing.assert_allclose(
         ours.second[theirs.p2s_map], theirs.force_constants[2], rtol=0, atol=1e-12
     )
+
+
+# third order with second order on the torus or within a cutoff; cutoffs of
+# third order between shells and below a third of the supercell, where symfc
+# takes each of the three distances to its nearest image as the fit does
+THIRD = {
+    "fcc primitive cell": ("fcc", 3.29, "Cu", 4, True, None, 2.8),
+    "fcc primitive cell, cutoff": ("fcc", 3.29, "Cu", 4, True, 4.5, 3.7),
+    "fcc cubic cell": ("fcc", 3.29, "Cu", 3, False, None, 3.7),
+    "hcp, cutoff": ("hcp", 2.33, "Cu", (4, 4, 3), False, 4.4, 2.8),
+    "L1_2 Cu3Ni": ("l1_2", 3.29, ("Cu", "Ni"), 3, False, None, 2.8),
+}
+
+
+@pytest.mark.parametrize("name", THIRD)
+def test_third_order_against_symfc(potential, name):
+    from symfc import Symfc
+    from symfc.utils.utils import SymfcAtoms
+
+    structure, a, elements, supercell, primitive, cutoff, third = THIRD[name]
+    cell = minimize(
+        build_crystal(structure, a, elements=elements),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=10000,
+    ).system
+    if primitive:
+        cell = primitive_cell(cell)
+    frames = displaced_supercells(
+        cell, supercell=supercell, method="random", displacement=0.05, count=3, seed=3
+    )
+    frames = [
+        f.with_columns(forces=potential.compute(f, ("forces",)).forces) for f in frames
+    ]
+    ours = force_constants(cell, frames, cutoff=cutoff, cutoff_third=third)
+    big = _supercell(cell, ours.supercell)
+    atoms = SymfcAtoms(
+        cell=big.box.matrix,
+        scaled_positions=big.box.to_fractional(big["positions"]),
+        numbers=big.table["element"].to_physical().to_numpy() + 1,
+    )
+    theirs = Symfc(
+        atoms, cutoff={3: third} if cutoff is None else {2: cutoff, 3: third}
+    )
+    theirs.displacements = np.array([f["positions"] - big["positions"] for f in frames])
+    theirs.forces = np.array([f["forces"] for f in frames])
+    theirs.run(orders=[2, 3])
+    rows = theirs.p2s_map
+    np.testing.assert_allclose(
+        ours.second[rows], theirs.force_constants[2], rtol=0, atol=1e-12
+    )
+    np.testing.assert_allclose(
+        ours.third[rows], theirs.force_constants[3], rtol=0, atol=1e-12
+    )

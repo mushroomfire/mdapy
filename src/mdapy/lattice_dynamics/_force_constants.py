@@ -6,6 +6,7 @@
 """Force constants of a crystal in a supercell, and the FORCE_CONSTANTS files
 of phonopy."""
 
+import itertools
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -47,7 +48,8 @@ _MARGIN = 1e-3
 
 @dataclass(frozen=True, eq=False, repr=False)
 class ForceConstants:
-    """Second order force constants of a crystal in a supercell.
+    """Second order, and third order, force constants of a crystal in a
+    supercell.
 
     Parameters
     ----------
@@ -65,6 +67,10 @@ class ForceConstants:
         supercell, which holds S cells, each with the atoms of the cell in
         their order, the first cell that of the cell itself, as the
         ``force_constants`` of ``Phonons``.
+    third : array_like of float64, optional
+        (n, n S, n S, 3, 3, 3) third derivatives of the energy in eV/Å³ with
+        respect to the positions of each atom of the cell and of two atoms
+        of the supercell, the atoms as for second. Default None.
 
     Attributes
     ----------
@@ -75,6 +81,9 @@ class ForceConstants:
     second : numpy.ndarray
         (n, n S, 3, 3) float64 second order force constants in eV/Å²;
         read-only.
+    third : numpy.ndarray or None
+        (n, n S, n S, 3, 3, 3) float64 third order force constants in eV/Å³,
+        or None; read-only.
     cutoff : float64 or None
         The cutoff in Å of a fit by ``force_constants`` beyond which the
         force constants are zero; None for every pair of the supercell, or
@@ -82,6 +91,13 @@ class ForceConstants:
     parameters : int64 or None
         The number of free force constants that symmetry and the sum rule
         leave, of a fit by ``force_constants``; None otherwise.
+    cutoff_third : float64 or None
+        The cutoff in Å of the third order force constants of a fit by
+        ``force_constants``: those of three atoms each no farther from the
+        others; None otherwise.
+    parameters_third : int64 or None
+        The number of free third order force constants of a fit; None
+        otherwise.
     error : float64 or None
         The relative error of the forces of a fit by ``force_constants``:
         the norm of the forces less those of the force constants over the
@@ -92,15 +108,19 @@ class ForceConstants:
     InvalidParameter
         If the box is neither periodic nor that of a sheet, there are no
         atoms, the supercell is not positive integers or a matrix of them
-        with a positive determinant, or second is not of the shape of the
-        cell and the supercell or not finite.
+        with a positive determinant, second or third is not of the shape of
+        the cell and the supercell or not finite, or third would take more
+        than 2 GB.
     """
 
     cell: System
     supercell: np.ndarray
     second: np.ndarray
+    third: np.ndarray | None = None
     cutoff: float | None = field(default=None, init=False)
     parameters: int | None = field(default=None, init=False)
+    cutoff_third: float | None = field(default=None, init=False)
+    parameters_third: int | None = field(default=None, init=False)
     error: float | None = field(default=None, init=False)
 
     def __post_init__(self):
@@ -118,6 +138,23 @@ class ForceConstants:
         second.flags.writeable = False
         object.__setattr__(self, "supercell", matrix)
         object.__setattr__(self, "second", second)
+        if self.third is not None:
+            count = n * size
+            shape = (n, count, count, 3, 3, 3)
+            if n * count * count * 27 * 8 > _MEMORY:
+                raise InvalidParameter(
+                    f"third order force constants of {shape} take "
+                    f"{n * count * count * 27 * 8 / 1e9:.0f} GB: too many"
+                )
+            third = np.array(self.third, dtype=float)
+            if third.shape != shape:
+                raise InvalidParameter(
+                    f"third must be of shape {shape}, not {third.shape}"
+                )
+            if not np.isfinite(third).all():
+                raise InvalidParameter("third must be finite")
+            third.flags.writeable = False
+            object.__setattr__(self, "third", third)
 
     def __repr__(self) -> str:
         cells = round(np.linalg.det(self.supercell))
@@ -224,7 +261,7 @@ def _phonopy_atoms(matrix: np.ndarray, n: int) -> np.ndarray:
     return (order[None, :] * n + np.arange(n)[:, None]).reshape(-1)
 
 
-def _translated(big: System, shift: np.ndarray, kinds: np.ndarray) -> np.ndarray | None:
+def _shifted(big: System, shift: np.ndarray, kinds: np.ndarray) -> np.ndarray | None:
     """(N,) the atom of the supercell at each atom moved by shift, or None
     if the shift does not map the crystal onto itself."""
     box = big.box
@@ -328,7 +365,7 @@ def read_force_constants(
         for p, row in given.items():
             if kinds[p] != kinds[a]:
                 continue
-            image = _translated(big, big["positions"][a] - big["positions"][p], kinds)
+            image = _shifted(big, big["positions"][a] - big["positions"][p], kinds)
             if image is not None:
                 second[a, image] = row
                 break
@@ -523,15 +560,9 @@ def _pair_table(
     return tuple(np.concatenate(x) for x in (first, second, cells))
 
 
-def _cutoff_pairs(
-    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """The pairs of atoms of the crystal no farther apart than the cutoff,
-    the first in the cell, as ``_torus_pairs`` gives them: with every
-    operation of the crystal, and each pair at its atom of the supercell."""
-    n = len(cell)
-    a, b, lattice = _pair_table(cell, matrix, cutoff)
-    # a table of the pairs by their atoms and cell
+def _lookup(a: np.ndarray, b: np.ndarray, lattice: np.ndarray, n: int):
+    """A function that finds the index of pairs in a table of pairs, by their
+    first atom, second atom and cell of the second; -1 for pairs not in it."""
     low = lattice.min(axis=0)
     span = np.ptp(lattice, axis=0) + 1
 
@@ -550,8 +581,14 @@ def _cutoff_pairs(
         k = key(a, b, cell)
         return np.where(k >= 0, table[np.maximum(k, 0)], -1)
 
-    operations = _operations(cell, symmetry)
-    rotations, cartesian, atoms, shifts = _kept(operations, np.eye(3), n)
+    return find
+
+
+def _pair_images(
+    a: np.ndarray, b: np.ndarray, lattice: np.ndarray, find, operations
+) -> np.ndarray:
+    """(K, P) the pair that each operation takes each pair to."""
+    rotations, _, atoms, shifts = operations
     images = np.stack(
         [
             find(
@@ -562,10 +599,24 @@ def _cutoff_pairs(
             for k in range(len(rotations))
         ]
     )
-    maps = np.concatenate([images, find(b, a, -lattice)[images]])
     # distances are kept, so every image is a pair of the table
-    assert (maps >= 0).all()
-    return a, _cell_of(lattice, matrix) * n + b, cartesian, maps
+    assert (images >= 0).all()
+    return images
+
+
+def _cutoff_pairs(
+    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The pairs of atoms of the crystal no farther apart than the cutoff,
+    the first in the cell, as ``_torus_pairs`` gives them: with every
+    operation of the crystal, and each pair at its atom of the supercell."""
+    n = len(cell)
+    a, b, lattice = _pair_table(cell, matrix, cutoff)
+    find = _lookup(a, b, lattice, n)
+    operations = _kept(_operations(cell, symmetry), np.eye(3), n)
+    images = _pair_images(a, b, lattice, find, operations)
+    maps = np.concatenate([images, find(b, a, -lattice)[images]])
+    return a, _cell_of(lattice, matrix) * n + b, operations[1], maps
 
 
 def _basis(
@@ -672,21 +723,38 @@ def _displacements(
     return displacements, forces
 
 
+def _matched(
+    cell: System, matrix: np.ndarray, frames: Sequence[System]
+) -> list[tuple[np.ndarray, np.ndarray]]:
+    """The displacement and the force of each atom of the supercell in each
+    frame, its atoms matched by position."""
+    big = _supercell(cell, matrix)
+    return [_displacements(big, frame, k, 1e-4) for k, frame in enumerate(frames)]
+
+
+def _translated(cell: System, matrix: np.ndarray) -> np.ndarray:
+    """(S, N) the atom of the supercell that each atom is, moved by each
+    cell of the supercell."""
+    n = len(cell)
+    points = _lattice_points(matrix)
+    moved = _cell_of(points[:, None, :] + points[None, :, :], matrix)
+    atom = np.arange(n * len(points))
+    return moved[:, atom // n] * n + atom % n
+
+
 def _design(
-    cell: System, matrix: np.ndarray, basis: np.ndarray, frames: Sequence[System]
+    cell: System,
+    matrix: np.ndarray,
+    basis: np.ndarray,
+    matched: Sequence[tuple[np.ndarray, np.ndarray]],
 ) -> tuple[np.ndarray, np.ndarray]:
     """The forces of each of the K parameters of a basis, (n N 9, K) by the
-    layout of ``_basis``, on the atoms of the frames, and the forces of the
-    frames, both flat over the frames, atoms and axes."""
+    layout of ``_basis``, on the atoms of the matched frames, and the forces
+    of the frames, both flat over the frames, atoms and axes."""
     n = len(cell)
-    big = _supercell(cell, matrix)
-    points = _lattice_points(matrix)
-    size, count = len(points), len(big)
+    translated = _translated(cell, matrix)
+    size, count = translated.shape
     parameters = basis.shape[1]
-    # the atom of the supercell that each atom is, moved by each cell
-    moved = _cell_of(points[:, None, :] + points[None, :, :], matrix)
-    atom = np.arange(count)
-    translated = moved[:, atom // n] * n + atom % n  # (S, N)
     # the forces of each parameter: F of atom b of cell c is minus the sum
     # over j of the force constants of b and j times the displacement of j
     # moved by c
@@ -696,13 +764,175 @@ def _design(
         .reshape(count * 3, n * 3 * parameters)
     )
     rows, values = [], []
-    for k, frame in enumerate(frames):
-        u, f = _displacements(big, frame, k, 1e-4)
+    for u, f in matched:
         rows.append(
             -(u[translated].reshape(size, count * 3) @ weights).reshape(-1, parameters)
         )
         values.append(f.reshape(-1))
     return np.concatenate(rows), np.concatenate(values)
+
+
+# the six orders of three atoms
+_PERMUTATIONS = tuple(itertools.permutations(range(3)))
+
+
+@dataclass(frozen=True)
+class _Third:
+    """The free third order force constants of a crystal within a cutoff:
+    its triplets, each two pairs of the pair table with the same first atom
+    in the cell (the first atom, the supercell atom of the second and of the
+    third), the orbits of the triplets with the (m, 27, f) force constants of
+    each free parameter of their representative, components by rows, and the
+    null space of the sum rule."""
+
+    first: np.ndarray
+    second: np.ndarray
+    third: np.ndarray
+    orbits: list
+    null: np.ndarray
+
+
+def _third(
+    cell: System, matrix: np.ndarray, cutoff: float, symmetry: bool | None
+) -> _Third:
+    """The triplets of atoms of the crystal no farther apart than the cutoff
+    each from the others, under every operation of the crystal and the six
+    orders of the three atoms, and the sum rule over the third atom."""
+    n = len(cell)
+    a, b, lattice = _pair_table(cell, matrix, cutoff, "cutoff_third")
+    pairs = len(a)
+    find = _lookup(a, b, lattice, n)
+    vectors = lattice @ cell.box.matrix + cell["positions"][b] - cell["positions"][a]
+    # two pairs of the same first atom whose second atoms are near enough too
+    first, second = [], []
+    for atom in range(n):
+        mine = np.flatnonzero(a == atom)
+        apart = np.linalg.norm(vectors[mine][:, None] - vectors[mine][None], axis=2)
+        i, j = np.nonzero(apart <= cutoff + _SHELL)
+        first.append(mine[i])
+        second.append(mine[j])
+    p, q = np.concatenate(first), np.concatenate(second)
+    order = np.argsort(p * pairs + q)
+    p, q = p[order], q[order]
+    keys = p * pairs + q
+
+    def triplet(p: np.ndarray, q: np.ndarray) -> np.ndarray:
+        at = np.minimum(np.searchsorted(keys, p * pairs + q), len(keys) - 1)
+        # distances are kept, so every image is a triplet of the table
+        assert (keys[at] == p * pairs + q).all()
+        return at
+
+    operations = _kept(_operations(cell, symmetry), np.eye(3), n)
+    images = _pair_images(a, b, lattice, find, operations)
+    turned = np.stack([triplet(images[k, p], images[k, q]) for k in range(len(images))])
+    # the atom and the cell of each of the three atoms, in each order, the
+    # first moved back into the cell
+    members = (
+        (a[p], np.zeros_like(lattice[p])),
+        (b[p], lattice[p]),
+        (b[q], lattice[q]),
+    )
+    reordered = []
+    for permutation in _PERMUTATIONS:
+        (x, lx), (y, ly), (z, lz) = (members[m] for m in permutation)
+        reordered.append(triplet(find(x, y, ly - lx), find(x, z, lz - lx)))
+    maps = np.concatenate([permuted[turned] for permuted in reordered])
+    cartesian = _orthogonal(operations[1])
+    turns = np.einsum("kab,kcd,kef->kacebdf", cartesian, cartesian, cartesian)
+    index = np.arange(27).reshape(3, 3, 3)
+    matrices = np.concatenate(
+        [
+            np.eye(27)[index.transpose(permutation).reshape(-1)]
+            @ turns.reshape(-1, 27, 27)
+            for permutation in _PERMUTATIONS
+        ]
+    )
+    orbits, done = [], np.zeros(len(p), dtype=bool)
+    for r in range(len(p)):
+        if done[r]:
+            continue
+        reached = maps[:, r]
+        projector = matrices[reached == r].mean(axis=0)
+        u, s, _ = np.linalg.svd(projector)
+        free = u[:, s > 0.5]
+        orbit, by = np.unique(reached, return_index=True)
+        done[orbit] = True
+        if free.shape[1]:
+            orbits.append((orbit, matrices[by] @ free))
+    total = sum(block.shape[2] for _, block in orbits)
+    # the sum rule over the third atom, for one pair of each orbit of pairs:
+    # the operations carry it to the others
+    representatives = np.unique(images.min(axis=0))
+    slot = np.full(pairs, -1)
+    slot[representatives] = np.arange(len(representatives))
+    sums = np.zeros((len(representatives), 27, total))
+    column = 0
+    for orbit, block in orbits:
+        width = block.shape[2]
+        mine = slot[p[orbit]] >= 0
+        np.add.at(
+            sums[:, :, column : column + width], slot[p[orbit][mine]], block[mine]
+        )
+        column += width
+    _, s, vt = np.linalg.svd(sums.reshape(-1, total))
+    rank = int((s > 1e-9 * max(1.0, s[0] if len(s) else 0.0)).sum())
+    atoms = _cell_of(lattice, matrix) * n + b  # the atom of the supercell of each pair
+    return _Third(a[p], atoms[p], atoms[q], orbits, vt[rank:].T)
+
+
+def _third_design(
+    cell: System,
+    matrix: np.ndarray,
+    third: _Third,
+    matched: Sequence[tuple[np.ndarray, np.ndarray]],
+) -> np.ndarray:
+    """The forces of each free third order parameter on the atoms of the
+    matched frames, flat over the frames, atoms and axes: minus half the
+    force constants of each triplet times the displacements of its second
+    and third atoms, moved by each cell."""
+    n = len(cell)
+    translated = _translated(cell, matrix)
+    size = len(translated)
+    total = third.null.shape[0]
+    rows = []
+    for u, _ in matched:
+        raw = np.zeros((size, n, 3, total))
+        column = 0
+        for orbit, block in third.orbits:
+            width = block.shape[2]
+            # (S, m, 9) the products of the displacements of the two atoms
+            uj = u[translated[:, third.second[orbit]]]
+            uk = u[translated[:, third.third[orbit]]]
+            products = (uj[..., :, None] * uk[..., None, :]).reshape(
+                size, len(orbit), 9
+            )
+            blocks = block.reshape(len(orbit), 3, 9, width)
+            for atom in np.unique(third.first[orbit]):
+                mine = third.first[orbit] == atom
+                weights = blocks[mine].transpose(1, 3, 0, 2).reshape(3 * width, -1)
+                raw[:, atom, :, column : column + width] += (
+                    products[:, mine].reshape(size, -1) @ weights.T
+                ).reshape(size, 3, width)
+            column += width
+        rows.append(-0.5 * raw.reshape(size * n * 3, total) @ third.null)
+    return np.concatenate(rows)
+
+
+def _dense_third(
+    cell: System, matrix: np.ndarray, third: _Third, solution: np.ndarray
+) -> np.ndarray:
+    """(n, N, N, 3, 3, 3) the third order force constants of the parameters."""
+    n, count = len(cell), len(cell) * round(np.linalg.det(matrix))
+    values = third.null @ solution
+    out = np.zeros((n, count, count, 27))
+    column = 0
+    for orbit, block in third.orbits:
+        width = block.shape[2]
+        out[third.first[orbit], third.second[orbit], third.third[orbit]] = (
+            block @ values[column : column + width]
+        )
+        column += width
+    return out.reshape(n, count, count, 3, 3, 3)
 
 
 def _supercell_of(cell: System, frames: Sequence[System]) -> np.ndarray:
@@ -719,10 +949,11 @@ def force_constants(
     frames: Sequence[System],
     *,
     cutoff: float | None = None,
+    cutoff_third: float | None = None,
     symmetry: bool | None = None,
 ) -> ForceConstants:
-    """Second order force constants of a crystal fitted to the forces on
-    atoms displaced in a supercell.
+    """Second order force constants of a crystal, and third order ones,
+    fitted to the forces on atoms displaced in a supercell.
 
     Parameters
     ----------
@@ -740,6 +971,12 @@ def force_constants(
         with every symmetry operation of the crystal; by default those of
         every pair of the supercell, with its periodic boundaries and the
         operations that map it onto itself.
+    cutoff_third : float64, optional
+        Fit third order force constants too, of three atoms each no farther
+        than this from the others, in Å, at most half the shortest vector of
+        the supercell less 1e-3 Å, with every symmetry operation of the
+        crystal; they need random displacements, by plus and minus. By
+        default second order only.
     symmetry : bool, optional
         Use the symmetry of the cell, found by spglib, in the fit: True,
         False, or by default whenever spglib is installed.
@@ -748,8 +985,8 @@ def force_constants(
     -------
     ForceConstants
         The force constants that give the forces best, symmetric under the
-        operations and in the two atoms, and summing to zero over the atoms
-        of the supercell, with the cutoff, the number of free parameters and
+        operations and in the atoms, and summing to zero over each atom of
+        the supercell, with the cutoffs, the numbers of free parameters and
         the relative error of the forces.
 
     Raises
@@ -757,10 +994,10 @@ def force_constants(
     InvalidParameter
         If the box is neither periodic nor that of a sheet, there are no
         atoms or no frames, a frame is not a supercell of the cell with
-        forces, its atoms one at each atom of the supercell, the cutoff is
-        not positive or too long for the supercell, the frames do not
-        determine every free parameter, the fit is too large for memory, or
-        symmetry is True without spglib.
+        forces, its atoms one at each atom of the supercell, a cutoff is not
+        positive or too long for the supercell, the frames do not determine
+        every free parameter, the fit or the third order force constants are
+        too large for memory, or symmetry is True without spglib.
     """
     frames = list(frames)
     if len(cell) == 0:
@@ -774,17 +1011,46 @@ def force_constants(
     if cutoff is not None:
         cutoff = float(cutoff)
     basis, parameters = _basis(cell, matrix, cutoff, symmetry)
-    design, forces = _design(cell, matrix, basis, frames)
-    solution, _, rank, _ = np.linalg.lstsq(design, forces)
-    if rank < parameters:
+    third, more = None, 0
+    if cutoff_third is not None:
+        cutoff_third = float(cutoff_third)
+        if n * count * count * 27 * 8 > _MEMORY:
+            raise InvalidParameter(
+                f"third order force constants of {n} atoms in a supercell of "
+                f"{count} take {n * count * count * 27 * 8 / 1e9:.0f} GB: too many"
+            )
+        third = _third(cell, matrix, cutoff_third, symmetry)
+        more = third.null.shape[1]
+    matched = _matched(cell, matrix, frames)
+    design, forces = _design(cell, matrix, basis, matched)
+    if third is not None:
+        design = np.hstack([design, _third_design(cell, matrix, third, matched)])
+    # the columns of the two orders differ as the displacements do
+    scale = np.linalg.norm(design, axis=0)
+    scale[scale == 0] = 1.0
+    solution, _, rank, _ = np.linalg.lstsq(design / scale, forces)
+    if rank < parameters + more:
+        what = "second and third order" if third is not None else "free"
         raise InvalidParameter(
-            f"the frames determine {rank} of the {parameters} free force constants: "
-            "displace more atoms, along more directions"
+            f"the frames determine {rank} of the {parameters + more} {what} force "
+            "constants: displace more atoms, along more directions"
+            + ("; third order needs random displacements" if third is not None else "")
         )
-    result = ForceConstants(cell, matrix, (basis @ solution).reshape(n, count, 3, 3))
+    solution /= scale
+    result = ForceConstants(
+        cell,
+        matrix,
+        (basis @ solution[:parameters]).reshape(n, count, 3, 3),
+        None
+        if third is None
+        else _dense_third(cell, matrix, third, solution[parameters:]),
+    )
     norm = np.linalg.norm(forces)
     error = np.linalg.norm(forces - design @ solution) / norm if norm > 0 else 0.0
     object.__setattr__(result, "cutoff", cutoff)
     object.__setattr__(result, "parameters", int(parameters))
+    if third is not None:
+        object.__setattr__(result, "cutoff_third", cutoff_third)
+        object.__setattr__(result, "parameters_third", int(more))
     object.__setattr__(result, "error", float(error))
     return result

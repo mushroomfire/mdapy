@@ -2,9 +2,10 @@
 
 # Force constants
 
-`mdapy.lattice_dynamics.force_constants(cell, frames, *, cutoff=None, symmetry=None)` fits the second
-order force constants of a crystal to the forces on atoms displaced in a supercell,
-from any calculator or from a calculation with DFT; `displaced_supercells` makes the
+`mdapy.lattice_dynamics.force_constants(cell, frames, *, cutoff=None, cutoff_third=None, symmetry=None)`
+fits the second order force constants of a crystal, and the third order ones, to the
+forces on atoms displaced in a supercell, from any calculator or from a calculation with
+DFT; `displaced_supercells` makes the
 supercells, and a `ForceConstants` gives the [phonons](phonons.md) and passes to and
 from [phonopy](https://phonopy.github.io/phonopy/) as its `FORCE_CONSTANTS` file.
 
@@ -68,6 +69,7 @@ dft.write("FORCE_CONSTANTS")  # for phonopy
 | `cell` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md), with atoms at rest (relax it first) |
 | `frames` | sequence of `System` | | | supercells of the cell with atoms displaced, each with a `forces` column in eV/Å, its atoms in any order |
 | `cutoff` | float64 or `None` | `None` | Å | fit only the force constants of pairs no farther apart than this, at most half the shortest vector of the supercell less 1e-3 Å; by default those of every pair of the supercell |
+| `cutoff_third` | float64 or `None` | `None` | Å | fit the third order force constants too, of three atoms each no farther than this from the others, with the same limit; by default second order only |
 | `symmetry` | bool or `None` | `None` | | fit with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 `displaced_supercells(cell, *, supercell, method="finite", displacement=0.01, count=1, seed=None, symmetry=None)`
@@ -126,6 +128,26 @@ frequencies differ from those of the supercell by up to 0.3 THz with a cutoff of
 cutoff only until the anharmonic forces dominate it, here from 4.6 Å, so compare the
 frequencies of two cutoffs to choose one.
 
+**Third order.** With `cutoff_third`, the fit holds the third order force constants too,
+of three atoms each no farther than it from the others, under every operation of the
+crystal and every order of the three atoms, in one fit with the second order:
+
+```python
+both = force_constants(cell, frames, cutoff_third=3.0)  # the random patterns above
+both.third.shape  # (1, 64, 64, 3, 3, 3)
+both.parameters, both.parameters_third  # 17 and 10
+```
+
+Third order needs random patterns of every atom: a finite move of one atom shows only the
+force constants of that atom with itself, and `force_constants` refuses them. A pattern and
+its opposite keep the two orders apart, the second odd in the displacements and the
+third even, so the second order is that of a fit of it alone. The errors of both orders
+fall as the square of the displacement; 0.01 Å suits a calculator without noise, about
+0.03 Å the forces of DFT. For copper with the patterns above, `error` falls from 4 % with
+second order alone to 0.7 % with third order of the nearest neighbors and 0.2 % within
+5 Å. Third order force constants reach beyond the nearest neighbors, so converge
+`cutoff_third` as for `cutoff`.
+
 ## Results
 
 `force_constants` returns a `ForceConstants`.
@@ -137,9 +159,12 @@ frequencies of two cutoffs to choose one.
 | `second` | (n, nS, 3, 3) float64 | the force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell, which holds S cells, each with the atoms of the cell in their order, the cell itself first, as the `force_constants` of `Phonons`; read-only |
 | `cutoff` | float64 or `None` | the cutoff in Å of a fit, beyond which the force constants are zero; `None` for every pair of the supercell, or not a fit |
 | `parameters` | int64 or `None` | the number of free force constants that symmetry and the sum rule leave, of a fit; `None` otherwise |
+| `third` | (n, nS, nS, 3, 3, 3) float64 or `None` | the third order force constants in eV/Å³ between each atom of the cell and two atoms of the supercell, the atoms as for `second`; `None` without them; read-only |
+| `cutoff_third` | float64 or `None` | the cutoff in Å of the third order of a fit; `None` otherwise |
+| `parameters_third` | int64 or `None` | the number of free third order force constants of a fit; `None` otherwise |
 | `error` | float64 or `None` | the relative error of the forces of a fit; `None` otherwise |
 | `phonons()` | `Phonons` | the [phonons](phonons.md#results) of the force constants, as `phonons` gives them |
-| `write(path, *, full=False)` | | writes the file `FORCE_CONSTANTS` of phonopy |
+| `write(path, *, full=False)` | | writes the second order force constants as the file `FORCE_CONSTANTS` of phonopy |
 
 `error` is the size of the forces that the force constants leave out, over that of the
 forces: those of the anharmonic terms and the noise of the calculator. With finite
@@ -152,9 +177,10 @@ constants of `phonons` where the operations of the crystal turn axes onto axes, 
 fcc and bcc. Otherwise the two differ by the error of the differences, of the order of
 the square of the displacement: 1e-4 THz for hcp and L1<sub>2</sub> at 0.01 Å.
 
-`ForceConstants(cell, supercell, second)` makes force constants from an array, such as
-the `force_constants` of `Phonons`, and checks its shape against the cell and the
-supercell.
+`ForceConstants(cell, supercell, second, third=None)` makes force constants from arrays,
+such as the `force_constants` of `Phonons`, and checks their shapes against the cell and
+the supercell. The third order of a supercell of N atoms takes n N² 27 numbers, 57 MB for
+four atoms in a supercell of 256; over 2 GB is refused.
 
 ## phonopy's FORCE_CONSTANTS
 
@@ -205,9 +231,11 @@ be converted first.
 - a frame whose box is not that of a supercell of the cell, that has no forces, whose
   atoms are not one at each atom of the supercell, or whose atom has another element or
   type than its atom of the supercell;
-- frames that do not determine every free force constant;
-- a cutoff that is not positive, or longer than half the shortest vector of the supercell
-  less 1e-3 Å, the longest it can be, which the message gives;
+- frames that do not determine every free force constant, as finite moves of single atoms
+  for third order;
+- a cutoff or a `cutoff_third` that is not positive, or longer than half the shortest
+  vector of the supercell less 1e-3 Å, the longest it can be, which the message gives;
+- third order force constants of over 2 GB;
 - `symmetry=True` without spglib;
 - a fit too large for memory, over 2 GB, as a crystal of little symmetry with many atoms
   in its cell in a large supercell: [`phonons`](phonons.md) finds its force constants by
@@ -224,7 +252,8 @@ displacement that is not positive, and a count that is not a positive integer.
 - a supercell that is not positive integers or a matrix of integers with a positive
   determinant;
 - force constants that are not of the shape of the cell and the supercell, or not
-  finite.
+  finite;
+- third order force constants of over 2 GB.
 
 Its `phonons()` raises `InvalidParameter` for an atom with neither element nor mass.
 
@@ -237,10 +266,11 @@ to it.
 ## Definition
 
 The forces on the atoms $i$ of the supercell, displaced by $\mathbf u_j$ from their
-sites, are those of the harmonic energy:
+sites, are those of the energy to second order, or to third with `cutoff_third`:
 
 $$
-F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta} .
+F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta}
+- \frac12 \sum_{j\beta, k\gamma} \Psi_{i\alpha, j\beta, k\gamma}\, u_{j\beta} u_{k\gamma} .
 $$
 
 The force constants are those of the supercell with its periodic boundaries, or, with a
@@ -253,8 +283,14 @@ relation that is exact:
 - the sum rule, so that moving the whole crystal costs no energy:
   $\sum_j \Phi_{i\alpha, j\beta} = 0$.
 
+The third order force constants $\Psi$, `third`, are those of three atoms of the crystal
+each no farther than `cutoff_third` from the others, under every operation of the crystal,
+$\Psi(g i, g j, g k) = R \otimes R \otimes R\, \Psi(i, j, k)$, the same for every order of
+the three atoms, and summing to zero over the third, $\sum_k \Psi_{i\alpha, j\beta,
+k\gamma} = 0$.
+
 The free force constants are the components that these relations leave, `parameters`
-of them. The fit makes the sum over the frames of
+and `parameters_third` of them. The fit makes the sum over the frames of
 $|\mathbf F - \mathbf F_\text{fit}|^2$ as small as it can, and `error` is
 $|\mathbf F - \mathbf F_\text{fit}| / |\mathbf F|$. The displacement of each atom is that
 from the nearest atom of the supercell, through the periodic boundaries.

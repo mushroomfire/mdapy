@@ -41,6 +41,11 @@
   farther apart than it, under every operation of the crystal also in supercells of less
   symmetry, and zero beyond; `ForceConstants.cutoff` says which. The page gives how far
   the frequencies of copper move with the cutoff.
+- `force_constants` takes a `cutoff_third`: third order force constants, of three atoms
+  each within it of the others, under every operation of the crystal and every order of
+  the atoms and summing to zero over the third, fitted with the second order from random
+  patterns. `ForceConstants` holds them as `third`, (n, nS, nS, 3, 3, 3), with
+  `cutoff_third` and `parameters_third`, and takes them as its fourth argument.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

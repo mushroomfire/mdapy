@@ -156,6 +156,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `force_constants` | second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell |
 | `ForceConstants` | the second order force constants `second` of a cell in a supercell, from an array or a file; `phonons()` gives their `Phonons` |
 | `second` | of `ForceConstants`: the second order force constants, (n, nS, 3, 3) (eV/Å²), as the `force_constants` of `Phonons` |
+| `third` | of `ForceConstants`: the third order force constants, (n, nS, nS, 3, 3, 3) (eV/Å³), third derivatives of the energy with respect to the positions of an atom of the cell and two atoms of the supercell |
+| `cutoff_third` | of `force_constants`: the longest distance in Å between any two of three atoms whose third order force constants are fitted |
 | free force constants | the components of the force constants that the symmetry of the crystal, the exchange of the two atoms and the sum rule leave; `parameters` of a fit by `force_constants` |
 | displaced supercells | supercells of a crystal with atoms moved from their sites, whose forces give the force constants: one atom along an axis (`"finite"`) or every atom along a random direction, by plus and minus (`"random"`) |
 | bond stiffness | springs along (`longitudinal`) and across (`transverse`) the bonds of crystals, of stiffness a polynomial of the length of the bond for each pair of elements in each shell of neighbors, from `bond_stiffness`; its `force_constants` give the phonons of any arrangement of the elements |

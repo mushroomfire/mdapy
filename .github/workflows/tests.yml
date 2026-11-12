@@ -158,8 +158,10 @@ jobs:
       # freud at its reference version for the comparisons with it, and
       # pymatgen for the conversions
       - run: pip install freud-analysis==3.6.1 pymatgen-core
-      # phonopy for the comparisons of phonons, seekpath for their paths
-      - run: pip install phonopy==4.8.6 seekpath==2.2.2
+      # phonopy for the comparisons of phonons, phono3py for those of the
+      # thermal conductivity (pinned together: a newer phono3py upgrades
+      # phonopy), seekpath for the paths
+      - run: pip install phonopy==4.8.6 phono3py==4.8.2 symfc==1.7.3 seekpath==2.2.2
       # DScribe for the comparisons of SOAP, at its reference version
       - run: pip install dscribe==2.1.2
       # atomsk for the comparisons of the structure builder, at its reference

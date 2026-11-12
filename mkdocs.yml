@@ -241,6 +241,7 @@ nav:
               - Phonons: user-guide/simulation/phonons.md
               - Force constants: user-guide/simulation/force-constants.md
               - Bond stiffness: user-guide/simulation/bond-stiffness.md
+              - Thermal conductivity: user-guide/simulation/thermal-conductivity.md
               - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
               - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
               - Sheets: user-guide/simulation/sheets.md

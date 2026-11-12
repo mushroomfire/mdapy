@@ -84,7 +84,7 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                 energies[i] = embedding;
             }
         },
-        control);
+        stage(control, 0, 2));
 
     // Forces, pair energies and virials; each atom gathers from its own pairs.
     parallel_for(
@@ -137,7 +137,7 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                 }
             }
         },
-        control);
+        stage(control, 1, 2));
 }
 
 }  // namespace mdapy::calculators

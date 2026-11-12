@@ -190,6 +190,7 @@ A `DislocationLine`:
 | `loop` | bool | whether the line closes on itself: a loop, or a line through periodic boundaries |
 | `infinite` | bool | whether it closes through periodic boundaries |
 | `junctions` | (int32, int32) | the junctions at its first and last point, −1 for a free end and for the ends of a closed line |
+| `character()` | (P,) float64 | the angle in degrees between the line and `spatial_burgers` at each point: 0 for screw, 90 for edge |
 
 The families of Burgers vectors, by crystal:
 
@@ -222,6 +223,23 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 `burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
 mesh.
+
+### Screw and edge
+
+`line.character()` gives the angle between the line and its Burgers vector
+at each point, from the points before and after it, across the ends of a
+closed line: 0° where the line is screw and 90° where it is edge. The
+Shockley partials of an edge dislocation of fcc, as those of the first
+example, are 60° partials, and those of a screw dislocation 30° partials:
+
+```python
+angles = result.lines[0].character()  # degrees, about 60 at every point
+weights = np.linalg.norm(np.gradient(result.lines[0].points, axis=0), axis=1)
+np.average(angles, weights=weights)  # 60, the mean along the line
+```
+
+Around a loop the angle runs from screw where the line runs along its
+Burgers vector to edge where it runs across it.
 
 ### Some atoms only
 

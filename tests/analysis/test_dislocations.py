@@ -10,6 +10,7 @@ import mdapy
 from mdapy.analysis import DislocationAnalysis
 from mdapy.build import (
     build_crystal,
+    dislocation_cylinder,
     dislocation_quadrupole,
     insert_dislocation,
 )
@@ -381,6 +382,63 @@ def test_hcp_of_low_c_over_a():
         b = DislocationAnalysis(crystal, low_ca_ratio=True).compute(other)
         np.testing.assert_array_equal(a.structure, b.structure)
         assert [line.length for line in a.lines] == [line.length for line in b.lines]
+
+
+@pytest.mark.parametrize(
+    "kind, repeat, dissociation, angle, spread",
+    [
+        ("fcc screw", (6, 14, 4), 0, 0.0, 2.0),
+        ("fcc edge", (14, 8, 4), 0, 90.0, 2.0),
+        # Shockley partials of 30 and 60 degrees
+        ("fcc screw", (6, 14, 4), 10, 30.0, 2.0),
+        ("fcc edge", (14, 8, 4), 10, 60.0, 4.0),
+    ],
+)
+def test_the_character_of_straight_lines(kind, repeat, dissociation, angle, spread):
+    """The angle between the line and its Burgers vector at each point, the
+    ends of a line through the box like its middle."""
+    system = dislocation_quadrupole(
+        kind, 3.615, CU, repeat, elements="Cu", dissociation=dissociation
+    )
+    for line in DislocationAnalysis("fcc").compute(system).lines:
+        character = line.character()
+        assert character.shape == (len(line.points),)
+        np.testing.assert_allclose(character, angle, atol=spread)
+
+
+def test_the_character_along_a_loop():
+    """Around a loop of 1/2[111] on (1-10) the angle follows the tangent of
+    its circle: screw where it runs along b, edge across it."""
+    a = 2.865
+    fe = build_crystal("bcc", a, elements="Fe", repeat=(14, 14, 14))
+    center = fe.box.matrix.diagonal() / 2 + [0.11, 0.07, 0.03]
+    burgers = a / 2 * np.array([1, 1, 1])
+    system = shear_loop(fe, burgers, center, 11.0, normal=[1, -1, 0])
+    (line,) = DislocationAnalysis("bcc").compute(system).lines
+    tangent = np.cross([1, -1, 0], line.points - center)
+    expected = np.degrees(
+        np.arccos(
+            np.abs(tangent @ burgers)
+            / np.linalg.norm(tangent, axis=1)
+            / np.linalg.norm(burgers)
+        )
+    )
+    error = np.abs(line.character() - expected)
+    assert error.mean() < 4 and error.max() < 10
+    assert line.character().min() < 15 and line.character().max() > 75
+
+
+def test_the_character_at_free_ends():
+    """A line between two free surfaces: one-sided at its ends."""
+    system = dislocation_cylinder("fcc screw", 3.615, CU, 18.0, elements="Cu", length=3)
+    box = system.box
+    system = system.with_box(mdapy.Box(box.matrix, origin=box.origin, pbc=False))
+    result = DislocationAnalysis("fcc").compute(system)
+    assert result.lines and not any(line.loop for line in result.lines)
+    for line in result.lines:
+        character = line.character()
+        assert np.isfinite(character).all()
+        assert ((character >= 0) & (character <= 90)).all()
 
 
 def test_families_of_the_hexagonal_lattices():

@@ -2,6 +2,9 @@
 
 ## 2.1.0 (not released)
 
+- `DislocationLine.character()` gives the angle between a dislocation line and its
+  Burgers vector at each point, 0° for screw and 90° for edge; see
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
 - `DislocationResult.density` and `DislocationResult.densities()` give the length of
   the lines per volume of the box, in all and of each family of Burgers vectors. The
   page shows how to analyze some atoms only, such as one sublattice of an alloy, as

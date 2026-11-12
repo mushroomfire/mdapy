@@ -15,7 +15,7 @@ from numpy.typing import ArrayLike
 
 from mdapy import units
 from mdapy._core import neighbor as _search
-from mdapy.analysis._symmetry import _keeping, _Operations, _symmetry
+from mdapy.analysis._symmetry import _keeping, _Operations, _rotations, _symmetry
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -32,6 +32,12 @@ _LOWEST = 1e-3
 _IMAGINARY = -1e-2
 # frequencies closer than this in THz are taken as equal
 _DEGENERATE = 1e-3
+# modes of a frequency closer than this in THz to another share their group
+# velocities, and those below it have none, as in phonopy
+_SAME_VELOCITY = 1e-4
+# a direction in which the derivative of the dynamical matrix sets apart the
+# modes of equal frequency, as phonopy's
+_APART = np.array([1.0, 2.0, 3.0]) / np.sqrt(14.0)
 
 
 def _read_only(*arrays: np.ndarray | None) -> None:
@@ -794,6 +800,25 @@ class Phonons:
         )
         return 0.5 * (matrices + matrices.conj().transpose(0, 2, 1))
 
+    def __derivatives(self, q: np.ndarray) -> np.ndarray:
+        """(K, 3, 3n, 3n) derivatives of the dynamical matrices with respect
+        to the Cartesian wave vector, in eV Å/(Å² amu)."""
+        n = len(self.cell)
+        phase = np.exp(1j * (q @ self.__reciprocal) @ self.__vectors.T) * self.__weights
+        blocks = np.zeros((len(q), 3, n, n, 9), dtype=complex)
+        for a, b, pairs in self.__blocks:
+            for x in range(3):
+                weighted = 1j * phase[:, pairs] * self.__vectors[pairs, x]
+                blocks[:, x, a, b] = weighted @ self.__constants[pairs]
+        masses = np.sqrt(np.outer(self.__masses, self.__masses))
+        blocks /= masses[None, None, :, :, None]
+        matrices = (
+            blocks.reshape(len(q), 3, n, n, 3, 3)
+            .transpose(0, 1, 2, 4, 3, 5)
+            .reshape(len(q), 3, 3 * n, 3 * n)
+        )
+        return 0.5 * (matrices + matrices.conj().transpose(0, 1, 3, 2))
+
     def __solve(self, q: np.ndarray, vectors: bool, chunk: int = 2048):
         frequencies, modes = [], []
         for start in range(0, len(q), chunk):
@@ -853,6 +878,75 @@ class Phonons:
         if single:
             return frequencies[0], vectors[0]
         return frequencies, vectors
+
+    def group_velocities(
+        self, q: ArrayLike, *, symmetry: bool | None = None
+    ) -> np.ndarray:
+        """Group velocities of the phonons at wave vectors.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+        symmetry : bool, optional
+            Average the velocities over the rotations of the crystal, found
+            by spglib, that keep each wave vector: True, False, or by default
+            whenever spglib is installed.
+
+        Returns
+        -------
+        numpy.ndarray
+            (3n, 3) or (K, 3n, 3) float64 Cartesian group velocity of each
+            mode in Å/ps, the modes in the order of ``frequencies``; zero for
+            modes below 1e-4 THz.
+
+        Raises
+        ------
+        InvalidParameter
+            For wave vectors that are not three numbers each, or symmetry
+            True without spglib.
+        """
+        q, single = self.__wave_vectors(q)
+        cell = _in_periodic_box(self.cell) if self.__sheet else self.cell
+        rotations = _rotations(cell, symmetry)
+        inverse = np.linalg.inv(self.__reciprocal)
+        n3 = 3 * len(self.cell)
+        out = np.zeros((len(q), n3, 3))
+        for start in range(0, len(q), 512):
+            chunk = q[start : start + 512]
+            values, vectors = np.linalg.eigh(self.__dynamical(chunk))
+            frequencies = np.sign(values) * np.sqrt(np.abs(values)) * _THZ
+            derivatives = self.__derivatives(chunk)
+            along = np.einsum("x,kxij->kij", _APART, derivatives)
+            for k in range(len(chunk)):
+                v = np.zeros((n3, 3))
+                apart = np.flatnonzero(np.diff(frequencies[k]) >= _SAME_VELOCITY) + 1
+                for modes in np.split(np.arange(n3), apart):
+                    # modes of one frequency: the basis in which the derivative
+                    # along a direction of no symmetry is diagonal
+                    e = vectors[k][:, modes]
+                    _, turn = np.linalg.eigh(e.conj().T @ along[k] @ e)
+                    e = e @ turn
+                    v[modes] = np.einsum(
+                        "im,xij,jm->mx", e.conj(), derivatives[k], e
+                    ).real
+                # v = dω/dk = 2π dν/dk, with ν = c sqrt(λ)
+                moving = frequencies[k] > _SAME_VELOCITY
+                v[moving] *= (np.pi * _THZ**2 / frequencies[k][moving])[:, None]
+                v[~moving] = 0.0
+                if len(rotations) > 1:
+                    # the rotations that keep the wave vector, not moved back
+                    # by a reciprocal lattice vector
+                    wave = (chunk[k] - np.round(chunk[k])) @ self.__reciprocal
+                    kept = [
+                        r
+                        for r in rotations
+                        if np.abs((r @ wave - wave) @ inverse).max() < 1e-5
+                    ]
+                    v = np.mean([v @ r.T for r in kept], axis=0)
+                out[start + k] = v
+        return out[0] if single else out
 
     def __in_plane(self, sections: list) -> list:
         """The sections of a path that lie in the plane of a sheet, cut where

@@ -95,9 +95,25 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 | `force_constants` | (n, nS, 3, 3) float64 | force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only; [`ForceConstants`](force-constants.md) writes them for phonopy |
 | `frequencies(q)` | (3n,) or (K, 3n) float64 | frequencies in THz at one or K wave vectors, ascending; imaginary ones negative |
 | `modes(q)` | tuple of float64 and complex128 arrays | the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode |
+| `group_velocities(q, *, symmetry=None)` | (3n, 3) or (K, 3n, 3) float64 | the group velocity of each mode in Å/ps (THz Å), in the order of the frequencies |
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |
 | `dos(mesh=20, *, frequencies=None, sigma=None, projected=False)` | `PhononDOS` | the density of states |
 | `thermal(temperatures, *, mesh=20)` | `ThermalProperties` | the thermodynamic properties of the vibrations |
+
+**Group velocities.** The velocity of a mode is the derivative of its angular
+frequency with respect to the wave vector, from the derivative of the dynamical
+matrix. Modes of the same frequency, within 1e-4 THz, share a space in which any basis
+is as good; their velocities are those of the basis in which the derivative of the
+dynamical matrix along the direction (1, 2, 3) is diagonal, as in
+[phonopy](https://phonopy.github.io/phonopy/). With `symmetry`, the velocities are
+averaged over the rotations of the crystal, found by spglib, that keep the wave vector
+itself, which makes those of such modes keep the symmetry of the crystal. Modes below
+1e-4 THz, the translations at Γ, have none.
+
+<!-- skip-test -->
+```python
+result.group_velocities([0.25, 0, 0.25])  # (3, 3) Å/ps
+```
 
 **Band structures.** `path` is one of:
 
@@ -191,8 +207,8 @@ calculator that does not compute forces, a supercell that is not positive
 integers or a matrix of integers with a positive determinant, a
 displacement that is not positive, and `symmetry=True` without spglib;
 `primitive_cell` for a box that is not
-periodic. `frequencies` and `modes` raise it for wave vectors that are not
-three numbers each; `band_structure` for an unknown lattice, a cell that
+periodic. `frequencies`, `modes` and `group_velocities` raise it for wave vectors that are
+not three numbers each, and `group_velocities` for `symmetry=True` without spglib; `band_structure` for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and `ImportError` for `"auto"`
 without seekpath; `dos` and `thermal` for a mesh or a `sigma` that is not

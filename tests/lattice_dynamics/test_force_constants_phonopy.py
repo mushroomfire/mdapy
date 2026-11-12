@@ -165,3 +165,29 @@ def test_the_files_of_phonopy(crystal, potential, full, tmp_path):
     write_FORCE_CONSTANTS(theirs.force_constants, path, theirs.primitive.p2s_map)
     read = read_force_constants(path, cell, matrix)
     np.testing.assert_allclose(read.second, result.force_constants, atol=1e-7)
+
+
+def test_group_velocities_of_phonopy(crystal, tmp_path):
+    """phonopy on the same force constants, with its symmetry: the same
+    velocities at any wave vector and at those of equal frequencies, to its
+    constants."""
+    from phonopy.file_IO import parse_FORCE_CONSTANTS
+
+    cell, matrix, result = crystal
+    path = tmp_path / "FORCE_CONSTANTS"
+    ForceConstants(cell, matrix, result.force_constants).write(path)
+    theirs = of_phonopy(cell, matrix, "P")
+    theirs.force_constants = parse_FORCE_CONSTANTS(path, theirs.primitive.p2s_map)
+    q = np.vstack(
+        [
+            np.random.default_rng(0).random((10, 3)) - 0.5,
+            [[0, 0, 0], [0.5, 0, 0], [0.5, 0.5, 0], [0.25, 0, 0], [0.5, 0.5, 0.5]],
+            [[0.1, 0.1, 0.1], [0.2, 0.0, 0.2], [1 / 3, 1 / 3, 0], [0, 0, 0.25]],
+        ]
+    )
+    theirs.run_qpoints(q, with_group_velocities=True)
+    expected = theirs.qpoints.group_velocities  # THz Å, which is Å/ps
+    found = result.group_velocities(q)
+    np.testing.assert_allclose(
+        found, expected, rtol=0, atol=1e-6 * np.abs(expected).max()
+    )

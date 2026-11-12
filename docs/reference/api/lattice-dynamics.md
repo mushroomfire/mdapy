@@ -26,6 +26,10 @@
 
 ::: mdapy.lattice_dynamics.read_band_structure
 
+::: mdapy.lattice_dynamics.force_constants
+
+::: mdapy.lattice_dynamics.displaced_supercells
+
 ::: mdapy.lattice_dynamics.ForceConstants
 
 ::: mdapy.lattice_dynamics.read_force_constants

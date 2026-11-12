@@ -156,6 +156,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `force_constants` | second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell |
 | `ForceConstants` | the second order force constants `second` of a cell in a supercell, from an array or a file; `phonons()` gives their `Phonons` |
 | `second` | of `ForceConstants`: the second order force constants, (n, nS, 3, 3) (eV/Å²), as the `force_constants` of `Phonons` |
+| free force constants | the components of the force constants that the symmetry of the crystal, the exchange of the two atoms and the sum rule leave; `parameters` of a fit by `force_constants` |
+| displaced supercells | supercells of a crystal with atoms moved from their sites, whose forces give the force constants: one atom along an axis (`"finite"`) or every atom along a random direction, by plus and minus (`"random"`) |
 | `FORCE_CONSTANTS` | phonopy's text file of force constants (eV/Å²), compact (the atoms of the cell) or full (every atom of the supercell); `ForceConstants.write`, `read_force_constants` |
 | frequencies | of vibrations, in THz; imaginary ones as negative numbers |
 | wave vector `q` | in units of the reciprocal lattice vectors of the cell: `(h, k, l)` is h **b**1 + k **b**2 + l **b**3, with **a**i · **b**j = 2π δij |

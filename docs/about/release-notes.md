@@ -29,6 +29,14 @@
   read phonopy's `FORCE_CONSTANTS`, compact or full, for any supercell matrix: force
   constants of phonopy, from VASP for example, give MDAPY's phonons. See
   [Force constants](../user-guide/simulation/force-constants.md).
+- `mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)` fits the second
+  order force constants of a crystal to the forces of displaced supercells from any
+  calculator or from DFT, with the symmetry of the crystal, the exchange of the two atoms
+  and the sum rule exact, and gives their number of free `parameters` and the relative
+  `error` of the forces; `displaced_supercells(cell, *, supercell, method="finite",
+  displacement=0.01, count=1, seed=None, symmetry=None)` makes the supercells, the moves of
+  `phonons` or random patterns by plus and minus. The atoms of the frames are matched by
+  position, so OUTCAR files of VASP serve as they are.
 - The example [A collision cascade in tungsten](../examples/radiation-cascade.md): a
   primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
   Frenkel pairs over time; it holds the few lines of 1.x's `set_pka`.

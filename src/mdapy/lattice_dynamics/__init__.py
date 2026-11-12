@@ -13,6 +13,8 @@ from mdapy.lattice_dynamics._elastic import (
 )
 from mdapy.lattice_dynamics._force_constants import (
     ForceConstants,
+    displaced_supercells,
+    force_constants,
     read_force_constants,
 )
 from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
@@ -45,7 +47,9 @@ __all__ = [
     "SheetElasticResult",
     "ThermalElasticResult",
     "ThermalProperties",
+    "displaced_supercells",
     "elastic_constants",
+    "force_constants",
     "md_elastic_constants",
     "phonons",
     "phonons_from_frames",

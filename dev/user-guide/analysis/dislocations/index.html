@@ -3985,6 +3985,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#core-atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core atoms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#some-atoms-only" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8311,6 +8322,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#core-atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Core atoms
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#some-atoms-only" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8591,6 +8613,13 @@ the hcp atoms of its faces and the other atoms of its corners (white).</em></p>
 <td></td>
 <td>for <code>hcp</code> of a low c/a: an atom whose 12 nearest neighbors are not hcp is tried again with them stretched along its c axis to the ideal c/a</td>
 </tr>
+<tr>
+<td><code>core_atoms</code></td>
+<td>bool</td>
+<td><code>False</code></td>
+<td></td>
+<td>also give the atoms of the core of each line, <a href="#core-atoms">below</a></td>
+</tr>
 </tbody>
 </table>
 <p><code>compute(system, *, progress=None, cancel=None)</code> takes the <code>progress</code> and
@@ -8682,6 +8711,11 @@ does nothing for the other crystals.</p>
 <td><code>interface_atoms</code></td>
 <td>(V,) int64 or <code>None</code></td>
 <td>the atom at each of its vertices</td>
+</tr>
+<tr>
+<td><code>core_atoms</code></td>
+<td>(N,) int64 or <code>None</code></td>
+<td>the index into <code>lines</code> of the line whose core holds each atom, −1 for the atoms in no core, with <code>core_atoms=True</code>; its column <code>dxa_core_atoms</code></td>
 </tr>
 <tr>
 <td><code>lengths()</code></td>
@@ -8859,20 +8893,55 @@ example, are 60° partials, and those of a screw dislocation 30° partials:</p>
 </code></pre></div>
 <p>Around a loop the angle runs from screw where the line runs along its
 Burgers vector to edge where it runs across it.</p>
+<h3 id="core-atoms">Core atoms<a class="headerlink" href="#core-atoms" title="Permanent link">&para;</a></h3>
+<p>With <code>core_atoms=True</code> the result tells which atoms make the core of each
+line: <code>core_atoms</code> holds for each atom the index into <code>lines</code> of its line,
+−1 for the atoms in no core. The core of a line is the bad crystal its
+Burgers circuits enclose, see the <a href="#definition">definition</a>. The structure
+of an atom does not count: an atom of the crystal at the rim of the bad
+crystal is a core atom too.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">cores</span> <span class="o">=</span> <span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="n">core_atoms</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">core</span> <span class="o">=</span> <span class="n">cores</span><span class="o">.</span><span class="n">core_atoms</span>  <span class="c1"># the line of each atom, -1 for none</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">core</span><span class="p">[</span><span class="n">core</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># atoms, [42, 42, 42, 42] in the cores of the partials</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">np</span><span class="o">.</span><span class="n">bincount</span><span class="p">(</span><span class="n">cores</span><span class="o">.</span><span class="n">structure</span><span class="p">[</span><span class="n">core</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">])</span>  <span class="c1"># [120, 23, 25]: other, fcc and hcp</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">cores</span><span class="p">)</span>  <span class="c1"># with the column dxa_core_atoms too</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">shown</span> <span class="o">=</span> <span class="n">core</span> <span class="o">&gt;=</span> <span class="mi">0</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="n">picture</span> <span class="o">=</span> <span class="n">render</span><span class="p">(</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">system</span><span class="p">,</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>    <span class="n">atoms</span><span class="o">=</span><span class="n">shown</span><span class="p">,</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>    <span class="n">color</span><span class="o">=</span><span class="n">cores</span><span class="p">,</span>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>    <span class="n">legend</span><span class="o">=</span><span class="n">legend</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">shown</span><span class="p">),</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>    <span class="n">radius</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>    <span class="n">dislocations</span><span class="o">=</span><span class="n">cores</span><span class="p">,</span>
+<a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>    <span class="n">width</span><span class="o">=</span><span class="mi">640</span><span class="p">,</span>
+<a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>    <span class="n">height</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span>
+<a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a><span class="p">)</span>
+<a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a><span class="n">write_png</span><span class="p">(</span><span class="s2">"images/dislocation_cores.png"</span><span class="p">,</span> <span class="n">picture</span><span class="p">)</span>
+</code></pre></div>
+<p><img alt="The atoms of the cores of four partial dislocations" src="../images/dislocation_cores.png" /></p>
+<p><em>The atoms of the cores of the four Shockley partials of the first example,
+in the colors of their structures, around the lines (green).</em></p>
+<p>A line that ends on a free surface has in its core the bad crystal up to
+the surface, not the atoms of the surface its circuits spread over. Where a
+line ends in other bad crystal, as at a grain boundary, the atoms nearer its
+last circuits than the rest of the boundary are in its core. An atom in the
+cores of two lines, as at a junction, is given to the first of them in
+<code>lines</code>.</p>
 <h3 id="some-atoms-only">Some atoms only<a class="headerlink" href="#some-atoms-only" title="Permanent link">&para;</a></h3>
 <p>To analyze some atoms only, as a sublattice of an alloy, analyze the system
 of those atoms; the others are as if they were not there. The gallium of
 gallium arsenide, a zinc blende of two fcc lattices, is fcc:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">dislocation_quadrupole</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">gaas</span> <span class="o">=</span> <span class="n">dislocation_quadrupole</span><span class="p">(</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    <span class="s2">"diamond screw"</span><span class="p">,</span> <span class="mf">5.65</span><span class="p">,</span> <span class="p">(</span><span class="mf">119.0</span><span class="p">,</span> <span class="mf">53.8</span><span class="p">,</span> <span class="mf">59.5</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">elements</span><span class="o">=</span><span class="p">(</span><span class="s2">"Ga"</span><span class="p">,</span> <span class="s2">"As"</span><span class="p">)</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">)</span>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">gallium</span> <span class="o">=</span> <span class="n">gaas</span><span class="p">[</span><span class="s2">"element"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"Ga"</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">found</span> <span class="o">=</span> <span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">gaas</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">gallium</span><span class="p">))</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">family</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">found</span><span class="o">.</span><span class="n">lines</span><span class="p">]</span>  <span class="c1"># ["1/2&lt;110&gt;", "1/2&lt;110&gt;"]</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="n">structure</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gaas</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>  <span class="c1"># of every atom, other for As</span>
-<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="n">structure</span><span class="p">[</span><span class="n">gallium</span><span class="p">]</span> <span class="o">=</span> <span class="n">found</span><span class="o">.</span><span class="n">structure</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">dislocation_quadrupole</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">gaas</span> <span class="o">=</span> <span class="n">dislocation_quadrupole</span><span class="p">(</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="s2">"diamond screw"</span><span class="p">,</span> <span class="mf">5.65</span><span class="p">,</span> <span class="p">(</span><span class="mf">119.0</span><span class="p">,</span> <span class="mf">53.8</span><span class="p">,</span> <span class="mf">59.5</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">elements</span><span class="o">=</span><span class="p">(</span><span class="s2">"Ga"</span><span class="p">,</span> <span class="s2">"As"</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">gallium</span> <span class="o">=</span> <span class="n">gaas</span><span class="p">[</span><span class="s2">"element"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"Ga"</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">found</span> <span class="o">=</span> <span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">gaas</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">gallium</span><span class="p">))</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">family</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">found</span><span class="o">.</span><span class="n">lines</span><span class="p">]</span>  <span class="c1"># ["1/2&lt;110&gt;", "1/2&lt;110&gt;"]</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">structure</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gaas</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>  <span class="c1"># of every atom, other for As</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">structure</span><span class="p">[</span><span class="n">gallium</span><span class="p">]</span> <span class="o">=</span> <span class="n">found</span><span class="o">.</span><span class="n">structure</span>
 </code></pre></div>
 <p>The per-atom results are those of the atoms analyzed, in their order.</p>
 <h3 id="ca-files">CA files<a class="headerlink" href="#ca-files" title="Permanent link">&para;</a></h3>
@@ -8880,11 +8949,11 @@ gallium arsenide, a zinc blende of two fcc lattices, is fcc:</p>
 file of OVITO, version 6, which OVITO opens as it opens the files of its
 own dislocation analysis; <code>read_dislocations</code> reads such a file back, and
 those OVITO writes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
 </code></pre></div>
 <p>The file holds the box, the structures and their families of Burgers
 vectors with the colors of <code>FAMILY_COLORS</code>, the crystal clusters with their
@@ -8969,13 +9038,44 @@ lengths within about 0.5 %. They differ in these ways:</p>
   can be split along either diagonal. MDAPY moves the atoms by up to
   <span class="arithmatex">\(10^{-4}\)</span> Å to settle it, OVITO has its own rule: the triangles of the
   meshes there can differ, their areas do not.</li>
-<li><strong>Lattice frames.</strong> Of the frames the symmetry of the lattice allows, both
+<li>
+<p><strong>Lattice frames.</strong> Of the frames the symmetry of the lattice allows, both
   give a cluster the one closest to the axes of the box; when two are as
   close, they may take different ones, and the lattice Burgers vectors then
-  differ by a rotation of the lattice, the spatial ones do not.</li>
+  differ by a rotation of the lattice, the spatial ones do not.</p>
+</li>
+<li>
+<p><strong>Core atoms.</strong> <code>core_atoms=True</code> gives what OVITO's option to mark the
+  atoms of the dislocation cores gives in its particle property
+  <code>Dislocation</code>, the numbers of the lines aside. On loops, on loops that
+  cross with junctions, on a loop through a region of bad crystal 7 Å in
+  radius or past a void 4.5 Å in radius, and on straight lines through
+  periodic boxes of 7 to 11 Å along them, the two mark the same atoms, but
+  for up to three where their tessellations differ (ties, above), with
+  OVITO on macOS; on Linux OVITO 3.17 marks next to some loops up to 11 atoms
+  more, of the good crystal, as it does next to long lines below, while
+  MDAPY's are the same on both. They differ in these ways:</p>
+<ul>
+<li>On a line through a periodic box longer along it, from some 9 Å in
+  copper and 12 Å in iron, OVITO 3.17.1 marks at one place of the line 3
+  to 15 atoms of the good crystal next to the core, which are not on or
+  inside its interface mesh, and in boxes of 25 Å and more it can leave
+  a part of the line without core atoms: 37 Å of a partial in a box of
+  53 Å. MDAPY marks the same atoms in every period of such a line.</li>
+<li>Where lines end on a free surface, the ends of the lines of the two
+  programs lie some Å apart on it, and the core atoms next to them
+  differ: 3 of 44 on two partials through a plate 13 Å thick.</li>
+<li>Where a line ends in bad crystal its circuits do not pass around, the
+  two share out its atoms differently, and the lines there differ too:
+  of a region of bad crystal 9 Å in radius that breaks a loop, MDAPY
+  marks 103 of 146 atoms and OVITO 80, 67 of them the same.</li>
+<li>Around a void 6 Å in radius on a loop, whose tetrahedra are close to
+  the size that counts as empty space, MDAPY marks 4 atoms more, of 169.</li>
 </ul>
-<p>OVITO's options to analyze the selected atoms only and to mark the atoms of
-the cores are not here.</p>
+</li>
+</ul>
+<p>OVITO's option to analyze the selected atoms only is not here: analyze the
+system of those atoms, <a href="#some-atoms-only">above</a>.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>The atoms of the crystal are found by common neighbor analysis with
 adaptive cutoffs, with the rules of OVITO's dislocation analysis, and their
@@ -9007,6 +9107,14 @@ the mesh no circuit took, closed over the free ends of the lines, are the
 defect mesh. Burgers vectors are then given in the frame of a cluster of
 the crystal, each line runs along the axis it runs along most, and the
 lines are coarsened and smoothed.</p>
+<p>The core of a line is made of the bad tetrahedra, those that are not good
+and not empty space, behind the triangles its circuits took, and of those
+reached from them through other bad tetrahedra. Where bad tetrahedra can be
+reached from the triangles of several lines, or from those of the defect
+mesh, each goes to the one it is the fewest steps from, tetrahedron to
+tetrahedron: a line before the defect mesh, and the first line before the
+others. The core atoms of a line are the atoms at the corners of its
+tetrahedra.</p>
 <p>The sense of a line and its Burgers vector are those of OVITO, which
 <a href="../../build/dislocations/"><code>insert_dislocation</code></a> and the dislocation
 models of the structure builder follow too: along +z the analysis finds

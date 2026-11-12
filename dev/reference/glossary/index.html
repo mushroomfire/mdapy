@@ -8639,6 +8639,10 @@ one name everywhere.</p>
 <td>The surface around the defects that are not dislocations: the interface mesh without the triangles the lines took, closed over their free ends.</td>
 </tr>
 <tr>
+<td>dislocation core, core atoms</td>
+<td>The bad crystal the Burgers circuits of a dislocation line enclose: the tetrahedra that are not good and not empty space behind the triangles of the interface mesh the circuits took. Its core atoms are the atoms at their corners, of any structure.</td>
+</tr>
+<tr>
 <td>family of Burgers vectors</td>
 <td>The Burgers vectors of one kind, the same in any order and sign of their components, such as <code>1/2&lt;110&gt;</code> or <code>1/6&lt;112&gt;</code>.</td>
 </tr>
@@ -8816,6 +8820,12 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>int8, int64</td>
 <td></td>
 <td>structure of an atom and its crystal cluster, −1 for none, in the dislocation analysis (<code>DislocationAnalysis</code>)</td>
+</tr>
+<tr>
+<td><code>dxa_core_atoms</code></td>
+<td>int64</td>
+<td></td>
+<td>the dislocation line whose core holds an atom, an index into the lines, −1 for none, with <code>core_atoms=True</code> (<code>DislocationAnalysis</code>)</td>
 </tr>
 <tr>
 <td><code>voronoi_volume</code>, <code>voronoi_coordination</code>, <code>cavity_radius</code></td>
@@ -9339,6 +9349,11 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>also the interface mesh of a dislocation analysis</td>
 <td><code>interface_mesh=True</code></td>
 <td><code>output_interface_mesh</code></td>
+</tr>
+<tr>
+<td>also the atoms of the dislocation cores, and the line of each</td>
+<td><code>core_atoms=True</code>, <code>core_atoms</code></td>
+<td><code>mark_dislocation_core_atoms</code>, the particle property <code>Dislocation</code></td>
 </tr>
 <tr>
 <td>arrows of vectors: the vectors, their scale, the radius of the shafts, color, point at the atom</td>

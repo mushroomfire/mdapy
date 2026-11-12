@@ -8584,6 +8584,11 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>DislocationAnalysis(..., core_atoms=True)</code> marks the atoms of the core of each
+  dislocation line, the bad crystal its Burgers circuits enclose, as OVITO's option to
+  mark the dislocation core atoms: <code>DislocationResult.core_atoms</code> holds the line of each
+  atom, −1 for none, and is the column <code>dxa_core_atoms</code>. See
+  <a href="../../user-guide/analysis/dislocations/#core-atoms">Core atoms</a>.</li>
 <li><code>md_elastic_constants(..., method="fluctuation")</code> gives the elastic constants from the
   fluctuations of the stress in one run at the mean box: the Born term, the
   fluctuations of the virial stress and the kinetic term, as stress-strain

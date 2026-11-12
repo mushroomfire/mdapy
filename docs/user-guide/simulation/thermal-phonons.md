@@ -110,6 +110,16 @@ result = phonons_from_frames(cell, frames, supercell=4)
 | `supercell` | int32, (3,) int32 or (3, 3) int32 | | repeats of the cell |
 | `symmetry` | bool or `None` | `None` | as above |
 
+For a crystal of some symmetry, [`force_constants`](force-constants.md) fits the same
+frames with the symmetry of the crystal and the sum rule exact, from fewer of them, and
+takes their atoms in any order: `force_constants(cell, frames).phonons()`. For copper in
+4 × 4 × 4 primitive cells, with frames of random displacements of 0.08 Å as of a crystal
+near room temperature, 3 to 5 frames give frequencies within 0.2 THz of those of 200
+frames, where `phonons_from_frames` needs 10 to 20; with 200 frames the two agree to
+0.006 THz. `phonons_from_frames` serves any crystal, also those of little symmetry with
+many atoms in the cell, such as special quasirandom structures, which are too large for
+the fit of `force_constants`.
+
 ## Definition
 
 With $u_i$ the displacement of atom $i$ from its place and $f_i$ the force on it,

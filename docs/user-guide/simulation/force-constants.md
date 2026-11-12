@@ -99,6 +99,11 @@ random pattern does; without symmetry, a cell of n atoms needs at least 3n rando
 patterns. Fewer raise `InvalidParameter`, which
 tells how many of the free force constants the frames determine.
 
+Frames of molecular dynamics serve too, as for
+[`phonons_from_frames`](thermal-phonons.md#from-frames-of-any-dynamics): the force
+constants that best give the forces at the temperature of the frames, with the cell at
+their volume.
+
 **Within a cutoff.** By default the force constants are those of the supercell with its
 periodic boundaries: every pair of an atom of the cell and an atom of the supercell, under
 the operations of the crystal that map the supercell onto itself. With `cutoff`, they are

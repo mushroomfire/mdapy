@@ -99,3 +99,65 @@ def test_invalid_arguments(copper, options, message):
     cluster = relaxed.with_box(mdapy.Box(30.0, pbc=False))
     with pytest.raises(InvalidParameter, match="periodic"):
         md_elastic_constants(cluster, potential, 300.0)
+
+
+FLUCTUATION = {"method": "fluctuation", "equilibration": 500, "every": 10}
+
+
+def test_fluctuations_of_a_cold_crystal_give_the_static_constants(copper):
+    """At 1 K the Born term of the crystal at rest, which in fcc relaxes no
+    atoms: the static constants, more closely than the strains of 1 %."""
+    eam, potential, relaxed = copper
+    static = elastic_constants(relaxed, eam).constants
+    result = md_elastic_constants(
+        relaxed, potential, 1.0, production=2000, **FLUCTUATION
+    )
+    np.testing.assert_allclose(result.constants, static, atol=5e-4 * static.max())
+    np.testing.assert_array_equal(result.constants, result.constants.T)
+    assert result.errors.shape == (6, 6) and result.errors.max() < 0.05
+
+
+def test_fluctuations_and_strains_agree(copper):
+    """The two methods of the same hot crystal within their errors."""
+    _, potential, relaxed = copper
+    hot = {"timestep": 0.002, "equilibration": 1000}
+    strained = md_elastic_constants(relaxed, potential, 300.0, production=4000, **hot)
+    fluctuating = md_elastic_constants(
+        relaxed, potential, 300.0, production=40000, method="fluctuation", **hot
+    )
+    for a, b in [(0, 0), (1, 1), (2, 2), (0, 1), (3, 3), (5, 5)]:
+        spread = np.hypot(strained.errors[a, b], fluctuating.errors[a, b])
+        assert abs(strained.constants[a, b] - fluctuating.constants[a, b]) < 4 * spread
+
+
+def test_fluctuations_of_an_ideal_gas():
+    """Atoms without forces: no Born term and no fluctuations of the virial,
+    the kinetic term alone, and under its pressure P the stress-strain
+    coefficients B11 = B12 = P and B44 = 0."""
+    gas = mdapy.System(
+        np.random.default_rng(0).random((64, 3)) * 20.0,
+        mdapy.Box(20.0),
+        elements=["Ar"] * 64,
+    )
+    potential = LAMMPS("pair_style zero 3.0\npair_coeff * *", ["Ar"])
+    pressure = 0.05  # GPa
+    result = md_elastic_constants(
+        gas,
+        potential,
+        300.0,
+        pressure=pressure,
+        barostat="iso",
+        production=20000,
+        **FLUCTUATION,
+    )
+    c, e = result.constants, result.errors
+    for a, b in [(0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2)]:
+        assert c[a, b] == pytest.approx(pressure, abs=4 * e[a, b])
+        assert e[a, b] < 0.02 * pressure
+    np.testing.assert_allclose(np.diag(c)[3:], 0.0, atol=5 * np.diag(e)[3:].max())
+
+
+def test_the_method_must_be_known(copper):
+    _, potential, relaxed = copper
+    with pytest.raises(InvalidParameter, match="method must be"):
+        md_elastic_constants(relaxed, potential, 300.0, method="green-kubo")

@@ -75,7 +75,7 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 - `sigma`, which wants a denser mesh the narrower it is.
 
 The time grows with the number of irreducible wave vectors times that of the whole
-mesh: about 2 s for copper with a mesh of 11, 10 s with 15.
+mesh, and as the fourth power of the number of modes of the cell.
 
 The conductivity is that of the phonons alone. In a metal such as copper the
 electrons carry most of the heat, about 400 W/(m K), which this does not hold.

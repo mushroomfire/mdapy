@@ -65,3 +65,5 @@
 ::: mdapy.lattice_dynamics.quasi_harmonic
 
 ::: mdapy.lattice_dynamics.QuasiHarmonicResult
+
+::: mdapy.lattice_dynamics.SheetQuasiHarmonicResult

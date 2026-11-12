@@ -286,9 +286,13 @@ def test_no_atoms(springs):
         phonons(empty, springs)
 
 
-def test_the_quasi_harmonic_approximation_is_for_crystals(springs):
-    with pytest.raises(InvalidParameter, match="periodic in every direction"):
-        quasi_harmonic(carbon(triangular()), springs, [300.0])
+def test_the_quasi_harmonic_approximation_is_for_crystals_and_sheets(springs):
+    sheet = carbon(triangular())
+    other = sheet.with_box(mdapy.Box(sheet.box.matrix, pbc=(True, False, True)))
+    with pytest.raises(
+        InvalidParameter, match="periodic in every direction, or a sheet"
+    ):
+        quasi_harmonic(other, springs, [300.0])
 
 
 def test_minimize_relaxes_the_area_of_a_sheet():

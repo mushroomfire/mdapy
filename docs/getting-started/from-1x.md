@@ -240,14 +240,15 @@ picture and `show_image(render(system))` shows it in a notebook. A graphical
 application with fuller features is developed separately.
 
 **Since 2.1**: `orthogonal_cell` is `mdapy.transform.orthogonal_cell` (see
-[Orthogonal cells](../user-guide/build/orthogonal-cell.md)), and `Spline` is
-`mdapy.fitting.Spline` (see [Interpolation](../user-guide/fitting/interpolation.md)).
+[Orthogonal cells](../user-guide/build/orthogonal-cell.md)), `Spline` is
+`mdapy.fitting.Spline` (see [Interpolation](../user-guide/fitting/interpolation.md)),
+and `BondStiffness(system, calculator, ...)` is `mdapy.lattice_dynamics.bond_stiffness`,
+which takes the cells and frames of any number of crystals, from any calculator or from
+DFT, and returns a `BondStiffness` that gives the force constants of any structure (see
+[Bond stiffness](../user-guide/simulation/bond-stiffness.md)).
 
 **`set_pka`** is a few lines of NumPy, in the example of
 [a collision cascade](../examples/radiation-cascade.md#the-knock-on-atom) to copy.
-
-**Coming in a later 2.x release**: `BondStiffness`. It will be an addition, so code
-written for 2.0 keeps working (see [Compatibility](../about/compatibility.md)).
 
 **Threads**: `MDAPY_NUM_THREADS` sets the number of threads as in 1.x, and
 `mp.set_num_threads(n)` changes it while running (see

@@ -21,11 +21,15 @@ potential = EAM.zhou(["Cu", "Ni"])
 
 
 def relaxed(system, cell="full"):
-    return minimize(system, potential, cell=cell, max_force=1e-8, max_stress=1e-7).system
+    return minimize(
+        system, potential, cell=cell, max_force=1e-8, max_stress=1e-7
+    ).system
 
 
 def with_forces(frames):
-    return [f.with_columns(forces=potential.compute(f, ("forces",)).forces) for f in frames]
+    return [
+        f.with_columns(forces=potential.compute(f, ("forces",)).forces) for f in frames
+    ]
 
 
 alloy = random_alloy(
@@ -45,7 +49,9 @@ for cell, supercell in crystals:
             positions=cell["positions"] * scale
         )
         sized = relaxed(sized, cell=None)  # the atoms at rest at this size
-        moved = displaced_supercells(sized, supercell=supercell, method="random", seed=1)
+        moved = displaced_supercells(
+            sized, supercell=supercell, method="random", seed=1
+        )
         data.append((sized, with_forces(moved)))
 
 springs = bond_stiffness(data, cutoff=(3.0, 4.0))  # nearest and second neighbors
@@ -58,14 +64,18 @@ which none of the fits held, and those of the full calculation tell how good the
 are for it:
 
 ```python
+from mdapy import units
+
 sqs = relaxed(
     random_alloy(
-        build_crystal("fcc", 3.57, elements="Cu", repeat=3), {"Cu": 0.5, "Ni": 0.5}, seed=2
+        build_crystal("fcc", 3.57, elements="Cu", repeat=3),
+        {"Cu": 0.5, "Ni": 0.5},
+        seed=2,
     )
 )
 model = springs.force_constants(sqs).phonons().thermal([300.0], mesh=4)
 full = phonons(sqs, potential, supercell=1, symmetry=False).thermal([300.0], mesh=4)
-model.entropy, full.entropy  # 3.496 and 3.479 k_B per atom
+model.entropy / units.BOLTZMANN, full.entropy / units.BOLTZMANN  # 3.496, 3.479 per atom
 ```
 
 The stiffnesses of the nearest neighbors, over the lengths of the bonds in the fit:
@@ -92,8 +102,8 @@ with plot.style():
 ![Bond stiffness of Cu–Ni](images/bond-stiffness.png)
 
 *The springs of the nearest neighbors of copper and nickel with `EAM.zhou`: along the
-bond, stiffer the shorter the bond and the more nickel; across it, small, and of the
-sign of the tension of the bond.*
+bond, stiffer the shorter the bond, and at the same length stiffer between copper atoms
+than between nickel atoms; across it, small and negative.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

@@ -7,12 +7,14 @@
 algorithm: Burgers circuits on the mesh between the good crystal and the
 rest, swept along the lines."""
 
+import os
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
 from mdapy._core import analysis as _native
+from mdapy.analysis._ca_files import write_ca
 from mdapy.core.mesh import TriangleMesh
 from mdapy.core.result import Result
 from mdapy.core.system import System
@@ -243,6 +245,18 @@ class DislocationResult(Result):
             "dxa_structure": self.structure,
             "dxa_crystal_cluster": self.crystal_cluster,
         }
+
+    def write(self, path: str | os.PathLike) -> None:
+        """Writes the lines, the crystal clusters and the defect mesh as a
+        crystal analysis file of OVITO (CA, version 6), which OVITO opens.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file, usually ending in .ca; the suffix .gz, .bz2, .xz or
+            .zst compresses it.
+        """
+        write_ca(self, path)
 
 
 class DislocationAnalysis:

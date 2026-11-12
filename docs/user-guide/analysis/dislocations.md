@@ -157,6 +157,7 @@ A `DislocationResult`:
 | `lengths()` | dict of str to float64 | the total length of the lines of each family of the crystal in Å, `other` last |
 | `total_length` | float64 | the total length of the lines in Å |
 | `counts()` | dict of str to int64 | the number of atoms of each structure, by name |
+| `write(path)` | | writes the lines, the crystal clusters and the defect mesh as a CA file, below |
 
 A `DislocationLine`:
 
@@ -203,6 +204,27 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 `burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
 mesh.
+
+### CA files
+
+`result.write("dislocations.ca")` writes the result as a crystal analysis
+file of OVITO, version 6, which OVITO opens as it opens the files of its
+own dislocation analysis:
+
+```python
+result.write("dislocations.ca")
+```
+
+The file holds the box, the structures and their families of Burgers
+vectors with the colors of `FAMILY_COLORS`, the crystal clusters with their
+structure, orientation and size, each line with its points, its Burgers
+vector in the lattice frame and its cluster, the junctions, and the defect
+mesh, its triangles run the other way round as OVITO keeps them. OVITO
+keeps the orientations of the clusters in float32, so the Burgers vectors in
+space it gives differ from `spatial_burgers` by some $10^{-6}$ Å. The
+suffix `.gz`, `.bz2`, `.xz` or `.zst` compresses the file; OVITO reads
+`.gz`. OVITO names the families in its statistics by a vector of each, such
+as `1/2<011>`.
 
 ## Errors
 
@@ -278,7 +300,7 @@ lengths within about 0.5 %. They differ in these ways:
   differ by a rotation of the lattice, the spatial ones do not.
 
 OVITO's options to analyze the selected atoms only and to mark the atoms of
-the cores, and its export to CA files, are not here.
+the cores are not here.
 
 ## Definition
 

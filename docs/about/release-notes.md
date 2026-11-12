@@ -23,6 +23,11 @@
   magnesium at 600 K came out 49 GPa at a strain of 2.5e-3 and 33 GPa at 5e-3, instead of
   54 GPa.
 - `plot.panel_label` labels axes in 3D too; it raised `TypeError` there.
+- `DislocationAnalysis` is no longer experimental. Its page lists the
+  [limits](../user-guide/analysis/dislocations.md#limits), general grain boundaries
+  first, and [where the results differ from OVITO](../user-guide/analysis/dislocations.md#where-the-results-differ-from-ovito)
+  and why. The stair-rods `1/6<310>` and `1/3<110>` of fcc have their own families, which
+  were `other`.
 - `melting_point` takes a run as the answer only when the mean temperatures of its last two
   stretches of coexistence agree, within `tolerance` or twice their statistical error, besides
   the drift within the last. Before, one stretch could pass while the temperature still rose:

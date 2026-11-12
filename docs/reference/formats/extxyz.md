@@ -73,6 +73,10 @@ a frame has `species:S:1:pos:R:3`, as plain XYZ files do.
 When writing, `element` is written as `species`, `positions` as `pos`,
 `velocities` as `vel` in Å/fs, and `atomic_energies` as `energies`. Other
 columns keep their names; nested array columns are flattened row by row.
+The file holds numbers and text without their widths, so integer columns of
+any width come back as `int64`, `float32` as `float64`, and nested arrays
+other than `atomic_virials` as their flat components; the
+[MDAPY format](mdapy.md) keeps every type and shape.
 Columns of other types, missing values, and strings that are empty or
 contain blanks cannot be written.
 

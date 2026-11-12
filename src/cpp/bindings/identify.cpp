@@ -72,33 +72,17 @@ using Indices = nb::ndarray<const index_t, nb::ndim<1>, nb::c_contig, nb::device
 using Shifts = nb::ndarray<const std::int8_t, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 using Types = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
-// The nearest neighbors of each atom, nearest first, in CSR form with their
-// periodic images; types for the chemical ordering, or none. Returns a
-// dictionary of the per-atom results.
-nb::dict polyhedral_template_matching(Positions positions, Matrix matrix, Offsets offsets,
-                                      Indices j, Shifts shifts, std::optional<Types> types,
-                                      std::int32_t structures, bool deformation, bool neighbors,
-                                      nb::handle progress, const CancelToken* cancel) {
-    const auto n = static_cast<std::int64_t>(positions.shape(0));
-    if (offsets.shape(0) != static_cast<std::size_t>(n + 1) ||
-        offsets.data()[n] != static_cast<std::int64_t>(j.shape(0)) ||
-        shifts.shape(0) != j.shape(0)) {
-        throw std::invalid_argument("the neighbor list does not fit the atoms");
-    }
-    if (types && types->shape(0) != static_cast<std::size_t>(n)) {
+// The per-atom results of PTM in a dictionary, run(input, output, control)
+// running it once the arrays are made.
+template <class Run>
+nb::dict ptm_results(identify::PtmInput& input, std::optional<Types> types, bool deformation,
+                     bool neighbors, nb::handle progress, const CancelToken* cancel, Run run) {
+    if (types && types->shape(0) != static_cast<std::size_t>(input.n)) {
         throw std::invalid_argument("there must be a type for each atom");
     }
-    const auto size = static_cast<std::size_t>(n);
-    identify::PtmInput input;
-    input.n = n;
-    input.positions = positions.data();
-    input.matrix = matrix.data();
-    input.offsets = offsets.data();
-    input.j = j.data();
-    input.shifts = shifts.data();
     input.types = types ? types->data() : nullptr;
-    input.structures = structures;
     input.deformation = deformation;
+    const auto size = static_cast<std::size_t>(input.n);
     identify::PtmOutput output;
     nb::dict result;
     result["structure"] = new_array({size}, output.structure);
@@ -116,12 +100,64 @@ nb::dict polyhedral_template_matching(Positions positions, Matrix matrix, Offset
     if (neighbors) {
         result["neighbors"] = new_array({size, 16}, output.neighbors);
     }
-    run_released(
-        [&](const Control& control) {
-            identify::polyhedral_template_matching(input, output, control);
-        },
-        progress, cancel);
+    run_released([&](const Control& control) { run(input, output, control); }, progress, cancel);
     return result;
+}
+
+// The nearest neighbors of each atom, nearest first, in CSR form with their
+// periodic images; types for the chemical ordering, or none. Returns a
+// dictionary of the per-atom results.
+nb::dict polyhedral_template_matching(Positions positions, Matrix matrix, Offsets offsets,
+                                      Indices j, Shifts shifts, std::optional<Types> types,
+                                      std::int32_t structures, bool deformation, bool neighbors,
+                                      nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (offsets.shape(0) != static_cast<std::size_t>(n + 1) ||
+        offsets.data()[n] != static_cast<std::int64_t>(j.shape(0)) ||
+        shifts.shape(0) != j.shape(0)) {
+        throw std::invalid_argument("the neighbor list does not fit the atoms");
+    }
+    identify::PtmInput input;
+    input.n = n;
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.offsets = offsets.data();
+    input.j = j.data();
+    input.shifts = shifts.data();
+    input.structures = structures;
+    return ptm_results(input, types, deformation, neighbors, progress, cancel,
+                       [](const identify::PtmInput& in, const identify::PtmOutput& out,
+                          const Control& control) {
+                           identify::polyhedral_template_matching(in, out, control);
+                       });
+}
+
+using Box3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
+using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+
+// As polyhedral_template_matching, the k nearest neighbors of each atom
+// found as they are needed, without a list.
+nb::dict polyhedral_template_matching_nearest(Positions positions, Box3 matrix, Origin3 origin,
+                                              Periodic pbc, int k, std::optional<Types> types,
+                                              std::int32_t structures, bool deformation,
+                                              bool neighbors, nb::handle progress,
+                                              const CancelToken* cancel) {
+    identify::PtmInput input;
+    input.n = static_cast<std::int64_t>(positions.shape(0));
+    input.positions = positions.data();
+    input.matrix = matrix.data();
+    input.structures = structures;
+    input.k = k;
+    return ptm_results(input, types, deformation, neighbors, progress, cancel,
+                       [&](identify::PtmInput& in, const identify::PtmOutput& out,
+                           const Control& control) {
+                           const neighbor::KdTree tree(in.positions, in.n, in.matrix,
+                                                       origin.data(), pbc.data());
+                           in.tree = &tree;
+                           identify::polyhedral_template_matching(in, out, control);
+                           in.tree = nullptr;
+                       });
 }
 
 // The first k pairs of each atom, its nearest.
@@ -156,9 +192,6 @@ nb::object common_neighbor_parameter(lists::Positions positions, lists::Matrix m
         });
 }
 
-using Box3 = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::device::cpu>;
-using Origin3 = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
-using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 
 nb::object common_neighbor_parameter_search(Vectors positions, Box3 matrix, Origin3 origin,
                                             Periodic pbc, double cutoff, nb::handle progress,
@@ -412,6 +445,11 @@ void bind_identify(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("j"),
           nb::arg("shifts"), nb::arg("types").none(), nb::arg("structures"),
           nb::arg("deformation"), nb::arg("neighbors"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("polyhedral_template_matching_nearest", &polyhedral_template_matching_nearest,
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"), nb::arg("pbc"),
+          nb::arg("k"), nb::arg("types").none(), nb::arg("structures"), nb::arg("deformation"),
+          nb::arg("neighbors"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("centro_symmetry", &centro_symmetry,
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),

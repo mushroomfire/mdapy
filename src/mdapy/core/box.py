@@ -55,6 +55,26 @@ class LammpsBox(NamedTuple):
     rotation: np.ndarray
 
 
+def _pairwise_reduced(vectors: np.ndarray) -> np.ndarray:
+    """The same lattice from vectors each made as short as the others allow,
+    by subtracting whole multiples of one from another until none grows
+    shorter: each pair then has |a.b| <= |b|²/2."""
+    rows = np.array(vectors, dtype=np.float64)
+    for _ in range(100):
+        changed = False
+        for i in range(len(rows)):
+            for j in range(len(rows)):
+                if i == j:
+                    continue
+                k = np.round(rows[i] @ rows[j] / (rows[j] @ rows[j]))
+                if k != 0:
+                    rows[i] = rows[i] - k * rows[j]
+                    changed = True
+        if not changed:
+            break
+    return rows
+
+
 class Box:
     """Simulation box: three lattice vectors, an origin and periodicity.
 
@@ -401,8 +421,22 @@ class Box:
             (N, 3) int64 image flags, so that
             ``positions = wrapped + image @ matrix`` up to rounding. Zero along
             non-periodic directions.
+
+        Raises
+        ------
+        InvalidParameter
+            For positions so far from the box along a periodic direction that
+            the image flags would not fit in int64.
         """
         r = np.asarray(positions, dtype=np.float64).reshape(-1, 3)
+        finite = r[np.isfinite(r).all(axis=1)]  # the others stay as they are
+        if len(finite):
+            images = np.abs((finite - self.__origin) @ self.__inverse)[:, self.__pbc]
+            if images.size and images.max() > 2.0**62:
+                raise InvalidParameter(
+                    f"positions {images.max():.3g} boxes away from the box: their "
+                    "image flags would not fit in int64"
+                )
         return _core.core.wrap(
             np.ascontiguousarray(r),
             np.ascontiguousarray(self.__matrix),
@@ -423,23 +457,21 @@ class Box:
         -------
         numpy.ndarray
             (N, 3) float64 vectors, each the shortest among all vectors that differ
-            from the input by a lattice vector along periodic directions.
-            Exact for boxes whose tilt factors stay within half the
-            corresponding edge length, as LAMMPS requires.
+            from the input by a lattice vector along periodic directions, in a
+            box of any tilt.
         """
         d = np.asarray(vectors, dtype=np.float64).reshape(-1, 3)
-        n = np.round(d @ self.__inverse)
-        n[:, ~self.__pbc] = 0.0
-        base = d - n @ self.__matrix
-        # Rounding is not enough in skewed boxes: also try the neighboring images.
-        shifts = [
-            s
-            for s in itertools.product((-1, 0, 1), repeat=3)
-            if all(si == 0 or p for si, p in zip(s, self.__pbc))
-        ]
-        candidates = (
-            base[:, None, :] + np.array(shifts, dtype=np.float64) @ self.__matrix
-        )
+        periodic = self.__matrix[self.__pbc]
+        if len(periodic) == 0:
+            return d.copy()
+        # the vectors of the periodic lattice made short and nearly
+        # orthogonal, so that rounding and the neighboring images find the
+        # shortest image even in a box tilted far
+        lattice = _pairwise_reduced(periodic)
+        n = np.round(d @ np.linalg.pinv(lattice))
+        base = d - n @ lattice
+        shifts = np.array(list(itertools.product((-1, 0, 1), repeat=len(lattice))))
+        candidates = base[:, None, :] + (shifts @ lattice)[None]
         best = np.argmin(np.einsum("nsk,nsk->ns", candidates, candidates), axis=1)
         return candidates[np.arange(len(d)), best]
 

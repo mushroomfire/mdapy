@@ -154,6 +154,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `stress` | stress, (3, 3) (GPa), positive under tension: −`virial` / volume |
 | elastic constants | (6, 6) (GPa) in Voigt order xx, yy, zz, yz, xz, xy |
 | `force_constants` | second derivatives of the energy with respect to the positions of two atoms, (n, nS, 3, 3) (eV/Å²), between the atoms of a cell and of its supercell |
+| `ForceConstants` | the second order force constants `second` of a cell in a supercell, from an array or a file; `phonons()` gives their `Phonons` |
+| `second` | of `ForceConstants`: the second order force constants, (n, nS, 3, 3) (eV/Å²), as the `force_constants` of `Phonons` |
+| `FORCE_CONSTANTS` | phonopy's text file of force constants (eV/Å²), compact (the atoms of the cell) or full (every atom of the supercell); `ForceConstants.write`, `read_force_constants` |
 | frequencies | of vibrations, in THz; imaginary ones as negative numbers |
 | wave vector `q` | in units of the reciprocal lattice vectors of the cell: `(h, k, l)` is h **b**1 + k **b**2 + l **b**3, with **a**i · **b**j = 2π δij |
 | `mesh` | number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |

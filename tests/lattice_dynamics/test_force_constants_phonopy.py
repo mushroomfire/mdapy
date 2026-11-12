@@ -1,0 +1,167 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""FORCE_CONSTANTS files against phonopy: its order of the atoms of a
+supercell, its reader on the files of MDAPY, and MDAPY's reader on its
+files, compact and full. Skipped where phonopy is not installed."""
+
+import warnings
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.elements import atomic_masses
+from mdapy.lattice_dynamics import ForceConstants, phonons, read_force_constants
+from mdapy.lattice_dynamics._force_constants import _phonopy_atoms
+from mdapy.lattice_dynamics._phonons import _supercell
+from mdapy.simulation import minimize
+
+from calculators.eam_files import write_setfl
+
+phonopy = pytest.importorskip("phonopy")
+
+# small enough that phonopy's force constants, from other displacements than
+# those of MDAPY, are the same to the cube of it
+DISPLACEMENT = 2e-5
+
+CRYSTALS = {
+    "fcc cubic cell": ("fcc", 3.29, "Cu", np.diag([3, 3, 3])),
+    "L1_2 Cu3Ni": (
+        "l1_2",
+        3.29,
+        ("Cu", "Ni"),
+        np.array([[0, 2, 2], [2, 0, 2], [2, 2, 0]]),
+    ),
+    "hcp": ("hcp", 2.33, "Cu", np.array([[2, -1, 0], [1, 2, 0], [0, 0, 2]])),
+}
+
+
+@pytest.fixture(scope="module")
+def potential(tmp_path_factory):
+    return EAM(write_setfl(tmp_path_factory.mktemp("eam") / "CuNi.eam.alloy"))
+
+
+def of_phonopy(cell, matrix, primitive):
+    """phonopy's calculation of the cell, its supercell matrix the transpose
+    of MDAPY's."""
+    from phonopy import Phonopy
+    from phonopy.structure.atoms import PhonopyAtoms
+
+    names = cell.table["element"].cast(str).to_list()
+    unit = PhonopyAtoms(
+        symbols=names,
+        cell=cell.box.matrix,
+        scaled_positions=cell.box.to_fractional(cell["positions"]),
+        masses=atomic_masses(names),
+    )
+    # phonopy warns of its primitive cells and of symmetries that differ
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        return Phonopy(unit, supercell_matrix=matrix.T, primitive_matrix=primitive)
+
+
+@pytest.fixture(scope="module", params=CRYSTALS)
+def crystal(request, potential):
+    structure, a, elements, matrix = CRYSTALS[request.param]
+    cell = minimize(
+        build_crystal(structure, a, elements=elements),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=10000,
+    ).system
+    result = phonons(cell, potential, supercell=matrix, displacement=DISPLACEMENT)
+    return cell, matrix, result
+
+
+@pytest.mark.parametrize(
+    "matrix",
+    [
+        np.diag([2, 3, 4]),
+        np.array([[-1, 1, 1], [1, -1, 1], [1, 1, -1]]),
+        np.array([[0, 2, 2], [2, 0, 2], [2, 2, 0]]),
+        np.array([[2, 1, 0], [0, 2, 1], [1, 0, 3]]),
+        np.array([[2, -1, 0], [1, 2, 0], [0, 0, 2]]),
+    ],
+)
+def test_the_order_of_the_atoms_of_phonopy(matrix):
+    cell = build_crystal("hcp", 2.5, elements="Cu")
+    supercell = of_phonopy(cell, matrix, "P").supercell
+    big = _supercell(cell, matrix)
+    np.testing.assert_allclose(supercell.cell, big.box.matrix, atol=1e-12)
+    ours = _phonopy_atoms(matrix, len(cell))
+    apart = big.box.to_fractional(big["positions"][ours]) - supercell.scaled_positions
+    np.testing.assert_allclose(apart - np.round(apart), 0, atol=1e-12)
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_phonopy_reads_the_files(crystal, full, tmp_path):
+    """Compact files for phonopy with the cell as its primitive cell, full
+    files whatever its primitive cell."""
+    from phonopy.file_IO import parse_FORCE_CONSTANTS
+
+    cell, matrix, result = crystal
+    path = tmp_path / "FORCE_CONSTANTS"
+    ForceConstants(cell, matrix, result.force_constants).write(path, full=full)
+    theirs = of_phonopy(cell, matrix, "auto" if full else "P")
+    theirs.force_constants = parse_FORCE_CONSTANTS(path, theirs.primitive.p2s_map)
+    q = np.random.default_rng(0).random((20, 3)) - 0.5
+    # phonopy's wave vectors are of its primitive cell
+    to_primitive = theirs.primitive.cell @ np.linalg.inv(cell.box.matrix)
+    theirs.run_qpoints(q @ to_primitive.T)
+    found, ours = theirs.qpoints.frequencies, result.frequencies(q)
+    if found.shape != ours.shape:
+        # the modes of a primitive cell smaller than the cell are among those
+        # of the cell at the same wave vector
+        assert full and found.shape[1] < ours.shape[1]
+        nearest = np.abs(found[:, :, None] - ours[:, None, :]).argmin(axis=2)
+        ours = np.take_along_axis(ours, nearest, axis=1)
+    # phonopy's factor from eV/(Å² amu) to THz differs by a millionth
+    np.testing.assert_allclose(found, ours, rtol=1e-6, atol=1e-6)
+
+
+def test_the_text_of_phonopy(crystal, tmp_path):
+    from phonopy.file_IO import write_FORCE_CONSTANTS
+
+    cell, matrix, result = crystal
+    n = len(cell)
+    size = round(np.linalg.det(matrix))
+    ours, theirs = tmp_path / "ours", tmp_path / "theirs"
+    ForceConstants(cell, matrix, result.force_constants).write(ours)
+    constants = result.force_constants[:, _phonopy_atoms(matrix, n)]
+    write_FORCE_CONSTANTS(constants, theirs, p2s_map=np.arange(n) * size)
+    assert ours.read_text() == theirs.read_text() + "\n"
+
+
+@pytest.mark.parametrize("full", [False, True])
+def test_the_files_of_phonopy(crystal, potential, full, tmp_path):
+    """phonopy's force constants of the same potential, on its own primitive
+    cell, which is smaller than the cubic cell of fcc: the compact file has
+    one row, the others come from translations."""
+    from phonopy.file_IO import write_FORCE_CONSTANTS
+
+    cell, matrix, result = crystal
+    theirs = of_phonopy(cell, matrix, "auto")
+    theirs.generate_displacements(distance=DISPLACEMENT, is_plusminus=True)
+    theirs.forces = np.array(
+        [
+            potential.compute(
+                mdapy.System(s.positions, mdapy.Box(s.cell), elements=s.symbols),
+                ("forces",),
+            ).forces
+            for s in theirs.supercells_with_displacements
+        ]
+    )
+    theirs.produce_force_constants(calculate_full_force_constants=full)
+    rows = theirs.force_constants.shape[0]
+    assert rows == (len(theirs.supercell) if full else len(theirs.primitive))
+    path = tmp_path / "FORCE_CONSTANTS"
+    write_FORCE_CONSTANTS(theirs.force_constants, path, theirs.primitive.p2s_map)
+    read = read_force_constants(path, cell, matrix)
+    np.testing.assert_allclose(read.second, result.force_constants, atol=1e-7)

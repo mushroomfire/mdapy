@@ -239,6 +239,7 @@ nav:
               - Elastic constants at finite temperature: user-guide/simulation/thermal-elastic.md
               - Elastic constants from molecular dynamics: user-guide/simulation/md-elastic.md
               - Phonons: user-guide/simulation/phonons.md
+              - Force constants: user-guide/simulation/force-constants.md
               - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
               - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
               - Sheets: user-guide/simulation/sheets.md

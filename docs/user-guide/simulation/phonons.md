@@ -92,7 +92,7 @@ $\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
 |---|---|---|
 | `cell` | `System` | the crystal whose vibrations these are |
 | `supercell` | (3, 3) int64 | matrix of the supercell; read-only |
-| `force_constants` | (n, nS, 3, 3) float64 | force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only |
+| `force_constants` | (n, nS, 3, 3) float64 | force constants $\Phi$ in eV/Å² between each atom of the cell and each atom of the supercell (S cells, the cell itself first); read-only; [`ForceConstants`](force-constants.md) writes them for phonopy |
 | `frequencies(q)` | (3n,) or (K, 3n) float64 | frequencies in THz at one or K wave vectors, ascending; imaginary ones negative |
 | `modes(q)` | tuple of float64 and complex128 arrays | the frequencies, and the (3n, n, 3) or (K, 3n, n, 3) complex polarization vector of each mode |
 | `band_structure(path, *, points=51, connected=False)` | `BandStructure` | the frequencies along a path |

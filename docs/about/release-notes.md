@@ -2,6 +2,10 @@
 
 ## 2.1.0 (not released)
 
+- `DislocationAnalysis(..., low_ca_ratio=True)` finds the atoms of hcp of a low c/a,
+  below some 1.15, stretched along their c axis to the ideal c/a, as OVITO's option of
+  the name: a hot crystal is then hcp down to a c/a of some 0.75. See
+  [Parameters](../user-guide/analysis/dislocations.md#parameters).
 - `DislocationResult.write(path)` writes the lines, the crystal clusters and the defect
   mesh of a dislocation analysis as a crystal analysis (CA) file of OVITO, which OVITO
   opens, and `mdapy.analysis.read_dislocations(path)` reads such files back, also those

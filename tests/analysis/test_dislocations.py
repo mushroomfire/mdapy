@@ -17,7 +17,7 @@ from mdapy.calculators import EAM
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.simulation import minimize
 
-from dislocation_models import shear_loop
+from dislocation_models import hexagonal, shear_loop
 
 CU = (168.4, 121.4, 75.4)
 FE = (243.3, 145.0, 116.1)
@@ -347,8 +347,35 @@ def test_results():
         result.lines[0].points[0, 0] = 0
     assert repr(DislocationAnalysis("bcc")) == (
         "DislocationAnalysis('bcc', circuit_length=14, stretch=9, perfect_only=False, "
-        "point_separation=2.5, smoothing=1, mesh_smoothing=8, interface_mesh=False)"
+        "point_separation=2.5, smoothing=1, mesh_smoothing=8, interface_mesh=False, "
+        "low_ca_ratio=False)"
     )
+
+
+def test_hcp_of_low_c_over_a():
+    """At c/a 1 no atom is hcp unless stretched along c; then all are, but
+    those of the core, and the screw dislocation along z has a Burgers
+    vector a along it. At the ideal c/a, and in another crystal, the option
+    changes nothing."""
+    system = hexagonal("hcp", 3.0, "Mg", "screw", c=3.0, layers=7)
+    plain = DislocationAnalysis("hcp").compute(system)
+    assert not plain.lines and not (plain.structure == 2).any()
+    low = DislocationAnalysis("hcp", low_ca_ratio=True).compute(system)
+    assert (low.structure == 2).mean() > 0.7
+    (line,) = low.lines
+    assert line.family == "1/3<11-20>" and line.infinite
+    np.testing.assert_allclose(np.abs(line.spatial_burgers), [0, 0, 3.0], atol=1e-6)
+    for crystal, other in [
+        ("hcp", hexagonal("hcp", 3.2, "Mg", "screw")),
+        (
+            "fcc",
+            dislocation_quadrupole("fcc screw", 3.615, CU, (6, 10, 4), elements="Cu"),
+        ),
+    ]:
+        a = DislocationAnalysis(crystal).compute(other)
+        b = DislocationAnalysis(crystal, low_ca_ratio=True).compute(other)
+        np.testing.assert_array_equal(a.structure, b.structure)
+        assert [line.length for line in a.lines] == [line.length for line in b.lines]
 
 
 def test_families_of_the_hexagonal_lattices():

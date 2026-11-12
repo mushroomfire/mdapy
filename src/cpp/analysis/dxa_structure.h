@@ -33,9 +33,12 @@ struct Structures {
 // hexagonal diamond, both from the 4 nearest neighbors and the 3 nearest of
 // each of those other than the atom, the cutoff from the mean distance of
 // the 12 (positions: n x 3; matrix: rows a, b, c; origin: 3; pbc: 3).
+// With low_ca, an hcp crystal of low c/a: an atom whose 12 nearest
+// neighbors are no hcp is tried again among its 14 nearest, stretched
+// along the c axis of the triangles of its 6 nearest to the ideal c/a.
 // Throws as a search of nearest neighbors does.
 Structures find_structures(const double* positions, std::int64_t n, const double* matrix,
                            const double* origin, const bool* pbc, int crystal, bool defects,
-                           const Control& control = {});
+                           const Control& control = {}, bool low_ca = false);
 
 }  // namespace mdapy::analysis::dxa

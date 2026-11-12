@@ -245,6 +245,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | atoms on the surface | `surface=True` | `select_surface_particles` |
 | crystal of a dislocation analysis, longest Burgers circuit, edges more to follow a line, perfect dislocations only | `crystal`, `circuit_length`, `stretch`, `perfect_only` | `input_crystal_structure`, `trial_circuit_length`, `circuit_stretchability`, `only_perfect_dislocations` |
 | sparseness of the points of dislocation lines, smoothing steps of the lines and of the defect mesh | `point_separation`, `smoothing`, `mesh_smoothing` | `line_point_separation`, `line_smoothing_level`, `defect_mesh_smoothing_level` |
+| hcp of low c/a in a dislocation analysis | `low_ca_ratio` | `low_ca_ratio` |
 | also the interface mesh of a dislocation analysis | `interface_mesh=True` | `output_interface_mesh` |
 | arrows of vectors: the vectors, their scale, the radius of the shafts, color, point at the atom | `vectors`, `vector_scale`, `vector_radius`, `vector_color`, `vector_alignment` | `scaling`, `width`, `arrow_width`, `reverse` |
 | polylines in pictures: the points, radius, color, cut at the periodic faces | `lines`, `line_radius`, `line_color`, `wrap_lines` | `width`, `wrapped_lines` |

@@ -29,6 +29,7 @@ struct DislocationOptions {
     int smoothing = 1;        // steps of smoothing of the lines
     int mesh_smoothing = 8;   // steps of smoothing of the defect mesh
     bool interface = false;   // also the interface mesh
+    bool low_ca = false;      // hcp of low c/a: stretched along c where it is not found
 };
 
 // The structures and clusters of the atoms, the dislocation lines, the

@@ -126,6 +126,7 @@ the hcp atoms of its faces and the other atoms of its corners (white).*
 | `smoothing` | int32 | 1 | | the number of smoothing steps of the lines |
 | `mesh_smoothing` | int32 | 8 | | the number of smoothing steps of the defect mesh |
 | `interface_mesh` | bool | `False` | | also give the interface mesh, on which the circuits run |
+| `low_ca_ratio` | bool | `False` | | for `hcp` of a low c/a: an atom whose 12 nearest neighbors are not hcp is tried again with them stretched along its c axis to the ideal c/a |
 
 `compute(system, *, progress=None, cancel=None)` takes the `progress` and
 `cancel` of [every analysis](overview.md#parameters), but no neighbor list.
@@ -135,6 +136,21 @@ The structures are those of OVITO's dislocation analysis, found with the
 crystal: fcc and hcp for `fcc` or `hcp` (each the stacking fault of the
 other), bcc for `bcc`, cubic and hexagonal diamond for either diamond.
 Longer circuits find dislocations of wider cores, and take longer.
+
+Below a c/a of some 1.15 the 12 nearest neighbors of hcp no longer form
+its shells, and its atoms are other. With `low_ca_ratio=True` the c axis of
+an atom is that between the two triangles of its 6 nearest neighbors, and
+its 14 nearest neighbors are stretched along it to the ideal c/a; a hot
+crystal is then hcp down to a c/a of some 0.75, as in OVITO. The option
+does nothing for the other crystals.
+
+```python
+from mdapy.build import build_crystal
+
+hcp = build_crystal("hcp", 3.0, c=3.0, elements="Mg", repeat=(8, 5, 5))
+DislocationAnalysis("hcp").compute(hcp).counts()["hcp"]  # 0
+DislocationAnalysis("hcp", low_ca_ratio=True).compute(hcp).counts()["hcp"]  # 400, all
+```
 
 ## Results
 

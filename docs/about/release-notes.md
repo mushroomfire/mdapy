@@ -71,6 +71,11 @@
   `temperature`, `volume`, the `times` of the correlation, the `running` integral,
   `kappa`, its `errors` from blocks and the `flux`. See
   [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+- A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
+  the forces of a few displaced supercells to its thermal conductivity: phonons, the files
+  of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
+  order force constants, and the conductivity of the phonons against that of molecular
+  dynamics.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

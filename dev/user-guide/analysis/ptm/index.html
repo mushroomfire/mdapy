@@ -8758,7 +8758,10 @@ the <a href="../warren-cowley/">Warren–Cowley parameters</a>.</p>
 </table>
 <p><code>compute(system, *, neighbors=None, progress=None, cancel=None)</code> takes the
 arguments of <a href="../overview/#parameters">every analysis</a>. A given neighbor list
-must hold the 18 nearest neighbors of every atom.</p>
+must hold the 18 nearest neighbors of every atom. Without one, the neighbors are
+found as they are needed, in less memory; the diamond and graphene structures
+look at the neighbors of neighbors too, which a list of the 18 nearest,
+<code>NeighborList.build(system, num_neighbors=18)</code>, gives faster.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>PTMResult</code>, a <a href="../overview/#results"><code>StructureResult</code></a> with the types
 <code>other</code>, <code>fcc</code>, <code>hcp</code>, <code>bcc</code>, <code>ico</code>, <code>sc</code>, <code>cubic_diamond</code>,

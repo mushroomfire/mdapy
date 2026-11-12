@@ -5270,6 +5270,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#from-the-fluctuations-of-the-stress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From the fluctuations of the stress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8183,6 +8194,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#from-the-fluctuations-of-the-stress" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From the fluctuations of the stress
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8227,12 +8249,14 @@
 <h1 id="elastic-constants-from-molecular-dynamics">Elastic constants from molecular dynamics<a class="headerlink" href="#elastic-constants-from-molecular-dynamics" title="Permanent link">&para;</a></h1>
 <p><code>mdapy.lattice_dynamics.md_elastic_constants(system, potential, temperature,
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
-production=20000, every=10, blocks=5, barostat="tri", seed=1)</code> gives the
-isothermal elastic constants of a crystal at a temperature from the mean
-stress of <a href="../dynamics/">molecular dynamics</a> in LAMMPS under small strains,
-with their standard errors. It takes in the anharmonic vibrations that the
-<a href="../thermal-elastic/">quasi-harmonic approximation</a> leaves out, at the cost
-of thirteen runs.</p>
+production=20000, every=10, blocks=5, barostat="tri", seed=1,
+method="strain")</code> gives the isothermal elastic constants of a crystal at a
+temperature from <a href="../dynamics/">molecular dynamics</a> in LAMMPS, with their
+standard errors: from the mean stress under small strains, at the cost of
+thirteen runs, or, with <code>method="fluctuation"</code>, from the fluctuations of the
+stress in one run, <a href="#from-the-fluctuations-of-the-stress">below</a>. Both take
+in the anharmonic vibrations that the <a href="../thermal-elastic/">quasi-harmonic
+approximation</a> leaves out.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">md_elastic_constants</span>
@@ -8367,16 +8391,102 @@ gives that limit.</p>
 <td></td>
 <td>seed of the starting velocities and of the thermostat of the strained runs</td>
 </tr>
+<tr>
+<td><code>method</code></td>
+<td>str</td>
+<td><code>"strain"</code></td>
+<td></td>
+<td><code>"strain"</code>, the mean stress under strains, or <code>"fluctuation"</code>, the fluctuations of the stress</td>
+</tr>
 </tbody>
 </table>
+<h2 id="from-the-fluctuations-of-the-stress">From the fluctuations of the stress<a class="headerlink" href="#from-the-fluctuations-of-the-stress" title="Permanent link">&para;</a></h2>
+<p>With <code>method="fluctuation"</code> the crystal runs once more after the mean box:
+<code>equilibration</code> steps and then <code>production</code> steps in the reference box, at
+the temperature with a Langevin thermostat. The constants are</p>
+<div class="arithmatex">\[
+C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
+- \frac{V}{k_B T} \left( \langle \sigma_{ij} \sigma_{kl} \rangle
+- \langle \sigma_{ij} \rangle \langle \sigma_{kl} \rangle \right)
++ \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
+\]</div>
+<p>the Born term, the second derivatives of the energy with the strain (LAMMPS
+<code>compute born/matrix numdiff</code>, strains of <span class="arithmatex">\(10^{-5}\)</span>, every ten records),
+then the fluctuations of the virial stress <span class="arithmatex">\(\sigma\)</span> (every <code>every</code> steps),
+then the momenta of the atoms but their center of mass. Under a mean stress
+they are made stress-strain coefficients, as the strains give them (Wallace):
+under a pressure <span class="arithmatex">\(P\)</span>, <span class="arithmatex">\(C_{11} - P\)</span>, <span class="arithmatex">\(C_{12} + P\)</span> and <span class="arithmatex">\(C_{44} - P\)</span>. The errors
+come from <code>blocks</code> blocks of the run; <code>strain</code> is unused.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">fluctuating</span> <span class="o">=</span> <span class="n">md_elastic_constants</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">600.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">300000</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"fluctuation"</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">)</span>
+</code></pre></div>
+<p>The two methods agree within their errors, for copper (EAM of Mishin) from 20
+to 900 K and from 256 to 2048 atoms, for copper under 10 GPa, and for C11 and
+C12 of silicon (Tersoff) at 10 and 300 K. What they cost differs:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Strain</th>
+<th>Fluctuation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>runs</td>
+<td>13</td>
+<td>2</td>
+</tr>
+<tr>
+<td>error at equal steps, copper at 300 K</td>
+<td>1</td>
+<td>1/1.5 to 1/6 for C11 and C12, 1/4 to 1/25 for C44</td>
+</tr>
+<tr>
+<td>error with the size</td>
+<td>falls as <span class="arithmatex">\(1/\sqrt N\)</span></td>
+<td>does not change: 256 atoms do</td>
+</tr>
+<tr>
+<td>constants of strong internal relaxation, as C44 of silicon (92 GPa unrelaxed, 10 relaxed)</td>
+<td>±0.1 GPa</td>
+<td>±1.5 GPa: the fluctuations must cancel most of the Born term</td>
+</tr>
+<tr>
+<td>at low temperature</td>
+<td>1 % strain beyond the linear response (+0.2 % on C11 of copper at 20 K)</td>
+<td>exact in the limit of small strains</td>
+</tr>
+<tr>
+<td>liquids and glasses</td>
+<td>the box cannot keep a liquid</td>
+<td>the bulk modulus, and no shear</td>
+</tr>
+<tr>
+<td>cost of one record</td>
+<td>a step</td>
+<td>a step, and some 15 steps for the Born term every ten records</td>
+</tr>
+</tbody>
+</table>
+<p>Take the fluctuations for metals and other crystals whose atoms do not relax
+much within their cell, for small cells, at low temperatures, and for
+liquids; take the strains for crystals whose constants relax strongly, as
+the shear of the diamond structures, and for large cells. With the same
+number of steps the fluctuations take one run where the strains take twelve:
+<code>production=300000</code> costs about what the defaults of the strains cost.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>An <code>ElasticResult</code>, as of <a href="../elastic-constants/"><code>elastic_constants</code></a>, with
 <code>errors</code>, the (6, 6) standard errors in GPa.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>md_elastic_constants</code> raises <code>InvalidParameter</code> for a box that is neither
 periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
-fewer than two blocks or fewer samples than blocks, and the errors of
-<a href="../dynamics/"><code>MolecularDynamics</code></a>.</p>
+fewer than two blocks or fewer samples than blocks, a <code>method</code> other than
+<code>"strain"</code> and <code>"fluctuation"</code>, and the errors of
+<a href="../dynamics/"><code>MolecularDynamics</code></a>. The fluctuations need a LAMMPS with the
+package EXTRA-COMPUTE, for <code>compute born/matrix</code>.</p>
 
 
 

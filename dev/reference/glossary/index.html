@@ -9053,6 +9053,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>the universal anisotropy index of elastic constants: zero for an isotropic crystal, positive otherwise</td>
 </tr>
 <tr>
+<td>stress fluctuations</td>
+<td>elastic constants from one run at constant volume: the mean Born term, minus V/kT times the covariance of the virial stress, plus the kinetic term; <code>md_elastic_constants(..., method="fluctuation")</code></td>
+</tr>
+<tr>
 <td><code>direction</code>, <code>normal</code>, <code>transverse</code></td>
 <td>of elastic constants: a vector (3,) or vectors (N, 3) in the axes of the box, of any length; the direction of a stretch or shear, the normal of the plane sheared, the direction of a contraction across a stretch</td>
 </tr>

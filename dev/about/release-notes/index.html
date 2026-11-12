@@ -8584,6 +8584,14 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>md_elastic_constants(..., method="fluctuation")</code> gives the elastic constants from the
+  fluctuations of the stress in one run at the mean box: the Born term, the
+  fluctuations of the virial stress and the kinetic term, as stress-strain
+  coefficients under the mean stress. For copper it agrees with the strains within
+  their errors, with errors 1.5 to 25 times smaller at equal steps and independent
+  of the size; for constants that relax strongly, as the shear of silicon, the
+  strains stay better. See
+  <a href="../../user-guide/simulation/md-elastic/#from-the-fluctuations-of-the-stress">From the fluctuations of the stress</a>.</li>
 <li>Sheets in the quasi-harmonic approximation, in elastic constants from molecular
   dynamics and under every barostat: <code>quasi_harmonic</code> of a sheet computes its phonons
   at several areas and returns a <code>SheetQuasiHarmonicResult</code>, with pressures in its

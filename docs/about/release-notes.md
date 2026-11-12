@@ -46,6 +46,10 @@
   the atoms and summing to zero over the third, fitted with the second order from random
   patterns. `ForceConstants` holds them as `third`, (n, nS, nS, 3, 3, 3), with
   `cutoff_third` and `parameters_third`, and takes them as its fourth argument.
+- `Phonons.group_velocities(q, *, symmetry=None)` gives the group velocity of each mode in
+  Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
+  apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
+  phonopy does.
 - `mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

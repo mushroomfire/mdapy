@@ -12173,13 +12173,13 @@ at the ends of the lines have no names.</p>
 
 
 <a href="#mdapy.lattice_dynamics.force_constants" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cutoff</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cutoff_third</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
 
-        <p>Second order force constants of a crystal fitted to the forces on
-atoms displaced in a supercell.</p>
+        <p>Second order force constants of a crystal, and third order ones,
+fitted to the forces on atoms displaced in a supercell.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12251,6 +12251,26 @@ operations that map it onto itself.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>cutoff_third</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Fit third order force constants too, of three atoms each no farther
+than this from the others, in Å, at most half the shortest vector of
+the supercell less 1e-3 Å, with every symmetry operation of the
+crystal; they need random displacements, by plus and minus. By
+default second order only.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>symmetry</code>
             </td>
             <td>
@@ -12291,8 +12311,8 @@ False, or by default whenever spglib is installed.</p>
             <td>
               <div class="doc-md-description">
                 <p>The force constants that give the forces best, symmetric under the
-operations and in the two atoms, and summing to zero over the atoms
-of the supercell, with the cutoff, the number of free parameters and
+operations and in the atoms, and summing to zero over each atom of
+the supercell, with the cutoffs, the numbers of free parameters and
 the relative error of the forces.</p>
               </div>
             </td>
@@ -12318,10 +12338,10 @@ the relative error of the forces.</p>
               <div class="doc-md-description">
                 <p>If the box is neither periodic nor that of a sheet, there are no
 atoms or no frames, a frame is not a supercell of the cell with
-forces, its atoms one at each atom of the supercell, the cutoff is
-not positive or too long for the supercell, the frames do not
-determine every free parameter, the fit is too large for memory, or
-symmetry is True without spglib.</p>
+forces, its atoms one at each atom of the supercell, a cutoff is not
+positive or too long for the supercell, the frames do not determine
+every free parameter, the fit or the third order force constants are
+too large for memory, or symmetry is True without spglib.</p>
               </div>
             </td>
           </tr>
@@ -12553,14 +12573,15 @@ True without spglib.</p>
   </span>
 
 <a href="#mdapy.lattice_dynamics.ForceConstants" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ForceConstants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="p">,</span> <span class="n">second</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ForceConstants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">third</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
 
 
 
-        <p>Second order force constants of a crystal in a supercell.</p>
+        <p>Second order, and third order, force constants of a crystal in a
+supercell.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12630,6 +12651,24 @@ their order, the first cell that of the cell itself, as the
                 <em>required</em>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>third</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n, n S, n S, 3, 3, 3) third derivatives of the energy in eV/Å³ with
+respect to the positions of each atom of the cell and of two atoms
+of the supercell, the atoms as for second. Default None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -12679,6 +12718,18 @@ read-only.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.third">third</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n, n S, n S, 3, 3, 3) float64 third order force constants in eV/Å³,
+or None; read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="mdapy.lattice_dynamics.ForceConstants.cutoff">cutoff</span></code></td>
             <td>
                   <code><span title="float64">float64</span> or None</code>
@@ -12700,6 +12751,31 @@ not a fit.</p>
               <div class="doc-md-description">
                 <p>The number of free force constants that symmetry and the sum rule
 leave, of a fit by <code>force_constants</code>; None otherwise.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.cutoff_third">cutoff_third</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cutoff in Å of the third order force constants of a fit by
+<code>force_constants</code>: those of three atoms each no farther from the
+others; None otherwise.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.parameters_third">parameters_third</span></code></td>
+            <td>
+                  <code><span title="int64">int64</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of free third order force constants of a fit; None
+otherwise.</p>
               </div>
             </td>
           </tr>
@@ -12737,8 +12813,9 @@ norm of the forces; None otherwise.</p>
               <div class="doc-md-description">
                 <p>If the box is neither periodic nor that of a sheet, there are no
 atoms, the supercell is not positive integers or a matrix of them
-with a positive determinant, or second is not of the shape of the
-cell and the supercell or not finite.</p>
+with a positive determinant, second or third is not of the shape of
+the cell and the supercell or not finite, or third would take more
+than 2 GB.</p>
               </div>
             </td>
           </tr>

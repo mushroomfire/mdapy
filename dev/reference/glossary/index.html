@@ -8849,6 +8849,14 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>of <code>ForceConstants</code>: the second order force constants, (n, nS, 3, 3) (eV/Å²), as the <code>force_constants</code> of <code>Phonons</code></td>
 </tr>
 <tr>
+<td><code>third</code></td>
+<td>of <code>ForceConstants</code>: the third order force constants, (n, nS, nS, 3, 3, 3) (eV/Å³), third derivatives of the energy with respect to the positions of an atom of the cell and two atoms of the supercell</td>
+</tr>
+<tr>
+<td><code>cutoff_third</code></td>
+<td>of <code>force_constants</code>: the longest distance in Å between any two of three atoms whose third order force constants are fitted</td>
+</tr>
+<tr>
 <td>free force constants</td>
 <td>the components of the force constants that the symmetry of the crystal, the exchange of the two atoms and the sum rule leave; <code>parameters</code> of a fit by <code>force_constants</code></td>
 </tr>

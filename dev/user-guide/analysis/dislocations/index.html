@@ -3970,6 +3970,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ca-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CA files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -8257,6 +8274,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ca-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CA files
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -8601,6 +8635,11 @@ Longer circuits find dislocations of wider cores, and take longer.</p>
 <td>dict of str to int64</td>
 <td>the number of atoms of each structure, by name</td>
 </tr>
+<tr>
+<td><code>write(path)</code></td>
+<td></td>
+<td>writes the lines, the crystal clusters and the defect mesh as a CA file, below</td>
+</tr>
 </tbody>
 </table>
 <p>A <code>DislocationLine</code>:</p>
@@ -8730,6 +8769,22 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 <code>burgers_scale</code> times as long. <code>mesh=result.defect_mesh</code> draws the defect
 mesh.</p>
+<h3 id="ca-files">CA files<a class="headerlink" href="#ca-files" title="Permanent link">&para;</a></h3>
+<p><code>result.write("dislocations.ca")</code> writes the result as a crystal analysis
+file of OVITO, version 6, which OVITO opens as it opens the files of its
+own dislocation analysis:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+</code></pre></div>
+<p>The file holds the box, the structures and their families of Burgers
+vectors with the colors of <code>FAMILY_COLORS</code>, the crystal clusters with their
+structure, orientation and size, each line with its points, its Burgers
+vector in the lattice frame and its cluster, the junctions, and the defect
+mesh, its triangles run the other way round as OVITO keeps them. OVITO
+keeps the orientations of the clusters in float32, so the Burgers vectors in
+space it gives differ from <code>spatial_burgers</code> by some <span class="arithmatex">\(10^{-6}\)</span> Å. The
+suffix <code>.gz</code>, <code>.bz2</code>, <code>.xz</code> or <code>.zst</code> compresses the file; OVITO reads
+<code>.gz</code>. OVITO names the families in its statistics by a vector of each, such
+as <code>1/2&lt;011&gt;</code>.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>The constructor raises <code>InvalidParameter</code> for an unknown <code>crystal</code>, a
 <code>circuit_length</code> below 3, a <code>stretch</code>, <code>smoothing</code> or <code>mesh_smoothing</code> that
@@ -8801,7 +8856,7 @@ lengths within about 0.5 %. They differ in these ways:</p>
   differ by a rotation of the lattice, the spatial ones do not.</li>
 </ul>
 <p>OVITO's options to analyze the selected atoms only and to mark the atoms of
-the cores, and its export to CA files, are not here.</p>
+the cores are not here.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>The atoms of the crystal are found by common neighbor analysis with
 adaptive cutoffs, with the rules of OVITO's dislocation analysis, and their

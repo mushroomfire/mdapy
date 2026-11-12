@@ -214,3 +214,43 @@ def test_thermal_displacements_of_phonopy(crystal, tmp_path):
     np.testing.assert_allclose(
         found, expected, rtol=0, atol=1e-5 * np.abs(expected).max()
     )
+
+
+def test_gruneisen_of_phonopy(crystal, potential, tmp_path):
+    """phonopy's mode Grüneisen parameters from the same force constants at
+    three volumes."""
+    from phonopy.file_IO import parse_FORCE_CONSTANTS
+    from phonopy.gruneisen.core import GruneisenBase
+
+    cell, matrix, result = crystal
+
+    def scaled(volume):
+        s = volume ** (1 / 3)
+        return cell.with_box(cell.box.matrix * s).with_columns(
+            positions=cell["positions"] * s
+        )
+
+    cells = [scaled(0.99), cell, scaled(1.01)]
+    results = [
+        phonons(c, potential, supercell=matrix, displacement=DISPLACEMENT)
+        for c in (cells[0], cells[2])
+    ]
+    results.insert(1, result)
+    q = np.vstack(
+        [
+            np.random.default_rng(0).random((8, 3)) - 0.5,
+            [[0.5, 0, 0], [0.5, 0.5, 0], [0.5, 0.5, 0.5], [0.25, 0, 0], [0, 0, 0.25]],
+        ]
+    )
+    found = result.gruneisen(q, smaller=results[0], larger=results[2])
+    matrices = []
+    for k, (c, r) in enumerate(zip(cells, results)):
+        path = tmp_path / f"FORCE_CONSTANTS_{k}"
+        ForceConstants(c, matrix, r.force_constants).write(path)
+        theirs = of_phonopy(c, matrix, "P")
+        theirs.force_constants = parse_FORCE_CONSTANTS(path, theirs.primitive.p2s_map)
+        matrices.append(theirs.dynamical_matrix)
+    expected = GruneisenBase(
+        matrices[1], matrices[2], matrices[0], qpoints=q
+    ).get_gruneisen()
+    np.testing.assert_allclose(found, expected, rtol=0, atol=1e-10)

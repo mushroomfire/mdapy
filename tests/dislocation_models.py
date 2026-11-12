@@ -129,23 +129,24 @@ def crossing_loops():
     )
 
 
-def hexagonal(structure, a, element, kind):
+def hexagonal(structure, a, element, kind, c=None, layers=5):
     """A straight basal dislocation of a hexagonal crystal in a box open
-    across the line: a screw along a1 or an edge of Burgers vector a1."""
+    across the line: a screw along a1 or an edge of Burgers vector a1; c
+    by default the ideal one, layers cells along it."""
     if kind == "screw":
         orientation, repeat, burgers = (
             [(0, 1, -1, 0), (0, 0, 0, 1), (2, -1, -1, 0)],
-            (9, 5, 4),
+            (9, layers, 4),
             [0, 0, a],
         )
     else:
         orientation, repeat, burgers = (
             [(2, -1, -1, 0), (0, 0, 0, 1), (0, 1, -1, 0)],
-            (14, 5, 4),
+            (14, layers, 4),
             [a, 0, 0],
         )
     cell = build_crystal(
-        structure, a, elements=element, orientation=orientation, repeat=repeat
+        structure, a, c=c, elements=element, orientation=orientation, repeat=repeat
     )
     cell = cell.with_box(mdapy.Box(cell.box.matrix, pbc=(False, False, True)))
     return insert_dislocation(

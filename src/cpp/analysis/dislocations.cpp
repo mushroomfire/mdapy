@@ -316,7 +316,8 @@ Dislocations dislocation_analysis(const double* positions, const double* jittere
     constexpr int kStages = 5;
     Dislocations out;
     out.structures = dxa::find_structures(positions, n, matrix, origin, pbc, options.crystal,
-                                          options.defects, stage(control, 0, kStages));
+                                          options.defects, stage(control, 0, kStages),
+                                          options.low_ca);
     dxa::ClusterInput input;
     input.n = n;
     input.structure = out.structures.structure.data();

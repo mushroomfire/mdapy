@@ -288,6 +288,10 @@ class DislocationAnalysis:
     interface_mesh : bool, optional
         Also give the interface mesh, between the tetrahedra of the good
         crystal and the rest, on which the circuits run. Default False.
+    low_ca_ratio : bool, optional
+        For hcp of a low c/a, below some 1.15: an atom whose 12 nearest
+        neighbors are not hcp is tried again with them stretched along its c
+        axis to the ideal c/a. Default False.
     """
 
     #: Names of the structure types.
@@ -346,6 +350,7 @@ class DislocationAnalysis:
         smoothing: int = 1,
         mesh_smoothing: int = 8,
         interface_mesh: bool = False,
+        low_ca_ratio: bool = False,
     ):
         if crystal not in _CRYSTALS:
             raise InvalidParameter(
@@ -374,6 +379,7 @@ class DislocationAnalysis:
         self.smoothing = int(smoothing)
         self.mesh_smoothing = int(mesh_smoothing)
         self.interface_mesh = bool(interface_mesh)
+        self.low_ca_ratio = bool(low_ca_ratio)
 
     def compute(
         self, system: System, *, progress: Any = None, cancel: Any = None
@@ -422,6 +428,7 @@ class DislocationAnalysis:
                 self.smoothing,
                 self.mesh_smoothing,
                 self.interface_mesh,
+                self.low_ca_ratio,
                 progress,
                 _native_token(cancel),
             )
@@ -523,7 +530,8 @@ class DislocationAnalysis:
             f"stretch={self.stretch!r}, perfect_only={self.perfect_only!r}, "
             f"point_separation={self.point_separation!r}, smoothing={self.smoothing!r}, "
             f"mesh_smoothing={self.mesh_smoothing!r}, "
-            f"interface_mesh={self.interface_mesh!r})"
+            f"interface_mesh={self.interface_mesh!r}, "
+            f"low_ca_ratio={self.low_ca_ratio!r})"
         )
 
 

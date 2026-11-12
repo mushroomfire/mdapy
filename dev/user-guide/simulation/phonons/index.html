@@ -8366,6 +8366,11 @@ lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)<
 <td>the thermodynamic properties of the vibrations</td>
 </tr>
 <tr>
+<td><code>gruneisen(q, *, smaller, larger)</code></td>
+<td>(3n,) or (K, 3n) float64</td>
+<td>the mode Grüneisen parameters, from the phonons at a smaller and a larger volume</td>
+</tr>
+<tr>
 <td><code>thermal_displacements(temperatures, *, mesh=20)</code></td>
 <td>(T, n, 3, 3) float64</td>
 <td>the mean products of the displacements of each atom of the cell along each pair of axes, in Å²</td>
@@ -8544,6 +8549,27 @@ exist.</p>
 </tr>
 </tbody>
 </table>
+<p><strong>Mode Grüneisen parameters.</strong> How much the frequency of each mode falls as the
+crystal grows, γ = −(V/ω) dω/dV, from the phonons of the same crystal at a smaller and a
+larger volume, its atoms in the same order, such as the cell scaled by ±1 % of its
+volume; the atoms of a crystal with free coordinates are relaxed at each volume first,
+with the box fixed. The change of the dynamical matrix between the two volumes, over
+that of the volume, gives dω/dV of each mode; modes of nearly the same frequency, their
+squared frequencies closer than 1e-4 eV/(Å² amu) as phonopy takes them, are set apart in
+the basis in which that change is diagonal. Modes below 1e-3 THz, the translations,
+have none: NaN.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">scaled</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">volume</span><span class="p">):</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">s</span> <span class="o">=</span> <span class="n">volume</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">return</span> <span class="n">cell</span><span class="o">.</span><span class="n">with_box</span><span class="p">(</span><span class="n">cell</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span> <span class="o">*</span> <span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">positions</span><span class="o">=</span><span class="n">cell</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]</span> <span class="o">*</span> <span class="n">s</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">smaller</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">scaled</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="mf">0.99</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">supercell</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">larger</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">scaled</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="mf">1.01</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="n">result</span><span class="o">.</span><span class="n">supercell</span><span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">result</span><span class="o">.</span><span class="n">gruneisen</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">],</span> <span class="n">smaller</span><span class="o">=</span><span class="n">smaller</span><span class="p">,</span> <span class="n">larger</span><span class="o">=</span><span class="n">larger</span><span class="p">)</span>  <span class="c1"># at L</span>
+</code></pre></div>
 <p><strong>Thermal displacements.</strong> The mean products ⟨u<sub>α</sub>u<sub>β</sub>⟩ of the
 displacements of each atom, with the zero point motion, by sums over the modes on the
 mesh; modes below 1e-3 THz, the translations, are left out. The diagonal holds the mean
@@ -8552,8 +8578,8 @@ Debye–Waller factor of X-ray and neutron diffraction is B = 8π² ⟨u<sup>2</
 scattering vector. Copper with <code>EAM.zhou</code> at 300 K moves by 0.0067 Å² along each axis,
 so B = 0.53 Å².</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">thermal_displacements</span><span class="p">([</span><span class="mf">300.0</span><span class="p">],</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>  <span class="c1"># (1, n, 3, 3) Å²</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">isotropic</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis1</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis2</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">thermal_displacements</span><span class="p">([</span><span class="mf">300.0</span><span class="p">],</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>  <span class="c1"># (1, n, 3, 3) Å²</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">isotropic</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis1</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis2</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span>
 </code></pre></div>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>phonons</code> raises <code>InvalidParameter</code> for a box that is not periodic in every
@@ -8562,8 +8588,9 @@ calculator that does not compute forces, a supercell that is not positive
 integers or a matrix of integers with a positive determinant, a
 displacement that is not positive, and <code>symmetry=True</code> without spglib;
 <code>primitive_cell</code> for a box that is not
-periodic. <code>frequencies</code>, <code>modes</code> and <code>group_velocities</code> raise it for wave vectors that are
-not three numbers each, and <code>group_velocities</code> for <code>symmetry=True</code> without spglib; <code>band_structure</code> for an unknown lattice, a cell that
+periodic. <code>frequencies</code>, <code>modes</code>, <code>group_velocities</code> and <code>gruneisen</code> raise it for wave vectors that
+are not three numbers each, <code>gruneisen</code> for phonons of other atoms or of volumes that are
+not smaller and larger, and <code>group_velocities</code> for <code>symmetry=True</code> without spglib; <code>band_structure</code> for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and <code>ImportError</code> for <code>"auto"</code>
 without seekpath; <code>dos</code>, <code>thermal</code> and <code>thermal_displacements</code> for a mesh or a <code>sigma</code> that is not
@@ -8604,6 +8631,11 @@ the frequencies at their corners
 (<a href="../../../reference/references/#blochl1994">Blöchl et al. (1994)</a>), or a
 Gaussian. The projected density of atom <span class="arithmatex">\(a\)</span> weighs each mode by
 <span class="arithmatex">\(|\mathbf e_a|^2\)</span>, over the corners of each tetrahedron.</p>
+<p>The mode Grüneisen parameter of a mode of eigenvalue ω² and polarization <strong>e</strong> is</p>
+<div class="arithmatex">\[
+\gamma = -\frac{V}{\omega}\frac{\partial \omega}{\partial V}
+= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e .
+\]</div>
 <p>The thermal displacements of atom <span class="arithmatex">\(a\)</span> are</p>
 <div class="arithmatex">\[
 \langle u_{a\alpha} u_{a\beta} \rangle = \frac{1}{K m_a} \sum_{\mathbf q, s}

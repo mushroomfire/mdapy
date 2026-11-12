@@ -7498,6 +7498,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        force_constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.displaced_supercells" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        displaced_supercells
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.ForceConstants" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8883,6 +8905,28 @@
     <span class="md-ellipsis">
       
         read_band_structure
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        force_constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.displaced_supercells" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        displaced_supercells
       
     </span>
   </a>
@@ -11993,6 +12037,361 @@ at the ends of the lines have no names.</p>
 
 </div>
 
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.force_constants" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">force_constants</span>
+
+
+<a href="#mdapy.lattice_dynamics.force_constants" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Second order force constants of a crystal fitted to the forces on
+atoms displaced in a supercell.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cell of the crystal, periodic in every direction, or of a sheet,
+periodic along two vectors in the x-y plane and not along a third
+along z, with atoms at rest (relax it first).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>frames</code>
+            </td>
+            <td>
+                  <code>sequence of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Supercells of the cell with atoms displaced, such as those of
+<code>displaced_supercells</code>, each with a <code>forces</code> column in eV/Å, its
+atoms in any order.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symmetry</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Use the symmetry of the cell, found by spglib, in the fit: True,
+False, or by default whenever spglib is installed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ForceConstants
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._force_constants.ForceConstants)" href="#mdapy.lattice_dynamics.ForceConstants">ForceConstants</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The force constants that give the forces best, symmetric under the
+operations of the crystal that map the supercell onto itself and in
+the two atoms, and summing to zero over the atoms of the supercell,
+with the number of free parameters and the relative error of the
+forces.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the box is neither periodic nor that of a sheet, there are no
+atoms or no frames, a frame is not a supercell of the cell with
+forces, its atoms one at each atom of the supercell, the frames do
+not determine every free parameter, or symmetry is True without
+spglib.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.displaced_supercells" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">displaced_supercells</span>
+
+
+<a href="#mdapy.lattice_dynamics.displaced_supercells" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">displaced_supercells</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">supercell</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'finite'</span><span class="p">,</span> <span class="n">displacement</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Supercells of a crystal with atoms displaced, whose forces, from any
+calculator, give its force constants by <code>force_constants</code>.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cell of the crystal, periodic in every direction, or of a sheet,
+periodic along two vectors in the x-y plane and not along a third
+along z, with atoms at rest.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>supercell</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Repeats of the cell along its vectors, one or three, or a (3, 3)
+integer matrix whose rows times the vectors of the cell are the
+vectors of the supercell; a sheet repeats along its plane only.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>method</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>"finite": one atom displaced in each supercell, the moves of
+<code>phonons</code>; "random": every atom displaced along a random direction,
+each pattern by plus and minus. Default "finite".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;finite&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>displacement</code>
+            </td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Displacement of the atoms in Å. Default 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>count</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of random patterns, each giving two supercells. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code><span title="int64">int64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the random directions. Default None, a new one each time.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>symmetry</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "finite", move only the atoms and along the directions that the
+symmetry of the cell, found by spglib, does not relate to others:
+True, False, or by default whenever spglib is installed.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>list of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The supercells, with the columns of the cell, the atoms of each cell
+of the supercell in the order of the cell.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the box is neither periodic nor that of a sheet, there are no
+atoms, the supercell is not positive integers or a matrix of them
+with a positive determinant, the method is unknown, the displacement
+is not positive, count is not a positive integer, or symmetry is
+True without spglib.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
 <div class="doc doc-object doc-class">
 
 
@@ -12128,6 +12527,31 @@ their order, the first cell that of the cell itself, as the
               <div class="doc-md-description">
                 <p>(n, n S, 3, 3) float64 second order force constants in eV/Å²;
 read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.parameters">parameters</span></code></td>
+            <td>
+                  <code><span title="int64">int64</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The number of free force constants that symmetry and the sum rule
+leave, of a fit by <code>force_constants</code>; None otherwise.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.ForceConstants.error">error</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The relative error of the forces of a fit by <code>force_constants</code>:
+the norm of the forces less those of the force constants over the
+norm of the forces; None otherwise.</p>
               </div>
             </td>
           </tr>

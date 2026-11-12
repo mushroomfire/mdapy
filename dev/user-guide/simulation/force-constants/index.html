@@ -5309,10 +5309,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#phonopys-force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phonopy's FORCE_CONSTANTS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
         Errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
       
     </span>
   </a>
@@ -8093,10 +8115,32 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#phonopys-force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        phonopy's FORCE_CONSTANTS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
         Errors
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#definition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Definition
       
     </span>
   </a>
@@ -8134,45 +8178,60 @@
   
 
 
+<!-- needs: spglib -->
+
 <h1 id="force-constants">Force constants<a class="headerlink" href="#force-constants" title="Permanent link">&para;</a></h1>
-<p><code>mdapy.lattice_dynamics.ForceConstants</code> holds the second order force constants of a
-crystal in a supercell, writes them as phonopy's <code>FORCE_CONSTANTS</code> file, and
-<code>read_force_constants</code> reads such a file: force constants pass between MDAPY and
-<a href="https://phonopy.github.io/phonopy/">phonopy</a>, from a calculation with VASP to the
-<a href="../phonons/">phonons</a> of MDAPY and back.</p>
+<p><code>mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)</code> fits the second
+order force constants of a crystal to the forces on atoms displaced in a supercell,
+from any calculator or from a calculation with DFT; <code>displaced_supercells</code> makes the
+supercells, and a <code>ForceConstants</code> gives the <a href="../phonons/">phonons</a> and passes to and
+from <a href="https://phonopy.github.io/phonopy/">phonopy</a> as its <code>FORCE_CONSTANTS</code> file.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">ForceConstants</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">phonons</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">displaced_supercells</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">force_constants</span><span class="p">,</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">primitive_cell</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">read_force_constants</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="o">.</span><span class="n">zhou</span><span class="p">([</span><span class="s2">"Cu"</span><span class="p">])</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">primitive_cell</span><span class="p">(</span><span class="n">crystal</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">result</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">constants</span> <span class="o">=</span> <span class="n">ForceConstants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">supercell</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">force_constants</span><span class="p">)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">constants</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">)</span>  <span class="c1"># phonopy reads it</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">back</span> <span class="o">=</span> <span class="n">read_force_constants</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">back</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">frequencies</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>  <span class="c1"># THz at L, as result gives</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="o">.</span><span class="n">zhou</span><span class="p">([</span><span class="s2">"Cu"</span><span class="p">])</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">primitive_cell</span><span class="p">(</span><span class="n">crystal</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">moved</span> <span class="o">=</span> <span class="n">displaced_supercells</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># one supercell for fcc</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">s</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">forces</span><span class="o">=</span><span class="n">potential</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"forces"</span><span class="p">,))</span><span class="o">.</span><span class="n">forces</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">moved</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">]</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">constants</span> <span class="o">=</span> <span class="n">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">constants</span><span class="o">.</span><span class="n">parameters</span><span class="p">,</span> <span class="n">constants</span><span class="o">.</span><span class="n">error</span>  <span class="c1"># 17 free force constants, their error</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="n">constants</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">frequencies</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>  <span class="c1"># THz at L</span>
 </code></pre></div>
-<p>The force constants of a calculation with phonopy, here with VASP, give the phonons
-of MDAPY, with their band structures, densities of states, thermal properties and
-plots:</p>
+<p>Random displacements of every atom, each pattern by plus and minus, are the usual
+choice for DFT, whose forces carry noise:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">moved</span> <span class="o">=</span> <span class="n">displaced_supercells</span><span class="p">(</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">displacement</span><span class="o">=</span><span class="mf">0.03</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="p">)</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">s</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">forces</span><span class="o">=</span><span class="n">potential</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"forces"</span><span class="p">,))</span><span class="o">.</span><span class="n">forces</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">moved</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="p">]</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">constants</span> <span class="o">=</span> <span class="n">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>
+</code></pre></div>
+<p>With VASP, the supercells go out as POSCAR files and the forces come back in the
+OUTCAR files, whose atoms VASP holds in the order of the POSCAR, grouped by element:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">mp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="s2">"POSCAR"</span><span class="p">)</span>  <span class="c1"># the unit cell of phonopy, its atoms in its order</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">read_force_constants</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># phonopy --dim 4 4 4</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">bands</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="s2">"auto"</span><span class="p">)</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">thermal</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">thermal</span><span class="p">([</span><span class="mf">300.0</span><span class="p">,</span> <span class="mf">600.0</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">moved</span> <span class="o">=</span> <span class="n">displaced_supercells</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s2">"random"</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">supercell</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">moved</span><span class="p">):</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">mp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"POSCAR-</span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="n">supercell</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># ... VASP computes each, in its own folder ...</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">[</span><span class="n">mp</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">/OUTCAR"</span><span class="p">,</span> <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">moved</span><span class="p">))]</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">dft</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="s2">"auto"</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">dft</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">)</span>  <span class="c1"># for phonopy</span>
 </code></pre></div>
 <table>
 <thead>
@@ -8190,7 +8249,43 @@ plots:</p>
 <td><code>System</code></td>
 <td></td>
 <td></td>
-<td>the cell of the crystal, periodic in every direction, or of a <a href="../sheets/">sheet</a>; for <code>phonons()</code> each atom needs an <code>element</code> or a <code>mass</code></td>
+<td>the cell of the crystal, periodic in every direction, or of a <a href="../sheets/">sheet</a>, with atoms at rest (relax it first)</td>
+</tr>
+<tr>
+<td><code>frames</code></td>
+<td>sequence of <code>System</code></td>
+<td></td>
+<td></td>
+<td>supercells of the cell with atoms displaced, each with a <code>forces</code> column in eV/Å, its atoms in any order</td>
+</tr>
+<tr>
+<td><code>symmetry</code></td>
+<td>bool or <code>None</code></td>
+<td><code>None</code></td>
+<td></td>
+<td>fit with the symmetry operations of the crystal, found by <a href="../../analysis/space-group/">spglib</a>: <code>True</code>, <code>False</code>, or by default whenever spglib is installed</td>
+</tr>
+</tbody>
+</table>
+<p><code>displaced_supercells(cell, *, supercell, method="finite", displacement=0.01, count=1, seed=None, symmetry=None)</code>
+makes the supercells:</p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Default</th>
+<th>Unit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cell</code></td>
+<td><code>System</code></td>
+<td></td>
+<td></td>
+<td>the cell of the crystal, as for <code>force_constants</code></td>
 </tr>
 <tr>
 <td><code>supercell</code></td>
@@ -8200,20 +8295,58 @@ plots:</p>
 <td>repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell, as in <a href="../phonons/"><code>phonons</code></a></td>
 </tr>
 <tr>
-<td><code>second</code></td>
-<td>(n, nS, 3, 3) float64</td>
+<td><code>method</code></td>
+<td>str</td>
+<td><code>"finite"</code></td>
 <td></td>
-<td>eV/Å²</td>
-<td>the force constants between each atom of the cell and each atom of the supercell, which holds S cells, each with the atoms of the cell in their order, the cell itself first: the <code>force_constants</code> of <code>Phonons</code></td>
+<td><code>"finite"</code>: one atom displaced in each supercell, the moves of <code>phonons</code>; <code>"random"</code>: every atom displaced along a random direction, each pattern by plus and minus</td>
+</tr>
+<tr>
+<td><code>displacement</code></td>
+<td>float64</td>
+<td>0.01</td>
+<td>Å</td>
+<td>how far each displaced atom moves</td>
+</tr>
+<tr>
+<td><code>count</code></td>
+<td>int32</td>
+<td>1</td>
+<td></td>
+<td>the number of random patterns, each giving two supercells</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>int64 or <code>None</code></td>
+<td><code>None</code></td>
+<td></td>
+<td>the seed of the random directions; <code>None</code>, new ones each time</td>
+</tr>
+<tr>
+<td><code>symmetry</code></td>
+<td>bool or <code>None</code></td>
+<td><code>None</code></td>
+<td></td>
+<td>for <code>"finite"</code>, move only the atoms and along the axes that symmetry does not relate to others, as in <code>phonons</code></td>
 </tr>
 </tbody>
 </table>
-<p><code>read_force_constants(path, cell, supercell)</code> takes the file, the unit cell of
-phonopy's calculation, its atoms in the order phonopy had them, and the supercell.
-phonopy's supercell matrix gives the vectors of the supercell as its columns, so the
-matrix of MDAPY is its transpose; for repeats along the vectors, as
-<code>--dim 4 4 4</code>, the two are the same.</p>
+<p>The supercells have the columns of the cell, and in each cell of the supercell the
+atoms of the cell in its order. The finite moves are those of <code>phonons</code>, one supercell
+for fcc and bcc, 2 for hcp and 3 for L1<sub>2</sub> with the symmetry of the crystal,
+6 for each atom of the cell without it. A random pattern moves every atom by
+<code>displacement</code> along a direction of its own, and its supercell by minus the pattern
+follows it.</p>
+<p><code>force_constants</code> matches the atoms of each frame to those of the supercell by
+position, so that frames read back from files, whose atoms may be in another order
+and wrapped into the box, give the same force constants; the box of each frame is that
+of the supercell, and its supercell matrix comes from the box. The frames must
+determine every free force constant: with the symmetry of fcc, one finite move or one
+random pattern does; without symmetry, a cell of n atoms needs at least 3n random
+patterns. Fewer raise <code>InvalidParameter</code>, which
+tells how many of the free force constants the frames determine.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
+<p><code>force_constants</code> returns a <code>ForceConstants</code>.</p>
 <table>
 <thead>
 <tr>
@@ -8236,7 +8369,17 @@ matrix of MDAPY is its transpose; for repeats along the vectors, as
 <tr>
 <td><code>second</code></td>
 <td>(n, nS, 3, 3) float64</td>
-<td>the second order force constants in eV/Å²; read-only</td>
+<td>the force constants <span class="arithmatex">\(\Phi\)</span> in eV/Å² between each atom of the cell and each atom of the supercell, which holds S cells, each with the atoms of the cell in their order, the cell itself first, as the <code>force_constants</code> of <code>Phonons</code>; read-only</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td>int64 or <code>None</code></td>
+<td>the number of free force constants that symmetry and the sum rule leave, of a fit; <code>None</code> otherwise</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>float64 or <code>None</code></td>
+<td>the relative error of the forces of a fit; <code>None</code> otherwise</td>
 </tr>
 <tr>
 <td><code>phonons()</code></td>
@@ -8250,34 +8393,137 @@ matrix of MDAPY is its transpose; for repeats along the vectors, as
 </tr>
 </tbody>
 </table>
-<p><strong>The file.</strong> Its first line holds the number of rows and of columns; then come
-blocks of four lines, one for each pair of an atom of a row and an atom of the
-supercell, the row first: a line that starts with the number of the atom of the row,
-from 1, and the 3 × 3 force constants of the pair in eV/Å², by rows. The atoms are
-in phonopy's order, which MDAPY follows for any supercell matrix: atom by atom of the
-cell, and for each the cells of the supercell, the first vector of the cell
-fastest.</p>
-<p><code>write</code> writes the rows of the atoms of the cell, the compact form, which phonopy
-reads when its primitive cell is the cell, as with <code>--pa P</code>; with <code>full=True</code>, the
-rows of every atom of the supercell, which phonopy reads whatever its primitive
-cell. <code>read_force_constants</code> reads both, and the compact files of phonopy whose
-primitive cell is smaller than the cell, such as the cubic cell of fcc: the rows of
-the atoms of the cell that the file leaves out are those of an atom in the file that
-a translation of the crystal takes to them. As phonopy, it takes a header of one
-number as the rows and the columns, and reads only the first number of the first
-line of each block.</p>
-<p>The force constants are in eV/Å², as phonopy writes them from VASP; those of other
-calculators of phonopy, such as Quantum ESPRESSO in Ry/bohr², are converted first.</p>
+<p><code>error</code> is the size of the forces that the force constants leave out, over that of the
+forces: those of the anharmonic terms and the noise of the calculator. With finite
+moves of 0.01 Å it is small. With random patterns of 0.03 Å it is a few percent for
+copper. Most of that is the cubic term, which a pattern and its opposite share and
+which therefore drops out of the force constants, though not out of the error.</p>
+<p>With the finite moves and the forces of a calculator, <code>force_constants</code> gives the force
+constants of <code>phonons</code> where the operations of the crystal turn axes onto axes, as in
+fcc and bcc. Otherwise the two differ by the error of the differences, of the order of
+the square of the displacement: 1e-4 THz for hcp and L1<sub>2</sub> at 0.01 Å.</p>
+<p><code>ForceConstants(cell, supercell, second)</code> makes force constants from an array, such as
+the <code>force_constants</code> of <code>Phonons</code>, and checks its shape against the cell and the
+supercell.</p>
+<h2 id="phonopys-force_constants">phonopy's FORCE_CONSTANTS<a class="headerlink" href="#phonopys-force_constants" title="Permanent link">&para;</a></h2>
+<p><code>write</code> writes the force constants as phonopy's <code>FORCE_CONSTANTS</code>, and
+<code>read_force_constants(path, cell, supercell)</code> reads such a file:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_force_constants</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">constants</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">)</span>  <span class="c1"># phonopy reads it</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">back</span> <span class="o">=</span> <span class="n">read_force_constants</span><span class="p">(</span><span class="s2">"FORCE_CONSTANTS"</span><span class="p">,</span> <span class="n">cell</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">back</span><span class="o">.</span><span class="n">phonons</span><span class="p">()</span><span class="o">.</span><span class="n">frequencies</span><span class="p">([</span><span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">])</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Default</th>
+<th>Unit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>str or path-like</td>
+<td></td>
+<td></td>
+<td>the file, in eV/Å²</td>
+</tr>
+<tr>
+<td><code>cell</code></td>
+<td><code>System</code></td>
+<td></td>
+<td></td>
+<td>the unit cell of phonopy's calculation, its atoms in the order phonopy had them</td>
+</tr>
+<tr>
+<td><code>supercell</code></td>
+<td>int32, (3,) int32 or (3, 3) int32</td>
+<td></td>
+<td></td>
+<td>the supercell: the transpose of phonopy's supercell matrix, whose columns are the vectors of the supercell; the same for repeats along the vectors, as <code>--dim 4 4 4</code></td>
+</tr>
+<tr>
+<td><code>full</code></td>
+<td>bool</td>
+<td><code>False</code></td>
+<td></td>
+<td>of <code>write</code>: the rows of every atom of the supercell rather than those of the atoms of the cell</td>
+</tr>
+</tbody>
+</table>
+<p>The first line of the file holds the number of rows and of columns. Then come blocks
+of four lines, one for each pair of an atom of a row and an atom of the supercell, the
+row first. Each block is a line that starts with the number of the atom of the row,
+counted from 1, then the 3 × 3 force constants of the pair in eV/Å², by rows. The atoms
+are in phonopy's order, which MDAPY follows for any supercell matrix: atom by atom of
+the cell, and for each the cells of the supercell, the first vector of the cell fastest.</p>
+<p><code>write</code> writes the rows of the atoms of the cell, the compact form, which phonopy reads
+when its primitive cell is the cell, as with <code>--pa P</code>. With <code>full=True</code> it writes the
+rows of every atom of the supercell, which phonopy reads whatever its primitive cell.</p>
+<p><code>read_force_constants</code> reads both forms. It also reads compact files of phonopy whose
+primitive cell is smaller than the cell, such as for the cubic cell of fcc: the rows the
+file leaves out for atoms of the cell are those of an atom in the file that a
+translation of the crystal takes to them. As phonopy does, it takes a header of one
+number as both the rows and the columns, and reads only the first number of the first
+line of each block. Force constants are in eV/Å², as phonopy writes them from VASP.
+Those that other calculators of phonopy give, such as Quantum ESPRESSO in Ry/bohr², must
+be converted first.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
-<p><code>ForceConstants</code> raises <code>InvalidParameter</code> for a box that is neither periodic in
-every direction nor that of a sheet, a cell without atoms, a supercell that is not
-positive integers or a matrix of integers with a positive determinant, and force
-constants that are not of the shape of the cell and the supercell or not finite;
-<code>phonons()</code> for an atom with neither element nor mass. <code>read_force_constants</code> raises
-<code>FileFormatError</code> for a file that is not in the format, or names an atom that the
-supercell does not have, and <code>InvalidParameter</code> for a file of another number of
-atoms than the supercell has, and for an atom of the cell whose force constants are
-neither in the file nor those of an atom that a translation takes to it.</p>
+<p><code>force_constants</code> raises <code>InvalidParameter</code> for:</p>
+<ul>
+<li>a box that is neither periodic in every direction nor that of a sheet;</li>
+<li>a cell without atoms, or no frames;</li>
+<li>a frame whose box is not that of a supercell of the cell, that has no forces, whose
+  atoms are not one at each atom of the supercell, or whose atom has another element or
+  type than its atom of the supercell;</li>
+<li>frames that do not determine every free force constant;</li>
+<li><code>symmetry=True</code> without spglib;</li>
+<li>a fit too large for memory, over 2 GB, as a crystal of little symmetry with many atoms
+  in its cell in a large supercell: <a href="../phonons/"><code>phonons</code></a> finds its force constants by
+  finite differences instead.</li>
+</ul>
+<p><code>displaced_supercells</code> raises <code>InvalidParameter</code> for a supercell that is not positive
+integers or a matrix of integers with a positive determinant, an unknown method, a
+displacement that is not positive, and a count that is not a positive integer.</p>
+<p><code>ForceConstants</code> raises <code>InvalidParameter</code> for:</p>
+<ul>
+<li>a box that is neither periodic in every direction nor that of a sheet;</li>
+<li>a cell without atoms;</li>
+<li>a supercell that is not positive integers or a matrix of integers with a positive
+  determinant;</li>
+<li>force constants that are not of the shape of the cell and the supercell, or not
+  finite.</li>
+</ul>
+<p>Its <code>phonons()</code> raises <code>InvalidParameter</code> for an atom with neither element nor mass.</p>
+<p><code>read_force_constants</code> raises <code>FileFormatError</code> for a file that is not in the format, or
+that names an atom the supercell does not have. It raises <code>InvalidParameter</code> for a file
+of another number of atoms than the supercell has, and for an atom of the cell whose
+force constants are neither in the file nor those of an atom that a translation takes
+to it.</p>
+<h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
+<p>The forces on the atoms <span class="arithmatex">\(i\)</span> of the supercell, displaced by <span class="arithmatex">\(\mathbf u_j\)</span> from their
+sites, are those of the harmonic energy:</p>
+<div class="arithmatex">\[
+F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta} .
+\]</div>
+<p>The force constants are those of the supercell with its periodic boundaries. They obey
+every relation that is exact:</p>
+<ul>
+<li>the operations <span class="arithmatex">\((R, \mathbf t)\)</span> of the crystal that map the supercell onto itself:
+  <span class="arithmatex">\(\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}\)</span>;</li>
+<li>the exchange of the two atoms: <span class="arithmatex">\(\Phi_{i\alpha, j\beta} = \Phi_{j\beta, i\alpha}\)</span>;</li>
+<li>the sum rule, so that moving the whole crystal costs no energy:
+  <span class="arithmatex">\(\sum_j \Phi_{i\alpha, j\beta} = 0\)</span>.</li>
+</ul>
+<p>The free force constants are the components that these relations leave, <code>parameters</code>
+of them. The fit makes the sum over the frames of
+<span class="arithmatex">\(|\mathbf F - \mathbf F_\text{fit}|^2\)</span> as small as it can, and <code>error</code> is
+<span class="arithmatex">\(|\mathbf F - \mathbf F_\text{fit}| / |\mathbf F|\)</span>. The displacement of each atom is that
+from the nearest atom of the supercell, through the periodic boundaries.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="https://phonopy.github.io/phonopy/input-files.html#format-of-force-constants">The format of <code>FORCE_CONSTANTS</code></a> in the documentation of phonopy.</li>

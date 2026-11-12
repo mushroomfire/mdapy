@@ -8253,15 +8253,25 @@ reference. For each of the six components of the strain in Voigt order,
 strains of <span class="arithmatex">\(+\delta\)</span> and <span class="arithmatex">\(-\delta\)</span> of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
 moved with the box) each run <code>equilibration</code> steps at constant volume and
-temperature (<code>fix nvt</code>), then <code>production</code> steps over which the stress is
-averaged:</p>
+temperature, with a Langevin thermostat (<code>fix langevin</code> and <code>fix nve</code>), then
+<code>production</code> steps over which the stress is averaged. The two runs of a
+component share the noise of the thermostat, which their difference cancels
+in part. A Nosé–Hoover thermostat, being deterministic, does not bring all
+the vibrations of a crystal back to the temperature after a strain: with it
+C11 of silicon with the Tersoff potential at 300 K came out 2 % too high.</p>
 <div class="arithmatex">\[
 C_{jk} = \frac{\bar\sigma_j(+\delta\,\mathbf e_k) - \bar\sigma_j(-\delta\,\mathbf e_k)}{2\delta},
 \]</div>
 <p>with <span class="arithmatex">\(\sigma\)</span> positive under tension. The standard error of each mean comes
 from the means of <code>blocks</code> blocks of the run, and the two errors of a
-column add in quadrature. The constants are those at constant temperature;
-under a pressure, the stress–strain coefficients.</p>
+column add in quadrature. Each entry off the diagonal is the mean of its
+two estimates, <span class="arithmatex">\(C_{jk}\)</span> and <span class="arithmatex">\(C_{kj}\)</span>, so that the constants are symmetric.
+The constants are those at constant temperature; under a pressure, the
+stress–strain coefficients.</p>
+<p>A strain of 1 % takes the crystal beyond its linear response where the
+thermal noise is small: at 20 K C11 of copper came out 0.2 % above its limit
+of small strains. At low temperatures a strain of 0.2 %, with longer runs,
+gives that limit.</p>
 <table>
 <thead>
 <tr>
@@ -8355,7 +8365,7 @@ under a pressure, the stress–strain coefficients.</p>
 <td>int32</td>
 <td>1</td>
 <td></td>
-<td>seed of the starting velocities</td>
+<td>seed of the starting velocities and of the thermostat of the strained runs</td>
 </tr>
 </tbody>
 </table>

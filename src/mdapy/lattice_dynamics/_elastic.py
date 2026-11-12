@@ -30,6 +30,9 @@ _HALF_SHEAR = np.array([1.0, 1.0, 1.0, 0.5, 0.5, 0.5])
 _SHEET_PAIRS = ((0, 0), (1, 1), (0, 1))
 # N/m per GPa Å
 _N_PER_M = 0.1
+# the forces left by a relaxation under a strain, as a part of those the
+# strain makes
+_RELATIVE = 1e-4
 
 
 def _components(tensor: np.ndarray, pairs: tuple) -> np.ndarray:
@@ -413,7 +416,9 @@ def elastic_constants(
     relax : bool, optional
         Relax the positions under each strain. Default True.
     max_force : float64, optional
-        Convergence of each relaxation in eV/Å. Default 1e-4.
+        Convergence of each relaxation in eV/Å: the largest force left, or
+        1e-4 of the largest force the strain makes, whichever is smaller,
+        but no less than 1e-3 of max_force. Default 1e-4.
     max_steps : int32, optional
         Largest number of steps of each relaxation. Default 5000.
     symmetry : bool, optional
@@ -460,8 +465,13 @@ def elastic_constants(
                 continue
             strained = _strained(system, tensor)
             if relax:
+                # the stress follows the relaxation as the forces left over
+                # those the strain makes: a fixed tolerance near those forces,
+                # as at small strains, leaves the atoms half relaxed
+                made = np.abs(calculator.compute(strained, ("forces",)).forces).max()
+                tolerance = min(max_force, max(_RELATIVE * made, 1e-3 * max_force))
                 outcome = minimize(
-                    strained, calculator, max_force=max_force, max_steps=max_steps
+                    strained, calculator, max_force=tolerance, max_steps=max_steps
                 )
                 if not outcome.converged:
                     raise InvalidParameter(

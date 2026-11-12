@@ -344,3 +344,23 @@ def test_a_compressed_sheet_bends(potential, graphene):
         quasi_harmonic(
             graphene, potential, [300.0], volumes=np.linspace(0.99, 1.03, 5), **QHA
         )
+
+
+def test_the_constants_from_fluctuations_near_0_k(potential, graphene):
+    """The fluctuations of a sheet at 1 K: the static constants in N/m, from
+    the stresses in its plane, within their errors, which the relaxation of
+    the two atoms of the cell, 22 N/m of C11, makes large."""
+    sheet = replicate(graphene, (4, 4, 1))
+    static = elastic_constants(graphene, potential, symmetry=False).constants
+    result = md_elastic_constants(
+        sheet,
+        potential,
+        1.0,
+        timestep=0.0005,
+        equilibration=500,
+        production=2000,
+        method="fluctuation",
+    )
+    assert isinstance(result, SheetElasticResult) and result.errors.shape == (3, 3)
+    assert (np.abs(result.constants - static) < 4 * result.errors).all()
+    assert result.errors.max() < 0.02 * static[0, 0]

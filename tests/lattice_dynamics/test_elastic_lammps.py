@@ -116,3 +116,36 @@ def test_constants_as_lammps(tmp_path):
     result = elastic_constants(rotated, eam, strain=strain, max_force=1e-9)
     np.testing.assert_allclose(result.constants, expected, rtol=1e-4, atol=1e-3)
     assert expected[0, 0] > 50  # GPa, a stiff metal
+
+
+# silicon by Tersoff (1988), as in the file Si.tersoff of LAMMPS
+SILICON = (
+    "Si Si Si 3.0 1.0 1.3258 4.8381 2.0417 0.0000 22.956 "
+    "0.33675 1.3258 95.373 3.0 0.2 3.2394 3264.7\n"
+)
+
+
+def test_relaxations_follow_the_forces_of_the_strain(tmp_path):
+    """C44 of silicon, whose atoms relax most of it away (92 GPa unrelaxed,
+    10 relaxed): the same at strains of 1e-3 and 1e-4 and with tight
+    relaxations, as the relaxations converge to a part of the forces the
+    strain makes; with max_force alone, 1e-4 eV/Å, they gave 10.2 and 13.9."""
+    from mdapy.build import build_crystal
+    from mdapy.calculators import LAMMPS
+
+    path = tmp_path / "Si.tersoff"
+    path.write_text(SILICON)
+    potential = LAMMPS(f"pair_style tersoff\npair_coeff * * {path} Si", ["Si"])
+    cell = minimize(
+        build_crystal("diamond", 5.432, elements="Si"),
+        potential,
+        cell="full",
+        max_force=1e-8,
+        max_stress=1e-6,
+        max_steps=10000,
+    ).system
+    tight = elastic_constants(cell, potential, max_force=1e-8, symmetry=False)
+    for strain in (1e-3, 1e-4):
+        c44 = elastic_constants(cell, potential, strain=strain, symmetry=False)
+        assert c44.constants[3, 3] == pytest.approx(tight.constants[3, 3], rel=1e-3)
+    assert 10.2 < tight.constants[3, 3] < 10.4

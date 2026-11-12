@@ -31,8 +31,12 @@ reference. For each of the six components of the strain in Voigt order,
 strains of $+\delta$ and $-\delta$ of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
 moved with the box) each run `equilibration` steps at constant volume and
-temperature (`fix nvt`), then `production` steps over which the stress is
-averaged:
+temperature, with a Langevin thermostat (`fix langevin` and `fix nve`), then
+`production` steps over which the stress is averaged. The two runs of a
+component share the noise of the thermostat, which their difference cancels
+in part. A Nosé–Hoover thermostat, being deterministic, does not bring all
+the vibrations of a crystal back to the temperature after a strain: with it
+C11 of silicon with the Tersoff potential at 300 K came out 2 % too high.
 
 $$
 C_{jk} = \frac{\bar\sigma_j(+\delta\,\mathbf e_k) - \bar\sigma_j(-\delta\,\mathbf e_k)}{2\delta},
@@ -40,8 +44,15 @@ $$
 
 with $\sigma$ positive under tension. The standard error of each mean comes
 from the means of `blocks` blocks of the run, and the two errors of a
-column add in quadrature. The constants are those at constant temperature;
-under a pressure, the stress–strain coefficients.
+column add in quadrature. Each entry off the diagonal is the mean of its
+two estimates, $C_{jk}$ and $C_{kj}$, so that the constants are symmetric.
+The constants are those at constant temperature; under a pressure, the
+stress–strain coefficients.
+
+A strain of 1 % takes the crystal beyond its linear response where the
+thermal noise is small: at 20 K C11 of copper came out 0.2 % above its limit
+of small strains. At low temperatures a strain of 0.2 %, with longer runs,
+gives that limit.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -56,7 +67,7 @@ under a pressure, the stress–strain coefficients.
 | `every` | int32 | 10 | | steps between the values averaged |
 | `blocks` | int32 | 5 | | blocks of each average for its standard error |
 | `barostat` | str | `"tri"` | | how the box finds its mean shape: `"iso"`, `"aniso"` or `"tri"` |
-| `seed` | int32 | 1 | | seed of the starting velocities |
+| `seed` | int32 | 1 | | seed of the starting velocities and of the thermostat of the strained runs |
 
 ## Results
 

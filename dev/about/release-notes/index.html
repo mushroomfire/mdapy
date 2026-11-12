@@ -8584,6 +8584,11 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>DislocationResult.density</code> and <code>DislocationResult.densities()</code> give the length of
+  the lines per volume of the box, in all and of each family of Burgers vectors. The
+  page shows how to analyze some atoms only, such as one sublattice of an alloy, as
+  OVITO's option to analyze the selected atoms does: see
+  <a href="../../user-guide/analysis/dislocations/#some-atoms-only">Some atoms only</a>.</li>
 <li><code>DislocationAnalysis(..., low_ca_ratio=True)</code> finds the atoms of hcp of a low c/a,
   below some 1.15, stretched along their c axis to the ideal c/a, as OVITO's option of
   the name: a hot crystal is then hcp down to a c/a of some 0.75. See

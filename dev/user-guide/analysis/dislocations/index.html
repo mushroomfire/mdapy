@@ -3974,6 +3974,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#some-atoms-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Some atoms only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ca-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8278,6 +8289,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#some-atoms-only" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Some atoms only
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ca-files" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8650,6 +8672,16 @@ does nothing for the other crystals.</p>
 <td>the total length of the lines in Å</td>
 </tr>
 <tr>
+<td><code>densities()</code></td>
+<td>dict of str to float64</td>
+<td>the length of the lines of each family per volume of the box in Å⁻², <code>other</code> last; times 10<sup>20</sup> in m⁻²</td>
+</tr>
+<tr>
+<td><code>density</code></td>
+<td>float64</td>
+<td>the total length of the lines per volume of the box in Å⁻²</td>
+</tr>
+<tr>
 <td><code>counts()</code></td>
 <td>dict of str to int64</td>
 <td>the number of atoms of each structure, by name</td>
@@ -8788,16 +8820,32 @@ colors of their families, cut at the periodic boundaries; their colors are
 an arrow from the middle of each line shows its Burgers vector in space,
 <code>burgers_scale</code> times as long. <code>mesh=result.defect_mesh</code> draws the defect
 mesh.</p>
+<h3 id="some-atoms-only">Some atoms only<a class="headerlink" href="#some-atoms-only" title="Permanent link">&para;</a></h3>
+<p>To analyze some atoms only, as a sublattice of an alloy, analyze the system
+of those atoms; the others are as if they were not there. The gallium of
+gallium arsenide, a zinc blende of two fcc lattices, is fcc:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">dislocation_quadrupole</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">gaas</span> <span class="o">=</span> <span class="n">dislocation_quadrupole</span><span class="p">(</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="s2">"diamond screw"</span><span class="p">,</span> <span class="mf">5.65</span><span class="p">,</span> <span class="p">(</span><span class="mf">119.0</span><span class="p">,</span> <span class="mf">53.8</span><span class="p">,</span> <span class="mf">59.5</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">elements</span><span class="o">=</span><span class="p">(</span><span class="s2">"Ga"</span><span class="p">,</span> <span class="s2">"As"</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">gallium</span> <span class="o">=</span> <span class="n">gaas</span><span class="p">[</span><span class="s2">"element"</span><span class="p">]</span> <span class="o">==</span> <span class="s2">"Ga"</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">found</span> <span class="o">=</span> <span class="n">DislocationAnalysis</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">gaas</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">gallium</span><span class="p">))</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">family</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">found</span><span class="o">.</span><span class="n">lines</span><span class="p">]</span>  <span class="c1"># ["1/2&lt;110&gt;", "1/2&lt;110&gt;"]</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">structure</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gaas</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">int8</span><span class="p">)</span>  <span class="c1"># of every atom, other for As</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">structure</span><span class="p">[</span><span class="n">gallium</span><span class="p">]</span> <span class="o">=</span> <span class="n">found</span><span class="o">.</span><span class="n">structure</span>
+</code></pre></div>
+<p>The per-atom results are those of the atoms analyzed, in their order.</p>
 <h3 id="ca-files">CA files<a class="headerlink" href="#ca-files" title="Permanent link">&para;</a></h3>
 <p><code>result.write("dislocations.ca")</code> writes the result as a crystal analysis
 file of OVITO, version 6, which OVITO opens as it opens the files of its
 own dislocation analysis; <code>read_dislocations</code> reads such a file back, and
 those OVITO writes:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_dislocations</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">result</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">again</span> <span class="o">=</span> <span class="n">read_dislocations</span><span class="p">(</span><span class="s2">"dislocations.ca"</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">again</span><span class="o">.</span><span class="n">lengths</span><span class="p">()</span>  <span class="c1"># Å, as result.lengths()</span>
 </code></pre></div>
 <p>The file holds the box, the structures and their families of Burgers
 vectors with the colors of <code>FAMILY_COLORS</code>, the crystal clusters with their

@@ -58,4 +58,18 @@ struct ScatteringInput {
 void three_phonon_rates(const ScatteringInput& input, double* rates,
                         const Control& control = {});
 
+// The weights of linear tetrahedra in the conservation of energy of the
+// scatterings of the modes of one wave vector, of frequencies levels (b),
+// with the modes of count wave vectors q' and their q'' = q - q':
+// first and second (count x g x 4 x b) hold the frequencies of the modes at
+// the corners of the g tetrahedra around each q', the point first, and at
+// the opposite steps around q''. Writes joined, the weights of
+// w - w' - w'', and parted, those of (w + w' - w'') - (w - w' + w''), both
+// (count x b x b x b) by the mode of q, of q' and of q'', per unit of the
+// frequencies. Corners closer than same are one value.
+void tetrahedron_triplet_weights(std::int64_t count, std::int64_t g, std::int64_t b,
+                                 const double* first, const double* second, const double* levels,
+                                 double same, double* joined, double* parted,
+                                 const Control& control = {});
+
 }  // namespace mdapy::analysis

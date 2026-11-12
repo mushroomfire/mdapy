@@ -147,6 +147,26 @@ class DislocationLine:
     infinite: bool
     junctions: tuple[int, int]
 
+    def character(self) -> np.ndarray:
+        """The angle between the line and its Burgers vector in space at
+        each point: 0 for screw, 90 for edge.
+
+        Returns
+        -------
+        numpy.ndarray
+            (P,) float64 angles in degrees, from 0 to 90.
+        """
+        p = self.points
+        # the points before and after each, across the ends of a closed line
+        period = p[-1] - p[0]
+        before = np.concatenate([[p[-2] - period if self.loop else p[0]], p[:-1]])
+        after = np.concatenate([p[1:], [p[1] + period if self.loop else p[-1]]])
+        tangent = after - before
+        b = self.spatial_burgers
+        lengths = np.linalg.norm(tangent, axis=1) * np.linalg.norm(b)
+        cosine = np.abs(tangent @ b) / np.where(lengths > 0, lengths, 1.0)
+        return np.degrees(np.arccos(np.clip(cosine, 0.0, 1.0)))
+
 
 @dataclass(frozen=True)
 class CrystalClusters(Result):

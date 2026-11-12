@@ -297,4 +297,7 @@ from the nearest atom of the supercell, through the periodic boundaries.
 
 ## See also
 
+- [Lattice dynamics of solid argon](../../examples/argon.md): from the forces of a few
+  displaced supercells to the thermal conductivity, with every tool of this page and those
+  that build on it.
 - [The format of `FORCE_CONSTANTS`](https://phonopy.github.io/phonopy/input-files.html#format-of-force-constants) in the documentation of phonopy.

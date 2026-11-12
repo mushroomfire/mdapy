@@ -62,6 +62,44 @@ double dot(const Point& a, const Point& b) {
 
 // ------------------------------------------------------------- neighbors
 
+// The nearest neighbors of atoms, read from the list of the input or found
+// in its tree; one per thread.
+class Nearest {
+public:
+    Nearest(const PtmInput& in, double reach) : in_(in), reach_(reach) {}
+
+    // The neighbors of atom i, at most kMaxInput - 1, nearest first: their
+    // count, and their atoms and vectors from i.
+    int of(std::int64_t i, std::int64_t* atoms, Point* vectors) {
+        const double* xi = in_.positions + 3 * i;
+        if (in_.tree != nullptr) {
+            in_.tree->nearest_of(xi, i, in_.k, reach_, work_);
+            const int count = std::min(in_.k, kMaxInput - 1);
+            for (int k = 0; k < count; ++k) {
+                const neighbor::Neighbor& p = work_.found[static_cast<std::size_t>(k)];
+                atoms[k] = static_cast<std::int64_t>(p.j);
+                neighbor::pair_vector(xi, in_.positions + 3 * atoms[k], p.shift, in_.matrix,
+                                      vectors[k].data());
+            }
+            return count;
+        }
+        const std::int64_t first = in_.offsets[i];
+        const int count =
+            static_cast<int>(std::min<std::int64_t>(in_.offsets[i + 1] - first, kMaxInput - 1));
+        for (int k = 0; k < count; ++k) {
+            atoms[k] = static_cast<std::int64_t>(in_.j[first + k]);
+            neighbor::pair_vector(xi, in_.positions + 3 * atoms[k], in_.shifts + 3 * (first + k),
+                                  in_.matrix, vectors[k].data());
+        }
+        return count;
+    }
+
+private:
+    const PtmInput& in_;
+    double reach_;
+    neighbor::KdTree::Workspace work_;
+};
+
 // The order of the first count neighbors (vectors) of an atom: the larger
 // the solid angle of their face of its Voronoi cell, the earlier, then the
 // nearer; coded as a permutation of 18.
@@ -121,29 +159,33 @@ std::uint64_t voronoi_order(geometry::Cell& cell, int count, const Point* vector
     return ptm::encode_permutation(kMaxInput - 1, kMaxInput - 1, order);
 }
 
-// An atom and its neighbors in the Voronoi order of the first pass.
-void environment(const PtmInput& in, const std::uint64_t* orders, std::int64_t i,
-                 Environment& env) {
-    const std::int64_t first = in.offsets[i];
-    const int count =
-        static_cast<int>(std::min<std::int64_t>(in.offsets[i + 1] - first, kMaxInput - 1));
+// An atom i and its count neighbors (atoms, vectors) in the Voronoi order
+// coded as code.
+void environment(const PtmInput& in, std::int64_t i, int count, const std::int64_t* atoms,
+                 const Point* vectors, std::uint64_t code, Environment& env) {
     std::int8_t order[kMaxInput];
-    ptm::decode_permutation(kMaxInput - 1, kMaxInput - 1, orders[i], order);
+    ptm::decode_permutation(kMaxInput - 1, kMaxInput - 1, code, order);
     env.ranks[0] = 0;
     env.atoms[0] = i;
     env.types[0] = in.types ? in.types[i] : 0;
     env.points[0] = {0.0, 0.0, 0.0};
-    const double* xi = in.positions + 3 * i;
     for (int k = 0; k < count; ++k) {
-        const std::int64_t p = first + order[k];
-        const auto j = static_cast<std::int64_t>(in.j[p]);
-        neighbor::pair_vector(xi, in.positions + 3 * j, in.shifts + 3 * p, in.matrix,
-                              env.points[k + 1].data());
+        const std::int64_t j = atoms[order[k]];
+        env.points[k + 1] = vectors[order[k]];
         env.ranks[k + 1] = static_cast<std::int8_t>(order[k] + 1);
         env.atoms[k + 1] = j;
         env.types[k + 1] = in.types ? in.types[j] : 0;
     }
     env.count = count + 1;
+}
+
+// An atom and its neighbors in the Voronoi order of the first pass.
+void environment(const PtmInput& in, Nearest& nearest, const std::uint64_t* orders,
+                 std::int64_t i, Environment& env) {
+    std::int64_t atoms[kMaxInput];
+    Point vectors[kMaxInput];
+    const int count = nearest.of(i, atoms, vectors);
+    environment(in, i, count, atoms, vectors, orders[i], env);
 }
 
 // Keeps the neighbors among the nearest kShellReach of their atom.
@@ -165,13 +207,14 @@ void keep_nearest(Environment& env) {
 // graphene (3 and 2): the inner shell the first of the atom's neighbors,
 // the outer shell the first neighbors of each inner one that are neither
 // the atom, an inner neighbor nor already taken, by turns in their order.
-bool two_shells(const PtmInput& in, const std::uint64_t* orders, std::int64_t i, int inner,
-                int outer, const Environment* known, Environment& out) {
+bool two_shells(const PtmInput& in, Nearest& nearest, const std::uint64_t* orders,
+                std::int64_t i, int inner, int outer, const Environment* known,
+                Environment& out) {
     Environment env;
     if (known != nullptr && known->count >= inner) {
         env = *known;
     } else {
-        environment(in, orders, i, env);
+        environment(in, nearest, orders, i, env);
     }
     keep_nearest(env);
     if (env.count < inner + 1) {
@@ -195,7 +238,7 @@ bool two_shells(const PtmInput& in, const std::uint64_t* orders, std::int64_t i,
     std::vector<Candidate> candidates;
     for (int a = 0; a < inner; ++a) {
         Environment second;
-        environment(in, orders, out.atoms[1 + a], second);
+        environment(in, nearest, orders, out.atoms[1 + a], second);
         keep_nearest(second);
         if (second.count < inner + 1) {
             return false;
@@ -704,61 +747,90 @@ void polyhedral_template_matching(const PtmInput& in, const PtmOutput& out,
     constexpr std::int64_t kGrain = 512;
     ptm::reference(ptm::kFcc);  // built once, before the threads need it
     ptm::fcc_orderings();
-    // the neighbors of each atom ordered by the faces of its Voronoi cell
-    Buffer<std::uint64_t> orders(static_cast<std::size_t>(n));  // every atom writes its own
-    parallel_for(
-        n, kGrain,
-        [&](std::int64_t begin, std::int64_t end) {
-            geometry::Cell cell(0.0);
-            Point vectors[kMaxInput];
-            for (std::int64_t i = begin; i < end; ++i) {
-                const std::int64_t first = in.offsets[i];
-                const int count = static_cast<int>(
-                    std::min<std::int64_t>(in.offsets[i + 1] - first, kMaxInput - 1));
-                for (int k = 0; k < count; ++k) {
-                    const auto j = static_cast<std::int64_t>(in.j[first + k]);
-                    neighbor::pair_vector(in.positions + 3 * i, in.positions + 3 * j,
-                                          in.shifts + 3 * (first + k), in.matrix,
-                                          vectors[k].data());
-                }
-                orders[static_cast<std::size_t>(i)] = voronoi_order(cell, count, vectors);
-            }
-        },
-        control);
     const std::int32_t s = in.structures;
     auto wanted = [&](int type) { return (s & (1 << (type - 1))) != 0; };
     const bool close = wanted(ptm::kFcc) || wanted(ptm::kHcp) || wanted(ptm::kIco);
     const bool single = close || wanted(ptm::kSc) || wanted(ptm::kBcc);
     const bool diamond = wanted(ptm::kCubicDiamond) || wanted(ptm::kHexagonalDiamond);
     const bool graphene = wanted(ptm::kGraphene);
+    // the atoms in the order of the tree, near ones one after the other
+    const auto atom = [&](std::int64_t t) { return in.tree ? in.tree->atom(t) : t; };
+    const double reach = in.tree ? in.tree->reach(in.k) : 0.0;
+    // the structures of one shell, of the atom and its environment env
+    const auto match_single = [&](Environment& env, Point* hull_points, Fit& fit) {
+        const int count = env.count;
+        normalized(count, env.points, hull_points);
+        Hull hull;
+        if (wanted(ptm::kSc) && count >= 7) {
+            match_hull(ptm::reference(ptm::kSc), hull_points, env.points, hull, fit);
+        }
+        if (close && count >= 13) {
+            match_close_packed(s, hull_points, env.points, hull, fit);
+        }
+        if (wanted(ptm::kBcc) && count >= 15) {
+            match_hull(ptm::reference(ptm::kBcc), hull_points, env.points, hull, fit);
+        }
+    };
+    if (!diamond && !graphene) {
+        // the neighbors of an atom alone: ordered and matched at once
+        parallel_for(
+            n, kGrain,
+            [&](std::int64_t begin, std::int64_t end) {
+                Nearest nearest(in, reach);
+                geometry::Cell cell(0.0);
+                std::int64_t atoms[kMaxInput];
+                Point vectors[kMaxInput], hull_points[kMaxInput];
+                Environment env;
+                for (std::int64_t t = begin; t < end; ++t) {
+                    const std::int64_t i = atom(t);
+                    const int count = nearest.of(i, atoms, vectors);
+                    environment(in, i, count, atoms, vectors, voronoi_order(cell, count, vectors),
+                                env);
+                    Fit fit;
+                    match_single(env, hull_points, fit);
+                    write(in, out, i, fit, env);
+                }
+            },
+            control);
+        return;
+    }
+    // the shells of diamond and graphene take the neighbors of neighbors in
+    // their order: first the order of every atom
+    Buffer<std::uint64_t> orders(static_cast<std::size_t>(n));  // every atom writes its own
     parallel_for(
         n, kGrain,
         [&](std::int64_t begin, std::int64_t end) {
+            Nearest nearest(in, reach);
+            geometry::Cell cell(0.0);
+            std::int64_t atoms[kMaxInput];
+            Point vectors[kMaxInput];
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = atom(t);
+                const int count = nearest.of(i, atoms, vectors);
+                orders[static_cast<std::size_t>(i)] = voronoi_order(cell, count, vectors);
+            }
+        },
+        stage(control, 0, 2));
+    parallel_for(
+        n, kGrain,
+        [&](std::int64_t begin, std::int64_t end) {
+            Nearest nearest(in, reach);
             Environment env, diamond_env, graphene_env;
             Point hull_points[kMaxInput];
-            for (std::int64_t i = begin; i < end; ++i) {
+            for (std::int64_t t = begin; t < end; ++t) {
+                const std::int64_t i = atom(t);
                 Fit fit;
                 env.count = 0;
                 if (single) {
-                    environment(in, orders.data(), i, env);
-                    const int count = env.count;
-                    normalized(count, env.points, hull_points);
-                    Hull hull;
-                    if (wanted(ptm::kSc) && count >= 7) {
-                        match_hull(ptm::reference(ptm::kSc), hull_points, env.points, hull, fit);
-                    }
-                    if (close && count >= 13) {
-                        match_close_packed(s, hull_points, env.points, hull, fit);
-                    }
-                    if (wanted(ptm::kBcc) && count >= 15) {
-                        match_hull(ptm::reference(ptm::kBcc), hull_points, env.points, hull, fit);
-                    }
+                    environment(in, nearest, orders.data(), i, env);
+                    match_single(env, hull_points, fit);
                 }
-                if (diamond && two_shells(in, orders.data(), i, 4, 3, &env, diamond_env)) {
+                if (diamond && two_shells(in, nearest, orders.data(), i, 4, 3, &env, diamond_env)) {
                     normalized(17, diamond_env.points, hull_points);
                     match_diamond(s, hull_points, diamond_env.points, fit);
                 }
-                if (graphene && two_shells(in, orders.data(), i, 3, 2, &env, graphene_env)) {
+                if (graphene &&
+                    two_shells(in, nearest, orders.data(), i, 3, 2, &env, graphene_env)) {
                     match_graphene(graphene_env.points, fit);
                 }
                 const Environment* chosen = &env;
@@ -773,7 +845,7 @@ void polyhedral_template_matching(const PtmInput& in, const PtmOutput& out,
                 write(in, out, i, fit, *chosen);
             }
         },
-        control);
+        stage(control, 1, 2));
 }
 
 }  // namespace mdapy::identify

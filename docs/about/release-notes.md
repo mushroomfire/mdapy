@@ -29,6 +29,14 @@
   read phonopy's `FORCE_CONSTANTS`, compact or full, for any supercell matrix: force
   constants of phonopy, from VASP for example, give MDAPY's phonons. See
   [Force constants](../user-guide/simulation/force-constants.md).
+- `mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)` fits the second
+  order force constants of a crystal to the forces of displaced supercells from any
+  calculator or from DFT, with the symmetry of the crystal, the exchange of the two atoms
+  and the sum rule exact, and gives their number of free `parameters` and the relative
+  `error` of the forces; `displaced_supercells(cell, *, supercell, method="finite",
+  displacement=0.01, count=1, seed=None, symmetry=None)` makes the supercells, the moves of
+  `phonons` or random patterns by plus and minus. The atoms of the frames are matched by
+  position, so OUTCAR files of VASP serve as they are.
 - `mdapy.transform.orthogonal_cell(system, *, minimal=False, max_search=20, tolerance=1e-6)`
   puts a crystal in a box whose lattice vectors lie along x, y and z, as atomsk's
   orthogonal cell; see [Orthogonal cells](../user-guide/build/orthogonal-cell.md).

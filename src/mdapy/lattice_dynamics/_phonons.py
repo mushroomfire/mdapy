@@ -1210,6 +1210,62 @@ def _supercell(cell: System, matrix: np.ndarray) -> System:
     return System(table=table, box=box)
 
 
+def _kept(
+    operations: _Operations | None, matrix: np.ndarray, n: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The rotations, Cartesian rotations, atoms and shifts of the symmetry
+    operations that map the supercell onto itself, the only ones that relate
+    its force constants; the identity alone without operations."""
+    if operations is None:
+        return (
+            np.eye(3, dtype=np.int64)[None],
+            np.eye(3)[None],
+            np.arange(n)[None],
+            np.zeros((1, n, 3), dtype=np.int64),
+        )
+    keep = _keeping(operations.rotations, matrix)
+    return (
+        operations.rotations[keep],
+        operations.cartesian[keep],
+        operations.atoms[keep],
+        operations.shifts[keep],
+    )
+
+
+def _moves(
+    cartesian: np.ndarray, atoms: np.ndarray
+) -> list[tuple[int, np.ndarray, list[int], list[int]]]:
+    """The moves of finite displacements: for one atom a of each set of
+    atoms that the operations make equivalent, the operations that keep it
+    in place, the fewest axes whose images under them span space, and for
+    each axis an operation of them that turns it around, or -1 where none
+    does and a moves by minus the displacement too."""
+
+    def rank(vectors: list) -> int:
+        return int(np.linalg.matrix_rank(np.array(vectors), tol=1e-6)) if vectors else 0
+
+    moves = []
+    done = np.zeros(atoms.shape[1], dtype=bool)
+    for a in range(atoms.shape[1]):
+        if done[a]:
+            continue
+        site = np.flatnonzero(atoms[:, a] == a)
+        # the axes to move along: each adds directions to the span of the others
+        axes, span = [], []
+        for alpha in range(3):
+            images = list(cartesian[site, :, alpha])
+            if rank(span + images) > rank(span):
+                axes.append(alpha)
+                span += images
+        flips = []
+        for alpha in axes:
+            flip = [k for k in site if cartesian[k, alpha, alpha] < -1 + 1e-6]
+            flips.append(int(flip[0]) if flip else -1)
+        moves.append((a, site, axes, flips))
+        done[np.unique(atoms[:, a])] = True
+    return moves
+
+
 def _displaced_forces(
     cell: System,
     calculator: Calculator,
@@ -1227,17 +1283,7 @@ def _displaced_forces(
     big = _supercell(cell, matrix)
     positions = big["positions"]
     n, size = len(cell), len(big)
-    if operations is None:
-        rotations = np.eye(3, dtype=np.int64)[None]
-        cartesian = np.eye(3)[None]
-        atoms = np.arange(n)[None]
-        shifts = np.zeros((1, n, 3), dtype=np.int64)
-    else:
-        # only the operations that map the supercell onto itself relate its
-        # force constants
-        keep = _keeping(operations.rotations, matrix)
-        rotations, cartesian = operations.rotations[keep], operations.cartesian[keep]
-        atoms, shifts = operations.atoms[keep], operations.shifts[keep]
+    rotations, cartesian, atoms, shifts = _kept(operations, matrix, n)
     repeats = _lattice_points(matrix)
     found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
     inverse = np.linalg.inv(matrix)
@@ -1256,29 +1302,14 @@ def _displaced_forces(
         moved[a, alpha] += sign * displacement
         return calculator.compute(big.with_columns(positions=moved), ("forces",)).forces
 
-    def rank(vectors: list) -> int:
-        return int(np.linalg.matrix_rank(np.array(vectors), tol=1e-6)) if vectors else 0
-
     constants = np.zeros((n, size, 3, 3))
-    done = np.zeros(n, dtype=bool)
-    for a in range(n):
-        if done[a]:
-            continue
-        site = np.flatnonzero(atoms[:, a] == a)
-        # the axes to move along: each adds directions to the span of the others
-        axes, span = [], []
-        for alpha in range(3):
-            images = list(cartesian[site, :, alpha])
-            if rank(span + images) > rank(span):
-                axes.append(alpha)
-                span += images
+    for a, site, axes, flips in _moves(cartesian, atoms):
         directions, responses = [], []
-        for alpha in axes:
+        for alpha, flip in zip(axes, flips):
             plus = forces(a, alpha, 1.0)
-            flip = [k for k in site if cartesian[k, alpha, alpha] < -1 + 1e-6]
-            if flip:
+            if flip >= 0:
                 minus = np.empty_like(plus)
-                minus[image(flip[0], a)] = plus @ cartesian[flip[0]].T
+                minus[image(flip, a)] = plus @ cartesian[flip].T
             else:
                 minus = forces(a, alpha, -1.0)
             response = -(plus - minus) / (2 * displacement)  # row alpha of each 3 x 3
@@ -1296,7 +1327,6 @@ def _displaced_forces(
                 k = np.flatnonzero(atoms[:, a] == b)[0]
                 rotation = cartesian[k]
                 constants[b, image(k, a)] = rotation @ constants[a] @ rotation.T
-                done[b] = True
     return constants
 
 

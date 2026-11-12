@@ -7499,6 +7499,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.Phonons.thermal_displacements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_displacements
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.Phonons.thermal" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9006,6 +9017,17 @@
     <span class="md-ellipsis">
       
         dos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.Phonons.thermal_displacements" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_displacements
       
     </span>
   </a>
@@ -11883,6 +11905,126 @@ tetrahedron method.</p>
             <td>
               <div class="doc-md-description">
                 <p>For a mesh or a sigma that is not positive.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.Phonons.thermal_displacements" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">thermal_displacements</span>
+
+
+<a href="#mdapy.lattice_dynamics.Phonons.thermal_displacements" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_displacements</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The thermal displacements of the atoms of the cell: the mean of the
+products of their displacements along each pair of axes, by sums over
+the modes on a mesh.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperatures</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperatures in K, not negative.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mesh</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of wave vectors along each reciprocal lattice vector, of
+a mesh through Γ. Default 20.</p>
+              </div>
+            </td>
+            <td>
+                  <code>20</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(T, n, 3, 3) float64 mean products of the displacements of each
+atom along x, y and z, in Å², with the zero point motion; the
+diagonal is the mean square displacement along each axis. Modes
+below 1e-3 THz, the translations of the crystal, are left out.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a negative temperature, a mesh that is not positive, or
+imaginary frequencies on the mesh.</p>
               </div>
             </td>
           </tr>

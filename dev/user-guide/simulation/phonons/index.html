@@ -8365,6 +8365,11 @@ lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)<
 <td><code>ThermalProperties</code></td>
 <td>the thermodynamic properties of the vibrations</td>
 </tr>
+<tr>
+<td><code>thermal_displacements(temperatures, *, mesh=20)</code></td>
+<td>(T, n, 3, 3) float64</td>
+<td>the mean products of the displacements of each atom of the cell along each pair of axes, in Å²</td>
+</tr>
 </tbody>
 </table>
 <p><strong>Group velocities.</strong> The velocity of a mode is the derivative of its angular
@@ -8539,6 +8544,17 @@ exist.</p>
 </tr>
 </tbody>
 </table>
+<p><strong>Thermal displacements.</strong> The mean products ⟨u<sub>α</sub>u<sub>β</sub>⟩ of the
+displacements of each atom, with the zero point motion, by sums over the modes on the
+mesh; modes below 1e-3 THz, the translations, are left out. The diagonal holds the mean
+square displacements along x, y and z; the isotropic one is a third of the trace, and the
+Debye–Waller factor of X-ray and neutron diffraction is B = 8π² ⟨u<sup>2</sup>⟩ along the
+scattering vector. Copper with <code>EAM.zhou</code> at 300 K moves by 0.0067 Å² along each axis,
+so B = 0.53 Å².</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">u</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">thermal_displacements</span><span class="p">([</span><span class="mf">300.0</span><span class="p">],</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>  <span class="c1"># (1, n, 3, 3) Å²</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">isotropic</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">trace</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">axis1</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">axis2</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span> <span class="o">/</span> <span class="mi">3</span>
+</code></pre></div>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>phonons</code> raises <code>InvalidParameter</code> for a box that is not periodic in every
 direction or has no atoms, an atom with neither element nor mass, a
@@ -8550,8 +8566,8 @@ periodic. <code>frequencies</code>, <code>modes</code> and <code>group_velocitie
 not three numbers each, and <code>group_velocities</code> for <code>symmetry=True</code> without spglib; <code>band_structure</code> for an unknown lattice, a cell that
 is not that lattice in the standard orientation, a section of fewer than
 two wave vectors, or fewer than two points, and <code>ImportError</code> for <code>"auto"</code>
-without seekpath; <code>dos</code> and <code>thermal</code> for a mesh or a <code>sigma</code> that is not
-positive, and <code>thermal</code> for a negative temperature and for imaginary
+without seekpath; <code>dos</code>, <code>thermal</code> and <code>thermal_displacements</code> for a mesh or a <code>sigma</code> that is not
+positive, and <code>thermal</code> and <code>thermal_displacements</code> for a negative temperature and for imaginary
 frequencies below −0.01 THz on the mesh, which mean that the crystal is not
 stable or the supercell is too small.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
@@ -8588,6 +8604,13 @@ the frequencies at their corners
 (<a href="../../../reference/references/#blochl1994">Blöchl et al. (1994)</a>), or a
 Gaussian. The projected density of atom <span class="arithmatex">\(a\)</span> weighs each mode by
 <span class="arithmatex">\(|\mathbf e_a|^2\)</span>, over the corners of each tetrahedron.</p>
+<p>The thermal displacements of atom <span class="arithmatex">\(a\)</span> are</p>
+<div class="arithmatex">\[
+\langle u_{a\alpha} u_{a\beta} \rangle = \frac{1}{K m_a} \sum_{\mathbf q, s}
+\frac{\hbar}{\omega_{\mathbf q s}}\left(n_{\mathbf q s} + \frac12\right)
+\mathrm{Re}\, e_{a\alpha}(\mathbf q s)\, e^*_{a\beta}(\mathbf q s),
+\]</div>
+<p>with <span class="arithmatex">\(n\)</span> the Bose–Einstein occupation of the mode.</p>
 <p>With <span class="arithmatex">\(x = h\nu/k_B T\)</span>, each mode adds</p>
 <div class="arithmatex">\[
 F = \frac{h\nu}{2} + k_BT\ln(1 - e^{-x}),\quad

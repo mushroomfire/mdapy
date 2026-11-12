@@ -8584,6 +8584,9 @@
   vectors, and the <code>frequencies</code>, <code>group_velocities</code>, <code>gamma</code>, <code>lifetimes</code> and
   <code>heat_capacities</code> of their modes. See
   <a href="../../user-guide/simulation/thermal-conductivity/">Thermal conductivity</a>.</li>
+<li><code>Phonons.thermal_displacements(temperatures, *, mesh=20)</code> gives the mean products of the
+  displacements of each atom along each pair of axes, with the zero point motion: the
+  mean square displacements and the Debye–Waller factors.</li>
 <li><code>mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)</code> fits springs along and
   across bonds, of stiffnesses polynomial in the length for each pair of elements in each
   shell, to the forces of displaced supercells of several crystals, after van de Walle and

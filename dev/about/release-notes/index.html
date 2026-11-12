@@ -5244,6 +5244,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/bond-stiffness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bond stiffness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8511,6 +8539,15 @@
   farther apart than it, under every operation of the crystal also in supercells of less
   symmetry, and zero beyond; <code>ForceConstants.cutoff</code> says which. The page gives how far
   the frequencies of copper move with the cutoff.</li>
+<li><code>mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)</code> fits springs along and
+  across bonds, of stiffnesses polynomial in the length for each pair of elements in each
+  shell, to the forces of displaced supercells of several crystals, after van de Walle and
+  Ceder. Its <code>BondStiffness</code> holds the <code>pairs</code>, the <code>shells</code>, the <code>degree</code>, the
+  <code>longitudinal</code> and <code>transverse</code> coefficients, the <code>lengths</code> of the bonds fitted and the
+  <code>error</code>, and gives the <code>stiffness</code> of any bond and the <code>force_constants</code>, so the phonons
+  and vibrational free energy, of any arrangement of the elements, such as a special
+  quasirandom structure. See
+  <a href="../../user-guide/simulation/bond-stiffness/">Bond stiffness</a>.</li>
 <li>The example <a href="../../examples/radiation-cascade/">A collision cascade in tungsten</a>: a
   primary knock-on atom of 2 keV, a time step that adapts, a border kept at 300 K, and the
   Frenkel pairs over time; it holds the few lines of 1.x's <code>set_pka</code>.</li>

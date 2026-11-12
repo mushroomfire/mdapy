@@ -5246,6 +5246,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/bond-stiffness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bond stiffness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -7570,6 +7598,56 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.bond_stiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bond_stiffness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BondStiffness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="BondStiffness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness.stiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stiffness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness.force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        force_constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.PhononDOS" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8980,6 +9058,56 @@
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.bond_stiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        bond_stiffness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        BondStiffness
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="BondStiffness">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness.stiffness" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        stiffness
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.BondStiffness.force_constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        force_constants
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -12932,6 +13060,575 @@ those of an atom that a translation of the crystal takes to it.</p>
       </tbody>
     </table>
 
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.bond_stiffness" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">bond_stiffness</span>
+
+
+<a href="#mdapy.lattice_dynamics.bond_stiffness" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">bond_stiffness</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="n">degree</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Springs along and across the bonds of crystals, whose stiffnesses are
+polynomials of the length of the bond for each pair of elements in each
+shell of neighbors, fitted to the forces on atoms displaced in
+supercells.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>data</code>
+            </td>
+            <td>
+                  <code>sequence of (System, sequence of System)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For each crystal, its cell, periodic in every direction or a sheet,
+with an element column and its atoms where they rest, and supercells
+of it with atoms displaced, such as those of <code>displaced_supercells</code>,
+each with a <code>forces</code> column in eV/Å, its atoms in any order. Cells
+of other sizes, such as strained ones, give bonds of other lengths.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cutoff</code>
+            </td>
+            <td>
+                  <code>float64 or array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The longest bond in Å, or the outer radii of shells of neighbors,
+increasing, each shell with springs of its own; the last at most half
+the shortest vector of each supercell less 1e-3 Å.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>degree</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The degree of the polynomials of the length. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="BondStiffness
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._bond_stiffness.BondStiffness)" href="#mdapy.lattice_dynamics.BondStiffness">BondStiffness</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The stiffnesses, with the range of the lengths of the bonds and the
+relative error of the forces.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If there is no crystal, a crystal has no frames, a cell has no
+element column or no atoms, a frame is not a supercell of its cell
+with forces, its atoms one at each atom of the supercell, the cutoff
+is not positive lengths, increasing, or too long for a supercell,
+there are no bonds, the degree is not an integer from 0, or the bonds
+of a pair have fewer lengths than the degree needs.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.BondStiffness" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">BondStiffness</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.BondStiffness" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">BondStiffness</span><span class="p">(</span><span class="n">pairs</span><span class="p">,</span> <span class="n">shells</span><span class="p">,</span> <span class="n">degree</span><span class="p">,</span> <span class="n">longitudinal</span><span class="p">,</span> <span class="n">transverse</span><span class="p">,</span> <span class="n">lengths</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Springs along and across the bonds of crystals, whose stiffnesses are
+polynomials of the length of the bond, one for each pair of elements in
+each shell of neighbors.</p>
+<p>Made by <code>bond_stiffness</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.pairs">pairs</span></code></td>
+            <td>
+                  <code>tuple of (str, str, int64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The two elements, in alphabetical order, and the shell from 0, of
+each set of bonds.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.shells">shells</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(M,) float64 the outer radius of each shell in Å, increasing: a bond
+of length r is of the first shell whose radius is r or more; the
+last is the longest bond. Read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.degree">degree</span></code></td>
+            <td>
+                  <code><span title="int64">int64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The degree of the polynomials.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.longitudinal">longitudinal</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(P, degree + 1) float64 coefficients of the stiffness along the bonds
+of each pair in eV/Å², of the powers of their length in Å from the
+lowest; read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.transverse">transverse</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(P, degree + 1) float64 coefficients of the stiffness across them,
+the same way; read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.lengths">lengths</span></code></td>
+            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(P, 2) float64 the shortest and the longest bond of each pair in the
+fit, in Å; read-only.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.BondStiffness.error">error</span></code></td>
+            <td>
+                  <code><span title="float64">float64</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The relative error of the forces: the norm of the forces less those
+of the springs over the norm of the forces.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.BondStiffness.stiffness" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">stiffness</span>
+
+
+<a href="#mdapy.lattice_dynamics.BondStiffness.stiffness" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">stiffness</span><span class="p">(</span><span class="n">first</span><span class="p">,</span> <span class="n">second</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The stiffness along and across bonds of two elements.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>first</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The elements, in any order.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>second</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The elements, in any order.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>length</code>
+            </td>
+            <td>
+                  <code>array_like of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The lengths of the bonds in Å, each in a shell.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>longitudinal</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>float64 stiffness along each bond in eV/Å², of the shape of
+length.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>transverse</code></td>            <td>
+                  <code><span title="numpy.ndarray">ndarray</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>float64 stiffness across each bond in eV/Å².</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If a length is not in a shell, or the elements have no bonds in
+its shell.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.lattice_dynamics.BondStiffness.force_constants" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">force_constants</span>
+
+
+<a href="#mdapy.lattice_dynamics.BondStiffness.force_constants" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">force_constants</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">supercell</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The force constants of the springs of the bonds of a crystal.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>cell</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The cell of the crystal, periodic in every direction, or of a
+sheet, with an element column, its atoms where they rest, such as
+a special quasirandom structure relaxed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>supercell</code>
+            </td>
+            <td>
+                  <code><span title="int32">int32</span> or <span title="array_like">array_like</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Repeats of the cell along its vectors, one or three, or a (3, 3)
+integer matrix whose rows times the vectors of the cell are the
+vectors of the supercell, in which half the shortest vector is
+longer than the last shell. Default 1, the cell itself.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="ForceConstants
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._force_constants.ForceConstants)" href="#mdapy.lattice_dynamics.ForceConstants">ForceConstants</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The force constants, zero beyond the last shell, which is their
+cutoff.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the cell has no element column, a bond is of a pair of
+elements and a shell that the springs do not hold, or the
+supercell is not valid or too small for the shells.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+
+
+  </div>
 
     </div>
 

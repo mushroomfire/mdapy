@@ -5246,6 +5246,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/bond-stiffness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bond stiffness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8827,6 +8855,14 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>displaced supercells</td>
 <td>supercells of a crystal with atoms moved from their sites, whose forces give the force constants: one atom along an axis (<code>"finite"</code>) or every atom along a random direction, by plus and minus (<code>"random"</code>)</td>
+</tr>
+<tr>
+<td>bond stiffness</td>
+<td>springs along (<code>longitudinal</code>) and across (<code>transverse</code>) the bonds of crystals, of stiffness a polynomial of the length of the bond for each pair of elements in each shell of neighbors, from <code>bond_stiffness</code>; its <code>force_constants</code> give the phonons of any arrangement of the elements</td>
+</tr>
+<tr>
+<td>shell</td>
+<td>of <code>bond_stiffness</code>: the bonds no longer than its outer radius and longer than the radius before it, each with springs of their own</td>
 </tr>
 <tr>
 <td><code>FORCE_CONSTANTS</code></td>

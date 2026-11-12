@@ -5416,6 +5416,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/bond-stiffness/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Bond stiffness
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
         
   
@@ -8762,12 +8790,14 @@ mean of <code>csp</code> over each atom and its neighbors:</p>
 picture and <code>show_image(render(system))</code> shows it in a notebook. A graphical
 application with fuller features is developed separately.</p>
 <p><strong>Since 2.1</strong>: <code>orthogonal_cell</code> is <code>mdapy.transform.orthogonal_cell</code> (see
-<a href="../../user-guide/build/orthogonal-cell/">Orthogonal cells</a>), and <code>Spline</code> is
-<code>mdapy.fitting.Spline</code> (see <a href="../../user-guide/fitting/interpolation/">Interpolation</a>).</p>
+<a href="../../user-guide/build/orthogonal-cell/">Orthogonal cells</a>), <code>Spline</code> is
+<code>mdapy.fitting.Spline</code> (see <a href="../../user-guide/fitting/interpolation/">Interpolation</a>),
+and <code>BondStiffness(system, calculator, ...)</code> is <code>mdapy.lattice_dynamics.bond_stiffness</code>,
+which takes the cells and frames of any number of crystals, from any calculator or from
+DFT, and returns a <code>BondStiffness</code> that gives the force constants of any structure (see
+<a href="../../user-guide/simulation/bond-stiffness/">Bond stiffness</a>).</p>
 <p><strong><code>set_pka</code></strong> is a few lines of NumPy, in the example of
 <a href="../../examples/radiation-cascade/#the-knock-on-atom">a collision cascade</a> to copy.</p>
-<p><strong>Coming in a later 2.x release</strong>: <code>BondStiffness</code>. It will be an addition, so code
-written for 2.0 keeps working (see <a href="../../about/compatibility/">Compatibility</a>).</p>
 <p><strong>Threads</strong>: <code>MDAPY_NUM_THREADS</code> sets the number of threads as in 1.x, and
 <code>mp.set_num_threads(n)</code> changes it while running (see
 <a href="../../basics/parallelism/">Parallelism</a>).</p>

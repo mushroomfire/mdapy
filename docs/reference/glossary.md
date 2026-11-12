@@ -174,6 +174,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
 | mode Grüneisen parameter | −(V/ω) dω/dV of a mode, from `Phonons.gruneisen` |
 | thermal displacements | ⟨u<sub>α</sub>u<sub>β</sub>⟩ (Å²) of each atom of a crystal by its vibrations, with the zero point motion, (T, n, 3, 3), from `Phonons.thermal_displacements` |
+| heat flux | the energy carried through a unit area per unit time by the atoms, (eV Å/ps) times the volume as LAMMPS's `compute heat/flux` gives it; the Green–Kubo conductivity integrates its correlation |
 | `kappa` | thermal conductivity (W/(m K)), (T, 3, 3), of the phonons in the relaxation-time approximation, from `thermal_conductivity` |
 | `gamma` | of `ThermalConductivity`: the imaginary part of the self energy of each mode by three-phonon scattering (THz), half its linewidth |
 | `lifetimes` | of phonons (ps), 1/(4π `gamma`) |

@@ -19,6 +19,7 @@ from mdapy.lattice_dynamics._force_constants import (
     ForceConstants,
     _cell_of,
     _design,
+    _matched,
     _matrix,
     _pair_table,
     _supercell_of,
@@ -329,7 +330,9 @@ def bond_stiffness(
             longitudinal[bonds, index * 2 * powers + q] = r**q
             transverse[bonds, index * 2 * powers + powers + q] = r**q
         basis = _springs(rows, first, vectors, longitudinal, transverse, n, count)
-        design, values = _design(cell, matrix, basis.reshape(-1, parameters), frames)
+        design, values = _design(
+            cell, matrix, basis.reshape(-1, parameters), _matched(cell, matrix, frames)
+        )
         designs.append(design)
         forces.append(values)
         for k in np.unique(index):

@@ -4,7 +4,8 @@
 
 - `DislocationResult.write(path)` writes the lines, the crystal clusters and the defect
   mesh of a dislocation analysis as a crystal analysis (CA) file of OVITO, which OVITO
-  opens; see [CA files](../user-guide/analysis/dislocations.md#ca-files).
+  opens, and `mdapy.analysis.read_dislocations(path)` reads such files back, also those
+  OVITO writes; see [CA files](../user-guide/analysis/dislocations.md#ca-files).
 - Elastic constants along directions and in a polycrystal:
   `ElasticResult.young_modulus(direction=None, *, average="hill")` and
   `ElasticResult.linear_compressibility(direction)` along a direction or each of many,

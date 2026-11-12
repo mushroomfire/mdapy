@@ -22,6 +22,7 @@ from mdapy.analysis._dislocations import (
     DislocationAnalysis,
     DislocationLine,
     DislocationResult,
+    read_dislocations,
 )
 from mdapy.analysis._displacement import AtomicDisplacement, AtomicDisplacementResult
 from mdapy.analysis._distribution import (
@@ -106,6 +107,7 @@ __all__ = [
     "DislocationAnalysis",
     "DislocationLine",
     "DislocationResult",
+    "read_dislocations",
     "ElasticStrain",
     "ElasticStrainResult",
     "CoordinationNumber",

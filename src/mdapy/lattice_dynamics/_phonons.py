@@ -8,6 +8,7 @@
 import os
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import NamedTuple
 
 import numpy as np
 import polars as pl
@@ -460,15 +461,27 @@ def _widths(matrix: np.ndarray) -> np.ndarray:
     return abs(np.linalg.det(matrix)) / areas
 
 
+class _Crossing(NamedTuple):
+    """A pair of atoms on both sides of the cutoff over cells: its shortest
+    length and the cell of it, its longest and the cell of that, and the
+    cell in which it is nearest the cutoff with the pair there in Å."""
+
+    short: float
+    near: int
+    long: float
+    far: int
+    closest: int
+    vector: tuple[float, float, float]
+
+
 def _crossing(
     cells: Sequence[System], cutoff: float, displacement: float
-) -> tuple[float, int, float, int] | None:
+) -> _Crossing | None:
     """A pair of atoms whose length, give or take the displacement of the
-    force constants, is on both sides of the cutoff over the cells: its
-    shortest length, the cell of it, its longest length and the cell of
-    that; None if every pair keeps one side. The cells hold the same atoms
-    in the same order, each a deformation of the first with the atoms moved
-    by less than half the box."""
+    force constants, is on both sides of the cutoff over the cells; None if
+    every pair keeps one side. The cells hold the same atoms in the same
+    order, each a deformation of the first with the atoms moved by less than
+    half the box."""
     first = cells[0]
     # far enough to see in the first cell every pair within the cutoff of any
     stretch = max(
@@ -496,7 +509,89 @@ def _crossing(
     if len(across) == 0:
         return None
     p = across[np.argmax(np.minimum(inside, outside)[across])]
-    return float(shortest[p]), int(near[p]), float(longest[p]), int(far[p])
+    vectors = []
+    for cell in cells:
+        moved = (
+            cell.box.to_fractional(cell["positions"][[i[p], j[p]]])
+            - start[[i[p], j[p]]]
+        )
+        ends = start[[i[p], j[p]]] + moved - np.round(moved)
+        vectors.append((ends[1] - ends[0] + shifts[p]) @ cell.box.matrix)
+    closest = int(np.argmin([abs(np.linalg.norm(v) - cutoff) for v in vectors]))
+    return _Crossing(
+        float(shortest[p]),
+        int(near[p]),
+        float(longest[p]),
+        int(far[p]),
+        closest,
+        tuple(float(x) for x in vectors[closest]),
+    )
+
+
+#: The largest jump of the free energy where a pair of atoms crosses the
+#: cutoff, as a part of its change between neighbouring cells, that the
+#: quasi-harmonic results tolerate: above it they depend on where the cells
+#: fall about the crossing by percents or more.
+_JUMP = 0.02
+
+
+def _cutoff_jump(
+    cell: System,
+    vector: Sequence[float],
+    calculator: Calculator,
+    supercell: int | ArrayLike | None,
+    displacement: float,
+    symmetry: bool | None,
+    temperature: float,
+    mesh: int | ArrayLike,
+    step: float,
+) -> tuple[float, float, float]:
+    """Where the pair vector of cell reaches the cutoff as the cell is scaled
+    uniformly (a sheet in its plane): how much the static energy and the
+    free energy of the vibrations at temperature jump, per atom, and the
+    second difference of the static energy per atom over scalings by step,
+    the mean of those on either side of the cutoff, all in eV. The static
+    energy comes from 1e-4 Å inside and outside the cutoff, extrapolated
+    linearly to it; the vibrations from the pair 2, 3 and 4 displacements
+    inside and outside, quadratically."""
+    sheet = _is_sheet(cell.box, "phonons")
+    v = np.asarray(vector, dtype=float)
+    cutoff = calculator.cutoff
+    n = len(cell)
+
+    def scale(length: float) -> float:  # that puts the pair at length
+        if sheet:
+            return float(np.sqrt((length**2 - v[2] ** 2) / (v[0] ** 2 + v[1] ** 2)))
+        return float(length / np.linalg.norm(v))
+
+    def scaled(s: float) -> System:
+        box = cell.box
+        factors = np.array([s, s, 1.0]) if sheet else np.full(3, s)
+        matrix = box.matrix * factors[:, None] if sheet else box.matrix * s
+        positions = box.origin + (cell["positions"] - box.origin) * factors
+        return cell.with_box(Box(matrix, origin=box.origin, pbc=box.pbc)).with_columns(
+            positions=positions
+        )
+
+    def energy(s: float) -> float:
+        return calculator.compute(scaled(s), ["energy"]).energy / n
+
+    def vibrations(s: float) -> float:
+        properties = _phonons(scaled(s), calculator, supercell, displacement, symmetry)
+        return float(properties.thermal([temperature], mesh=mesh).free_energy[0])
+
+    small = 1e-4
+    e = {k: energy(scale(cutoff + k * small)) for k in (-2, -1, 1, 2)}
+    static = (2 * e[1] - e[2]) - (2 * e[-1] - e[-2])
+    f = {k: vibrations(scale(cutoff + k * displacement)) for k in (-4, -3, -2, 2, 3, 4)}
+    vibration = (6 * f[2] - 8 * f[3] + 3 * f[4]) - (6 * f[-2] - 8 * f[-3] + 3 * f[-4])
+    # on either side, three cells that keep the pair there
+    seconds = []
+    for side in (-1, 1):
+        s = scale(cutoff + side * small)
+        e0, e1, e2 = (energy(s * (1 + side * step) ** k) for k in (0, 1, 2))
+        seconds.append(abs(e0 - 2 * e1 + e2))
+    return abs(static), abs(vibration), float(np.mean(seconds))
 
 
 def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:

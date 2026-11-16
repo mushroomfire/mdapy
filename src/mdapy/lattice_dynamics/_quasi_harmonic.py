@@ -17,7 +17,9 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._phonons import (
+    _JUMP,
     _crossing,
+    _cutoff_jump,
     _default_sheet_supercell,
     _default_supercell,
     phonons,
@@ -180,6 +182,17 @@ def _size(system: System, sheet: bool) -> float:
     if sheet:
         return float(np.linalg.norm(np.cross(matrix[0], matrix[1])))
     return system.box.volume
+
+
+def _neighbouring(sizes: np.ndarray, index: int, dimensions: int) -> float:
+    """The relative change of length from the cell index of a grid to its
+    neighbours, by the volumes (areas) of the cells: the mean of its two
+    sides, or the one side of a cell at an end."""
+    order = np.argsort(sizes)
+    k = int(np.flatnonzero(order == index)[0])
+    low, high = order[max(k - 1, 0)], order[min(k + 1, len(order) - 1)]
+    sides = (k > 0) + (k < len(order) - 1)
+    return float((sizes[high] / sizes[low]) ** (1 / dimensions) - 1) / max(sides, 1)
 
 
 def _scaled(system: System, ratio: float, sheet: bool = False) -> System:
@@ -381,20 +394,38 @@ def quasi_harmonic(
             sheet,
         )
     )
-    # the force constants jump where a pair of atoms crosses the cutoff
+    # where a pair of atoms crosses the cutoff the free energy jumps: by
+    # nothing for potentials smooth there, enough for others to distort the
+    # results, which are then refused
     if crossing := _crossing(
         [r.system for _, r in grid], calculator.cutoff, displacement
     ):
-        short, near, long, far = crossing
-        kind = "areas" if sheet else "volumes"
-        raise InvalidParameter(
-            f"a pair of atoms reaches the cutoff of the calculator, "
-            f"{calculator.cutoff:.4g} Å, between the {kind}, give or take the "
-            f"displacement of {displacement:.4g} Å: it is {short:.4f} Å apart "
-            f"{grid[near][0]} and {long:.4f} Å {grid[far][0]}, and its force "
-            f"constants jump there; use a smaller range of {kind} or pressures, "
-            "or another potential"
+        kind = "area" if sheet else "volume"
+        sizes = np.array([_size(r.system, sheet) for _, r in grid])
+        static, vibration, change = _cutoff_jump(
+            grid[crossing.closest][1].system,
+            crossing.vector,
+            calculator,
+            supercell,
+            displacement,
+            symmetry,
+            float(temperatures.max()),
+            mesh,
+            _neighbouring(sizes, crossing.closest, 2 if sheet else 3),
         )
+        jump = static + vibration
+        if jump > _JUMP * change:
+            raise InvalidParameter(
+                f"a pair of atoms crosses the cutoff of the calculator, "
+                f"{calculator.cutoff:.4g} Å, between the {kind}s: it is "
+                f"{crossing.short:.4f} Å apart {grid[crossing.near][0]} and "
+                f"{crossing.long:.4f} Å {grid[crossing.far][0]}. The free energy at "
+                f"{temperatures.max():g} K jumps there by {jump:.2g} eV per atom, "
+                f"{jump / change:.0%} of its change between neighbouring {kind}s, "
+                f"more than the {_JUMP:.0%} that the results tolerate: the potential "
+                f"is not smooth at its cutoff. Use {kind}s or pressures all on one "
+                "side of the crossing, or a potential smooth at its cutoff"
+            )
     cells, energies, free, entropy, capacity = [], [], [], [], []
     for where, relaxed in grid:
         try:

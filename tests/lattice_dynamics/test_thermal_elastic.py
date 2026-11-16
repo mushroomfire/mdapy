@@ -164,23 +164,51 @@ def test_invalid_arguments(copper):
         thermal_elastic_constants(dataclasses.replace(qha, cells=()), potential)
 
 
-def test_strained_cells_across_the_cutoff(copper):
-    # the fifth shell, 5.15 Å or more in the cells, comes inside the cutoff of
-    # 5 Å under two compressions of 4 %; the quasi-static method has no
-    # force constants
-    potential, _, qha = copper
+def test_strained_cells_across_the_cutoff(tmp_path_factory):
+    # the synthetic potential cut off without smoothing: its fourth shell,
+    # 5.14 Å at zero stress, comes inside the cutoff of 5 Å under the
+    # compressions of 4 %, where the free energy jumps by much of its change
+    # over the strain; the quasi-static method has no vibrations and no check
+    potential = EAM(
+        write_setfl(tmp_path_factory.mktemp("eam") / "cut.eam.alloy", abrupt=True)
+    )
+    cell = minimize(
+        primitive_cell(build_crystal("fcc", 3.63, elements="Cu")),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=10000,
+    ).system
+    qha = quasi_harmonic(cell, potential, [0.0, 100.0], **OPTIONS)
     with pytest.raises(
         InvalidParameter,
-        match=r"reaches the cutoff of the calculator, 5 Å, between the strained "
-        r"cells, give or take the displacement of 0\.01 Å: it is 4\.\d+ Å apart in "
-        r"one and 5\.\d+ Å in another, and its force constants jump there; use a "
-        r"smaller strain",
+        match=r"a pair of atoms crosses the cutoff of the calculator, 5 Å, between "
+        r"the strained cells: it is 4\.\d+ Å apart in one and 5\.\d+ Å in another\. "
+        r"The free energy at 100 K jumps there by \S+ eV per atom, \d+% of its "
+        r"change over the strain of 0\.04, more than the 2% that the second "
+        r"derivatives tolerate: the potential is not smooth at its cutoff\. Use a "
+        r"potential smooth at its cutoff, or a strain under which the pair keeps "
+        r"one side of it",
     ):
         thermal_elastic_constants(qha, potential, strain=0.04, **OPTIONS)
     static = thermal_elastic_constants(
         qha, potential, method="quasi-static", strain=0.04, **OPTIONS
     )
     assert np.isfinite(static.isothermal).all()
+
+
+def test_zhou_potentials_strained_across_their_cutoff():
+    # the fifth shell of the fcc crystal on the cutoff, where the functions of
+    # the potential nearly vanish: the strained cells cross it, computed
+    potential = EAM.zhou(["Cu"])
+    cell = primitive_cell(build_crystal("fcc", 3.615, elements="Cu"))
+    qha = quasi_harmonic(
+        cell, potential, [0.0, 100.0], volumes=np.linspace(0.97, 1.07, 7)
+    )
+    result = thermal_elastic_constants(qha, potential, **OPTIONS)
+    c = result.isothermal
+    assert np.all(c[:, 0, 0] > c[:, 0, 1]) and np.all(c[:, 3, 3] > 0)
 
 
 def test_strained_cells_that_do_not_relax(copper):

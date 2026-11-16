@@ -16,6 +16,8 @@ from mdapy.mlip import QUESTS, entropy, information_gain
 from mdapy.neighbor import NeighborList
 from mdapy.transform import replicate
 
+# numba, compiling QUESTS, warns of its casts on some platforms
+QUESTS_WARNINGS = pytest.mark.filterwarnings("ignore:.*unsafe cast:Warning")
 TRICLINIC = np.array([[9.0, 0, 0], [2.0, 8.5, 0], [-1.5, 1.0, 9.5]])
 
 
@@ -110,6 +112,7 @@ class TestDescriptor:
         ).max() == pytest.approx(0, abs=1e-13)
 
     @pytest.mark.parametrize("cutoff, k", [(5.0, 32), (4.0, 8), (6.5, 64), (3.0, 40)])
+    @QUESTS_WARNINGS
     def test_as_quests(self, cutoff, k):
         """The descriptor of the QUESTS package, live; it rounds the
         fractional positions to 1e-12, so the values agree to about
@@ -228,6 +231,7 @@ class TestEntropy:
         assert entropy(7 * x, 7 * h) == pytest.approx(expected, rel=1e-12)
         assert entropy(x[::-1], h) == pytest.approx(expected, rel=1e-13)
 
+    @QUESTS_WARNINGS
     def test_as_quests(self):
         pytest.importorskip("quests")
         from quests.entropy import entropy as reference
@@ -261,6 +265,7 @@ class TestInformationGain:
         with mdapy.num_threads(1):
             assert np.array_equal(information_gain(x, y, 0.02), gain)
 
+    @QUESTS_WARNINGS
     def test_as_quests(self):
         pytest.importorskip("quests")
         from quests.entropy import delta_entropy

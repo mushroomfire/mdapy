@@ -7978,6 +7978,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#210-not-released" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1.0 (not released)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#210rc1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8419,6 +8430,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#210-not-released" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1.0 (not released)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#210rc1" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8726,6 +8748,18 @@
 
 
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
+<h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
+<p>Since 2.1.0rc1:</p>
+<ul>
+<li><code>quasi_harmonic</code> and <code>thermal_elastic_constants</code> with the quasi-harmonic method
+  measure how much the free energy jumps where a pair of atoms crosses the cutoff, and
+  raise <code>InvalidParameter</code> only when the jump is more than 2 % of its change between
+  neighbouring volumes or over the strain, naming the jump and its part. 2.1.0rc1 raised
+  it for every crossing, so that every range of volumes about the fcc crystal of
+  <code>EAM.zhou</code>, whose cutoff is its fifth shell, was refused for a jump of 1 %. Potentials
+  cut off without smoothing, or NEP, jump by 4 to 33 % and are refused as before. See
+  <a href="../../user-guide/simulation/quasi-harmonic/#crossing-the-cutoff">Crossing the cutoff</a>.</li>
+</ul>
 <h2 id="210rc1">2.1.0rc1<a class="headerlink" href="#210rc1" title="Permanent link">&para;</a></h2>
 <p>The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from
 force constants of any calculator or of DFT to the thermal conductivity; elastic constants

@@ -5485,6 +5485,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crossing-the-cutoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crossing the cutoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -8213,6 +8230,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Errors">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#crossing-the-cutoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Crossing the cutoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -8502,11 +8536,58 @@ every direction nor that of a sheet, a negative temperature,
 both volumes and pressures, fewer than five of them, a relaxation that does
 not converge within <code>max_steps</code>, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of
-<a href="../phonons/"><code>phonons</code></a>. It also raises it, before any phonons, for a pair of
-atoms that comes within <code>displacement</code> of the cutoff of the calculator at some
-volumes and not at others: the force constants of most potentials, NEP and
-tabulated EAM among them, jump there, and the free energy with them. Narrow
-the volumes or the pressures, or choose another potential.</p>
+<a href="../phonons/"><code>phonons</code></a>. It also raises it, before the phonons of the grid,
+where a pair of atoms crosses the cutoff of the calculator between the volumes
+and the free energy jumps there by more than 2 % of its change between
+neighbouring volumes, which distorts the results by percents or more.</p>
+<h3 id="crossing-the-cutoff">Crossing the cutoff<a class="headerlink" href="#crossing-the-cutoff" title="Permanent link">&para;</a></h3>
+<p>Where a pair of atoms comes within <code>displacement</code> of the cutoff at some
+volumes and not at others, the free energy jumps by as much as the potential
+is rough at its cutoff. <code>quasi_harmonic</code> measures the jump: it scales the cell
+nearest the crossing so that the pair lies 2, 3 and 4 displacements inside and
+outside the cutoff, and extrapolates the free energy of the vibrations at the
+highest temperature to the cutoff from either side, and the static energy from
+1e-4 Å either side. It compares the jump with the second difference of the
+static energy over neighbouring volumes, which the results come from:</p>
+<table>
+<thead>
+<tr>
+<th>Potential</th>
+<th>Its functions at the cutoff</th>
+<th>Jump, of the change between neighbouring volumes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>EAM of Mishin et al. (<code>Cu_mishin1.eam.alloy</code>)</td>
+<td>vanish with their first and second derivatives</td>
+<td>0.2 %</td>
+</tr>
+<tr>
+<td><code>EAM.zhou</code></td>
+<td>about 1e-6 of their largest</td>
+<td>1 %</td>
+</tr>
+<tr>
+<td>NEP</td>
+<td>vanish with their first derivatives</td>
+<td>4 to 17 %</td>
+</tr>
+<tr>
+<td>EAM of Foiles et al. (<code>Cu_u3.eam</code>), Mendelev et al. (<code>Al_mm.eam.fs</code>)</td>
+<td>cut off</td>
+<td>8 to 33 %</td>
+</tr>
+</tbody>
+</table>
+<p>Up to 2 % the results change by less than 1 % with where the volumes fall
+about the crossing, and the calculation goes on. Above it they can change by
+much more, by up to 35 % for the thermal expansion with the potentials above,
+and <code>quasi_harmonic</code> raises <code>InvalidParameter</code>, naming the pair, the jump and
+its part. Choose volumes or pressures all on one side of the crossing, or a
+potential smooth at its cutoff. The Zhou potentials cut off at the fifth shell
+of their fcc crystal, which every range of volumes about it crosses, with a
+jump of 1 %.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>At each temperature <span class="arithmatex">\(T\)</span>, the free energy</p>
 <div class="arithmatex">\[

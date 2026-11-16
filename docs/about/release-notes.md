@@ -1,8 +1,12 @@
 # Release notes
 
-## 2.1.0 (not released)
+## 2.1.0rc2
 
-Since 2.1.0rc1:
+The second release candidate of MDAPY 2.1: since 2.1.0rc1, the check of the cutoff of the
+quasi-harmonic methods measures how much the free energy jumps, so that potentials smooth
+at their cutoff, `EAM.zhou` among them, are computed; `EAM` reads the `eam/fs` and funcfl
+files of LAMMPS; and an example runs LAMMPS on many processes with MPI. The API of 2.0.0
+holds. Until 2.1.0 only fixes follow.
 
 - `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method
   measure how much the free energy jumps where a pair of atoms crosses the cutoff, and

@@ -24,6 +24,8 @@
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "calculators/pair.h"
+#include "calculators/stillinger_weber.h"
+#include "calculators/tersoff.h"
 #include "neighbor/frames.h"
 #include "core/index.h"
 #include "core/parallel.h"
@@ -199,6 +201,73 @@ nb::tuple compute_pair(const calculators::PairPotential& potential, Species spec
     return nb::make_tuple(e, f, w);
 }
 
+// rows: elements^3 rows of 14 numbers, see TersoffPotential::parameters
+calculators::TersoffPotential make_tersoff(int elements, Flat rows) {
+    const auto count = static_cast<std::size_t>(elements) * static_cast<std::size_t>(elements) *
+                       static_cast<std::size_t>(elements);
+    if (elements < 1 || rows.shape(0) != 14 * count) {
+        throw std::invalid_argument("a Tersoff potential needs 14 numbers for each triplet");
+    }
+    return calculators::make_tersoff(elements, rows.data());
+}
+
+nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Species species,
+                          Positions positions, Matrix matrix, Offsets offsets,
+                          Neighbors neighbors, Shifts shifts, nb::handle progress,
+                          const CancelToken* cancel) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = new_array(3, shape3, virials);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_tersoff(potential, n, species.data(), positions.data(),
+                                         matrix.data(), offsets.data(), neighbors.data(),
+                                         shifts.data(), energies, forces, virials, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
+// rows: elements^3 rows of 11 numbers, see StillingerWeberPotential::parameters
+calculators::StillingerWeberPotential make_stillinger_weber(int elements, Flat rows) {
+    const auto count = static_cast<std::size_t>(elements) * static_cast<std::size_t>(elements) *
+                       static_cast<std::size_t>(elements);
+    if (elements < 1 || rows.shape(0) != 11 * count) {
+        throw std::invalid_argument("a Stillinger-Weber potential needs 11 numbers for each triplet");
+    }
+    return calculators::make_stillinger_weber(elements, rows.data());
+}
+
+nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& potential,
+                                   Species species, Positions positions, Matrix matrix,
+                                   Offsets offsets, Neighbors neighbors, Shifts shifts,
+                                   nb::handle progress, const CancelToken* cancel) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = new_array(3, shape3, virials);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_stillinger_weber(potential, n, species.data(), positions.data(),
+                                                  matrix.data(), offsets.data(), neighbors.data(),
+                                                  shifts.data(), energies, forces, virials,
+                                                  control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
 std::vector<double> copy(Flat values) {
     return {values.data(), values.data() + values.shape(0)};
 }
@@ -344,6 +413,22 @@ nb::object nep_frames(const calculators::NepModel& model, Species species, frame
 }  // namespace
 
 void bind_calculators(nb::module_& m) {
+    nb::class_<calculators::StillingerWeberPotential>(m, "StillingerWeberPotential")
+        .def_ro("elements", &calculators::StillingerWeberPotential::elements)
+        .def_ro("cutoff", &calculators::StillingerWeberPotential::cutoff);
+    m.def("make_stillinger_weber", &make_stillinger_weber, nb::arg("elements"), nb::arg("rows"));
+    m.def("compute_stillinger_weber", &compute_stillinger_weber, nb::arg("potential"),
+          nb::arg("species"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    nb::class_<calculators::TersoffPotential>(m, "TersoffPotential")
+        .def_ro("elements", &calculators::TersoffPotential::elements)
+        .def_ro("cutoff", &calculators::TersoffPotential::cutoff);
+    m.def("make_tersoff", &make_tersoff, nb::arg("elements"), nb::arg("rows"));
+    m.def("compute_tersoff", &compute_tersoff, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     nb::class_<calculators::PairPotential>(m, "PairPotential")
         .def_ro("species", &calculators::PairPotential::species)
         .def_ro("cutoff", &calculators::PairPotential::cutoff);

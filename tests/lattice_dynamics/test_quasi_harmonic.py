@@ -8,13 +8,13 @@ import dataclasses
 import numpy as np
 import pytest
 
-from mdapy import units
+from mdapy import Box, System, units
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics import elastic_constants, primitive_cell, quasi_harmonic
-from mdapy.lattice_dynamics._phonons import _crossing
-from mdapy.lattice_dynamics._quasi_harmonic import _Fit
+from mdapy.lattice_dynamics._phonons import _crossing, _cutoff_jump
+from mdapy.lattice_dynamics._quasi_harmonic import _Fit, _neighbouring
 from mdapy.simulation import minimize
 
 from calculators.eam_files import write_setfl
@@ -127,18 +127,113 @@ def test_unstable_volumes():
         quasi_harmonic(cell, Harmonic(k=1.0, r0=3.0), [300.0], supercell=3, mesh=4)
 
 
-def test_a_pair_that_crosses_the_cutoff(copper):
-    # the fifth shell, 5.20 Å at zero stress, comes inside the cutoff of 5 Å
-    # below 0.89 of the volume; raised before any phonons
-    potential, _, cell = copper
+@pytest.fixture(scope="module")
+def truncated(tmp_path_factory):
+    """fcc Cu of the synthetic potential cut off without smoothing, as many
+    tabulated potentials are, at zero stress: its potential and its
+    primitive cell."""
+    path = tmp_path_factory.mktemp("eam") / "cut.eam.alloy"
+    potential = EAM(write_setfl(path, abrupt=True))
+    relaxed = minimize(
+        build_crystal("fcc", 3.63, elements="Cu"),
+        potential,
+        cell="full",
+        max_force=1e-10,
+        max_stress=1e-8,
+        max_steps=10000,
+    ).system
+    return potential, primitive_cell(relaxed)
+
+
+def test_a_pair_that_crosses_the_cutoff(truncated):
+    # the fourth shell, 5.14 Å at zero stress, comes inside the cutoff of 5 Å
+    # below 0.92 of the volume, and the free energy jumps by most of its change
+    # between neighbouring volumes; raised before the phonons of the grid
+    potential, cell = truncated
     with pytest.raises(
         InvalidParameter,
-        match=r"reaches the cutoff of the calculator, 5 Å, between the volumes, "
-        r"give or take the displacement of 0\.01 Å: it is 4\.93\d\d Å apart at "
-        r"volume ratio 0\.85 and 5\.20\d\d Å at volume ratio 1, and its force "
-        r"constants jump",
+        match=r"a pair of atoms crosses the cutoff of the calculator, 5 Å, between "
+        r"the volumes: it is 4\.86\d\d Å apart at volume ratio 0\.85 and 5\.13\d\d Å "
+        r"at volume ratio 1\. The free energy at 300 K jumps there by \d\.\d+ eV per "
+        r"atom, \d\d% of its change between neighbouring volumes, more than the 2% "
+        r"that the results tolerate: the potential is not smooth at its cutoff\. Use "
+        r"volumes or pressures all on one side of the crossing, or a potential "
+        r"smooth at its cutoff",
     ):
         quasi_harmonic(cell, potential, [300.0], volumes=np.linspace(0.85, 1.0, 5))
+
+
+def test_a_potential_smooth_at_its_cutoff_crosses_it(copper):
+    # the same crossing of a potential whose functions and their slopes vanish
+    # at the cutoff: a jump of the free energy within the 2 %, computed
+    potential, _, cell = copper
+    middle = cell.with_box(cell.box.matrix * 0.925 ** (1 / 3), scale_positions=True)
+    stress = potential.compute(middle, ["energy", "virial"]).stress
+    result = quasi_harmonic(
+        cell,
+        potential,
+        [0.0, 300.0],
+        volumes=np.linspace(0.85, 1.0, 7),
+        pressure=-np.trace(stress) / 3,
+        **OPTIONS,
+    )
+    ratio = result.volume / cell.box.volume
+    assert np.all((ratio > 0.87) & (ratio < 0.98))
+    assert np.isfinite(result.thermal_expansion).all()
+
+
+def test_zhou_potentials_cross_their_cutoff():
+    # their cutoff is the fifth shell of their fcc crystal, which every range of
+    # volumes about it crosses; their functions nearly vanish there: a jump of
+    # about 1 % of the change between neighbouring volumes, computed
+    potential = EAM.zhou(["Cu"])
+    cell = primitive_cell(build_crystal("fcc", 3.615, elements="Cu"))
+    volumes = np.linspace(0.97, 1.07, 7)
+    result = quasi_harmonic(cell, potential, [0.0, 100.0], volumes=volumes)
+    assert np.all(np.diff(result.volume) > 0)
+    fifth = (3.615 * 1.5, 3.615 * 0.5, 0.0)  # a fifth neighbour, on the cutoff
+    static, vibration, change = _cutoff_jump(
+        cell, fifth, potential, None, 0.01, None, 100.0, 10, 1.015 ** (1 / 3) - 1
+    )
+    assert np.linalg.norm(fifth) == pytest.approx(potential.cutoff, rel=1e-4)
+    assert 0 < static + vibration < 0.02 * change
+
+
+def test_the_jump_at_the_cutoff_of_springs():
+    # fcc of 3.2 Å with springs at rest between first neighbours, cut off at
+    # 3.2 Å: the six second neighbours, three springs per atom, on the cutoff;
+    # each holds k (rc - r0)^2 / 2 there, which the static energy loses
+    rest = 3.2 / np.sqrt(2)
+    springs = Harmonic(k=1.0, r0=rest)
+    cell = primitive_cell(build_crystal("fcc", 3.2, elements="Ar"))
+    static, vibration, change = _cutoff_jump(
+        cell, (3.2, 0.0, 0.0), springs, 4, 0.01, None, 300.0, 10, 0.005
+    )
+    assert static == pytest.approx(3 * 0.5 * (3.2 - rest) ** 2, rel=1e-3)
+    assert vibration > 0 and static + vibration > 0.02 * change
+
+
+def test_the_jump_at_the_cutoff_of_a_sheet():
+    # a triangular sheet with its six second neighbours on the cutoff of the
+    # springs, scaled in its plane; the springs of first neighbours a little
+    # stretched, so that the sheet is stable across its plane
+    a = 3.2 / np.sqrt(3)
+    springs = Harmonic(k=1.0, r0=0.98 * a)
+    box = Box([[a, 0, 0], [a / 2, a * np.sqrt(3) / 2, 0], [0, 0, 20.0]], pbc=[1, 1, 0])
+    sheet = System([[0.0, 0.0, 10.0]], box, elements="Ar")
+    second = (1.5 * a, a * np.sqrt(3) / 2, 0.0)
+    static, vibration, change = _cutoff_jump(
+        sheet, second, springs, 4, 0.01, None, 100.0, 8, 0.005
+    )
+    assert static == pytest.approx(3 * 0.5 * (3.2 - 0.98 * a) ** 2, rel=1e-3)
+    assert vibration > 0 and change > 0
+
+
+def test_neighbouring_volumes():
+    sizes = np.array([1.1, 1.0, 1.21])  # in any order
+    assert _neighbouring(sizes, 0, 3) == pytest.approx((1.21 ** (1 / 3) - 1) / 2)
+    assert _neighbouring(sizes, 1, 3) == pytest.approx(1.1 ** (1 / 3) - 1)
+    assert _neighbouring(sizes, 2, 2) == pytest.approx(1.1**0.5 - 1, rel=1e-6)
 
 
 def test_crossing_follows_the_atoms_across_the_box():
@@ -149,20 +244,26 @@ def test_crossing_follows_the_atoms_across_the_box():
         for s in (0.99, 1.0, 1.01)
     ]
     found = _crossing(cells, 4.02, 0.0)
-    assert found[1::2] == (0, 2)
-    assert found[0::2] == pytest.approx((3.96, 4.04), rel=1e-12)
+    assert (found.near, found.far) == (0, 2)
+    assert (found.short, found.long) == pytest.approx((3.96, 4.04), rel=1e-12)
+    # the cell where it is nearest the cutoff, and the pair there
+    length = np.linalg.norm(found.vector)
+    assert length == pytest.approx([3.96, 4.0, 4.04][found.closest], rel=1e-12)
+    assert abs(length - 4.02) == pytest.approx(0.02, abs=1e-9)
     assert _crossing(cells, 4.5, 0.0) is None
     assert _crossing(cells, 3.9, 0.0) is None
     # give or take a displacement: the shell within it of the cutoff counts
     assert _crossing(cells, 4.045, 0.0) is None
-    assert _crossing(cells, 4.045, 0.01) == found
-    assert _crossing(cells, 3.955, 0.01) == found
+    assert _crossing(cells, 4.045, 0.01)[:4] == found[:4]
+    assert _crossing(cells, 3.955, 0.01)[:4] == found[:4]
     assert _crossing(cells, 3.945, 0.01) is None
     # an atom wrapped to the other side of the box in one cell
     positions = cells[1]["positions"].copy()
     positions[0] += cells[1].box.matrix[0]
     cells[1] = cells[1].with_columns(positions=positions)
-    assert _crossing(cells, 4.02, 0.0) == found
+    wrapped = _crossing(cells, 4.02, 0.0)
+    assert wrapped[:5] == pytest.approx(found[:5], rel=1e-12)
+    assert wrapped.vector == pytest.approx(found.vector, rel=1e-12)
     assert _crossing(cells, 4.5, 0.0) is None
 
 

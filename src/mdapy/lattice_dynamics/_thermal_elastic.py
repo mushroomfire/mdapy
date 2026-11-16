@@ -19,7 +19,9 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._phonons import (
+    _JUMP,
     _crossing,
+    _cutoff_jump,
     _default_supercell,
     _phonons,
     _supercell_matrix,
@@ -252,22 +254,38 @@ def thermal_elastic_constants(
             found.update(images)
             strained.append((relaxed, images))
         plans.append((cell, matrix, strained))
-    # the force constants jump where a pair of atoms crosses the cutoff
+    # where a pair of atoms crosses the cutoff the free energy jumps: by
+    # nothing for potentials smooth there, enough for others to distort the
+    # second derivatives, which are then refused
+    every = [(r.system, matrix) for _, matrix, s in plans for r, _ in s]
     if method == "quasi-harmonic" and (
-        crossing := _crossing(
-            [r.system for _, _, s in plans for r, _ in s],
-            calculator.cutoff,
-            displacement,
-        )
+        crossing := _crossing([c for c, _ in every], calculator.cutoff, displacement)
     ):
-        short, _, long, _ = crossing
-        raise InvalidParameter(
-            f"a pair of atoms reaches the cutoff of the calculator, "
-            f"{calculator.cutoff:.4g} Å, between the strained cells, give or take "
-            f"the displacement of {displacement:.4g} Å: it is {short:.4f} Å apart "
-            f"in one and {long:.4f} Å in another, and its force constants jump "
-            "there; use a smaller strain or another potential"
+        cell, matrix = every[crossing.closest]
+        static, vibration, change = _cutoff_jump(
+            cell,
+            crossing.vector,
+            calculator,
+            matrix,
+            displacement,
+            symmetry,
+            float(temperatures.max()),
+            mesh,
+            strain,
         )
+        jump = static + vibration
+        if jump > _JUMP * change:
+            raise InvalidParameter(
+                f"a pair of atoms crosses the cutoff of the calculator, "
+                f"{calculator.cutoff:.4g} Å, between the strained cells: it is "
+                f"{crossing.short:.4f} Å apart in one and {crossing.long:.4f} Å in "
+                f"another. The free energy at {temperatures.max():g} K jumps there "
+                f"by {jump:.2g} eV per atom, {jump / change:.0%} of its change over "
+                f"the strain of {strain:g}, more than the {_JUMP:.0%} that the "
+                "second derivatives tolerate: the potential is not smooth at its "
+                "cutoff. Use a potential smooth at its cutoff, or a strain under "
+                "which the pair keeps one side of it"
+            )
     curvatures = []  # per cell: (6, 6, T) in eV/Å³
     for cell, matrix, strained in plans:
         values = {}

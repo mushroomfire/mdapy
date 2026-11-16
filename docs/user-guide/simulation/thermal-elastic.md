@@ -100,10 +100,14 @@ give the speed of sound and the stability of the crystal under it.
 a strain that is not positive, a result without cells, a relaxation that
 does not converge within `max_steps`, imaginary frequencies in a strained
 cell, and `symmetry=True` without spglib. With the quasi-harmonic method it
-also raises it, before any phonons, for a pair of atoms that comes within
-`displacement` of the cutoff of the calculator in some strained cells and not
-in others, where the force constants jump, as in
-[`quasi_harmonic`](quasi-harmonic.md#errors); a smaller `strain` avoids it.
+also raises it, before the phonons of the strained cells, where a pair of
+atoms crosses the cutoff of the calculator between the strained cells and the
+free energy jumps there by more than 2 % of its change over the strain,
+measured as in [`quasi_harmonic`](quasi-harmonic.md#crossing-the-cutoff). The
+second derivatives take such a jump in whole: of NEP, of potentials cut off
+without smoothing, the elastic constants then come out 5 to 60 % off. A
+potential smooth at its cutoff avoids it, or a strain under which the pair
+keeps one side.
 
 ## Definition
 

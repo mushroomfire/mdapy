@@ -21,6 +21,7 @@
 
 #include "bindings/control.h"
 #include "bindings/frames.h"
+#include "calculators/adp.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
 #include "calculators/pair.h"
@@ -268,6 +269,61 @@ nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& 
     return nb::make_tuple(e, f, w);
 }
 
+// embedding: (elements, nrho); density: (elements, nr); pair, dipole and
+// quadrupole: (elements * (elements + 1) / 2, nr), the lower triangle by rows
+calculators::AdpPotential make_adp(Table embedding, Table density, Table pair, Table dipole,
+                                   Table quadrupole, double drho, double dr, double cutoff) {
+    const auto elements = static_cast<int>(embedding.shape(0));
+    const auto pairs = static_cast<std::size_t>(elements * (elements + 1) / 2);
+    if (density.shape(0) != static_cast<std::size_t>(elements) || pair.shape(0) != pairs ||
+        dipole.shape(0) != pairs || quadrupole.shape(0) != pairs ||
+        pair.shape(1) != density.shape(1) || dipole.shape(1) != density.shape(1) ||
+        quadrupole.shape(1) != density.shape(1)) {
+        throw std::invalid_argument("inconsistent ADP tables");
+    }
+    if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
+        throw std::invalid_argument("ADP table spacings and cutoff must be positive");
+    }
+    calculators::AdpPotential potential;
+    potential.elements = elements;
+    potential.cutoff = cutoff;
+    const auto nrho = static_cast<int>(embedding.shape(1));
+    const auto nr = static_cast<int>(density.shape(1));
+    for (int e = 0; e < elements; ++e) {
+        potential.embedding.emplace_back(embedding.data() + e * nrho, nrho, drho);
+        potential.density.emplace_back(density.data() + e * nr, nr, dr);
+    }
+    for (std::size_t k = 0; k < pairs; ++k) {
+        potential.pair.emplace_back(pair.data() + k * static_cast<std::size_t>(nr), nr, dr);
+        potential.dipole.emplace_back(dipole.data() + k * static_cast<std::size_t>(nr), nr, dr);
+        potential.quadrupole.emplace_back(quadrupole.data() + k * static_cast<std::size_t>(nr), nr,
+                                          dr);
+    }
+    return potential;
+}
+
+nb::tuple compute_adp(const calculators::AdpPotential& potential, Species species,
+                      Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                      Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = new_array(3, shape3, virials);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_adp(potential, n, species.data(), positions.data(),
+                                     matrix.data(), offsets.data(), neighbors.data(),
+                                     shifts.data(), energies, forces, virials, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
 std::vector<double> copy(Flat values) {
     return {values.data(), values.data() + values.shape(0)};
 }
@@ -413,6 +469,16 @@ nb::object nep_frames(const calculators::NepModel& model, Species species, frame
 }  // namespace
 
 void bind_calculators(nb::module_& m) {
+    nb::class_<calculators::AdpPotential>(m, "AdpPotential")
+        .def_ro("elements", &calculators::AdpPotential::elements)
+        .def_ro("cutoff", &calculators::AdpPotential::cutoff);
+    m.def("make_adp", &make_adp, nb::arg("embedding"), nb::arg("density"), nb::arg("pair"),
+          nb::arg("dipole"), nb::arg("quadrupole"), nb::arg("drho"), nb::arg("dr"),
+          nb::arg("cutoff"));
+    m.def("compute_adp", &compute_adp, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     nb::class_<calculators::StillingerWeberPotential>(m, "StillingerWeberPotential")
         .def_ro("elements", &calculators::StillingerWeberPotential::elements)
         .def_ro("cutoff", &calculators::StillingerWeberPotential::cutoff);

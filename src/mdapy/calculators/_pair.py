@@ -203,6 +203,10 @@ class LennardJones(_PairCalculator):
         epsilon, sigma, cut = np.zeros((e, e)), np.zeros((e, e)), np.zeros((e, e))
         own = {}
         for name, numbers in singles.items():
+            if (name, name) in pairs and pairs[name, name] != numbers:
+                raise InvalidParameter(
+                    f"{name} is given alone and as {name}–{name} with other parameters"
+                )
             own[name] = (
                 numbers[0],
                 numbers[1],

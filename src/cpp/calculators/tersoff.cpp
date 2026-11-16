@@ -217,17 +217,32 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                 }
                 double& own_energy = shares.own_energy[static_cast<std::size_t>(i)];
                 double* own_virial = &shares.own_virial[9 * static_cast<std::size_t>(i)];
-                // the repulsion of each pair, half of it from each atom
+                // the repulsion of each pair, half of it from each atom: by the
+                // entries i j j and j i i, which LAMMPS takes one of by the
+                // numbering of the atoms, here their mean, one when they agree
                 for (const Near& j : near) {
-                    const P& p = potential.of(si, j.species, j.species);
-                    if (!(j.rsq < p.cutsq)) {
+                    const P& pij = potential.of(si, j.species, j.species);
+                    const P& pji = potential.of(j.species, si, si);
+                    const bool same = pij.a == pji.a && pij.lam1 == pji.lam1 && pij.r == pji.r &&
+                                      pij.big_d == pji.big_d;
+                    double energy = 0.0, fpair = 0.0;
+                    for (const P* p : {&pij, &pji}) {
+                        const double weight = same ? 1.0 : 0.5;
+                        if (j.rsq < p->cutsq) {
+                            const double r = std::sqrt(j.rsq);
+                            const double fc = cutoff_function(r, *p), dfc = cutoff_slope(r, *p);
+                            const double ex = std::exp(-p->lam1 * r);
+                            fpair += weight * (-p->a * ex * (dfc - fc * p->lam1) / r);
+                            energy += weight * (fc * p->a * ex);
+                        }
+                        if (same) {
+                            break;
+                        }
+                    }
+                    if (energy == 0.0 && fpair == 0.0) {
                         continue;
                     }
-                    const double r = std::sqrt(j.rsq);
-                    const double fc = cutoff_function(r, p), dfc = cutoff_slope(r, p);
-                    const double ex = std::exp(-p.lam1 * r);
-                    const double fpair = -p.a * ex * (dfc - fc * p.lam1) / r;
-                    own_energy += 0.5 * (fc * p.a * ex);
+                    own_energy += 0.5 * energy;
                     const double f[3] = {0.5 * fpair * j.r[0], 0.5 * fpair * j.r[1],
                                          0.5 * fpair * j.r[2]};
                     shares.pair_force(i, j.pair, j.r, f, 0.0);

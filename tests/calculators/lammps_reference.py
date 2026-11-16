@@ -129,9 +129,12 @@ def assert_matches(result, expected, *, energy=1e-12, forces=1e-10, virials=1e-9
         rtol=virials,
         atol=virials * scale * len(result.forces),
     )
+    # the six components LAMMPS gives, r_x f_y and so on: the virial of an
+    # atom from three-body terms need not be symmetric
+    upper = (np.array([0, 1, 2, 0, 0, 1]), np.array([0, 1, 2, 1, 2, 2]))
     np.testing.assert_allclose(
-        result.atomic_virials,
-        expected["atomic_virials"],
+        result.atomic_virials[:, upper[0], upper[1]],
+        expected["atomic_virials"][:, upper[0], upper[1]],
         rtol=virials,
         atol=virials * scale,
     )

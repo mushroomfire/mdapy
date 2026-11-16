@@ -98,19 +98,42 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                         positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
                         shifts + 3 * p, matrix, q.r);
                     const P& pij = potential.of(si, q.species, q.species);
-                    if (!(q.rsq < pij.cutsq)) {
+                    const P& pji = potential.of(q.species, si, si);
+                    if (q.rsq < pij.cutsq) {
+                        near.push_back(q);
+                    }
+                    // the two-body term by the entries i j j and j i i, which
+                    // LAMMPS takes one of by the numbering of the atoms, here
+                    // their mean, one when they agree
+                    const bool same = pij.cutsq == pji.cutsq && pij.cut == pji.cut &&
+                                      pij.sigma == pji.sigma && pij.p == pji.p &&
+                                      pij.q == pji.q && pij.c1 == pji.c1 && pij.c2 == pji.c2 &&
+                                      pij.c3 == pji.c3 && pij.c4 == pji.c4 &&
+                                      pij.c5 == pji.c5 && pij.c6 == pji.c6;
+                    double energy = 0.0, fpair = 0.0;
+                    bool any = false;
+                    for (const P* e : {&pij, &pji}) {
+                        const double weight = same ? 1.0 : 0.5;
+                        if (q.rsq < e->cutsq) {
+                            any = true;
+                            const double r = std::sqrt(q.rsq), rinvsq = 1.0 / q.rsq;
+                            const double rp = std::pow(r, -e->p), rq = std::pow(r, -e->q);
+                            const double rainv = 1.0 / (r - e->cut);
+                            const double rainvsq = rainv * rainv * r;
+                            const double expsrainv = std::exp(e->sigma * rainv);
+                            fpair += weight * ((e->c1 * rp - e->c2 * rq +
+                                                (e->c3 * rp - e->c4 * rq) * rainvsq) *
+                                               expsrainv * rinvsq);
+                            energy += weight * ((e->c5 * rp - e->c6 * rq) * expsrainv);
+                        }
+                        if (same) {
+                            break;
+                        }
+                    }
+                    if (!any) {
                         continue;
                     }
-                    near.push_back(q);
-                    const double r = std::sqrt(q.rsq), rinvsq = 1.0 / q.rsq;
-                    const double rp = std::pow(r, -pij.p), rq = std::pow(r, -pij.q);
-                    const double rainv = 1.0 / (r - pij.cut);
-                    const double rainvsq = rainv * rainv * r;
-                    const double expsrainv = std::exp(pij.sigma * rainv);
-                    const double fpair =
-                        (pij.c1 * rp - pij.c2 * rq + (pij.c3 * rp - pij.c4 * rq) * rainvsq) *
-                        expsrainv * rinvsq;
-                    own_energy += 0.5 * ((pij.c5 * rp - pij.c6 * rq) * expsrainv);
+                    own_energy += 0.5 * energy;
                     const double f[3] = {0.5 * fpair * q.r[0], 0.5 * fpair * q.r[1],
                                          0.5 * fpair * q.r[2]};
                     shares.pair_force(i, p, q.r, f, 0.0);
@@ -129,7 +152,6 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                     for (std::size_t b = a + 1; b < near.size(); ++b) {
                         const Near& k = near[b];
                         const P& pik = potential.of(si, k.species, k.species);
-                        const P& pijk = potential.of(si, j.species, k.species);
                         const double r2 = std::sqrt(k.rsq), rinvsq2 = 1.0 / k.rsq;
                         const double rainv2 = 1.0 / (r2 - pik.cut);
                         const double gsrainv2 = pik.sigma_gamma * rainv2;
@@ -138,11 +160,26 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                         const double rinv12 = 1.0 / (r1 * r2);
                         const double cs =
                             (j.r[0] * k.r[0] + j.r[1] * k.r[1] + j.r[2] * k.r[2]) * rinv12;
-                        const double delcs = cs - pijk.costheta;
                         const double facexp = expgsrainv1 * expgsrainv2;
-                        const double facrad = pijk.lambda_epsilon * facexp * delcs * delcs;
+                        // the strength and the angle of the entries i j k and i k j:
+                        // LAMMPS takes one by the order of the neighbors, here their
+                        // mean, the same when they agree
+                        const P& pjk = potential.of(si, j.species, k.species);
+                        const P& pkj = potential.of(si, k.species, j.species);
+                        const bool same = pjk.lambda_epsilon == pkj.lambda_epsilon &&
+                                          pjk.lambda_epsilon2 == pkj.lambda_epsilon2 &&
+                                          pjk.costheta == pkj.costheta;
+                        double facrad = 0.0, facang = 0.0;
+                        for (const P* pijk : {&pjk, &pkj}) {
+                            const double weight = same ? 1.0 : 0.5;
+                            const double delcs = cs - pijk->costheta;
+                            facrad += weight * (pijk->lambda_epsilon * facexp * delcs * delcs);
+                            facang += weight * (pijk->lambda_epsilon2 * facexp * delcs);
+                            if (same) {
+                                break;
+                            }
+                        }
                         const double frad1 = facrad * gsrainvsq1, frad2 = facrad * gsrainvsq2;
-                        const double facang = pijk.lambda_epsilon2 * facexp * delcs;
                         const double facang12 = rinv12 * facang;
                         const double csfacang = cs * facang;
                         const double csfac1 = rinvsq1 * csfacang, csfac2 = rinvsq2 * csfacang;

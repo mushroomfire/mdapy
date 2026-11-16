@@ -143,26 +143,163 @@ def _read_setfl(path: str | os.PathLike) -> dict[str, Any]:
     }
 
 
+def _is_funcfl(path: str | os.PathLike) -> bool:
+    """Whether the file is a funcfl file of LAMMPS pair_style eam, of one
+    element: its fourth line holds values, where that of a setfl file names
+    the elements."""
+    with open(path, encoding="utf-8") as f:
+        lines = [f.readline() for _ in range(4)]
+    words = lines[3].split("#")[0].split()
+    return not (len(words) > 1 and words[1][:1].isalpha())
+
+
+def _read_funcfl(path: str | os.PathLike) -> dict[str, Any]:
+    """A funcfl file: a comment, the atomic number, mass, lattice constant
+    and lattice, the grid, then F(rho), the effective charge Z(r) and
+    rho(r)."""
+    reader = _Numbers(path)
+    reader.line = 1  # one comment line
+    words = reader.next_line()
+    try:
+        number, mass = int(float(words[0])), float(words[1])
+    except (ValueError, IndexError):
+        raise FileFormatError(
+            "expected the atomic number and the mass", reader.name, reader.line
+        ) from None
+    if not 0 < number < len(SYMBOLS):
+        raise FileFormatError(
+            f"{number} is not the atomic number of an element", reader.name, reader.line
+        )
+    try:
+        constant = float(words[2])
+    except (ValueError, IndexError):
+        constant = 0.0
+    lattice = words[3] if len(words) > 3 else ""
+    words = reader.next_line()
+    try:
+        nrho, drho, nr, dr, cutoff = (
+            int(words[0]),
+            float(words[1]),
+            int(words[2]),
+            float(words[3]),
+            float(words[4]),
+        )
+    except (ValueError, IndexError):
+        raise FileFormatError(
+            "expected Nrho drho Nr dr cutoff", reader.name, reader.line
+        ) from None
+    if nrho < 5 or nr < 5 or drho <= 0 or dr <= 0 or cutoff <= 0:
+        raise FileFormatError(
+            "Nrho and Nr must be at least 5, and drho, dr and cutoff positive",
+            reader.name,
+            reader.line,
+        )
+    return {
+        "name": os.path.basename(os.fspath(path)),
+        "number": number,
+        "mass": mass,
+        "constant": constant,
+        "lattice": lattice,
+        "drho": drho,
+        "dr": dr,
+        "cutoff": cutoff,
+        "embedding": reader.floats(nrho),
+        "charge": reader.floats(nr),
+        "density": reader.floats(nr),
+    }
+
+
+#: Hartree times bohr in eV Å, as LAMMPS converts the effective charges.
+_HARTREE_BOHR = 27.2 * 0.529
+
+
+def _onto(values: np.ndarray, delta: float, count: int, step: float) -> np.ndarray:
+    """A function tabulated every delta, at count points every step: by the
+    four-point Lagrange interpolation of PairEAM::file2array_funcfl."""
+    sixth = 1.0 / 6.0
+    table = np.concatenate([[0.0], values])  # from 1, as in LAMMPS
+    p = (np.arange(count) * step) / delta + 1.0
+    k = np.maximum(np.minimum(p.astype(np.int64), len(values) - 2), 2)
+    p = np.minimum(p - k, 2.0)
+    cof1 = -sixth * p * (p - 1.0) * (p - 2.0)
+    cof2 = 0.5 * (p * p - 1.0) * (p - 2.0)
+    cof3 = -0.5 * p * (p + 1.0) * (p - 2.0)
+    cof4 = sixth * p * (p * p - 1.0)
+    return (
+        cof1 * table[k - 1]
+        + cof2 * table[k]
+        + cof3 * table[k + 1]
+        + cof4 * table[k + 2]
+    )
+
+
+def _funcfl_tables(files: list[dict[str, Any]]) -> dict[str, Any]:
+    """The tables LAMMPS pair_style eam makes of funcfl files, one element
+    each: on the grid of the largest spacings and ranges, the pair of two
+    elements from their effective charges, phi = 27.2 0.529 Z_a Z_b / r."""
+    elements = tuple(SYMBOLS[f["number"]] for f in files)
+    if len(set(elements)) != len(elements):
+        raise InvalidParameter(
+            f"the elements of the funcfl files {list(elements)} repeat"
+        )
+    dr = max(f["dr"] for f in files)
+    drho = max(f["drho"] for f in files)
+    r_max = max((len(f["density"]) - 1) * f["dr"] for f in files)
+    rho_max = max((len(f["embedding"]) - 1) * f["drho"] for f in files)
+    nr, nrho = int(np.floor(r_max / dr + 0.5)), int(np.floor(rho_max / drho + 0.5))
+    charges = [_onto(f["charge"], f["dr"], nr, dr) for f in files]
+    pair = [
+        _HARTREE_BOHR * charges[i] * charges[j]
+        for i in range(len(files))
+        for j in range(i + 1)
+    ]
+    return {
+        "elements": elements,
+        "numbers": tuple(f["number"] for f in files),
+        "masses": np.array([f["mass"] for f in files]),
+        "lattice_constants": np.array([f["constant"] for f in files]),
+        "lattices": tuple(f["lattice"] for f in files),
+        "embedding": np.array(
+            [_onto(f["embedding"], f["drho"], nrho, drho) for f in files]
+        ),
+        "density": np.array([_onto(f["density"], f["dr"], nr, dr) for f in files]),
+        "pair": np.array(pair),
+        "drho": drho,
+        "dr": dr,
+        "cutoff": max(f["cutoff"] for f in files),
+        # the embedding energy goes on linearly beyond, one step past its table
+        "rho_max": rho_max,
+        "comments": (
+            "converted by MDAPY as LAMMPS pair_style eam does, from the funcfl files",
+            " ".join(f["name"] for f in files),
+            "",
+        ),
+        "fs": False,
+    }
+
+
 def _lines(values: np.ndarray, per_line: int = 5) -> list[str]:
     text = [f"{v:.16e}" for v in values]
     return [" ".join(text[k : k + per_line]) for k in range(0, len(text), per_line)]
 
 
 class EAM(Calculator):
-    """Embedded atom method potential, in the LAMMPS ``eam/alloy`` (setfl) or
-    ``eam/fs`` (Finnis-Sinclair) form.
+    """Embedded atom method potential, in the LAMMPS ``eam/alloy`` (setfl),
+    ``eam/fs`` (Finnis-Sinclair) or ``eam`` (funcfl) form.
 
     Parameters
     ----------
-    path : str or os.PathLike
-        The potential file, ``eam/alloy`` or ``eam/fs``, told apart by the
-        number of values: an ``eam/fs`` file holds the density each element
-        gives each element.
+    path : str, os.PathLike or sequence of them
+        The potential file: ``eam/alloy`` or ``eam/fs``, told apart by the
+        number of values, as an ``eam/fs`` file holds the density each
+        element gives each element; or one or several funcfl files of
+        ``pair_style eam``, one element each, mixed as LAMMPS mixes them.
 
     Attributes
     ----------
-    path : str or None
-        The file the potential was read from, None for a built one.
+    path : str, tuple of str or None
+        The file the potential was read from, the funcfl files, or None for
+        a built one.
     elements : tuple of str or None
         The elements of the potential, in the order of the file; None for an
         average-atom potential, which handles atoms of any element.
@@ -173,10 +310,29 @@ class EAM(Calculator):
         Cutoff radius in Å.
     """
 
-    def __init__(self, path: str | os.PathLike):
-        self.__set(_read_setfl(path), os.fspath(path))
+    def __init__(self, path: str | os.PathLike | Sequence[str | os.PathLike]):
+        paths = [path] if isinstance(path, (str, os.PathLike)) else list(path)
+        if not paths:
+            raise InvalidParameter("give the file of the potential")
+        if len(paths) == 1 and not _is_funcfl(paths[0]):
+            self.__set(_read_setfl(paths[0]), os.fspath(paths[0]))
+            return
+        if not all(_is_funcfl(p) for p in paths):
+            raise InvalidParameter(
+                "several files are funcfl files of pair_style eam, one element each"
+            )
+        names = tuple(os.fspath(p) for p in paths)
+        self.__set(
+            _funcfl_tables([_read_funcfl(p) for p in paths]),
+            names[0] if len(names) == 1 else names,
+        )
 
-    def __set(self, tables: dict[str, Any], path: str | None, average: bool = False):
+    def __set(
+        self,
+        tables: dict[str, Any],
+        path: str | tuple[str, ...] | None,
+        average: bool = False,
+    ):
         self.path = path
         self.__tables = tables
         self.__average = average
@@ -189,6 +345,7 @@ class EAM(Calculator):
             tables["drho"],
             tables["dr"],
             tables["cutoff"],
+            rho_max=tables.get("rho_max"),
         )
         self.__species = np.full(len(SYMBOLS), -1, dtype=np.int32)
         if average:

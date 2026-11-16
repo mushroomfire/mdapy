@@ -7,9 +7,11 @@
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/vector.h>
 
 #include <cstdint>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
@@ -46,8 +48,10 @@ nb::object new_array(std::size_t ndim, const std::size_t* shape, T*& data) {
 
 // embedding: (elements, nrho); density: (elements, nr); pair: (elements *
 // (elements + 1) / 2, nr), the lower triangle by rows.
+// rho_max: where the embedding energy goes on linearly, by default the end
+// of its table; LAMMPS puts it one step beyond for funcfl files
 calculators::EamPotential make_eam(Table embedding, Table density, Table pair, double drho,
-                                   double dr, double cutoff) {
+                                   double dr, double cutoff, std::optional<double> rho_max) {
     calculators::EamPotential potential;
     const auto elements = static_cast<int>(embedding.shape(0));
     // one density per element, or per element and element of the neighbour
@@ -66,7 +70,7 @@ calculators::EamPotential make_eam(Table embedding, Table density, Table pair, d
     potential.cutoff = cutoff;
     const auto nrho = static_cast<int>(embedding.shape(1));
     const auto nr = static_cast<int>(density.shape(1));
-    potential.rho_max = (nrho - 1) * drho;
+    potential.rho_max = rho_max.value_or((nrho - 1) * drho);
     for (int e = 0; e < elements; ++e) {
         potential.embedding.emplace_back(embedding.data() + e * nrho, nrho, drho);
     }
@@ -267,7 +271,7 @@ void bind_calculators(nb::module_& m) {
         .def_ro("cutoff", &calculators::EamPotential::cutoff)
         .def_ro("rho_max", &calculators::EamPotential::rho_max);
     m.def("make_eam", &make_eam, nb::arg("embedding"), nb::arg("density"), nb::arg("pair"),
-          nb::arg("drho"), nb::arg("dr"), nb::arg("cutoff"));
+          nb::arg("drho"), nb::arg("dr"), nb::arg("cutoff"), nb::arg("rho_max") = nb::none());
     m.def("compute_eam", &compute_eam, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"),

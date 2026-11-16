@@ -11,7 +11,17 @@ from mdapy.calculators import EAM, CalculatorResult
 from mdapy.calculators.testing import check_calculator
 from mdapy.errors import FileFormatError, InvalidParameter, MissingProperty
 
-from .eam_files import CUTOFF, alloy, reference, write_setfl
+from .eam_files import (
+    CUTOFF,
+    FUNCFL_GRIDS,
+    alloy,
+    charge,
+    density,
+    embedding,
+    reference,
+    write_funcfl,
+    write_setfl,
+)
 
 
 @pytest.fixture
@@ -180,6 +190,84 @@ def test_fs_of_the_same_densities_is_an_alloy(potential, tmp_path):
 def test_fs_has_no_average_atom(fs_potential):
     with pytest.raises(InvalidParameter, match="gives each element its own"):
         fs_potential.average([0.5, 0.5])
+
+
+def test_funcfl_is_the_alloy_of_its_tables(tmp_path):
+    # one funcfl file: LAMMPS keeps its values but the last, and makes the pair
+    # r phi = 27.2 0.529 Z(r)^2; the same tables written by hand as setfl
+    path = write_funcfl(tmp_path / "Cu.eam", "Cu")
+    potential = EAM(path)
+    assert potential.elements == ("Cu",) and potential.path == str(path)
+    assert potential.cutoff == CUTOFF and potential.masses[0] == 63.546
+    nrho, drho, nr, dr = FUNCFL_GRIDS["Cu"]
+    r, rho = np.arange(nr - 1) * dr, np.arange(nrho - 1) * drho
+    values = [
+        embedding("Cu", rho),
+        density("Cu", r),
+        27.2 * 0.529 * charge("Cu", r) * charge("Cu", r),  # in the order of LAMMPS
+    ]
+    lines = ["", "", "", "1 Cu", f"{nrho - 1} {drho!r} {nr - 1} {dr!r} {CUTOFF!r}"]
+    lines.insert(5, "29 63.546 3.6 fcc")
+    lines += [" ".join(repr(float(x)) for x in v) for v in values]
+    (tmp_path / "Cu.eam.alloy").write_text("\n".join(lines) + "\n")
+    setfl = EAM(tmp_path / "Cu.eam.alloy")
+    system = alloy(seed=1).with_columns(element=["Cu"] * 32)
+    # the grid interpolated onto itself, as LAMMPS does: equal within rounding
+    a, b = potential.compute(system), setfl.compute(system)
+    np.testing.assert_allclose(a.forces, b.forces, rtol=1e-11, atol=1e-11)
+    assert a.energy == pytest.approx(b.energy, rel=1e-13)
+
+
+def test_funcfl_files_mix(tmp_path):
+    # two files on grids of their own: an alloy on the larger spacings and
+    # ranges, the cutoff the largest, the pair of Cu and Ni from both charges
+    files = [write_funcfl(tmp_path / f"{e}.eam", e) for e in ("Cu", "Ni")]
+    potential = EAM(files)
+    assert potential.elements == ("Cu", "Ni")
+    assert potential.path == tuple(str(f) for f in files)
+    np.testing.assert_array_equal(potential.masses, [63.546, 58.6934])
+    check_calculator(potential, alloy(seed=2), rtol=1e-6, atol=1e-6)
+    average = potential.average({"Cu": 0.5, "Ni": 0.5})
+    assert np.isfinite(average.compute(alloy(seed=2)).energy)
+    # written as eam/alloy, which reads back to the same potential
+    potential.write(tmp_path / "CuNi.eam.alloy")
+    again = EAM(tmp_path / "CuNi.eam.alloy")
+    system = alloy(seed=3)
+    assert again.compute(system).energy == potential.compute(system).energy
+
+
+def test_funcfl_without_lattice(tmp_path):
+    # the lattice constant and the lattice may be left out, as LAMMPS reads
+    # the atomic number and the mass only
+    full = write_funcfl(tmp_path / "Cu.eam", "Cu")
+    lines = full.read_text().splitlines()
+    lines[1] = "29 63.546"
+    (tmp_path / "short.eam").write_text("\n".join(lines) + "\n")
+    system = alloy(seed=4).with_columns(element=["Cu"] * 32)
+    short = EAM(tmp_path / "short.eam")
+    assert short.compute(system).energy == EAM(full).compute(system).energy
+
+
+def test_funcfl_errors(tmp_path):
+    cu = write_funcfl(tmp_path / "Cu.eam", "Cu")
+    with pytest.raises(InvalidParameter, match="repeat"):
+        EAM([cu, cu])
+    with pytest.raises(InvalidParameter, match="funcfl files"):
+        EAM([cu, write_setfl(tmp_path / "CuNi.eam.alloy")])
+    with pytest.raises(InvalidParameter, match="give the file"):
+        EAM([])
+    for line, text, message in [
+        (1, "0 63.5 3.6 fcc", "0 is not the atomic number"),
+        (1, "x", "atomic number and the mass"),
+        (2, "900 0.06", "Nrho drho Nr dr cutoff"),
+        (2, "3 0.06 1000 0.0052 5.0", "at least 5"),
+    ]:
+        lines = cu.read_text().splitlines()
+        lines[line] = text
+        bad = tmp_path / "bad.eam"
+        bad.write_text("\n".join(lines) + "\n")
+        with pytest.raises(FileFormatError, match=message):
+            EAM(bad)
 
 
 def test_progress_runs_once_from_start_to_end(potential):

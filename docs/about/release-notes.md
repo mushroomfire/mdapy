@@ -14,7 +14,9 @@
   mixing rules) and [`Morse`](../user-guide/simulation/pair-potentials.md) (`pair_style morse`).
   Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
   LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
-  their mean, the same whatever the order.
+  their mean, the same whatever the order. Each has the `cutoff`, `elements` and
+  `implemented` of every calculator; `masses`, `path`, `cutoffs`, `epsilon`, `sigma`, `rc`,
+  `library` and `parameters` where they apply.
 
 ## 2.1.0 (not released)
 

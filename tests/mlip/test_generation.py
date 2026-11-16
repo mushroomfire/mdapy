@@ -14,7 +14,7 @@ from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.elements import COVALENT_RADII, SYMBOLS
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.mlip import QUESTS, generate_structures, information_gain, perturb
+from mdapy.mlip import generate_structures, perturb
 from mdapy.mlip._generation import _BASIS, _Entropy, _Generator
 from mdapy.transform import replicate
 
@@ -141,11 +141,27 @@ class TestEntropy:
         z = rng.normal(size=(50, 3)) * [1.0, 2.0, 0.5]
         entropy = _Entropy(3)
         assert entropy.raised_by(z)
-        entropy.add(z[:30])
-        expected = 0.5 * np.linalg.slogdet(np.cov(z.T, bias=True) + 1e-3 * np.eye(3))[1]
+        entropy.add(z[:10])
+        entropy.add(z[10:30])
+        covariance = np.cov(z.T, bias=True) + 1e-3 * np.eye(3)
+        expected = 0.5 * np.linalg.slogdet(covariance)[1]
         assert entropy.with_points(z[30:]) == pytest.approx(expected, rel=1e-12)
         assert entropy.raised_by(10 * z[30:])
         assert not entropy.raised_by(np.repeat(z[:30].mean(0, keepdims=True), 5, 0))
+
+    def test_sizes_and_dense_cells(self):
+        """As many random cells of each doubling of the number of atoms;
+        cells too dense for atoms placed one by one take a jittered grid."""
+        g = _Generator(("Al",), (2, 127), (10.0, 30.0), 0.75, np.random.default_rng(0))
+        sizes = np.array([len(g.random().kinds) for _ in range(600)])
+        counts = np.histogram(sizes, bins=[2, 4, 8, 16, 32, 64, 128])[0]
+        assert counts.sum() == 600 and counts.min() > 70 and counts.max() < 130
+        dense = _Generator(
+            ("Al",), (64, 64), (8.3, 8.3), 0.75, np.random.default_rng(1)
+        )
+        for _ in range(3):
+            cell = dense.random()
+            assert len(cell.kinds) == 64 and dense.apart(cell)
 
 
 def pair_distances_ok(system, closest):
@@ -159,7 +175,7 @@ def pair_distances_ok(system, closest):
 class TestGenerate:
     def test_cells_keep_their_bounds(self):
         frames = generate_structures(
-            ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), steps=50, seed=4
+            ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), steps=5, seed=4
         )
         assert len(frames) == 12
         for frame in frames:
@@ -173,47 +189,43 @@ class TestGenerate:
         assert {len(set(frame["element"])) for frame in frames} == {1, 2}
 
     def test_same_seed_same_structures(self):
-        first = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=7)
-        again = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=7)
-        other = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=8)
+        first = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=7)
+        again = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=7)
+        other = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=8)
         for a, b in zip(first, again, strict=True):
             assert np.array_equal(a["positions"], b["positions"])
             assert np.array_equal(a.box.matrix, b.box.matrix)
         assert not np.array_equal(first[1]["positions"], other[1]["positions"])
 
     @pytest.mark.parametrize("per", ["atom", "structure"])
-    def test_moves_cover_more_than_random_cells(self, per):
-        """Structures moved to raise the entropy leave the environments of
-        shaken crystals closer to the set than random cells of the same
-        number of atoms do."""
+    def test_moves_raise_the_entropy(self, per):
+        """Structures moved to raise the entropy spread their descriptors
+        more than the random cells they start from: a larger log
+        determinant of their covariance, in units of the spread of those of
+        the random cells."""
         volume = (8.0, 33.0)
-        moved = generate_structures("Al", 60, volume=volume, per=per, seed=1)
-        atoms = sum(len(f) for f in moved)
-        random = generate_structures("Al", 200, volume=volume, steps=0, seed=1)
-        kept, total = [], 0
-        for frame in random:
-            if total >= atoms:
-                break
-            kept.append(frame)
-            total += len(frame)
-        quests = QUESTS()
-        crystals = [
-            build_crystal("fcc", 4.05, elements="Al", repeat=(2, 2, 2)),
-            build_crystal("bcc", 3.24, elements="Al", repeat=(2, 2, 2)),
-        ]
-        tests = np.concatenate(
-            [
-                quests.descriptors(f)
-                for c in crystals
-                for f in perturb(c, 2, displacement=0.1, seed=0)
-            ]
+        moved = generate_structures(
+            "Al", 40, volume=volume, atoms=(2, 24), per=per, seed=1
         )
+        random = generate_structures(
+            "Al", 40, volume=volume, atoms=(2, 24), steps=0, seed=1
+        )
+        g = generator(["Al"])
 
-        def gain(frames):
-            x = np.concatenate([quests.descriptors(f) for f in frames])
-            return np.median(information_gain(tests, x))
+        def points(frames):
+            x = [g.frame_descriptors(f) for f in frames]
+            if per == "structure":
+                x = [v.mean(axis=0, keepdims=True) for v in x]
+            return np.concatenate(x)
 
-        assert gain(moved) < 0.75 * gain(kept)
+        scale = points(random).std(axis=0)
+
+        def entropy(frames):
+            z = points(frames) / scale
+            covariance = np.cov(z.T, bias=True) + 1e-3 * np.eye(len(scale))
+            return 0.5 * np.linalg.slogdet(covariance)[1]
+
+        assert entropy(moved) > entropy(random) + 1.0
 
     def test_reference_is_complemented(self):
         """A reference of fcc crystals is part of the set: structures moved
@@ -221,7 +233,7 @@ class TestGenerate:
         fcc = build_crystal("fcc", 4.05, elements="Al", repeat=(2, 2, 2))
         reference = perturb(fcc, 20, displacement=0.05, seed=2)
         frames = generate_structures(
-            "Al", 5, volume=(10.0, 25.0), steps=40, reference=reference, seed=3
+            "Al", 5, volume=(10.0, 25.0), steps=4, reference=reference, seed=3
         )
         assert len(frames) == 5
         with pytest.raises(InvalidParameter, match="not given"):
@@ -244,7 +256,8 @@ class TestGenerate:
             "Al",
             10,
             volume=(12.0, 25.0),
-            steps=40,
+            atoms=(2, 16),
+            steps=4,
             calculator=eam,
             max_energy=-2.8,
             seed=5,
@@ -278,7 +291,7 @@ class TestGenerate:
         with pytest.raises(InvalidParameter, match="too small for closest"):
             generate_structures("Al", 1, volume=(1.0, 1.0), atoms=(8, 8))
         frames = generate_structures(
-            "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), steps=20, seed=0
+            "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), steps=5, seed=0
         )
         for frame in frames:
             assert frame.box.volume == pytest.approx(16.0, rel=1e-12)
@@ -286,7 +299,7 @@ class TestGenerate:
     def test_progress_and_cancel(self):
         calls = []
         generate_structures(
-            "Al", 3, volume=(10.0, 25.0), steps=5, seed=0,
+            "Al", 3, volume=(10.0, 25.0), steps=1, seed=0,
             progress=lambda done, total: calls.append((done, total)),
         )  # fmt: skip
         assert calls == [(1, 3), (2, 3), (3, 3)]

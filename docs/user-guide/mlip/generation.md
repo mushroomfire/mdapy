@@ -59,26 +59,27 @@ with plot.style():
 *What shaken fcc, bcc and compressed fcc aluminium would add to each set,
 by the median [information gain](coverage.md) of their atoms: the lower,
 the better the set covers them, though no structure was made from a
-crystal. The first structures go to the edges of the volumes and shapes
-allowed and cover the crystals less than random cells; from about 400 atoms
-on, the set covers them better, down to 3 nats at 1500 atoms against 50 for
-the random cells. These stop raising the entropy after 150 structures,
-where their generation stops.*
+crystal. The sets hold cells of 2 to 128 atoms, the large ones most of the
+atoms. The first structures go to the edges of the volumes and shapes
+allowed; from about 4000 atoms on, the set covers the crystals better than
+the random cells, 14 nats against 36 at 5000 atoms.*
 
 ## How it works
 
 Each structure starts as a cell of a random number of atoms within
-`atoms`, a random volume per atom within `volume`, drawn on a logarithmic
-scale, and a random shape; with several elements, its composition is drawn
-uniformly over all compositions, and each atom's element from it. The atoms
-are placed at random, no two closer than `closest` times the sum of their
-covalent radii, also across the periodic boundaries.
+`atoms`, as many cells of each doubling of the number, 2 to 4, 4 to 8 and
+so on, so that small cells are many and large ones few; a random volume per
+atom within `volume`, drawn on a logarithmic scale; and a random shape. With
+several elements, its composition is drawn uniformly over all compositions,
+and each atom's element from it. The atoms are placed at random, no two
+closer than `closest` times the sum of their covalent radii, also across the
+periodic boundaries, or, in cells too dense for that, on a jittered grid.
 
 The points of the set are the descriptors of its atoms (`per="atom"`), or
 their mean in each structure (`per="structure"`), each value divided by its
 standard deviation over 20 random cells. The entropy of the set is that of
 a Gaussian of these points: half the logarithm of the determinant of their
-covariance, with a thousandth added to its diagonal. `steps` times, the
+covariance, with a thousandth added to its diagonal. `steps` times per atom, the
 structure is moved, one of:
 
 - in two moves out of ten, the box strained by a symmetric strain of
@@ -112,17 +113,17 @@ of the last 50 candidates were kept, or when 100 in a row were not.
 
 ## Parameters
 
-`generate_structures(elements, count, *, volume, atoms=(2, 24), closest=0.75, per="atom", steps=200, reference=None, calculator=None, max_energy=None, tolerance=0.0, seed=None, progress=None, cancel=None)`
+`generate_structures(elements, count, *, volume, atoms=(2, 128), closest=0.75, per="atom", steps=10, reference=None, calculator=None, max_energy=None, tolerance=0.0, seed=None, progress=None, cancel=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `elements` | str or sequence of str | | | the elements; with several, each structure has a random composition |
 | `count` | int32 | | | the most structures |
 | `volume` | tuple of float64 | | Å³ | the smallest and largest volume per atom, such as half and twice that of the crystal |
-| `atoms` | tuple of int32 | (2, 24) | | the fewest and most atoms of a structure |
+| `atoms` | tuple of int32 | (2, 128) | | the fewest and most atoms of a structure, with as many structures of each doubling of the number of atoms |
 | `closest` | float64 | 0.75 | | the shortest distance of two atoms, as a fraction of the sum of their covalent radii ([Cordero et al. 2008](../../reference/references.md#cordero2008)) |
 | `per` | str | `"atom"` | | the points of the set: `"atom"`, the descriptor of each atom; `"structure"`, their mean in each structure |
-| `steps` | int32 | 200 | | the moves tried on each structure; 0 keeps the random cells that raise the entropy |
+| `steps` | int32 | 10 | | the moves tried on each structure per atom; 0 keeps the random cells that raise the entropy |
 | `reference` | sequence of `System` | `None` | | a training set of the elements, whose atoms are in the set from the start, for the structures to complement |
 | `calculator` | calculator | `None` | | computes the energy of each structure and move, with `max_energy` |
 | `max_energy` | float64 | `None` | eV/atom | the highest energy per atom of a structure |

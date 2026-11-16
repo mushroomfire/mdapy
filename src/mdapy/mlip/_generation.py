@@ -108,20 +108,23 @@ class _Generator:
     def random(self) -> _Cell:
         rng = self.rng
         for _ in range(_ATTEMPTS):
-            n = int(rng.integers(self.atoms[0], self.atoms[1] + 1))
+            # as many cells of each doubling of the number of atoms
+            low, high = math.log(self.atoms[0]), math.log(self.atoms[1] + 1)
+            n = min(int(math.exp(rng.uniform(low, high))), self.atoms[1])
             if len(self.elements) > 1:
                 fractions = rng.dirichlet(np.ones(len(self.elements)))
                 kinds = rng.choice(len(self.elements), size=n, p=fractions)
             else:
                 kinds = np.zeros(n, dtype=np.int32)
-            low, high = np.log(self.volume)
-            volume = math.exp(rng.uniform(low, high))
+            volume = math.exp(rng.uniform(*np.log(self.volume)))
             matrix = np.diag(np.exp(rng.uniform(-0.35, 0.35, 3)))
             matrix[1, 0], matrix[2, 0], matrix[2, 1] = rng.uniform(-0.3, 0.3, 3)
             matrix *= (n * volume / np.linalg.det(matrix)) ** (1.0 / 3.0)
             if not self.shape_ok(matrix):
                 continue
             positions = self.__place(matrix, kinds)
+            if positions is None:
+                positions = self.__grid(matrix, kinds)
             if positions is not None:
                 cell = _Cell(positions, matrix, kinds, self.reach)
                 if self.apart(cell):  # also from the images of each atom
@@ -148,6 +151,26 @@ class _Generator:
             else:
                 return None
         return placed
+
+    def __grid(self, matrix: np.ndarray, kinds: np.ndarray) -> np.ndarray | None:
+        """The atoms on random points of a grid of the cell with at least
+        as many points, each moved at random by up to a fifth of a step, or
+        less when they come too close; None when even the grid does."""
+        n = len(kinds)
+        thickness = Box(matrix).thickness
+        counts = np.maximum(1, np.round(thickness * (n / thickness.prod()) ** (1 / 3)))
+        while counts.prod() < n:
+            counts[np.argmin(thickness / counts)] += 1
+        points = np.stack(
+            np.meshgrid(*[np.arange(c) for c in counts], indexing="ij"), axis=-1
+        ).reshape(-1, 3)
+        chosen = points[self.rng.choice(len(points), n, replace=False)]
+        jitter = self.rng.uniform(-1.0, 1.0, (n, 3))
+        for size in (0.2, 0.1, 0.05, 0.0):
+            positions = ((chosen + 0.5 + size * jitter) / counts) @ matrix
+            if self.apart(_Cell(positions, matrix, kinds, self.reach)):
+                return positions
+        return None
 
     def move(self, cell: _Cell) -> _Cell | None:
         """The cell with two atoms of other elements swapped, its box
@@ -251,10 +274,10 @@ def generate_structures(
     count: int,
     *,
     volume: tuple[float, float],
-    atoms: tuple[int, int] = (2, 24),
+    atoms: tuple[int, int] = (2, 128),
     closest: float = 0.75,
     per: str = "atom",
-    steps: int = 200,
+    steps: int = 10,
     reference: Sequence[System] | None = None,
     calculator: Any = None,
     max_energy: float | None = None,
@@ -276,7 +299,8 @@ def generate_structures(
     volume : tuple of float64
         The smallest and largest volume per atom in Å³.
     atoms : tuple of int32, optional
-        The fewest and most atoms of a cell. Default (2, 24).
+        The fewest and most atoms of a cell, with as many cells of each
+        doubling of the number. Default (2, 128).
     closest : float64, optional
         The shortest distance of two atoms as a fraction of the sum of their
         covalent radii. Default 0.75.
@@ -284,7 +308,7 @@ def generate_structures(
         The points of the set: the descriptor of each atom, or their mean
         in each structure. Default atom.
     steps : int32, optional
-        The moves tried on each structure. Default 200.
+        The moves tried on each structure per atom. Default 10.
     reference : sequence of System, optional
         A training set of the elements for the structures to complement.
     calculator : Calculator, optional
@@ -371,7 +395,7 @@ def generate_structures(
         z = per_structure(generator.descriptors(cell)) / scale
         if entropy.count:
             best = entropy.with_points(z)
-            for _ in range(int(steps)):
+            for _ in range(int(steps) * len(cell.kinds)):
                 trial = generator.move(cell)
                 if trial is None or not generator.apart(trial):
                     continue

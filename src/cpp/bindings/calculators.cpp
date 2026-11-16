@@ -8,10 +8,14 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/optional.h>
+#include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <optional>
+#include <string>
 #include <stdexcept>
 #include <vector>
 
@@ -19,6 +23,7 @@
 #include "bindings/frames.h"
 #include "calculators/eam.h"
 #include "calculators/nep.h"
+#include "calculators/pair.h"
 #include "neighbor/frames.h"
 #include "core/index.h"
 #include "core/parallel.h"
@@ -120,6 +125,79 @@ nb::tuple compute_eam(const calculators::EamPotential& potential, Species specie
     return nb::make_tuple(e, f, w);
 }
 
+// The atoms and their neighbor list fit together and the species lie below count.
+void check_input(std::int64_t count, Species species, Positions positions, Offsets offsets,
+                 Neighbors neighbors, Shifts shifts) {
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    if (positions.shape(0) != species.shape(0) ||
+        offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        neighbors.shape(0) != shifts.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the neighbor list does not fit the atoms");
+    }
+    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
+        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
+            throw std::invalid_argument("a neighbor index is outside the atoms");
+        }
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (species.data()[i] < 0 || species.data()[i] >= count) {
+            throw std::invalid_argument("a species index is outside the potential");
+        }
+    }
+}
+
+// style: "lj/cut" or "morse"; cutsq and offset: (species, species);
+// coefficients: (species, species, 4), see PairPotential.
+calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat offset,
+                                     Flat coefficients) {
+    calculators::PairPotential potential;
+    if (style == "lj/cut") {
+        potential.style = calculators::PairStyle::LennardJones;
+    } else if (style == "morse") {
+        potential.style = calculators::PairStyle::Morse;
+    } else {
+        throw std::invalid_argument("unknown pair style");
+    }
+    const auto t = static_cast<std::size_t>(std::llround(std::sqrt(double(cutsq.shape(0)))));
+    if (t == 0 || t * t != cutsq.shape(0) || offset.shape(0) != t * t ||
+        coefficients.shape(0) != 4 * t * t) {
+        throw std::invalid_argument("inconsistent pair tables");
+    }
+    potential.species = static_cast<int>(t);
+    potential.cutsq.assign(cutsq.data(), cutsq.data() + t * t);
+    potential.offset.assign(offset.data(), offset.data() + t * t);
+    potential.coefficients.assign(coefficients.data(), coefficients.data() + 4 * t * t);
+    for (const double c2 : potential.cutsq) {
+        if (!(c2 >= 0.0)) {
+            throw std::invalid_argument("cutoffs must not be negative");
+        }
+        potential.cutoff = std::max(potential.cutoff, std::sqrt(c2));
+    }
+    return potential;
+}
+
+nb::tuple compute_pair(const calculators::PairPotential& potential, Species species,
+                       Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                       Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+    check_input(potential.species, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = new_array(3, shape3, virials);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_pair(potential, n, species.data(), positions.data(),
+                                      matrix.data(), offsets.data(), neighbors.data(),
+                                      shifts.data(), energies, forces, virials, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
 
 std::vector<double> copy(Flat values) {
     return {values.data(), values.data() + values.shape(0)};
@@ -266,6 +344,15 @@ nb::object nep_frames(const calculators::NepModel& model, Species species, frame
 }  // namespace
 
 void bind_calculators(nb::module_& m) {
+    nb::class_<calculators::PairPotential>(m, "PairPotential")
+        .def_ro("species", &calculators::PairPotential::species)
+        .def_ro("cutoff", &calculators::PairPotential::cutoff);
+    m.def("make_pair", &make_pair, nb::arg("style"), nb::arg("cutsq"), nb::arg("offset"),
+          nb::arg("coefficients"));
+    m.def("compute_pair", &compute_pair, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     nb::class_<calculators::EamPotential>(m, "EamPotential")
         .def_ro("elements", &calculators::EamPotential::elements)
         .def_ro("cutoff", &calculators::EamPotential::cutoff)

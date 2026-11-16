@@ -9393,7 +9393,8 @@ each quantity.</p>
 
 
 
-        <p>Embedded atom method potential, in the LAMMPS <code>eam/alloy</code> (setfl) form.</p>
+        <p>Embedded atom method potential, in the LAMMPS <code>eam/alloy</code> (setfl) or
+<code>eam/fs</code> (Finnis-Sinclair) form.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9416,7 +9417,9 @@ each quantity.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The potential file.</p>
+                <p>The potential file, <code>eam/alloy</code> or <code>eam/fs</code>, told apart by the
+number of values: an <code>eam/fs</code> file holds the density each element
+gives each element.</p>
               </div>
             </td>
             <td>
@@ -9711,7 +9714,8 @@ potential and the average atom, named <code>A</code>, last.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Writes the potential as a LAMMPS <code>eam/alloy</code> (setfl) file.</p>
+        <p>Writes the potential as a LAMMPS <code>eam/alloy</code> (setfl) file, or
+an <code>eam/fs</code> file for a potential read from one.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>

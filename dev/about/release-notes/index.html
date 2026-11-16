@@ -8759,6 +8759,12 @@
   <code>EAM.zhou</code>, whose cutoff is its fifth shell, was refused for a jump of 1 %. Potentials
   cut off without smoothing, or NEP, jump by 4 to 33 % and are refused as before. See
   <a href="../../user-guide/simulation/quasi-harmonic/#crossing-the-cutoff">Crossing the cutoff</a>.</li>
+<li><code>EAM(path)</code> reads <code>eam/fs</code> files of LAMMPS, Finnis–Sinclair potentials in which each
+  element gives each element an electron density of its own, such as those of Mendelev
+  et al. for Cu–Zr, Al–Fe and Fe–P, and computes them as <code>pair_style eam/fs</code>; <code>write</code>
+  writes them back as <code>eam/fs</code>. The format is told apart from <code>eam/alloy</code> by the number
+  of values in the file. See
+  <a href="../../user-guide/simulation/eam/#finnissinclair-potentials">Finnis–Sinclair potentials</a>.</li>
 </ul>
 <h2 id="210rc1">2.1.0rc1<a class="headerlink" href="#210rc1" title="Permanent link">&para;</a></h2>
 <p>The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from

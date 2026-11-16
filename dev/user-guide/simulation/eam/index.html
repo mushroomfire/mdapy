@@ -4909,6 +4909,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#finnissinclair-potentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finnis–Sinclair potentials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#average-atom" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8194,6 +8205,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#finnissinclair-potentials" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Finnis–Sinclair potentials
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#average-atom" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8227,7 +8249,7 @@
 <h1 id="eam">EAM<a class="headerlink" href="#eam" title="Permanent link">&para;</a></h1>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="o">.</span><span class="n">zhou</span><span class="p">([</span><span class="s2">"Cu"</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">])</span>  <span class="c1"># or EAM("CuNi.eam.alloy")</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="o">.</span><span class="n">zhou</span><span class="p">([</span><span class="s2">"Cu"</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">])</span>  <span class="c1"># or EAM("CuNi.eam.alloy"), EAM("CuZr.eam.fs")</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">potential</span><span class="o">.</span><span class="n">elements</span><span class="p">,</span> <span class="n">potential</span><span class="o">.</span><span class="n">cutoff</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">potential</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"CuNi.eam.alloy"</span><span class="p">)</span>
 </code></pre></div>
@@ -8254,7 +8276,10 @@ from the potential:</p>
 potential, near the measured 3.615 Å and 3.52 Å; the curvature at the
 minimum gives the bulk modulus.</em></p>
 <p><code>EAM(path)</code> reads an embedded atom method potential in the <code>eam/alloy</code>
-(setfl) format of LAMMPS and computes every property.</p>
+(setfl) or the <code>eam/fs</code> (Finnis–Sinclair) format of LAMMPS and computes
+every property. The two formats have the same lines, but an <code>eam/fs</code> file
+holds more values, which tells them apart: see
+<a href="#finnissinclair-potentials">Finnis–Sinclair potentials</a>.</p>
 <table>
 <thead>
 <tr>
@@ -8300,7 +8325,7 @@ minimum gives the bulk modulus.</em></p>
 </tr>
 <tr>
 <td><code>write(path)</code></td>
-<td>writes the potential as an <code>eam/alloy</code> file, which LAMMPS reads and which reads back to the same tables</td>
+<td>writes the potential as an <code>eam/alloy</code> file, or an <code>eam/fs</code> file for a Finnis–Sinclair potential, which LAMMPS reads and which reads back to the same tables</td>
 </tr>
 <tr>
 <td><code>EAM.zhou(elements, *, nr=2000, nrho=2000)</code></td>
@@ -8320,11 +8345,13 @@ an average atom; they are kept when the potential is written, but no atom
 of a system is one of them.</p>
 <p>The energy of atom <span class="arithmatex">\(i\)</span> is</p>
 <div class="arithmatex">\[
-E_i = F_{s_i}\Big(\sum_j \rho_{s_j}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
+E_i = F_{s_i}\Big(\sum_j \rho_{s_j s_i}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 \]</div>
-<p>with the embedding energy <span class="arithmatex">\(F\)</span>, the electron density <span class="arithmatex">\(\rho\)</span> and the pair
-potential <span class="arithmatex">\(\phi\)</span> of the species <span class="arithmatex">\(s\)</span> of the atoms, interpolated from the
-tables of the file as LAMMPS <code>pair_style eam/alloy</code> does. Each pair's virial
+<p>with the embedding energy <span class="arithmatex">\(F\)</span>, the electron density <span class="arithmatex">\(\rho_{ab}\)</span> that an atom
+of species <span class="arithmatex">\(a\)</span> gives one of species <span class="arithmatex">\(b\)</span>, and the pair potential <span class="arithmatex">\(\phi\)</span> of the
+species <span class="arithmatex">\(s\)</span> of the atoms, interpolated from the tables of the file as LAMMPS
+<code>pair_style eam/alloy</code> and <code>eam/fs</code> do. In <code>eam/alloy</code> the density depends
+on the species that gives it only, <span class="arithmatex">\(\rho_{ab} = \rho_a\)</span>. Each pair's virial
 is shared equally by its two atoms.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
@@ -8399,11 +8426,29 @@ do not.</p>
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#zhou2004">Zhou et al. (2004)</a>; with Cr, also <a href="../../../reference/references/#lin2008">Lin et al. (2008)</a>.</p>
 </div>
+<h2 id="finnissinclair-potentials">Finnis–Sinclair potentials<a class="headerlink" href="#finnissinclair-potentials" title="Permanent link">&para;</a></h2>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">"CuZr_mm.eam.fs"</span><span class="p">)</span>  <span class="c1"># pair_style eam/fs in LAMMPS</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">potential</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"CuZr.eam.fs"</span><span class="p">)</span>
+</code></pre></div>
+<p>In an <code>eam/fs</code> file each element gives each element a density of its own,
+<span class="arithmatex">\(\rho_{ab} \ne \rho_{ac}\)</span>, as in the potentials of Mendelev, Ackland and
+coworkers for alloys such as Cu–Zr, Al–Fe and Fe–P. After the embedding
+energy of each element come the densities it gives each element, in the
+order of the elements; the pair potentials follow as in <code>eam/alloy</code>. The
+energies, forces and virials are those of LAMMPS <code>pair_style eam/fs</code>, and
+<code>write</code> writes the file back in the same format. A file of one element, or
+one whose elements give every element the same density, is an <code>eam/alloy</code>
+potential written in the other format, and reads as one.</p>
+<div class="admonition quote">
+<p class="admonition-title">Please cite</p>
+<p><a href="../../../reference/references/#finnis1984">Finnis and Sinclair (1984)</a>, and the paper of the potential.</p>
+</div>
 <h2 id="average-atom">Average atom<a class="headerlink" href="#average-atom" title="Permanent link">&para;</a></h2>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">average</span> <span class="o">=</span> <span class="n">potential</span><span class="o">.</span><span class="n">average</span><span class="p">({</span><span class="s2">"Cu"</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="s2">"Al"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">})</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">average</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>  <span class="c1"># every atom is the average atom</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">average</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"CuNiAl.average.eam.alloy"</span><span class="p">)</span>  <span class="c1"># Cu, Ni, Al and the average atom A</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">average</span> <span class="o">=</span> <span class="n">potential</span><span class="o">.</span><span class="n">average</span><span class="p">({</span><span class="s2">"Cu"</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">0.4</span><span class="p">,</span> <span class="s2">"Al"</span><span class="p">:</span> <span class="mf">0.2</span><span class="p">})</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">average</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>  <span class="c1"># every atom is the average atom</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">average</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"CuNiAl.average.eam.alloy"</span><span class="p">)</span>  <span class="c1"># Cu, Ni, Al and the average atom A</span>
 </code></pre></div>
 <p><code>average(fractions)</code> returns the average-atom potential of
 <a href="../../../reference/references/#varvenne2016">Varvenne et al. (2016)</a> for a random alloy with the
@@ -8419,7 +8464,9 @@ to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the
 average atom, named <code>A</code>, last, so that LAMMPS can mix them, for example
 with <code>pair_coeff * * CuNiAl.average.eam.alloy A Cu</code> for a Cu solute in the
-average alloy. Invalid fractions raise <code>InvalidParameter</code>.</p>
+average alloy. Invalid fractions raise <code>InvalidParameter</code>, and so does a
+Finnis–Sinclair potential whose elements give each element a density of its
+own: an average atom would need a density for each element it stands for.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#varvenne2016">Varvenne et al. (2016)</a>, and the paper of the potential averaged.</p>

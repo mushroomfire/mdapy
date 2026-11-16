@@ -38,13 +38,16 @@ PARAMETERS = {
 }
 
 
-def smooth(r):
+def smooth(r, abrupt=False):
+    # abrupt: no smoothing, the functions cut off by the cutoff of the file only
+    if abrupt:
+        return np.ones_like(r)
     return np.where(r < CUTOFF, (1 - (r / CUTOFF) ** 2) ** 2, 0.0)
 
 
-def density(element, r):
+def density(element, r, abrupt=False):
     p = PARAMETERS[element]
-    return p["f"] * np.exp(-p["beta"] * (r / p["re"] - 1)) * smooth(r)
+    return p["f"] * np.exp(-p["beta"] * (r / p["re"] - 1)) * smooth(r, abrupt)
 
 
 def embedding(element, rho):
@@ -52,31 +55,33 @@ def embedding(element, rho):
     return p["A"] * (rho - p["rho_e"]) ** 2 - p["E0"]
 
 
-def pair(a, b, r):
+def pair(a, b, r, abrupt=False):
     depth = 0.3 if a == b else 0.35
     alpha = 1.4
     r0 = 0.5 * (PARAMETERS[a]["re"] + PARAMETERS[b]["re"])
     return (
         depth
         * (np.exp(-2 * alpha * (r - r0)) - 2 * np.exp(-alpha * (r - r0)))
-        * smooth(r)
+        * smooth(r, abrupt)
     )
 
 
-def tables(elements):
+def tables(elements, abrupt=False):
     r = np.arange(NR) * DR
     rho = np.arange(NRHO) * DRHO
     return {
         "embedding": [embedding(e, rho) for e in elements],
-        "density": [density(e, r) for e in elements],
+        "density": [density(e, r, abrupt) for e in elements],
         "pair": [
-            r * pair(a, b, r) for i, a in enumerate(elements) for b in elements[: i + 1]
+            r * pair(a, b, r, abrupt)
+            for i, a in enumerate(elements)
+            for b in elements[: i + 1]
         ],
     }
 
 
-def write_setfl(path, elements=("Cu", "Ni"), per_line=5):
-    data = tables(elements)
+def write_setfl(path, elements=("Cu", "Ni"), per_line=5, abrupt=False):
+    data = tables(elements, abrupt)
 
     def block(values):
         values = list(values)

@@ -1,5 +1,18 @@
 # Release notes
 
+## 2.1.0 (not released)
+
+Since 2.1.0rc1:
+
+- `quasi_harmonic` and `thermal_elastic_constants` with the quasi-harmonic method
+  measure how much the free energy jumps where a pair of atoms crosses the cutoff, and
+  raise `InvalidParameter` only when the jump is more than 2 % of its change between
+  neighbouring volumes or over the strain, naming the jump and its part. 2.1.0rc1 raised
+  it for every crossing, so that every range of volumes about the fcc crystal of
+  `EAM.zhou`, whose cutoff is its fifth shell, was refused for a jump of 1 %. Potentials
+  cut off without smoothing, or NEP, jump by 4 to 33 % and are refused as before. See
+  [Crossing the cutoff](../user-guide/simulation/quasi-harmonic.md#crossing-the-cutoff).
+
 ## 2.1.0rc1
 
 The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from

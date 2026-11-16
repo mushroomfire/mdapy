@@ -111,11 +111,37 @@ every direction nor that of a sheet, a negative temperature,
 both volumes and pressures, fewer than five of them, a relaxation that does
 not converge within `max_steps`, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of
-[`phonons`](phonons.md). It also raises it, before any phonons, for a pair of
-atoms that comes within `displacement` of the cutoff of the calculator at some
-volumes and not at others: the force constants of most potentials, NEP and
-tabulated EAM among them, jump there, and the free energy with them. Narrow
-the volumes or the pressures, or choose another potential.
+[`phonons`](phonons.md). It also raises it, before the phonons of the grid,
+where a pair of atoms crosses the cutoff of the calculator between the volumes
+and the free energy jumps there by more than 2 % of its change between
+neighbouring volumes, which distorts the results by percents or more.
+
+### Crossing the cutoff
+
+Where a pair of atoms comes within `displacement` of the cutoff at some
+volumes and not at others, the free energy jumps by as much as the potential
+is rough at its cutoff. `quasi_harmonic` measures the jump: it scales the cell
+nearest the crossing so that the pair lies 2, 3 and 4 displacements inside and
+outside the cutoff, and extrapolates the free energy of the vibrations at the
+highest temperature to the cutoff from either side, and the static energy from
+1e-4 Å either side. It compares the jump with the second difference of the
+static energy over neighbouring volumes, which the results come from:
+
+| Potential | Its functions at the cutoff | Jump, of the change between neighbouring volumes |
+|---|---|---|
+| EAM of Mishin et al. (`Cu_mishin1.eam.alloy`) | vanish with their first and second derivatives | 0.2 % |
+| `EAM.zhou` | about 1e-6 of their largest | 1 % |
+| NEP | vanish with their first derivatives | 4 to 17 % |
+| EAM of Foiles et al. (`Cu_u3.eam`), Mendelev et al. (`Al_mm.eam.fs`) | cut off | 8 to 33 % |
+
+Up to 2 % the results change by less than 1 % with where the volumes fall
+about the crossing, and the calculation goes on. Above it they can change by
+much more, by up to 35 % for the thermal expansion with the potentials above,
+and `quasi_harmonic` raises `InvalidParameter`, naming the pair, the jump and
+its part. Choose volumes or pressures all on one side of the crossing, or a
+potential smooth at its cutoff. The Zhou potentials cut off at the fifth shell
+of their fcc crystal, which every range of volumes about it crosses, with a
+jump of 1 %.
 
 ## Definition
 

@@ -9393,8 +9393,8 @@ each quantity.</p>
 
 
 
-        <p>Embedded atom method potential, in the LAMMPS <code>eam/alloy</code> (setfl) or
-<code>eam/fs</code> (Finnis-Sinclair) form.</p>
+        <p>Embedded atom method potential, in the LAMMPS <code>eam/alloy</code> (setfl),
+<code>eam/fs</code> (Finnis-Sinclair) or <code>eam</code> (funcfl) form.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9413,13 +9413,14 @@ each quantity.</p>
                 <code>path</code>
             </td>
             <td>
-                  <code><span title="str">str</span> or <span title="os.PathLike">PathLike</span></code>
+                  <code>str, os.PathLike or sequence of them</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The potential file, <code>eam/alloy</code> or <code>eam/fs</code>, told apart by the
-number of values: an <code>eam/fs</code> file holds the density each element
-gives each element.</p>
+                <p>The potential file: <code>eam/alloy</code> or <code>eam/fs</code>, told apart by the
+number of values, as an <code>eam/fs</code> file holds the density each
+element gives each element; or one or several funcfl files of
+<code>pair_style eam</code>, one element each, mixed as LAMMPS mixes them.</p>
               </div>
             </td>
             <td>
@@ -9443,11 +9444,12 @@ gives each element.</p>
           <tr class="doc-section-item">
             <td><code><span title="mdapy.calculators.EAM.path">path</span></code></td>
             <td>
-                  <code><span title="str">str</span> or None</code>
+                  <code>str, tuple of str or None</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The file the potential was read from, None for a built one.</p>
+                <p>The file the potential was read from, the funcfl files, or None for
+a built one.</p>
               </div>
             </td>
           </tr>

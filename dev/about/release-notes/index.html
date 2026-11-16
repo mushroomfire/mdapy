@@ -8765,6 +8765,11 @@
   writes them back as <code>eam/fs</code>. The format is told apart from <code>eam/alloy</code> by the number
   of values in the file. See
   <a href="../../user-guide/simulation/eam/#finnissinclair-potentials">Finnis–Sinclair potentials</a>.</li>
+<li><code>EAM(path)</code> reads the funcfl files of LAMMPS <code>pair_style eam</code>, one element each, such as
+  the potentials of Foiles et al. (<code>Cu_u3.eam</code>), and <code>EAM([paths])</code> mixes several of them
+  into an alloy as LAMMPS does: the tables interpolated onto one grid, the pairs from the
+  effective charges. <code>EAM.path</code> is then the tuple of the files. See
+  <a href="../../user-guide/simulation/eam/#funcfl-files">Funcfl files</a>.</li>
 </ul>
 <h2 id="210rc1">2.1.0rc1<a class="headerlink" href="#210rc1" title="Permanent link">&para;</a></h2>
 <p>The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from

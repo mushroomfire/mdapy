@@ -383,16 +383,26 @@ def scatter(
     return ax
 
 
+# a curve of this many points or fewer shows them, as dots on its line
+_DOTS_UP_TO = 30
+
+
+def _dots(x: Any) -> dict[str, str]:
+    """The options of ``ax.plot`` for a curve at the values x: dots on a
+    curve of few points."""
+    return {"marker": "o"} if len(x) <= _DOTS_UP_TO else {}
+
+
 def rdf(result: Any, *, ax: Any = None, partial: bool = False) -> Any:
     """The radial distribution function, and optionally its partial
     functions, of a ``mdapy.analysis.RadialDistributionResult``."""
     ax = _axes(ax)
     if partial:
         for (a, b), g in result.partial.items():
-            ax.plot(result.r, g, label=f"{a}–{b}")
+            ax.plot(result.r, g, label=f"{a}–{b}", **_dots(result.r))
         ax.legend()
     else:
-        ax.plot(result.r, result.g)
+        ax.plot(result.r, result.g, **_dots(result.r))
     ax.axhline(1.0, color="0.6", lw=0.5, zorder=0)
     ax.set_xlabel("r (Å)")
     ax.set_ylabel("g(r)")
@@ -475,7 +485,7 @@ def warren_cowley(
 def structure_factor(result: Any, *, ax: Any = None) -> Any:
     """The structure factor of a ``mdapy.analysis.StructureFactorResult``."""
     ax = _axes(ax)
-    ax.plot(result.q, result.s)
+    ax.plot(result.q, result.s, **_dots(result.q))
     ax.set_xlabel("q (1/Å)")
     ax.set_ylabel("S(q)")
     return ax
@@ -485,7 +495,7 @@ def bond_angles(result: Any, *, ax: Any = None) -> Any:
     """The bond angle distribution of a
     ``mdapy.analysis.BondAngleResult``."""
     ax = _axes(ax)
-    ax.plot(result.angle, result.density)
+    ax.plot(result.angle, result.density, **_dots(result.angle))
     ax.set_xlabel("bond angle (°)")
     ax.set_ylabel("density (1/°)")
     ax.set_xlim(0, 180)
@@ -522,7 +532,7 @@ def msd(
     """
     ax = _axes(ax)
     t = result.lag * timestep
-    ax.plot(t, result.msd, label="MSD")
+    ax.plot(t, result.msd, label="MSD", **_dots(t))
     if fit is not None:
         first, last = fit
         slope, intercept = np.polyfit(t[first:last], result.msd[first:last], 1)

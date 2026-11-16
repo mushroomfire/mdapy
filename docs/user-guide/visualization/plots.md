@@ -94,7 +94,9 @@ from its center.*
 | `elastic_surface(result, quantity="young_modulus", *, ax=None, extreme=None, points=60, colormap="viridis")` | the `"young_modulus"`, `"linear_compressibility"`, `"shear_modulus"` or `"poisson_ratio"` of [elastic constants](../simulation/elastic-constants.md#along-directions) along every direction, as a surface as far from the origin along each direction as the size of the value there, in the color of the value, unshaded so that the colors read on the color bar; the shear modulus and the Poisson ratio take a second direction across the first, and `extreme`, `"min"` or `"max"`, draws their smallest or largest value over it; `points` directions from the z axis to its opposite, twice as many around it; `ax` must be in 3D, made with `projection="3d"` |
 | `elastic_section(result, quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360, color=None, label=None)` | the same along the directions of the plane normal to `normal`, as a curve, dashed where the value is negative; the axes of the plot are the axis of the box most nearly in the plane, laid into it, and the direction across it in the plane, named by their indices | 
 
-Each plot draws on `ax`, by default a new figure, and returns the axes.
+Each plot draws on `ax`, by default a new figure, and returns the axes. A curve of
+`rdf`, `structure_factor`, `bond_angles` or `msd` of 30 points or fewer, such as the
+MSD of a few frames, shows its points as dots on the line.
 
 ## Results
 

@@ -148,7 +148,7 @@ all:
 |---|---|---|
 | OVITO | 3.17.1 | structure identification and analyses, atom by atom |
 | freud | 3.6.1 | analyses that freud implements |
-| LAMMPS | stable 30 Sep 2026, with MANYBODY, MOLECULE, EXTRA-COMPUTE and VORONOI | calculators, analyses, molecular dynamics; the dynamical matrix where PHONON is built in |
+| LAMMPS | stable 30 Sep 2026, with MANYBODY, MEAM, MOLECULE, EXTRA-COMPUTE and VORONOI | calculators, analyses, molecular dynamics; the dynamical matrix where PHONON is built in |
 | phonopy | 4.8.6 | force constants, frequencies, densities of states, thermal properties |
 | seekpath | 2.2.2 | the paths of `band_structure("auto")` |
 | pymatgen | `pymatgen-core` | conversions |

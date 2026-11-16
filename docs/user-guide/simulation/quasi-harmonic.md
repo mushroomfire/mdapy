@@ -36,10 +36,10 @@ from mdapy.visualization import plot
 t = result.temperatures
 with plot.style():
     fig, (left, right) = plot.figure("double", ncols=2)
-    left.plot(t, (4 * result.volume) ** (1 / 3))
+    left.plot(t, (4 * result.volume) ** (1 / 3), marker="o")
     left.set_xlabel("Temperature (K)")
     left.set_ylabel("Lattice parameter (Å)")
-    right.plot(t, result.thermal_expansion / 3 * 1e6)
+    right.plot(t, result.thermal_expansion / 3 * 1e6, marker="o")
     right.set_xlabel("Temperature (K)")
     right.set_ylabel(r"Linear thermal expansion ($10^{-6}$/K)")
     plot.save(fig, "images/quasi-harmonic", formats=("png",))

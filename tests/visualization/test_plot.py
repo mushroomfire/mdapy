@@ -175,6 +175,23 @@ def test_results():
     assert len(bars.patches) == len(structures.names)
 
 
+def test_curves_of_few_points_show_them():
+    crystal = build_crystal("fcc", 3.6, repeat=(3, 3, 3), elements="Cu")
+    for bins, marker in ((plot._DOTS_UP_TO, "o"), (plot._DOTS_UP_TO + 1, "None")):
+        rdf = RadialDistributionFunction(cutoff=5.0, bins=bins).compute(crystal)
+        assert plot.rdf(rdf).lines[0].get_marker() == marker
+        assert plot.rdf(rdf, partial=True).lines[0].get_marker() == marker
+        sq = StructureFactor(q_max=4.0, bins=bins).compute(crystal)
+        assert plot.structure_factor(sq).lines[0].get_marker() == marker
+        angles = BondAngleDistribution(cutoff=3.0, bins=bins).compute(crystal)
+        assert plot.bond_angles(angles).lines[0].get_marker() == marker
+    walk = np.cumsum(np.random.default_rng(2).normal(scale=0.1, size=(8, 5, 3)), axis=0)
+    frames = [mdapy.System(x, mdapy.Box(30.0), elements="Ar") for x in walk]
+    ax = plot.msd(MeanSquaredDisplacement().compute(frames), fit=(1, 6))
+    # the MSD of eight frames shows them; the fitted line has none
+    assert [line.get_marker() for line in ax.lines] == ["o", "None"]
+
+
 def test_phonons():
     from mdapy.lattice_dynamics import phonons, primitive_cell
 

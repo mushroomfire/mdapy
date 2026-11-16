@@ -1,5 +1,14 @@
 # Release notes
 
+## 2.1.0 (not released)
+
+- `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points
+  of a curve of 30 points or fewer as dots on its line, such as the MSD of a few frames.
+  The pictures of the [quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md),
+  the [elastic constants at finite temperature](../user-guide/simulation/thermal-elastic.md)
+  and the [thermal conductivity](../user-guide/simulation/thermal-conductivity.md) show the
+  temperatures computed the same way.
+
 ## 2.1.0rc2
 
 The second release candidate of MDAPY 2.1: since 2.1.0rc1, the check of the cutoff of the

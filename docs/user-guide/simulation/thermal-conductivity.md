@@ -42,7 +42,7 @@ from mdapy.visualization import plot
 
 with plot.style():
     fig, (left, right) = plot.figure("single", ncols=2)
-    left.plot(temperatures, result.kappa[:, 0, 0])
+    left.plot(temperatures, result.kappa[:, 0, 0], marker="o")
     left.set(xlabel="Temperature (K)", ylabel="κ (W/(m K))", ylim=(0, None))
     at = list(temperatures).index(300.0)
     right.scatter(result.frequencies, result.lifetimes[at], s=4)

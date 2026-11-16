@@ -3,7 +3,8 @@
 ```python
 from mdapy.calculators import EAM
 
-potential = EAM.zhou(["Cu", "Ni"])  # or EAM("CuNi.eam.alloy"), EAM("CuZr.eam.fs")
+# or a file: EAM("CuNi.eam.alloy"), EAM("CuZr.eam.fs"), EAM("Cu_u3.eam")
+potential = EAM.zhou(["Cu", "Ni"])
 potential.elements, potential.cutoff
 potential.write("CuNi.eam.alloy")
 ```
@@ -36,14 +37,16 @@ potential, near the measured 3.615 Å and 3.52 Å; the curvature at the
 minimum gives the bulk modulus.*
 
 `EAM(path)` reads an embedded atom method potential in the `eam/alloy`
-(setfl) or the `eam/fs` (Finnis–Sinclair) format of LAMMPS and computes
-every property. The two formats have the same lines, but an `eam/fs` file
-holds more values, which tells them apart: see
-[Finnis–Sinclair potentials](#finnissinclair-potentials).
+(setfl) or the `eam/fs` (Finnis–Sinclair) format of LAMMPS, or the funcfl
+files of `pair_style eam`, and computes every property. The two setfl
+formats have the same lines, but an `eam/fs` file holds more values, which
+tells them apart: see [Finnis–Sinclair potentials](#finnissinclair-potentials).
+A funcfl file holds numbers where a setfl file names its elements: see
+[Funcfl files](#funcfl-files).
 
 | Attribute | Type | Meaning |
 |---|---|---|
-| `path` | str or `None` | the potential file, `None` for a built potential |
+| `path` | str, tuple of str or `None` | the potential file, the funcfl files, `None` for a built potential |
 | `elements` | tuple of str or `None` | the elements of the potential, in the order of the file; `None` for an average-atom potential |
 | `masses` | (n,) float64 | their masses in amu; the mass of the average atom for an average-atom potential |
 | `cutoff` | float64 | cutoff radius in Å |
@@ -143,6 +146,41 @@ potential written in the other format, and reads as one.
 
 !!! quote "Please cite"
     [Finnis and Sinclair (1984)](../../reference/references.md#finnis1984), and the paper of the potential.
+
+## Funcfl files
+
+<!-- skip-test -->
+```python
+copper = EAM("Cu_u3.eam")  # pair_style eam with pair_coeff 1 1 Cu_u3.eam
+alloy = EAM(["Cu_u3.eam", "Ni_u3.eam"])  # pair_coeff 1 1 Cu_u3.eam, 2 2 Ni_u3.eam
+alloy.write("CuNi_u3.eam.alloy")
+```
+
+A funcfl file of LAMMPS `pair_style eam`, the format of DYNAMO, holds one
+element: a comment, its atomic number, mass, lattice constant and lattice,
+the grid, then its embedding energy $F(\rho)$, its effective charge $Z(r)$ and
+its electron density $\rho(r)$; the potentials of
+[Foiles et al. (1986)](../../reference/references.md#foiles1986), such as
+`Cu_u3.eam`, come as such files. `EAM` takes one, or several of different
+elements, and builds the tables as LAMMPS does: each function interpolated by
+four-point Lagrange polynomials onto the grid of the largest spacings and
+ranges of the files, the cutoff the largest of theirs, and the pair potential
+of each two elements from their charges,
+
+$$
+\phi_{ab}(r) = \frac{27.2 \times 0.529\; Z_a(r)\, Z_b(r)}{r},
+$$
+
+with 27.2 eV per hartree and 0.529 Å per bohr. The energies, forces and
+virials are those of LAMMPS `pair_style eam` with the files in the order of
+the types, also beyond the tables of the embedding energy, which LAMMPS
+extends linearly from one step past their end. `write` writes the tables as
+an `eam/alloy` file, which LAMMPS computes alike up to the end of the tables
+of the embedding energy. Repeated elements, or funcfl files mixed with setfl
+files, raise `InvalidParameter`.
+
+!!! quote "Please cite"
+    [Daw and Baskes (1984)](../../reference/references.md#daw1984), and the paper of the potential, such as [Foiles et al. (1986)](../../reference/references.md#foiles1986).
 
 ## Average atom
 

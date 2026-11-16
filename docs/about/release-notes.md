@@ -18,6 +18,11 @@ Since 2.1.0rc1:
   writes them back as `eam/fs`. The format is told apart from `eam/alloy` by the number
   of values in the file. See
   [Finnis–Sinclair potentials](../user-guide/simulation/eam.md#finnissinclair-potentials).
+- `EAM(path)` reads the funcfl files of LAMMPS `pair_style eam`, one element each, such as
+  the potentials of Foiles et al. (`Cu_u3.eam`), and `EAM([paths])` mixes several of them
+  into an alloy as LAMMPS does: the tables interpolated onto one grid, the pairs from the
+  effective charges. `EAM.path` is then the tuple of the files. See
+  [Funcfl files](../user-guide/simulation/eam.md#funcfl-files).
 
 ## 2.1.0rc1
 

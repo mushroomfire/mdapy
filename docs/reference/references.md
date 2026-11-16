@@ -144,6 +144,12 @@ empirical N-body potential for transition metals, *Philos. Mag. A* **50**, 45
 [doi:10.1080/01418618408244210](https://doi.org/10.1080/01418618408244210)
 { #finnis1984 }
 
+**Foiles et al. (1986).** S. M. Foiles, M. I. Baskes and M. S. Daw,
+Embedded-atom-method functions for the fcc metals Cu, Ag, Au, Ni, Pd, Pt,
+and their alloys, *Phys. Rev. B* **33**, 7983 (1986).
+[doi:10.1103/PhysRevB.33.7983](https://doi.org/10.1103/PhysRevB.33.7983)
+{ #foiles1986 }
+
 **Franzblau (1991).** D. S. Franzblau, Computation of ring statistics for
 network models of solids, *Phys. Rev. B* **44**, 4925 (1991).
 [doi:10.1103/PhysRevB.44.4925](https://doi.org/10.1103/PhysRevB.44.4925)

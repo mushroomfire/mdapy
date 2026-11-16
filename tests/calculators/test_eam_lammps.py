@@ -3,8 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""EAM against LAMMPS pair_style eam/alloy and eam/fs. Skipped where LAMMPS is
-not installed."""
+"""EAM against LAMMPS pair_style eam/alloy, eam/fs and eam (funcfl). Skipped
+where LAMMPS is not installed."""
 
 import numpy as np
 import pytest
@@ -12,7 +12,7 @@ import pytest
 import mdapy
 from mdapy.calculators import EAM
 
-from .eam_files import alloy, write_setfl
+from .eam_files import alloy, write_funcfl, write_setfl
 
 lammps = pytest.importorskip("lammps")
 
@@ -72,6 +72,61 @@ run 0
         result.virial, virial * BAR_A3_TO_EV, rtol=1e-9, atol=1e-9
     )
     s = stress  # xx yy zz xy xz yz, the negative of the per-atom virial
+    atomic_virial = (
+        -np.stack([s[:, [0, 3, 4]], s[:, [3, 1, 5]], s[:, [4, 5, 2]]], axis=1)
+        * BAR_A3_TO_EV
+    )
+    np.testing.assert_allclose(
+        result.atomic_virials, atomic_virial, rtol=1e-9, atol=1e-9
+    )
+
+
+@pytest.mark.parametrize(
+    "elements, a",
+    [
+        (("Cu",), 3.6),
+        (("Cu", "Ni"), 3.5),
+        # densities beyond the tables of embedding energy, which LAMMPS
+        # extrapolates from one step beyond their end for funcfl files
+        (("Cu",), 2.4),
+    ],
+)
+def test_funcfl_against_lammps(tmp_path, elements, a):
+    files = [write_funcfl(tmp_path / f"{e}.eam", e) for e in elements]
+    system = alloy(seed=12, repeat=3, jitter=0.1, a=a)
+    rng = np.random.default_rng(1)
+    system = system.with_columns(element=list(rng.choice(elements, len(system))))
+    data = tmp_path / "in.data"
+    mdapy.io.write(data, system, elements=list(elements))
+    coefficients = "\n".join(
+        f"pair_coeff {k + 1} {k + 1} {f}" for k, f in enumerate(files)
+    )
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            f"""
+units metal
+atom_style atomic
+boundary p p p
+read_data {data}
+pair_style eam
+{coefficients}
+compute pe all pe/atom
+compute w all stress/atom NULL virial
+run 0
+"""
+        )
+        energy = lmp.get_thermo("pe")
+        atomic = by_id(lmp, lmp.numpy.extract_compute("pe", 1, 1))
+        forces = by_id(lmp, lmp.numpy.extract_atom("f"))
+        stress = by_id(lmp, lmp.numpy.extract_compute("w", 1, 2))
+    finally:
+        lmp.close()
+    result = EAM(files).compute(system, ("energy", "forces", "atomic_virials"))
+    np.testing.assert_allclose(result.energy, energy, rtol=1e-12)
+    np.testing.assert_allclose(result.atomic_energies, atomic, rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(result.forces, forces, rtol=1e-9, atol=1e-10)
+    s = stress
     atomic_virial = (
         -np.stack([s[:, [0, 3, 4]], s[:, [3, 1, 5]], s[:, [4, 5, 2]]], axis=1)
         * BAR_A3_TO_EV

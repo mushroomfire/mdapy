@@ -123,6 +123,41 @@ def write_setfl(
     return path
 
 
+# funcfl files of pair_style eam, one element each, on grids of their own
+FUNCFL_GRIDS = {"Cu": (900, 0.06, 1000, 0.0052), "Ni": (1000, 0.05, 950, 0.0055)}
+
+
+def charge(element, r):
+    """An effective charge Z(r) whose square, 27.2 0.529 Z^2 / r, repels."""
+    p = PARAMETERS[element]
+    return 0.8 * np.exp(-1.5 * (r / p["re"] - 1)) * smooth(r)
+
+
+def write_funcfl(path, element="Cu", per_line=5):
+    nrho, drho, nr, dr = FUNCFL_GRIDS[element]
+    r = np.arange(nr) * dr
+    rho = np.arange(nrho) * drho
+
+    def block(values):
+        values = list(values)
+        return "\n".join(
+            " ".join(repr(float(v)) for v in values[k : k + per_line])
+            for k in range(0, len(values), per_line)
+        )
+
+    z = mdapy.elements.atomic_numbers([element])[0]
+    lines = [
+        f"synthetic funcfl potential of {element} for the mdapy tests",
+        f"{z} {PARAMETERS[element]['mass']!r} 3.6 fcc",
+        f"{nrho} {drho!r} {nr} {dr!r} {CUTOFF!r}",
+        block(embedding(element, rho)),
+        block(charge(element, r)),
+        block(density(element, r)),
+    ]
+    path.write_text("\n".join(lines) + "\n")
+    return path
+
+
 # ------------------------------------------------- NumPy reference of LAMMPS
 
 

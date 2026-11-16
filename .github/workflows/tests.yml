@@ -164,6 +164,9 @@ jobs:
       - run: pip install phonopy==4.8.6 phono3py==4.8.2 symfc==1.7.3 seekpath==2.2.2
       # DScribe for the comparisons of SOAP, at its reference version
       - run: pip install dscribe==2.1.2
+      # QUESTS for the comparisons of its descriptor and entropy, at its
+      # reference version
+      - run: pip install quests==2026.2.22
       # atomsk for the comparisons of the structure builder, at its reference
       # version, built once; it needs the Fortran and LAPACK libraries to run
       - run: .github/ubuntu-dns.sh && sudo apt-get update -q && sudo apt-get install -y -q gfortran liblapack-dev

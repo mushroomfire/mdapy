@@ -187,7 +187,8 @@ the skipped tests and why. A complete run needs the following.
 ```bash
 pip install -e ".[dev]"
 pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
-    symfc==1.7.3 seekpath==2.2.2 dscribe==2.1.2 pymatgen-core networkx torch torchnep
+    symfc==1.7.3 seekpath==2.2.2 dscribe==2.1.2 quests==2026.2.22 pymatgen-core networkx \
+    torch torchnep
 ```
 
 | Package | Tested with it |
@@ -198,6 +199,7 @@ pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
 | [phono3py](https://phonopy.github.io/phono3py) | the thermal conductivity, against phono3py; installed with phonopy and symfc, as a newer phono3py upgrades them |
 | [seekpath](https://seekpath.readthedocs.io) | band paths from the symmetry |
 | [DScribe](https://singroup.github.io/dscribe) | SOAP descriptors, against DScribe |
+| [QUESTS](https://github.com/dskoda/quests) | its descriptor, entropy and information gain, against QUESTS |
 | [pymatgen](https://pymatgen.org) | conversions to and from it |
 | [NetworkX](https://networkx.org) | rings, against a brute-force search |
 | [SciPy](https://scipy.org), installed with ASE | splines and curve fits, against SciPy |

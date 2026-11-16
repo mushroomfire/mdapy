@@ -23,6 +23,7 @@
 #include "bindings/frames.h"
 #include "calculators/adp.h"
 #include "calculators/eam.h"
+#include "calculators/meam.h"
 #include "calculators/nep.h"
 #include "calculators/pair.h"
 #include "calculators/stillinger_weber.h"
@@ -324,6 +325,68 @@ nb::tuple compute_adp(const calculators::AdpPotential& potential, Species specie
     return nb::make_tuple(e, f, w);
 }
 
+using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
+
+// element: (17, elements), see MeamPotential::Row; ebound: (elements,
+// elements); cmin, cmax: (elements, elements, elements); tables: (pairs, 7,
+// nr); options: ialloy, mixture_ref_t, emb_lin_neg, bkgd_dyn; numbers: rc,
+// delr, gsmooth_factor, dr, cutoff
+calculators::MeamPotential make_meam(Table element, Table ebound, Array cmin, Array cmax,
+                                     Array tables, const std::vector<int>& options,
+                                     const std::vector<double>& numbers) {
+    const auto e = static_cast<std::size_t>(element.shape(1));
+    if (element.shape(0) != 17 || ebound.shape(0) != e || ebound.shape(1) != e ||
+        cmin.ndim() != 3 || cmax.ndim() != 3 || cmin.size() != e * e * e ||
+        cmax.size() != e * e * e || tables.ndim() != 3 ||
+        tables.shape(0) != e * (e + 1) / 2 || tables.shape(1) != 7 || tables.shape(2) < 3 ||
+        options.size() != 4 || numbers.size() != 5) {
+        throw std::invalid_argument("inconsistent MEAM tables");
+    }
+    calculators::MeamPotential m;
+    m.elements = static_cast<int>(e);
+    m.ialloy = options[0];
+    m.mix_ref_t = options[1];
+    m.emb_lin_neg = options[2];
+    m.bkgd_dyn = options[3];
+    m.rc = numbers[0];
+    m.delr = numbers[1];
+    m.gsmooth_factor = numbers[2];
+    m.dr = numbers[3];
+    m.cutoff = numbers[4];
+    m.nr = static_cast<int>(tables.shape(2));
+    if (!(m.rc > 0.0) || !(m.delr > 0.0) || !(m.dr > 0.0) || !(m.cutoff >= m.rc)) {
+        throw std::invalid_argument("MEAM cutoffs and spacings must be positive");
+    }
+    m.element.assign(element.data(), element.data() + element.size());
+    m.ebound.assign(ebound.data(), ebound.data() + ebound.size());
+    m.cmin.assign(cmin.data(), cmin.data() + cmin.size());
+    m.cmax.assign(cmax.data(), cmax.data() + cmax.size());
+    m.table.assign(tables.data(), tables.data() + tables.size());
+    return m;
+}
+
+nb::tuple compute_meam(const calculators::MeamPotential& potential, Species species,
+                       Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                       Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = new_array(3, shape3, virials);
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_meam(potential, n, species.data(), positions.data(),
+                                      matrix.data(), offsets.data(), neighbors.data(),
+                                      shifts.data(), energies, forces, virials, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
 std::vector<double> copy(Flat values) {
     return {values.data(), values.data() + values.shape(0)};
 }
@@ -469,6 +532,15 @@ nb::object nep_frames(const calculators::NepModel& model, Species species, frame
 }  // namespace
 
 void bind_calculators(nb::module_& m) {
+    nb::class_<calculators::MeamPotential>(m, "MeamPotential")
+        .def_ro("elements", &calculators::MeamPotential::elements)
+        .def_ro("cutoff", &calculators::MeamPotential::cutoff);
+    m.def("make_meam", &make_meam, nb::arg("element"), nb::arg("ebound"), nb::arg("cmin"),
+          nb::arg("cmax"), nb::arg("tables"), nb::arg("options"), nb::arg("numbers"));
+    m.def("compute_meam", &compute_meam, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
     nb::class_<calculators::AdpPotential>(m, "AdpPotential")
         .def_ro("elements", &calculators::AdpPotential::elements)
         .def_ro("cutoff", &calculators::AdpPotential::cutoff);

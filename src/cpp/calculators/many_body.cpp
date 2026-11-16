@@ -79,7 +79,8 @@ void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
-                double force[3] = {0.0, 0.0, 0.0};
+                const double* own = &shares.own_force[3 * static_cast<std::size_t>(i)];
+                double force[3] = {own[0], own[1], own[2]};
                 double energy = shares.own_energy[static_cast<std::size_t>(i)];
                 double w[9];
                 for (int k = 0; k < 9; ++k) {

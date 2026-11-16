@@ -37,14 +37,17 @@ std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offs
 // on q, as LAMMPS's v_tally3.
 struct Shares {
     std::vector<double> derivative, energy, virial;      // per pair
-    std::vector<double> own_energy, own_virial;          // per atom
+    // per atom; own_force: forces an atom found on itself, as from pair
+    // terms it computes whole, as its neighbor does
+    std::vector<double> own_energy, own_virial, own_force;
 
     Shares(std::int64_t atoms, std::int64_t pairs)
         : derivative(3 * static_cast<std::size_t>(pairs), 0.0),
           energy(static_cast<std::size_t>(pairs), 0.0),
           virial(9 * static_cast<std::size_t>(pairs), 0.0),
           own_energy(static_cast<std::size_t>(atoms), 0.0),
-          own_virial(9 * static_cast<std::size_t>(atoms), 0.0) {}
+          own_virial(9 * static_cast<std::size_t>(atoms), 0.0),
+          own_force(3 * static_cast<std::size_t>(atoms), 0.0) {}
 
     // A term on the pair p alone, whose energy changes by the force f on the
     // neighbor (the opposite on the centre i); its virial r_p (x) f goes in

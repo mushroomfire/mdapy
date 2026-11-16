@@ -3,7 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""EAM against LAMMPS pair_style eam/alloy. Skipped where LAMMPS is not installed."""
+"""EAM against LAMMPS pair_style eam/alloy and eam/fs. Skipped where LAMMPS is
+not installed."""
 
 import numpy as np
 import pytest
@@ -27,9 +28,10 @@ def by_id(lmp, values):
     return np.array(values[:n], copy=True)[np.argsort(ids)]
 
 
+@pytest.mark.parametrize("style", ["eam/alloy", "eam/fs"])
 @pytest.mark.parametrize("seed, repeat", [(10, 2), (11, 3)])
-def test_against_lammps(tmp_path, seed, repeat):
-    potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
+def test_against_lammps(tmp_path, seed, repeat, style):
+    potential_file = write_setfl(tmp_path / "CuNi.eam", fs=style == "eam/fs")
     system = alloy(seed=seed, repeat=repeat, jitter=0.2)
     data = tmp_path / "in.data"
     mdapy.io.write(data, system, elements=["Cu", "Ni"])
@@ -41,7 +43,7 @@ units metal
 atom_style atomic
 boundary p p p
 read_data {data}
-pair_style eam/alloy
+pair_style {style}
 pair_coeff * * {potential_file} Cu Ni
 compute pe all pe/atom
 compute w all stress/atom NULL virial

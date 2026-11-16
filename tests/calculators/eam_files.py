@@ -63,6 +63,15 @@ def pair(a, b, r):
     )
 
 
+# eam/fs: the density an atom gives a neighbour of another element, as a
+# factor of the density it gives its own
+FS_FACTORS = {("Cu", "Ni"): 0.8, ("Ni", "Cu"): 1.15}
+
+
+def fs_factor(source, receiver):
+    return FS_FACTORS.get((source, receiver), 1.0)
+
+
 def tables(elements):
     r = np.arange(NR) * DR
     rho = np.arange(NRHO) * DRHO
@@ -75,7 +84,10 @@ def tables(elements):
     }
 
 
-def write_setfl(path, elements=("Cu", "Ni"), per_line=5):
+def write_setfl(path, elements=("Cu", "Ni"), per_line=5, fs=False, factors=None):
+    """A setfl file of eam/alloy, or of eam/fs with the densities of factors,
+    by default FS_FACTORS."""
+    factors = FS_FACTORS if factors is None else factors
     data = tables(elements)
 
     def block(values):
@@ -96,7 +108,9 @@ def write_setfl(path, elements=("Cu", "Ni"), per_line=5):
         z = mdapy.elements.atomic_numbers([element])[0]
         lines.append(f"{z} {PARAMETERS[element]['mass']!r} 3.6 fcc")
         lines.append(block(data["embedding"][index]))
-        lines.append(block(data["density"][index]))
+        for receiver in elements if fs else elements[:1]:
+            factor = factors.get((element, receiver), 1.0) if fs else 1.0
+            lines.append(block(data["density"][index] * factor))
     lines.extend(block(values) for values in data["pair"])
     path.write_text("\n".join(lines) + "\n")
     return path
@@ -136,9 +150,14 @@ def evaluate(s, delta, x):
     return ((c[3] * p + c[4]) * p + c[5]) * p + c[6], (c[0] * p + c[1]) * p + c[2]
 
 
-def reference(system, elements=("Cu", "Ni")):
-    """Energies, forces and virials by brute force over periodic images."""
+def reference(system, elements=("Cu", "Ni"), fs=False):
+    """Energies, forces and virials by brute force over periodic images; of
+    the eam/fs potential of write_setfl with fs."""
     data = tables(elements)
+
+    def given(source, receiver):  # the factor of the density source gives
+        return fs_factor(elements[source], elements[receiver]) if fs else 1.0
+
     f_s = [spline(t, DRHO) for t in data["embedding"]]
     rho_s = [spline(t, DR) for t in data["density"]]
     pair_s = [spline(t, DR) for t in data["pair"]]
@@ -161,7 +180,10 @@ def reference(system, elements=("Cu", "Ni")):
                 if 0 < d < CUTOFF:
                     neighbors[i].append((j, r, d))
     rho = [
-        sum(evaluate(rho_s[species[j]], DR, d)[0] for j, _, d in neighbors[i])
+        sum(
+            given(species[j], species[i]) * evaluate(rho_s[species[j]], DR, d)[0]
+            for j, _, d in neighbors[i]
+        )
         for i in range(n)
     ]
     energies, slopes = np.zeros(n), np.zeros(n)
@@ -177,6 +199,8 @@ def reference(system, elements=("Cu", "Ni")):
             z2, z2p = evaluate(pair_s[a * (a + 1) // 2 + b], DR, d)
             _, rho_ip = evaluate(rho_s[species[i]], DR, d)
             _, rho_jp = evaluate(rho_s[species[j]], DR, d)
+            rho_ip *= given(species[i], species[j])  # of the density i gives j
+            rho_jp *= given(species[j], species[i])
             phi = z2 / d
             psip = slopes[i] * rho_jp + slopes[j] * rho_ip + (z2p / d - phi / d)
             fpair = -psip / d

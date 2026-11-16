@@ -1,5 +1,16 @@
 # Release notes
 
+## 2.1.0 (not released)
+
+Since 2.1.0rc1:
+
+- `EAM(path)` reads `eam/fs` files of LAMMPS, Finnis–Sinclair potentials in which each
+  element gives each element an electron density of its own, such as those of Mendelev
+  et al. for Cu–Zr, Al–Fe and Fe–P, and computes them as `pair_style eam/fs`; `write`
+  writes them back as `eam/fs`. The format is told apart from `eam/alloy` by the number
+  of values in the file. See
+  [Finnis–Sinclair potentials](../user-guide/simulation/eam.md#finnissinclair-potentials).
+
 ## 2.1.0rc1
 
 The release candidate of MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from

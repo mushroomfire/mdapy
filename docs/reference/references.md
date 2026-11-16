@@ -138,6 +138,12 @@ sampling, and forward flux sampling: a comparison of simulation techniques,
 [doi:10.1063/1.3506838](https://doi.org/10.1063/1.3506838)
 { #filion2010 }
 
+**Finnis and Sinclair (1984).** M. W. Finnis and J. E. Sinclair, A simple
+empirical N-body potential for transition metals, *Philos. Mag. A* **50**, 45
+(1984).
+[doi:10.1080/01418618408244210](https://doi.org/10.1080/01418618408244210)
+{ #finnis1984 }
+
 **Franzblau (1991).** D. S. Franzblau, Computation of ring statistics for
 network models of solids, *Phys. Rev. B* **44**, 4925 (1991).
 [doi:10.1103/PhysRevB.44.4925](https://doi.org/10.1103/PhysRevB.44.4925)

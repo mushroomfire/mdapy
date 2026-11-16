@@ -39,8 +39,18 @@ struct EamPotential {
     double cutoff = 0.0;
     double rho_max = 0.0;  // the embedding energy is extrapolated linearly beyond
     std::vector<Spline> embedding;  // F(rho), one per element
-    std::vector<Spline> density;    // rho(r), one per element
-    std::vector<Spline> pair;       // r * phi(r), one per pair of elements a >= b
+    // rho(r) an atom gives its neighbours: one per element (eam/alloy), or
+    // one per element and element of the neighbour, source * elements +
+    // receiver (eam/fs)
+    std::vector<Spline> density;
+    bool density_per_pair = false;
+    std::vector<Spline> pair;  // r * phi(r), one per pair of elements a >= b
+
+    // The density an atom of element source gives one of element receiver.
+    const Spline& density_of(int source, int receiver) const {
+        return density[static_cast<std::size_t>(density_per_pair ? source * elements + receiver
+                                                                 : source)];
+    }
 
     const Spline& pair_of(int a, int b) const {
         if (a < b) {

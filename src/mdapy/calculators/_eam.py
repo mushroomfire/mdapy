@@ -51,6 +51,18 @@ class _Numbers:
             raise FileFormatError("expected numbers", self.name, self.line) from None
 
 
+def _is_fs(lines: list[str], count: int, nrho: int, nr: int) -> bool:
+    """Whether the setfl-like file holds a density per element and element of
+    the neighbour (eam/fs) rather than one per element (eam/alloy): the two
+    differ by count (count - 1) nr values, far more than the two to four
+    words of the line of each element."""
+    if count == 1:
+        return False
+    words = sum(len(line.split("#")[0].split()) for line in lines[5:])
+    pairs = count * (count + 1) // 2 * nr
+    return words >= count * (nrho + count * nr) + pairs + 2 * count
+
+
 def _read_setfl(path: str | os.PathLike) -> dict[str, Any]:
     reader = _Numbers(path)
     comments = tuple(reader._lines[:3]) + ("",) * (3 - len(reader._lines[:3]))
@@ -88,6 +100,7 @@ def _read_setfl(path: str | os.PathLike) -> dict[str, Any]:
             reader.name,
             reader.line,
         )
+    fs = _is_fs(reader._lines, count, nrho, nr)
     numbers, masses, constants, lattices = [], [], [], []
     embedding, density = [], []
     for _ in elements:
@@ -105,8 +118,14 @@ def _read_setfl(path: str | os.PathLike) -> dict[str, Any]:
             constants.append(0.0)
         lattices.append(words[3] if len(words) > 3 else "")
         embedding.append(reader.floats(nrho))
-        density.append(reader.floats(nr))
+        # eam/fs: the density this element gives each element, in their order
+        density += [reader.floats(nr) for _ in range(count if fs else 1)]
     pair = [reader.floats(nr) for i in range(count) for _ in range(i + 1)]
+    density = np.array(density)
+    if fs:
+        given = density.reshape(count, count, nr)
+        if np.array_equal(given, np.broadcast_to(given[:, :1], given.shape)):
+            density, fs = given[:, 0], False  # the same for every receiver
     return {
         "elements": tuple(elements),
         "numbers": tuple(numbers),
@@ -114,12 +133,13 @@ def _read_setfl(path: str | os.PathLike) -> dict[str, Any]:
         "lattice_constants": np.array(constants),
         "lattices": tuple(lattices),
         "embedding": np.array(embedding),
-        "density": np.array(density),
+        "density": density,
         "pair": np.array(pair),
         "drho": drho,
         "dr": dr,
         "cutoff": cutoff,
         "comments": comments,
+        "fs": fs,
     }
 
 
@@ -129,12 +149,15 @@ def _lines(values: np.ndarray, per_line: int = 5) -> list[str]:
 
 
 class EAM(Calculator):
-    """Embedded atom method potential, in the LAMMPS ``eam/alloy`` (setfl) form.
+    """Embedded atom method potential, in the LAMMPS ``eam/alloy`` (setfl) or
+    ``eam/fs`` (Finnis-Sinclair) form.
 
     Parameters
     ----------
     path : str or os.PathLike
-        The potential file.
+        The potential file, ``eam/alloy`` or ``eam/fs``, told apart by the
+        number of values: an ``eam/fs`` file holds the density each element
+        gives each element.
 
     Attributes
     ----------
@@ -226,6 +249,12 @@ class EAM(Calculator):
         """
         if self.__average:
             raise InvalidParameter("the potential is already an average-atom potential")
+        if self.__tables.get("fs", False):
+            raise InvalidParameter(
+                "an average atom needs the density each element gives to be the "
+                "same for every element it gives it to, as in eam/alloy; this "
+                "eam/fs potential gives each element its own"
+            )
         assert self.elements is not None
         if isinstance(fractions, Mapping):
             unknown = set(fractions) - set(self.elements)
@@ -282,7 +311,8 @@ class EAM(Calculator):
         return EAM.__built(tables, average=True)
 
     def write(self, path: str | os.PathLike) -> None:
-        """Writes the potential as a LAMMPS ``eam/alloy`` (setfl) file.
+        """Writes the potential as a LAMMPS ``eam/alloy`` (setfl) file, or
+        an ``eam/fs`` file for a potential read from one.
 
         Parameters
         ----------
@@ -291,6 +321,7 @@ class EAM(Calculator):
         """
         t = self.__tables
         names = t["elements"]
+        per_element = len(names) if t.get("fs", False) else 1
         lines = [line.replace("\n", " ") for line in t["comments"]]
         lines.append(f"{len(names)} {' '.join(names)}")
         lines.append(
@@ -302,7 +333,9 @@ class EAM(Calculator):
                 f"{t['numbers'][k]} {t['masses'][k]:.16e} "
                 f"{t['lattice_constants'][k]:.16e} {t['lattices'][k] or 'none'}"
             )
-            lines += _lines(t["embedding"][k]) + _lines(t["density"][k])
+            lines += _lines(t["embedding"][k])
+            for row in t["density"][k * per_element : (k + 1) * per_element]:
+                lines += _lines(row)
         for row in t["pair"]:
             lines += _lines(row)
         with open(path, "w", encoding="utf-8") as f:

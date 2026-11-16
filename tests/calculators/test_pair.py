@@ -54,6 +54,17 @@ def test_one_pair_is_the_formula():
         )
 
 
+def test_one_kind_of_atom_without_elements():
+    lj = LennardJones((0.0104, 3.4), 8.5)
+    assert lj.elements is None
+    system = mdapy.System([[0, 0, 0], [3.9, 0, 0]], mdapy.Box(40.0, pbc=False))
+    with_elements = system.with_columns(element=["Ar", "Kr"])
+    expected = LennardJones({"Ar": (0.0104, 3.4), "Kr": (0.0104, 3.4)}, 8.5)
+    assert lj.compute(system).energy == expected.compute(with_elements).energy
+    assert lj.compute(with_elements).energy == expected.compute(with_elements).energy
+    assert "elements=None" in repr(lj)
+
+
 def test_shift_takes_the_energy_at_the_cutoff_off():
     pair = mdapy.System(
         [[0, 0, 0], [4.0, 0, 0]], mdapy.Box(40.0, pbc=False), elements="Ar"

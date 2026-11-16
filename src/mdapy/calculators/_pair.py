@@ -105,6 +105,7 @@ class _PairCalculator(Calculator):
         offset: np.ndarray,
         coefficients: np.ndarray,
     ) -> None:
+        self._any_atom = elements is None
         self.elements = elements
         self.cutoffs = cutoffs
         self.cutoff = float(cutoffs.max())
@@ -125,7 +126,10 @@ class _PairCalculator(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         self._check_properties(properties)
-        species = _element_indices(system, self.elements, self._name)
+        if self._any_atom:  # one kind of atom, whatever its element
+            species = np.zeros(len(system), dtype=np.int32)
+        else:
+            species = _element_indices(system, self.elements, self._name)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_pair(
@@ -155,11 +159,12 @@ class LennardJones(_PairCalculator):
 
     Parameters
     ----------
-    parameters : mapping
+    parameters : mapping or sequence of float64
         For an element, (ε, σ) or (ε, σ, cutoff) of its pairs with itself, in
         eV and Å; the pairs of two such elements are mixed. For a pair of
         elements, a tuple such as ("Cu", "Ni"), the same numbers of that pair,
-        taken as they are.
+        taken as they are. Numbers alone, (ε, σ) or (ε, σ, cutoff): one kind
+        of atom, whatever its element, for systems with no elements.
     cutoff : float64
         Cutoff in Å of the pairs given none.
     mixing : {"geometric", "arithmetic", "sixthpower"}, optional
@@ -173,8 +178,9 @@ class LennardJones(_PairCalculator):
 
     Attributes
     ----------
-    elements : tuple of str
-        The elements, in the order of the parameters.
+    elements : tuple of str or None
+        The elements, in the order of the parameters; None for one kind of
+        atom of any element.
     cutoffs : numpy.ndarray
         (E, E) float64 cutoff of each pair of elements in Å.
     cutoff : float64
@@ -197,6 +203,9 @@ class LennardJones(_PairCalculator):
                 f"mixing must be one of {list(_MIXING)}, not {mixing!r}"
             )
         default = _cutoff(cutoff)
+        any_atom = not isinstance(parameters, Mapping)
+        if any_atom:  # one kind of atom, of any element
+            parameters = {"X": parameters}
         singles, pairs = _entries(parameters, (2, 3), pairs_only=False)
         elements = _elements(singles, pairs)
         e = len(elements)
@@ -257,7 +266,7 @@ class LennardJones(_PairCalculator):
         self.shift = bool(shift)
         self.epsilon = epsilon
         self.sigma = sigma
-        self._build(elements, cut, offset, coefficients)
+        self._build(None if any_atom else elements, cut, offset, coefficients)
 
     def __repr__(self) -> str:
         return (

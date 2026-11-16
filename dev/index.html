@@ -8327,53 +8327,50 @@ common call. The code of 1.x stays on the branch <a href="https://github.com/mus
   <a href="getting-started/learn/table/">lessons</a> lead from the first structure on.</li>
 </ul>
 <h2 id="what-it-does">🧰 What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
-<p>Structures come from files or are built, live in a <code>System</code>, and its neighbors feed the
-analyses and the calculators.</p>
-<pre class="mermaid"><code>flowchart TB
-    files[("&lt;b&gt;Files&lt;/b&gt;&lt;br/&gt;extended XYZ · LAMMPS · POSCAR&lt;br/&gt;OUTCAR · CIF · PDB · MDAPY")]
-    build["&lt;b&gt;Structure builder&lt;/b&gt;&lt;br/&gt;crystals · alloys · defects&lt;br/&gt;dislocations · polycrystals"]
-    system(["&lt;b&gt;System&lt;/b&gt;&lt;br/&gt;box · topology · trajectory"])
-    neighbors(["&lt;b&gt;Neighbor lists&lt;/b&gt;"])
-    visual["&lt;b&gt;Visualization&lt;/b&gt;&lt;br/&gt;rendering · movies · plots"]
-    mlip["&lt;b&gt;MLIP&lt;/b&gt;&lt;br/&gt;VASP training sets · descriptors&lt;br/&gt;choosing frames · errors · uncertainty"]
-    analysis["&lt;b&gt;Analysis&lt;/b&gt;&lt;br/&gt;structures · local order · defects · dynamics"]
-    calculators["&lt;b&gt;Calculators&lt;/b&gt;&lt;br/&gt;native EAM · NEP&lt;br/&gt;interfaces to LAMMPS · ASE · VASP"]
-    minimization["&lt;b&gt;Relaxation and dynamics&lt;/b&gt;&lt;br/&gt;minimization · molecular dynamics&lt;br/&gt;defect energies"]
-    lattice["&lt;b&gt;Lattice dynamics&lt;/b&gt;&lt;br/&gt;elastic constants · phonons&lt;br/&gt;sheets · finite temperature"]
-    thermodynamics["&lt;b&gt;Thermodynamics&lt;/b&gt;&lt;br/&gt;free energy · melting points · phase diagrams&lt;br/&gt;stacking faults with temperature"]
-    packages["&lt;b&gt;Interoperability&lt;/b&gt;&lt;br/&gt;ASE · OVITO · pymatgen · freud&lt;br/&gt;LAMMPS · VASP · GPUMD"]
-    fitting["&lt;b&gt;Fitting&lt;/b&gt;&lt;br/&gt;splines · least squares&lt;br/&gt;equations of state"]
-
-    files &lt;--&gt; system
-    build --&gt; system
-    packages &lt;--&gt; system
-    packages &lt;--&gt; calculators
-    system --&gt; neighbors
-    system --&gt; visual
-    files --&gt; mlip
-    calculators --&gt; mlip
-    neighbors --&gt; analysis
-    neighbors --&gt; calculators
-    calculators --&gt; minimization
-    minimization --&gt; lattice
-    minimization --&gt; thermodynamics
-    analysis --&gt; fitting
-    lattice --&gt; fitting
-
-    classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
-    classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
-    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
-    classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
-    classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
-    classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
-    classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
-    class system,neighbors core
-    class files,packages data
-    class analysis,fitting analysis
-    class calculators,minimization,lattice,thermodynamics simulation
-    class build build
-    class visual visual
-    class mlip mlip</code></pre>
+<p>Structures are read or built into a <code>System</code>; its neighbor lists and the calculators
+feed the analyses and the simulations, and the results are drawn or fitted. Each box
+opens its pages.</p>
+<div class="feature-map">
+<div class="feature-stage">
+<p class="feature-label">Input</p>
+<div class="feature-cells">
+<p><a class="feature-card" href="basics/io/"><b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span></a></p>
+<p><a class="feature-card" href="user-guide/build/crystals/"><b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span></a></p>
+<p><a class="feature-card" href="user-guide/interop/ase/"><b>Interoperability</b><span>ASE · OVITO · pymatgen · freud · LAMMPS · VASP · GPUMD</span></a></p>
+</div>
+</div>
+<div class="feature-stage feature-core">
+<p class="feature-label">Core</p>
+<div class="feature-cells">
+<p><a class="feature-card" href="basics/system/"><b>System</b><span>box · topology · trajectory · any property of the atoms</span></a></p>
+<p><a class="feature-card" href="basics/neighbor/"><b>Neighbor lists</b><span>built once, shared by analyses and calculators</span></a></p>
+<p><a class="feature-card" href="user-guide/simulation/calculators/"><b>Calculators</b><span>native EAM · NEP; LAMMPS · ASE · VASP</span></a></p>
+</div>
+</div>
+<div class="feature-stage">
+<p class="feature-label">Analyze</p>
+<div class="feature-cells">
+<p><a class="feature-card" href="user-guide/analysis/overview/"><b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span></a></p>
+<p><a class="feature-card" href="user-guide/mlip/vasp/"><b>MLIP</b><span>VASP training sets · descriptors · choosing frames · errors · uncertainty</span></a></p>
+</div>
+</div>
+<div class="feature-stage">
+<p class="feature-label">Simulate</p>
+<div class="feature-cells feature-chain">
+<p><a class="feature-card" href="user-guide/simulation/minimize/"><b>Relaxation and dynamics</b><span>minimization · molecular dynamics · defect energies</span></a></p>
+<p><span class="feature-arrow" aria-hidden="true">→</span></p>
+<p><a class="feature-card" href="user-guide/simulation/elastic-constants/"><b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span></a></p>
+<p><a class="feature-card" href="user-guide/simulation/free-energy/"><b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span></a></p>
+</div>
+</div>
+<div class="feature-stage">
+<p class="feature-label">Output</p>
+<div class="feature-cells">
+<p><a class="feature-card" href="user-guide/visualization/rendering/"><b>Visualization</b><span>rendering · movies · plots · colors</span></a></p>
+<p><a class="feature-card" href="user-guide/fitting/interpolation/"><b>Fitting</b><span>splines · least squares · equations of state</span></a></p>
+</div>
+</div>
+</div>
 <h2 id="install">📦 Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
 </code></pre></div>

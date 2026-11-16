@@ -33,7 +33,7 @@ t = qha.temperatures
 with plot.style():
     fig, ax = plot.figure("single")
     for name, (i, j) in {"C11": (0, 0), "C12": (0, 1), "C44": (3, 3)}.items():
-        (line,) = ax.plot(t, result.isothermal[:, i, j], label=name)
+        (line,) = ax.plot(t, result.isothermal[:, i, j], marker="o", label=name)
         ax.plot(t, fast.isothermal[:, i, j], ":", color=line.get_color())
     ax.set_xlabel("Temperature (K)")
     ax.set_ylabel("Isothermal elastic constant (GPa)")

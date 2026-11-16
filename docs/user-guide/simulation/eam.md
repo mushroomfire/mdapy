@@ -3,7 +3,7 @@
 ```python
 from mdapy.calculators import EAM
 
-potential = EAM.zhou(["Cu", "Ni"])  # or EAM("CuNi.eam.alloy")
+potential = EAM.zhou(["Cu", "Ni"])  # or EAM("CuNi.eam.alloy"), EAM("CuZr.eam.fs")
 potential.elements, potential.cutoff
 potential.write("CuNi.eam.alloy")
 ```
@@ -36,7 +36,10 @@ potential, near the measured 3.615 Å and 3.52 Å; the curvature at the
 minimum gives the bulk modulus.*
 
 `EAM(path)` reads an embedded atom method potential in the `eam/alloy`
-(setfl) format of LAMMPS and computes every property.
+(setfl) or the `eam/fs` (Finnis–Sinclair) format of LAMMPS and computes
+every property. The two formats have the same lines, but an `eam/fs` file
+holds more values, which tells them apart: see
+[Finnis–Sinclair potentials](#finnissinclair-potentials).
 
 | Attribute | Type | Meaning |
 |---|---|---|
@@ -48,7 +51,7 @@ minimum gives the bulk modulus.*
 | Method | Returns |
 |---|---|
 | `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
-| `write(path)` | writes the potential as an `eam/alloy` file, which LAMMPS reads and which reads back to the same tables |
+| `write(path)` | writes the potential as an `eam/alloy` file, or an `eam/fs` file for a Finnis–Sinclair potential, which LAMMPS reads and which reads back to the same tables |
 | `EAM.zhou(elements, *, nr=2000, nrho=2000)` | the potential of Zhou, Johnson and Wadley for the elements |
 | `average(fractions)` | the average-atom potential of an alloy of the elements |
 
@@ -62,12 +65,14 @@ of a system is one of them.
 The energy of atom $i$ is
 
 $$
-E_i = F_{s_i}\Big(\sum_j \rho_{s_j}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
+E_i = F_{s_i}\Big(\sum_j \rho_{s_j s_i}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 $$
 
-with the embedding energy $F$, the electron density $\rho$ and the pair
-potential $\phi$ of the species $s$ of the atoms, interpolated from the
-tables of the file as LAMMPS `pair_style eam/alloy` does. Each pair's virial
+with the embedding energy $F$, the electron density $\rho_{ab}$ that an atom
+of species $a$ gives one of species $b$, and the pair potential $\phi$ of the
+species $s$ of the atoms, interpolated from the tables of the file as LAMMPS
+`pair_style eam/alloy` and `eam/fs` do. In `eam/alloy` the density depends
+on the species that gives it only, $\rho_{ab} = \rho_a$. Each pair's virial
 is shared equally by its two atoms.
 
 !!! quote "Please cite"
@@ -118,6 +123,27 @@ repeated element raises `InvalidParameter`.
 !!! quote "Please cite"
     [Zhou et al. (2004)](../../reference/references.md#zhou2004); with Cr, also [Lin et al. (2008)](../../reference/references.md#lin2008).
 
+## Finnis–Sinclair potentials
+
+<!-- skip-test -->
+```python
+potential = EAM("CuZr_mm.eam.fs")  # pair_style eam/fs in LAMMPS
+potential.write("CuZr.eam.fs")
+```
+
+In an `eam/fs` file each element gives each element a density of its own,
+$\rho_{ab} \ne \rho_{ac}$, as in the potentials of Mendelev, Ackland and
+coworkers for alloys such as Cu–Zr, Al–Fe and Fe–P. After the embedding
+energy of each element come the densities it gives each element, in the
+order of the elements; the pair potentials follow as in `eam/alloy`. The
+energies, forces and virials are those of LAMMPS `pair_style eam/fs`, and
+`write` writes the file back in the same format. A file of one element, or
+one whose elements give every element the same density, is an `eam/alloy`
+potential written in the other format, and reads as one.
+
+!!! quote "Please cite"
+    [Finnis and Sinclair (1984)](../../reference/references.md#finnis1984), and the paper of the potential.
+
 ## Average atom
 
 <!-- skip-test -->
@@ -143,7 +169,9 @@ to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the
 average atom, named `A`, last, so that LAMMPS can mix them, for example
 with `pair_coeff * * CuNiAl.average.eam.alloy A Cu` for a Cu solute in the
-average alloy. Invalid fractions raise `InvalidParameter`.
+average alloy. Invalid fractions raise `InvalidParameter`, and so does a
+Finnis–Sinclair potential whose elements give each element a density of its
+own: an average atom would need a density for each element it stands for.
 
 !!! quote "Please cite"
     [Varvenne et al. (2016)](../../reference/references.md#varvenne2016), and the paper of the potential averaged.

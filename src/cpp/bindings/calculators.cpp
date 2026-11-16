@@ -50,11 +50,15 @@ calculators::EamPotential make_eam(Table embedding, Table density, Table pair, d
                                    double dr, double cutoff) {
     calculators::EamPotential potential;
     const auto elements = static_cast<int>(embedding.shape(0));
-    if (density.shape(0) != embedding.shape(0) ||
+    // one density per element, or per element and element of the neighbour
+    const auto per_element = static_cast<std::size_t>(elements);
+    const bool per_pair = elements > 1 && density.shape(0) == per_element * per_element;
+    if ((density.shape(0) != per_element && !per_pair) ||
         pair.shape(0) != static_cast<std::size_t>(elements * (elements + 1) / 2) ||
         pair.shape(1) != density.shape(1)) {
         throw std::invalid_argument("inconsistent EAM tables");
     }
+    potential.density_per_pair = per_pair;
     if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
         throw std::invalid_argument("EAM table spacings and cutoff must be positive");
     }
@@ -65,7 +69,9 @@ calculators::EamPotential make_eam(Table embedding, Table density, Table pair, d
     potential.rho_max = (nrho - 1) * drho;
     for (int e = 0; e < elements; ++e) {
         potential.embedding.emplace_back(embedding.data() + e * nrho, nrho, drho);
-        potential.density.emplace_back(density.data() + e * nr, nr, dr);
+    }
+    for (std::size_t k = 0; k < density.shape(0); ++k) {
+        potential.density.emplace_back(density.data() + k * nr, nr, dr);
     }
     for (std::size_t k = 0; k < pair.shape(0); ++k) {
         potential.pair.emplace_back(pair.data() + k * nr, nr, dr);

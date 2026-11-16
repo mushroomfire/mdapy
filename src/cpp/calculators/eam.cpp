@@ -71,8 +71,8 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                         shifts + 3 * p, matrix, r);
                     if (r2 < cutoff2) {
                         double value, derivative;
-                        potential.density[species[neighbors[p]]].evaluate(std::sqrt(r2), value,
-                                                                          derivative);
+                        potential.density_of(species[neighbors[p]], species[i])
+                            .evaluate(std::sqrt(r2), value, derivative);
                         sum += value;
                     }
                 }
@@ -109,9 +109,10 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                     const index_t j = neighbors[p];
                     const int sj = species[j];
                     const double r = std::sqrt(r2);
+                    // rho_ip: of the density i gives j; rho_jp: j gives i
                     double rho_i, rho_ip, rho_j, rho_jp, z2, z2p;
-                    potential.density[si].evaluate(r, rho_i, rho_ip);
-                    potential.density[sj].evaluate(r, rho_j, rho_jp);
+                    potential.density_of(si, sj).evaluate(r, rho_i, rho_ip);
+                    potential.density_of(sj, si).evaluate(r, rho_j, rho_jp);
                     potential.pair_of(si, sj).evaluate(r, z2, z2p);
                     const double recip = 1.0 / r;
                     const double phi = z2 * recip;

@@ -133,6 +133,55 @@ def test_values_may_span_lines_and_have_comments(tmp_path):
     assert a.compute(system).energy == b.compute(system).energy
 
 
+@pytest.fixture
+def fs_potential(tmp_path):
+    return EAM(write_setfl(tmp_path / "CuNi.eam.fs", fs=True))
+
+
+@pytest.mark.parametrize("pbc", [True, (True, False, True), False])
+def test_fs_matches_a_numpy_reference(fs_potential, potential, pbc):
+    # each element gives the other a density of its own: eam/fs
+    system = alloy(seed=1, pbc=pbc)
+    result = fs_potential.compute(
+        system, ("energy", "forces", "virial", "atomic_virials")
+    )
+    energies, forces, virials = reference(system, fs=True)
+    np.testing.assert_allclose(result.atomic_energies, energies, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(result.forces, forces, rtol=1e-11, atol=1e-11)
+    np.testing.assert_allclose(result.atomic_virials, virials, rtol=1e-11, atol=1e-11)
+    assert abs(result.energy - potential.compute(system).energy) > 1.0
+
+
+def test_fs_passes_the_calculator_checks(fs_potential):
+    check_calculator(fs_potential, alloy(seed=2), rtol=1e-6, atol=1e-6)
+
+
+def test_fs_written_and_read_back(fs_potential, tmp_path):
+    fs_potential.write(tmp_path / "out.eam.fs")
+    again = EAM(tmp_path / "out.eam.fs")
+    system = alloy(seed=4)
+    assert again.compute(system).energy == fs_potential.compute(system).energy
+    # four densities of 1000 values, in four lines of the file each
+    lines = (tmp_path / "out.eam.fs").read_text().splitlines()
+    assert len(lines) == 5 + 2 * (1 + 200 + 2 * 200) + 3 * 200
+
+
+def test_fs_of_the_same_densities_is_an_alloy(potential, tmp_path):
+    # an eam/fs file in which each element gives every element the same
+    # density: the eam/alloy potential of its functions, average atom and all
+    same = EAM(write_setfl(tmp_path / "same.eam.fs", fs=True, factors={}))
+    system = alloy(seed=8)
+    assert same.compute(system).energy == potential.compute(system).energy
+    average = {"Cu": 0.3, "Ni": 0.7}
+    a, b = same.average(average), potential.average(average)
+    assert a.compute(system).energy == b.compute(system).energy
+
+
+def test_fs_has_no_average_atom(fs_potential):
+    with pytest.raises(InvalidParameter, match="gives each element its own"):
+        fs_potential.average([0.5, 0.5])
+
+
 def test_progress_runs_once_from_start_to_end(potential):
     """The passes of the computation make one count: it never falls, and it
     reaches its total at the end."""

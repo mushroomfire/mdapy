@@ -28,6 +28,7 @@ one name everywhere.
 | `Calculator` | Interface that computes energy, forces and virial for a `System`. |
 | `interop` | The module that converts to and from the objects of other packages: `to_ase`, `from_ase`, `to_ase_calculator`, `from_ase_calculator`, `to_ovito`, `from_ovito`, `to_pymatgen`, `from_pymatgen`, `to_freud`, `from_freud`. |
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
+| `eam/alloy`, `eam/fs` | The LAMMPS styles and file formats of embedded atom method potentials that `EAM` reads: in `eam/alloy` (setfl) each element gives every element the same electron density, in `eam/fs` (Finnis–Sinclair) each element its own. |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them; with an `image` column, the positions plus the image flags times the lattice vectors. |

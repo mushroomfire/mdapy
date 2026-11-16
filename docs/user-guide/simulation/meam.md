@@ -27,7 +27,8 @@ from mdapy.visualization import plot
 
 lattice = np.linspace(3.3, 4.6, 66)
 energy = [
-    potential.compute(build_crystal("fcc", a, elements="Cu", repeat=(3, 3, 3))).energy / 108
+    potential.compute(build_crystal("fcc", a, elements="Cu", repeat=(3, 3, 3))).energy
+    / 108
     for a in lattice
 ]
 astar = 5.106 * (lattice / 3.62 - 1)
@@ -44,9 +45,9 @@ with plot.style():
 
 ![The energy of fcc copper with MEAM and its Rose function](images/meam.png)
 
-*Copper of nearest neighbors in its reference crystal: MEAM gives the Rose
-energy of the library, its minimum the cohesive energy 3.54 eV at 3.62 Å,
-until the cutoff of 4 Å reaches the second neighbors at 4.1 Å.*
+*Copper of nearest neighbors in its reference crystal, its second neighbors
+screened: MEAM gives the Rose energy of the library at every lattice
+parameter, its minimum the cohesive energy 3.54 eV at 3.62 Å.*
 
 `MEAM(library, elements, parameters=None)` reads a library file and a
 parameter file of `pair_style meam` of LAMMPS and computes the potential as

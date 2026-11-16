@@ -7,7 +7,11 @@ from mdapy.calculators import LennardJones, Morse
 lj = LennardJones({"Ar": (0.0104, 3.40), "Kr": (0.0140, 3.65)}, 8.5)
 # copper and nickel, D0 in eV, alpha in 1/Å and r0 in Å for every pair
 morse = Morse(
-    {"Cu": (0.3429, 1.3588, 2.866), "Ni": (0.4205, 1.4199, 2.780), ("Cu", "Ni"): (0.38, 1.39, 2.82)},
+    {
+        "Cu": (0.3429, 1.3588, 2.866),
+        "Ni": (0.4205, 1.4199, 2.780),
+        ("Cu", "Ni"): (0.38, 1.39, 2.82),
+    },
     7.0,
 )
 lj.elements, lj.cutoff
@@ -25,7 +29,9 @@ distance = np.linspace(2.0, 8.0, 241)
 
 def curve(potential, a, b):
     box = mdapy.Box(30.0, pbc=False)
-    pairs = [mdapy.System([[0, 0, 0], [r, 0, 0]], box, elements=[a, b]) for r in distance]
+    pairs = [
+        mdapy.System([[0, 0, 0], [r, 0, 0]], box, elements=[a, b]) for r in distance
+    ]
     return [potential.compute(pair, ("energy",)).energy for pair in pairs]
 
 

@@ -23,9 +23,13 @@ def crystal(structure, a, elements, repeat=3, jitter=0.1, seed=0):
     """A shaken crystal of random elements."""
     rng = np.random.default_rng(seed)
     if structure == "zincblende":
-        system = build_crystal("zincblende", a, elements=elements[:2], repeat=(repeat,) * 3)
+        system = build_crystal(
+            "zincblende", a, elements=elements[:2], repeat=(repeat,) * 3
+        )
     else:
-        size = {"sc": 2 * repeat, "hcp": 2 * repeat, "bcc": repeat + 1}.get(structure, repeat)
+        size = {"sc": 2 * repeat, "hcp": 2 * repeat, "bcc": repeat + 1}.get(
+            structure, repeat
+        )
         system = build_crystal(structure, a, elements=elements[0], repeat=(size,) * 3)
         system = system.with_columns(element=list(rng.choice(elements, len(system))))
     return system.with_columns(
@@ -52,7 +56,9 @@ def test_the_reference_structure_has_the_rose_energy(tmp_path):
         assert energy == pytest.approx(-esub * (1 + astar) * np.exp(-astar), rel=1e-6)
     # at its lattice constant, no force, and no stress but for the
     # interpolation of the table of the pair function
-    result = meam.compute(build_crystal("fcc", alat, elements="Cu", repeat=(3, 3, 3)), ("virial",))
+    result = meam.compute(
+        build_crystal("fcc", alat, elements="Cu", repeat=(3, 3, 3)), ("virial",)
+    )
     assert np.abs(result.forces).max() < 1e-10
     assert np.abs(result.virial).max() / len(result.forces) < 1e-7
 
@@ -73,7 +79,9 @@ def test_check_calculator(tmp_path, case):
 
 
 def test_the_neighbors_needed_reach_the_screening_atoms(tmp_path):
-    meam, *_ = make(tmp_path, *CASES["silicon and carbon, dia, screening beyond rc"][:2])
+    meam, *_ = make(
+        tmp_path, *CASES["silicon and carbon, dia, screening beyond rc"][:2]
+    )
     # Cmax = 4: an atom screens a pair up to rc C / (2 sqrt(C - 1)) from its atoms
     assert meam.rc == 4.0
     assert meam.cutoff == pytest.approx(4.0 * 4.0 / (2 * np.sqrt(3.0)))
@@ -183,7 +191,14 @@ class TestAgainstLammps:
         slab = crystal(structure, a, meam.elements, seed=4)
         slab = slab.with_box(mdapy.Box(slab.box.matrix, pbc=(True, True, False)))
         expected = reference(slab, ["Cu", "Ni"], pair, tmp_path)
-        assert_matches(meam.compute(slab, ("atomic_virials",)), expected, energy=1e-11, forces=1e-9)
+        assert_matches(
+            meam.compute(slab, ("atomic_virials",)), expected, energy=1e-11, forces=1e-9
+        )
         small = crystal(structure, a, meam.elements, repeat=1, jitter=0.15, seed=5)
         expected = reference(small, ["Cu", "Ni"], pair, tmp_path)
-        assert_matches(meam.compute(small, ("atomic_virials",)), expected, energy=1e-11, forces=1e-9)
+        assert_matches(
+            meam.compute(small, ("atomic_virials",)),
+            expected,
+            energy=1e-11,
+            forces=1e-9,
+        )

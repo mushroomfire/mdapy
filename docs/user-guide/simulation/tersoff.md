@@ -24,9 +24,14 @@ from mdapy.simulation import minimize
 from mdapy.visualization import plot
 
 crystal = minimize(
-    build_crystal("diamond", 5.43, elements="Si"), potential, cell="full", max_stress=1e-4
+    build_crystal("diamond", 5.43, elements="Si"),
+    potential,
+    cell="full",
+    max_stress=1e-4,
 ).system
-bands = phonons(primitive_cell(crystal), potential).band_structure("fcc", connected=True)
+bands = phonons(primitive_cell(crystal), potential).band_structure(
+    "fcc", connected=True
+)
 with plot.style():
     fig, ax = plot.figure("single")
     plot.band_structure(bands, ax=ax)

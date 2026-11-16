@@ -25,9 +25,14 @@ from mdapy.visualization import plot
 scale = np.linspace(0.85, 1.25, 41)
 with plot.style():
     fig, ax = plot.figure("single")
-    for structure, a, label in (("diamond", 5.431, "diamond"), ("sc", 2.53, "simple cubic")):
+    for structure, a, label in (
+        ("diamond", 5.431, "diamond"),
+        ("sc", 2.53, "simple cubic"),
+    ):
         cell = build_crystal(structure, a, elements="Si")
-        cells = [cell.with_box(cell.box.matrix * s, scale_positions=True) for s in scale]
+        cells = [
+            cell.with_box(cell.box.matrix * s, scale_positions=True) for s in scale
+        ]
         energy = [potential.compute(c, ("energy",)).energy / len(c) for c in cells]
         volume = [c.box.volume / len(c) for c in cells]
         ax.plot(volume, energy, label=label)

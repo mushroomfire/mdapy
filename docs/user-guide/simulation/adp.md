@@ -22,7 +22,11 @@ from mdapy.visualization import plot
 cell = build_crystal("fcc", 3.52, elements="Ni")
 a = minimize(cell, potential, cell="full", max_stress=1e-4).system.box.matrix[0, 0]
 layers = build_crystal(
-    "fcc", a, elements="Ni", orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)], repeat=(2, 3, 4)
+    "fcc",
+    a,
+    elements="Ni",
+    orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)],
+    repeat=(2, 3, 4),
 )
 # along [11-2] on (111), to the stacking fault at a sixth and beyond
 fault = stacking_fault_energy(layers, potential, [a * np.sqrt(6) / 2, 0, 0], points=25)
@@ -35,7 +39,8 @@ with plot.style():
 ![The generalized stacking fault energy of nickel with the ADP potential](images/adp.png)
 
 *Nickel of the ADP potential of Mishin et al.: the intrinsic stacking fault
-at a sixth of [11-2], and the unstable fault before it.*
+at a third of the way, 1/6 [11-2], of 137 mJ/m², near the measured 125 mJ/m²,
+and the unstable fault before it, of 299 mJ/m².*
 
 `ADP(path)` reads a potential file of `pair_style adp` of LAMMPS and computes
 it as LAMMPS does: the [embedded atom method](eam.md) with the dipole and the

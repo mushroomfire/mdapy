@@ -46,56 +46,76 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 ## 🧰 What it does
 
-Structures come from files or are built, live in a `System`, and its neighbors feed the
-analyses and the calculators.
+Structures are read or built into a `System`; its neighbor lists and the calculators
+feed the analyses and the simulations, and the results are drawn or fitted. Each box
+opens its pages.
 
-```mermaid
-flowchart TB
-    files[("<b>Files</b><br/>extended XYZ · LAMMPS · POSCAR<br/>OUTCAR · CIF · PDB · MDAPY")]
-    build["<b>Structure builder</b><br/>crystals · alloys · defects<br/>dislocations · polycrystals"]
-    system(["<b>System</b><br/>box · topology · trajectory"])
-    neighbors(["<b>Neighbor lists</b>"])
-    visual["<b>Visualization</b><br/>rendering · movies · plots"]
-    mlip["<b>MLIP</b><br/>VASP training sets · descriptors<br/>choosing frames · errors · uncertainty"]
-    analysis["<b>Analysis</b><br/>structures · local order · defects · dynamics"]
-    calculators["<b>Calculators</b><br/>native EAM · NEP<br/>interfaces to LAMMPS · ASE · VASP"]
-    minimization["<b>Relaxation and dynamics</b><br/>minimization · molecular dynamics<br/>defect energies"]
-    lattice["<b>Lattice dynamics</b><br/>elastic constants · phonons<br/>sheets · finite temperature"]
-    thermodynamics["<b>Thermodynamics</b><br/>free energy · melting points · phase diagrams<br/>stacking faults with temperature"]
-    packages["<b>Interoperability</b><br/>ASE · OVITO · pymatgen · freud<br/>LAMMPS · VASP · GPUMD"]
-    fitting["<b>Fitting</b><br/>splines · least squares<br/>equations of state"]
+<div class="feature-map" markdown>
 
-    files <--> system
-    build --> system
-    packages <--> system
-    packages <--> calculators
-    system --> neighbors
-    system --> visual
-    files --> mlip
-    calculators --> mlip
-    neighbors --> analysis
-    neighbors --> calculators
-    calculators --> minimization
-    minimization --> lattice
-    minimization --> thermodynamics
-    analysis --> fitting
-    lattice --> fitting
+<div class="feature-stage" markdown>
+<p class="feature-label">Input</p>
+<div class="feature-cells" markdown>
 
-    classDef core fill:#2563eb40,stroke:#2563eb,stroke-width:4px
-    classDef data fill:#3b82f61f,stroke:#3b82f6,stroke-width:2px
-    classDef analysis fill:#ea580c26,stroke:#ea580c,stroke-width:2px
-    classDef simulation fill:#9333ea26,stroke:#9333ea,stroke-width:2px
-    classDef build fill:#16a34a26,stroke:#16a34a,stroke-width:2px
-    classDef visual fill:#db277726,stroke:#db2777,stroke-width:2px
-    classDef mlip fill:#0d948826,stroke:#0d9488,stroke-width:2px
-    class system,neighbors core
-    class files,packages data
-    class analysis,fitting analysis
-    class calculators,minimization,lattice,thermodynamics simulation
-    class build build
-    class visual visual
-    class mlip mlip
-```
+[<b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span>](basics/io.md){ .feature-card }
+
+[<b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span>](user-guide/build/crystals.md){ .feature-card }
+
+[<b>Interoperability</b><span>ASE · OVITO · pymatgen · freud · LAMMPS · VASP · GPUMD</span>](user-guide/interop/ase.md){ .feature-card }
+
+</div>
+</div>
+
+<div class="feature-stage feature-core" markdown>
+<p class="feature-label">Core</p>
+<div class="feature-cells" markdown>
+
+[<b>System</b><span>box · topology · trajectory · any property of the atoms</span>](basics/system.md){ .feature-card }
+
+[<b>Neighbor lists</b><span>built once, shared by analyses and calculators</span>](basics/neighbor.md){ .feature-card }
+
+[<b>Calculators</b><span>native EAM · NEP; LAMMPS · ASE · VASP</span>](user-guide/simulation/calculators.md){ .feature-card }
+
+</div>
+</div>
+
+<div class="feature-stage" markdown>
+<p class="feature-label">Analyze</p>
+<div class="feature-cells" markdown>
+
+[<b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span>](user-guide/analysis/overview.md){ .feature-card }
+
+[<b>MLIP</b><span>VASP training sets · descriptors · choosing frames · errors · uncertainty</span>](user-guide/mlip/vasp.md){ .feature-card }
+
+</div>
+</div>
+
+<div class="feature-stage" markdown>
+<p class="feature-label">Simulate</p>
+<div class="feature-cells feature-chain" markdown>
+
+[<b>Relaxation and dynamics</b><span>minimization · molecular dynamics · defect energies</span>](user-guide/simulation/minimize.md){ .feature-card }
+
+<span class="feature-arrow" aria-hidden="true">→</span>
+
+[<b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span>](user-guide/simulation/elastic-constants.md){ .feature-card }
+
+[<b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span>](user-guide/simulation/free-energy.md){ .feature-card }
+
+</div>
+</div>
+
+<div class="feature-stage" markdown>
+<p class="feature-label">Output</p>
+<div class="feature-cells" markdown>
+
+[<b>Visualization</b><span>rendering · movies · plots · colors</span>](user-guide/visualization/rendering.md){ .feature-card }
+
+[<b>Fitting</b><span>splines · least squares · equations of state</span>](user-guide/fitting/interpolation.md){ .feature-card }
+
+</div>
+</div>
+
+</div>
 
 ## 📦 Install
 

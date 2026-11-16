@@ -55,24 +55,113 @@
   text-align: center;
 }
 
-/* The cards of the home page, one per row, colored as the parts of the
-   feature map above them, in the order of the cards. */
-.md-typeset .grid.cards {
-  grid-template-columns: 1fr;
+/* The map of the features on the home page: a row for each stage, the
+   core in ink, each box a link to its pages. */
+.md-typeset .feature-map {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.2em 0 1.6em;
 }
-.md-typeset .grid.cards > ul > li {
-  border-top-width: 4px;
+.md-typeset .feature-stage {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: stretch;
 }
-.md-typeset .grid.cards > ul > li:nth-child(1) { border-top-color: #3b82f6; }
-.md-typeset .grid.cards > ul > li:nth-child(2) { border-top-color: #ea580c; }
-.md-typeset .grid.cards > ul > li:nth-child(3) { border-top-color: #16a34a; }
-.md-typeset .grid.cards > ul > li:nth-child(4) { border-top-color: #9333ea; }
-.md-typeset .grid.cards > ul > li:nth-child(5) { border-top-color: #0d9488; border-top-style: dashed; }
-.md-typeset .grid.cards > ul > li:nth-child(6) { border-top-color: #db2777; }
-.md-typeset .grid.cards > ul > li:nth-child(7) { border-top-color: #d97706; border-top-style: dashed; }
-.md-typeset .grid.cards > ul > li:nth-child(8) { border-top-color: #64748b; }
-.md-typeset .grid.cards .lg {
-  font-size: 1.6em;
+.md-typeset .feature-label {
+  margin: 0;
+  align-self: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .feature-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+.md-typeset .feature-cells > p {
+  display: flex;
+  margin: 0;
+}
+.md-typeset a.feature-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.3rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-typeset-a-color);
+  text-decoration: none;
+  line-height: 1.35;
+  transition: border-color 125ms, color 125ms;
+}
+.md-typeset a.feature-card b {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.md-typeset a.feature-card span {
+  font-size: 0.66rem;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset a.feature-card:hover,
+.md-typeset a.feature-card:focus-visible {
+  border-color: var(--md-default-fg-color--light);
+}
+.md-typeset a.feature-card:hover b,
+.md-typeset a.feature-card:focus-visible b {
+  color: var(--md-accent-fg-color);
+}
+/* the core: the system, its neighbor lists and the calculators, in ink */
+.md-typeset .feature-core a.feature-card {
+  background: var(--md-primary-bg-color);
+  border-color: var(--md-primary-bg-color);
+  color: var(--md-primary-fg-color);
+}
+.md-typeset .feature-core a.feature-card span {
+  color: var(--md-primary-fg-color);
+  opacity: 0.7;
+}
+.md-typeset .feature-core a.feature-card:hover b,
+.md-typeset .feature-core a.feature-card:focus-visible b {
+  color: var(--md-primary-fg-color);
+  text-decoration: underline;
+}
+/* the simulation, a chain: relaxation, then the two methods that start
+   from a relaxed crystal */
+.md-typeset .feature-chain {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr);
+}
+.md-typeset .feature-chain > p:has(.feature-arrow) {
+  align-items: center;
+}
+.md-typeset .feature-arrow {
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.9rem;
+}
+@media screen and (max-width: 37.5em) {
+  .md-typeset .feature-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+  }
+  .md-typeset .feature-stage + .feature-stage {
+    margin-top: 0.4rem;
+  }
+  .md-typeset .feature-chain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .md-typeset .feature-chain > p:has(.feature-arrow) {
+    justify-content: center;
+  }
+  .md-typeset .feature-arrow {
+    display: inline-block;
+    transform: rotate(90deg);
+    line-height: 1;
+  }
 }
 
 /* The banner over a version other than the latest release: neutral, as the rest. */

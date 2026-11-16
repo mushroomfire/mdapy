@@ -23,6 +23,9 @@ Since 2.1.0rc1:
   into an alloy as LAMMPS does: the tables interpolated onto one grid, the pairs from the
   effective charges. `EAM.path` is then the tuple of the files. See
   [Funcfl files](../user-guide/simulation/eam.md#funcfl-files).
+- A new example, [LAMMPS on many processes with MPI](../examples/mpi.md): a script started by
+  `mpirun` builds and analyses on its main process and runs LAMMPS through MDAPY on every
+  process, 12 times faster on 16 processes for 108 000 atoms.
 
 ## 2.1.0rc1
 

@@ -134,6 +134,10 @@ def test_mixing_rules():
             "given twice",
         ),
         (
+            lambda: LennardJones({"Ar": (1, 1), ("Ar", "Ar"): (2, 1)}, 5.0),
+            "given alone and as Ar–Ar",
+        ),
+        (
             lambda: Morse({"Cu": (1, 1, 1), "Ni": (1, 1, 1)}, 5.0),
             "Cu–Ni has no parameters",
         ),

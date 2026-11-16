@@ -63,6 +63,12 @@ Improved tetrahedron method for Brillouin-zone integrations, *Phys. Rev. B*
 [doi:10.1103/PhysRevB.49.16223](https://doi.org/10.1103/PhysRevB.49.16223)
 { #blochl1994 }
 
+**Bochkarev et al. (2026).** A. Bochkarev, Y. Lysogorskiy, A. Subramanyam,
+R. Drautz and D. Perez, Exploring the extremes: atomic basis for multi-elemental
+materials science under complex thermodynamic conditions (2026).
+[arXiv:2602.23489](https://arxiv.org/abs/2602.23489)
+{ #bochkarev2026 }
+
 **Bonald et al. (2018).** T. Bonald, B. Charpentier, A. Galland and
 A. Hollocou, Hierarchical graph clustering using node pair sampling,
 *MLG 2018, 14th International Workshop on Mining and Learning with Graphs*
@@ -412,6 +418,12 @@ Eng.* **20**, 045021 (2012).
 atomistic modeling of crystals, *JOM* **66**, 399 (2014).
 [doi:10.1007/s11837-013-0827-5](https://doi.org/10.1007/s11837-013-0827-5)
 { #stukowski2014 }
+
+**Subramanyam and Perez (2025).** A. P. A. Subramanyam and D. Perez,
+Information-entropy-driven generation of material-agnostic datasets for
+machine-learning interatomic potentials, *npj Comput. Mater.* **11**, 218 (2025).
+[doi:10.1038/s41524-025-01602-9](https://doi.org/10.1038/s41524-025-01602-9)
+{ #subramanyam2025 }
 
 **Surblys et al. (2019).** D. Surblys, H. Matsubara, G. Kikugawa and T. Ohara,
 Application of atomic stress to compute heat flux via molecular dynamics for systems

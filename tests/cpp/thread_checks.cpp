@@ -32,6 +32,7 @@
 #include "analysis/dislocations.h"
 #include "analysis/geometry.h"
 #include "analysis/quests.h"
+#include "analysis/scaled_basis.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
@@ -1582,7 +1583,15 @@ void coverage() {
     const auto n = static_cast<std::int64_t>(positions.size() / 3);
     const mdapy::neighbor::NeighborPairs pairs =
         mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 5.0);
-    std::vector<double> first_descriptor, first_sums;
+    // two elements by the parity of the atoms, for the descriptor of the
+    // generation of structures
+    std::vector<std::int32_t> species(static_cast<std::size_t>(n));
+    for (std::int64_t i = 0; i < n; ++i) {
+        species[static_cast<std::size_t>(i)] = static_cast<std::int32_t>(i % 2);
+    }
+    const double radii[2] = {1.21, 1.32};
+    const mdapy::analysis::ScaledBasis scaled_basis;
+    std::vector<double> first_descriptor, first_sums, first_basis;
     for (int threads : kThreads) {
         mdapy::set_num_threads(threads);
         const std::vector<double> descriptor =
@@ -1599,6 +1608,13 @@ void coverage() {
             }
             check(positive, "the Gaussian sum of a point among the references is at least one");
         }
+        const std::vector<double> scaled = mdapy::analysis::scaled_basis(
+            scaled_basis, 2, species.data(), radii, n, positions.data(), matrix, pairs.offsets.data(),
+            pairs.neighbors.data(), pairs.shifts.data());
+        if (first_basis.empty()) {
+            first_basis = scaled;
+        }
+        check(scaled == first_basis, "scaled-basis descriptors are the same for any thread count");
         check(descriptor == first_descriptor, "QUESTS descriptors are the same for any thread count");
         check(sums == first_sums, "Gaussian sums are the same for any thread count");
     }

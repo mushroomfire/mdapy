@@ -8,6 +8,7 @@ models against training sets, the coverage of descriptor space, the choice
 of frames and perturbed structures."""
 
 from mdapy.mlip._coverage import QUESTS, entropy, information_gain
+from mdapy.mlip._generation import generate_structures
 from mdapy.mlip._selection import (
     PrincipalComponents,
     farthest_point_sampling,
@@ -40,6 +41,7 @@ __all__ = [
     "read_gpumd",
     "PrincipalComponents",
     "farthest_point_sampling",
+    "generate_structures",
     "perturb",
     "principal_components",
     "structure_descriptors",

@@ -8,6 +8,14 @@
   `mlip.QUESTS(cutoff, num_neighbors)`, whose `descriptors` have `dimension` values per
   atom. The information gain stays finite far from all reference points. See
   [Coverage of descriptor space](../user-guide/mlip/coverage.md).
+- `mlip.generate_structures` makes the structures of a training set without a model or a
+  calculation: small periodic cells of random shape, size and composition whose atoms,
+  box and elements are moved while they raise the entropy of the descriptors of the set,
+  after Subramanyam and Perez (2025) and Bochkarev et al. (2026). The volume per atom
+  and the shortest distances bound them, a calculator and `max_energy` their energy, a
+  `reference` training set is complemented, and the structures come in the order they
+  were kept, so that the first n make a set of their own. See
+  [Generated structures](../user-guide/mlip/generation.md).
 
 ## 2.1.0 (not released)
 

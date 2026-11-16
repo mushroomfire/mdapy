@@ -1,0 +1,326 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+import itertools
+import math
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.elements import COVALENT_RADII, SYMBOLS
+from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.mlip import QUESTS, generate_structures, information_gain, perturb
+from mdapy.mlip._generation import _BASIS, _Entropy, _Generator
+from mdapy.transform import replicate
+
+
+def radius(element):
+    return COVALENT_RADII[SYMBOLS.index(element)]
+
+
+def images(system, reach):
+    """Every pair within reach over the periodic images: owner, other and
+    vector."""
+    box = system.box
+    x = system["positions"]
+    counts = [
+        int(math.ceil(reach / t)) if p else 0
+        for t, p in zip(box.thickness, box.pbc, strict=True)
+    ]
+    shifts = np.array(
+        list(itertools.product(*[range(-c, c + 1) for c in counts])), dtype=float
+    )
+    pairs = []
+    for i in range(len(x)):
+        for j in range(len(x)):
+            for s in shifts:
+                if i == j and not s.any():
+                    continue
+                d = x[j] + s @ box.matrix - x[i]
+                if np.linalg.norm(d) < reach:
+                    pairs.append((i, j, d))
+    return pairs
+
+
+def chebyshev(s, cutoff, count):
+    x = 2 * (s / cutoff - 1) ** 2 - 1
+    fc = 0.5 * (1 + np.cos(np.pi * s / cutoff))
+    return np.array([0.5 * (np.cos(k * np.arccos(x)) + 1) * fc for k in range(count)])
+
+
+def brute_force(system, elements):
+    """The descriptor of the generation, from its definition."""
+    radial, angular, l_max, chemical, cutoff, angular_cutoff = _BASIS
+    radii = np.array([radius(e) for e in system["element"]])
+    kinds = [list(elements).index(e) for e in system["element"]]
+    several = len(elements) > 1
+    width = radial + angular * l_max + (chemical * len(elements) if several else 0)
+    out = np.zeros((len(system), width))
+    near = {i: [] for i in range(len(system))}
+    for i, j, d in images(system, 2 * radii.max() * cutoff):
+        r = np.linalg.norm(d)
+        s = r / (radii[i] + radii[j])
+        if s >= cutoff:
+            continue
+        f = chebyshev(s, cutoff, max(radial, chemical))
+        out[i, :radial] += f[:radial]
+        if several:
+            start = radial + angular * l_max + kinds[j] * chemical
+            out[i, start : start + chemical] += f[:chemical]
+        if s < angular_cutoff:
+            near[i].append((d / r, chebyshev(s, angular_cutoff, angular)))
+    for i, pairs in near.items():
+        for (u, f), (v, g) in itertools.product(pairs, pairs):
+            c = np.clip(u @ v, -1, 1)
+            for n in range(angular):
+                for degree in range(1, l_max + 1):
+                    p = np.polynomial.legendre.legval(c, [0] * degree + [1])
+                    out[i, radial + n * l_max + degree - 1] += f[n] * g[n] * p
+    return out
+
+
+def scattered(elements, n=12, seed=0, pbc=True):
+    """Atoms of the elements at random in a small triclinic box, apart."""
+    rng = np.random.default_rng(seed)
+    box = mdapy.Box([[7.0, 0, 0], [1.5, 6.5, 0], [-1.0, 0.8, 7.5]], pbc=pbc)
+    points = []
+    while len(points) < n:
+        p = box.to_cartesian(rng.random((1, 3)))[0]
+        f = box.to_fractional(p - np.array(points).reshape(-1, 3) + box.origin)
+        f -= np.round(f) * np.asarray(box.pbc)
+        if not points or np.linalg.norm(f @ box.matrix, axis=1).min() > 1.9:
+            points.append(p)
+    return mdapy.System(
+        np.array(points), box, elements=list(rng.choice(elements, size=n))
+    )
+
+
+def generator(elements):
+    return _Generator(tuple(elements), (2, 8), (10.0, 30.0), 0.75, None)
+
+
+class TestDescriptor:
+    @pytest.mark.parametrize("elements", [["Al"], ["Cu", "Zr"], ["Ni", "Al", "Cr"]])
+    @pytest.mark.parametrize("pbc", [True, False], ids=["periodic", "free"])
+    def test_as_brute_force(self, elements, pbc):
+        system = scattered(elements, pbc=pbc)
+        ours = generator(elements).frame_descriptors(system)
+        np.testing.assert_allclose(ours, brute_force(system, elements), atol=1e-11)
+
+    def test_invariances(self):
+        system = scattered(["Cu", "Zr"], seed=3)
+        g = generator(["Cu", "Zr"])
+        x = g.frame_descriptors(system)
+        order = np.random.default_rng(1).permutation(len(system))
+        moved = system.gather(order).with_columns(
+            positions=system["positions"][order] + [2.0, -3.0, 1.0]
+        )
+        np.testing.assert_allclose(g.frame_descriptors(moved), x[order], atol=1e-12)
+        copies = g.frame_descriptors(replicate(system, (2, 1, 1)))
+        np.testing.assert_allclose(copies, np.tile(x, (2, 1)), atol=1e-12)
+        with mdapy.num_threads(1):
+            assert np.array_equal(g.frame_descriptors(system), x)
+
+    def test_one_element_has_no_block_of_elements(self):
+        x = generator(["Al"]).frame_descriptors(scattered(["Al"]))
+        assert x.shape[1] == 8 + 4 * 4
+        y = generator(["Cu", "Zr"]).frame_descriptors(scattered(["Cu", "Zr"]))
+        assert y.shape[1] == 8 + 4 * 4 + 2 * 2
+
+
+class TestEntropy:
+    def test_log_determinant(self):
+        """Half the log determinant of the covariance of the points with a
+        thousandth on its diagonal, raised by points that spread them."""
+        rng = np.random.default_rng(0)
+        z = rng.normal(size=(50, 3)) * [1.0, 2.0, 0.5]
+        entropy = _Entropy(3)
+        assert entropy.raised_by(z)
+        entropy.add(z[:30])
+        expected = 0.5 * np.linalg.slogdet(np.cov(z.T, bias=True) + 1e-3 * np.eye(3))[1]
+        assert entropy.with_points(z[30:]) == pytest.approx(expected, rel=1e-12)
+        assert entropy.raised_by(10 * z[30:])
+        assert not entropy.raised_by(np.repeat(z[:30].mean(0, keepdims=True), 5, 0))
+
+
+def pair_distances_ok(system, closest):
+    radii = np.array([radius(e) for e in system["element"]])
+    for i, j, d in images(system, 2 * radii.max() * closest):
+        if np.linalg.norm(d) < closest * (radii[i] + radii[j]) - 1e-9:
+            return False
+    return True
+
+
+class TestGenerate:
+    def test_cells_keep_their_bounds(self):
+        frames = generate_structures(
+            ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), steps=50, seed=4
+        )
+        assert len(frames) == 12
+        for frame in frames:
+            assert 3 <= len(frame) <= 10
+            assert set(frame["element"]) <= {"Cu", "Zr"}
+            assert frame.box.pbc.all()
+            assert 14.0 - 1e-9 <= frame.box.volume / len(frame) <= 28.0 + 1e-9
+            fractional = frame.box.to_fractional(frame["positions"])
+            assert ((fractional >= -1e-12) & (fractional < 1 + 1e-12)).all()
+            assert pair_distances_ok(frame, 0.75)
+        assert {len(set(frame["element"])) for frame in frames} == {1, 2}
+
+    def test_same_seed_same_structures(self):
+        first = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=7)
+        again = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=7)
+        other = generate_structures("Al", 5, volume=(10.0, 25.0), steps=30, seed=8)
+        for a, b in zip(first, again, strict=True):
+            assert np.array_equal(a["positions"], b["positions"])
+            assert np.array_equal(a.box.matrix, b.box.matrix)
+        assert not np.array_equal(first[1]["positions"], other[1]["positions"])
+
+    @pytest.mark.parametrize("per", ["atom", "structure"])
+    def test_moves_cover_more_than_random_cells(self, per):
+        """Structures moved to raise the entropy leave the environments of
+        shaken crystals closer to the set than random cells of the same
+        number of atoms do."""
+        volume = (8.0, 33.0)
+        moved = generate_structures("Al", 60, volume=volume, per=per, seed=1)
+        atoms = sum(len(f) for f in moved)
+        random = generate_structures("Al", 200, volume=volume, steps=0, seed=1)
+        kept, total = [], 0
+        for frame in random:
+            if total >= atoms:
+                break
+            kept.append(frame)
+            total += len(frame)
+        quests = QUESTS()
+        crystals = [
+            build_crystal("fcc", 4.05, elements="Al", repeat=(2, 2, 2)),
+            build_crystal("bcc", 3.24, elements="Al", repeat=(2, 2, 2)),
+        ]
+        tests = np.concatenate(
+            [
+                quests.descriptors(f)
+                for c in crystals
+                for f in perturb(c, 2, displacement=0.1, seed=0)
+            ]
+        )
+
+        def gain(frames):
+            x = np.concatenate([quests.descriptors(f) for f in frames])
+            return np.median(information_gain(tests, x))
+
+        assert gain(moved) < 0.75 * gain(kept)
+
+    def test_reference_is_complemented(self):
+        """A reference of fcc crystals is part of the set: structures moved
+        against it raise the entropy of both together."""
+        fcc = build_crystal("fcc", 4.05, elements="Al", repeat=(2, 2, 2))
+        reference = perturb(fcc, 20, displacement=0.05, seed=2)
+        frames = generate_structures(
+            "Al", 5, volume=(10.0, 25.0), steps=40, reference=reference, seed=3
+        )
+        assert len(frames) == 5
+        with pytest.raises(InvalidParameter, match="not given"):
+            generate_structures("Cu", 1, volume=(10.0, 25.0), reference=reference)
+        with pytest.raises(MissingProperty, match="element"):
+            generate_structures(
+                "Al",
+                1,
+                volume=(10.0, 25.0),
+                reference=[mdapy.System(fcc["positions"], fcc.box)],
+            )
+        with pytest.raises(InvalidParameter, match="sequence of System"):
+            generate_structures(
+                "Al", 1, volume=(10.0, 25.0), reference=[fcc["positions"]]
+            )
+
+    def test_energy_bound(self):
+        eam = EAM.zhou(["Al"])
+        frames = generate_structures(
+            "Al",
+            10,
+            volume=(12.0, 25.0),
+            steps=40,
+            calculator=eam,
+            max_energy=-2.8,
+            seed=5,
+        )
+        energies = [eam.compute(f, ("energy",)).energy / len(f) for f in frames]
+        assert len(frames) == 10 and max(energies) <= -2.8
+
+    def test_stops_when_too_few_are_kept(self, monkeypatch):
+        """With every other candidate kept, a tolerance above one half stops
+        the generation once 50 candidates were tried; with none kept, it
+        stops after 100 in a row."""
+        state = {"calls": 0}
+
+        def every_other(self, z):
+            state["calls"] += 1
+            return state["calls"] % 2 == 1
+
+        monkeypatch.setattr(_Entropy, "raised_by", every_other)
+        frames = generate_structures(
+            "Al", 1000, volume=(10.0, 25.0), steps=0, tolerance=0.6, seed=0
+        )
+        assert len(frames) == 25 and state["calls"] == 50
+        frames = generate_structures(
+            "Al", 1000, volume=(10.0, 25.0), steps=0, tolerance=0.4, seed=0
+        )
+        assert len(frames) == 1000
+        monkeypatch.setattr(_Entropy, "raised_by", lambda self, z: False)
+        assert generate_structures("Al", 10, volume=(10.0, 25.0), steps=0) == []
+
+    def test_volume_too_small(self):
+        with pytest.raises(InvalidParameter, match="too small for closest"):
+            generate_structures("Al", 1, volume=(1.0, 1.0), atoms=(8, 8))
+        frames = generate_structures(
+            "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), steps=20, seed=0
+        )
+        for frame in frames:
+            assert frame.box.volume == pytest.approx(16.0, rel=1e-12)
+
+    def test_progress_and_cancel(self):
+        calls = []
+        generate_structures(
+            "Al", 3, volume=(10.0, 25.0), steps=5, seed=0,
+            progress=lambda done, total: calls.append((done, total)),
+        )  # fmt: skip
+        assert calls == [(1, 3), (2, 3), (3, 3)]
+        token = mdapy.CancelToken()
+        token.cancel()
+        with pytest.raises(Cancelled):
+            generate_structures("Al", 3, volume=(10.0, 25.0), cancel=token)
+        assert generate_structures("Al", 0, volume=(10.0, 25.0)) == []
+
+    @pytest.mark.parametrize(
+        "elements, kwargs, match",
+        [
+            ([], {}, "at least one element"),
+            ("Xx", {}, "covalent radius"),
+            (["Al", "Al"], {}, "twice"),
+            ("Al", {"count": -1}, "count"),
+            ("Al", {"count": True}, "count"),
+            ("Al", {"volume": 10.0}, "pair"),
+            ("Al", {"volume": (20.0, 10.0)}, "smallest <= largest"),
+            ("Al", {"volume": (0.0, 10.0)}, "smallest <= largest"),
+            ("Al", {"volume": ("a", 10.0)}, "two numbers"),
+            ("Al", {"atoms": (2.5, 4)}, "two numbers"),
+            ("Al", {"atoms": (0, 4)}, "smallest <= largest"),
+            ("Al", {"closest": 0.0}, "closest"),
+            ("Al", {"closest": True}, "closest"),
+            ("Al", {"per": "frame"}, "per"),
+            ("Al", {"steps": -1}, "steps"),
+            ("Al", {"max_energy": -3.0}, "together"),
+            ("Al", {"tolerance": 1.0}, "tolerance"),
+            ("Al", {"tolerance": "0.1"}, "tolerance"),
+            ("Al", {"cancel": object()}, "CancelToken"),
+        ],
+    )
+    def test_invalid(self, elements, kwargs, match):
+        arguments = {"count": 1, "volume": (10.0, 25.0)} | kwargs
+        with pytest.raises(InvalidParameter, match=match):
+            generate_structures(elements, **arguments)

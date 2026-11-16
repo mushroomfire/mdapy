@@ -91,6 +91,7 @@ one name everywhere.
 | QUESTS | A descriptor of the neighborhood of an atom from the distances to its nearest neighbors and between them, whatever their elements, and the measures of a set of descriptors made for it: entropy and information gain. |
 | entropy of a set | How much of descriptor space a set of points covers, such as the descriptors of the atoms of a training set: zero when all are the same, the logarithm of their number when no two are close. |
 | information gain | What a point adds to a set of reference points in descriptor space, the differential entropy of QUESTS: negative among them, positive away from them, where a model trained on them extrapolates. |
+| generated structure | A small periodic cell of a training set made without a model: a random cell whose atoms, box and elements were moved while they raised the entropy of the descriptors of the set. |
 | net force | The sum of the forces on all atoms of a frame: zero for a crystal or a cluster in vacuum. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |

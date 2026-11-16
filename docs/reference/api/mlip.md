@@ -36,8 +36,10 @@
 
 ::: mdapy.mlip.information_gain
 
-## Checking and perturbing frames
+## Checking, perturbing and generating frames
 
 ::: mdapy.mlip.check_frames
 
 ::: mdapy.mlip.perturb
+
+::: mdapy.mlip.generate_structures

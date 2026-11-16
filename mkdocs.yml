@@ -150,6 +150,7 @@ nav:
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md
           - Sharing neighbor lists: examples/neighbor-lists.md
+          - LAMMPS on many processes with MPI: examples/mpi.md
       - Pictures and figures:
           - A movie that flies through a crystal: examples/movie.md
           - Figures with MDAPY: examples/plotting.md

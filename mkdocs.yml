@@ -260,6 +260,7 @@ nav:
           - Choosing frames: user-guide/mlip/selection.md
           - Errors of a model: user-guide/mlip/errors.md
           - Uncertainty and novelty: user-guide/mlip/uncertainty.md
+          - Coverage of descriptor space: user-guide/mlip/coverage.md
           - Checking frames: user-guide/mlip/checks.md
           - Perturbed structures: user-guide/mlip/perturbation.md
       - Visualization:

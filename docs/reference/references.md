@@ -347,6 +347,13 @@ Comparison of atomic-level simulation methods for computing thermal conductivity
 [doi:10.1103/PhysRevB.65.144306](https://doi.org/10.1103/PhysRevB.65.144306)
 { #schelling2002 }
 
+**Schwalbe-Koda et al. (2025).** D. Schwalbe-Koda, S. Hamel, B. Sadigh, F. Zhou
+and V. Lordi, Model-free estimation of completeness, uncertainties, and outliers
+in atomistic machine learning using information theory,
+*Nat. Commun.* **16**, 4014 (2025).
+[doi:10.1038/s41467-025-59232-0](https://doi.org/10.1038/s41467-025-59232-0)
+{ #schwalbe-koda2025 }
+
 **Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
 High-throughput electronic band structure calculations: Challenges and
 tools, *Comput. Mater. Sci.* **49**, 299 (2010).

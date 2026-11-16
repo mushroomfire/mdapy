@@ -1,5 +1,14 @@
 # Release notes
 
+## 2.2.0 (not released)
+
+- `mlip.entropy` measures how much of descriptor space a training set covers, and
+  `mlip.information_gain` what new structures add to it, without labels and whatever the
+  model: the methods of QUESTS, with its descriptor of the nearest neighbors of each atom,
+  `mlip.QUESTS(cutoff, num_neighbors)`, whose `descriptors` have `dimension` values per
+  atom. The information gain stays finite far from all reference points. See
+  [Coverage of descriptor space](../user-guide/mlip/coverage.md).
+
 ## 2.1.0 (not released)
 
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points

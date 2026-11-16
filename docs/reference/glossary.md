@@ -88,6 +88,9 @@ one name everywhere.
 | committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
 | model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
 | novelty | The distance of a frame from the nearest frame of a training set in the space of descriptors. |
+| QUESTS | A descriptor of the neighborhood of an atom from the distances to its nearest neighbors and between them, whatever their elements, and the measures of a set of descriptors made for it: entropy and information gain. |
+| entropy of a set | How much of descriptor space a set of points covers, such as the descriptors of the atoms of a training set: zero when all are the same, the logarithm of their number when no two are close. |
+| information gain | What a point adds to a set of reference points in descriptor space, the differential entropy of QUESTS: negative among them, positive away from them, where a model trained on them extrapolates. |
 | net force | The sum of the forces on all atoms of a frame: zero for a crystal or a cluster in vacuum. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |

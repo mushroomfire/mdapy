@@ -14,7 +14,8 @@ compared with it on structures none of them was trained on: crystals,
 defects, compressed and expanded solids, liquids, surfaces, grain
 boundaries and a cluster, and in molecular dynamics of their own.
 
-The page runs on one GPU with MatterSim and torchnep installed.
+The page runs on one GPU with MatterSim and torchnep installed. It took an
+hour on an NVIDIA A100, half of it for the 120 trainings.
 
 <!-- needs: mattersim -->
 <!-- needs: torchnep -->
@@ -201,8 +202,26 @@ for seed in SEEDS:
 ```
 
 ```text
-(run)
+crystals              seed 0: 135 frames, 4804 atoms
+MD                    seed 0: 150 frames, 4800 atoms
+generated, no vacuum  seed 0: 591 frames, 4534 atoms
+generated             seed 0: 488 frames, 3523 atoms
+generated + crystals  seed 0: 490 frames, 4817 atoms
+crystals              seed 1: 135 frames, 4804 atoms
+MD                    seed 1: 150 frames, 4800 atoms
+generated, no vacuum  seed 1: 238 frames, 1736 atoms
+generated             seed 1: 337 frames, 2789 atoms
+generated + crystals  seed 1: 394 frames, 4809 atoms
+crystals              seed 2: 135 frames, 4804 atoms
+MD                    seed 2: 150 frames, 4800 atoms
+generated, no vacuum  seed 2: 608 frames, 4662 atoms
+generated             seed 2: 418 frames, 3151 atoms
+generated + crystals  seed 2: 465 frames, 4831 atoms
 ```
+
+*The crystals and MD sets hold 4800 atoms in 135 and 150 frames. The
+generated ones stop by themselves, after 240 to 610 structures of 7 to 8
+atoms on average, 1700 to 4700 atoms.*
 
 ## Test structures
 
@@ -369,8 +388,24 @@ for name in NAMES:
 ```
 
 ```text
-(run)
+forces (meV/Å) | energies (meV/atom)
+                        equilibrium  interstitial       extreme    interfaces       cluster
+crystals                  18 |    3    607 |   19     88 |   36     78 |   14    341 |  319
+MD                        12 |    3    703 |   26     87 |   52     56 |    3    267 |  209
+generated, no vacuum      43 |   18     50 |   15     51 |   17     74 |   11    213 |  131
+generated                 46 |   25     49 |   33     62 |   27     83 |   24    140 |   39
+generated + crystals      20 |   12     31 |   13     40 |    9     68 |   12    112 |   41
 ```
+
+*The models of perturbed crystals and of MD are best near equilibrium, and
+those of MD on surfaces too, where its liquid snapshots give atoms with few
+neighbors; far from what they hold they fail: an interstitial atom (0.6 to 0.7 eV/Å),
+half the volume of the crystal and the cluster. Generated structures cover
+all of these. Their slabs and clusters, the default, lower the error of the
+cluster's energy from 131 to 39 meV/atom, but not those of flat surfaces:
+the thin slabs of small cells have no crystal under their surface atoms.
+With a third of crystals, generated structures are best in every group but
+equilibrium and interfaces.*
 
 The mean over the fifteen test sets, against the atoms of the training set:
 
@@ -396,13 +431,20 @@ with plot.style():
     axes[1].set_ylabel("Energy RMSE (meV/atom)")
     for ax in axes:
         ax.set_xscale("log", base=2)
-        ax.set_yscale("log")
+        ax.set_xticks([600, 1200, 2400, 4800], ["600", "1200", "2400", "4800"])
         ax.set_xlabel("Atoms in the training set")
+        ax.set_ylim(bottom=0)
     axes[1].legend()
     plot.save(fig, "images/aluminium-learning", formats=("png",))
 ```
 
 ![Learning curves of the five training sets](images/aluminium-learning.png)
+
+*The mean errors over the fifteen test sets. Those of crystals and MD fall
+slowly, as more of the same adds little; those of generated sets fall fast
+until the generation stops by itself, their last points at the mean number
+of atoms of the three seeds. Generated structures with crystals are best at
+every size.*
 
 ## Properties
 
@@ -492,8 +534,22 @@ for name in NAMES:
 ```
 
 ```text
-(run)
+                             a (Å)    C11 (GPa)    C12 (GPa)    C44 (GPa)   E_vac (eV)  γ100 (J/m²)  γ111 (J/m²)    bcc (meV) 0.6 V0 (meV)
+teacher                      4.037      117.791       61.335       34.734        0.596        0.755        0.622       76.370     1582.911
+crystals                     0.002        8.394        1.655        2.972        0.150        0.119        0.111        4.045      136.376
+MD                           0.001        2.425        0.940        1.071        0.051        0.016        0.038        5.045      204.601
+generated, no vacuum         0.030       12.322        6.265        3.629        0.045        0.023        0.020       24.086      185.062
+generated                    0.031       16.315       11.432        3.477        0.104        0.061        0.049       22.053      191.569
+generated + crystals         0.006        1.844        6.243        3.200        0.039        0.041        0.048       19.805       39.560
 ```
+
+*Near equilibrium, the models of crystals and of MD give the lattice
+constant within 0.002 Å, the elastic constants within 1 to 8 GPa and bcc
+over fcc within 5 meV/atom; those of generated structures alone are off by
+0.03 Å, 4 to 16 GPa and over 20 meV/atom. With a third of crystals, generated
+structures come back to 0.006 Å and 2 to 6 GPa, with the best vacancy
+formation energy, and they alone give the energy of fcc at 0.6 V0, which the
+others miss by 140 to 200 meV/atom.*
 
 ## On their own
 
@@ -538,12 +594,33 @@ for name in NAMES:
 ```
 
 ```text
-(run)
+forces (meV/Å) and the runs that failed
+                         liquid 3000 K    0.5 V0 1500 K     1.6 V0 600 K
+crystals                      112  0/6        1478  2/6         149  0/6
+MD                             51  0/6        2191  6/6          91  0/6
+generated, no vacuum           82  0/6          92  0/6          84  0/6
+generated                      91  0/6         121  0/6          94  0/6
+generated + crystals           73  0/6          96  0/6          80  0/6
 ```
+
+*At half the volume of the crystal, the models of crystals and of MD fail:
+two atoms come within 1.5 Å in 2 and in all 6 of their runs, and where they
+still run their forces are off by 1.5 to 2.2 eV/Å. No model of a generated
+set fails, and their errors stay near those on the test structures. MD is
+best in the liquid, which it was trained on.*
 
 ## How many structures
 
-(results)
+The generation stops by itself when 100 structures in a row add nothing to
+the set: here after 1700 to 4700 atoms. The errors of the generated sets fall
+fast up to there, while those of crystals and MD stay more than twice as
+large with all their 4800 atoms. For aluminium, a few thousand atoms of
+generated structures, with a third as many of perturbed crystals for the
+details of equilibrium, make a set that holds from compressed solids to
+liquids and clusters, in cells small enough for DFT to compute many of them:
+with k-points of a fixed density, a calculation costs less per atom the fewer
+atoms it has. Where a generation stops early, as one seed here at 1736 atoms,
+another one given it as `reference` continues it.
 
 ## See also
 

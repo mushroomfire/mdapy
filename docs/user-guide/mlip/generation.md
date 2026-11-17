@@ -62,8 +62,9 @@ by the median [information gain](coverage.md) of their atoms: the lower,
 the better the set covers them, though no structure was made from a
 crystal. The sets hold cells of 2 to 32 atoms, a fifth of the random cells
 slabs or clusters. The first structures go to the edges of the volumes and
-shapes allowed; from about 1200 atoms on, the set covers the crystals better
-than the random cells, 17 nats against 24 at 2200 atoms.*
+shapes allowed; from about 600 atoms on, the set covers the crystals better
+than the random cells, 23 nats against 36 at 1500 atoms, where the
+generation stops by itself.*
 
 ## How it works
 
@@ -75,12 +76,16 @@ several elements, its composition is drawn uniformly over all compositions,
 and each atom's element from it. The atoms are placed at random, no two
 closer than `closest` times the sum of their covalent radii, also across the
 periodic boundaries, or, in cells too dense for that, on a jittered grid.
-A fraction `vacuum` of the cells then become slabs or clusters, half of
-each: the box is widened along its third edge, or along all three, so that
-the atoms are 10 Å farther from their images across it, or more when the
-reach of the descriptor is longer. The atoms stay in the box they were
-placed in, the box of the atoms, and their surfaces give the set the
-environments of atoms with neighbors on one side only.
+A fraction `vacuum` of the cells are slabs or clusters, half of each. The
+box of a slab is first stretched along its third edge and narrowed along the
+others, its volume kept, until it is as thick as the reach of the
+descriptor, 2.4 times twice the largest covalent radius (5.8 Å for
+aluminium), so that the atoms of its surfaces have others beneath them. Once
+the atoms are placed, the box is widened along its third edge, or along all
+three for a cluster, so that the atoms are 10 Å farther from their images
+across it, or more when the reach of the descriptor is longer. The atoms stay
+in the box they were placed in, the box of the atoms, and their surfaces
+give the set the environments of atoms with neighbors on one side only.
 
 The points of the set are the descriptors of its atoms (`per="atom"`), or
 their mean in each structure (`per="structure"`), each value divided by its
@@ -91,8 +96,9 @@ structure is moved, one of:
 
 - in two moves out of ten, the box of the atoms strained by a symmetric
   strain of components of 0.03, the atoms with it, when the volume per atom
-  stays within `volume` and no face of the box is narrower than a quarter of
-  its longest edge; the vacuum keeps its width;
+  stays within `volume`, no face of the box is narrower than a quarter of
+  its longest edge and a slab stays as thick as the reach; the vacuum keeps
+  its width;
 - with atoms of several elements, in one move out of ten, the elements of
   two of them swapped;
 - in the other moves, an atom displaced by a Gaussian of 0.3 times the mean
@@ -129,7 +135,7 @@ of the last 50 candidates were kept, or when 100 in a row were not.
 | `count` | int32 | | | the most structures |
 | `volume` | tuple of float64 | | Å³ | the smallest and largest volume per atom of the box of the atoms, without vacuum, such as half and twice that of the crystal |
 | `atoms` | tuple of int32 | (2, 32) | | the fewest and most atoms of a structure, with as many structures of each doubling of the number of atoms |
-| `vacuum` | float64 | 0.2 | | the fraction of the random cells that are slabs, with vacuum across the third edge, or clusters, with vacuum across all three, half of each; 0 for periodic cells only |
+| `vacuum` | float64 | 0.2 | | the fraction of the random cells that are slabs, at least as thick as the reach of the descriptor, with vacuum across the third edge, or clusters, with vacuum across all three, half of each; 0 for periodic cells only |
 | `closest` | float64 | 0.75 | | the shortest distance of two atoms, as a fraction of the sum of their covalent radii ([Cordero et al. 2008](../../reference/references.md#cordero2008)) |
 | `per` | str | `"atom"` | | the points of the set: `"atom"`, the descriptor of each atom; `"structure"`, their mean in each structure |
 | `steps` | int32 | 10 | | the moves tried on each structure per atom; 0 keeps the random cells that raise the entropy |
@@ -149,8 +155,10 @@ should learn.
 A list of systems in the order they were kept, at most `count`: periodic
 cells with an `element` column, the atoms wrapped into the box, without
 energies or forces; a slab or cluster is a periodic cell whose atoms leave
-the vacuum free. The first n structures make a set of their own, so that
-sets of several sizes come from one generation.
+the vacuum free. The `config_type` in the `info` of each, `"bulk"`, `"slab"`
+or `"cluster"`, says which it is, to group them, such as to hold out a part
+of each group for validation. The first n structures make a set of their
+own, so that sets of several sizes come from one generation.
 
 ## Errors
 

@@ -7,9 +7,10 @@
 some of them slabs or clusters in vacuum, whose atoms are moved to raise the
 entropy of the set."""
 
+import copy
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -297,6 +298,80 @@ class _Entropy:
         self.count += len(z)
 
 
+class _Run:
+    """A generation that can go on: the random cells and their moves, the
+    options, the scale of each value of the descriptor and the entropy of the
+    set so far."""
+
+    def __init__(self, generator, per, steps, calculator, max_energy, scale, entropy):
+        self.generator, self.per, self.steps = generator, per, steps
+        self.calculator, self.max_energy = calculator, max_energy
+        self.scale, self.entropy = scale, entropy
+
+    def copy(self) -> "_Run":
+        """The same generation, to go on apart; the calculator is shared."""
+        return _Run(
+            copy.deepcopy(self.generator), self.per, self.steps, self.calculator,
+            self.max_energy, self.scale, copy.deepcopy(self.entropy),
+        )  # fmt: skip
+
+    def points(self, x: np.ndarray) -> np.ndarray:
+        """The points of the set from the descriptor of a structure's atoms,
+        scaled once the scale is known."""
+        if self.per == "structure":
+            x = x.mean(axis=0, keepdims=True)
+        return x if self.scale is None else x / self.scale
+
+    def low_enough(self, cell: _Cell) -> bool:
+        if self.calculator is None:
+            return True
+        system = self.generator.system(cell)
+        found = self.calculator.compute(system, ("energy",))
+        return found.energy / len(cell.kinds) <= self.max_energy
+
+    def make(self, count: int, progress: Any, cancel: Any):
+        """count more structures, or fewer should _STALL candidates in a row
+        raise nothing, and the entropy of the set after each."""
+        generator, entropy = self.generator, self.entropy
+        kept: list[System] = []
+        values: list[float] = []
+        stalled = 0
+        while len(kept) < count and stalled < _STALL:
+            if cancel is not None and cancel.cancelled:
+                raise Cancelled("the generation of structures was cancelled")
+            cell = generator.random()
+            if not self.low_enough(cell):
+                stalled += 1
+                continue
+            z = self.points(generator.descriptors(cell))
+            if entropy.count:
+                best = entropy.with_points(z)
+                for _ in range(int(self.steps) * len(cell.kinds)):
+                    trial = generator.move(cell)
+                    if trial is None or not generator.apart(trial):
+                        continue
+                    zt = self.points(generator.descriptors(trial))
+                    value = entropy.with_points(zt)
+                    if value > best and self.low_enough(trial):
+                        cell, z, best = trial, zt, value
+            if not entropy.raised_by(z):
+                stalled += 1
+                continue
+            stalled = 0
+            entropy.add(z)
+            values.append(entropy.value())
+            kept.append(generator.system(cell))
+            if progress is not None:
+                progress(len(kept), count)
+        return kept, values
+
+
+def _count(count: Any) -> int:
+    if isinstance(count, bool) or not isinstance(count, int | np.integer) or count < 0:
+        raise InvalidParameter(f"count must be a non-negative integer, not {count!r}")
+    return int(count)
+
+
 @dataclass(frozen=True)
 class GeneratedStructures(Result):
     """Structures generated to cover descriptor space, and how the entropy
@@ -317,6 +392,58 @@ class GeneratedStructures(Result):
     structures: tuple
     atoms: np.ndarray
     entropy: np.ndarray
+    _run: Any = field(default=None, repr=False, compare=False)
+
+    def extend(
+        self, count: int, *, progress: Any = None, cancel: Any = None
+    ) -> "GeneratedStructures":
+        """These structures and count more, made where their generation
+        ended, as a larger count would have made them.
+
+        Parameters
+        ----------
+        count : int32
+            The structures to add.
+        progress : callable, optional
+            Called as ``progress(done, count)`` with the structures added.
+        cancel : CancelToken, optional
+            Stops the generation, which raises ``mdapy.errors.Cancelled``.
+
+        Returns
+        -------
+        GeneratedStructures
+            All the structures and the entropy of the set, count more, or
+            fewer should 1000 candidates in a row raise the entropy no more.
+            These structures stay as they are.
+
+        Raises
+        ------
+        InvalidParameter
+            For a count that is not a non-negative integer, or structures
+            that ``generate_structures`` did not make.
+        """
+        count = _count(count)
+        _native_token(cancel)  # checks its type
+        if self._run is None:
+            raise InvalidParameter(
+                "only the structures of generate_structures can be extended"
+            )
+        run = self._run.copy()
+        kept, values = run.make(count, progress, cancel)
+        return _result(
+            self.structures + tuple(kept),
+            np.concatenate([self.entropy, np.array(values, dtype=np.float64)]),
+            run,
+        )
+
+
+def _result(structures: tuple, entropy: np.ndarray, run: _Run) -> GeneratedStructures:
+    return GeneratedStructures(
+        structures=structures,
+        atoms=np.cumsum([len(s) for s in structures], dtype=np.int64),
+        entropy=entropy,
+        _run=run,
+    )
 
 
 def _element_list(elements: str | Sequence[str]) -> tuple[str, ...]:
@@ -411,10 +538,7 @@ def generate_structures(
         entropy of the set as they were kept.
     """
     names = _element_list(elements)
-    if count is None:
-        count = _PER_ELEMENT * len(names)
-    if isinstance(count, bool) or not isinstance(count, int | np.integer) or count < 0:
-        raise InvalidParameter(f"count must be a non-negative integer, not {count!r}")
+    count = _count(_PER_ELEMENT * len(names) if count is None else count)
     volume = _range(volume, "volume", integer=False)
     atoms = _range(atoms, "atoms", integer=True)
     if (
@@ -449,61 +573,15 @@ def generate_structures(
         names, atoms, volume, float(closest), np.random.default_rng(seed),
         float(vacuum),
     )  # fmt: skip
-
-    def low_enough(cell: _Cell) -> bool:
-        if calculator is None:
-            return True
-        found = calculator.compute(generator.system(cell), ("energy",))
-        return found.energy / len(cell.kinds) <= max_energy
-
-    def per_structure(x: np.ndarray) -> np.ndarray:
-        return x.mean(axis=0, keepdims=True) if per == "structure" else x
-
+    run = _Run(generator, per, steps, calculator, max_energy, None, None)
     # the scale of each value, from random cells
     pilot = np.concatenate(
-        [
-            per_structure(generator.descriptors(generator.random()))
-            for _ in range(_PILOT)
-        ]
+        [run.points(generator.descriptors(generator.random())) for _ in range(_PILOT)]
     )
     scale = pilot.std(axis=0)
     scale[scale == 0] = 1.0
-    entropy = _Entropy(len(scale))
+    run.scale, run.entropy = scale, _Entropy(len(scale))
     for frame in frames:
-        entropy.add(per_structure(generator.frame_descriptors(frame)) / scale)
-
-    kept: list[System] = []
-    values: list[float] = []
-    stalled = 0
-    while len(kept) < count and stalled < _STALL:
-        if cancel is not None and cancel.cancelled:
-            raise Cancelled("the generation of structures was cancelled")
-        cell = generator.random()
-        if not low_enough(cell):
-            stalled += 1
-            continue
-        z = per_structure(generator.descriptors(cell)) / scale
-        if entropy.count:
-            best = entropy.with_points(z)
-            for _ in range(int(steps) * len(cell.kinds)):
-                trial = generator.move(cell)
-                if trial is None or not generator.apart(trial):
-                    continue
-                zt = per_structure(generator.descriptors(trial)) / scale
-                value = entropy.with_points(zt)
-                if value > best and low_enough(trial):
-                    cell, z, best = trial, zt, value
-        if not entropy.raised_by(z):
-            stalled += 1
-            continue
-        stalled = 0
-        entropy.add(z)
-        values.append(entropy.value())
-        kept.append(generator.system(cell))
-        if progress is not None:
-            progress(len(kept), count)
-    return GeneratedStructures(
-        structures=tuple(kept),
-        atoms=np.cumsum([len(s) for s in kept], dtype=np.int64),
-        entropy=np.array(values, dtype=np.float64),
-    )
+        run.entropy.add(run.points(generator.frame_descriptors(frame)))
+    kept, values = run.make(count, progress, cancel)
+    return _result(tuple(kept), np.array(values, dtype=np.float64), run)

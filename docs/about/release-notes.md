@@ -21,9 +21,9 @@
   Subramanyam and Perez (2025) and Bochkarev et al. (2026). The volume per atom and the
   shortest distances bound them, a calculator and `max_energy` their energy, a
   `reference` training set is complemented. It makes `count` structures, 1000 for each
-  element by default, which the same seed with a larger count continues, and gives them
-  in the order they were kept with the entropy of the set as they were, in a
-  `GeneratedStructures`; the `config_type` of each, bulk, slab or cluster, groups them. See
+  element by default, and gives them in the order they were kept with the entropy of the
+  set as they were, in a `GeneratedStructures`, whose `extend` adds more where the
+  generation ended; the `config_type` of each, bulk, slab or cluster, groups them. See
   [Generated structures](../user-guide/mlip/generation.md).
 
 ## 2.1.0 (not released)

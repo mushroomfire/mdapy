@@ -88,10 +88,11 @@ That is a start, not an end:
 - the [information gain](coverage.md) of the structures a model must
   describe, against the set, as on the right above, tells whether the set
   covers them;
-- the same `seed` with a larger `count` makes the same first structures and
-  then more, so that a generation goes on where it ended; and
-  [farthest point sampling](selection.md) takes fewer from a set too large
-  to compute.
+- `result.extend(500)` adds 500 structures where the generation ended, as a
+  larger `count` would have made them, without making the first ones again;
+  the same `seed` with a larger `count` makes the same structures from the
+  start; and [farthest point sampling](selection.md) takes fewer from a set
+  too large to compute.
 
 ## How it works
 
@@ -187,6 +188,10 @@ A `GeneratedStructures`:
 | `atoms` | (S,) int64 | | the atoms of the first 1, 2, ... S structures |
 | `entropy` | (S,) float64 | nats | the entropy of the set of the first 1, 2, ... S structures, with the `reference` if one was given |
 
+| Method | Meaning |
+|---|---|
+| `extend(count, *, progress=None, cancel=None)` | these structures and `count` more, made where their generation ended, in a new `GeneratedStructures`; these stay as they are |
+
 The structures are periodic cells with an `element` column, the atoms
 wrapped into the box, without energies or forces; a slab or cluster is a
 periodic cell whose atoms leave the vacuum free. The `config_type` in the
@@ -205,6 +210,8 @@ a `vacuum` outside 0 to 1; a `closest` not above zero; an unknown `per`; `calcul
 `reference` that is not a sequence of systems or holds other elements; and
 volumes too small for the atoms to be placed apart in 200 cells in a row. It
 raises `MissingProperty` for a reference frame without an `element` column.
+`extend` raises `InvalidParameter` for a count that is not a non-negative
+integer, and for structures that `generate_structures` did not make.
 
 !!! quote "Please cite"
     [Subramanyam and Perez (2025)](../../reference/references.md#subramanyam2025)

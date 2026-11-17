@@ -15,7 +15,7 @@ from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.elements import COVALENT_RADII, SYMBOLS
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.mlip import generate_structures, perturb
+from mdapy.mlip import GeneratedStructures, generate_structures, perturb
 from mdapy.mlip._generation import _BASIS, _Entropy, _Generator
 from mdapy.transform import replicate
 
@@ -257,6 +257,35 @@ class TestGenerate:
         assert not np.array_equal(
             first.structures[1]["positions"], other.structures[1]["positions"]
         )
+
+    def test_extend(self):
+        """Structures extended by n are those a count larger by n makes, and
+        stay as they were: extending them again gives the same."""
+        options = {"volume": (10.0, 25.0), "steps": 3, "seed": 7}
+        first = generate_structures("Al", 5, **options)
+        whole = generate_structures("Al", 11, **options)
+        calls = []
+        longer = first.extend(4, progress=lambda done, total: calls.append(done))
+        again = first.extend(4)
+        assert len(first.structures) == 5 and calls == [1, 2, 3, 4]
+        for result, n in ((longer, 9), (again, 9), (longer.extend(2), 11)):
+            assert len(result.structures) == n
+            for a, b in zip(result.structures, whole.structures[:n], strict=True):
+                assert np.array_equal(a["positions"], b["positions"])
+                assert np.array_equal(a.box.matrix, b.box.matrix)
+            np.testing.assert_array_equal(result.entropy, whole.entropy[:n])
+            np.testing.assert_array_equal(result.atoms, whole.atoms[:n])
+        token = mdapy.CancelToken()
+        token.cancel()
+        with pytest.raises(Cancelled):
+            first.extend(2, cancel=token)
+        with pytest.raises(InvalidParameter, match="count"):
+            first.extend(-1)
+        bare = GeneratedStructures(
+            structures=(), atoms=np.zeros(0, np.int64), entropy=np.zeros(0)
+        )
+        with pytest.raises(InvalidParameter, match="extended"):
+            bare.extend(1)
 
     def test_the_entropy_as_the_structures_were_kept(self):
         """The entropy of the set rises with each structure kept: half the

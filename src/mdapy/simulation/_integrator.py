@@ -290,8 +290,11 @@ class _Native:
     # -- forces ---------------------------------------------------------------
 
     def __compute(self) -> None:
+        # a copy of the positions: the System may hold the array itself, and
+        # the steps change it in place, which would move the positions the
+        # kept neighbor list compares with
         current = System(table=self.__table.with_columns(
-            pl.Series("positions", self.__x, dtype=pl.Array(pl.Float64, 3))
+            pl.Series("positions", self.__x.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=self.__box())  # fmt: skip
         cutoff = float(self.__calculator.cutoff)
         neighbors = None

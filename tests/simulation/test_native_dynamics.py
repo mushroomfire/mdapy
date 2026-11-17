@@ -85,6 +85,23 @@ def test_langevin_samples_the_einstein_crystal():
         assert per_atom[group].mean() == pytest.approx(1.5 * kt, rel=0.05)
 
 
+def test_the_energies_of_a_hot_liquid(eam):
+    """In a liquid at 3000 K the atoms move much farther than half the skin
+    of the kept neighbor list: the energy of every frame is that of the
+    potential computed afresh."""
+    crystal = build_crystal("fcc", 4.05, elements="Al", repeat=(3, 3, 3))
+    start = crystal.with_box(crystal.box.matrix * 1.15 ** (1 / 3), scale_positions=True)
+    with MolecularDynamics(start, eam, timestep=0.002) as md:
+        md.velocities(3000, seed=1)
+        md.run(300, ensemble="nvt", temperature=3000, thermostat="langevin",
+               seed=1, thermo=50, save_every=50)  # fmt: skip
+        thermo, frames = md.thermo, md.frames
+    moved = frames[-1]["positions"] + frames[-1]["image"] @ start.box.matrix
+    assert np.linalg.norm(moved - frames[0]["positions"], axis=1).max() > 2.0
+    for frame, energy in zip(frames, thermo["potential_energy"], strict=True):
+        assert energy == pytest.approx(eam.compute(frame).energy, abs=1e-9)
+
+
 def test_the_same_seed_the_same_run(eam):
     def last(seed):
         with MolecularDynamics(alloy(), eam, timestep=0.002) as md:

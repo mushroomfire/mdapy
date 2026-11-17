@@ -23,7 +23,7 @@ hour on an NVIDIA A100, half of it for the 120 trainings.
 ## The teacher
 
 MatterSim, an ASE calculator, becomes an MDAPY one, which labels frames
-with their energy, forces and virial:
+with their energy, forces and virial and runs molecular dynamics:
 
 ```python
 import numpy as np
@@ -47,37 +47,40 @@ def labelled(frames):
     return out
 ```
 
-Molecular dynamics runs in ASE, with any ASE calculator:
+[Molecular dynamics](../user-guide/simulation/dynamics.md) runs in MDAPY,
+with the teacher or a student:
 
 ```python
-from ase import units
-from ase.constraints import FixAtoms
-from ase.md.langevin import Langevin
-from ase.md.velocitydistribution import MaxwellBoltzmannDistribution
-from mdapy.interop import from_ase, to_ase
+from mdapy.errors import CalculationFailed
+from mdapy.neighbor import NeighborList
+from mdapy.simulation import MolecularDynamics
 
 
-def md(system, calculator, temperature, steps, every, start=0, seed=0, fixed=None):
+def md(system, calculator, temperature, steps, every, start=0, seed=1):
     """Langevin dynamics of 2 fs steps: a snapshot every `every` steps after
     the first `start`, up to one with two atoms closer than 1.5 Å."""
-    atoms = to_ase(system)
-    atoms.calc = calculator
-    if fixed is not None:
-        atoms.set_constraint(FixAtoms(mask=fixed))
-    rng = np.random.default_rng(seed)
-    MaxwellBoltzmannDistribution(atoms, temperature_K=temperature, rng=rng)
-    dynamics = Langevin(
-        atoms, 2 * units.fs, temperature_K=temperature, friction=0.02, rng=rng
-    )
-    frames = []
-    for step in range(1, steps + 1):
-        dynamics.run(1)
-        if step > start and (step - start) % every == 0:
-            distances = atoms.get_all_distances(mic=True)
-            if not distances[np.triu_indices(len(atoms), 1)].min() >= 1.5:
-                break
-            frames.append(from_ase(atoms).drop("velocities"))
-    return frames
+    with MolecularDynamics(system, calculator, timestep=0.002) as run:
+        run.velocities(temperature, seed=seed)
+        try:
+            run.run(
+                steps,
+                ensemble="nvt",
+                temperature=temperature,
+                thermostat="langevin",
+                seed=seed,
+                thermo=steps,
+                save_every=every,
+            )
+        except CalculationFailed:  # a model that fails: its snapshots so far
+            pass
+        frames = [f for f in run.frames if f.info["timestep"] > start]
+    out = []
+    for frame in frames:
+        if len(NeighborList.build(frame, 1.5).j):
+            break
+        kept = frame.select("element", "positions")
+        out.append(kept.with_info(timestep=None, time=None))
+    return out
 ```
 
 ## Training sets
@@ -98,7 +101,8 @@ Five sets of up to 4800 atoms, each made three times with other seeds:
 
 The generated structures span half to twice the volume per atom of the
 crystal, 16.6 Å³. Their generation stops by itself when 100 structures in a
-row add nothing to the set, which then holds fewer than 4800 atoms.
+row add nothing to the set, which then holds fewer than 4800 atoms, and so
+does the mix when its generated structures run out.
 
 ```python
 from mdapy.build import build_crystal
@@ -147,7 +151,7 @@ def sampled_by_md(seed):
     conditions = [(300, 1.0), (600, 1.0), (900, 0.95), (900, 1.05), (1200, 1.0)]
     conditions += [(1500, 1.1), (2500, 1.15)]
     runs = [
-        md(scaled(fcc, v), mattersim, t, 1060, 30, start=400, seed=100 * seed + k)
+        md(scaled(fcc, v), teacher, t, 1060, 30, start=400, seed=100 * seed + k + 1)
         for k, (t, v) in enumerate(conditions)
     ]
     return first([run[i] for i in range(22) for run in runs])
@@ -155,11 +159,12 @@ def sampled_by_md(seed):
 
 def mixed(parts, shares):
     """The frames of the parts in turn, so that the atoms of each part keep
-    its share in every first part of the set."""
+    its share in every first part of the set, until one runs out."""
     taken, atoms, out = [0] * len(parts), [0] * len(parts), []
     while sum(atoms) < BUDGET:
-        left = [k for k in range(len(parts)) if taken[k] < len(parts[k])]
-        k = min(left, key=lambda k: atoms[k] / shares[k])
+        k = min(range(len(parts)), key=lambda k: atoms[k] / shares[k])
+        if taken[k] == len(parts[k]):
+            break
         out.append(parts[k][taken[k]])
         taken[k] += 1
         atoms[k] += len(out[-1])
@@ -254,14 +259,15 @@ grains = build_polycrystal(fcc, Box(np.eye(3) * 18.0), 3, min_distance=2.2, seed
 cluster = fcc
 for axis in range(3):
     cluster = add_vacuum(cluster, 10.0, axis=axis)
-# a solid-liquid interface: the upper half melted with the lower one held,
-# then all of it at 900 K
+# a solid-liquid interface: the upper half melted with the lower one held
+# by the movable column, then all of it at 900 K
 slab = scaled(crystal("fcc", 4.05, (3, 3, 8)), 1.06)
 lower = slab["positions"][:, 2] < slab.box.matrix[2, 2] / 2
-melted = md(slab, mattersim, 2200, 400, 400, seed=1003, fixed=lower)[-1]
+held = slab.with_columns(movable=np.repeat(~lower[:, None], 3, axis=1))
+melted = md(held, teacher, 2200, 400, 400, seed=1003)[-1]
 
 tests = {
-    "MD 300 K": md(fcc3, mattersim, 300, 800, 100, start=500, seed=1000),
+    "MD 300 K": md(fcc3, teacher, 300, 800, 100, start=500, seed=1000),
     "bcc": shaken(crystal("bcc", 3.24, (3, 3, 3)), 4, 0.1, 4),
     "hcp": shaken(crystal("hcp", 2.86, (3, 2, 2)), 4, 0.1, 5),
     "vacancy": shaken(vacancy, 4, 0.08, 12),
@@ -269,14 +275,14 @@ tests = {
     "interstitial": shaken(interstitial, 4, 0.08, 13),
     "fcc 0.6 V0": shaken(scaled(fcc3, 0.6), 4, 0.07, 6),
     "fcc 1.3 V0": shaken(scaled(fcc3, 1.3), 4, 0.12, 8),
-    "MD 900 K": md(scaled(fcc3, 1.03), mattersim, 900, 800, 100, start=500, seed=1001),
+    "MD 900 K": md(scaled(fcc3, 1.03), teacher, 900, 800, 100, start=500, seed=1001),
     "liquid 1600 K": md(
-        scaled(fcc3, 1.12), mattersim, 1600, 1100, 100, start=800, seed=1002
+        scaled(fcc3, 1.12), teacher, 1600, 1100, 100, start=800, seed=1002
     ),
     "surface (100)": shaken(s100, 3, 0.08, 9),
     "surface (111)": shaken(s111, 3, 0.08, 10),
     "grain boundaries": shaken(grains, 2, 0.05, 11),
-    "solid-liquid": md(melted, mattersim, 900, 120, 40, seed=1004),
+    "solid-liquid": md(melted, teacher, 900, 120, 40, seed=1004),
     "cluster": shaken(cluster, 4, 0.1, 14),
 }
 tests = {name: labelled(frames) for name, frames in tests.items()}
@@ -298,8 +304,9 @@ GROUPS = {
 
 Each set and its first 600, 1200 and 2400 atoms train two NEP models each,
 of other random seeds, with the same model and schedule; only the batch
-follows the size of the frames, about 150 atoms in each. Six trainings share
-the GPU at a time:
+follows the size of the frames, about 150 atoms in each. All the frames
+train the models, none held out: the test structures below judge them. Six
+trainings share the GPU at a time:
 
 ```python
 import subprocess
@@ -334,7 +341,7 @@ def train(name, seed, budget, run):
     (folder / "nep.in").write_text(NEP_IN.format(batch=batch))
     code = (
         "from torchnep import train_nep; train_nep('nep.in', 'train.xyz', "
-        f"device='cuda', valid_ratio=0.1, run_seed={run})"
+        f"device='cuda', run_seed={run})"
     )
     command = [sys.executable, "-c", code]
     subprocess.run(command, cwd=folder, check=True, capture_output=True)
@@ -559,8 +566,6 @@ the crystal at 1500 K and at 1.6 times it at 600 K. The teacher computes the
 five snapshots of each run; a run fails when two atoms come within 1.5 Å.
 
 ```python
-from mdapy.interop import to_ase_calculator
-
 RUNS = {"liquid 3000 K": (1.15, 3000), "0.5 V0 1500 K": (0.5, 1500)}
 RUNS["1.6 V0 600 K"] = (1.6, 600)
 
@@ -572,7 +577,7 @@ for (name, seed, budget, run), (path, atoms) in models.items():
     row = {"set": name}
     for label, (volume, temperature) in RUNS.items():
         start = scaled(fcc3, volume)
-        frames = md(start, to_ase_calculator(student), temperature, 1000, 200)
+        frames = md(start, student, temperature, 1000, 200)
         row[f"failed {label}"] = len(frames) < 5
         row[f"F {label}"] = np.nan
         if frames:

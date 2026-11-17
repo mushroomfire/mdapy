@@ -453,6 +453,34 @@ those of the generated sets faster, to 44 and 51. Generated
 structures with crystals are best at every size, 37 meV/Å and 11 meV/atom at
 4800 atoms, and still falling.*
 
+The predictions of one model of generated structures with crystals, the
+first of the largest set, against the teacher on every test structure:
+
+```python
+path, _ = models[("generated + crystals", 0, BUDGET, 0)]
+nep = NEP(path)
+with plot.style():
+    fig, (left, right) = plot.figure("double", ncols=2)
+    for group, members in GROUPS.items():
+        p = predict([frame for test in members for frame in tests[test]], nep)
+        for ax, values, unit in (
+            (left, p.energy, "meV/atom"),
+            (right, p.forces, "meV/Å"),
+        ):
+            plot.parity(
+                values[:, 0], values[:, 1], ax=ax, label=group, unit=unit, scale=1000
+            )
+    left.set_xlabel("MatterSim energy (eV/atom)")
+    left.set_ylabel("NEP energy (eV/atom)")
+    right.set_xlabel("MatterSim force (eV/Å)")
+    right.set_ylabel("NEP force (eV/Å)")
+    plot.save(fig, "images/aluminium-parity", formats=("png",))
+```
+
+![Energies and forces of a model of generated structures and crystals against the teacher](images/aluminium-parity.png)
+
+*(results)*
+
 ## Properties
 
 The lattice constant, elastic constants, vacancy formation energy, surface

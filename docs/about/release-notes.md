@@ -1,5 +1,14 @@
 # Release notes
 
+## 2.2.0 (not released)
+
+- `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
+  as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
+  LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
+  constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
+  LAMMPS; a `movable` column keeps atoms still. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md).
+
 ## 2.1.0 (not released)
 
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points

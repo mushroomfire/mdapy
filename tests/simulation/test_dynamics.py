@@ -358,9 +358,7 @@ def test_invalid_runs(potential, options, message):
 
 def test_invalid_setups(potential):
     system = crystal()
-    with pytest.raises(
-        InvalidParameter, match="LAMMPS calculator|mdapy.calculators.LAMMPS"
-    ):
+    with pytest.raises(InvalidParameter, match="MDAPY calculator"):
         MolecularDynamics(system, object())
     with pytest.raises(InvalidParameter, match="timestep"):
         MolecularDynamics(system, potential, timestep=0)

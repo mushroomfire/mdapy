@@ -196,7 +196,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |
 | `errors` | standard errors of the means of a molecular dynamics result, from block averages, in its units |
 | `thermo` | the thermodynamic state of a molecular dynamics run, a table of `step`, `time`, `temperature`, `potential_energy`, `kinetic_energy`, `total_energy`, `pressure`, `volume` and `stress` |
-| ensemble | `"nve"`, `"nvt"` or `"npt"` |
+| ensemble | `"nve"`, `"nvt"`, `"npt"` or `"nph"` |
+| thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
+| MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 

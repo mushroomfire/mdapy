@@ -2,6 +2,8 @@
 
 ## 2.1.0 (not released)
 
+- `plot.parity` draws several sets on the same axes: their range and one diagonal hold them
+  all, where each call had set them to its own set.
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points
   of a curve of 30 points or fewer as dots on its line, such as the MSD of a few frames.
   The pictures of the [quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md),

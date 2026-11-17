@@ -166,7 +166,8 @@ class TestEntropy:
     def test_slabs_and_clusters(self):
         """The fraction of random cells given vacuum, half slabs and half
         clusters; moves keep their atoms in the box of the atoms, the volume
-        per atom of that box in range, and the vacuum as wide."""
+        per atom of that box in range, a slab as thick as the reach, and the
+        vacuum as wide."""
         g = _Generator(
             ("Cu", "Zr"), (2, 8), (12.0, 30.0), 0.75, np.random.default_rng(2), 0.4
         )
@@ -184,6 +185,9 @@ class TestEntropy:
             assert ((f >= 0) & (f < 1))[:, cell.vacuum].all()
             volume = abs(np.linalg.det(cell.core)) / len(cell.kinds)
             assert 12.0 - 1e-9 <= volume <= 30.0 + 1e-9
+            if cell.vacuum[2] and not cell.vacuum[0]:
+                # a slab at least the reach of the descriptor thick
+                assert mdapy.Box(cell.core).thickness[2] >= g.reach - 1e-9
             widened = mdapy.Box(cell.matrix).thickness - mdapy.Box(cell.core).thickness
             np.testing.assert_allclose(
                 widened, np.where(cell.vacuum, 10.0, 0.0), atol=1e-9
@@ -213,6 +217,7 @@ class TestGenerate:
             fractional = frame.box.to_fractional(frame["positions"])
             assert ((fractional >= -1e-12) & (fractional < 1 + 1e-12)).all()
             assert pair_distances_ok(frame, 0.75)
+            assert frame.info == {"config_type": "bulk"}
         assert {len(set(frame["element"])) for frame in frames} == {1, 2}
 
     def test_slabs_and_clusters_in_vacuum(self):
@@ -231,6 +236,8 @@ class TestGenerate:
             spread = fractional.max(axis=0) - fractional.min(axis=0)
             free.append(tuple(frame.box.thickness * (1 - spread) >= 10.0 - 1e-9))
             assert pair_distances_ok(frame, 0.75)
+            kind = "cluster" if free[-1][0] else "slab"
+            assert frame.info == {"config_type": kind}
         assert set(free) == {(False, False, True), (True, True, True)}
 
     def test_same_seed_same_structures(self):

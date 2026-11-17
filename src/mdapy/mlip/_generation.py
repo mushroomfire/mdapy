@@ -116,19 +116,29 @@ class _Generator:
         i = np.repeat(cell.kinds, np.diff(offsets))
         return bool((distances >= self.closest * (self.radii[i] + r[j])).all())
 
-    def shape_ok(self, matrix: np.ndarray, count: int | None = None) -> bool:
-        """No face of the box much narrower than its longest edge, and with
-        count, a volume per atom in the range, to its rounding."""
+    def shape_ok(
+        self, matrix: np.ndarray, count: int | None = None, slab: bool = False
+    ) -> bool:
+        """No face of the box much narrower than its longest edge; with
+        count, a volume per atom in the range, to its rounding; for a slab,
+        at least the reach of the descriptor across its third edge."""
         if count is not None:
             volume = abs(float(np.linalg.det(matrix))) / count
             slack = 1e-12 * self.volume[1]
             if not self.volume[0] - slack <= volume <= self.volume[1] + slack:
                 return False
         lengths = np.linalg.norm(matrix, axis=1)
-        return bool(lengths.max() <= 4.0 * Box(matrix).thickness.min())
+        thickness = Box(matrix).thickness
+        if slab and thickness[2] < self.reach * (1.0 - 1e-12):
+            return False
+        return bool(lengths.max() <= 4.0 * thickness.min())
 
     def random(self) -> _Cell:
         rng = self.rng
+        kind = _BULK
+        if self.vacuum and rng.random() < self.vacuum:
+            kind = _SLAB if rng.random() < 0.5 else _CLUSTER
+        slab = kind is _SLAB
         for _ in range(_ATTEMPTS):
             # as many cells of each doubling of the number of atoms
             low, high = math.log(self.atoms[0]), math.log(self.atoms[1] + 1)
@@ -142,19 +152,24 @@ class _Generator:
             matrix = np.diag(np.exp(rng.uniform(-0.35, 0.35, 3)))
             matrix[1, 0], matrix[2, 0], matrix[2, 1] = rng.uniform(-0.3, 0.3, 3)
             matrix *= (n * volume / np.linalg.det(matrix)) ** (1.0 / 3.0)
-            if not self.shape_ok(matrix):
+            if slab:
+                # at least the reach thick, so that the atoms of a surface
+                # have others beneath them: longer along the third edge,
+                # narrower along the others, the volume kept
+                stretch = self.reach / Box(matrix).thickness[2]
+                if stretch > 1.0:
+                    matrix[2] *= stretch
+                    matrix[:2] /= math.sqrt(stretch)
+            if not self.shape_ok(matrix, slab=slab):
                 continue
             positions = self.__place(matrix, kinds)
             if positions is None:
                 positions = self.__grid(matrix, kinds)
             if positions is not None:
-                cell = self.__cell(positions, matrix, kinds)
-                if self.apart(cell):  # also from the images of each atom
-                    if self.vacuum and rng.random() < self.vacuum:
-                        # the atoms stay in the cell, with vacuum around it
-                        kind = _SLAB if rng.random() < 0.5 else _CLUSTER
-                        return self.__cell(positions, matrix, kinds, kind)
-                    return cell
+                # placed apart in the periodic cell, also from the images of
+                # each atom; vacuum around a slab or cluster only adds room
+                if self.apart(self.__cell(positions, matrix, kinds)):
+                    return self.__cell(positions, matrix, kinds, kind)
         raise InvalidParameter(
             f"no random cell of {self.atoms[0]} to {self.atoms[1]} atoms fits in "
             f"{_ATTEMPTS} attempts: the volume is too small for closest"
@@ -215,7 +230,8 @@ class _Generator:
             e = rng.normal(0.0, 0.03, (3, 3))
             deformation = np.eye(3) + 0.5 * (e + e.T)
             core = cell.core @ deformation
-            if not self.shape_ok(core, n):
+            slab = bool(cell.vacuum[2] and not cell.vacuum[:2].any())
+            if not self.shape_ok(core, n, slab=slab):
                 return None
             positions = cell.positions @ deformation
             return self.__cell(positions, core, cell.kinds, cell.vacuum)
@@ -229,13 +245,16 @@ class _Generator:
         return self.__cell(positions, cell.core, cell.kinds, cell.vacuum)
 
     def system(self, cell: _Cell) -> System:
-        """The cell as a system, its atoms wrapped into the box."""
+        """The cell as a system, its atoms wrapped into the box, and its
+        kind, bulk, slab or cluster, as the config_type of its info."""
         fractional = cell.positions @ np.linalg.inv(cell.matrix)
         fractional -= np.floor(fractional)
+        kind = ("bulk", "slab", "slab", "cluster")[int(cell.vacuum.sum())]
         return System(
             fractional @ cell.matrix,
             Box(cell.matrix),
             elements=[self.elements[k] for k in cell.kinds],
+            info={"config_type": kind},
         )
 
 

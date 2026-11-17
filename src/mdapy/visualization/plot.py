@@ -6,6 +6,7 @@
 """Plot templates for figures of journals, and plots of the results of mdapy.
 Needs matplotlib."""
 
+import weakref
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from os import PathLike
@@ -16,6 +17,9 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy.errors import InvalidParameter
+
+# the range of the values and the diagonal of each axes with a parity plot
+_PARITY: "weakref.WeakKeyDictionary[Any, tuple]" = weakref.WeakKeyDictionary()
 
 MM = 1 / 25.4
 """Inches per millimetre."""
@@ -317,10 +321,20 @@ def parity(
         ax.scatter(r, p, s=3, alpha=0.6, lw=0, color=color, label=text, rasterized=True)
     if len(r):
         low, high = min(r.min(), p.min()), max(r.max(), p.max())
+        # sets drawn on the same axes widen its range and its one diagonal
+        previous = _PARITY.get(ax)
+        if previous is not None:
+            low, high = min(low, previous[0]), max(high, previous[1])
         pad = 0.03 * (high - low or 1.0)
-        ax.plot([low - pad, high + pad], [low - pad, high + pad], "k--", lw=0.6)
-        ax.set_xlim(low - pad, high + pad)
-        ax.set_ylim(low - pad, high + pad)
+        span = [low - pad, high + pad]
+        if previous is None:
+            (diagonal,) = ax.plot(span, span, "k--", lw=0.6)
+        else:
+            diagonal = previous[2]
+            diagonal.set_data(span, span)
+        _PARITY[ax] = (low, high, diagonal)
+        ax.set_xlim(*span)
+        ax.set_ylim(*span)
     ax.set_xlabel("reference")
     ax.set_ylabel("predicted")
     ax.set_aspect("equal", adjustable="box")

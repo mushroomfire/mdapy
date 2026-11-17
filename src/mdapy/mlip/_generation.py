@@ -3,8 +3,9 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Training structures that cover descriptor space: small periodic cells
-whose atoms are moved to raise the entropy of the set."""
+"""Training structures that cover descriptor space: small periodic cells,
+some of them slabs or clusters in vacuum, whose atoms are moved to raise the
+entropy of the set."""
 
 import math
 from collections.abc import Sequence
@@ -37,35 +38,56 @@ _SWAP = 0.1
 # the radial functions of each element, and the radial and angular cutoffs
 # of the distance over the sum of the covalent radii of the pair
 _BASIS = (8, 4, 4, 2, 2.4, 1.7)
+# the least vacuum in Å between the atoms of a slab or cluster and their
+# images; never less than the reach of the descriptor
+_VACUUM = 10.0
 _PERIODIC = np.ones(3, dtype=bool)
 _ORIGIN = np.zeros(3)
+# the axes along which a cell has vacuum: none, the third (a slab), all
+_BULK = np.zeros(3, dtype=bool)
+_SLAB = np.array([False, False, True])
+_CLUSTER = np.ones(3, dtype=bool)
 
 
 class _Cell:
-    """A periodic cell of the generation: its atoms, box and elements, as
-    the indices of the elements, and its pairs within the reach."""
+    """A periodic cell of the generation: its atoms, the box of the atoms
+    (core) and the axes along which vacuum of gap Å is added to it, the
+    elements, as their indices, and the pairs within the reach."""
 
-    __slots__ = ("positions", "matrix", "kinds", "pairs")
+    __slots__ = ("positions", "core", "vacuum", "matrix", "kinds", "pairs")
 
-    def __init__(self, positions, matrix, kinds, reach):
+    def __init__(self, positions, core, kinds, reach, vacuum=_BULK, gap=0.0):
         self.positions = np.ascontiguousarray(positions, dtype=np.float64)
-        self.matrix = np.ascontiguousarray(matrix, dtype=np.float64)
+        self.core = np.ascontiguousarray(core, dtype=np.float64)
         self.kinds = np.ascontiguousarray(kinds, dtype=np.int32)
+        self.vacuum = vacuum
+        matrix = self.core.copy()
+        if vacuum.any():
+            # each edge with vacuum lengthened so that the planes across it
+            # move apart by the gap
+            thickness = Box(self.core).thickness
+            matrix[vacuum] *= (1.0 + gap / thickness[vacuum])[:, None]
+        self.matrix = matrix
         self.pairs = _neighbor.build(
             self.positions, self.matrix, _ORIGIN, _PERIODIC, reach, None, None
         )
 
 
 class _Generator:
-    """Random cells of the elements and moves of them, no two atoms closer
-    than closest times the sum of their covalent radii, and the descriptor
-    of their atoms."""
+    """Random cells of the elements, the given fraction of them slabs or
+    clusters, and moves of them, no two atoms closer than closest times the
+    sum of their covalent radii, and the descriptor of their atoms."""
 
-    def __init__(self, elements, atoms, volume, closest, rng):
+    def __init__(self, elements, atoms, volume, closest, rng, vacuum=0.0):
         self.elements = elements
         self.radii = np.array([COVALENT_RADII[SYMBOLS.index(e)] for e in elements])
         self.atoms, self.volume, self.closest, self.rng = atoms, volume, closest, rng
+        self.vacuum = vacuum
         self.reach = float(2.0 * self.radii.max() * _BASIS[4])
+        self.gap = max(_VACUUM, self.reach)
+
+    def __cell(self, positions, core, kinds, vacuum=_BULK) -> _Cell:
+        return _Cell(positions, core, kinds, self.reach, vacuum, self.gap)
 
     def descriptors(self, cell: _Cell) -> np.ndarray:
         offsets, j, shifts, _ = cell.pairs
@@ -126,8 +148,12 @@ class _Generator:
             if positions is None:
                 positions = self.__grid(matrix, kinds)
             if positions is not None:
-                cell = _Cell(positions, matrix, kinds, self.reach)
+                cell = self.__cell(positions, matrix, kinds)
                 if self.apart(cell):  # also from the images of each atom
+                    if self.vacuum and rng.random() < self.vacuum:
+                        # the atoms stay in the cell, with vacuum around it
+                        kind = _SLAB if rng.random() < 0.5 else _CLUSTER
+                        return self.__cell(positions, matrix, kinds, kind)
                     return cell
         raise InvalidParameter(
             f"no random cell of {self.atoms[0]} to {self.atoms[1]} atoms fits in "
@@ -168,13 +194,14 @@ class _Generator:
         jitter = self.rng.uniform(-1.0, 1.0, (n, 3))
         for size in (0.2, 0.1, 0.05, 0.0):
             positions = ((chosen + 0.5 + size * jitter) / counts) @ matrix
-            if self.apart(_Cell(positions, matrix, kinds, self.reach)):
+            if self.apart(self.__cell(positions, matrix, kinds)):
                 return positions
         return None
 
     def move(self, cell: _Cell) -> _Cell | None:
-        """The cell with two atoms of other elements swapped, its box
-        strained, or an atom displaced; None for a box out of range."""
+        """The cell with two atoms of other elements swapped, its box of the
+        atoms strained, or an atom displaced; None for a box out of range or
+        an atom of a slab or cluster leaving its box into the vacuum."""
         rng = self.rng
         n = len(cell.kinds)
         choice = rng.random()
@@ -183,19 +210,23 @@ class _Generator:
             b = int(rng.choice(np.flatnonzero(cell.kinds != cell.kinds[a])))
             kinds = cell.kinds.copy()
             kinds[a], kinds[b] = cell.kinds[b], cell.kinds[a]
-            return _Cell(cell.positions, cell.matrix, kinds, self.reach)
+            return self.__cell(cell.positions, cell.core, kinds, cell.vacuum)
         if choice < _STRAIN:
             e = rng.normal(0.0, 0.03, (3, 3))
             deformation = np.eye(3) + 0.5 * (e + e.T)
-            matrix = cell.matrix @ deformation
-            if not self.shape_ok(matrix, n):
+            core = cell.core @ deformation
+            if not self.shape_ok(core, n):
                 return None
             positions = cell.positions @ deformation
-            return _Cell(positions, matrix, cell.kinds, self.reach)
+            return self.__cell(positions, core, cell.kinds, cell.vacuum)
         a = int(rng.integers(n))
         positions = cell.positions.copy()
         positions[a] += rng.normal(0.0, 0.3 * self.radii.mean(), 3)
-        return _Cell(positions, cell.matrix, cell.kinds, self.reach)
+        if cell.vacuum.any():
+            f = positions[a] @ np.linalg.inv(cell.core)
+            if ((f < 0.0) | (f >= 1.0))[cell.vacuum].any():
+                return None
+        return self.__cell(positions, cell.core, cell.kinds, cell.vacuum)
 
     def system(self, cell: _Cell) -> System:
         """The cell as a system, its atoms wrapped into the box."""
@@ -274,7 +305,8 @@ def generate_structures(
     count: int,
     *,
     volume: tuple[float, float],
-    atoms: tuple[int, int] = (2, 128),
+    atoms: tuple[int, int] = (2, 32),
+    vacuum: float = 0.2,
     closest: float = 0.75,
     per: str = "atom",
     steps: int = 10,
@@ -286,9 +318,10 @@ def generate_structures(
     progress: Any = None,
     cancel: Any = None,
 ) -> list[System]:
-    """Small periodic cells whose atoms cover descriptor space, for a
-    training set: each a random cell whose atoms, box and elements are moved
-    while they raise the entropy of the set, kept if it rises.
+    """Small periodic cells, some of them slabs or clusters in vacuum, whose
+    atoms cover descriptor space, for a training set: each a random cell
+    whose atoms, box and elements are moved while they raise the entropy of
+    the set, kept if it rises.
 
     Parameters
     ----------
@@ -297,10 +330,15 @@ def generate_structures(
     count : int32
         The most structures to generate.
     volume : tuple of float64
-        The smallest and largest volume per atom in Å³.
+        The smallest and largest volume per atom in Å³, of the atoms' box
+        without vacuum.
     atoms : tuple of int32, optional
         The fewest and most atoms of a cell, with as many cells of each
-        doubling of the number. Default (2, 128).
+        doubling of the number. Default (2, 32).
+    vacuum : float64, optional
+        The fraction of the cells that are slabs, with vacuum along the
+        third axis, or clusters, with vacuum along all three, half of each.
+        Default 0.2.
     closest : float64, optional
         The shortest distance of two atoms as a fraction of the sum of their
         covalent radii. Default 0.75.
@@ -333,6 +371,12 @@ def generate_structures(
     volume = _range(volume, "volume", integer=False)
     atoms = _range(atoms, "atoms", integer=True)
     if (
+        isinstance(vacuum, bool)
+        or not isinstance(vacuum, int | float | np.number)
+        or not 0 <= vacuum <= 1
+    ):
+        raise InvalidParameter(f"vacuum must be from 0 to 1, not {vacuum!r}")
+    if (
         isinstance(closest, bool)
         or not isinstance(closest, int | float | np.number)
         or not 0 < closest < math.inf
@@ -359,8 +403,9 @@ def generate_structures(
         if missing:
             raise InvalidParameter(f"reference has atoms of {missing}, not given")
     generator = _Generator(
-        names, atoms, volume, float(closest), np.random.default_rng(seed)
-    )
+        names, atoms, volume, float(closest), np.random.default_rng(seed),
+        float(vacuum),
+    )  # fmt: skip
 
     def low_enough(cell: _Cell) -> bool:
         if calculator is None:

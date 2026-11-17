@@ -2,11 +2,12 @@
 
 `generate_structures` makes the structures of a training set without a
 model or a calculation: small periodic cells of random shape, size and
-composition whose atoms, box and elements are moved, one structure after
-the other, as long as they raise the entropy of the descriptors of the set.
-The structures spread over the environments atoms can have, from compressed
-to expanded, ordered to disordered, rather than around a few crystals. They
-complement, not replace, structures near equilibrium such as
+composition, some of them slabs or clusters in vacuum, whose atoms, box and
+elements are moved, one structure after the other, as long as they raise the
+entropy of the descriptors of the set. The structures spread over the
+environments atoms can have, from compressed to expanded, ordered to
+disordered, inside a solid or at its surface, rather than around a few
+crystals. They complement, not replace, structures near equilibrium such as
 [perturbed crystals](perturbation.md), and an existing training set can be
 given for them to complement.
 
@@ -59,10 +60,10 @@ with plot.style():
 *What shaken fcc, bcc and compressed fcc aluminium would add to each set,
 by the median [information gain](coverage.md) of their atoms: the lower,
 the better the set covers them, though no structure was made from a
-crystal. The sets hold cells of 2 to 128 atoms, the large ones most of the
-atoms. The first structures go to the edges of the volumes and shapes
-allowed; from about 4000 atoms on, the set covers the crystals better than
-the random cells, 14 nats against 36 at 5000 atoms.*
+crystal. The sets hold cells of 2 to 32 atoms, a fifth of the random cells
+slabs or clusters. The first structures go to the edges of the volumes and
+shapes allowed; from about 1200 atoms on, the set covers the crystals better
+than the random cells, 17 nats against 24 at 2200 atoms.*
 
 ## How it works
 
@@ -74,6 +75,12 @@ several elements, its composition is drawn uniformly over all compositions,
 and each atom's element from it. The atoms are placed at random, no two
 closer than `closest` times the sum of their covalent radii, also across the
 periodic boundaries, or, in cells too dense for that, on a jittered grid.
+A fraction `vacuum` of the cells then become slabs or clusters, half of
+each: the box is widened along its third edge, or along all three, so that
+the atoms are 10 Å farther from their images across it, or more when the
+reach of the descriptor is longer. The atoms stay in the box they were
+placed in, the box of the atoms, and their surfaces give the set the
+environments of atoms with neighbors on one side only.
 
 The points of the set are the descriptors of its atoms (`per="atom"`), or
 their mean in each structure (`per="structure"`), each value divided by its
@@ -82,14 +89,15 @@ a Gaussian of these points: half the logarithm of the determinant of their
 covariance, with a thousandth added to its diagonal. `steps` times per atom, the
 structure is moved, one of:
 
-- in two moves out of ten, the box strained by a symmetric strain of
-  components of 0.03, the atoms with it, when the volume per atom stays
-  within `volume` and no face of the box is narrower than a quarter of its
-  longest edge;
+- in two moves out of ten, the box of the atoms strained by a symmetric
+  strain of components of 0.03, the atoms with it, when the volume per atom
+  stays within `volume` and no face of the box is narrower than a quarter of
+  its longest edge; the vacuum keeps its width;
 - with atoms of several elements, in one move out of ten, the elements of
   two of them swapped;
 - in the other moves, an atom displaced by a Gaussian of 0.3 times the mean
-  covalent radius of the elements;
+  covalent radius of the elements, in a slab or cluster only within the box
+  of the atoms;
 
 and the move is taken when it raises the entropy of the set with the
 structure, keeps the atoms apart and, with a `calculator`, keeps the energy
@@ -113,14 +121,15 @@ of the last 50 candidates were kept, or when 100 in a row were not.
 
 ## Parameters
 
-`generate_structures(elements, count, *, volume, atoms=(2, 128), closest=0.75, per="atom", steps=10, reference=None, calculator=None, max_energy=None, tolerance=0.0, seed=None, progress=None, cancel=None)`
+`generate_structures(elements, count, *, volume, atoms=(2, 32), vacuum=0.2, closest=0.75, per="atom", steps=10, reference=None, calculator=None, max_energy=None, tolerance=0.0, seed=None, progress=None, cancel=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `elements` | str or sequence of str | | | the elements; with several, each structure has a random composition |
 | `count` | int32 | | | the most structures |
-| `volume` | tuple of float64 | | Å³ | the smallest and largest volume per atom, such as half and twice that of the crystal |
-| `atoms` | tuple of int32 | (2, 128) | | the fewest and most atoms of a structure, with as many structures of each doubling of the number of atoms |
+| `volume` | tuple of float64 | | Å³ | the smallest and largest volume per atom of the box of the atoms, without vacuum, such as half and twice that of the crystal |
+| `atoms` | tuple of int32 | (2, 32) | | the fewest and most atoms of a structure, with as many structures of each doubling of the number of atoms |
+| `vacuum` | float64 | 0.2 | | the fraction of the random cells that are slabs, with vacuum across the third edge, or clusters, with vacuum across all three, half of each; 0 for periodic cells only |
 | `closest` | float64 | 0.75 | | the shortest distance of two atoms, as a fraction of the sum of their covalent radii ([Cordero et al. 2008](../../reference/references.md#cordero2008)) |
 | `per` | str | `"atom"` | | the points of the set: `"atom"`, the descriptor of each atom; `"structure"`, their mean in each structure |
 | `steps` | int32 | 10 | | the moves tried on each structure per atom; 0 keeps the random cells that raise the entropy |
@@ -139,7 +148,8 @@ should learn.
 
 A list of systems in the order they were kept, at most `count`: periodic
 cells with an `element` column, the atoms wrapped into the box, without
-energies or forces. The first n structures make a set of their own, so that
+energies or forces; a slab or cluster is a periodic cell whose atoms leave
+the vacuum free. The first n structures make a set of their own, so that
 sets of several sizes come from one generation.
 
 ## Errors
@@ -148,7 +158,7 @@ sets of several sizes come from one generation.
 element or one without a covalent radius, an element given twice; a count,
 `atoms` or `steps` that is not a non-negative integer or a pair of positive
 ones; a `volume` that is not a pair of positive numbers, the smaller first;
-a `closest` not above zero; an unknown `per`; `calculator` without
+a `vacuum` outside 0 to 1; a `closest` not above zero; an unknown `per`; `calculator` without
 `max_energy` or the reverse; a `tolerance` outside 0 to below 1; a
 `reference` that is not a sequence of systems or holds other elements; and
 volumes too small for the atoms to be placed apart in 200 cells in a row. It

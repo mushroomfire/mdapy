@@ -163,6 +163,32 @@ class TestEntropy:
             cell = dense.random()
             assert len(cell.kinds) == 64 and dense.apart(cell)
 
+    def test_slabs_and_clusters(self):
+        """The fraction of random cells given vacuum, half slabs and half
+        clusters; moves keep their atoms in the box of the atoms, the volume
+        per atom of that box in range, and the vacuum as wide."""
+        g = _Generator(
+            ("Cu", "Zr"), (2, 8), (12.0, 30.0), 0.75, np.random.default_rng(2), 0.4
+        )
+        cells = [g.random() for _ in range(500)]
+        kinds = [tuple(c.vacuum) for c in cells]
+        assert 60 < kinds.count((False, False, True)) < 140
+        assert 60 < kinds.count((True, True, True)) < 140
+        assert kinds.count((False, False, False)) > 240
+        for cell in cells[:40]:
+            for _ in range(60):
+                trial = g.move(cell)
+                if trial is not None and g.apart(trial):
+                    cell = trial
+            f = cell.positions @ np.linalg.inv(cell.core)
+            assert ((f >= 0) & (f < 1))[:, cell.vacuum].all()
+            volume = abs(np.linalg.det(cell.core)) / len(cell.kinds)
+            assert 12.0 - 1e-9 <= volume <= 30.0 + 1e-9
+            widened = mdapy.Box(cell.matrix).thickness - mdapy.Box(cell.core).thickness
+            np.testing.assert_allclose(
+                widened, np.where(cell.vacuum, 10.0, 0.0), atol=1e-9
+            )
+
 
 def pair_distances_ok(system, closest):
     radii = np.array([radius(e) for e in system["element"]])
@@ -175,8 +201,9 @@ def pair_distances_ok(system, closest):
 class TestGenerate:
     def test_cells_keep_their_bounds(self):
         frames = generate_structures(
-            ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), steps=5, seed=4
-        )
+            ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), vacuum=0.0,
+            steps=5, seed=4,
+        )  # fmt: skip
         assert len(frames) == 12
         for frame in frames:
             assert 3 <= len(frame) <= 10
@@ -187,6 +214,24 @@ class TestGenerate:
             assert ((fractional >= -1e-12) & (fractional < 1 + 1e-12)).all()
             assert pair_distances_ok(frame, 0.75)
         assert {len(set(frame["element"])) for frame in frames} == {1, 2}
+
+    def test_slabs_and_clusters_in_vacuum(self):
+        """With vacuum everywhere, periodic cells whose atoms leave at least
+        10 Å free across the third axis, slabs, or across all three,
+        clusters; the atoms apart and in the box."""
+        frames = generate_structures(
+            ["Cu", "Zr"], 16, volume=(14.0, 20.0), atoms=(3, 8), vacuum=1.0,
+            steps=5, seed=6,
+        )  # fmt: skip
+        free = []
+        for frame in frames:
+            assert frame.box.pbc.all()
+            fractional = frame.box.to_fractional(frame["positions"])
+            assert ((fractional >= 0) & (fractional < 1)).all()
+            spread = fractional.max(axis=0) - fractional.min(axis=0)
+            free.append(tuple(frame.box.thickness * (1 - spread) >= 10.0 - 1e-9))
+            assert pair_distances_ok(frame, 0.75)
+        assert set(free) == {(False, False, True), (True, True, True)}
 
     def test_same_seed_same_structures(self):
         first = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=7)
@@ -291,7 +336,7 @@ class TestGenerate:
         with pytest.raises(InvalidParameter, match="too small for closest"):
             generate_structures("Al", 1, volume=(1.0, 1.0), atoms=(8, 8))
         frames = generate_structures(
-            "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), steps=5, seed=0
+            "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), vacuum=0.0, steps=5, seed=0
         )
         for frame in frames:
             assert frame.box.volume == pytest.approx(16.0, rel=1e-12)
@@ -323,6 +368,9 @@ class TestGenerate:
             ("Al", {"volume": ("a", 10.0)}, "two numbers"),
             ("Al", {"atoms": (2.5, 4)}, "two numbers"),
             ("Al", {"atoms": (0, 4)}, "smallest <= largest"),
+            ("Al", {"vacuum": 1.5}, "vacuum"),
+            ("Al", {"vacuum": -0.1}, "vacuum"),
+            ("Al", {"vacuum": True}, "vacuum"),
             ("Al", {"closest": 0.0}, "closest"),
             ("Al", {"closest": True}, "closest"),
             ("Al", {"per": "frame"}, "per"),

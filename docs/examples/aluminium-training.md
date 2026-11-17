@@ -479,7 +479,10 @@ with plot.style():
 
 ![Energies and forces of a model of generated structures and crystals against the teacher](images/aluminium-parity.png)
 
-*(results)*
+*One model, of the first seed: the energies within 1 to 14 meV/atom and the
+forces within 19 to 47 meV/Å in every group but the cluster (116 meV/Å), for
+forces from below 1 eV/Å in the cluster to 16 eV/Å around the interstitial
+atom, the largest of the tests.*
 
 ## Properties
 

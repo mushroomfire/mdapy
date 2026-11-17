@@ -9,6 +9,7 @@ entropy of the set."""
 
 import math
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -16,16 +17,18 @@ import numpy as np
 from mdapy._core import analysis as _analysis
 from mdapy._core import neighbor as _neighbor
 from mdapy.core.box import Box
+from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import COVALENT_RADII, SYMBOLS
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 
-# candidates in a row that add nothing before the generation stops
-_PATIENCE = 100
-# the window of candidates over which the fraction kept is measured
-_WINDOW = 50
+# the structures generated for each element when count is not given
+_PER_ELEMENT = 1000
+# candidates in a row that raise nothing before the generation gives up: a
+# safeguard, for the fraction kept falls slowly and stays above zero
+_STALL = 1000
 # random cells that set the scale of each value of the descriptor
 _PILOT = 20
 # random cells tried in a row before the volume is found too small
@@ -280,15 +283,40 @@ class _Entropy:
             self.first + z.sum(axis=0), self.second + z.T @ z, self.count + len(z)
         )
 
+    def value(self) -> float:
+        return self.__value(self.first, self.second, self.count)
+
     def raised_by(self, z: np.ndarray) -> bool:
         if self.count == 0:
             return True
-        return self.with_points(z) > self.__value(self.first, self.second, self.count)
+        return self.with_points(z) > self.value()
 
     def add(self, z: np.ndarray) -> None:
         self.first += z.sum(axis=0)
         self.second += z.T @ z
         self.count += len(z)
+
+
+@dataclass(frozen=True)
+class GeneratedStructures(Result):
+    """Structures generated to cover descriptor space, and how the entropy
+    of the set rose as they were kept.
+
+    Attributes
+    ----------
+    structures : tuple of System
+        The structures in the order they were kept, so that the first n
+        are a set of their own.
+    atoms : numpy.ndarray
+        (S,) int64, the atoms of the first 1, 2, ... S structures.
+    entropy : numpy.ndarray
+        (S,) float64, the entropy in nats of the set of the first 1, 2, ...
+        S structures, with the reference if one was given.
+    """
+
+    structures: tuple
+    atoms: np.ndarray
+    entropy: np.ndarray
 
 
 def _element_list(elements: str | Sequence[str]) -> tuple[str, ...]:
@@ -321,7 +349,7 @@ def _range(value: Any, name: str, integer: bool) -> tuple:
 
 def generate_structures(
     elements: str | Sequence[str],
-    count: int,
+    count: int | None = None,
     *,
     volume: tuple[float, float],
     atoms: tuple[int, int] = (2, 32),
@@ -332,11 +360,10 @@ def generate_structures(
     reference: Sequence[System] | None = None,
     calculator: Any = None,
     max_energy: float | None = None,
-    tolerance: float = 0.0,
     seed: int | np.random.Generator | None = None,
     progress: Any = None,
     cancel: Any = None,
-) -> list[System]:
+) -> GeneratedStructures:
     """Small periodic cells, some of them slabs or clusters in vacuum, whose
     atoms cover descriptor space, for a training set: each a random cell
     whose atoms, box and elements are moved while they raise the entropy of
@@ -346,8 +373,9 @@ def generate_structures(
     ----------
     elements : str or sequence of str
         The elements; with several, each cell has a random composition.
-    count : int32
-        The most structures to generate.
+    count : int32, optional
+        The structures to generate. Default 1000 for each element. The same
+        seed with a larger count gives the same first structures and more.
     volume : tuple of float64
         The smallest and largest volume per atom in Å³, of the atoms' box
         without vacuum.
@@ -372,19 +400,19 @@ def generate_structures(
         Computes the energy of each structure, with ``max_energy``.
     max_energy : float64, optional
         The highest energy per atom in eV a structure may have.
-    tolerance : float64, optional
-        Stop when fewer than this fraction of the last 50 candidates was
-        kept. Default 0: only 100 candidates in a row not kept stop it.
     seed : int64 or numpy.random.Generator, optional
         Seed of the random numbers.
 
     Returns
     -------
-    list of System
-        The structures in the order they were kept, so that the first n are
-        a set of their own; fewer than count when the generation stops.
+    GeneratedStructures
+        The structures in the order they were kept, count of them, or fewer
+        should 1000 candidates in a row raise the entropy no more; and the
+        entropy of the set as they were kept.
     """
     names = _element_list(elements)
+    if count is None:
+        count = _PER_ELEMENT * len(names)
     if isinstance(count, bool) or not isinstance(count, int | np.integer) or count < 0:
         raise InvalidParameter(f"count must be a non-negative integer, not {count!r}")
     volume = _range(volume, "volume", integer=False)
@@ -407,10 +435,6 @@ def generate_structures(
         raise InvalidParameter(f"steps must be a non-negative integer, not {steps!r}")
     if (calculator is None) != (max_energy is None):
         raise InvalidParameter("give calculator and max_energy together")
-    if not (isinstance(tolerance, int | float | np.number) and 0 <= tolerance < 1):
-        raise InvalidParameter(
-            f"tolerance must be from 0 to below 1, not {tolerance!r}"
-        )
     _native_token(cancel)  # checks its type
     frames = list(reference or ())
     for frame in frames:
@@ -449,12 +473,14 @@ def generate_structures(
         entropy.add(per_structure(generator.frame_descriptors(frame)) / scale)
 
     kept: list[System] = []
-    history: list[bool] = []
-    while len(kept) < count:
+    values: list[float] = []
+    stalled = 0
+    while len(kept) < count and stalled < _STALL:
         if cancel is not None and cancel.cancelled:
             raise Cancelled("the generation of structures was cancelled")
         cell = generator.random()
         if not low_enough(cell):
+            stalled += 1
             continue
         z = per_structure(generator.descriptors(cell)) / scale
         if entropy.count:
@@ -467,16 +493,17 @@ def generate_structures(
                 value = entropy.with_points(zt)
                 if value > best and low_enough(trial):
                     cell, z, best = trial, zt, value
-        keep = entropy.raised_by(z)
-        history.append(keep)
-        if keep:
-            entropy.add(z)
-            kept.append(generator.system(cell))
-            if progress is not None:
-                progress(len(kept), count)
-        recent = history[-_WINDOW:]
-        if len(recent) == _WINDOW and sum(recent) < tolerance * _WINDOW:
-            break
-        if len(history) >= _PATIENCE and not any(history[-_PATIENCE:]):
-            break
-    return kept
+        if not entropy.raised_by(z):
+            stalled += 1
+            continue
+        stalled = 0
+        entropy.add(z)
+        values.append(entropy.value())
+        kept.append(generator.system(cell))
+        if progress is not None:
+            progress(len(kept), count)
+    return GeneratedStructures(
+        structures=tuple(kept),
+        atoms=np.cumsum([len(s) for s in kept], dtype=np.int64),
+        entropy=np.array(values, dtype=np.float64),
+    )

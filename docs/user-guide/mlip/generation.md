@@ -18,9 +18,10 @@ from mdapy.io import write
 from mdapy.mlip import QUESTS, generate_structures, information_gain, perturb
 from mdapy.visualization import plot
 
-# aluminium, 16.6 Å³ per atom in its crystal, from half to twice that
-frames = generate_structures("Al", 300, volume=(8.3, 33.2), seed=0)
-write("generated.xyz", frames)
+# aluminium, 16.6 Å³ per atom in its crystal, from half to twice that:
+# 300 structures here, 1000 by default
+result = generate_structures("Al", 300, volume=(8.3, 33.2), seed=0)
+write("generated.xyz", result.structures)
 
 # the same random cells, not moved
 cells = generate_structures("Al", 300, volume=(8.3, 33.2), steps=0, seed=0)
@@ -40,31 +41,57 @@ test = np.concatenate(
 )
 
 with plot.style():
-    fig, ax = plot.figure("single")
-    for name, structures in (("generated", frames), ("random cells", cells)):
+    fig, (left, right) = plot.figure("double", ncols=2)
+    # from the tenth structure on, against the atoms on a scale of doublings
+    left.plot(result.atoms[9:], result.entropy[9:])
+    left.set_xscale("log", base=2)
+    left.set_xticks([128, 256, 512, 1024, 2048], ["128", "256", "512", "1024", "2048"])
+    left.set_ylabel("Entropy of the set (nats)")
+    for name, made in (("generated", result), ("random cells", cells)):
         atoms, gain = [], []
-        for n in range(10, len(structures) + 1, 5):
-            x = np.concatenate([quests.descriptors(f) for f in structures[:n]])
+        for n in range(10, len(made.structures) + 1, 5):
+            x = np.concatenate([quests.descriptors(f) for f in made.structures[:n]])
             atoms.append(len(x))
             gain.append(np.median(information_gain(test, x)))
-        ax.plot(atoms, gain, label=name)
-    ax.axhline(0, color="0.6", lw=0.8)
-    ax.set_xlabel("Atoms in the set")
-    ax.set_ylabel("Information gain of the crystals (nats)")
-    ax.legend()
+        right.plot(atoms, gain, label=name)
+    right.axhline(0, color="0.6", lw=0.8)
+    right.set_ylabel("Information gain of the crystals (nats)")
+    right.legend()
+    for ax in (left, right):
+        ax.set_xlabel("Atoms in the set")
     plot.save(fig, "images/generation", formats=("png",))
 ```
 
-![Coverage of shaken crystals by generated structures and by random cells](images/generation.png)
+![The entropy of the generated set, and its coverage of shaken crystals against random cells](images/generation.png)
 
-*What shaken fcc, bcc and compressed fcc aluminium would add to each set,
-by the median [information gain](coverage.md) of their atoms: the lower,
-the better the set covers them, though no structure was made from a
+*Left: the entropy of the set as each structure joins it, which `result`
+gives: about one and a half nats each time the set doubles. Right: what shaken fcc, bcc and compressed fcc aluminium would add to
+each set, by the median [information gain](coverage.md) of their atoms: the
+lower, the better the set covers them, though no structure was made from a
 crystal. The sets hold cells of 2 to 32 atoms, a fifth of the random cells
 slabs or clusters. The first structures go to the edges of the volumes and
-shapes allowed; from about 600 atoms on, the set covers the crystals better
-than the random cells, 23 nats against 36 at 1500 atoms, where the
-generation stops by itself.*
+shapes allowed; then the set covers the crystals better than the random
+cells.*
+
+## How many structures
+
+The entropy of the set rises fast with its first structures, then by about
+the same each time the set doubles, a little less as it grows: each structure
+adds less, but the entropy never stops rising, for the set never holds every
+environment there is. So the generation makes `count` structures, by
+default 1000 for each element (some 7000 atoms for aluminium), and no more.
+That is a start, not an end:
+
+- the entropy in `result`, against the atoms on a scale of doublings, shows
+  what the last structures still added: what a doubling of the set would
+  add, at the cost of twice the calculations;
+- the [information gain](coverage.md) of the structures a model must
+  describe, against the set, as on the right above, tells whether the set
+  covers them;
+- the same `seed` with a larger `count` makes the same first structures and
+  then more, so that a generation goes on where it ended; and
+  [farthest point sampling](selection.md) takes fewer from a set too large
+  to compute.
 
 ## How it works
 
@@ -122,17 +149,18 @@ n < 4, 1 ≤ l ≤ 4; and with several elements, the sums of the first two
 radial functions over the neighbors of each element: 24 values with one
 element, 24 + 2 per element with several.
 
-The generation stops after `count` structures, when fewer than `tolerance`
-of the last 50 candidates were kept, or when 100 in a row were not.
+The generation ends after `count` structures; should 1000 candidates in a
+row raise the entropy no more, or all exceed `max_energy`, it ends with those
+it kept.
 
 ## Parameters
 
-`generate_structures(elements, count, *, volume, atoms=(2, 32), vacuum=0.2, closest=0.75, per="atom", steps=10, reference=None, calculator=None, max_energy=None, tolerance=0.0, seed=None, progress=None, cancel=None)`
+`generate_structures(elements, count=None, *, volume, atoms=(2, 32), vacuum=0.2, closest=0.75, per="atom", steps=10, reference=None, calculator=None, max_energy=None, seed=None, progress=None, cancel=None)`
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `elements` | str or sequence of str | | | the elements; with several, each structure has a random composition |
-| `count` | int32 | | | the most structures |
+| `count` | int32 | 1000 per element | | the structures to make; the same `seed` with a larger count makes the same first ones and more |
 | `volume` | tuple of float64 | | Å³ | the smallest and largest volume per atom of the box of the atoms, without vacuum, such as half and twice that of the crystal |
 | `atoms` | tuple of int32 | (2, 32) | | the fewest and most atoms of a structure, with as many structures of each doubling of the number of atoms |
 | `vacuum` | float64 | 0.2 | | the fraction of the random cells that are slabs, at least as thick as the reach of the descriptor, with vacuum across the third edge, or clusters, with vacuum across all three, half of each; 0 for periodic cells only |
@@ -142,7 +170,6 @@ of the last 50 candidates were kept, or when 100 in a row were not.
 | `reference` | sequence of `System` | `None` | | a training set of the elements, whose atoms are in the set from the start, for the structures to complement |
 | `calculator` | calculator | `None` | | computes the energy of each structure and move, with `max_energy` |
 | `max_energy` | float64 | `None` | eV/atom | the highest energy per atom of a structure |
-| `tolerance` | float64 | 0.0 | | stop when fewer than this fraction of the last 50 candidates was kept |
 | `seed` | int64 or `numpy.random.Generator` | `None` | | seed of the random numbers |
 
 With `max_energy`, the moves push the structures toward the bound: the
@@ -152,13 +179,20 @@ should learn.
 
 ## Results
 
-A list of systems in the order they were kept, at most `count`: periodic
-cells with an `element` column, the atoms wrapped into the box, without
-energies or forces; a slab or cluster is a periodic cell whose atoms leave
-the vacuum free. The `config_type` in the `info` of each, `"bulk"`, `"slab"`
-or `"cluster"`, says which it is, to group them, such as to hold out a part
-of each group for validation. The first n structures make a set of their
-own, so that sets of several sizes come from one generation.
+A `GeneratedStructures`:
+
+| Attribute | Type | Unit | Meaning |
+|---|---|---|---|
+| `structures` | tuple of `System` | | the structures in the order they were kept, `count` of them |
+| `atoms` | (S,) int64 | | the atoms of the first 1, 2, ... S structures |
+| `entropy` | (S,) float64 | nats | the entropy of the set of the first 1, 2, ... S structures, with the `reference` if one was given |
+
+The structures are periodic cells with an `element` column, the atoms
+wrapped into the box, without energies or forces; a slab or cluster is a
+periodic cell whose atoms leave the vacuum free. The `config_type` in the
+`info` of each, `"bulk"`, `"slab"` or `"cluster"`, says which it is, to
+group them. The first n structures make a set of their own, so that sets of
+several sizes come from one generation.
 
 ## Errors
 
@@ -167,7 +201,7 @@ element or one without a covalent radius, an element given twice; a count,
 `atoms` or `steps` that is not a non-negative integer or a pair of positive
 ones; a `volume` that is not a pair of positive numbers, the smaller first;
 a `vacuum` outside 0 to 1; a `closest` not above zero; an unknown `per`; `calculator` without
-`max_energy` or the reverse; a `tolerance` outside 0 to below 1; a
+`max_energy` or the reverse; a
 `reference` that is not a sequence of systems or holds other elements; and
 volumes too small for the atoms to be placed apart in 200 cells in a row. It
 raises `MissingProperty` for a reference frame without an `element` column.

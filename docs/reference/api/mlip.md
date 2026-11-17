@@ -43,3 +43,5 @@
 ::: mdapy.mlip.perturb
 
 ::: mdapy.mlip.generate_structures
+
+::: mdapy.mlip.GeneratedStructures

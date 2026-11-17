@@ -10,6 +10,7 @@ import numpy as np
 import pytest
 
 import mdapy
+import mdapy.mlip._generation as generation
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.elements import COVALENT_RADII, SYMBOLS
@@ -207,7 +208,7 @@ class TestGenerate:
         frames = generate_structures(
             ["Cu", "Zr"], 12, volume=(14.0, 28.0), atoms=(3, 10), vacuum=0.0,
             steps=5, seed=4,
-        )  # fmt: skip
+        ).structures  # fmt: skip
         assert len(frames) == 12
         for frame in frames:
             assert 3 <= len(frame) <= 10
@@ -227,7 +228,7 @@ class TestGenerate:
         frames = generate_structures(
             ["Cu", "Zr"], 16, volume=(14.0, 20.0), atoms=(3, 8), vacuum=1.0,
             steps=5, seed=6,
-        )  # fmt: skip
+        ).structures  # fmt: skip
         free = []
         for frame in frames:
             assert frame.box.pbc.all()
@@ -240,14 +241,39 @@ class TestGenerate:
             assert frame.info == {"config_type": kind}
         assert set(free) == {(False, False, True), (True, True, True)}
 
-    def test_same_seed_same_structures(self):
-        first = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=7)
-        again = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=7)
-        other = generate_structures("Al", 5, volume=(10.0, 25.0), steps=3, seed=8)
-        for a, b in zip(first, again, strict=True):
+    def test_same_seed_same_structures_and_more(self):
+        """The same seed gives the same structures, and with a larger count
+        the same first ones and more: a generation goes on."""
+        options = {"volume": (10.0, 25.0), "steps": 3, "seed": 7}
+        first = generate_structures("Al", 5, **options)
+        more = generate_structures("Al", 8, **options)
+        other = generate_structures("Al", 5, **(options | {"seed": 8}))
+        assert len(more.structures) == 8
+        for a, b in zip(first.structures, more.structures[:5], strict=True):
             assert np.array_equal(a["positions"], b["positions"])
             assert np.array_equal(a.box.matrix, b.box.matrix)
-        assert not np.array_equal(first[1]["positions"], other[1]["positions"])
+        np.testing.assert_array_equal(first.entropy, more.entropy[:5])
+        np.testing.assert_array_equal(first.atoms, more.atoms[:5])
+        assert not np.array_equal(
+            first.structures[1]["positions"], other.structures[1]["positions"]
+        )
+
+    def test_the_entropy_as_the_structures_were_kept(self):
+        """The entropy of the set rises with each structure kept: half the
+        log determinant of the covariance of the scaled descriptors."""
+        result = generate_structures("Al", 12, volume=(10.0, 25.0), steps=3, seed=2)
+        assert np.all(np.diff(result.entropy) > 0)
+        sizes = [len(s) for s in result.structures]
+        np.testing.assert_array_equal(result.atoms, np.cumsum(sizes))
+        assert result.atoms.dtype == np.int64 and result.entropy.dtype == np.float64
+
+    def test_count_by_default(self, monkeypatch):
+        """Without a count, as many structures for each element."""
+        monkeypatch.setattr(generation, "_PER_ELEMENT", 3)
+        result = generate_structures(
+            ["Cu", "Zr"], volume=(14.0, 28.0), atoms=(3, 6), steps=1, seed=0
+        )
+        assert len(result.structures) == 6
 
     @pytest.mark.parametrize("per", ["atom", "structure"])
     def test_moves_raise_the_entropy(self, per):
@@ -258,10 +284,10 @@ class TestGenerate:
         volume = (8.0, 33.0)
         moved = generate_structures(
             "Al", 40, volume=volume, atoms=(2, 24), per=per, seed=1
-        )
+        ).structures
         random = generate_structures(
             "Al", 40, volume=volume, atoms=(2, 24), steps=0, seed=1
-        )
+        ).structures
         g = generator(["Al"])
 
         def points(frames):
@@ -286,7 +312,7 @@ class TestGenerate:
         reference = perturb(fcc, 20, displacement=0.05, seed=2)
         frames = generate_structures(
             "Al", 5, volume=(10.0, 25.0), steps=4, reference=reference, seed=3
-        )
+        ).structures
         assert len(frames) == 5
         with pytest.raises(InvalidParameter, match="not given"):
             generate_structures("Cu", 1, volume=(10.0, 25.0), reference=reference)
@@ -313,38 +339,37 @@ class TestGenerate:
             calculator=eam,
             max_energy=-2.8,
             seed=5,
-        )
+        ).structures
         energies = [eam.compute(f, ("energy",)).energy / len(f) for f in frames]
         assert len(frames) == 10 and max(energies) <= -2.8
 
-    def test_stops_when_too_few_are_kept(self, monkeypatch):
-        """With every other candidate kept, a tolerance above one half stops
-        the generation once 50 candidates were tried; with none kept, it
-        stops after 100 in a row."""
+    def test_gives_up_when_nothing_raises_the_entropy(self, monkeypatch):
+        """Should candidates in a row raise nothing, or exceed the energy
+        bound, the generation ends with what it kept."""
+        monkeypatch.setattr(generation, "_STALL", 30)
         state = {"calls": 0}
 
-        def every_other(self, z):
+        def first_three(self, z):
             state["calls"] += 1
-            return state["calls"] % 2 == 1
+            return state["calls"] <= 3
 
-        monkeypatch.setattr(_Entropy, "raised_by", every_other)
-        frames = generate_structures(
-            "Al", 1000, volume=(10.0, 25.0), steps=0, tolerance=0.6, seed=0
-        )
-        assert len(frames) == 25 and state["calls"] == 50
-        frames = generate_structures(
-            "Al", 1000, volume=(10.0, 25.0), steps=0, tolerance=0.4, seed=0
-        )
-        assert len(frames) == 1000
-        monkeypatch.setattr(_Entropy, "raised_by", lambda self, z: False)
-        assert generate_structures("Al", 10, volume=(10.0, 25.0), steps=0) == []
+        monkeypatch.setattr(_Entropy, "raised_by", first_three)
+        result = generate_structures("Al", 10, volume=(10.0, 25.0), steps=0, seed=0)
+        assert len(result.structures) == 3 and state["calls"] == 33
+        monkeypatch.undo()
+        monkeypatch.setattr(generation, "_STALL", 30)
+        result = generate_structures(
+            "Al", 10, volume=(12.0, 25.0), steps=0, calculator=EAM.zhou(["Al"]),
+            max_energy=-100.0, seed=0,
+        )  # fmt: skip
+        assert result.structures == () and len(result.entropy) == 0
 
     def test_volume_too_small(self):
         with pytest.raises(InvalidParameter, match="too small for closest"):
             generate_structures("Al", 1, volume=(1.0, 1.0), atoms=(8, 8))
         frames = generate_structures(
             "Al", 3, volume=(16.0, 16.0), atoms=(1, 1), vacuum=0.0, steps=5, seed=0
-        )
+        ).structures
         for frame in frames:
             assert frame.box.volume == pytest.approx(16.0, rel=1e-12)
 
@@ -359,7 +384,7 @@ class TestGenerate:
         token.cancel()
         with pytest.raises(Cancelled):
             generate_structures("Al", 3, volume=(10.0, 25.0), cancel=token)
-        assert generate_structures("Al", 0, volume=(10.0, 25.0)) == []
+        assert generate_structures("Al", 0, volume=(10.0, 25.0)).structures == ()
 
     @pytest.mark.parametrize(
         "elements, kwargs, match",
@@ -383,8 +408,6 @@ class TestGenerate:
             ("Al", {"per": "frame"}, "per"),
             ("Al", {"steps": -1}, "steps"),
             ("Al", {"max_energy": -3.0}, "together"),
-            ("Al", {"tolerance": 1.0}, "tolerance"),
-            ("Al", {"tolerance": "0.1"}, "tolerance"),
             ("Al", {"cancel": object()}, "CancelToken"),
         ],
     )

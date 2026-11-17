@@ -100,9 +100,8 @@ Five sets of up to 4800 atoms, each made three times with other seeds:
   weighted three times in the training.
 
 The generated structures span half to twice the volume per atom of the
-crystal, 16.6 Å³. Their generation stops by itself when 100 structures in a
-row add nothing to the set, which then holds fewer than 4800 atoms, and so
-does the mix when its generated structures run out.
+crystal, 16.6 Å³; each generation makes its default 1000 structures, some
+7000 atoms, of which the sets take the first.
 
 ```python
 from mdapy.build import build_crystal
@@ -172,8 +171,9 @@ def mixed(parts, shares):
 
 
 def training_sets(seed):
-    generated = generate_structures("Al", 5000, volume=VOLUME, seed=seed)
-    periodic = generate_structures("Al", 5000, volume=VOLUME, vacuum=0.0, seed=seed)
+    generated = generate_structures("Al", volume=VOLUME, seed=seed).structures
+    periodic = generate_structures("Al", volume=VOLUME, vacuum=0.0, seed=seed)
+    periodic = periodic.structures
     return {
         "crystals": crystals(seed),
         "MD": sampled_by_md(seed),

@@ -523,6 +523,11 @@ ultra-efficient and accurate training of neuroevolution potentials (2026).
 [arXiv:2606.19557](https://arxiv.org/abs/2606.19557)
 { #wu2026torchnep }
 
+**Yang et al. (2024).** H. Yang et al., MatterSim: A deep learning atomistic
+model across elements, temperatures and pressures (2024).
+[arXiv:2405.04967](https://arxiv.org/abs/2405.04967)
+{ #yang2024 }
+
 **Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
 Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs
 energy for Al, Cu, and Ni, *Phys. Rev. B* **98**, 224106 (2018).

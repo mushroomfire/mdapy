@@ -85,6 +85,11 @@ Dislocations* (Oxford University Press, Oxford, 2006).
 [doi:10.1093/oso/9780198526148.001.0001](https://doi.org/10.1093/oso/9780198526148.001.0001)
 { #bulatov2006 }
 
+**Bussi and Parrinello (2007).** G. Bussi and M. Parrinello, Accurate sampling
+using Langevin dynamics, *Phys. Rev. E* **75**, 056707 (2007).
+[doi:10.1103/PhysRevE.75.056707](https://doi.org/10.1103/PhysRevE.75.056707)
+{ #bussi2007 }
+
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
 experiments, molecular dynamics simulations and models for time correlation
@@ -282,6 +287,11 @@ on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
 { #maras2016 }
 
+**Martyna et al. (1994).** G. J. Martyna, D. J. Tobias and M. L. Klein,
+Constant pressure molecular dynamics algorithms, *J. Chem. Phys.* **101**, 4177
+(1994). [doi:10.1063/1.467468](https://doi.org/10.1063/1.467468)
+{ #martyna1994 }
+
 **Meija et al. (2016).** J. Meija et al., Atomic weights of the elements 2013
 (IUPAC Technical Report), *Pure Appl. Chem.* **88**, 265 (2016).
 [doi:10.1515/pac-2015-0305](https://doi.org/10.1515/pac-2015-0305)
@@ -371,6 +381,12 @@ banding in metallic glasses and molecular dynamics calculations, *Mater.
 Trans.* **48**, 2923 (2007).
 [doi:10.2320/matertrans.MJ200769](https://doi.org/10.2320/matertrans.MJ200769)
 { #shimizu2007 }
+
+**Shinoda et al. (2004).** W. Shinoda, M. Shiga and M. Mikami, Rapid
+estimation of elastic constants by molecular dynamics simulation under constant
+stress, *Phys. Rev. B* **69**, 134103 (2004).
+[doi:10.1103/PhysRevB.69.134103](https://doi.org/10.1103/PhysRevB.69.134103)
+{ #shinoda2004 }
 
 **Song et al. (2024).** K. Song et al., General-purpose machine-learned
 potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,
@@ -469,6 +485,13 @@ software library for crystal symmetry search, *Sci. Technol. Adv. Mater.:
 Methods* **4**, 2384822 (2024).
 [doi:10.1080/27660400.2024.2384822](https://doi.org/10.1080/27660400.2024.2384822)
 { #togo2024 }
+
+**Tuckerman et al. (2006).** M. E. Tuckerman, J. Alejandre, R. López-Rendón,
+A. L. Jochim and G. J. Martyna, A Liouville-operator derived measure-preserving
+integrator for molecular dynamics simulations in the isothermal–isobaric
+ensemble, *J. Phys. A: Math. Gen.* **39**, 5629 (2006).
+[doi:10.1088/0305-4470/39/19/S18](https://doi.org/10.1088/0305-4470/39/19/S18)
+{ #tuckerman2006 }
 
 **van de Walle and Ceder (2002).** A. van de Walle and G. Ceder, The effect of
 lattice vibrations on substitutional alloy thermodynamics, *Rev. Mod. Phys.* **74**,

@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
+  as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
+  LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
+  constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
+  LAMMPS; a `movable` column keeps atoms still. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md).
 - `mlip.entropy` measures how much of descriptor space a training set covers, and
   `mlip.information_gain` what new structures add to it, without labels and whatever the
   model: the methods of QUESTS, with its descriptor of the nearest neighbors of each atom,
@@ -15,7 +21,8 @@
   Subramanyam and Perez (2025) and Bochkarev et al. (2026). The volume per atom and the
   shortest distances bound them, a calculator and `max_energy` their energy, a
   `reference` training set is complemented, and the structures come in the order they
-  were kept, so that the first n make a set of their own. See
+  were kept, so that the first n make a set of their own; the `config_type` of each, bulk,
+  slab or cluster, groups them. See
   [Generated structures](../user-guide/mlip/generation.md).
 
 ## 2.1.0 (not released)

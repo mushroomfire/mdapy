@@ -90,23 +90,29 @@ With $E_N$ the energy of the perfect crystal of $N$ atoms and $E_{N-1}$ that
 of the crystal with a vacancy, both relaxed,
 
 $$
-E_v = E_{N-1} - \frac{N-1}{N} E_N .
+E_v = E_{N-1} - \frac{N-1}{N} E_N
 $$
 
+is the vacancy formation energy.
+
 With $E_\text{slab}$ the energy of the crystal opened by the vacuum, relaxed,
-and $A$ the area of each of its two surfaces,
+$E_\text{bulk}$ that of the same crystal without vacuum, and $A$ the area of
+each of its two surfaces, the surface energy is
 
 $$
 \gamma_s = \frac{E_\text{slab} - E_\text{bulk}}{2A} .
 $$
 
-The generalized stacking fault energy at the slip $f\,\mathbf d$ is
+The generalized stacking fault energy at the slip $f\,\mathbf d$, a fraction
+$f$ from 0 to 1 of the slip vector $\mathbf d$ (`direction`), is
 
 $$
 \gamma(f) = \frac{E(f\,\mathbf d) - E(0)}{A},
 $$
 
-each configuration relaxed along the normal of the fault only: a `movable`
+with $E(f\,\mathbf d)$ the energy of the crystal slipped by $f\,\mathbf d$
+across the fault plane, $E(0)$ that of the perfect crystal, and $A$ the area of
+the fault plane in the box, each configuration relaxed along the normal of the fault only: a `movable`
 column keeps the atoms still along the plane, as LAMMPS `fix setforce 0 0
 NULL` does. In fcc along $[11\bar2]$ the curve has the unstable stacking
 fault energy as its first maximum and the intrinsic stacking fault energy

@@ -139,7 +139,11 @@ F = F_\mathrm{springs} + F_\mathrm{cm} + \frac{1}{2N}
 - \int_1^0 (U - U_\mathrm{springs})\, d\lambda \right],
 $$
 
-with the forces $(1-\lambda)$ of the crystal and $\lambda$ of the springs, and
+the free energy $F$ per atom of the $N$ atoms at temperature $T$, where $U$ is the
+potential energy of the crystal and $U_\mathrm{springs}$ that of the springs, and
+the coupling $\lambda$ goes from 0 to 1 and back with the forces $(1-\lambda)$ of the
+crystal and $\lambda$ of the springs; the integrals are over the runs there and back.
+The springs and the center of mass give
 
 $$
 F_\mathrm{springs} = \frac{3 k_B T}{N} \sum_i \ln\frac{\hbar\omega_i}{k_B T},
@@ -148,25 +152,35 @@ F_\mathrm{cm} = \frac{k_B T}{N} \ln\left[ \frac{N}{V}
 \left( 2\pi \sum_i \frac{m_i^2}{M^2} \frac{k_B T}{k_i} \right)^{3/2} \right]
 $$
 
-for the center of mass, held fixed. Half the difference of the two ways removes the
-heat lost on the way.
+for the center of mass, held fixed, where $k_B$ is the Boltzmann constant, $\hbar$ the
+reduced Planck constant, $\omega_i = \sqrt{k_i/m_i}$ the angular frequency of the
+spring of atom $i$, $m_i$ its mass and $M$ the mass of all the atoms. Half the
+difference of the two ways removes the heat lost on the way.
 
 **A liquid** at volume $V$ is switched in the same way to the Uhlenbeck-Ford model
-$U_\mathrm{UF} = -p\,k_B T \ln(1 - e^{-r^2/\sigma^2})$, with $p = 50$ and
-$\sigma = 1.5$ Å ([Paula Leite et al. (2016)](../../reference/references.md#paulaleite2016)),
+of pairs of atoms at the distance $r$, $U_\mathrm{UF} = -p\,k_B T \ln(1 - e^{-r^2/\sigma^2})$
+summed over the pairs, with the strength $p = 50$ and the length $\sigma = 1.5$ Å ([Paula Leite et al. (2016)](../../reference/references.md#paulaleite2016)),
 which is switched in turn from nothing, the ideal gas:
 
 $$
 F = F_\mathrm{gas} + \frac{1}{N} \int_0^1 \langle U_\mathrm{UF} \rangle_\lambda\, d\lambda
-+ \frac{1}{N} \int_0^1 \langle U - U_\mathrm{UF} \rangle_\lambda\, d\lambda.
++ \frac{1}{N} \int_0^1 \langle U - U_\mathrm{UF} \rangle_\lambda\, d\lambda,
 $$
 
-**Between temperatures** the free energy follows the enthalpy $H$ along runs with
-the temperature changing there and back, of which the mean is taken:
+with $F_\mathrm{gas}$ the free energy per atom of the ideal gas of the same atoms at
+the same volume and temperature, and $\langle \cdot \rangle_\lambda$ the mean over the
+run at the coupling $\lambda$.
+
+**Between temperatures** the Gibbs energy $G$ per atom follows the enthalpy $H$ per
+atom along runs with the temperature changing there and back, of which the mean is
+taken:
 
 $$
-\frac{G(T)}{T} = \frac{G(T_0)}{T_0} - \int_{T_0}^{T} \frac{H(T')}{T'^2}\, dT'.
+\frac{G(T)}{T} = \frac{G(T_0)}{T_0} - \int_{T_0}^{T} \frac{H(T')}{T'^2}\, dT',
 $$
+
+from the first temperature $T_0$, at which the switching gives $G$, with $T'$ the
+temperature along the run.
 
 The Gibbs energy at pressure $P$ is $G = F + PV$, with $V$ the mean volume at the
 first temperature and $P$.

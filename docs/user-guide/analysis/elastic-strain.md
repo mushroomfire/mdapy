@@ -102,7 +102,7 @@ F = \Big(\sum_k \mathbf d_k \mathbf v_k^T\Big)\Big(\sum_k \mathbf v_k \mathbf v_
 \varepsilon = \tfrac{1}{2}\big(I - F^{-T} F^{-1}\big),
 $$
 
-the Euler–Almansi strain, which does not depend on how the lattice of the
+with $I$ the identity: the Euler–Almansi strain, which does not depend on how the lattice of the
 crystal is turned, nor on which of its equivalent frames the ideal vectors
 are taken in.
 

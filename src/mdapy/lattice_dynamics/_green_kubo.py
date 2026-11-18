@@ -17,7 +17,7 @@ from mdapy import units
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.simulation._dynamics import MolecularDynamics
+from mdapy.simulation._dynamics import MolecularDynamics, _read_written
 
 # W/(m K) of 1 eV/(Å ps K)
 _W_PER_M_K = units.ELEMENTARY_CHARGE / (1e-10 * 1e-12)
@@ -261,7 +261,7 @@ def green_kubo(
             thermo = md.thermo.filter(md.thermo["step"] > start)
             volume = float(np.mean(thermo["volume"].to_numpy()))
             mean = float(np.mean(thermo["temperature"].to_numpy()))
-        flux = np.loadtxt(path, comments="#")[:, 1:]
+            flux = _read_written(md.lammps, path)[:, 1:]
     return green_kubo_from_flux(
         flux,
         interval=every * float(timestep),

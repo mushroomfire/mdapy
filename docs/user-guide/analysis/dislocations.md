@@ -339,7 +339,8 @@ the lattice about a line is turned from it, and the crystal is the one the
 file names, or for the files of OVITO the structure of the most atoms in
 clusters. `read_dislocations` reads versions 5 to 7, the first frame of a
 file of several, and raises `FileFormatError` for a file that does not
-follow the format.
+follow the format. A CA file holds no atoms, so `mdapy.io.read` and
+`read_trajectory`, which read systems, do not read it.
 
 ## Errors
 

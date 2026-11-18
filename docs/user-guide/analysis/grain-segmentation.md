@@ -142,7 +142,7 @@ less than 4°, each merge adding to a cluster the orientation of the other,
 turned to the nearest equivalent:
 
 - `"graph"`: the bonds are the edges of a graph of weights
-  $\exp(-\theta^2/3)$, $\theta$ in degrees; node pair sampling
+  $\exp(-\theta^2/3)$, with $\theta$ the misorientation of the bond in degrees; node pair sampling
   ([Bonald et al. 2018](../../reference/references.md#bonald2018)) merges the
   pair of clusters $a$, $b$ of least distance $w_a w_b / w_{ab}$, where $w$
   are the weights of the clusters and of the edges between them, the

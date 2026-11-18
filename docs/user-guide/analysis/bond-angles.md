@@ -90,7 +90,8 @@ fit, and `MissingProperty` for `cutoffs` without an `element` column;
 
 Every two bonds $ij$ and $ik$ of an atom $i$ give the angle $\theta_{jik}$
 between the vectors to $j$ and $k$, counted in the bin
-$\lfloor \theta / \Delta\theta \rfloor$; an atom with $n$ bonds gives
+$\lfloor \theta / \Delta\theta \rfloor$, with $\Delta\theta$ the width of a bin, 180 degrees over
+`bins`; an atom with $n$ bonds gives
 $n(n - 1)/2$ angles. Bonds join atoms closer than the cutoff of their pair
 of elements, also across periodic boundaries.
 

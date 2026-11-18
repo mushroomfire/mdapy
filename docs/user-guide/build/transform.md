@@ -62,7 +62,9 @@ Each returns a new `System`.
 `replicate` gives the copies in a box with lattice vectors
 $n_a\mathbf a$, $n_b\mathbf b$ and $n_c\mathbf c$ and the same origin:
 
-- Copy $(i, j, l)$ is number $k = i + n_a (j + n_b l)$, so the copy along
+- With $n_a$, $n_b$ and $n_c$ the copies along each vector (`repeat`) and $N$ the atoms
+  of the original, copy $(i, j, l)$, the $i$-th along **a**, $j$-th along **b** and $l$-th
+  along **c** from 0, is number $k = i + n_a (j + n_b l)$, so the copy along
   **a** changes fastest; its atoms are rows $kN$ to $kN + N - 1$, in the
   order of the original.
 - Its `id`s are those of the original plus $k$ times the largest `id`.

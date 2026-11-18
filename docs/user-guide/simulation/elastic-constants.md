@@ -107,11 +107,17 @@ constants are central differences of the stress $\sigma$ (positive under
 tension) in the same order:
 
 $$
-C_{jk} = \frac{\sigma_j(+\delta\, \mathbf e_k) - \sigma_j(-\delta\, \mathbf e_k)}{2\delta}.
+C_{jk} = \frac{\sigma_j(+\delta\, \mathbf e_k) - \sigma_j(-\delta\, \mathbf e_k)}{2\delta},
 $$
 
-With $S = C^{-1}$, the moduli of a polycrystal are the Voigt and Reuss bounds
-and their mean, the Hill average
+where $\delta$ is `strain`, $\mathbf e_k$ the unit strain of component $k$ alone,
+and $\sigma_j(\pm\delta\, \mathbf e_k)$ the component $j$ of the stress of the
+strained, relaxed crystal; $j$ and $k$ run over the six Voigt components.
+
+With the compliances $S = C^{-1}$, whose entries $S_{jk}$ and those $C_{jk}$ of
+$C$ are numbered by the Voigt components from 1 to 6, the bulk moduli $K$ and
+shear moduli $G$ of a polycrystal are the Voigt (V) and Reuss (R) bounds and
+their mean, the Hill (H) average
 ([Hill (1952)](../../reference/references.md#hill1952)):
 
 $$

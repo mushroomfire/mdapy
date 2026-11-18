@@ -64,11 +64,16 @@ An `EquationOfState`:
 | `v0` | float64 | Å³ | the volume at the minimum |
 | `b0` | float64 | GPa | the bulk modulus there |
 | `b0_prime` | float64 | | its derivative with respect to the pressure |
+| `covariance` | (4, 4) float64 | | the covariance of `e0`, `v0`, `b0` and `b0_prime`, in their units |
 | `errors` | (4,) float64 | | the standard errors of `e0`, `v0`, `b0` and `b0_prime` |
 | `residuals` | (n,) float64 | eV | the energies less the fit |
 | `r_squared` | float64 | | the coefficient of determination |
 | `energy(volume)` | float64 | eV | the energy at volumes |
 | `pressure(volume)` | float64 | GPa | −dE/dV at volumes |
+
+`EquationOfState(form, parameters, covariance, residuals, r_squared)` makes one
+of given parameters, `e0`, `v0`, `b0` and `b0_prime` in the units above, such as
+those of a publication, for its energy and pressure at any volume.
 
 ## Errors
 
@@ -79,7 +84,11 @@ volumes.
 
 ## Definition
 
-With $\eta = (V_0/V)^{2/3}$ and $x = (V/V_0)^{1/3}$:
+The energy $E$ at a volume $V$, in each of the three forms, has four
+parameters: $E_0$ and $V_0$, the energy and volume at the minimum (`e0` and
+`v0`); $B_0$, the bulk modulus there (`b0`); and $B_0'$, the derivative of the
+bulk modulus with respect to the pressure (`b0_prime`). With
+$\eta = (V_0/V)^{2/3}$ and $x = (V/V_0)^{1/3}$:
 
 $$
 E_\text{BM} = E_0 + \frac{9 V_0 B_0}{16}\left[(\eta - 1)^3 B_0' + (\eta - 1)^2 (6 - 4\eta)\right],

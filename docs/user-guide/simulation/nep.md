@@ -22,7 +22,7 @@ descriptors = potential.descriptors(system)  # (N, dim)
 | Method | Returns |
 |---|---|
 | `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
-| `descriptors(system, *, neighbors=None, progress=None, cancel=None)` | (N, dim) descriptors of each atom, scaled as the network sees them: the radial ones, then the angular ones by $l$ and $n$, then the four-body and five-body ones by $n$ |
+| `descriptors(system, *, neighbors=None, progress=None, cancel=None)` | (N, dim) descriptors of each atom, scaled as the network sees them: the radial ones, then the angular ones by $l$ and $n$, then the four-body and five-body ones by $n$; $n$ numbers the radial functions and $l$ is the degree of the spherical harmonics |
 
 The atoms need an `element` column; elements the potential does not have
 raise `InvalidParameter`. Other models of GPUMD (NEP3, NEP5, charge, dipole
@@ -31,14 +31,17 @@ and polarizability models) and malformed files raise
 
 The model is that of GPUMD ([Fan et al. (2022)](../../reference/references.md#fan2022)), version 4
 ([Song et al. (2024)](../../reference/references.md#song2024)): radial descriptors from Chebyshev functions of
-the distance, angular ones from real spherical harmonics up to
-$l_\text{max}$, with optional four-body and five-body invariants, each scaled
+the distance, angular ones from real spherical harmonics up to the degree
+$l_\text{max}$ of the file, with optional four-body and five-body invariants, each scaled
 by its factor in the file and fed to one hidden layer of $\tanh$ neurons per
 element, which gives the energy $E_i$ of atom $i$. The cutoff of a pair is
 the mean of the cutoffs of its two elements. With ZBL, each pair within the
 angular cutoff adds the screened Coulomb repulsion of
 [Ziegler et al. (1985)](../../reference/references.md#ziegler1985),
-$V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)$, half to each atom; the
+$V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)$, half to each atom, where $r$ is the
+distance of atoms $i$ and $j$, $Z_i$ and $Z_j$ their atomic numbers, $k_e = 14.399645$
+eV Å the Coulomb constant and $a = 0.46848\,\text{Å} / (Z_i^{0.23} + Z_j^{0.23})$ the
+screening length; the
 switch $f_s$ is 1 below an inner cutoff and falls as a cosine to 0 at an
 outer cutoff, as the `zbl` line of the file chooses:
 

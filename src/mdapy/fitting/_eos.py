@@ -60,11 +60,27 @@ _FORMS = {
     "murnaghan": (Model("Murnaghan", _murnaghan, _NAMES), _murnaghan_pressure),
 }
 FORMS = tuple(_FORMS)
+# the parameters in the units of EquationOfState, from those of the forms:
+# b0 from eV/Å³ to GPa
+_UNITS = np.array([1.0, 1.0, units.EV_PER_A3_TO_GPA, 1.0])
 
 
 class EquationOfState:
     """An equation of state fitted to energies at volumes, made by
-    ``fit_eos``.
+    ``fit_eos``, or one of given parameters.
+
+    Parameters
+    ----------
+    form : str
+        One of ``FORMS``.
+    parameters : array_like
+        (4,) float64 e0 in eV, v0 in Å³, b0 in GPa and b0_prime.
+    covariance : array_like
+        (4, 4) float64 covariance of the parameters, in their units.
+    residuals : array_like
+        (n,) float64 the energies less the equation of state, in eV.
+    r_squared : float64
+        The coefficient of determination of the energies.
 
     Attributes
     ----------
@@ -78,23 +94,48 @@ class EquationOfState:
         The bulk modulus at the minimum in GPa.
     b0_prime : float64
         Its derivative with respect to the pressure.
+    covariance : numpy.ndarray
+        (4, 4) float64 covariance of e0, v0, b0 and b0_prime, in their units.
     errors : numpy.ndarray
         (4,) float64 standard errors of e0, v0, b0 (in GPa) and b0_prime.
     residuals : numpy.ndarray
         (n,) float64 the energies less the equation of state, in eV.
     r_squared : float64
         The coefficient of determination of the energies.
+
+    Raises
+    ------
+    InvalidParameter
+        For an unknown form, or parameters, covariance or residuals of
+        other shapes.
     """
 
-    def __init__(self, form, parameters, errors, residuals, r_squared):
+    def __init__(
+        self,
+        form: str,
+        parameters: ArrayLike,
+        covariance: ArrayLike,
+        residuals: ArrayLike,
+        r_squared: float,
+    ):
+        if form not in _FORMS:
+            raise InvalidParameter(f"form must be one of {FORMS}, not {form!r}")
+        values = np.array(parameters, dtype=np.float64)
+        covariance = np.array(covariance, dtype=np.float64)
+        residuals = np.array(residuals, dtype=np.float64)
+        if values.shape != (4,) or covariance.shape != (4, 4) or residuals.ndim != 1:
+            raise InvalidParameter(
+                "parameters must be (4,), covariance (4, 4) and residuals a line"
+            )
         self.form = form
-        self.e0, self.v0, b0, self.b0_prime = (float(p) for p in parameters)
-        self.b0 = b0 * units.EV_PER_A3_TO_GPA
-        self.errors = errors * np.array([1.0, 1.0, units.EV_PER_A3_TO_GPA, 1.0])
+        self.e0, self.v0, self.b0, self.b0_prime = (float(p) for p in values)
+        self.covariance = covariance
+        self.errors = np.sqrt(np.diagonal(covariance)).copy()
         self.residuals = residuals
-        self.r_squared = r_squared
-        self.__parameters = np.array([self.e0, self.v0, b0, self.b0_prime])
-        for array in (self.errors, self.residuals):
+        self.r_squared = float(r_squared)
+        # b0 in eV/Å³, as the forms take it
+        self.__parameters = values / _UNITS
+        for array in (self.covariance, self.errors, self.residuals):
             array.flags.writeable = False
 
     def __repr__(self) -> str:
@@ -209,8 +250,8 @@ def fit_eos(
     fitted = fit_curve(model, volumes, energies, guess)
     return EquationOfState(
         form,
-        fitted.parameters,
-        np.array(fitted.errors),
-        np.array(fitted.residuals),
+        fitted.parameters * _UNITS,
+        fitted.covariance * np.outer(_UNITS, _UNITS),
+        fitted.residuals,
         fitted.r_squared,
     )

@@ -175,13 +175,20 @@ $$
 \Phi_{ii} = -\sum_{j \ne i} \Phi_{ij},
 $$
 
-with $k(r) = \sum_{q=0}^{d} c_q r^q$ for each pair of elements in each shell. The
+where $\Phi_{ij}$ is the $3 \times 3$ block of force constants between atoms $i$
+and $j$, $\Phi_{ii}$ that of atom $i$ with itself, summed over the bonds $j$ of
+atom $i$, $\mathbf 1$ the $3 \times 3$ identity and $\mathbf e \mathbf e^{\mathsf T}$
+the projection onto the bond. Each stiffness is a polynomial in the length,
+$k(r) = \sum_{q=0}^{d} c_q r^q$ of degree $d$ (`degree`) with coefficients $c_q$
+(`longitudinal` and `transverse`), for each pair of elements in each shell. The
 coefficients make the sum over all frames of $|\mathbf F - \mathbf F_\text{springs}|^2$
-as small as they can, with $\mathbf F_\text{springs} = -\Phi \mathbf u$ of the
+as small as they can, with $\mathbf F$ the forces of the frames and
+$\mathbf F_\text{springs} = -\Phi \mathbf u$ those of the springs at the
 displacements $\mathbf u$ of the atoms
 ([Wu et al. (2003)](../../reference/references.md#wu2003)). For a pair potential
-$\varphi(r)$ the springs are exact: $k_\parallel = \varphi''(r)$ and
-$k_\perp = \varphi'(r)/r$, so that a bond in tension resists a turn.
+$\varphi(r)$, with $\varphi'$ and $\varphi''$ its first and second derivatives,
+the springs are exact: $k_\parallel = \varphi''(r)$ and $k_\perp = \varphi'(r)/r$,
+so that a bond in tension resists a turn.
 
 !!! quote "Please cite"
 

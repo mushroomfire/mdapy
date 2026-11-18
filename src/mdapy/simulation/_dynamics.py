@@ -6,6 +6,7 @@
 """Molecular dynamics: in LAMMPS with a LAMMPS calculator, or in MDAPY itself
 with any other calculator."""
 
+import os
 import weakref
 from typing import Any
 
@@ -47,6 +48,34 @@ def _pair(value: float | tuple[float, float] | None, name: str) -> tuple | None:
             f"{name} must be a number or (start, stop), not {value!r}"
         )
     return pair
+
+
+def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
+    """The rows of numbers of a file that a fix of LAMMPS wrote, on every
+    process: under MPI the main process alone writes it, into its own
+    folder, and sends what it reads to the others."""
+
+    def read() -> np.ndarray:
+        return np.loadtxt(path, comments="#", ndmin=2)
+
+    if int(lmp.extract_setting("world_size")) == 1:
+        return read()
+    comm = lmp.get_mpi_comm()
+    if comm is None:
+        raise InvalidParameter(
+            "LAMMPS on several processes needs mpi4py, by which its main process "
+            "shares the values it writes"
+        )
+    data: Any = None
+    if comm.rank == 0:
+        try:
+            data = read()
+        except Exception as error:  # sent too, or the others would wait for ever
+            data = error
+    data = comm.bcast(data, root=0)
+    if isinstance(data, Exception):
+        raise data
+    return data
 
 
 class _Lammps:
@@ -130,20 +159,23 @@ create_box {len(potential.elements)} box
             wrapped, _ = box.wrap(system["positions"])
             x = wrapped @ self.__rotation - self.__lo
             ids = list(range(1, self.__n + 1))
+            v = None
             if "velocities" in system.table.columns:
-                v = system["velocities"] @ self.__rotation
-                lmp.create_atoms(
-                    self.__n,
-                    ids,
-                    types.tolist(),
-                    x.ravel().tolist(),
-                    v.ravel().tolist(),
-                )
-            else:
-                lmp.create_atoms(self.__n, ids, types.tolist(), x.ravel().tolist())
+                v = (system["velocities"] @ self.__rotation).ravel().tolist()
+            # the box grows along a direction that is not periodic to hold
+            # atoms outside it, which LAMMPS would otherwise leave out
+            lmp.create_atoms(
+                self.__n, ids, types.tolist(), x.ravel().tolist(), v, shrinkexceed=True
+            )
+            held = int(lmp.get_natoms())
         except Exception as error:
             self.close()
             raise InvalidParameter(f"LAMMPS: {error}") from None
+        if held != self.__n:
+            self.close()
+            raise InvalidParameter(
+                f"LAMMPS holds {held} of the {self.__n} atoms of the system"
+            )
 
     # -- the LAMMPS instance --------------------------------------------
 

@@ -184,15 +184,17 @@ def _size(system: System, sheet: bool) -> float:
     return system.box.volume
 
 
-def _neighbouring(sizes: np.ndarray, index: int, dimensions: int) -> float:
-    """The relative change of length from the cell index of a grid to its
-    neighbours, by the volumes (areas) of the cells: the mean of its two
-    sides, or the one side of a cell at an end."""
-    order = np.argsort(sizes)
-    k = int(np.flatnonzero(order == index)[0])
-    low, high = order[max(k - 1, 0)], order[min(k + 1, len(order) - 1)]
-    sides = (k > 0) + (k < len(order) - 1)
-    return float((sizes[high] / sizes[low]) ** (1 / dimensions) - 1) / max(sides, 1)
+#: The intervals over the range of the volumes (areas) the jump at the cutoff
+#: is measured against, those of the default nine volumes: a jump distorts
+#: the fit through the volumes by as much whatever their number, so the
+#: scale is their range, not the spacing of the grid.
+_INTERVALS = 8
+
+
+def _spacing(sizes: np.ndarray, dimensions: int) -> float:
+    """The relative change of length over an eighth of the range of the
+    volumes (areas) of a grid of cells."""
+    return float((sizes.max() / sizes.min()) ** (1 / dimensions) - 1) / _INTERVALS
 
 
 def _scaled(system: System, ratio: float, sheet: bool = False) -> System:
@@ -411,7 +413,7 @@ def quasi_harmonic(
             symmetry,
             float(temperatures.max()),
             mesh,
-            _neighbouring(sizes, crossing.closest, 2 if sheet else 3),
+            _spacing(sizes, 2 if sheet else 3),
         )
         jump = static + vibration
         if jump > _JUMP * change:
@@ -421,7 +423,8 @@ def quasi_harmonic(
                 f"{crossing.short:.4f} Å apart {grid[crossing.near][0]} and "
                 f"{crossing.long:.4f} Å {grid[crossing.far][0]}. The free energy at "
                 f"{temperatures.max():g} K jumps there by {jump:.2g} eV per atom, "
-                f"{jump / change:.0%} of its change between neighbouring {kind}s, "
+                f"{jump / change:.0%} of its change over an eighth of the range of "
+                f"the {kind}s, "
                 f"more than the {_JUMP:.0%} that the results tolerate: the potential "
                 f"is not smooth at its cutoff. Use {kind}s or pressures all on one "
                 "side of the crossing, or a potential smooth at its cutoff"

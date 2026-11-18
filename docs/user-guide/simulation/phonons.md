@@ -51,7 +51,7 @@ and the density of states beside it.*
 | `system` | `System` | | | the cell of the crystal, periodic in every direction, or of a [sheet](sheets.md), with an `element` or a `mass` column; best its primitive cell |
 | `calculator` | `Calculator` | | | computes the forces |
 | `supercell` | int32, (3,) int32 or (3, 3) int32 | | | repeats of the cell along its vectors, or the integer matrix whose rows times the vectors of the cell are the vectors of the supercell; by default the supercell nearest a cube that is at least twice the cutoff of the calculator thick in every direction |
-| `displacement` | float64 | 0.01 | Å | the displacement $h$ of the atoms |
+| `displacement` | float64 | 0.01 | Å | the displacement $\Delta$ of the atoms |
 | `symmetry` | bool or `None` | `None` | | move only the atoms and along the axes that symmetry does not relate to others, with the symmetry operations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
 
 The calculator computes the forces on the supercell six times for each
@@ -85,8 +85,10 @@ it is.
 
 `phonons` returns a `Phonons`. Wave vectors are in units of the reciprocal
 lattice vectors of the cell: $\mathbf q = (h, k, l)$ is
-$h\mathbf b_1 + k\mathbf b_2 + l\mathbf b_3$, with
-$\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$.
+$h\mathbf b_1 + k\mathbf b_2 + l\mathbf b_3$, where $\mathbf b_j$ are the reciprocal
+lattice vectors of the lattice vectors $\mathbf a_i$ of the cell,
+$\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}$, with $\delta_{ij}$ 1 for $i = j$ and 0
+otherwise.
 
 | Attribute or method | Type | Meaning |
 |---|---|---|
@@ -261,13 +263,16 @@ stable or the supercell is too small.
 
 The force constants are central differences of the forces
 $\mathbf F$ on the atoms $j$ of the supercell when atom $a$ of the first
-cell moves by $\pm h$ along $\beta$:
+cell moves by $\pm\Delta$ (`displacement`) along the Cartesian direction $\beta$:
 
 $$
-\Phi_{a\beta, j\gamma} = -\frac{F_{j\gamma}(+h) - F_{j\gamma}(-h)}{2h},
+\Phi_{a\beta, j\gamma} = -\frac{F_{j\gamma}(+\Delta) - F_{j\gamma}(-\Delta)}{2\Delta},
 $$
 
+with $F_{j\gamma}(\pm\Delta)$ the component $\gamma$ of the force on atom $j$. They are
 made symmetric, $\Phi_{a\beta,(b,\mathbf L)\gamma} = \Phi_{b\gamma,(a,-\mathbf L)\beta}$,
+where $(b, \mathbf L)$ is the copy of atom $b$ of the cell in the cell shifted by the
+lattice translation $\mathbf L$,
 and summing to zero over $j$, so that moving the whole crystal costs no
 energy. The dynamical matrix of the atoms $a$ and $b$ of the cell, of
 masses $m_a$ and $m_b$, is
@@ -278,14 +283,17 @@ D_{a\beta, b\gamma}(\mathbf q) = \frac{1}{\sqrt{m_a m_b}} \sum_{j \in b}
 e^{i\mathbf q\cdot(\mathbf r_j + \mathbf T - \mathbf r_a)},
 $$
 
-where the sum runs over the atoms $j$ of the supercell that are copies of
-$b$, and $\mathbf T$ over the $N_j$ translations of the supercell that put
-$j$ nearest to $a$, all equally near
+where $\mathbf q$ is the wave vector, $i$ the imaginary unit, $\mathbf r_a$ and
+$\mathbf r_j$ the positions of the atoms, the sum runs over the atoms $j$ of the
+supercell that are copies of $b$, and $\mathbf T$ over the $N_j$ translations of the
+supercell that put $j$ nearest to $a$, all equally near
 ([Born and Huang (1954)](../../reference/references.md#born1954)). Its
-eigenvalues are $\omega^2$, the frequencies $\nu = \omega/2\pi$, with the
-sign of the eigenvalue; its eigenvectors $\mathbf e$ are the polarization
-vectors, so that atom $b$ in the cell at $\mathbf R$ moves as
-$\mathbf e_b\, e^{i\mathbf q\cdot(\mathbf R + \mathbf r_b) - i\omega t}/\sqrt{m_b}$.
+eigenvalues are $\omega^2$, with $\omega$ the angular frequency and $\nu = \omega/2\pi$
+the frequency, which takes the sign of the eigenvalue; its eigenvectors $\mathbf e$
+are the polarization vectors, so that atom $b$ in the cell at the lattice translation
+$\mathbf R$ moves with the time $t$ as
+$\mathbf e_b\, e^{i\mathbf q\cdot(\mathbf R + \mathbf r_b) - i\omega t}/\sqrt{m_b}$, with
+$\mathbf e_b$ the three components of $\mathbf e$ of atom $b$.
 
 The density of states per atom of a cell of $n$ atoms, over $K$ wave
 vectors, is
@@ -294,18 +302,24 @@ $$
 g(\nu) = \frac{1}{Kn}\sum_{\mathbf q, s} \delta(\nu - \nu_{\mathbf q s}),
 $$
 
-with each delta function spread over the tetrahedra of the mesh between
+where $\nu_{\mathbf q s}$ is the frequency of the branch $s$, one of $3n$, at the wave
+vector $\mathbf q$ of the mesh, and $\delta$ the Dirac delta function, each delta function spread over the tetrahedra of the mesh between
 the frequencies at their corners
 ([Blöchl et al. (1994)](../../reference/references.md#blochl1994)), or a
 Gaussian. The projected density of atom $a$ weighs each mode by
 $|\mathbf e_a|^2$, over the corners of each tetrahedron.
 
-The mode Grüneisen parameter of a mode of eigenvalue ω² and polarization **e** is
+The mode Grüneisen parameter of a mode of eigenvalue $\omega^2$ and polarization
+$\mathbf e$ at the volume $V$ of the cell is
 
 $$
 \gamma = -\frac{V}{\omega}\frac{\partial \omega}{\partial V}
-= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e .
+= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e ,
 $$
+
+where $D(V_-)$ and $D(V_+)$ are the dynamical matrices at the same wave vector of the
+phonons `smaller` and `larger`, at the volumes $V_-$ and $V_+$, and $\mathbf e^\dagger$
+is the conjugate transpose of $\mathbf e$.
 
 The thermal displacements of atom $a$ are
 
@@ -315,9 +329,17 @@ $$
 \mathrm{Re}\, e_{a\alpha}(\mathbf q s)\, e^*_{a\beta}(\mathbf q s),
 $$
 
-with $n$ the Bose–Einstein occupation of the mode.
+the mean at the temperature $T$ of the products of the displacements $u_{a\alpha}$
+and $u_{a\beta}$ of atom $a$ along the Cartesian directions $\alpha$ and $\beta$, where
+$\hbar$ is the reduced Planck constant, $\omega_{\mathbf q s}$ the angular frequency of
+the branch $s$ at $\mathbf q$, $n_{\mathbf q s} = 1/(e^{\hbar\omega_{\mathbf q s}/k_BT} - 1)$
+its Bose–Einstein occupation, $k_B$ the Boltzmann constant, $e_{a\alpha}(\mathbf q s)$ the
+component $\alpha$ of atom $a$ of its polarization, $e^*$ the complex conjugate and
+$\mathrm{Re}$ the real part.
 
-With $x = h\nu/k_B T$, each mode adds
+With $h$ the Planck constant, $k_B$ the Boltzmann constant and $x = h\nu/k_B T$ at
+the temperature $T$, each mode of frequency $\nu$ adds to the free energy $F$, the
+energy $E$, the entropy $S$ and the heat capacity at constant volume $C_V$
 
 $$
 F = \frac{h\nu}{2} + k_BT\ln(1 - e^{-x}),\quad

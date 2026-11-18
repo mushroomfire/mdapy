@@ -64,8 +64,9 @@ Zener ratio 3.58
 universal anisotropy 2.24
 ```
 
-A cubic crystal has three independent constants. Its Zener ratio $2C_{44}/(C_{11} -
-C_{12})$ is 1 when it is isotropic; copper's, above 3, is far from it. The universal
+A cubic crystal has three independent constants, $C_{11}$, $C_{12}$ and $C_{44}$, the
+entries of the matrix above in Voigt order (xx, yy, zz, yz, xz, xy). Its Zener ratio
+$2C_{44}/(C_{11} - C_{12})$ is 1 when it is isotropic; copper's, above 3, is far from it. The universal
 anisotropy index measures the same for any crystal: zero when isotropic, 2.24 here.
 
 ## A polycrystal

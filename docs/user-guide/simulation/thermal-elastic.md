@@ -118,14 +118,20 @@ $$
 C_{ij} = \frac{1}{V}\frac{\partial^2 F}{\partial\eta_i\,\partial\eta_j},
 $$
 
-in Voigt notation with engineering shears, by central differences of step
-$h$; $F$ is the static energy $E$ and, but for the quasi-static method, the
-free energy of the vibrations. Under a pressure $P$ the stress–strain
-coefficients are
-$B_{ijkl} = C_{ijkl} - P(\delta_{ik}\delta_{jl} + \delta_{il}\delta_{jk} - \delta_{ij}\delta_{kl})$.
-With the thermal expansion tensor $\alpha$, from the cells of the grid
-against volume, and the heat capacity at constant volume $C_V$, the
-adiabatic constants are
+with $i$ and $j$ the Voigt components 1 to 6 (xx, yy, zz, yz, xz, xy) and
+engineering shears, by central differences of step $h$; $F$ is the static energy
+$E$ and, but for the quasi-static method, the free energy of the vibrations at the
+temperature $T$. Under a pressure $P$ the stress–strain coefficients are
+
+$$
+B_{ijkl} = C_{ijkl} - P(\delta_{ik}\delta_{jl} + \delta_{il}\delta_{jk} - \delta_{ij}\delta_{kl}),
+$$
+
+written here with the Cartesian indices $i, j, k, l$ of the constants as tensors, and
+$\delta_{ik}$ 1 for $i = k$ and 0 otherwise. With the thermal expansion tensor
+$\alpha$, from the cells of the grid against volume, $\alpha_k$ its Voigt components,
+and the heat capacity of the cell at constant volume $C_V$, the adiabatic constants
+$C^S$ follow from the isothermal ones $C^T$:
 
 $$
 C^S_{ij} = C^T_{ij} + \frac{T V \lambda_i\lambda_j}{C_V}, \qquad

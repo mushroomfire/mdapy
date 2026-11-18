@@ -8445,7 +8445,7 @@
 <!-- needs: spglib -->
 
 <h1 id="thermal-conductivity">Thermal conductivity<a class="headerlink" href="#thermal-conductivity" title="Permanent link">&para;</a></h1>
-<p><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None)</code>
+<p><code>mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None, progress=None, cancel=None)</code>
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order <a href="../force-constants/">force constants</a>.</p>
@@ -8536,6 +8536,20 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 <td><code>None</code></td>
 <td></td>
 <td>compute the irreducible wave vectors only and average the group velocities with the rotations of the crystal, found by <a href="../../analysis/space-group/">spglib</a>: <code>True</code>, <code>False</code>, or by default whenever spglib is installed</td>
+</tr>
+<tr>
+<td><code>progress</code></td>
+<td>callable</td>
+<td><code>None</code></td>
+<td></td>
+<td>called as <code>progress(done, total)</code> with the pieces of the scattering computed, those of each irreducible wave vector in turn</td>
+</tr>
+<tr>
+<td><code>cancel</code></td>
+<td><code>CancelToken</code></td>
+<td><code>None</code></td>
+<td></td>
+<td>stops the calculation between pieces, which raises <code>Cancelled</code></td>
 </tr>
 </tbody>
 </table>

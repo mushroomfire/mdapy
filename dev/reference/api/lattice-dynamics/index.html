@@ -14655,7 +14655,7 @@ supercell is not valid or too small for the shells.</p>
 
 
 <a href="#mdapy.lattice_dynamics.thermal_conductivity" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_conductivity</span><span class="p">(</span><span class="n">constants</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -14768,6 +14768,40 @@ False, or by default whenever spglib is installed.</p>
                   <code>None</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>progress</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called as <code>progress(done, total)</code> with the pieces of the scattering
+computed, those of each irreducible wave vector in turn.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cancel</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CancelToken (mdapy.core.threads.CancelToken)" href="../utilities/#mdapy.CancelToken">CancelToken</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Stops the calculation between pieces, which raises
+<code>mdapy.errors.Cancelled</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -14821,6 +14855,16 @@ irreducible wave vectors.</p>
 in every direction, an atom has no mass, a temperature is not
 positive, the mesh is not positive integers, sigma is not positive,
 or symmetry is True without spglib.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Cancelled (mdapy.errors.Cancelled)" href="../utilities/#mdapy.errors.Cancelled">Cancelled</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If cancelled.</p>
               </div>
             </td>
           </tr>

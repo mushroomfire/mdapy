@@ -60,6 +60,23 @@ public:
     double total_energy() const;                     // after an energy
     void total_virial(double* virial) const;         // (3, 3), after a virial
 
+    // Molecular dynamics: masses in amu and velocities in Å/ps, and the steps
+    // of MDAPY's integrator (simulation/_integrator.py) on every atom.
+    void set_masses(const double* masses);          // (n,)
+    void set_velocities(const double* velocities);  // (n, 3)
+    void get_velocities(double* velocities) const;
+    void kick(double c);                            // v += c f / m
+    void drift(double dt);                          // x += dt v
+    void scale(double fx, double fy, double fz);    // v *= (fx, fy, fz)
+    // v_x -= half (v_y xy + v_z xz), then v_y -= half v_z yz
+    void shear(double half, double yz, double xz, double xy);
+    // x = lo + (x - old_lo) old_inverse h: the atoms carried with the box
+    void remap(const double* old_lo, const double* old_inverse, const double* lo,
+               const double* h);
+    // v = c1 v + c2 sqrt(kt / m) g, g Gaussian of a seed and a counter
+    void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter);
+    void kinetic(double* tensor) const;  // (3, 3), the sum of m v v
+
     struct Impl;
     Impl& impl() { return *impl_; }
     const Impl& impl() const { return *impl_; }

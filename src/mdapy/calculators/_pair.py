@@ -125,6 +125,17 @@ class _PairCalculator(Calculator):
                 self.cutoff,
             )
 
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        if self._any_atom:  # one kind of atom, whatever its element
+            return np.zeros(len(system), dtype=np.int32)
+        return _element_indices(system, self.elements, self._name)
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
+
     def compute(
         self,
         system: System,
@@ -135,10 +146,7 @@ class _PairCalculator(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         wanted = self._check_properties(properties)
-        if self._any_atom:  # one kind of atom, whatever its element
-            species = np.zeros(len(system), dtype=np.int32)
-        else:
-            species = _element_indices(system, self.elements, self._name)
+        species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)

@@ -35,6 +35,7 @@ using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::devi
 using Vector = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Masses = Flat;
 
 template <class T>
 nb::object new_array(std::initializer_list<std::size_t> dims, T*& data) {
@@ -115,6 +116,51 @@ NB_MODULE(_cuda, m) {
                  nb::object out =
                      new_array({static_cast<std::size_t>(a.size()), 3, 3}, data);
                  a.get_virials(data);
+                 return out;
+             })
+        .def(
+            "set_masses",
+            [](Atoms& a, Masses masses) {
+                if (static_cast<std::int64_t>(masses.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one mass per atom");
+                }
+                a.set_masses(masses.data());
+            },
+            nb::arg("masses"))
+        .def(
+            "set_velocities",
+            [](Atoms& a, Positions velocities) {
+                if (static_cast<std::int64_t>(velocities.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one velocity per atom");
+                }
+                a.set_velocities(velocities.data());
+            },
+            nb::arg("velocities"))
+        .def("velocities",
+             [](const Atoms& a) {
+                 double* data;
+                 nb::object out = new_array({static_cast<std::size_t>(a.size()), 3}, data);
+                 a.get_velocities(data);
+                 return out;
+             })
+        .def("kick", &Atoms::kick, nb::arg("c"))
+        .def("drift", &Atoms::drift, nb::arg("dt"))
+        .def("scale", &Atoms::scale, nb::arg("fx"), nb::arg("fy"), nb::arg("fz"))
+        .def("shear", &Atoms::shear, nb::arg("half"), nb::arg("yz"), nb::arg("xz"),
+             nb::arg("xy"))
+        .def(
+            "remap",
+            [](Atoms& a, Vector old_lo, Matrix old_inverse, Vector lo, Matrix h) {
+                a.remap(old_lo.data(), old_inverse.data(), lo.data(), h.data());
+            },
+            nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
+        .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
+             nb::arg("seed"), nb::arg("counter"))
+        .def("kinetic",
+             [](const Atoms& a) {
+                 double* data;
+                 nb::object out = new_array({3, 3}, data);
+                 a.kinetic(data);
                  return out;
              })
         .def("total_energy", &Atoms::total_energy)

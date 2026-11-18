@@ -24,6 +24,9 @@ struct Atoms::Impl {
     Buffer<double> virials;   // 9 columns of n, xx xy xz yx yy yz zx zy zz
     bool has_energies = false;
     bool has_virials = false;
+    Buffer<double> velocities;  // (n, 3)
+    Buffer<double> masses;      // (n,)
+    Buffer<double> scratch;     // 6 columns of n, for the kinetic tensor
 
     // The positions in a precision, the species as w.
     template <class Real>

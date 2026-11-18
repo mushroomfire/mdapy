@@ -558,18 +558,7 @@ class EAM(Calculator):
         cancel: Any = None,
     ) -> CalculatorResult:
         wanted = self._check_properties(properties)
-        if self.__average:
-            species = np.full(len(system), len(self.__tables["elements"]) - 1, np.int32)
-        else:
-            if "element" not in system.table.columns:
-                raise MissingProperty("EAM needs the element column")
-            numbers = system.table["element"].to_physical().to_numpy()
-            species = self.__species[numbers]
-            if (species < 0).any():
-                missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
-                raise InvalidParameter(
-                    f"the potential has no parameters for {missing}; it has {list(self.elements or ())}"
-                )
+        species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
@@ -593,6 +582,26 @@ class EAM(Calculator):
             atomic_virials=virials,
             volume=system.box.volume,
         )
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        if self.__average:
+            return np.full(len(system), len(self.__tables["elements"]) - 1, np.int32)
+        if "element" not in system.table.columns:
+            raise MissingProperty("EAM needs the element column")
+        numbers = system.table["element"].to_physical().to_numpy()
+        species = self.__species[numbers]
+        if (species < 0).any():
+            missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
+            raise InvalidParameter(
+                f"the potential has no parameters for {missing}; it has {list(self.elements or ())}"
+            )
+        return species
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
 
     def __repr__(self) -> str:
         source = f"{self.path!r}, " if self.path is not None else ""

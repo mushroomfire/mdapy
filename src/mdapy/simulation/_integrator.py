@@ -29,6 +29,7 @@ from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.simulation import _device
 
 _KB = units.BOLTZMANN
 _MVV2E = units.AMU_A2_PER_PS2_TO_EV
@@ -112,6 +113,113 @@ def _symmetric(voigt: np.ndarray) -> np.ndarray:
     return out
 
 
+class _HostAtoms:
+    """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
+    positions, velocities and forces in the frame of LAMMPS, and the steps
+    of the integrator on each atom."""
+
+    def __init__(
+        self,
+        calculator: Calculator,
+        x: np.ndarray,
+        v: np.ndarray,
+        masses: np.ndarray,
+        restrict: Any,
+    ):
+        self.__calculator = calculator
+        self.__x, self.__v, self.__masses = x, v, masses
+        self.__restrict = restrict
+        self.__forces: np.ndarray | None = None
+        self.__wide: NeighborList | None = None
+        self.__rng: np.random.Generator | None = None
+        self.__properties = tuple(
+            p for p in ("energy", "forces", "virial") if p in calculator.implemented
+        )
+
+    @property
+    def positions(self) -> np.ndarray:
+        return self.__x
+
+    @property
+    def velocities(self) -> np.ndarray:
+        return self.__v
+
+    @velocities.setter
+    def velocities(self, v: np.ndarray) -> None:
+        self.__v = v
+
+    def twice_kinetic(self) -> float:
+        return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
+
+    def mvv(self) -> np.ndarray:
+        return np.einsum("i,ij,ik->jk", self.__masses, self.__v, self.__v) * _MVV2E
+
+    def compute(
+        self, table: pl.DataFrame, box: Box, energy: bool, virial: bool
+    ) -> tuple[float, np.ndarray]:
+        """The energy and the virial, the forces kept; on the processor
+        always all three."""
+        # a copy of the positions: the System may hold the array itself, and
+        # the steps change it in place, which would move the positions the
+        # kept neighbor list compares with
+        current = System(table=table.with_columns(
+            pl.Series("positions", self.__x.copy(), dtype=pl.Array(pl.Float64, 3))
+        ), box=box)  # fmt: skip
+        cutoff = float(self.__calculator.cutoff)
+        neighbors = None
+        if 0.0 < cutoff < np.inf:
+            wide = self.__wide
+            neighbors = wide._follow(current, cutoff) if wide is not None else None
+            if neighbors is None:
+                self.__wide = NeighborList.build(current, cutoff + _SKIN)
+                neighbors = self.__wide._follow(current, cutoff)
+        result = self.__calculator.compute(
+            current, self.__properties, neighbors=neighbors
+        )
+        forces = np.asarray(result.forces, dtype=float)
+        if not (np.isfinite(result.energy) and np.isfinite(forces).all()):
+            raise CalculationFailed(
+                "the energy or the forces are not finite: atoms may overlap"
+            )
+        self.__forces = self.__restrict(forces)
+        if "virial" in self.__properties:
+            return float(result.energy), np.asarray(result.virial, dtype=float)
+        return float(result.energy), np.full((3, 3), np.nan)
+
+    def kick(self, c: float) -> None:
+        self.__v += c * self.__forces / self.__masses[:, None]
+
+    def drift(self, dt: float) -> None:
+        self.__x += dt * self.__v
+
+    def scale(self, factor: Any) -> None:
+        self.__v *= factor
+
+    def shear(self, half: float, w: np.ndarray) -> None:
+        v = self.__v
+        v[:, 0] -= half * (v[:, 1] * w[5] + v[:, 2] * w[4])
+        v[:, 1] -= half * v[:, 2] * w[3]
+
+    def restrict(self) -> None:
+        self.__v = self.__restrict(self.__v)
+
+    def remap(
+        self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
+    ) -> None:
+        # fractional coordinates of the atoms in the old box, kept in the new
+        fractional = np.einsum("ij,jk->ik", self.__x - old_lo, np.linalg.inv(old))
+        self.__x = lo + np.einsum("ij,jk->ik", fractional, new)
+
+    def seed(self, seed: int | None) -> None:
+        self.__rng = np.random.default_rng(seed)
+
+    def langevin(self, c1: float, c2: float, kt: float) -> None:
+        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian."""
+        sigma = np.sqrt(kt / self.__masses)[:, None]
+        noise = self.__rng.normal(size=self.__v.shape)
+        self.__v = c1 * self.__v + c2 * sigma * self.__restrict(noise)
+
+
 class _Native:
     """The state of the dynamics in MDAPY and its steps."""
 
@@ -149,8 +257,8 @@ class _Native:
         )
         self.__lo = np.array(lammps_box.lo, dtype=float)
         self.__frame_pbc = box.pbc[[0, 2, 1]] if self.__swapped else box.pbc
-        self.__x = self.__to_frame(system["positions"])
-        self.__v = (
+        x = self.__to_frame(system["positions"])
+        v = (
             self.__to_frame(system["velocities"])
             if "velocities" in table.columns
             else np.zeros((n, 3))
@@ -162,13 +270,12 @@ class _Native:
             else None
         )
         self.__movable = None if movable is None or movable.all() else movable
-        self.__v = self.__restrict(self.__v)
+        v = self.__restrict(v)
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
         self.timestep = float(timestep)
         self.__step = 0
         self.__time = 0.0
         self.__closed = False
-        self.__wide: NeighborList | None = None
         self.__properties = tuple(
             p for p in ("energy", "forces", "virial") if p in calculator.implemented
         )
@@ -176,8 +283,20 @@ class _Native:
             raise InvalidParameter(
                 f"{type(calculator).__name__} does not compute energies and forces"
             )
+        if getattr(calculator, "device", "cpu") == "cuda":
+            if self.__movable is not None:
+                raise InvalidParameter(
+                    "the dynamics on the GPU moves every atom: a movable column "
+                    "holds atoms on the processor only"
+                )
+            self.__atoms: Any = _device.DeviceAtoms(
+                calculator, system, x, v, masses, _SKIN
+            )
+        else:
+            self.__atoms = _HostAtoms(calculator, x, v, masses, self.__restrict)
+        self.__computed = False
+        self.__pstat = False
         self.__energy = math.nan
-        self.__forces: np.ndarray | None = None
         self.__virial = np.full((3, 3), np.nan)
         self.__run: dict[str, Any] = {}
 
@@ -219,11 +338,13 @@ class _Native:
         if self.__swapped:
             matrix = matrix[[0, 2, 1]]
         box = Box(matrix, origin=self.__lo @ r.T, pbc=self.__pbc)
-        wrapped, image = box.wrap(self.__from_frame(self.__x))
+        wrapped, image = box.wrap(self.__from_frame(self.__atoms.positions))
         table = self.__table.with_columns(
             pl.Series("positions", wrapped, dtype=pl.Array(pl.Float64, 3)),
             pl.Series(
-                "velocities", self.__from_frame(self.__v), dtype=pl.Array(pl.Float64, 3)
+                "velocities",
+                self.__from_frame(self.__atoms.velocities),
+                dtype=pl.Array(pl.Float64, 3),
             ),
             pl.Series("image", image.astype(np.int32), dtype=pl.Array(pl.Int32, 3)),
         )
@@ -236,10 +357,10 @@ class _Native:
         return self.__twice_kinetic() / (self.__dof * _KB)
 
     def __twice_kinetic(self) -> float:
-        return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
+        return self.__atoms.twice_kinetic()
 
     def __mvv(self) -> np.ndarray:
-        return np.einsum("i,ij,ik->jk", self.__masses, self.__v, self.__v) * _MVV2E
+        return self.__atoms.mvv()
 
     def __volume(self) -> float:
         return float(self.__h[0, 0] * self.__h[1, 1] * self.__h[2, 2])
@@ -250,7 +371,7 @@ class _Native:
 
     def record(self) -> dict[str, Any]:
         """The thermodynamic state now, as the LAMMPS dynamics records it."""
-        if self.__forces is None:
+        if not self.__computed:
             self.__compute()
         kinetic = 0.5 * self.__twice_kinetic()
         tensor = self.__pressure_tensor()
@@ -280,42 +401,26 @@ class _Native:
             v -= (self.__masses @ v) / self.__masses.sum()
         else:
             v *= self.__movable
-        self.__v = self.__to_frame(v)
+        self.__atoms.velocities = self.__to_frame(v)
         now = self.temperature()
         if temperature == 0.0 or not now > 0.0:
-            self.__v[:] = 0.0
+            self.__atoms.velocities = np.zeros((self.__n, 3))
         else:
-            self.__v *= math.sqrt(temperature / now)
+            self.__atoms.scale(math.sqrt(temperature / now))
 
     # -- forces ---------------------------------------------------------------
 
-    def __compute(self) -> None:
-        # a copy of the positions: the System may hold the array itself, and
-        # the steps change it in place, which would move the positions the
-        # kept neighbor list compares with
-        current = System(table=self.__table.with_columns(
-            pl.Series("positions", self.__x.copy(), dtype=pl.Array(pl.Float64, 3))
-        ), box=self.__box())  # fmt: skip
-        cutoff = float(self.__calculator.cutoff)
-        neighbors = None
-        if 0.0 < cutoff < np.inf:
-            wide = self.__wide
-            neighbors = wide._follow(current, cutoff) if wide is not None else None
-            if neighbors is None:
-                self.__wide = NeighborList.build(current, cutoff + _SKIN)
-                neighbors = self.__wide._follow(current, cutoff)
-        result = self.__calculator.compute(
-            current, self.__properties, neighbors=neighbors
+    def __compute(self, full: bool = True) -> None:
+        """The forces; the energy and the virial too when full or with a
+        barostat (on the GPU; the processor always computes all three)."""
+        energy, virial = self.__atoms.compute(
+            self.__table, self.__box(), full, full or self.__pstat
         )
-        forces = np.asarray(result.forces, dtype=float)
-        if not (np.isfinite(result.energy) and np.isfinite(forces).all()):
-            raise CalculationFailed(
-                "the energy or the forces are not finite: atoms may overlap"
-            )
-        self.__energy = float(result.energy)
-        self.__forces = self.__restrict(forces)
-        if "virial" in self.__properties:
-            self.__virial = np.asarray(result.virial, dtype=float)
+        if full:
+            self.__energy = energy
+        if "virial" in self.__properties and (full or self.__pstat):
+            self.__virial = virial
+        self.__computed = True
 
     # -- a run ---------------------------------------------------------------------
 
@@ -356,7 +461,7 @@ class _Native:
             self.__eta_dotdot = np.zeros(_CHAIN)
             self.__eta_dotdot[1:] = -_KB * t_target / self.__eta_mass[1:]
         if langevin:
-            self.__rng = np.random.default_rng(run["seed"])
+            self.__atoms.seed(run["seed"])
             self.__gamma = 1.0 / run["thermostat_damping"]
         if barostat:
             if thermostat or langevin:
@@ -411,8 +516,9 @@ class _Native:
         self.__run = {}
 
     def advance(self, count: int) -> None:
-        for _ in range(count):
-            self.__one_step()
+        # the energy and the virial at the last step, for a record after it
+        for k in range(count):
+            self.__one_step(k == count - 1)
 
     # -- one step ------------------------------------------------------------------
 
@@ -424,7 +530,7 @@ class _Native:
         t0, t1 = self.__run["temperatures"]
         return t0 + self.__fraction(step) * (t1 - t0)
 
-    def __one_step(self) -> None:
+    def __one_step(self, full: bool = True) -> None:
         self.__step += 1
         step = self.__step
         dt = self.__dt
@@ -441,14 +547,14 @@ class _Native:
             self.__press_target(step)
             self.__omega_dot_update()
             self.__v_press()
-        self.__v += (0.5 * dt * _FTM2V) * self.__forces / self.__masses[:, None]
+        self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:
             self.__remap()
-        self.__x += dt * self.__v
+        self.__atoms.drift(dt)
         if self.__pstat:
             self.__remap()
-        self.__compute()
-        self.__v += (0.5 * dt * _FTM2V) * self.__forces / self.__masses[:, None]
+        self.__compute(full)
+        self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:
             self.__v_press()
             self.__p_current = self.__couple()
@@ -466,11 +572,7 @@ class _Native:
         """Friction and noise for half a step."""
         target = self.__t_target(step)
         c1 = math.exp(-0.5 * self.__gamma * self.__dt)
-        sigma = np.sqrt(_KB * target * _FTM2V / self.__masses)[:, None]
-        noise = self.__rng.normal(size=self.__v.shape)
-        self.__v = c1 * self.__v + math.sqrt(1.0 - c1 * c1) * sigma * self.__restrict(
-            noise
-        )
+        self.__atoms.langevin(c1, math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V)
 
     def __nhc_temp(self) -> None:
         """Half a step of the chain of thermostats on the atoms."""
@@ -489,7 +591,7 @@ class _Native:
         expfac = math.exp(-dt8 * eta_dot[1])
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
         factor = math.exp(-0.5 * dt * eta_dot[0])
-        self.__v *= factor
+        self.__atoms.scale(factor)
         self.__t_current *= factor * factor
         eta_dotdot[0] = (self.__dof * _KB * self.__t_current - ke_target) / mass[0]
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
@@ -601,15 +703,12 @@ class _Native:
         """Half a step of the scaling of the velocities by the barostat."""
         w = self.__omega_dot
         factor = np.exp(-0.25 * self.__dt * (w[:3] + self.__mtk_term2))
-        v = self.__v
-        v *= factor
+        self.__atoms.scale(factor)
         if self.__b.style == "tri":
-            half = 0.5 * self.__dt
-            v[:, 0] -= half * (v[:, 1] * w[5] + v[:, 2] * w[4])
-            v[:, 1] -= half * v[:, 2] * w[3]
-        v *= factor
+            self.__atoms.shear(0.5 * self.__dt, w)
+        self.__atoms.scale(factor)
         if self.__movable is not None:
-            self.__v = self.__restrict(v)
+            self.__atoms.restrict()
 
     def __remap(self) -> None:
         """Half a step of the box, the atoms scaled with it."""
@@ -662,8 +761,6 @@ class _Native:
                 [hv[4], hv[3], lengths[2]],
             ]
         )
-        # fractional coordinates of the atoms in the old box, kept in the new
-        fractional = np.einsum("ij,jk->ik", self.__x - old_lo, np.linalg.inv(old))
-        self.__x = lo + np.einsum("ij,jk->ik", fractional, new)
+        self.__atoms.remap(old_lo, old, lo, new)
         self.__h = new
         self.__lo = lo

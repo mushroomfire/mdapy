@@ -3,7 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Molecular dynamics in LAMMPS, with the interaction of a LAMMPS calculator."""
+"""Molecular dynamics: in LAMMPS with a LAMMPS calculator, or in MDAPY itself
+with any other calculator."""
 
 import os
 import weakref
@@ -19,9 +20,11 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.simulation._integrator import _Native
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph")
 _BAROSTATS = ("iso", "aniso", "tri", "xy")
+_THERMOSTATS = ("nose-hoover", "langevin")
 # thermo keywords of LAMMPS and the columns they become
 _THERMO = (
     ("temp", "temperature"),
@@ -75,44 +78,20 @@ def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
     return data
 
 
-class MolecularDynamics:
-    """Molecular dynamics of a system in LAMMPS, with the interaction of a
-    LAMMPS calculator.
+class _Lammps:
+    """The state of the dynamics in LAMMPS and its steps."""
 
-    Parameters
-    ----------
-    system : System
-        The atoms, with an ``element`` column; their ``velocities``, if the
-        system has them, in Å/ps.
-    potential : LAMMPS
-        The interaction: its commands, the element of each atom type and
-        the command-line arguments of LAMMPS.
-    timestep : float64, optional
-        Time step in ps. Default 0.001.
-
-    Attributes
-    ----------
-    timestep : float64
-        Time step in ps.
-
-    Raises
-    ------
-    InvalidParameter
-        If the time step is not positive, an element has no atom type, or
-        LAMMPS rejects the commands.
-    MissingProperty
-        If the system has no ``element`` column.
-    ImportError
-        If the LAMMPS Python module is not installed.
-    """
-
-    def __init__(self, system: System, potential: LAMMPS, *, timestep: float = 0.001):
-        if not isinstance(potential, LAMMPS):
-            raise InvalidParameter("potential must be a mdapy.calculators.LAMMPS")
-        if not timestep > 0:
-            raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
+    def __init__(self, system: System, potential: LAMMPS, timestep: float):
         if "element" not in system.table.columns:
             raise MissingProperty("molecular dynamics needs the element column")
+        if (
+            "movable" in system.table.columns
+            and not system.table["movable"].to_numpy().all()
+        ):
+            raise InvalidParameter(
+                "atoms held by a movable column need MDAPY's own dynamics, with "
+                "a calculator other than LAMMPS"
+            )
         numbers = system.table["element"].to_physical().to_numpy()
         type_of = np.zeros(len(SYMBOLS), dtype=np.int32)
         for k, element in reversed(list(enumerate(potential.elements))):
@@ -124,7 +103,6 @@ class MolecularDynamics:
                 f"no atom type has the elements {missing}; the types are "
                 f"{list(potential.elements)}"
             )
-        self.timestep = float(timestep)
         self.__n = len(system)
         # what the dynamics changes, or leaves out of date, is left out
         moving = (
@@ -149,9 +127,8 @@ class MolecularDynamics:
         self.__rotation = lammps_box.rotation
         self.__lo = lammps_box.lo
         self.__pbc = box.pbc
-        self.__rows: list[dict] = []
-        self.__frames: list[System] = []
         self.__holder: list = []
+        self.__fixes: list[str] = []
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
         self.__holder.append(lmp)
@@ -173,7 +150,7 @@ create_box {len(potential.elements)} box
                 + potential.commands
                 + "\n"
                 + potential.pair
-                + f"\ntimestep {self.timestep!r}"
+                + f"\ntimestep {float(timestep)!r}"
                 + "\nthermo_style custom step "
                 + " ".join(k for k, _ in _THERMO)
                 + " pxx pyy pzz pyz pxz pxy"
@@ -204,38 +181,18 @@ create_box {len(potential.elements)} box
 
     @property
     def lammps(self) -> Any:
-        """The LAMMPS instance, for anything else."""
         if not self.__holder:
             raise InvalidParameter("this molecular dynamics is closed")
         return self.__holder[0]
 
+    @property
+    def closed(self) -> bool:
+        return not self.__holder
+
     def close(self) -> None:
-        """Closes the LAMMPS instance."""
         _close(self.__holder)
 
-    def __enter__(self) -> "MolecularDynamics":
-        return self
-
-    def __exit__(self, *exc) -> None:
-        self.close()
-
-    def __repr__(self) -> str:
-        state = "closed" if not self.__holder else f"step {self.step}"
-        return f"MolecularDynamics({self.__n} atoms, {state})"
-
     def command(self, commands: str) -> None:
-        """Runs LAMMPS commands, one or several lines.
-
-        Parameters
-        ----------
-        commands : str
-            The commands.
-
-        Raises
-        ------
-        InvalidParameter
-            If LAMMPS rejects them.
-        """
         try:
             self.lammps.commands_string(commands)
         except Exception as error:
@@ -245,13 +202,10 @@ create_box {len(potential.elements)} box
 
     @property
     def step(self) -> int:
-        """The time step number of LAMMPS: the steps run so far."""
         return int(self.lammps.extract_global("ntimestep"))
 
     @property
     def system(self) -> System:
-        """The atoms now, with their velocities and periodic images, and the
-        step and time in ``info``."""
         lmp = self.lammps
         n = self.__n
         r = self.__rotation
@@ -276,6 +230,207 @@ create_box {len(potential.elements)} box
         info = self.__info | {"timestep": step, "time": self.__time()}
         return System(table=table, box=Box(matrix, origin=origin, pbc=pbc), info=info)
 
+    def __time(self) -> float:
+        # the time LAMMPS has run, in ps: also when the time step changed on
+        # the way, as with fix dt/reset or the timestep command
+        return float(self.lammps.get_thermo("time"))
+
+    def record(self) -> dict[str, Any]:
+        lmp = self.lammps
+        step = self.step
+        row = {"step": step, "time": self.__time()}
+        for keyword, name in _THERMO:
+            row[name] = float(lmp.get_thermo(keyword))
+        row["pressure"] *= units.BAR_TO_GPA
+        p = [lmp.get_thermo(k) for k in ("pxx", "pyy", "pzz", "pyz", "pxz", "pxy")]
+        tensor = np.array([[p[0], p[5], p[4]], [p[5], p[1], p[3]], [p[4], p[3], p[2]]])
+        stress = -(self.__rotation @ tensor @ self.__rotation.T) * units.BAR_TO_GPA
+        row["stress"] = [
+            stress[a, b] for a, b in ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
+        ]
+        return row
+
+    # -- running ----------------------------------------------------------
+
+    def velocities(self, temperature: float, seed: int) -> None:
+        self.command(
+            f"velocity all create {float(temperature)!r} {int(seed)} "
+            f"dist gaussian mom yes rot no loop all"
+        )
+
+    def start(self, run: dict[str, Any]) -> None:
+        """The fixes of a run, and its setup."""
+        ensemble = run["ensemble"]
+        langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
+        fix = ensemble
+        if langevin:
+            fix = "nve" if ensemble == "nvt" else "nph"
+        if ensemble in ("nvt", "npt") and not langevin:
+            t0, t1 = run["temperatures"]
+            fix += f" temp {t0!r} {t1!r} {float(run['thermostat_damping'])!r}"
+        if ensemble in ("npt", "nph"):
+            p0, p1 = (p * units.GPA_TO_BAR for p in run["pressures"])
+            span = f"{p0!r} {p1!r} {float(run['barostat_damping'])!r}"
+            # the second vector of the box is the z axis of LAMMPS when swapped
+            other = "z" if self.__swapped else "y"
+            barostat = run["barostat"]
+            sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
+            if barostat == "xy" or (sheet and barostat == "iso"):
+                fix += f" x {span} {other} {span} couple x{other}"
+            elif sheet:  # in the plane only
+                fix += f" x {span} {other} {span}"
+                if barostat == "tri":
+                    fix += f" x{other} {span}"
+            else:
+                fix += f" {barostat} {span}"
+            if langevin:
+                # the barostat's mass from the temperature of the thermostat
+                fix += f" ptemp {run['temperatures'][0]!r}"
+        self.command(f"fix mdapy_integrate all {fix}")
+        self.__fixes = ["mdapy_integrate"]
+        if langevin:
+            t0, t1 = run["temperatures"]
+            seed = run["seed"]
+            if seed is None:
+                # the largest seed of LAMMPS's random numbers is 900000000
+                seed = int(np.random.default_rng().integers(1, 900_000_000))
+            self.command(
+                f"fix mdapy_langevin all langevin {t0!r} {t1!r} "
+                f"{float(run['thermostat_damping'])!r} {int(seed)}"
+            )
+            self.__fixes.append("mdapy_langevin")
+        self.__start, self.__steps = self.step, run["steps"]
+        self.__done = 0
+        # the setup knows where the whole run ends: fixes that plan the run
+        # at their setup, as deform, would otherwise plan one of 0 steps
+        self.command(
+            f"run 0 start {self.__start} stop {self.__start + self.__steps} post no"
+        )
+
+    def advance(self, count: int) -> None:
+        self.command(
+            f"run {count} start {self.__start} stop {self.__start + self.__steps} "
+            f"pre no post no"
+        )
+
+    def finish(self) -> None:
+        if self.__holder:
+            for fix in self.__fixes:
+                self.command(f"unfix {fix}")
+        self.__fixes = []
+
+
+class MolecularDynamics:
+    """Molecular dynamics of a system: in LAMMPS with a LAMMPS calculator,
+    in MDAPY itself with any other calculator.
+
+    Parameters
+    ----------
+    system : System
+        The atoms, with an ``element`` column (or, without LAMMPS, a
+        ``mass`` column); their ``velocities``, if the system has them, in
+        Å/ps; a ``movable`` column, (N, 3) bool, keeps atoms still along the
+        directions where it is False (not with LAMMPS).
+    potential : Calculator
+        The interaction: a LAMMPS calculator, run in LAMMPS, or any other
+        calculator of MDAPY, run in MDAPY, which needs its energies, forces
+        and, for a barostat or the pressure, its virials.
+    timestep : float64, optional
+        Time step in ps. Default 0.001.
+
+    Attributes
+    ----------
+    timestep : float64
+        Time step in ps.
+
+    Raises
+    ------
+    InvalidParameter
+        If the potential is not a calculator, the time step is not
+        positive, an element has no atom type, or LAMMPS rejects the
+        commands.
+    MissingProperty
+        If the system has no ``element`` column (with LAMMPS), or neither
+        a ``mass`` nor an ``element`` column.
+    ImportError
+        If the LAMMPS Python module is not installed, with a LAMMPS
+        calculator.
+    """
+
+    def __init__(self, system: System, potential: Any, *, timestep: float = 0.001):
+        if not timestep > 0:
+            raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
+        self.timestep = float(timestep)
+        self.__n = len(system)
+        self.__pbc = system.box.pbc
+        self.__rows: list[dict] = []
+        self.__frames: list[System] = []
+        if isinstance(potential, LAMMPS):
+            self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
+        else:
+            self.__engine = _Native(system, potential, timestep)
+
+    # -- the LAMMPS instance --------------------------------------------
+
+    def __lammps_engine(self) -> _Lammps:
+        if not isinstance(self.__engine, _Lammps):
+            raise InvalidParameter(
+                "this molecular dynamics runs in MDAPY: LAMMPS commands need a "
+                "LAMMPS calculator"
+            )
+        return self.__engine
+
+    @property
+    def lammps(self) -> Any:
+        """The LAMMPS instance, for anything else (with a LAMMPS
+        calculator)."""
+        return self.__lammps_engine().lammps
+
+    def close(self) -> None:
+        """Closes the LAMMPS instance; the dynamics stops."""
+        self.__engine.close()
+
+    def __enter__(self) -> "MolecularDynamics":
+        return self
+
+    def __exit__(self, *exc) -> None:
+        self.close()
+
+    def __repr__(self) -> str:
+        state = "closed" if self.__engine.closed else f"step {self.step}"
+        return f"MolecularDynamics({self.__n} atoms, {state})"
+
+    def command(self, commands: str) -> None:
+        """Runs LAMMPS commands, one or several lines (with a LAMMPS
+        calculator).
+
+        Parameters
+        ----------
+        commands : str
+            The commands.
+
+        Raises
+        ------
+        InvalidParameter
+            If LAMMPS rejects them, or the dynamics runs in MDAPY.
+        """
+        self.__lammps_engine().command(commands)
+
+    # -- reading the state ----------------------------------------------
+
+    @property
+    def step(self) -> int:
+        """The time step number: the steps run so far."""
+        self.__open()
+        return self.__engine.step
+
+    @property
+    def system(self) -> System:
+        """The atoms now, with their velocities and periodic images, and the
+        step and time in ``info``."""
+        self.__open()
+        return self.__engine.system
+
     @property
     def thermo(self) -> pl.DataFrame:
         """The thermodynamic state every ``thermo`` steps of the runs: step,
@@ -295,25 +450,9 @@ create_box {len(potential.elements)} box
         """The atoms every ``save_every`` steps of the runs."""
         return tuple(self.__frames)
 
-    def __time(self) -> float:
-        # the time LAMMPS has run, in ps: also when the time step changed on
-        # the way, as with fix dt/reset or the timestep command
-        return float(self.lammps.get_thermo("time"))
-
-    def __record(self) -> None:
-        lmp = self.lammps
-        step = self.step
-        row = {"step": step, "time": self.__time()}
-        for keyword, name in _THERMO:
-            row[name] = float(lmp.get_thermo(keyword))
-        row["pressure"] *= units.BAR_TO_GPA
-        p = [lmp.get_thermo(k) for k in ("pxx", "pyy", "pzz", "pyz", "pxz", "pxy")]
-        tensor = np.array([[p[0], p[5], p[4]], [p[5], p[1], p[3]], [p[4], p[3], p[2]]])
-        stress = -(self.__rotation @ tensor @ self.__rotation.T) * units.BAR_TO_GPA
-        row["stress"] = [
-            stress[a, b] for a, b in ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
-        ]
-        self.__rows.append(row)
+    def __open(self) -> None:
+        if self.__engine.closed:
+            raise InvalidParameter("this molecular dynamics is closed")
 
     # -- running ----------------------------------------------------------
 
@@ -339,10 +478,8 @@ create_box {len(potential.elements)} box
             )
         if int(seed) < 1:
             raise InvalidParameter(f"seed must be positive, not {seed!r}")
-        self.command(
-            f"velocity all create {float(temperature)!r} {int(seed)} "
-            f"dist gaussian mom yes rot no loop all"
-        )
+        self.__open()
+        self.__engine.velocities(float(temperature), int(seed))
 
     def run(
         self,
@@ -352,8 +489,10 @@ create_box {len(potential.elements)} box
         temperature: float | tuple[float, float] | None = None,
         pressure: float | tuple[float, float] | None = None,
         barostat: str = "iso",
+        thermostat: str = "nose-hoover",
         thermostat_damping: float | None = None,
         barostat_damping: float | None = None,
+        seed: int | None = None,
         thermo: int = 100,
         save_every: int | None = None,
         progress: Any = None,
@@ -366,8 +505,8 @@ create_box {len(potential.elements)} box
         steps : int32
             Number of steps.
         ensemble : {"nve", "nvt", "npt", "nph"}, optional
-            Constant energy, or a Nosé-Hoover thermostat, and barostat, or a
-            barostat alone. Default "nve".
+            Constant energy, or a thermostat, and barostat, or a barostat
+            alone. Default "nve".
         temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
@@ -381,10 +520,16 @@ create_box {len(potential.elements)} box
             in its plane only: alike along them for "iso" and "xy", along
             each for "aniso", and in any way in the plane for "tri". Default
             "iso".
+        thermostat : {"nose-hoover", "langevin"}, optional
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
+            "nose-hoover".
         thermostat_damping : float64, optional
             Damping time of the thermostat in ps. Default 100 time steps.
         barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
+        seed : int32, optional
+            Seed of the random forces of Langevin dynamics, positive;
+            unpredictable when None.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -400,6 +545,8 @@ create_box {len(potential.elements)} box
         ------
         InvalidParameter
             For invalid options, or if LAMMPS fails.
+        CalculationFailed
+            If the energy or the forces stop being finite, in MDAPY.
         Cancelled
             If cancelled.
         """
@@ -414,14 +561,25 @@ create_box {len(potential.elements)} box
             raise InvalidParameter(
                 f"barostat must be one of {_BAROSTATS}, not {barostat!r}"
             )
+        if thermostat not in _THERMOSTATS:
+            raise InvalidParameter(
+                f"thermostat must be one of {_THERMOSTATS}, not {thermostat!r}"
+            )
         if int(thermo) < 1 or (save_every is not None and int(save_every) < 1):
             raise InvalidParameter("thermo and save_every must be positive")
+        if seed is not None and int(seed) < 1:
+            raise InvalidParameter(f"seed must be positive, not {seed!r}")
         temperatures = _pair(temperature, "temperature")
         pressures = _pair(pressure, "pressure")
         if ensemble in ("nvt", "npt") and temperatures is None:
             raise InvalidParameter(f"{ensemble} needs a temperature")
         if ensemble in ("npt", "nph") and pressures is None:
             raise InvalidParameter(f"{ensemble} needs a pressure")
+        if temperatures is not None and ensemble in ("nvt", "npt"):
+            if not min(temperatures) > 0:
+                raise InvalidParameter(
+                    f"the temperature must be positive, not {temperature!r}"
+                )
         sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
         if ensemble in ("npt", "nph"):
             if barostat == "xy" and not self.__pbc[:2].all():
@@ -433,39 +591,34 @@ create_box {len(potential.elements)} box
                     "a barostat needs a box periodic in every direction, or along "
                     "its first two vectors for a sheet"
                 )
-        tdamp = (
-            100 * self.timestep if thermostat_damping is None else thermostat_damping
-        )
-        pdamp = 1000 * self.timestep if barostat_damping is None else barostat_damping
-        fix = ensemble
-        if ensemble in ("nvt", "npt"):
-            t0, t1 = temperatures
-            fix += f" temp {t0!r} {t1!r} {float(tdamp)!r}"
-        if ensemble in ("npt", "nph"):
-            p0, p1 = (p * units.GPA_TO_BAR for p in pressures)
-            span = f"{p0!r} {p1!r} {float(pdamp)!r}"
-            # the second vector of the box is the z axis of LAMMPS when swapped
-            other = "z" if self.__swapped else "y"
-            if barostat == "xy" or (sheet and barostat == "iso"):
-                fix += f" x {span} {other} {span} couple x{other}"
-            elif sheet:  # in the plane only
-                fix += f" x {span} {other} {span}"
-                if barostat == "tri":
-                    fix += f" x{other} {span}"
-            else:
-                fix += f" {barostat} {span}"
-        self.command(f"fix mdapy_integrate all {fix}")
-        thermo, start, done = int(thermo), self.step, 0
+        self.__open()
+        dt = self.timestep
+        spec = {
+            "steps": steps,
+            "ensemble": ensemble,
+            "temperatures": temperatures,
+            "pressures": pressures,
+            "barostat": barostat,
+            "thermostat": thermostat,
+            "thermostat_damping": 100 * dt
+            if thermostat_damping is None
+            else float(thermostat_damping),
+            "barostat_damping": 1000 * dt
+            if barostat_damping is None
+            else float(barostat_damping),
+            "seed": None if seed is None else int(seed),
+        }
+        engine = self.__engine
+        thermo, done = int(thermo), 0
         try:
-            # the setup knows where the whole run ends: fixes that plan the run
-            # at their setup, as deform, would otherwise plan one of 0 steps
-            self.command(f"run 0 start {start} stop {start + steps} post no")
+            engine.start(spec)
+            start = engine.step
             if not self.__rows or self.__rows[-1]["step"] != start:
-                self.__record()
+                self.__rows.append(engine.record())
             if save_every is not None and (
                 not self.__frames or self.__frames[-1].info["timestep"] != start
             ):
-                self.__frames.append(self.system)
+                self.__frames.append(engine.system)
             stops = set(range(thermo, steps, thermo)) | {steps}
             if save_every is not None:
                 every = int(save_every)
@@ -473,16 +626,13 @@ create_box {len(potential.elements)} box
             for stop in sorted(stops):
                 if cancel is not None and cancel.cancelled:
                     raise Cancelled("molecular dynamics cancelled")
-                self.command(
-                    f"run {stop - done} start {start} stop {start + steps} pre no post no"
-                )
+                engine.advance(stop - done)
                 done = stop
                 if done % thermo == 0 or done == steps:
-                    self.__record()
+                    self.__rows.append(engine.record())
                 if save_every is not None and done % int(save_every) == 0:
-                    self.__frames.append(self.system)
+                    self.__frames.append(engine.system)
                 if progress is not None:
                     progress(done, steps)
         finally:
-            if self.__holder:
-                self.command("unfix mdapy_integrate")
+            engine.finish()

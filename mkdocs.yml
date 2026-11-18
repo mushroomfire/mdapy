@@ -230,6 +230,11 @@ nav:
           - Calculators:
               - The calculator interface: user-guide/simulation/calculators.md
               - EAM: user-guide/simulation/eam.md
+              - MEAM: user-guide/simulation/meam.md
+              - ADP: user-guide/simulation/adp.md
+              - Tersoff: user-guide/simulation/tersoff.md
+              - Stillinger–Weber: user-guide/simulation/stillinger-weber.md
+              - Lennard-Jones and Morse: user-guide/simulation/pair-potentials.md
               - NEP: user-guide/simulation/nep.md
               - LAMMPS: user-guide/simulation/lammps.md
               - VASP: user-guide/simulation/vasp.md

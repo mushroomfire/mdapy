@@ -8595,10 +8595,14 @@ to its first peak.</em></p>
 <tr>
 <td><code>fit(x)</code></td>
 <td>float64</td>
-<td>the fitted curve at points; <code>PolynomialFit(x, derivative)</code> and <code>SurfaceFit(x, y, dx=, dy=)</code> give derivatives too</td>
+<td>the fitted curve at points; <code>fit(x, derivative)</code> of a <code>PolynomialFit</code> and <code>fit(x, y, dx=, dy=)</code> of a <code>SurfaceFit</code> give derivatives too</td>
 </tr>
 </tbody>
 </table>
+<p><code>PolynomialFit(coefficients, covariance, residuals, r_squared)</code> and
+<code>SurfaceFit(powers, coefficients, covariance, residuals, r_squared)</code> make a
+polynomial or a surface of given coefficients, with its values and derivatives
+at any point.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><a href="../../../reference/api/utilities/#mdapy.errors.InvalidParameter"><code>InvalidParameter</code></a>
 for values that are not finite or of other shapes, a degree out of range, a

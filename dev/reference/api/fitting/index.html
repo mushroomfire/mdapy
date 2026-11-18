@@ -9547,7 +9547,7 @@ range, or sigma not positive.</p>
 
 
 <a href="#mdapy.fitting.PolynomialFit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PolynomialFit</span><span class="p">(</span><span class="n">center</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">scaled</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">covariance</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">PolynomialFit</span><span class="p">(</span><span class="n">coefficients</span><span class="p">,</span> <span class="n">covariance</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9555,7 +9555,86 @@ range, or sigma not positive.</p>
 
 
         <p>A polynomial fitted by least squares to values along a line, made by
-<code>fit_polynomial</code>.</p>
+<code>fit_polynomial</code>, or a polynomial of given coefficients.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>coefficients</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(degree + 1,) float64 coefficients of 1, x, x², ... .</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>covariance</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(degree + 1, degree + 1) float64 covariance of the coefficients.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>residuals</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n,) float64 the values less the polynomial at the points.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>r_squared</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coefficient of determination.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -9620,6 +9699,29 @@ range, or sigma not positive.</p>
             <td>
               <div class="doc-md-description">
                 <p>The coefficient of determination, 1 for a perfect fit.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For coefficients, covariance or residuals of other shapes.</p>
               </div>
             </td>
           </tr>
@@ -9844,7 +9946,7 @@ of range, or sigma not positive.</p>
 
 
 <a href="#mdapy.fitting.SurfaceFit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SurfaceFit</span><span class="p">(</span><span class="n">powers</span><span class="p">,</span> <span class="n">center</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="n">scaled</span><span class="p">,</span> <span class="n">transform</span><span class="p">,</span> <span class="n">covariance</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SurfaceFit</span><span class="p">(</span><span class="n">powers</span><span class="p">,</span> <span class="n">coefficients</span><span class="p">,</span> <span class="n">covariance</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9852,7 +9954,102 @@ of range, or sigma not positive.</p>
 
 
         <p>A polynomial in two variables fitted by least squares, made by
-<code>fit_surface</code>.</p>
+<code>fit_surface</code>, or one of given terms.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>powers</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(k, 2) int64 the powers (i, j), not negative, of each term x^i y^j.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coefficients</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(k,) float64 the coefficient of each term.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>covariance</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(k, k) float64 covariance of the coefficients.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>residuals</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n,) float64 the values less the surface at the points.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>r_squared</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coefficient of determination.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -9928,6 +10125,30 @@ of range, or sigma not positive.</p>
             <td>
               <div class="doc-md-description">
                 <p>The coefficient of determination, 1 for a perfect fit.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For powers that are not whole numbers from 0, or powers,
+coefficients, covariance or residuals of other shapes.</p>
               </div>
             </td>
           </tr>
@@ -10736,7 +10957,7 @@ within the volumes.</p>
 
 
 <a href="#mdapy.fitting.EquationOfState" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EquationOfState</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EquationOfState</span><span class="p">(</span><span class="n">form</span><span class="p">,</span> <span class="n">parameters</span><span class="p">,</span> <span class="n">covariance</span><span class="p">,</span> <span class="n">residuals</span><span class="p">,</span> <span class="n">r_squared</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10744,7 +10965,102 @@ within the volumes.</p>
 
 
         <p>An equation of state fitted to energies at volumes, made by
-<code>fit_eos</code>.</p>
+<code>fit_eos</code>, or one of given parameters.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>form</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>One of <code>FORMS</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameters</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(4,) float64 e0 in eV, v0 in Å³, b0 in GPa and b0_prime.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>covariance</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(4, 4) float64 covariance of the parameters, in their units.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>residuals</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(n,) float64 the energies less the equation of state, in eV.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>r_squared</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coefficient of determination of the energies.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
 <p><span class="doc-section-title">Attributes:</span></p>
@@ -10813,6 +11129,17 @@ within the volumes.</p>
             </td>
           </tr>
           <tr class="doc-section-item">
+            <td><code><span title="mdapy.fitting.EquationOfState.covariance">covariance</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(4, 4) float64 covariance of e0, v0, b0 and b0_prime, in their units.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
             <td><code><span title="mdapy.fitting.EquationOfState.errors">errors</span></code></td>
             <td>
                   <code>ndarray</code>
@@ -10842,6 +11169,30 @@ within the volumes.</p>
             <td>
               <div class="doc-md-description">
                 <p>The coefficient of determination of the energies.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an unknown form, or parameters, covariance or residuals of
+other shapes.</p>
               </div>
             </td>
           </tr>

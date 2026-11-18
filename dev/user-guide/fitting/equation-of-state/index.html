@@ -8434,6 +8434,12 @@ volume.</p>
 <td>its derivative with respect to the pressure</td>
 </tr>
 <tr>
+<td><code>covariance</code></td>
+<td>(4, 4) float64</td>
+<td></td>
+<td>the covariance of <code>e0</code>, <code>v0</code>, <code>b0</code> and <code>b0_prime</code>, in their units</td>
+</tr>
+<tr>
 <td><code>errors</code></td>
 <td>(4,) float64</td>
 <td></td>
@@ -8465,6 +8471,9 @@ volume.</p>
 </tr>
 </tbody>
 </table>
+<p><code>EquationOfState(form, parameters, covariance, residuals, r_squared)</code> makes one
+of given parameters, <code>e0</code>, <code>v0</code>, <code>b0</code> and <code>b0_prime</code> in the units above, such as
+those of a publication, for its energy and pressure at any volume.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><a href="../../../reference/api/utilities/#mdapy.errors.InvalidParameter"><code>InvalidParameter</code></a>
 for an unknown form, fewer than five volumes, volumes that are not positive,

@@ -23,6 +23,10 @@
   constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
   LAMMPS; a `movable` column keeps atoms still. See
   [Molecular dynamics](../user-guide/simulation/dynamics.md).
+- `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
+  when asked, between the pieces of the scattering of each wave vector, as the other long
+  calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises
+  `mdapy.errors.Cancelled`.
 
 ## 2.1.0
 

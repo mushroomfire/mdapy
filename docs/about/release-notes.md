@@ -2,6 +2,21 @@
 
 ## 2.2.0 (not released)
 
+- Native calculators of the classic potentials of LAMMPS, which read its files and compute
+  energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
+  virial of each term among its atoms as LAMMPS does:
+  [`MEAM`](../user-guide/simulation/meam.md) (`pair_style meam`, first and second
+  neighbors, the reference structures fcc, bcc, hcp, dia, dim, sc, b1, b2 and l12),
+  [`ADP`](../user-guide/simulation/adp.md) (`pair_style adp`),
+  [`Tersoff`](../user-guide/simulation/tersoff.md) (`pair_style tersoff`),
+  [`StillingerWeber`](../user-guide/simulation/stillinger-weber.md) (`pair_style sw`),
+  [`LennardJones`](../user-guide/simulation/pair-potentials.md) (`pair_style lj/cut`, with its
+  mixing rules) and [`Morse`](../user-guide/simulation/pair-potentials.md) (`pair_style morse`).
+  Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
+  LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
+  their mean, the same whatever the order. Each has the `cutoff`, `elements` and
+  `implemented` of every calculator; `masses`, `path`, `cutoffs`, `epsilon`, `sigma`, `rc`,
+  `library` and `parameters` where they apply.
 - `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
   as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
   LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same

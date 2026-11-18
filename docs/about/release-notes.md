@@ -242,7 +242,8 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
   `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
   Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
-  parameters with their errors and covariance. See
+  parameters with their errors and covariance, and each result can be made of given
+  parameters, such as a polynomial of known coefficients. See
   [Interpolation](../user-guide/fitting/interpolation.md),
   [Curve fitting](../user-guide/fitting/curve-fitting.md) and
   [Equations of state](../user-guide/fitting/equation-of-state.md).

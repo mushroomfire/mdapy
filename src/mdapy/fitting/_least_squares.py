@@ -61,9 +61,42 @@ def _read_only(*arrays: np.ndarray) -> None:
         array.flags.writeable = False
 
 
+def _fitted(
+    coefficients: ArrayLike,
+    covariance: ArrayLike,
+    residuals: ArrayLike,
+    r_squared: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, float]:
+    """The coefficients, covariance, errors and residuals of a fit, copied,
+    and its coefficient of determination."""
+    coefficients = np.array(coefficients, dtype=np.float64)
+    covariance = np.array(covariance, dtype=np.float64)
+    residuals = np.array(residuals, dtype=np.float64)
+    k = len(coefficients) if coefficients.ndim == 1 else 0
+    if k == 0 or covariance.shape != (k, k) or residuals.ndim != 1:
+        raise InvalidParameter(
+            "coefficients must be a line of k numbers, covariance (k, k) and "
+            "residuals a line"
+        )
+    errors = np.sqrt(np.diagonal(covariance)).copy()
+    _read_only(coefficients, covariance, errors, residuals)
+    return coefficients, covariance, errors, residuals, float(r_squared)
+
+
 class PolynomialFit:
     """A polynomial fitted by least squares to values along a line, made by
-    ``fit_polynomial``.
+    ``fit_polynomial``, or a polynomial of given coefficients.
+
+    Parameters
+    ----------
+    coefficients : array_like
+        (degree + 1,) float64 coefficients of 1, x, x², ... .
+    covariance : array_like
+        (degree + 1, degree + 1) float64 covariance of the coefficients.
+    residuals : array_like
+        (n,) float64 the values less the polynomial at the points.
+    r_squared : float64
+        The coefficient of determination.
 
     Attributes
     ----------
@@ -77,18 +110,43 @@ class PolynomialFit:
         (n,) float64 the values less the polynomial at the points.
     r_squared : float64
         The coefficient of determination, 1 for a perfect fit.
+
+    Raises
+    ------
+    InvalidParameter
+        For coefficients, covariance or residuals of other shapes.
     """
 
     def __init__(
-        self, center, scale, scaled, transform, covariance, residuals, r_squared
+        self,
+        coefficients: ArrayLike,
+        covariance: ArrayLike,
+        residuals: ArrayLike,
+        r_squared: float,
     ):
-        self.__center, self.__scale, self.__scaled = center, scale, scaled
-        self.coefficients = transform @ scaled
-        self.covariance = transform @ covariance @ transform.T
-        self.errors = np.sqrt(np.diagonal(self.covariance)).copy()
-        self.residuals = residuals
-        self.r_squared = r_squared
-        _read_only(self.coefficients, self.covariance, self.errors, self.residuals)
+        (
+            self.coefficients,
+            self.covariance,
+            self.errors,
+            self.residuals,
+            self.r_squared,
+        ) = _fitted(coefficients, covariance, residuals, r_squared)
+        self.__center, self.__scale, self.__scaled = 0.0, 1.0, self.coefficients
+
+    @classmethod
+    def _from_scaled(
+        cls, center, scale, scaled, transform, covariance, residuals, r_squared
+    ) -> "PolynomialFit":
+        """The fit of ``fit_polynomial``, evaluated in (x - center) / scale,
+        which keeps the digits that the coefficients of x lose."""
+        fit = cls(
+            transform @ scaled,
+            transform @ covariance @ transform.T,
+            residuals,
+            r_squared,
+        )
+        fit.__center, fit.__scale, fit.__scaled = center, scale, scaled
+        return fit
 
     def __repr__(self) -> str:
         return f"PolynomialFit(degree {len(self.coefficients) - 1})"
@@ -183,14 +241,27 @@ def fit_polynomial(
     for j in range(degree + 1):
         for i in range(j + 1):
             transform[i, j] = comb(j, i) * (-center) ** (j - i) / scale**j
-    return PolynomialFit(
+    return PolynomialFit._from_scaled(
         center, scale, scaled, transform, covariance, y - fitted, _r_squared(y, fitted)
     )
 
 
 class SurfaceFit:
     """A polynomial in two variables fitted by least squares, made by
-    ``fit_surface``.
+    ``fit_surface``, or one of given terms.
+
+    Parameters
+    ----------
+    powers : array_like
+        (k, 2) int64 the powers (i, j), not negative, of each term x^i y^j.
+    coefficients : array_like
+        (k,) float64 the coefficient of each term.
+    covariance : array_like
+        (k, k) float64 covariance of the coefficients.
+    residuals : array_like
+        (n,) float64 the values less the surface at the points.
+    r_squared : float64
+        The coefficient of determination.
 
     Attributes
     ----------
@@ -206,21 +277,59 @@ class SurfaceFit:
         (n,) float64 the values less the surface at the points.
     r_squared : float64
         The coefficient of determination, 1 for a perfect fit.
+
+    Raises
+    ------
+    InvalidParameter
+        For powers that are not whole numbers from 0, or powers,
+        coefficients, covariance or residuals of other shapes.
     """
 
     def __init__(
-        self, powers, center, scale, scaled, transform, covariance, residuals, r_squared
+        self,
+        powers: ArrayLike,
+        coefficients: ArrayLike,
+        covariance: ArrayLike,
+        residuals: ArrayLike,
+        r_squared: float,
     ):
-        self.powers = powers
-        self.__center, self.__scale, self.__scaled = center, scale, scaled
-        self.coefficients = transform @ scaled
-        self.covariance = transform @ covariance @ transform.T
-        self.errors = np.sqrt(np.diagonal(self.covariance)).copy()
-        self.residuals = residuals
-        self.r_squared = r_squared
-        _read_only(
-            self.powers, self.coefficients, self.covariance, self.errors, self.residuals
+        (
+            self.coefficients,
+            self.covariance,
+            self.errors,
+            self.residuals,
+            self.r_squared,
+        ) = _fitted(coefficients, covariance, residuals, r_squared)
+        whole = np.asarray(powers)
+        if (
+            whole.shape != (len(self.coefficients), 2)
+            or not np.issubdtype(whole.dtype, np.integer)
+            or (whole < 0).any()
+        ):
+            raise InvalidParameter(
+                "powers must be (k, 2) whole numbers from 0, one pair per coefficient"
+            )
+        self.powers = np.array(whole, dtype=np.int64)
+        _read_only(self.powers)
+        self.__center, self.__scale = np.zeros(2), np.ones(2)
+        self.__scaled = self.coefficients
+
+    @classmethod
+    def _from_scaled(
+        cls, powers, center, scale, scaled, transform, covariance, residuals, r_squared
+    ) -> "SurfaceFit":
+        """The fit of ``fit_surface``, evaluated in (x - center) / scale and
+        (y - center) / scale, which keep the digits that the coefficients of
+        x and y lose."""
+        fit = cls(
+            powers,
+            transform @ scaled,
+            transform @ covariance @ transform.T,
+            residuals,
+            r_squared,
         )
+        fit.__center, fit.__scale, fit.__scaled = center, scale, scaled
+        return fit
 
     def __repr__(self) -> str:
         return f"SurfaceFit(degree {int(self.powers.sum(axis=1).max())})"
@@ -344,7 +453,7 @@ def fit_surface(
                     * (-center[1]) ** (b - j)
                     / scale[1] ** b
                 )
-    return SurfaceFit(
+    return SurfaceFit._from_scaled(
         powers,
         center,
         scale,

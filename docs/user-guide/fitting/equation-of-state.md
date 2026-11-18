@@ -64,11 +64,16 @@ An `EquationOfState`:
 | `v0` | float64 | Å³ | the volume at the minimum |
 | `b0` | float64 | GPa | the bulk modulus there |
 | `b0_prime` | float64 | | its derivative with respect to the pressure |
+| `covariance` | (4, 4) float64 | | the covariance of `e0`, `v0`, `b0` and `b0_prime`, in their units |
 | `errors` | (4,) float64 | | the standard errors of `e0`, `v0`, `b0` and `b0_prime` |
 | `residuals` | (n,) float64 | eV | the energies less the fit |
 | `r_squared` | float64 | | the coefficient of determination |
 | `energy(volume)` | float64 | eV | the energy at volumes |
 | `pressure(volume)` | float64 | GPa | −dE/dV at volumes |
+
+`EquationOfState(form, parameters, covariance, residuals, r_squared)` makes one
+of given parameters, `e0`, `v0`, `b0` and `b0_prime` in the units above, such as
+those of a publication, for its energy and pressure at any volume.
 
 ## Errors
 

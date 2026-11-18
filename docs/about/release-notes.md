@@ -17,6 +17,12 @@
   their mean, the same whatever the order. Each has the `cutoff`, `elements` and
   `implemented` of every calculator; `masses`, `path`, `cutoffs`, `epsilon`, `sigma`, `rc`,
   `library` and `parameters` where they apply.
+- `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
+  as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
+  LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
+  constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
+  LAMMPS; a `movable` column keeps atoms still. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md).
 
 ## 2.1.0
 

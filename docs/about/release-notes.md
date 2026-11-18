@@ -2,6 +2,13 @@
 
 ## 2.1.0 (not released)
 
+- `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
+  cutoff with its change over an eighth of the range of the volumes, the spacing of the
+  default nine, whatever their number. It compared it with the change between neighbouring
+  volumes, so that more volumes over the same range were refused although the results did
+  not change: 13 volumes of `EAM.zhou` copper from 0.97 to 1.07 at 400 K had a jump of 3.5 %
+  and were refused, 7 had 0.9 %; both now have 1.6 % and give the same results within 1 %.
+  See [Crossing the cutoff](../user-guide/simulation/quasi-harmonic.md#crossing-the-cutoff).
 - `plot.parity` draws several sets on the same axes: their range and one diagonal hold them
   all, where each call had set them to its own set.
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points

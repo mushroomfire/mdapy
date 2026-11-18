@@ -529,9 +529,10 @@ def _crossing(
 
 
 #: The largest jump of the free energy where a pair of atoms crosses the
-#: cutoff, as a part of its change between neighbouring cells, that the
-#: quasi-harmonic results tolerate: above it they depend on where the cells
-#: fall about the crossing by percents or more.
+#: cutoff, as a part of its change over an eighth of the range of the
+#: volumes or over the strain, that the quasi-harmonic results tolerate:
+#: above it they depend on where the cells fall about the crossing by
+#: percents or more.
 _JUMP = 0.02
 
 

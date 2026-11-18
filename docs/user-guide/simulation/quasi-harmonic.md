@@ -113,8 +113,8 @@ not converge within `max_steps`, imaginary frequencies at a volume, and an
 equilibrium volume outside the volumes, as well as for the errors of
 [`phonons`](phonons.md). It also raises it, before the phonons of the grid,
 where a pair of atoms crosses the cutoff of the calculator between the volumes
-and the free energy jumps there by more than 2 % of its change between
-neighbouring volumes, which distorts the results by percents or more.
+and the free energy jumps there by more than 2 % of its change over an eighth
+of the range of the volumes, which distorts the results by percents or more.
 
 ### Crossing the cutoff
 
@@ -125,9 +125,12 @@ nearest the crossing so that the pair lies 2, 3 and 4 displacements inside and
 outside the cutoff, and extrapolates the free energy of the vibrations at the
 highest temperature to the cutoff from either side, and the static energy from
 1e-4 Å either side. It compares the jump with the second difference of the
-static energy over neighbouring volumes, which the results come from:
+static energy over an eighth of the range of the volumes, the spacing of the
+default nine. A jump distorts the fit through the volumes by as much whether
+there are 6 or 25 of them, so their range sets the scale, not their number.
+With the default volumes:
 
-| Potential | Its functions at the cutoff | Jump, of the change between neighbouring volumes |
+| Potential | Its functions at the cutoff | Jump, of the change over an eighth of the range |
 |---|---|---|
 | EAM of Mishin et al. (`Cu_mishin1.eam.alloy`) | vanish with their first and second derivatives | 0.2 % |
 | `EAM.zhou` | about 1e-6 of their largest | 1 % |
@@ -141,7 +144,8 @@ and `quasi_harmonic` raises `InvalidParameter`, naming the pair, the jump and
 its part. Choose volumes or pressures all on one side of the crossing, or a
 potential smooth at its cutoff. The Zhou potentials cut off at the fifth shell
 of their fcc crystal, which every range of volumes about it crosses, with a
-jump of 1 %.
+jump of 1 %. Their copper also turns unstable between 1.07 and 1.08 of its
+volume, which the default volumes reach: give it volumes up to 1.07.
 
 ## Definition
 

@@ -233,8 +233,8 @@ def test_the_barostats_of_a_sheet(potential, graphene, barostat):
 
 
 def test_the_constants_from_dynamics_near_0_k(potential, graphene):
-    """At 1 K the sheet hardly moves: the static constants in N/m, but for
-    the strain of 1 %, with their errors."""
+    """At 1 K the sheet hardly moves, and the strains do not wrinkle it: the
+    static constants in N/m, but for the strain of 1 %, with their errors."""
     sheet = replicate(graphene, (4, 4, 1))
     static = elastic_constants(graphene, potential, symmetry=False).constants
     result = md_elastic_constants(
@@ -245,6 +245,7 @@ def test_the_constants_from_dynamics_near_0_k(potential, graphene):
         equilibration=500,
         production=1000,
         every=10,
+        method="strain",
     )
     assert isinstance(result, SheetElasticResult)
     np.testing.assert_allclose(result.constants, static, atol=1e-2 * static.max())
@@ -364,3 +365,9 @@ def test_the_constants_from_fluctuations_near_0_k(potential, graphene):
     assert isinstance(result, SheetElasticResult) and result.errors.shape == (3, 3)
     assert (np.abs(result.constants - static) < 4 * result.errors).all()
     assert result.errors.max() < 0.02 * static[0, 0]
+    # the fluctuations by default for a sheet, which a strain that compresses
+    # it wrinkles
+    default = md_elastic_constants(
+        sheet, potential, 1.0, timestep=0.0005, equilibration=500, production=2000
+    )
+    np.testing.assert_array_equal(default.constants, result.constants)

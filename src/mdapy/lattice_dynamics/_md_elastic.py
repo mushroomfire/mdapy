@@ -200,7 +200,7 @@ def md_elastic_constants(
     blocks: int = 5,
     barostat: str = "tri",
     seed: int = 1,
-    method: str = "strain",
+    method: str | None = None,
 ) -> ElasticResult | SheetElasticResult:
     """Isothermal elastic constants of a crystal at a temperature, from
     molecular dynamics in LAMMPS: from the mean stress under small strains,
@@ -240,7 +240,9 @@ def md_elastic_constants(
     method : {"strain", "fluctuation"}, optional
         From the mean stress of a run under each strain, or from one run at
         the mean box: the Born term, the fluctuations of the virial stress
-        and the kinetic term; ``strain`` is then unused. Default "strain".
+        and the kinetic term; ``strain`` is then unused. Default None:
+        "strain" for a crystal, "fluctuation" for a sheet, which wrinkles
+        under a strain that compresses it.
 
     Returns
     -------
@@ -257,6 +259,8 @@ def md_elastic_constants(
         than two blocks, or the errors of ``MolecularDynamics``.
     """
     sheet = _is_sheet(system.box, "elastic constants")
+    if method is None:
+        method = "fluctuation" if sheet else "strain"
     if method not in ("strain", "fluctuation"):
         raise InvalidParameter(
             f'method must be "strain" or "fluctuation", not {method!r}'

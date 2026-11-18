@@ -4902,6 +4902,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/meam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MEAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/tersoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tersoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/stillinger-weber/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stillinger–Weber
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/pair-potentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lennard-Jones and Morse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/nep/" class="md-nav__link">
         
   
@@ -8433,6 +8573,38 @@ one name everywhere.</p>
 <tr>
 <td>funcfl</td>
 <td>The file format of LAMMPS <code>pair_style eam</code>, of DYNAMO: one element, its embedding energy, effective charge and electron density; several files make an alloy, the pairs from the charges.</td>
+</tr>
+<tr>
+<td>MEAM</td>
+<td>The modified embedded atom method: an embedding energy in a density of partial densities of orders 0 to 3, of the angles of the neighbors, and pairs screened by their common neighbors; <code>MEAM</code> reads the library and parameter files of LAMMPS <code>pair_style meam</code>.</td>
+</tr>
+<tr>
+<td>screening</td>
+<td>In MEAM, the factor S<sub>ij</sub> from 0 to 1 by which the atoms near a pair, inside an ellipse of C below C<sub>max</sub> about it, weaken it; fully screened below C<sub>min</sub>.</td>
+</tr>
+<tr>
+<td>reference structure</td>
+<td>In MEAM, the crystal of an element or a pair (<code>lattce</code>: fcc, bcc, hcp, dia, dim, sc, b1, b2, l12) whose energy against the distance of the neighbors is the Rose function, which sets the pair function.</td>
+</tr>
+<tr>
+<td>ADP</td>
+<td>The angular-dependent potential: the embedded atom method with the dipole and quadrupole of the neighbors of each atom; <code>ADP</code> reads the files of LAMMPS <code>pair_style adp</code>.</td>
+</tr>
+<tr>
+<td>bond order</td>
+<td>In the Tersoff potential, the factor b<sub>ij</sub> of the attraction of a bond, falling with the number of the other neighbors of the atom and their angles.</td>
+</tr>
+<tr>
+<td><code>.tersoff</code>, <code>.sw</code></td>
+<td>The files of LAMMPS <code>pair_style tersoff</code> and <code>sw</code>: an entry of numbers for each triplet of elements i j k, the two-body ones of a pair i–j in the entry i j j.</td>
+</tr>
+<tr>
+<td>label</td>
+<td>A name of a potential file that is not an element, as <code>Si(D)</code> of a Tersoff file or <code>AlS</code> of a MEAM library; <code>elements={"Si": "Si(D)"}</code> maps the element of the atoms to it.</td>
+</tr>
+<tr>
+<td>mixing rule</td>
+<td>How the parameters of a pair of two elements follow from those of each, as the geometric or arithmetic means of <code>LennardJones</code> (<code>pair_modify mix</code> of LAMMPS).</td>
 </tr>
 <tr>
 <td><code>Result</code></td>

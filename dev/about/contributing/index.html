@@ -4898,6 +4898,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/meam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MEAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/tersoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tersoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/stillinger-weber/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stillinger–Weber
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/pair-potentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lennard-Jones and Morse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/nep/" class="md-nav__link">
         
   
@@ -8696,7 +8836,7 @@ its Python module installed from the wheel that the build leaves:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>--branch<span class="w"> </span>stable_30Sep2026<span class="w"> </span>https://github.com/lammps/lammps.git
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cmake<span class="w"> </span>-S<span class="w"> </span>lammps/cmake<span class="w"> </span>-B<span class="w"> </span>lammps-build<span class="w"> </span>-D<span class="w"> </span><span class="nv">CMAKE_BUILD_TYPE</span><span class="o">=</span>Release<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">BUILD_SHARED_LIBS</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">BUILD_MPI</span><span class="o">=</span>no<span class="w"> </span>-D<span class="w"> </span><span class="nv">BUILD_OMP</span><span class="o">=</span>no<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_MANYBODY</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_MOLECULE</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-COMPUTE<span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_MANYBODY</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_MEAM</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_MOLECULE</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-COMPUTE<span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>-D<span class="w"> </span>PKG_EXTRA-FIX<span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-PAIR<span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_VORONOI</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">DOWNLOAD_VORO</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_PHONON</span><span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_KOKKOS</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">Kokkos_ENABLE_SERIAL</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">Kokkos_ENABLE_THREADS</span><span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
@@ -8715,7 +8855,11 @@ its Python module installed from the wheel that the build leaves:</p>
 <tbody>
 <tr>
 <td><code>MANYBODY</code></td>
-<td>the EAM potentials of the tests</td>
+<td>the EAM, Tersoff, Stillinger–Weber and ADP potentials of the tests</td>
+</tr>
+<tr>
+<td><code>MEAM</code></td>
+<td>the MEAM potentials of the tests</td>
 </tr>
 <tr>
 <td><code>MOLECULE</code></td>

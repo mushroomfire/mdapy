@@ -613,6 +613,10 @@
          <lastmod>2026-11-18</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/adp/</loc>
+         <lastmod>2026-11-18</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/bond-stiffness/</loc>
          <lastmod>2026-11-18</lastmod>
     </url>
@@ -657,6 +661,10 @@
          <lastmod>2026-11-18</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/meam/</loc>
+         <lastmod>2026-11-18</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/melting-point/</loc>
          <lastmod>2026-11-18</lastmod>
     </url>
@@ -666,6 +674,10 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/nep/</loc>
+         <lastmod>2026-11-18</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/pair-potentials/</loc>
          <lastmod>2026-11-18</lastmod>
     </url>
     <url>
@@ -690,6 +702,14 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/stacking-fault-temperature/</loc>
+         <lastmod>2026-11-18</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/stillinger-weber/</loc>
+         <lastmod>2026-11-18</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/tersoff/</loc>
          <lastmod>2026-11-18</lastmod>
     </url>
     <url>

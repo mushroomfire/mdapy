@@ -4900,6 +4900,146 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/meam/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    MEAM
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adp/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ADP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/tersoff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tersoff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/stillinger-weber/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Stillinger–Weber
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/pair-potentials/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lennard-Jones and Morse
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/nep/" class="md-nav__link">
         
   
@@ -8034,6 +8174,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#220-not-released" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2.0 (not released)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#210" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8497,6 +8648,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#220-not-released" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2.0 (not released)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#210" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8826,6 +8988,24 @@
 
 
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
+<h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Native calculators of the classic potentials of LAMMPS, which read its files and compute
+  energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
+  virial of each term among its atoms as LAMMPS does:
+  <a href="../../user-guide/simulation/meam/"><code>MEAM</code></a> (<code>pair_style meam</code>, first and second
+  neighbors, the reference structures fcc, bcc, hcp, dia, dim, sc, b1, b2 and l12),
+  <a href="../../user-guide/simulation/adp/"><code>ADP</code></a> (<code>pair_style adp</code>),
+  <a href="../../user-guide/simulation/tersoff/"><code>Tersoff</code></a> (<code>pair_style tersoff</code>),
+  <a href="../../user-guide/simulation/stillinger-weber/"><code>StillingerWeber</code></a> (<code>pair_style sw</code>),
+  <a href="../../user-guide/simulation/pair-potentials/"><code>LennardJones</code></a> (<code>pair_style lj/cut</code>, with its
+  mixing rules) and <a href="../../user-guide/simulation/pair-potentials/"><code>Morse</code></a> (<code>pair_style morse</code>).
+  Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
+  LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
+  their mean, the same whatever the order. Each has the <code>cutoff</code>, <code>elements</code> and
+  <code>implemented</code> of every calculator; <code>masses</code>, <code>path</code>, <code>cutoffs</code>, <code>epsilon</code>, <code>sigma</code>, <code>rc</code>,
+  <code>library</code> and <code>parameters</code> where they apply.</li>
+</ul>
 <h2 id="210">2.1.0<a class="headerlink" href="#210" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any
 calculator or of DFT to the thermal conductivity; elastic constants along directions, of

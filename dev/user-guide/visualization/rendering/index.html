@@ -8669,7 +8669,7 @@ value_range=None, representation="spheres", radius=None, bonds=None,
 bond_radius=None, box=True,
 box_radius=None, box_color="black", polyhedra=None, polyhedra_alpha=0.6,
 polyhedra_color="atom", polyhedra_edges=None, mesh=None, mesh_color="#8fb0d8",
-mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5,
+mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5, dislocation_color="family",
 burgers_vectors=False, burgers_scale=3.0, burgers_radius=0.3,
 burgers_color=(0.7, 0.7, 0.7), vectors=None, vector_scale=1.0,
 vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
@@ -8825,6 +8825,13 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 <td>0.5</td>
 <td>Å</td>
 <td>the radius of the tubes</td>
+</tr>
+<tr>
+<td><code>dislocation_color</code></td>
+<td></td>
+<td><code>"family"</code></td>
+<td></td>
+<td><code>"family"</code>, the color of the family of the Burgers vector of each line; <code>"character"</code>, the angle of each piece to its Burgers vector, from blue for screw (0°) to red for edge (90°) on coolwarm; or one color</td>
 </tr>
 <tr>
 <td><code>burgers_vectors</code></td>

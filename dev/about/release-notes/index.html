@@ -9015,6 +9015,10 @@
   when asked, between the pieces of the scattering of each wave vector, as the other long
   calculations do: <code>progress(done, total)</code> counts the pieces, and a <code>CancelToken</code> raises
   <code>mdapy.errors.Cancelled</code>.</li>
+<li><code>render(..., dislocation_color="family")</code> colors dislocation lines by the family of their
+  Burgers vector, as before; <code>"character"</code> by the angle of each piece of a line to its
+  Burgers vector, from blue for screw to red for edge on coolwarm; or in one color. See
+  <a href="../../user-guide/analysis/dislocations/#screw-and-edge">Screw and edge</a>.</li>
 </ul>
 <h2 id="210">2.1.0<a class="headerlink" href="#210" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

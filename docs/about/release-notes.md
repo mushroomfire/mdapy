@@ -1,7 +1,30 @@
 # Release notes
 
-## 2.1.0 (not released)
+## 2.1.0
 
+MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any
+calculator or of DFT to the thermal conductivity; elastic constants along directions, of
+polycrystals and from the fluctuations of the stress; the dislocation analysis, no longer
+experimental, with OVITO's CA files; sheets in every thermal method; `mdapy.fitting` for
+splines, least squares and equations of state; and fixes. What 2.1 holds is in the notes of
+2.1.0rc1 and 2.1.0rc2 below. Code written for 2.0 keeps working: the API of 2.0.0 holds,
+and from here on that of 2.1.0, its additions included, holds in every later 2.x release.
+Since 2.1.0rc2:
+
+- `PolynomialFit(coefficients, covariance, residuals, r_squared)`,
+  `SurfaceFit(powers, coefficients, covariance, residuals, r_squared)` and
+  `EquationOfState(form, parameters, covariance, residuals, r_squared)` are made of the
+  values they hold, such as a polynomial of known coefficients or an equation of state of
+  published parameters. In 2.1.0rc1 and rc2 the first two took the scaled form that the fits
+  evaluate in, and `EquationOfState` its bulk modulus in eV/Å³ and its errors.
+  `EquationOfState.covariance` gives the covariance of `e0`, `v0`, `b0` and `b0_prime`,
+  as each fit gives its own.
+- The documentation says in words what each symbol of a formula stands for, and the
+  [cheat sheet](../getting-started/learn/cheat-sheet.md) holds the additions of 2.1: fitting,
+  lattice dynamics from elastic constants to the thermal conductivity, dislocations and CA
+  files, and NEP with LAMMPS. The page of [EAM](../user-guide/simulation/eam.md) says that
+  an average atom needs a potential of the eam/alloy form, as `EAM.average` refuses an
+  `eam/fs` one.
 - `md_elastic_constants` takes `method=None` by default: the strains for a crystal, the
   fluctuations for a sheet, which wrinkles under a strain that compresses it. Strains of
   ±1 % on 16 × 16 cells of graphene with LCBOP at 100 K gave C11 217 N/m along x and

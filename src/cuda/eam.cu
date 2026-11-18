@@ -66,9 +66,9 @@ struct Tables {
 };
 
 template <class Real, bool Energy>
-__global__ void density(std::int64_t n, const Real4<Real>* x, DeviceBox<Real> box,
+__global__ void density(std::int64_t n, const Real4<Real>* x, Images<Real> images,
                         const std::int32_t* indices, const std::int32_t* counts,
-                        Tables<Real> t, double* fp, double* energies) {
+                        Tables<Real> t, Real* fp, double* energies) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const Real4<Real> xi = x[i];
@@ -76,10 +76,10 @@ __global__ void density(std::int64_t n, const Real4<Real>* x, DeviceBox<Real> bo
     double rho = 0.0;
     const int count = counts[i];
     for (int k = 0; k < count; ++k) {
-        const int j = indices[static_cast<std::int64_t>(k) * n + i];
-        const Real4<Real> xj = x[j];
+        const auto packed = static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
+        const Real4<Real> xj = x[packed & kIndexMask];
         Real dx = xj.x - xi.x, dy = xj.y - xi.y, dz = xj.z - xi.z;
-        minimum_image(box, dx, dy, dz);
+        add_image(images, packed >> kIndexBits, dx, dy, dz);
         const Real r2 = dx * dx + dy * dy + dz * dz;
         if (r2 < t.cutsq) {
             const int sj = static_cast<int>(xj.w);
@@ -91,42 +91,52 @@ __global__ void density(std::int64_t n, const Real4<Real>* x, DeviceBox<Real> bo
     if (rho > t.rho_max) {
         embedding += slope * (rho - t.rho_max);
     }
-    fp[i] = slope;
+    fp[i] = static_cast<Real>(slope);
     if (Energy) energies[i] = embedding;
 }
 
 template <class Real, bool Energy, bool Virial>
-__global__ void force(std::int64_t n, const Real4<Real>* x, DeviceBox<Real> box,
+__global__ void force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
                       const std::int32_t* indices, const std::int32_t* counts, Tables<Real> t,
-                      const double* fp, double* forces, double* energies, double* virials) {
+                      const Real* fp, double* forces, double* energies, double* virials) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
-    const Real fpi = static_cast<Real>(fp[i]);
+    const Real fpi = fp[i];
     double f[3] = {0.0, 0.0, 0.0};
     double w[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     double energy = 0.0;
     const int count = counts[i];
     for (int k = 0; k < count; ++k) {
-        const int j = indices[static_cast<std::int64_t>(k) * n + i];
+        const auto packed = static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
+        const int j = static_cast<int>(packed & kIndexMask);
         const Real4<Real> xj = x[j];
         // del = x_i - x_j, as in LAMMPS
-        Real del[3] = {xi.x - xj.x, xi.y - xj.y, xi.z - xj.z};
-        minimum_image(box, del[0], del[1], del[2]);
+        Real d[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
+        add_image(images, packed >> kIndexBits, d[0], d[1], d[2]);
+        const Real del[3] = {-d[0], -d[1], -d[2]};
         const Real r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
         if (!(r2 < t.cutsq)) continue;
         const int sj = static_cast<int>(xj.w);
         const Real r = sqrt(r2);
-        // rho_ip: of the density i gives j; rho_jp: j gives i
+        // rho_ip: of the density i gives j; rho_jp: j gives i, the same
+        // spline for atoms of one element in eam/alloy
         Real rho_i, rho_ip, rho_j, rho_jp, z2, z2p;
-        spline(t.pairs, t.density[si * t.elements + sj], r, rho_i, rho_ip);
-        spline(t.pairs, t.density[sj * t.elements + si], r, rho_j, rho_jp);
+        const int gives = t.density[si * t.elements + sj];
+        const int takes = t.density[sj * t.elements + si];
+        spline(t.pairs, gives, r, rho_i, rho_ip);
+        if (takes == gives) {
+            rho_j = rho_i;
+            rho_jp = rho_ip;
+        } else {
+            spline(t.pairs, takes, r, rho_j, rho_jp);
+        }
         spline(t.pairs, t.pair[si * t.elements + sj], r, z2, z2p);
         const Real recip = Real(1) / r;
         const Real phi = z2 * recip;
         const Real phip = z2p * recip - phi * recip;
-        const Real psip = fpi * rho_jp + static_cast<Real>(fp[j]) * rho_ip + phip;
+        const Real psip = fpi * rho_jp + fp[j] * rho_ip + phip;
         const Real fpair = -psip * recip;
         for (int a = 0; a < 3; ++a) {
             f[a] += static_cast<double>(del[a] * fpair);
@@ -238,7 +248,7 @@ public:
         fp_.resize(static_cast<std::size_t>(n));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = a.positions<Real>();
-        const DeviceBox<Real> b = device_box<Real>(box);
+        const Images<Real> b = images_of<Real>(box);
         Tables<Real> t{pairs_.view(), embedding_.view(), density_.data(), pair_.data(),
                        elements_, static_cast<Real>(cutoff_ * cutoff_), rho_max_};
         const unsigned g = blocks(n);
@@ -279,7 +289,7 @@ private:
     DeviceRows<Real> pairs_;
     DeviceRows<double> embedding_;
     Buffer<int> density_, pair_;
-    Buffer<double> fp_;
+    Buffer<Real> fp_;
 };
 
 }  // namespace

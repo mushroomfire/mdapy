@@ -53,7 +53,10 @@ public:
     std::int64_t size() const;
     void set_species(const std::int32_t* species);  // (n,)
     void set_positions(const double* positions);    // (n, 3)
+    // In the box along its periodic directions after a neighbor list was
+    // built, which wraps them; images counts the boxes they were moved by.
     void get_positions(double* positions) const;
+    void get_images(std::int32_t* images) const;    // (n, 3)
     void get_forces(double* forces) const;          // (n, 3)
     void get_energies(double* energies) const;      // (n,), after an energy
     void get_virials(double* virials) const;        // (n, 3, 3), after atomic virials
@@ -99,13 +102,17 @@ public:
     // was; true if it built. Throws std::invalid_argument for a box that is
     // not thicker than twice the cutoff and the skin along a periodic
     // direction, where the minimum image would miss pairs.
-    bool update(const Atoms& atoms, const Box& box);
+    // Building wraps the atoms into the box along its periodic directions.
+    bool update(Atoms& atoms, const Box& box);
     double cutoff() const;
     double skin() const;
     std::int64_t builds() const;
     // The neighbors of each atom: (n,) counts and (n, most) indices, -1 past
-    // the count; for tests.
-    void get(std::int32_t* counts, std::int32_t* indices) const;
+    // the count, and the image of each, 0 to 26 for shifts of -1, 0 or 1
+    // boxes along each vector, (s0 + 1) + 3 (s1 + 1) + 9 (s2 + 1); for tests.
+    // In the order of the caller's atoms.
+    void get(const Atoms& atoms, std::int32_t* counts, std::int32_t* indices,
+             std::int32_t* images) const;
     int most() const;
 
     struct Impl;

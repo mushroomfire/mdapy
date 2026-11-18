@@ -18,7 +18,7 @@ struct Neighbors::Impl {
     Buffer<std::int32_t> indices;    // (most, n): neighbor k of atom i at k * n + i
     Buffer<std::int32_t> counts;     // (n,)
     // the state of the last build, to tell when to build again
-    Buffer<double4> x_built;
+    Buffer<double4a> x_built;
     Box box_built{};
     std::uint64_t atoms_version = 0;
     // the cells

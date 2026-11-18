@@ -10,6 +10,7 @@
 #include <curand_kernel.h>
 
 #include <stdexcept>
+#include <vector>
 
 #include "cuda/atoms.cuh"
 
@@ -27,10 +28,10 @@ __global__ void kick_kernel(std::int64_t n, double c, const double* f, const dou
     }
 }
 
-__global__ void drift_kernel(std::int64_t n, double dt, const double* v, double4* x) {
+__global__ void drift_kernel(std::int64_t n, double dt, const double* v, double4a* x) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    double4 p = x[i];
+    double4a p = x[i];
     p.x += dt * v[3 * i];
     p.y += dt * v[3 * i + 1];
     p.z += dt * v[3 * i + 2];
@@ -58,10 +59,10 @@ struct Affine {
     double old_lo[3], inverse[9], lo[3], h[9];
 };
 
-__global__ void remap_kernel(std::int64_t n, Affine t, double4* x) {
+__global__ void remap_kernel(std::int64_t n, Affine t, double4a* x) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    double4 p = x[i];
+    double4a p = x[i];
     const double r[3] = {p.x - t.old_lo[0], p.y - t.old_lo[1], p.z - t.old_lo[2]};
     double s[3];
     for (int k = 0; k < 3; ++k) {
@@ -106,18 +107,24 @@ __global__ void kinetic_kernel(std::int64_t n, const double* m, const double* v,
 }  // namespace
 
 void Atoms::set_masses(const double* masses) {
-    impl_->masses.upload(masses, static_cast<std::size_t>(impl_->n));
+    std::vector<double> placed(static_cast<std::size_t>(impl_->n));
+    impl_->to_places(masses, placed.data(), 1);
+    impl_->masses.upload(placed.data(), placed.size());
 }
 
 void Atoms::set_velocities(const double* velocities) {
-    impl_->velocities.upload(velocities, static_cast<std::size_t>(3 * impl_->n));
+    std::vector<double> placed(static_cast<std::size_t>(3 * impl_->n));
+    impl_->to_places(velocities, placed.data(), 3);
+    impl_->velocities.upload(placed.data(), placed.size());
 }
 
 void Atoms::get_velocities(double* velocities) const {
     if (impl_->velocities.size() == 0) {
         throw std::logic_error("the atoms have no velocities");
     }
-    impl_->velocities.download(velocities, static_cast<std::size_t>(3 * impl_->n));
+    std::vector<double> placed(static_cast<std::size_t>(3 * impl_->n));
+    impl_->velocities.download(placed.data(), placed.size());
+    impl_->to_caller(placed.data(), velocities, 3);
 }
 
 void Atoms::kick(double c) {

@@ -27,7 +27,7 @@ struct PairTables {
 };
 
 template <class Real, PairStyle Style, bool Energy, bool Virial>
-__global__ void pair_force(std::int64_t n, const Real4<Real>* x, DeviceBox<Real> box,
+__global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
                            const std::int32_t* indices, const std::int32_t* counts,
                            PairTables<Real> t, double* forces, double* energies,
                            double* virials) {
@@ -40,10 +40,11 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, DeviceBox<Real>
     double energy = 0.0;
     const int count = counts[i];
     for (int k = 0; k < count; ++k) {
-        const int j = indices[static_cast<std::int64_t>(k) * n + i];
-        const Real4<Real> xj = x[j];
-        Real del[3] = {xi.x - xj.x, xi.y - xj.y, xi.z - xj.z};  // x_i - x_j
-        minimum_image(box, del[0], del[1], del[2]);
+        const auto packed = static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
+        const Real4<Real> xj = x[packed & kIndexMask];
+        Real d[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
+        add_image(images, packed >> kIndexBits, d[0], d[1], d[2]);
+        const Real del[3] = {-d[0], -d[1], -d[2]};  // x_i - x_j
         const Real r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
         const int pair = si * t.species + static_cast<int>(xj.w);
         if (!(r2 < t.cutsq[pair])) continue;
@@ -132,7 +133,7 @@ private:
                 bool virial) {
         const std::int64_t n = a.n;
         const Real4<Real>* x = a.positions<Real>();
-        const DeviceBox<Real> b = device_box<Real>(box);
+        const Images<Real> b = images_of<Real>(box);
         PairTables<Real> t{coefficients_.data(), cutsq_.data(), offset_.data(), species_};
         const unsigned g = blocks(n);
         double* e = energy ? a.energies.data() : nullptr;

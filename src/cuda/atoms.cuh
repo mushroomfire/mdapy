@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "cuda/device.cuh"
 
 namespace mdapy::cuda {
@@ -12,7 +14,7 @@ namespace mdapy::cuda {
 struct Atoms::Impl {
     std::int64_t n = 0;
     // positions in double precision, the species of each atom as w
-    Buffer<double4> x;
+    Buffer<double4a> x;
     // the same in single precision for mixed precision, made from x when
     // read after x changed
     Buffer<float4> x_single;
@@ -27,6 +29,24 @@ struct Atoms::Impl {
     Buffer<double> velocities;  // (n, 3)
     Buffer<double> masses;      // (n,)
     Buffer<double> scratch;     // 6 columns of n, for the kinetic tensor
+    Buffer<int3> images;        // (n,), the boxes the wrapping moved each atom by
+    // The atoms are sorted by the cells of the neighbor list when it is built,
+    // so that neighbors are near in memory: original holds the atom of the
+    // caller at each place; what comes in and goes out is in the caller's
+    // order. Empty while the order is the caller's.
+    Buffer<std::int32_t> original;
+    mutable std::vector<std::int32_t> host_original;  // its copy, when not stale
+    mutable bool stale = false;
+
+    // The places of the caller's atoms, empty for the caller's own order.
+    const std::vector<std::int32_t>& order() const;
+    // out[p] = in[original[p]] and out[original[p]] = in[p], width values each.
+    template <class T>
+    void to_places(const T* in, T* out, int width) const;
+    template <class T>
+    void to_caller(const T* in, T* out, int width) const;
+    // The atoms at their new places: the one at place order[p] goes to p.
+    void permute(const std::int32_t* order);
 
     // The positions in a precision, the species as w.
     template <class Real>

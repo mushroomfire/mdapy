@@ -52,12 +52,15 @@ class DeviceAtoms:
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
         self.__neighbors = module.Neighbors(on.cutoff, skin)
         self.__potential = on.potential
+        self.__h = np.zeros((3, 3))  # the box, for the images of the wrapped atoms
         self.__seed = 0
         self.__counter = 0
 
     @property
     def positions(self) -> np.ndarray:
-        return self.__atoms.positions()
+        """Unwrapped: the GPU wraps the atoms into the box when it builds a
+        neighbor list and counts the boxes it moved them by."""
+        return self.__atoms.positions() + self.__atoms.images() @ self.__h
 
     @property
     def velocities(self) -> np.ndarray:
@@ -79,6 +82,7 @@ class DeviceAtoms:
         """The forces, and the energy and the virial when asked; the
         neighbor list built again when the atoms have moved enough."""
         h, lo, pbc = _gpu.box_arguments(box)
+        self.__h = h
         try:
             self.__neighbors.update(self.__atoms, h, lo, pbc)
         except ValueError as error:
@@ -118,6 +122,7 @@ class DeviceAtoms:
             np.ascontiguousarray(lo, dtype=np.float64),
             np.ascontiguousarray(new, dtype=np.float64),
         )
+        self.__h = np.array(new, dtype=np.float64)
 
     def seed(self, seed: int | None) -> None:
         self.__seed = secrets.randbits(63) if seed is None else int(seed)

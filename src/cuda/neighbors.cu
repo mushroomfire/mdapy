@@ -64,19 +64,47 @@ void inverse_times(const Box& a, const Box& b, double m[9]) {
     }
 }
 
-__global__ void bin(std::int64_t n, const double4* x, DeviceBox<double> box, int3 cells,
+// Each atom into the box along its periodic directions, counting the boxes
+// it was moved by.
+__global__ void wrap(std::int64_t n, DeviceBox<double> box, double4a* x, int3* images) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    double4a p = x[i];
+    const double r[3] = {p.x - box.lo[0], p.y - box.lo[1], p.z - box.lo[2]};
+    int shift[3] = {0, 0, 0};
+    for (int k = 0; k < 3; ++k) {
+        if (!box.pbc[k]) continue;
+        const double s = r[0] * box.inverse[k] + r[1] * box.inverse[3 + k] + r[2] * box.inverse[6 + k];
+        shift[k] = static_cast<int>(floor(s));
+    }
+    if (shift[0] == 0 && shift[1] == 0 && shift[2] == 0) return;
+    p.x -= shift[0] * box.h[0] + shift[1] * box.h[3] + shift[2] * box.h[6];
+    p.y -= shift[0] * box.h[1] + shift[1] * box.h[4] + shift[2] * box.h[7];
+    p.z -= shift[0] * box.h[2] + shift[1] * box.h[5] + shift[2] * box.h[8];
+    x[i] = p;
+    int3 m = images[i];
+    m.x += shift[0];
+    m.y += shift[1];
+    m.z += shift[2];
+    images[i] = m;
+}
+
+__global__ void bin(std::int64_t n, const double4a* x, DeviceBox<double> box, int3 cells,
                     std::int32_t* keys, std::int32_t* order) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    const double4 p = x[i];
+    const double4a p = x[i];
     const double r[3] = {p.x - box.lo[0], p.y - box.lo[1], p.z - box.lo[2]};
     const int count[3] = {cells.x, cells.y, cells.z};
     int c[3];
     for (int k = 0; k < 3; ++k) {
-        double s = r[0] * box.inverse[k] + r[1] * box.inverse[3 + k] + r[2] * box.inverse[6 + k];
-        if (box.pbc[k]) s -= floor(s);
-        // atoms outside a direction that is not periodic go to its first or
-        // last cell, which the cells around them still reach
+        // the atoms are wrapped, and an atom the wrap left at 1 by rounding
+        // stays in the last cell, where it is, not the first: the cells must
+        // hold the atoms as they are for the shifts of the list. Atoms
+        // outside a direction that is not periodic go to its first or last
+        // cell, which the cells around them still reach
+        const double s =
+            r[0] * box.inverse[k] + r[1] * box.inverse[3 + k] + r[2] * box.inverse[6 + k];
         const double scaled = s * count[k];
         // (a position that is not finite lands in a cell too, never outside)
         c[k] = !(scaled >= 0.0) ? 0
@@ -101,40 +129,76 @@ struct Around {
     int low[3], high[3], wrap[3];
 };
 
-__global__ void list(std::int64_t n, const double4* x, DeviceBox<double> box, int3 cells,
-                     Around around, const std::int32_t* keys, const std::int32_t* sorted_keys,
-                     const std::int32_t* sorted, const std::int32_t* begin,
+// Shifts: at least 3 cells along every periodic direction, so that the
+// cells around an atom are distinct and the box each lies through is that
+// of the wrap of its index: x_j - x_i + s h, s of the cell, for every atom of
+// it. Otherwise the shortest image of each pair from its fractional
+// coordinates.
+template <bool Shifts>
+__global__ void list(std::int64_t n, const double4a* x, DeviceBox<double> box, int3 cells,
+                     Around around, const std::int32_t* keys, const std::int32_t* begin,
                      const std::int32_t* end, double reach2, int most, std::int32_t* indices,
                      std::int32_t* counts, int* found) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    (void)sorted_keys;
-    const double4 xi = x[i];
-    const int key = keys[i];
+    const double4a xi = x[i];
+    const int key = keys[i];  // the atoms are in the order of their cells
     const int own[3] = {key % cells.x, (key / cells.x) % cells.y, key / (cells.x * cells.y)};
     const int count[3] = {cells.x, cells.y, cells.z};
     int m = 0;
     for (int dz = around.low[2]; dz <= around.high[2]; ++dz) {
-        int cz = own[2] + dz;
-        if (around.wrap[2]) cz = (cz + count[2]) % count[2];
-        else if (cz < 0 || cz >= count[2]) continue;
+        int cz = own[2] + dz, sz = 0;
+        if (around.wrap[2]) {
+            if (cz < 0) { cz += count[2]; sz = -1; }
+            else if (cz >= count[2]) { cz -= count[2]; sz = 1; }
+        } else if (cz < 0 || cz >= count[2]) continue;
         for (int dy = around.low[1]; dy <= around.high[1]; ++dy) {
-            int cy = own[1] + dy;
-            if (around.wrap[1]) cy = (cy + count[1]) % count[1];
-            else if (cy < 0 || cy >= count[1]) continue;
+            int cy = own[1] + dy, sy = 0;
+            if (around.wrap[1]) {
+                if (cy < 0) { cy += count[1]; sy = -1; }
+                else if (cy >= count[1]) { cy -= count[1]; sy = 1; }
+            } else if (cy < 0 || cy >= count[1]) continue;
             for (int dx = around.low[0]; dx <= around.high[0]; ++dx) {
-                int cx = own[0] + dx;
-                if (around.wrap[0]) cx = (cx + count[0]) % count[0];
-                else if (cx < 0 || cx >= count[0]) continue;
+                int cx = own[0] + dx, sx = 0;
+                if (around.wrap[0]) {
+                    if (cx < 0) { cx += count[0]; sx = -1; }
+                    else if (cx >= count[0]) { cx -= count[0]; sx = 1; }
+                } else if (cx < 0 || cx >= count[0]) continue;
                 const int cell = (cz * cells.y + cy) * cells.x + cx;
-                for (int p = begin[cell]; p < end[cell]; ++p) {
-                    const int j = sorted[p];
+                // the image of the cell: the atoms of the cell before the wrap
+                const double image[3] = {sx * box.h[0] + sy * box.h[3] + sz * box.h[6],
+                                         sx * box.h[1] + sy * box.h[4] + sz * box.h[7],
+                                         sx * box.h[2] + sy * box.h[5] + sz * box.h[8]};
+                const int cell_code = (sx + 1) + 3 * (sy + 1) + 9 * (sz + 1);
+                for (int j = begin[cell]; j < end[cell]; ++j) {
                     if (j == i) continue;
-                    const double4 xj = x[j];
-                    double rx = xj.x - xi.x, ry = xj.y - xi.y, rz = xj.z - xi.z;
-                    minimum_image(box, rx, ry, rz);
-                    if (rx * rx + ry * ry + rz * rz < reach2) {
-                        if (m < most) indices[static_cast<std::int64_t>(m) * n + i] = j;
+                    const double4a xj = x[j];
+                    double r[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
+                    int code = cell_code;
+                    if (Shifts) {
+                        for (int c = 0; c < 3; ++c) r[c] += image[c];
+                    } else {
+                        // the shortest image: atoms in the box along the periodic
+                        // directions are at most one box apart
+                        const double d[3] = {r[0], r[1], r[2]};
+                        code = 13;
+                        int stride = 1;
+                        for (int k = 0; k < 3; ++k, stride *= 3) {
+                            if (!box.pbc[k]) continue;
+                            const double s = d[0] * box.inverse[k] + d[1] * box.inverse[3 + k] +
+                                             d[2] * box.inverse[6 + k];
+                            const int shift = -static_cast<int>(rint(s));
+                            if (shift != 0) {
+                                for (int c = 0; c < 3; ++c) r[c] += shift * box.h[3 * k + c];
+                                code += shift * stride;
+                            }
+                        }
+                    }
+                    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < reach2) {
+                        if (m < most) {
+                            indices[static_cast<std::int64_t>(m) * n + i] = static_cast<std::int32_t>(
+                                static_cast<std::uint32_t>(j) | (static_cast<std::uint32_t>(code) << kIndexBits));
+                        }
                         ++m;
                     }
                 }
@@ -151,12 +215,12 @@ struct Matrix {
     double m[9];
 };
 
-__global__ void moved(std::int64_t n, const double4* x, const double4* x0, double3 lo,
+__global__ void moved(std::int64_t n, const double4a* x, const double4a* x0, double3 lo,
                       double3 lo0, Matrix m, double* out) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    const double4 a = x[i];
-    const double4 b = x0[i];
+    const double4a a = x[i];
+    const double4a b = x0[i];
     const double r0[3] = {b.x - lo0.x, b.y - lo0.y, b.z - lo0.z};
     double d[3] = {a.x - lo.x, a.y - lo.y, a.z - lo.z};
     for (int c = 0; c < 3; ++c) {
@@ -183,9 +247,9 @@ double Neighbors::skin() const { return impl_->skin; }
 std::int64_t Neighbors::builds() const { return impl_->builds; }
 int Neighbors::most() const { return impl_->most; }
 
-bool Neighbors::update(const Atoms& atoms, const Box& box) {
+bool Neighbors::update(Atoms& atoms, const Box& box) {
     Impl& l = *impl_;
-    const Atoms::Impl& a = atoms.impl();
+    Atoms::Impl& a = atoms.impl();
     const double reach = l.cutoff + l.skin;
     double thick[3];
     thickness(box, thick);
@@ -235,6 +299,12 @@ bool Neighbors::update(const Atoms& atoms, const Box& box) {
     if (!build) {
         return false;
     }
+    if (n > static_cast<std::int64_t>(kIndexMask)) {
+        throw std::invalid_argument("the GPU holds at most 134217727 atoms");
+    }
+    wrap<<<blocks(n), kBlock>>>(n, dbox, a.x.data(), a.images.data());
+    MDAPY_LAUNCHED();
+    ++a.version;
     // cells at least as wide as the reach, at most about 8 per atom
     int cells[3];
     for (int k = 0; k < 3; ++k) {
@@ -280,6 +350,8 @@ bool Neighbors::update(const Atoms& atoms, const Box& box) {
                                                l.keys_sorted.data(), l.order.data(),
                                                l.order_sorted.data(), static_cast<int>(n), 0,
                                                bits));
+    // the atoms in the order of their cells, so that neighbors are near in memory
+    a.permute(l.order_sorted.data());
     l.cell_begin.zero();
     l.cell_end.zero();
     bounds<<<blocks(n), kBlock>>>(n, l.keys_sorted.data(), l.cell_begin.data(),
@@ -293,10 +365,19 @@ bool Neighbors::update(const Atoms& atoms, const Box& box) {
     for (;;) {
         l.indices.resize(static_cast<std::size_t>(l.most) * size);
         l.found.zero();
-        list<<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around, l.keys.data(),
-                                    l.keys_sorted.data(), l.order_sorted.data(),
-                                    l.cell_begin.data(), l.cell_end.data(), reach * reach, l.most,
-                                    l.indices.data(), l.counts.data(), l.found.data());
+        bool shifts = true;
+        for (int k = 0; k < 3; ++k) shifts = shifts && (!box.pbc[k] || cells[k] >= 3);
+        if (shifts) {
+            list<true><<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around,
+                                              l.keys_sorted.data(), l.cell_begin.data(),
+                                              l.cell_end.data(), reach * reach, l.most,
+                                              l.indices.data(), l.counts.data(), l.found.data());
+        } else {
+            list<false><<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around,
+                                               l.keys_sorted.data(), l.cell_begin.data(),
+                                               l.cell_end.data(), reach * reach, l.most,
+                                               l.indices.data(), l.counts.data(), l.found.data());
+        }
         MDAPY_LAUNCHED();
         int found = 0;
         l.found.download(&found, 1);
@@ -304,7 +385,7 @@ bool Neighbors::update(const Atoms& atoms, const Box& box) {
         l.most = found + found / 8 + 4;  // more columns, and once more
     }
     l.x_built.resize(size);
-    MDAPY_CUDA(cudaMemcpy(l.x_built.data(), a.x.data(), size * sizeof(double4),
+    MDAPY_CUDA(cudaMemcpy(l.x_built.data(), a.x.data(), size * sizeof(double4a),
                           cudaMemcpyDeviceToDevice));
     l.box_built = box;
     l.atoms_version = a.version;
@@ -313,17 +394,25 @@ bool Neighbors::update(const Atoms& atoms, const Box& box) {
     return true;
 }
 
-void Neighbors::get(std::int32_t* counts, std::int32_t* indices) const {
+void Neighbors::get(const Atoms& atoms, std::int32_t* counts, std::int32_t* indices,
+                    std::int32_t* images) const {
     const Impl& l = *impl_;
     const auto n = static_cast<std::size_t>(l.n);
     const auto most = static_cast<std::size_t>(l.most);
-    std::vector<std::int32_t> columns(most * n);
-    l.counts.download(counts, n);
+    std::vector<std::int32_t> columns(most * n), placed(n);
+    l.counts.download(placed.data(), n);
     l.indices.download(columns.data(), columns.size());
-    for (std::size_t i = 0; i < n; ++i) {
+    const auto& original = atoms.impl().order();  // the caller's atom at each place
+    auto caller = [&](std::size_t p) { return original.empty() ? p : static_cast<std::size_t>(original[p]); };
+    for (std::size_t p = 0; p < n; ++p) {
+        const std::size_t i = caller(p);
+        counts[i] = placed[p];
         for (std::size_t k = 0; k < most; ++k) {
+            const bool there = static_cast<int>(k) < placed[p];
+            const auto packed = static_cast<std::uint32_t>(columns[k * n + p]);
             indices[i * most + k] =
-                static_cast<int>(k) < counts[i] ? columns[k * n + i] : -1;
+                there ? static_cast<std::int32_t>(caller(packed & kIndexMask)) : -1;
+            images[i * most + k] = there ? static_cast<std::int32_t>(packed >> kIndexBits) : -1;
         }
     }
 }

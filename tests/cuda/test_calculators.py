@@ -21,8 +21,10 @@ except RuntimeError:
     pytest.skip("no CUDA device", allow_module_level=True)
 
 ALL = ("energy", "atomic_energies", "forces", "virial", "atomic_virials")
-# of the largest value, for each quantity
+# of the largest value; the total virial of mixed precision sums the single
+# precision terms of every pair, which mostly cancel near zero pressure
 TOLERANCE = {"double": 1e-12, "mixed": 2e-5}
+VIRIAL = {"double": 1e-12, "mixed": 1e-4}
 
 
 def shaken(a, elements, repeat, seed=0, tilt=0.0, pbc=True, jitter=0.1):
@@ -48,8 +50,9 @@ def compare(gpu, cpu, system, precision):
     for name in ("forces", "atomic_energies", "virial", "atomic_virials"):
         x, y = getattr(a, name), getattr(b, name)
         assert x.shape == y.shape, name
+        scale = VIRIAL[precision] if name == "virial" else tolerance
         np.testing.assert_allclose(
-            x, y, rtol=0, atol=tolerance * np.abs(y).max(), err_msg=name
+            x, y, rtol=0, atol=scale * np.abs(y).max(), err_msg=name
         )
     assert a.energy == pytest.approx(b.energy, rel=tolerance, abs=tolerance)
     assert a.volume == b.volume
@@ -105,6 +108,23 @@ def test_pair_potentials(precision):
     )
 
 
+def test_atoms_on_the_faces_of_the_box():
+    """Atoms on the faces and a hair outside, which the wrap may leave at 1
+    by rounding: each must be in the cell where it is."""
+    zhou = EAM.zhou(["Cu", "Ni"])
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    system = shaken(3.6, ("Cu", "Ni"), 6, tilt=0.2, jitter=0.0)
+    fractional = system["positions"] @ np.linalg.inv(system.box.matrix)
+    # the same places, through the faces: 0 as a hair below it, or as 1
+    on = np.isclose(fractional, 0.0, atol=1e-12)
+    assert on.any(axis=0).all()
+    fractional[on[:, 0], 0] = -1e-17
+    fractional[on[:, 1], 1] = 1.0 - 1e-17
+    fractional[on[:, 2], 2] = 1.0
+    system = system.with_columns(positions=fractional @ system.box.matrix)
+    compare(gpu, zhou, system, "double")
+
+
 def test_atoms_outside_directions_that_are_not_periodic():
     """A slab with vacuum along z and a cluster, some atoms outside the box
     along the directions that are not periodic."""
@@ -133,7 +153,7 @@ def test_the_neighbor_list_is_that_of_the_processor():
     )
     neighbors = cuda.Neighbors(5.0, 0.0)
     assert neighbors.update(atoms, *args)
-    counts, indices = neighbors.get(len(system))
+    counts, indices, images = neighbors.get(atoms)
     found = {(i, int(j)) for i in range(len(system)) for j in indices[i, : counts[i]]}
     cpu = NeighborList.build(system, 5.0)
     expected = {
@@ -143,6 +163,17 @@ def test_the_neighbor_list_is_that_of_the_processor():
     }
     assert found == expected
     assert (indices[counts[:, None] <= np.arange(indices.shape[1])] == -1).all()
+    # each pair through its image: x_j - x_i + s h, s of -1, 0, 1 by the code,
+    # the atoms wrapped into the box
+    x = atoms.positions()
+    assert (x @ np.linalg.inv(box.matrix) >= -1e-12).all()
+    i, k = np.nonzero(np.arange(indices.shape[1]) < counts[:, None])
+    code = images[i, k]
+    shift = np.stack([code % 3 - 1, code // 3 % 3 - 1, code // 9 - 1], axis=1)
+    r = x[indices[i, k]] - x[i] + shift @ box.matrix
+    assert (np.linalg.norm(r, axis=1) < 5.0).all()
+    unwrapped = x + atoms.images() @ box.matrix
+    np.testing.assert_allclose(unwrapped, system["positions"], atol=1e-12)
 
 
 def test_the_list_is_built_again_when_the_atoms_moved_enough():

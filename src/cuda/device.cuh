@@ -63,6 +63,14 @@ public:
             MDAPY_CUDA(cudaMemcpy(host, data_, n * sizeof(T), cudaMemcpyDeviceToHost));
         }
     }
+    void swap(Buffer& other) noexcept {
+        T* d = data_;
+        data_ = other.data_;
+        other.data_ = d;
+        const std::size_t s = size_;
+        size_ = other.size_;
+        other.size_ = s;
+    }
     void zero() {
         if (size_ > 0) {
             MDAPY_CUDA(cudaMemset(data_, 0, size_ * sizeof(T)));
@@ -83,7 +91,13 @@ inline unsigned blocks(std::int64_t n) {
     return static_cast<unsigned>((n + kBlock - 1) / kBlock);
 }
 
-// Four numbers of a precision: float4 or double4.
+// Four doubles aligned to 32 bytes, read in one load; CUDA 13 deprecates
+// its double4, whose alignment depends on the compiler.
+struct alignas(32) double4a {
+    double x, y, z, w;
+};
+
+// Four numbers of a precision: float4 or double4a.
 template <class Real>
 struct Four;
 template <>
@@ -92,7 +106,7 @@ struct Four<float> {
 };
 template <>
 struct Four<double> {
-    using type = double4;
+    using type = double4a;
 };
 template <class Real>
 using Real4 = typename Four<Real>::type;
@@ -114,25 +128,33 @@ struct DeviceBox {
 template <class Real>
 DeviceBox<Real> device_box(const Box& box);
 
-// The shortest image of a vector between two atoms along the periodic
-// directions; exact for vectors shorter than half the thickness of the box.
+// A neighbor in a list: its index in the low bits, the image of the box it
+// is reached through in the high ones, from 0 to 26 (see Neighbors::get).
+constexpr int kIndexBits = 27;
+constexpr std::uint32_t kIndexMask = (1u << kIndexBits) - 1u;
+
+// The vectors of a box in a precision, for the images of pairs.
 template <class Real>
-__device__ inline void minimum_image(const DeviceBox<Real>& b, Real& x, Real& y, Real& z) {
-    if (b.orthogonal) {
-        if (b.pbc[0]) x -= b.h[0] * rint(x * b.inverse[0]);
-        if (b.pbc[1]) y -= b.h[4] * rint(y * b.inverse[4]);
-        if (b.pbc[2]) z -= b.h[8] * rint(z * b.inverse[8]);
-        return;
-    }
-    // fractional coordinates s of r = s h, rows of h the vectors
-    Real s[3];
-    for (int k = 0; k < 3; ++k) {
-        s[k] = x * b.inverse[k] + y * b.inverse[3 + k] + z * b.inverse[6 + k];
-        if (b.pbc[k]) s[k] -= rint(s[k]);
-    }
-    x = s[0] * b.h[0] + s[1] * b.h[3] + s[2] * b.h[6];
-    y = s[0] * b.h[1] + s[1] * b.h[4] + s[2] * b.h[7];
-    z = s[0] * b.h[2] + s[1] * b.h[5] + s[2] * b.h[8];
+struct Images {
+    Real h[9];
+};
+
+template <class Real>
+Images<Real> images_of(const Box& box);
+
+// x_j - x_i + s h of a pair, s from the image of its code: most pairs need
+// no shift, and the others compute it, as an array of 27 vectors indexed at
+// run time would be read from local memory.
+template <class Real>
+__device__ inline void add_image(const Images<Real>& b, std::uint32_t code, Real& x, Real& y,
+                                 Real& z) {
+    if (code == 13u) return;
+    const int s0 = static_cast<int>(code % 3u) - 1;
+    const int s1 = static_cast<int>((code / 3u) % 3u) - 1;
+    const int s2 = static_cast<int>(code / 9u) - 1;
+    x += s0 * b.h[0] + s1 * b.h[3] + s2 * b.h[6];
+    y += s0 * b.h[1] + s1 * b.h[4] + s2 * b.h[7];
+    z += s0 * b.h[2] + s1 * b.h[5] + s2 * b.h[8];
 }
 
 // Sums of columns: out[k] = sum over i of data[k * n + i] for k < columns,

@@ -163,6 +163,13 @@ NB_MODULE(_cuda, m) {
                  a.kinetic(data);
                  return out;
              })
+        .def("images",
+             [](const Atoms& a) {
+                 std::int32_t* data;
+                 nb::object out = new_array({static_cast<std::size_t>(a.size()), 3}, data);
+                 a.get_images(data);
+                 return out;
+             })
         .def("total_energy", &Atoms::total_energy)
         .def("total_virial", [](const Atoms& a) {
             double* data;
@@ -175,7 +182,7 @@ NB_MODULE(_cuda, m) {
         .def(nb::init<double, double>(), nb::arg("cutoff"), nb::arg("skin"))
         .def(
             "update",
-            [](Neighbors& l, const Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+            [](Neighbors& l, Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
                 const Box box = make_box(h, lo, pbc);
                 nb::gil_scoped_release release;
                 return l.update(a, box);
@@ -184,14 +191,18 @@ NB_MODULE(_cuda, m) {
         .def_prop_ro("cutoff", &Neighbors::cutoff)
         .def_prop_ro("skin", &Neighbors::skin)
         .def_prop_ro("builds", &Neighbors::builds)
-        .def("get", [](const Neighbors& l, std::int64_t n) {
+        .def("get", [](const Neighbors& l, const Atoms& a) {
+            const std::int64_t n = a.size();
             std::int32_t* counts;
             std::int32_t* indices;
-            nb::object c = new_array({static_cast<std::size_t>(n)}, counts);
-            nb::object i = new_array(
-                {static_cast<std::size_t>(n), static_cast<std::size_t>(l.most())}, indices);
-            l.get(counts, indices);
-            return nb::make_tuple(c, i);
+            std::int32_t* images;
+            const std::size_t shape[2] = {static_cast<std::size_t>(n),
+                                          static_cast<std::size_t>(l.most())};
+            nb::object c = new_array({shape[0]}, counts);
+            nb::object i = new_array({shape[0], shape[1]}, indices);
+            nb::object g = new_array({shape[0], shape[1]}, images);
+            l.get(a, counts, indices, images);
+            return nb::make_tuple(c, i, g);
         });
 
     nb::class_<Potential>(m, "Potential")

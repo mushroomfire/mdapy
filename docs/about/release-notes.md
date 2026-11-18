@@ -23,6 +23,13 @@
   constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
   LAMMPS; a `movable` column keeps atoms still. See
   [Molecular dynamics](../user-guide/simulation/dynamics.md).
+- `MolecularDynamics.iterate(steps, *, save_every, ...)` runs as `run` does and gives the
+  atoms every `save_every` steps as the run reaches them, keeping none, so that
+  `mdapy.io.write(path, md.iterate(...))` writes a trajectory while it runs, in LAMMPS
+  and in MDAPY; the run stops where the reading stops. See
+  [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files). A run of no
+  steps records the thermodynamic state once, and with `save_every` keeps the atoms once,
+  not twice.
 - `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
   when asked, between the pieces of the scattering of each wave vector, as the other long
   calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises

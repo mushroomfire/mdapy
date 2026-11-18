@@ -801,6 +801,7 @@ class MolecularDynamics:
             stops = set(range(thermo, steps, thermo)) | {steps}
             if every is not None:
                 stops |= set(range(every, steps + 1, every))
+            stops.discard(0)  # a run of no steps: the start only, once
             for stop in sorted(stops):
                 if cancel is not None and cancel.cancelled:
                     raise Cancelled("molecular dynamics cancelled")

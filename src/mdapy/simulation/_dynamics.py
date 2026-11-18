@@ -153,20 +153,23 @@ create_box {len(potential.elements)} box
             wrapped, _ = box.wrap(system["positions"])
             x = wrapped @ self.__rotation - self.__lo
             ids = list(range(1, self.__n + 1))
+            v = None
             if "velocities" in system.table.columns:
-                v = system["velocities"] @ self.__rotation
-                lmp.create_atoms(
-                    self.__n,
-                    ids,
-                    types.tolist(),
-                    x.ravel().tolist(),
-                    v.ravel().tolist(),
-                )
-            else:
-                lmp.create_atoms(self.__n, ids, types.tolist(), x.ravel().tolist())
+                v = (system["velocities"] @ self.__rotation).ravel().tolist()
+            # the box grows along a direction that is not periodic to hold
+            # atoms outside it, which LAMMPS would otherwise leave out
+            lmp.create_atoms(
+                self.__n, ids, types.tolist(), x.ravel().tolist(), v, shrinkexceed=True
+            )
+            held = int(lmp.get_natoms())
         except Exception as error:
             self.close()
             raise InvalidParameter(f"LAMMPS: {error}") from None
+        if held != self.__n:
+            self.close()
+            raise InvalidParameter(
+                f"LAMMPS holds {held} of the {self.__n} atoms of the system"
+            )
 
     # -- the LAMMPS instance --------------------------------------------
 

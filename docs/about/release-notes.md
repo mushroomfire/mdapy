@@ -2,6 +2,13 @@
 
 ## 2.1.0 (not released)
 
+- `MolecularDynamics` keeps the atoms of a system outside its box along a direction that is
+  not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
+  the face of its box, as `build_crystal("graphene")` makes it, loses the atoms that a run
+  takes below it. `md_elastic_constants` of graphene by fluctuations at 10 K started from
+  such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
+  static. If LAMMPS holds fewer atoms than the system, `MolecularDynamics` raises
+  `InvalidParameter`.
 - The example [LAMMPS on many processes with MPI](../examples/mpi.md) is two scripts: one
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of

@@ -9203,7 +9203,8 @@ file names, or for the files of OVITO the structure of the most atoms in
 clusters. <code>read_dislocations</code> reads versions 5 to 7, the first frame of a
 file of several, and raises <code>FileFormatError</code> for a file that does not
 follow the format. A CA file holds no atoms, so <code>mdapy.io.read</code> and
-<code>read_trajectory</code>, which read systems, do not read it.</p>
+<code>read_trajectory</code>, which read systems, do not read it, and their error for a
+<code>.ca</code> file names <code>read_dislocations</code>.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>The constructor raises <code>InvalidParameter</code> for an unknown <code>crystal</code>, a
 <code>circuit_length</code> below 3, a <code>stretch</code>, <code>smoothing</code> or <code>mesh_smoothing</code> that

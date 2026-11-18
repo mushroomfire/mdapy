@@ -8,7 +8,10 @@ through MDAPY, the [LAMMPS calculator](../user-guide/simulation/lammps.md) and
 them together: LAMMPS splits the atoms among the processes, and the results,
 energies, forces and saved frames, come back whole to each. What MDAPY
 computes itself, building a structure or analysing it, is better done once,
-on the main process, than repeated on every one.
+on the main process, than repeated on every one. That suits a short run such
+as the one here, in which LAMMPS takes most of the time;
+[Large systems and long runs](#large-systems-and-long-runs) says when to
+split the work instead.
 
 This page heats a copper crystal with a void on many processes, and finds how
 much of it stays fcc.
@@ -165,6 +168,55 @@ the whole script:
 The parts of fcc atoms are the same on every number of processes, and the
 temperature at the end agrees within 1e-7.
 
+## Large systems and long runs
+
+The script holds a hundred thousand atoms and six frames, and its analysis
+takes seconds. With more atoms, more frames or a longer analysis, three things
+in it grow.
+
+**The frames kept fill the memory of every process.** LAMMPS gathers the atoms
+of all the processes into each for a frame of `save_every`, and the frames stay
+in memory to the end of the script: about 60 bytes per atom and frame, on each
+process. The six frames here take 40 MB on each process; a hundred frames of a
+million atoms would take 6 GB on each, 100 GB on 16 processes. LAMMPS writes
+frames itself as it runs, with a `dump`: the main process takes the atoms of one
+process at a time, writes them and keeps none.
+
+<!-- skip-test -->
+```python
+with MolecularDynamics(system, potential, timestep=0.002) as md:
+    md.velocities(1800.0, seed=1)
+    md.command(
+        "dump frames all custom 1000 void.*.lammpstrj id element x y z\n"
+        "dump_modify frames element Cu sort id"
+    )
+    md.run(5000, ensemble="npt", temperature=900.0, pressure=0.0, thermo=500)
+    md.command("undump frames")
+    thermo = md.thermo
+```
+
+On 4 processes, 40 frames of 108 000 atoms kept by `save_every` took 280 MB
+more on each process; written by the dump, less than 25 MB, whatever their
+number. [`read_trajectory`](../basics/trajectory.md) reads the files back one
+frame at a time; [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files)
+says how they match the system.
+
+**The other processes wait while the main process works.** Every process is
+held for the whole script, and only LAMMPS uses them all: building a large
+structure, such as a polycrystal, or analysing every frame, such as with a
+dislocation analysis, leaves the rest idle. Split such work into scripts of
+their own: build the structure and write it as a LAMMPS data file; run it
+under `mpirun`, reading it with `mdapy.io.read` on the main process and writing
+the frames with a dump; and analyse the files afterwards with every core,
+as threads of MDAPY, or one frame per process as in
+[Screening alloys in many processes](high-throughput.md).
+
+**Every process holds the whole system.** `comm.bcast` sends it to each, and
+MDAPY gives LAMMPS all the atoms from each process, of which each keeps its
+own. For tens of millions of atoms, run LAMMPS on an input of its own, which
+reads a data file in pieces on the main process, each process keeping the
+atoms of each piece that are its own.
+
 ## What to keep in mind
 
 - **Every line runs on every process** unless it is under `if main`: building
@@ -182,7 +234,7 @@ temperature at the end agrees within 1e-7.
   threads of MDAPY in each would compete for them. Heavy analyses run faster
   afterwards, in a script of their own on the saved frames, with every core.
 - **Every process holds every saved frame.** Save few, or let LAMMPS write
-  them with `md.command("dump ...")` and read them afterwards.
+  them with a dump, as in [Large systems and long runs](#large-systems-and-long-runs).
 - **The trajectory depends on the number of processes**, by rounding: the
   processes sum the forces in another order, and molecular dynamics makes the
   difference grow, as in LAMMPS alone. Averages, such as the temperature or

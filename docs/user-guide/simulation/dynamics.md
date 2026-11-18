@@ -97,6 +97,41 @@ A run is a LAMMPS `run` in pieces between the steps at which something is
 recorded; the pieces run as one run would, a temperature or pressure
 changing from its start to its end value across all of them.
 
+### Frames in files
+
+The frames that `save_every` keeps stay in memory as long as the
+`MolecularDynamics` or its `frames` do, about 60 bytes per atom each: a
+hundred frames of a million atoms take 6 GB. For many frames or many atoms,
+LAMMPS writes them as it runs with a `dump`, keeping none, and
+[`read_trajectory`](../../basics/trajectory.md) reads them back one at a time:
+
+<!-- skip-test -->
+```python
+from mdapy.identify import CommonNeighborAnalysis
+from mdapy.io import read_trajectory
+
+with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+    md.velocities(600, seed=1)
+    md.command(
+        "dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz\n"
+        "dump_modify frames element Cu sort id"
+    )
+    md.run(5000, ensemble="nvt", temperature=300)
+    md.command("undump frames")
+
+cna = CommonNeighborAnalysis()
+with read_trajectory("frames.*.lammpstrj") as trajectory:
+    for frame in trajectory:  # one frame in memory at a time
+        print(frame.info["timestep"], cna.compute(frame).counts()["fcc"])
+```
+
+The atoms are numbered from 1 in the order of `system`, and `sort id` writes
+them in that order; LAMMPS otherwise writes them as it holds them, which
+changes as it runs. Their positions are those of LAMMPS, which are those of
+`system` for a box at the origin with its first vector along x and its second
+in the xy plane, as `build_crystal` makes them, to the six digits a dump
+writes by default (`format float %.10g` writes more).
+
 ## Results
 
 | Attribute | Type | Meaning |

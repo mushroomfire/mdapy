@@ -1,5 +1,11 @@
 # Release notes
 
+## 2.2.0 (not released)
+
+- `mdapy.io.read`, `read_trajectory` and `detect_format` name
+  `mdapy.analysis.read_dislocations` in their error for a CA file (`.ca`), which holds
+  dislocations rather than atoms; they only said that the format was unknown.
+
 ## 2.1.0
 
 MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

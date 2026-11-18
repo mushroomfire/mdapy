@@ -1103,6 +1103,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lattice-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lattice dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fit-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fit data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-a-potential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Train a potential
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-each-thing-is-imported-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8335,6 +8379,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#simulate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Simulate
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lattice-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lattice dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#fit-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fit data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#train-a-potential" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Train a potential
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#where-each-thing-is-imported-from" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8366,12 +8454,15 @@
 
 
 <h1 id="cheat-sheet">Cheat sheet<a class="headerlink" href="#cheat-sheet" title="Permanent link">&para;</a></h1>
-<p>The lessons on one page. Everything here assumes:</p>
+<p>The lessons and the most used parts of the user guide on one page. Everything here
+assumes:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">mp</span>
 </code></pre></div>
-<p>and the imports in <a href="#where-each-thing-is-imported-from">the table at the end</a>.</p>
+<p>and the imports in <a href="#where-each-thing-is-imported-from">the table at the end</a>. The
+sections after <a href="#show-and-save-it">Show and save it</a> go beyond the lessons; each links the
+pages that tell more.</p>
 <h2 id="get-a-system">Get a system<a class="headerlink" href="#get-a-system" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8392,6 +8483,22 @@
 <tr>
 <td>a polycrystal</td>
 <td><code>build_polycrystal(crystal, mp.Box(100.0), 8, seed=1)</code></td>
+</tr>
+<tr>
+<td>an alloy</td>
+<td><code>random_alloy(crystal, {"Cu": 0.5, "Ni": 0.5}, seed=1)</code></td>
+</tr>
+<tr>
+<td>vacancies</td>
+<td><code>add_vacancies(crystal, 10, seed=1)</code></td>
+</tr>
+<tr>
+<td>more copies</td>
+<td><code>replicate(crystal, (2, 2, 1))</code></td>
+</tr>
+<tr>
+<td>a crystal in a box along x, y and z</td>
+<td><code>orthogonal_cell(crystal)</code></td>
 </tr>
 <tr>
 <td>atoms of my own</td>
@@ -8525,6 +8632,14 @@
 <td><code>RadialDistributionFunction(cutoff=8.0)</code>, then <code>result.r</code>, <code>result.g</code></td>
 </tr>
 <tr>
+<td>the dislocations</td>
+<td><code>DislocationAnalysis("fcc")</code>, then <code>result.lines</code>, <code>result.density</code></td>
+</tr>
+<tr>
+<td>them in OVITO</td>
+<td><code>result.write("lines.ca")</code>, and <code>read_dislocations("lines.ca")</code> back</td>
+</tr>
+<tr>
 <td>one list for several analyses</td>
 <td><code>nl = mp.NeighborList.build(system, 5.0)</code>, then <code>compute(system, neighbors=nl)</code></td>
 </tr>
@@ -8542,6 +8657,14 @@
 <tr>
 <td>a potential</td>
 <td><code>EAM.zhou(["Cu"])</code> or <code>EAM("Cu.eam.alloy")</code></td>
+</tr>
+<tr>
+<td>a machine-learned potential</td>
+<td><code>NEP("nep.txt")</code></td>
+</tr>
+<tr>
+<td>a potential of LAMMPS</td>
+<td><code>LAMMPS("pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"])</code></td>
 </tr>
 <tr>
 <td>energy and forces</td>
@@ -8635,6 +8758,206 @@
 </tr>
 </tbody>
 </table>
+<h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
+<p>Molecular dynamics, and the methods that run it, need a <code>LAMMPS</code> calculator, written
+<code>lammps</code> below; the others take any calculator. See
+<a href="../../../user-guide/simulation/dynamics/">Molecular dynamics</a>,
+<a href="../../../user-guide/simulation/defect-energies/">Defect energies</a>,
+<a href="../../../user-guide/simulation/melting-point/">Melting point</a> and
+<a href="../../../user-guide/simulation/free-energy/">Free energy</a>.</p>
+<table>
+<thead>
+<tr>
+<th>I want</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>molecular dynamics</td>
+<td><code>with MolecularDynamics(system, lammps, timestep=0.002) as md:</code></td>
+</tr>
+<tr>
+<td>to start it at a temperature</td>
+<td><code>md.velocities(600, seed=1)</code></td>
+</tr>
+<tr>
+<td>to run it</td>
+<td><code>md.run(10000, ensemble="npt", temperature=300, pressure=0.0, save_every=500)</code></td>
+</tr>
+<tr>
+<td>what it gives</td>
+<td><code>md.thermo</code>, <code>md.frames</code>, <code>md.system</code></td>
+</tr>
+<tr>
+<td>the energy of a vacancy</td>
+<td><code>vacancy_formation_energy(crystal, potential).energy</code></td>
+</tr>
+<tr>
+<td>of a surface</td>
+<td><code>surface_energy(crystal, potential).energy</code></td>
+</tr>
+<tr>
+<td>the melting point</td>
+<td><code>melting_point(crystal, lammps, 1000.0).temperature</code></td>
+</tr>
+<tr>
+<td>free energies</td>
+<td><code>free_energy(crystal, lammps, temperatures)</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="lattice-dynamics">Lattice dynamics<a class="headerlink" href="#lattice-dynamics" title="Permanent link">&para;</a></h2>
+<p>Of a relaxed crystal, <code>relaxed = minimize(crystal, potential, cell="full").system</code>, and its
+primitive cell, <code>cell = primitive_cell(relaxed)</code>. See
+<a href="../../../user-guide/simulation/elastic-constants/">Elastic constants</a>,
+<a href="../../../user-guide/simulation/phonons/">Phonons</a>,
+<a href="../../../user-guide/simulation/force-constants/">Force constants</a>,
+<a href="../../../user-guide/simulation/quasi-harmonic/">Quasi-harmonic approximation</a> and
+<a href="../../../user-guide/simulation/thermal-conductivity/">Thermal conductivity</a>.</p>
+<table>
+<thead>
+<tr>
+<th>I want</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>elastic constants</td>
+<td><code>result = elastic_constants(relaxed, potential)</code>, then <code>result.constants</code> in GPa</td>
+</tr>
+<tr>
+<td>the moduli of a polycrystal</td>
+<td><code>result.bulk_modulus()</code>, <code>result.shear_modulus()</code>, <code>result.young_modulus()</code></td>
+</tr>
+<tr>
+<td>a modulus along a direction</td>
+<td><code>result.young_modulus([1, 1, 1])</code>, <code>result.poisson_ratio([1, 0, 0], [0, 1, 0])</code></td>
+</tr>
+<tr>
+<td>it along every direction</td>
+<td><code>plot.elastic_surface(result)</code></td>
+</tr>
+<tr>
+<td>elastic constants at a temperature</td>
+<td><code>md_elastic_constants(relaxed, lammps, 300.0)</code></td>
+</tr>
+<tr>
+<td>phonons</td>
+<td><code>result = phonons(cell, potential)</code>, then <code>result.frequencies([0.5, 0.5, 0.5])</code> in THz</td>
+</tr>
+<tr>
+<td>their bands and density of states</td>
+<td><code>plot.band_structure(result.band_structure("fcc"))</code>, <code>plot.phonon_dos(result.dos(20))</code></td>
+</tr>
+<tr>
+<td>their free energy</td>
+<td><code>result.thermal([100, 300, 600])</code></td>
+</tr>
+<tr>
+<td>force constants of DFT or any calculator</td>
+<td><code>displaced_supercells(cell, supercell=4)</code>, their forces, then <code>force_constants(cell, frames)</code></td>
+</tr>
+<tr>
+<td>those of phonopy</td>
+<td><code>read_force_constants("FORCE_CONSTANTS", cell, 4)</code>, and <code>constants.write("FORCE_CONSTANTS")</code></td>
+</tr>
+<tr>
+<td>the thermal expansion</td>
+<td><code>quasi_harmonic(cell, potential, temperatures)</code>, then <code>result.volume</code></td>
+</tr>
+<tr>
+<td>the thermal conductivity</td>
+<td><code>thermal_conductivity(constants, temperatures, mesh=11)</code>, then <code>result.kappa</code></td>
+</tr>
+<tr>
+<td>its third order force constants</td>
+<td><code>force_constants(cell, frames, cutoff_third=4.5)</code> of <code>displaced_supercells(cell, supercell=4, method="random", count=2)</code></td>
+</tr>
+<tr>
+<td>it from molecular dynamics</td>
+<td><code>green_kubo(system, lammps, 300.0)</code>, then <code>result.kappa</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="fit-data">Fit data<a class="headerlink" href="#fit-data" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../../user-guide/fitting/interpolation/">Interpolation</a>,
+<a href="../../../user-guide/fitting/curve-fitting/">Curve fitting</a> and
+<a href="../../../user-guide/fitting/equation-of-state/">Equations of state</a>.</p>
+<table>
+<thead>
+<tr>
+<th>I want</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>a smooth curve through points</td>
+<td><code>curve = Spline(x, y)</code>, then <code>curve(new_x)</code>, and its slope <code>curve(new_x, 1)</code></td>
+</tr>
+<tr>
+<td>a smooth surface through a grid</td>
+<td><code>GridSpline(x, y, z)</code></td>
+</tr>
+<tr>
+<td>a polynomial</td>
+<td><code>line = fit_polynomial(x, y, 2)</code>, then <code>line.coefficients</code>, <code>line(new_x)</code></td>
+</tr>
+<tr>
+<td>one of two variables</td>
+<td><code>fit_surface(x, y, z, 2)</code></td>
+</tr>
+<tr>
+<td>a peak, a decay, an Arrhenius law</td>
+<td><code>fit = fit_curve(gaussian, x, y)</code>, then <code>fit["center"]</code>, <code>fit.errors</code></td>
+</tr>
+<tr>
+<td>a function of my own</td>
+<td><code>fit_curve(lambda x, a, b: a * np.exp(-x / b), x, y, guess=[1.0, 10.0])</code>, then <code>fit.parameters</code></td>
+</tr>
+<tr>
+<td>an equation of state</td>
+<td><code>eos = fit_eos(volumes, energies)</code>, then <code>eos.v0</code>, <code>eos.b0</code>, <code>eos.pressure(11.0)</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="train-a-potential">Train a potential<a class="headerlink" href="#train-a-potential" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../../user-guide/mlip/perturbation/">Perturbed structures</a>,
+<a href="../../../user-guide/mlip/checks/">Checking frames</a>,
+<a href="../../../user-guide/mlip/errors/">Errors of a model</a> and
+<a href="../../../user-guide/mlip/selection/">Choosing frames</a>.</p>
+<table>
+<thead>
+<tr>
+<th>I want</th>
+<th>Write</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>shaken and strained copies</td>
+<td><code>frames = perturb(crystal, 50, seed=1)</code></td>
+</tr>
+<tr>
+<td>to check frames</td>
+<td><code>check_frames(frames)</code></td>
+</tr>
+<tr>
+<td>the errors of a model</td>
+<td><code>p = predict(frames, NEP("nep.txt"))</code>, then <code>p.rmse()</code>, <code>p.worst(10)</code></td>
+</tr>
+<tr>
+<td>its parity plot</td>
+<td><code>plot.parity(p.forces[:, 0], p.forces[:, 1], unit="eV/Å")</code></td>
+</tr>
+<tr>
+<td>the frames most unlike each other</td>
+<td><code>farthest_point_sampling(structure_descriptors(frames, nep), 100)</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="where-each-thing-is-imported-from">Where each thing is imported from<a class="headerlink" href="#where-each-thing-is-imported-from" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8654,11 +8977,11 @@
 </tr>
 <tr>
 <td><code>mdapy.build</code></td>
-<td><code>build_crystal</code>, <code>build_polycrystal</code>, <code>random_alloy</code> and others</td>
+<td><code>build_crystal</code>, <code>build_polycrystal</code>, <code>random_alloy</code>, <code>add_vacancies</code> and others</td>
 </tr>
 <tr>
 <td><code>mdapy.transform</code></td>
-<td><code>replicate</code>, <code>wrap</code>, <code>combine</code>, <code>slice</code> and others</td>
+<td><code>replicate</code>, <code>orthogonal_cell</code>, <code>wrap</code>, <code>combine</code>, <code>slice</code> and others</td>
 </tr>
 <tr>
 <td><code>mdapy.identify</code></td>
@@ -8666,7 +8989,7 @@
 </tr>
 <tr>
 <td><code>mdapy.analysis</code></td>
-<td>every other analysis</td>
+<td>every other analysis, <code>DislocationAnalysis</code> and <code>read_dislocations</code> among them</td>
 </tr>
 <tr>
 <td><code>mdapy.calculators</code></td>
@@ -8678,11 +9001,15 @@
 </tr>
 <tr>
 <td><code>mdapy.lattice_dynamics</code></td>
-<td><code>elastic_constants</code>, <code>phonons</code>, <code>quasi_harmonic</code> and others</td>
+<td><code>elastic_constants</code>, <code>phonons</code>, <code>force_constants</code>, <code>thermal_conductivity</code>, <code>quasi_harmonic</code> and others</td>
+</tr>
+<tr>
+<td><code>mdapy.fitting</code></td>
+<td><code>Spline</code>, <code>GridSpline</code>, <code>fit_polynomial</code>, <code>fit_curve</code>, <code>fit_eos</code> and others</td>
 </tr>
 <tr>
 <td><code>mdapy.mlip</code></td>
-<td>descriptors, choosing frames, errors of a model</td>
+<td><code>perturb</code>, <code>check_frames</code>, <code>predict</code>, <code>farthest_point_sampling</code>, descriptors</td>
 </tr>
 <tr>
 <td><code>mdapy.visualization</code></td>

@@ -8807,6 +8807,13 @@
   such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
   static. If LAMMPS holds fewer atoms than the system, <code>MolecularDynamics</code> raises
   <code>InvalidParameter</code>.</li>
+<li>Under MPI, <code>md_elastic_constants</code> with <code>method="fluctuation"</code>, <code>green_kubo</code> and
+  <code>free_energy</code> read the values that LAMMPS writes to a file on its main process, which sends
+  them to the others. Each process looked for them in a temporary folder of its own, where
+  only the main process's had them, and stopped. <code>md_elastic_constants</code> averages 50 boxes of
+  its run into the mean box, as <code>free_energy</code> and <code>melting_point</code> do, rather than one every
+  <code>every</code> steps, each kept with all its atoms on every process: 20 000 steps of 6912 atoms
+  took about 800 MB on each.</li>
 <li>The example <a href="../../examples/mpi/">LAMMPS on many processes with MPI</a> is two scripts: one
   started by <code>mpirun</code> builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of

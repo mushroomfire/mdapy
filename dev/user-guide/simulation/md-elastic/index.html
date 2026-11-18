@@ -8300,7 +8300,7 @@ approximation</a> leaves out.</p>
 </code></pre></div>
 <p>The crystal first runs at the temperature and pressure (Nosé–Hoover,
 <code>fix npt</code>): <code>equilibration</code> steps, then <code>production</code> steps over which its box
-is averaged every <code>every</code> steps. Its last atoms, put in the mean box, are the
+is averaged, at 50 times evenly spread. Its last atoms, put in the mean box, are the
 reference. For each of the six components of the strain in Voigt order,
 strains of <span class="arithmatex">\(+\delta\)</span> and <span class="arithmatex">\(-\delta\)</span> of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities

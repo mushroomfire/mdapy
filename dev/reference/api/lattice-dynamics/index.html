@@ -2036,6 +2036,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/graphene-elastic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic constants of graphene
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -10876,7 +10904,7 @@ cell, or symmetry True without spglib.</p>
 
 
 <a href="#mdapy.lattice_dynamics.md_elastic_constants" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">md_elastic_constants</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">strain</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'tri'</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">'strain'</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">md_elastic_constants</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">strain</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'tri'</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11105,7 +11133,9 @@ strained runs. Default 1.</p>
               <div class="doc-md-description">
                 <p>From the mean stress of a run under each strain, or from one run at
 the mean box: the Born term, the fluctuations of the virial stress
-and the kinetic term; <code>strain</code> is then unused. Default "strain".</p>
+and the kinetic term; <code>strain</code> is then unused. Default None:
+"strain" for a crystal, "fluctuation" for a sheet, which wrinkles
+under a strain that compresses it.</p>
               </div>
             </td>
             <td>

@@ -2034,6 +2034,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/graphene-elastic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic constants of graphene
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8800,6 +8828,13 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>md_elastic_constants</code> takes <code>method=None</code> by default: the strains for a crystal, the
+  fluctuations for a sheet, which wrinkles under a strain that compresses it. Strains of
+  ±1 % on 16 × 16 cells of graphene with LCBOP at 100 K gave C11 217 N/m along x and
+  176 N/m along y, against 274 N/m for both from the fluctuations. A new example,
+  <a href="../../examples/graphene-elastic/">Elastic constants of graphene</a>, compares molecular
+  dynamics with the quasi-harmonic approximation from 100 to 1000 K and on sheets of 128
+  to 2048 atoms.</li>
 <li><code>MolecularDynamics</code> keeps the atoms of a system outside its box along a direction that is
   not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
   the face of its box, as <code>build_crystal("graphene")</code> makes it, loses the atoms that a run

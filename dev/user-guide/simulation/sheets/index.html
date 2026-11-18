@@ -2038,6 +2038,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/graphene-elastic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elastic constants of graphene
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8574,18 +8602,32 @@ capacity at constant area.</p>
 <h2 id="elastic-constants-from-molecular-dynamics">Elastic constants from molecular dynamics<a class="headerlink" href="#elastic-constants-from-molecular-dynamics" title="Permanent link">&para;</a></h2>
 <p><code>md_elastic_constants</code> takes a sheet and returns its <code>SheetElasticResult</code> in
 N/m, with the standard errors in <code>errors</code>: the mean shape of the sheet under
-<code>pressure</code> in its plane, then the mean tensions under strains along xx, yy
-and xy. <code>pressure</code> is in GPa over the height of the box, as in molecular
+<code>pressure</code> in its plane, then, by default, the fluctuations of its stress at
+that shape. <code>pressure</code> is in GPa over the height of the box, as in molecular
 dynamics below, and the barostats change the sheet in its plane only.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">md_elastic_constants</span>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">replicate</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
 <a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">hot</span> <span class="o">=</span> <span class="n">md_elastic_constants</span><span class="p">(</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="p">)</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">hot</span><span class="o">.</span><span class="n">constants</span><span class="p">,</span> <span class="n">hot</span><span class="o">.</span><span class="n">errors</span>  <span class="c1"># (3, 3) N/m</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">hot</span><span class="o">.</span><span class="n">constants</span><span class="p">,</span> <span class="n">hot</span><span class="o">.</span><span class="n">errors</span>  <span class="c1"># (3, 3) N/m</span>
 </code></pre></div>
+<p>A sheet takes the fluctuations, as a strain that compresses it wrinkles it:
+the sheet bends out of its plane rather than shorten, and resists less than
+under a stretch. With <code>method="strain"</code>, the strains of +1 % and −1 % average
+the two responses. On 16 × 16 cells of graphene with LCBOP at 100 K they give
+C11 217 N/m along x and 176 N/m along y, which the symmetry makes equal,
+against 274 N/m for both from the fluctuations. Near 0 K, where the sheet
+hardly ripples, the strains still hold.</p>
+<p>The fluctuations need long runs, as the vibrations across the sheet change
+slowly: a million steps of 0.5 fs give errors of a few N/m on 512 atoms. The
+constants of a free sheet depend on its size, as its ripples grow with it;
+<a href="../../../examples/graphene-elastic/">Elastic constants of graphene</a> compares
+molecular dynamics with the quasi-harmonic approximation from 100 to 1000 K
+and on sheets of 128 to 2048 atoms.</p>
 <h2 id="in-gigapascals">In gigapascals<a class="headerlink" href="#in-gigapascals" title="Permanent link">&para;</a></h2>
 <p>A sheet has no thickness of its own, so its constants are in N/m. With a thickness
 <span class="arithmatex">\(h\)</span> chosen by convention, such as the 3.35 Å between the layers of graphite, the

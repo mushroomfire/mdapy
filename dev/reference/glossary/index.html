@@ -9324,7 +9324,15 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 </tr>
 <tr>
 <td>ensemble</td>
-<td><code>"nve"</code>, <code>"nvt"</code> or <code>"npt"</code></td>
+<td><code>"nve"</code>, <code>"nvt"</code>, <code>"npt"</code> or <code>"nph"</code></td>
+</tr>
+<tr>
+<td>thermostat</td>
+<td>of molecular dynamics: <code>"nose-hoover"</code>, a chain of three Nosé–Hoover thermostats, or <code>"langevin"</code>, friction and random forces on every atom</td>
+</tr>
+<tr>
+<td>MDAPY's own dynamics</td>
+<td>molecular dynamics that <code>MolecularDynamics</code> runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes <code>nve</code>, <code>nvt</code>, <code>npt</code> and <code>nph</code>, for small systems</td>
 </tr>
 <tr>
 <td><code>heat_capacity</code></td>

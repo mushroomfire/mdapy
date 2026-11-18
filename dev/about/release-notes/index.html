@@ -9005,6 +9005,12 @@
   their mean, the same whatever the order. Each has the <code>cutoff</code>, <code>elements</code> and
   <code>implemented</code> of every calculator; <code>masses</code>, <code>path</code>, <code>cutoffs</code>, <code>epsilon</code>, <code>sigma</code>, <code>rc</code>,
   <code>library</code> and <code>parameters</code> where they apply.</li>
+<li><code>MolecularDynamics</code> runs in MDAPY itself with any calculator but a LAMMPS one, such
+  as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
+  LAMMPS's fixes <code>nve</code>, <code>nvt</code>, <code>npt</code> and <code>nph</code>, which give the same runs with the same
+  constants, and Langevin dynamics, <code>run(..., thermostat="langevin", seed=)</code>, also in
+  LAMMPS; a <code>movable</code> column keeps atoms still. See
+  <a href="../../user-guide/simulation/dynamics/">Molecular dynamics</a>.</li>
 </ul>
 <h2 id="210">2.1.0<a class="headerlink" href="#210" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

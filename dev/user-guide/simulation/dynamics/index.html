@@ -5294,6 +5294,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#in-mdapy-with-any-calculator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In MDAPY, with any calculator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#running" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8407,6 +8418,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#in-mdapy-with-any-calculator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In MDAPY, with any calculator
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#running" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8478,9 +8500,12 @@
 
 <h1 id="molecular-dynamics">Molecular dynamics<a class="headerlink" href="#molecular-dynamics" title="Permanent link">&para;</a></h1>
 <p><code>mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001)</code>
-runs molecular dynamics of a system in LAMMPS, with the interaction of a
-<a href="../lammps/">LAMMPS calculator</a>, and gives back the thermodynamic state, the
-atoms along the way and the system at the end.
+runs molecular dynamics of a system and gives back the thermodynamic state,
+the atoms along the way and the system at the end. With a
+<a href="../lammps/">LAMMPS calculator</a>, the dynamics runs in LAMMPS; with any other
+calculator of MDAPY, such as <a href="../nep/">NEP</a>, <a href="../eam/">EAM</a> or an
+<a href="../../interop/ase-calculators/">ASE calculator</a>, it runs in MDAPY itself. The
+two take the same calls and give the same results.
 <a href="../../../examples/molecular-dynamics/">Molecular dynamics through LAMMPS</a> shows it at
 work, says what it is not made for, and how to run it on several threads or a GPU.</p>
 <!-- skip-test -->
@@ -8523,15 +8548,36 @@ work, says what it is not made for, and how to run it on several threads or a GP
 energy at once, and the thermostat holds the rest at 300 K. The barostat
 expands the box from the lattice parameter of 0 K to that of 300 K at zero
 pressure; after the dashed line the box is fixed (nvt).</em></p>
-<p>LAMMPS runs in metal units, those of MDAPY, through its Python module,
-installed as the <a href="https://docs.lammps.org/Python_install.html">LAMMPS documentation</a>
-describes; <code>potential</code> gives the commands of the interaction, the element
-of each atom type and the command-line arguments of LAMMPS, such as those
-of Kokkos. The box may have any orientation and need not be periodic:
-LAMMPS gets it rotated into its own form, its non-periodic directions
-shrink-wrapped but never smaller than the box of <code>system</code>, and everything comes
-back in the orientation of <code>system</code>.
-The velocities of <code>system</code>, if it has them, are where the dynamics starts.</p>
+<h2 id="in-mdapy-with-any-calculator">In MDAPY, with any calculator<a class="headerlink" href="#in-mdapy-with-any-calculator" title="Permanent link">&para;</a></h2>
+<p>The same calls run a small system with a calculator that LAMMPS does not
+have, here a NEP model, or any model with an ASE calculator, with no LAMMPS
+installed:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEP</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">model</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">small</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">small</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">300</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s2">"langevin"</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+</code></pre></div>
+<p>MDAPY integrates the equations of motion that LAMMPS's fixes <code>nve</code>, <code>nvt</code>,
+<code>npt</code> and <code>nph</code> integrate, in the same steps: velocity Verlet, a chain of
+three Nosé–Hoover thermostats, and the barostat of Martyna, Tobias and Klein
+on the lengths and tilts of the box. Its constants of nature are those of
+MDAPY (CODATA 2018), which differ from those of LAMMPS's metal units by about
+one part in a million. Langevin dynamics adds friction and random forces for
+half a step before and after each step. Every step calls the calculator
+once; a neighbor list with a skin of 1 Å serves several steps while the box
+keeps its shape. The masses are those of the <code>mass</code> column, or of the
+elements; LAMMPS takes those of some potential files, such as EAM's.</p>
+<p>It is made for small systems, from a few atoms to some thousands, such as
+those of the training sets of machine-learned potentials. Large systems, long
+runs and anything beyond these ensembles are for LAMMPS.</p>
+<p>A <code>movable</code> column, (N, 3) bool as VASP's selective dynamics, keeps atoms
+still along the directions where it is False, in MDAPY's dynamics only; the
+temperature then counts the directions in which the atoms move.</p>
 <table>
 <thead>
 <tr>
@@ -8548,14 +8594,14 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 <td><code>System</code></td>
 <td></td>
 <td></td>
-<td>the atoms, with an <code>element</code> column, and <code>velocities</code> in Å/ps when it has them</td>
+<td>the atoms, with an <code>element</code> column (or, in MDAPY, a <code>mass</code> column), <code>velocities</code> in Å/ps when it has them, and a <code>movable</code> column (MDAPY only)</td>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td>calculator</td>
 <td></td>
 <td></td>
-<td>the interaction, as a LAMMPS calculator</td>
+<td>the interaction: a <code>LAMMPS</code> calculator, run in LAMMPS, or any other calculator, run in MDAPY, which needs energies and forces, and the virial for a barostat</td>
 </tr>
 <tr>
 <td><code>timestep</code></td>
@@ -8580,16 +8626,16 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 <td>random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions</td>
 </tr>
 <tr>
-<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat_damping=None, barostat_damping=None, thermo=100, save_every=None, progress=None, cancel=None)</code></td>
+<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, progress=None, cancel=None)</code></td>
 <td>runs <code>steps</code> steps</td>
 </tr>
 <tr>
 <td><code>command(commands)</code></td>
-<td>runs any LAMMPS commands, one or several lines</td>
+<td>runs any LAMMPS commands, one or several lines (LAMMPS only)</td>
 </tr>
 <tr>
 <td><code>lammps</code></td>
-<td>the LAMMPS instance itself</td>
+<td>the LAMMPS instance itself (LAMMPS only)</td>
 </tr>
 <tr>
 <td><code>close()</code></td>
@@ -8613,7 +8659,7 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 <td>str</td>
 <td><code>"nve"</code></td>
 <td></td>
-<td><code>"nve"</code>, or <code>"nvt"</code> with a Nosé–Hoover thermostat, or <code>"npt"</code> with a thermostat and a barostat, or <code>"nph"</code> with a barostat alone (LAMMPS <code>fix nve</code>, <code>nvt</code>, <code>npt</code>, <code>nph</code>)</td>
+<td><code>"nve"</code>, or <code>"nvt"</code> with a thermostat, or <code>"npt"</code> with a thermostat and a barostat, or <code>"nph"</code> with a barostat alone (LAMMPS <code>fix nve</code>, <code>nvt</code>, <code>npt</code>, <code>nph</code>)</td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -8637,6 +8683,13 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 <td>the box changes alike in every direction (<code>"iso"</code>), along each axis (<code>"aniso"</code>), in any way (<code>"tri"</code>), or alike along its first two vectors with the third kept (<code>"xy"</code>); <a href="../sheets/#molecular-dynamics">a sheet</a> changes in its plane only</td>
 </tr>
 <tr>
+<td><code>thermostat</code></td>
+<td>str</td>
+<td><code>"nose-hoover"</code></td>
+<td></td>
+<td>a chain of Nosé–Hoover thermostats, or <code>"langevin"</code> dynamics (LAMMPS <code>fix langevin</code> with <code>fix nve</code> or <code>nph</code>)</td>
+</tr>
+<tr>
 <td><code>thermostat_damping</code></td>
 <td>float64</td>
 <td>100 time steps</td>
@@ -8649,6 +8702,13 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 <td>1000 time steps</td>
 <td>ps</td>
 <td>the damping time of the barostat</td>
+</tr>
+<tr>
+<td><code>seed</code></td>
+<td>int32</td>
+<td><code>None</code></td>
+<td></td>
+<td>seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when <code>None</code></td>
 </tr>
 <tr>
 <td><code>thermo</code></td>
@@ -8680,9 +8740,21 @@ The velocities of <code>system</code>, if it has them, are where the dynamics st
 </tr>
 </tbody>
 </table>
-<p>A run is a LAMMPS <code>run</code> in pieces between the steps at which something is
-recorded; the pieces run as one run would, a temperature or pressure
-changing from its start to its end value across all of them.</p>
+<p>A run goes in pieces between the steps at which something is recorded; the
+pieces run as one run would, a temperature or pressure changing from its
+start to its end value across all of them. With Langevin dynamics and a
+barostat, the barostat's mass is that of the temperature at the start.</p>
+<p>In LAMMPS, the dynamics runs in metal units, those of MDAPY, through its
+Python module, installed as the
+<a href="https://docs.lammps.org/Python_install.html">LAMMPS documentation</a> describes;
+<code>potential</code> gives the commands of the interaction, the element of each atom
+type and the command-line arguments of LAMMPS, such as those of Kokkos. The
+box may have any orientation and need not be periodic: LAMMPS gets it rotated
+into its own form, its non-periodic directions shrink-wrapped but never
+smaller than the box of <code>system</code>, and everything comes back in the
+orientation of <code>system</code>. MDAPY's own dynamics works in the same form of the
+box. The velocities of <code>system</code>, if it has them, are where the dynamics
+starts.</p>
 <h3 id="frames-in-files">Frames in files<a class="headerlink" href="#frames-in-files" title="Permanent link">&para;</a></h3>
 <p>The frames that <code>save_every</code> keeps stay in memory as long as the
 <code>MolecularDynamics</code> or its <code>frames</code> do, about 60 bytes per atom each: a
@@ -8690,22 +8762,22 @@ hundred frames of a million atoms take 6 GB. For many frames or many atoms,
 LAMMPS writes them as it runs with a <code>dump</code>, keeping none, and
 <a href="../../../basics/trajectory/"><code>read_trajectory</code></a> reads them back one at a time:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonNeighborAnalysis</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>        <span class="s2">"dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz</span><span class="se">\n</span><span class="s2">"</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>        <span class="s2">"dump_modify frames element Cu time yes"</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="p">)</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
-<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"undump frames"</span><span class="p">)</span>
-<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>
-<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">cna</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span>
-<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="k">with</span> <span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"frames.*.lammpstrj"</span><span class="p">)</span> <span class="k">as</span> <span class="n">trajectory</span><span class="p">:</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">trajectory</span><span class="p">:</span>  <span class="c1"># one frame in memory at a time</span>
-<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">cna</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonNeighborAnalysis</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">"dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">"dump_modify frames element Cu time yes"</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="p">)</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"undump frames"</span><span class="p">)</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">cna</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">with</span> <span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"frames.*.lammpstrj"</span><span class="p">)</span> <span class="k">as</span> <span class="n">trajectory</span><span class="p">:</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">trajectory</span><span class="p">:</span>  <span class="c1"># one frame in memory at a time</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">cna</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">])</span>
 </code></pre></div>
 <p>LAMMPS writes the atoms in the order it holds them, which changes as it runs,
 each with its <code>id</code>, numbered from 1 in the order of <code>system</code>.
@@ -8744,7 +8816,7 @@ writes more).</p>
 <tr>
 <td><code>step</code></td>
 <td>int64</td>
-<td>the time step number of LAMMPS</td>
+<td>the time step number</td>
 </tr>
 </tbody>
 </table>
@@ -8774,7 +8846,7 @@ writes more).</p>
 <td><code>temperature</code></td>
 <td>float64</td>
 <td>K</td>
-<td>temperature</td>
+<td>temperature, from the kinetic energy of 3N − 3 directions, or of those the <code>movable</code> column frees</td>
 </tr>
 <tr>
 <td><code>potential_energy</code>, <code>kinetic_energy</code>, <code>total_energy</code></td>
@@ -8786,7 +8858,7 @@ writes more).</p>
 <td><code>pressure</code></td>
 <td>float64</td>
 <td>GPa</td>
-<td>pressure</td>
+<td>pressure; NaN in MDAPY with a calculator without virials</td>
 </tr>
 <tr>
 <td><code>volume</code></td>
@@ -8804,15 +8876,31 @@ writes more).</p>
 </table>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>MolecularDynamics</code> raises <code>InvalidParameter</code> for a potential that is not a
-LAMMPS calculator, a time step that is not positive, elements without an
-atom type, and commands that LAMMPS rejects; <code>MissingProperty</code> for a system
-without elements; <code>ImportError</code> without the LAMMPS Python module.
-<code>velocities</code> raises <code>InvalidParameter</code> for a negative temperature or a seed
-that is not positive; <code>run</code> for a negative number of steps, an unknown
-ensemble or barostat, a thermostat without a temperature, a barostat
-without a pressure, <code>"aniso"</code> or <code>"tri"</code> in a box that is not periodic,
-<code>"xy"</code> in a box not periodic along its first two vectors, and <code>thermo</code> or <code>save_every</code> that are not positive; <code>command</code> for
-commands LAMMPS rejects; and <code>lammps</code> after <code>close</code>.</p>
+calculator, a time step that is not positive, elements without an atom type
+in LAMMPS, a <code>movable</code> column that holds atoms in LAMMPS, and commands that
+LAMMPS rejects; <code>MissingProperty</code> for a system without elements (or, in
+MDAPY, without masses); <code>ImportError</code> without the LAMMPS Python module, for a
+LAMMPS calculator. <code>velocities</code> raises <code>InvalidParameter</code> for a negative
+temperature or a seed that is not positive; <code>run</code> for a negative number of
+steps, an unknown ensemble, barostat or thermostat, a thermostat without a
+positive temperature, a barostat without a pressure, <code>"aniso"</code> or <code>"tri"</code> in
+a box that is not periodic, <code>"xy"</code> in a box not periodic along its first two
+vectors, <code>thermo</code>, <code>save_every</code> or <code>seed</code> that are not positive, a barostat
+in MDAPY with a calculator without virials or, for <code>"nph"</code>, atoms without a
+temperature, and a thermostat with no atom free to move; in MDAPY, it raises
+<code>CalculationFailed</code> when the energy or the forces stop being finite. <code>command</code>
+and <code>lammps</code> raise <code>InvalidParameter</code> in MDAPY, <code>command</code> for commands LAMMPS
+rejects, and <code>lammps</code> after <code>close</code>.</p>
+<div class="admonition quote">
+<p class="admonition-title">Please cite</p>
+<p>For MDAPY's own dynamics:
+<a href="../../../reference/references/#martyna1994">Martyna et al. (1994)</a>,
+<a href="../../../reference/references/#shinoda2004">Shinoda et al. (2004)</a>
+and <a href="../../../reference/references/#tuckerman2006">Tuckerman et al. (2006)</a>
+for the thermostats and barostat;
+<a href="../../../reference/references/#bussi2007">Bussi and Parrinello (2007)</a> for
+Langevin dynamics.</p>
+</div>
 
 
 

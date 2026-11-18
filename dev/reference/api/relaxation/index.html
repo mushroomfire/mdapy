@@ -9332,8 +9332,8 @@ information of <code>system</code> and the step number as <code>timestep</code> 
 
 
 
-        <p>Molecular dynamics of a system in LAMMPS, with the interaction of a
-LAMMPS calculator.</p>
+        <p>Molecular dynamics of a system: in LAMMPS with a LAMMPS calculator,
+in MDAPY itself with any other calculator.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9356,8 +9356,10 @@ LAMMPS calculator.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The atoms, with an <code>element</code> column; their <code>velocities</code>, if the
-system has them, in Å/ps.</p>
+                <p>The atoms, with an <code>element</code> column (or, without LAMMPS, a
+<code>mass</code> column); their <code>velocities</code>, if the system has them, in
+Å/ps; a <code>movable</code> column, (N, 3) bool, keeps atoms still along the
+directions where it is False (not with LAMMPS).</p>
               </div>
             </td>
             <td>
@@ -9369,12 +9371,13 @@ system has them, in Å/ps.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code>Calculator</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction: its commands, the element of each atom type and
-the command-line arguments of LAMMPS.</p>
+                <p>The interaction: a LAMMPS calculator, run in LAMMPS, or any other
+calculator of MDAPY, run in MDAPY, which needs its energies, forces
+and, for a barostat or the pressure, its virials.</p>
               </div>
             </td>
             <td>
@@ -9441,8 +9444,9 @@ the command-line arguments of LAMMPS.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the time step is not positive, an element has no atom type, or
-LAMMPS rejects the commands.</p>
+                <p>If the potential is not a calculator, the time step is not
+positive, an element has no atom type, or LAMMPS rejects the
+commands.</p>
               </div>
             </td>
           </tr>
@@ -9452,7 +9456,8 @@ LAMMPS rejects the commands.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the system has no <code>element</code> column.</p>
+                <p>If the system has no <code>element</code> column (with LAMMPS), or neither
+a <code>mass</code> nor an <code>element</code> column.</p>
               </div>
             </td>
           </tr>
@@ -9462,7 +9467,8 @@ LAMMPS rejects the commands.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If the LAMMPS Python module is not installed.</p>
+                <p>If the LAMMPS Python module is not installed, with a LAMMPS
+calculator.</p>
               </div>
             </td>
           </tr>
@@ -9505,7 +9511,8 @@ LAMMPS rejects the commands.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The LAMMPS instance, for anything else.</p>
+        <p>The LAMMPS instance, for anything else (with a LAMMPS
+calculator).</p>
 
     </div>
 
@@ -9529,7 +9536,7 @@ LAMMPS rejects the commands.</p>
 
     <div class="doc doc-contents ">
 
-        <p>The time step number of LAMMPS: the steps run so far.</p>
+        <p>The time step number: the steps run so far.</p>
 
     </div>
 
@@ -9627,7 +9634,7 @@ positive under tension).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Closes the LAMMPS instance.</p>
+        <p>Closes the LAMMPS instance; the dynamics stops.</p>
 
 
     </div>
@@ -9647,7 +9654,8 @@ positive under tension).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Runs LAMMPS commands, one or several lines.</p>
+        <p>Runs LAMMPS commands, one or several lines (with a LAMMPS
+calculator).</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9696,7 +9704,7 @@ positive under tension).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If LAMMPS rejects them.</p>
+                <p>If LAMMPS rejects them, or the dynamics runs in MDAPY.</p>
               </div>
             </td>
           </tr>
@@ -9807,7 +9815,7 @@ total momentum.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -9851,8 +9859,8 @@ total momentum.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Constant energy, or a Nosé-Hoover thermostat, and barostat, or a
-barostat alone. Default "nve".</p>
+                <p>Constant energy, or a thermostat, and barostat, or a barostat
+alone. Default "nve".</p>
               </div>
             </td>
             <td>
@@ -9916,6 +9924,23 @@ each for "aniso", and in any way in the plane for "tri". Default
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>thermostat</code>
+            </td>
+            <td>
+                  <code>(nose - hoover, langevin)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
+"nose-hoover".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;nose-hoover&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>thermostat_damping</code>
             </td>
             <td>
@@ -9940,6 +9965,23 @@ each for "aniso", and in any way in the plane for "tri". Default
             <td>
               <div class="doc-md-description">
                 <p>Damping time of the barostat in ps. Default 1000 time steps.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the random forces of Langevin dynamics, positive;
+unpredictable when None.</p>
               </div>
             </td>
             <td>
@@ -10032,6 +10074,16 @@ none.</p>
             <td>
               <div class="doc-md-description">
                 <p>For invalid options, or if LAMMPS fails.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code>CalculationFailed</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the energy or the forces stop being finite, in MDAPY.</p>
               </div>
             </td>
           </tr>

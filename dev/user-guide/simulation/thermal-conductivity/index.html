@@ -8476,8 +8476,10 @@ order, a box that is not periodic in every direction, an atom with neither eleme
 mass, a temperature that is not positive, a mesh that is not positive integers, a
 <code>sigma</code> that is not positive, and <code>symmetry=True</code> without spglib.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
-<p>A mode λ = (<strong>q</strong>, s) of frequency ω<sub>λ</sub> scatters with two others, λ′ and λ″,
-with <strong>q</strong> = <strong>q</strong>′ + <strong>q</strong>″ up to a reciprocal lattice vector, at the rate</p>
+<p>A mode <span class="arithmatex">\(\lambda = (\mathbf q, s)\)</span>, of the branch <span class="arithmatex">\(s\)</span> at the wave vector <span class="arithmatex">\(\mathbf q\)</span>, of
+angular frequency <span class="arithmatex">\(\omega_\lambda\)</span>, scatters with two others, <span class="arithmatex">\(\lambda' = (\mathbf q', s')\)</span>
+and <span class="arithmatex">\(\lambda'' = (\mathbf q'', s'')\)</span>, with <span class="arithmatex">\(\mathbf q = \mathbf q' + \mathbf q''\)</span> up to a
+reciprocal lattice vector, at the rate</p>
 <div class="arithmatex">\[
 \Gamma_\lambda = \frac{18\pi}{\hbar^2} \sum_{\lambda'\lambda''}
 \left|\Phi_{-\lambda\lambda'\lambda''}\right|^2
@@ -8485,8 +8487,10 @@ with <strong>q</strong> = <strong>q</strong>′ + <strong>q</strong>″ up to a 
 + (n_{\lambda'} - n_{\lambda''})\big(\delta(\omega_\lambda + \omega_{\lambda'} - \omega_{\lambda''})
 - \delta(\omega_\lambda - \omega_{\lambda'} + \omega_{\lambda''})\big)\Big],
 \]</div>
-<p>with <span class="arithmatex">\(n\)</span> the Bose–Einstein occupations at the temperature, each δ integrated over the
-tetrahedra of the mesh or a Gaussian of width <code>sigma</code>, and</p>
+<p>with <span class="arithmatex">\(\hbar\)</span> the reduced Planck constant, <span class="arithmatex">\(n_\lambda\)</span> the Bose–Einstein occupations at
+the temperature, <span class="arithmatex">\(\delta\)</span> the Dirac delta function, each integrated over the
+tetrahedra of the mesh or a Gaussian of width <code>sigma</code>, and <span class="arithmatex">\(-\lambda\)</span> the mode
+<span class="arithmatex">\((-\mathbf q, s)\)</span>. The amplitude of the scattering is</p>
 <div class="arithmatex">\[
 \Phi_{\lambda\lambda'\lambda''} = \frac{1}{\sqrt N}\frac{1}{3!}
 \sum_{a\alpha, b\beta, c\gamma} \Psi_{a\alpha, b\beta, c\gamma}
@@ -8495,17 +8499,22 @@ tetrahedra of the mesh or a Gaussian of width <code>sigma</code>, and</p>
 \sqrt{\frac{\hbar^3}{8\,\omega_\lambda\omega_{\lambda'}\omega_{\lambda''}}}\;
 e^{i(\mathbf q'\cdot\mathbf r_{ab} + \mathbf q''\cdot\mathbf r_{ac})},
 \]</div>
-<p>the third order force constants Ψ of an atom <span class="arithmatex">\(a\)</span> of the cell and atoms <span class="arithmatex">\(b\)</span> and <span class="arithmatex">\(c\)</span> of
-the crystal, at the shortest images of their pairs, and <span class="arithmatex">\(N\)</span> the number of wave vectors
-of the mesh (<a href="../../../reference/references/#togo2015">Togo et al. (2015)</a>). <code>gamma</code> is
+<p>where <span class="arithmatex">\(\Psi\)</span> are the third order force constants of an atom <span class="arithmatex">\(a\)</span> of the cell and atoms
+<span class="arithmatex">\(b\)</span> and <span class="arithmatex">\(c\)</span> of the crystal along the Cartesian directions <span class="arithmatex">\(\alpha\)</span>, <span class="arithmatex">\(\beta\)</span> and
+<span class="arithmatex">\(\gamma\)</span>, <span class="arithmatex">\(m_a\)</span>, <span class="arithmatex">\(m_b\)</span> and <span class="arithmatex">\(m_c\)</span> the masses of the atoms, <span class="arithmatex">\(e_{a\alpha}(\lambda)\)</span> the
+component <span class="arithmatex">\(\alpha\)</span> of atom <span class="arithmatex">\(a\)</span> of the polarization of mode <span class="arithmatex">\(\lambda\)</span>, <span class="arithmatex">\(i\)</span> the imaginary
+unit, <span class="arithmatex">\(\mathbf r_{ab}\)</span> and <span class="arithmatex">\(\mathbf r_{ac}\)</span> the shortest images of <span class="arithmatex">\(\mathbf r_b - \mathbf
+r_a\)</span> and <span class="arithmatex">\(\mathbf r_c - \mathbf r_a\)</span> between the positions of the atoms, and <span class="arithmatex">\(N\)</span> the
+number of wave vectors of the mesh (<a href="../../../reference/references/#togo2015">Togo et al. (2015)</a>). <code>gamma</code> is
 Γ<sub>λ</sub>/2π, the lifetime is τ<sub>λ</sub> = 1/(2Γ<sub>λ</sub>), and modes of the
 same frequency share their mean Γ. The conductivity is</p>
 <div class="arithmatex">\[
 \kappa_{\alpha\beta} = \frac{1}{N V} \sum_\lambda C_\lambda\,
 v_{\lambda\alpha} v_{\lambda\beta}\, \tau_\lambda ,
 \]</div>
-<p>with <span class="arithmatex">\(V\)</span> the volume of the cell, <span class="arithmatex">\(C_\lambda\)</span> the heat capacity of the mode and <strong>v</strong> its
-group velocity, summed over the irreducible wave vectors with their weights and <span class="arithmatex">\(v_\alpha
+<p>with <span class="arithmatex">\(\alpha\)</span> and <span class="arithmatex">\(\beta\)</span> the Cartesian directions, <span class="arithmatex">\(V\)</span> the volume of the cell,
+<span class="arithmatex">\(C_\lambda\)</span> the heat capacity of the mode, <span class="arithmatex">\(v_{\lambda\alpha}\)</span> the component <span class="arithmatex">\(\alpha\)</span> of
+its group velocity <span class="arithmatex">\(\mathbf v_\lambda\)</span> and <span class="arithmatex">\(\tau_\lambda\)</span> its lifetime, summed over the irreducible wave vectors with their weights and <span class="arithmatex">\(v_\alpha
 v_\beta\)</span> averaged over the rotations of the crystal
 (<a href="../../../reference/references/#togo2023">Togo et al. (2023)</a>).</p>
 <div class="admonition quote">

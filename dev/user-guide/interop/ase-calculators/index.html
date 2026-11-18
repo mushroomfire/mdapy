@@ -8396,8 +8396,9 @@ calculator of a machine-learned potential, an MDAPY calculator, for
 </tr>
 </tbody>
 </table>
-<p>ASE gives stresses in the order xx, yy, zz, yz, xz, xy, positive under
-tension. Each side offers the properties that the other computes. An MDAPY
+<p>Here <span class="arithmatex">\(\sigma\)</span> is the stress of ASE, <span class="arithmatex">\(\sigma_i\)</span> that of atom <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(W\)</span> the virial and <span class="arithmatex">\(V\)</span>
+the volume of the box. ASE gives stresses in the order xx, yy, zz, yz, xz, xy,
+positive under tension. Each side offers the properties that the other computes. An MDAPY
 calculator in ASE gives its energy as both <code>energy</code> and <code>free_energy</code>; an
 ASE calculator in MDAPY gives <code>free_energy</code> as the energy where it computes
 one, since the forces derive from it.</p>

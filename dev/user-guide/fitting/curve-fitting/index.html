@@ -8492,7 +8492,7 @@ to its first peak.</em></p>
 </tr>
 </tbody>
 </table>
-<p>The models, with x along the curve:</p>
+<p>The models, with x along the curve and their parameters in the order of the function:</p>
 <table>
 <thead>
 <tr>
@@ -8524,7 +8524,7 @@ to its first peak.</em></p>
 </tr>
 <tr>
 <td><code>arrhenius</code></td>
-<td>A e<sup>−E/k<sub>B</sub>T</sup>, T in K, E in eV</td>
+<td>A e<sup>−E/k<sub>B</sub>T</sup>, with x the temperature T in K, E in eV and k<sub>B</sub> the Boltzmann constant</td>
 <td><code>prefactor</code>, <code>energy</code></td>
 </tr>
 <tr>
@@ -8606,15 +8606,19 @@ for values that are not finite or of other shapes, a degree out of range, a
 another length, a function that is not finite at the guess, and a fit that
 does not converge within <code>max_steps</code>.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
-<p>The fit minimizes the sum of squares of the weighted residuals,
-<span class="arithmatex">\(\sum_i \left(y_i - f(x_i; \mathbf p)\right)^2 / \sigma_i^2\)</span>.
-Polynomials and surfaces are linear in their coefficients and are solved at
-once; <code>fit_curve</code> takes steps of the Levenberg–Marquardt method from the
-guess. The covariance of the parameters is
-<span class="arithmatex">\((J^\mathsf{T} W J)^{-1}\)</span>, with <span class="arithmatex">\(J\)</span> the derivatives of the function with
-respect to the parameters and <span class="arithmatex">\(W\)</span> the weights <span class="arithmatex">\(1/\sigma_i^2\)</span>, multiplied
-by the variance of the residuals, <span class="arithmatex">\(\chi^2/(n - p)\)</span>, unless
-<code>absolute_sigma</code>.</p>
+<p>The fit minimizes the sum of squares of the weighted residuals,</p>
+<div class="arithmatex">\[
+\chi^2 = \sum_{i=1}^{n} \frac{\left(y_i - f(x_i; \mathbf p)\right)^2}{\sigma_i^2},
+\]</div>
+<p>over the <span class="arithmatex">\(n\)</span> points <span class="arithmatex">\(x_i\)</span> with values <span class="arithmatex">\(y_i\)</span>, where <span class="arithmatex">\(f\)</span> is the polynomial,
+surface or function with its <span class="arithmatex">\(p\)</span> parameters <span class="arithmatex">\(\mathbf p\)</span>, and <span class="arithmatex">\(\sigma_i\)</span> the
+uncertainty of <span class="arithmatex">\(y_i\)</span> (<code>sigma</code>, 1 by default). Polynomials and surfaces are
+linear in their coefficients and are solved at once; <code>fit_curve</code> takes steps
+of the Levenberg–Marquardt method from the guess. The covariance of the
+parameters is <span class="arithmatex">\((J^\mathsf{T} W J)^{-1}\)</span>, with <span class="arithmatex">\(J\)</span> the <span class="arithmatex">\(n \times p\)</span> matrix of the
+derivatives of <span class="arithmatex">\(f(x_i; \mathbf p)\)</span> with respect to the parameters and <span class="arithmatex">\(W\)</span> the
+diagonal matrix of the weights <span class="arithmatex">\(1/\sigma_i^2\)</span>, multiplied by the variance of
+the residuals, <span class="arithmatex">\(\chi^2/(n - p)\)</span>, unless <code>absolute_sigma</code>.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../interpolation/">Interpolation</a>, through every value.</li>

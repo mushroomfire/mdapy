@@ -8214,7 +8214,7 @@ computes every property.</p>
 </tr>
 <tr>
 <td><code>descriptors(system, *, neighbors=None, progress=None, cancel=None)</code></td>
-<td>(N, dim) descriptors of each atom, scaled as the network sees them: the radial ones, then the angular ones by <span class="arithmatex">\(l\)</span> and <span class="arithmatex">\(n\)</span>, then the four-body and five-body ones by <span class="arithmatex">\(n\)</span></td>
+<td>(N, dim) descriptors of each atom, scaled as the network sees them: the radial ones, then the angular ones by <span class="arithmatex">\(l\)</span> and <span class="arithmatex">\(n\)</span>, then the four-body and five-body ones by <span class="arithmatex">\(n\)</span>; <span class="arithmatex">\(n\)</span> numbers the radial functions and <span class="arithmatex">\(l\)</span> is the degree of the spherical harmonics</td>
 </tr>
 </tbody>
 </table>
@@ -8224,14 +8224,17 @@ and polarizability models) and malformed files raise
 <a href="../../../reference/api/utilities/#mdapy.errors.FileFormatError"><code>FileFormatError</code></a>.</p>
 <p>The model is that of GPUMD (<a href="../../../reference/references/#fan2022">Fan et al. (2022)</a>), version 4
 (<a href="../../../reference/references/#song2024">Song et al. (2024)</a>): radial descriptors from Chebyshev functions of
-the distance, angular ones from real spherical harmonics up to
-<span class="arithmatex">\(l_\text{max}\)</span>, with optional four-body and five-body invariants, each scaled
+the distance, angular ones from real spherical harmonics up to the degree
+<span class="arithmatex">\(l_\text{max}\)</span> of the file, with optional four-body and five-body invariants, each scaled
 by its factor in the file and fed to one hidden layer of <span class="arithmatex">\(\tanh\)</span> neurons per
 element, which gives the energy <span class="arithmatex">\(E_i\)</span> of atom <span class="arithmatex">\(i\)</span>. The cutoff of a pair is
 the mean of the cutoffs of its two elements. With ZBL, each pair within the
 angular cutoff adds the screened Coulomb repulsion of
 <a href="../../../reference/references/#ziegler1985">Ziegler et al. (1985)</a>,
-<span class="arithmatex">\(V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)\)</span>, half to each atom; the
+<span class="arithmatex">\(V(r) = \frac{k_e Z_i Z_j}{r}\,\phi(r/a)\, f_s(r)\)</span>, half to each atom, where <span class="arithmatex">\(r\)</span> is the
+distance of atoms <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(j\)</span>, <span class="arithmatex">\(Z_i\)</span> and <span class="arithmatex">\(Z_j\)</span> their atomic numbers, <span class="arithmatex">\(k_e = 14.399645\)</span>
+eV Å the Coulomb constant and <span class="arithmatex">\(a = 0.46848\,\text{Å} / (Z_i^{0.23} + Z_j^{0.23})\)</span> the
+screening length; the
 switch <span class="arithmatex">\(f_s\)</span> is 1 below an inner cutoff and falls as a cosine to 0 at an
 outer cutoff, as the <code>zbl</code> line of the file chooses:</p>
 <table>

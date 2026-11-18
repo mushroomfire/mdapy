@@ -8453,7 +8453,8 @@ fit, and <code>MissingProperty</code> for <code>cutoffs</code> without an <code>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>Every two bonds <span class="arithmatex">\(ij\)</span> and <span class="arithmatex">\(ik\)</span> of an atom <span class="arithmatex">\(i\)</span> give the angle <span class="arithmatex">\(\theta_{jik}\)</span>
 between the vectors to <span class="arithmatex">\(j\)</span> and <span class="arithmatex">\(k\)</span>, counted in the bin
-<span class="arithmatex">\(\lfloor \theta / \Delta\theta \rfloor\)</span>; an atom with <span class="arithmatex">\(n\)</span> bonds gives
+<span class="arithmatex">\(\lfloor \theta / \Delta\theta \rfloor\)</span>, with <span class="arithmatex">\(\Delta\theta\)</span> the width of a bin, 180 degrees over
+<code>bins</code>; an atom with <span class="arithmatex">\(n\)</span> bonds gives
 <span class="arithmatex">\(n(n - 1)/2\)</span> angles. Bonds join atoms closer than the cutoff of their pair
 of elements, also across periodic boundaries.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

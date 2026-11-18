@@ -8728,26 +8728,38 @@ to it.</p>
 sites, are those of the energy to second order, or to third with <code>cutoff_third</code>:</p>
 <div class="arithmatex">\[
 F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta}
-- \frac12 \sum_{j\beta, k\gamma} \Psi_{i\alpha, j\beta, k\gamma}\, u_{j\beta} u_{k\gamma} .
+- \frac12 \sum_{j\beta, k\gamma} \Psi_{i\alpha, j\beta, k\gamma}\, u_{j\beta} u_{k\gamma} ,
 \]</div>
+<p>where <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(j\)</span> and <span class="arithmatex">\(k\)</span> are atoms of the supercell, <span class="arithmatex">\(\alpha\)</span>, <span class="arithmatex">\(\beta\)</span> and <span class="arithmatex">\(\gamma\)</span>
+the Cartesian directions x, y and z, <span class="arithmatex">\(F_{i\alpha}\)</span> and <span class="arithmatex">\(u_{j\beta}\)</span> components of
+forces and displacements, <span class="arithmatex">\(\Phi\)</span> the second order force constants, the second
+derivatives of the energy with respect to the displacements (<code>second</code>), and <span class="arithmatex">\(\Psi\)</span>
+the third order ones, its third derivatives (<code>third</code>); the <span class="arithmatex">\(\frac12\)</span> comes from
+the expansion of the energy, in which each pair <span class="arithmatex">\(j\beta, k\gamma\)</span> appears twice.</p>
 <p>The force constants are those of the supercell with its periodic boundaries, or, with a
 cutoff, those of the pairs of the crystal no farther apart than it. They obey every
 relation that is exact:</p>
 <ul>
-<li>the operations <span class="arithmatex">\((R, \mathbf t)\)</span> of the crystal, those that map the supercell onto itself
-  without a cutoff and all of them with one: <span class="arithmatex">\(\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}\)</span>;</li>
+<li>the operations <span class="arithmatex">\(g = (R, \mathbf t)\)</span> of the crystal, a rotation <span class="arithmatex">\(R\)</span> followed by a
+  translation <span class="arithmatex">\(\mathbf t\)</span>, those that map the supercell onto itself without a cutoff and
+  all of them with one: <span class="arithmatex">\(\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}\)</span>, where <span class="arithmatex">\(g i\)</span> is
+  the atom that <span class="arithmatex">\(g\)</span> takes atom <span class="arithmatex">\(i\)</span> to and <span class="arithmatex">\(\Phi(i, j)\)</span> the <span class="arithmatex">\(3 \times 3\)</span> block of atoms
+  <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(j\)</span>;</li>
 <li>the exchange of the two atoms: <span class="arithmatex">\(\Phi_{i\alpha, j\beta} = \Phi_{j\beta, i\alpha}\)</span>;</li>
 <li>the sum rule, so that moving the whole crystal costs no energy:
   <span class="arithmatex">\(\sum_j \Phi_{i\alpha, j\beta} = 0\)</span>.</li>
 </ul>
 <p>The third order force constants <span class="arithmatex">\(\Psi\)</span>, <code>third</code>, are those of three atoms of the crystal
 each no farther than <code>cutoff_third</code> from the others, under every operation of the crystal,
-<span class="arithmatex">\(\Psi(g i, g j, g k) = R \otimes R \otimes R\, \Psi(i, j, k)\)</span>, the same for every order of
+<span class="arithmatex">\(\Psi(g i, g j, g k) = R \otimes R \otimes R\, \Psi(i, j, k)\)</span>, with <span class="arithmatex">\(\otimes\)</span> the
+tensor product, so that <span class="arithmatex">\(R\)</span> turns each of the three directions, the same for every order of
 the three atoms, and summing to zero over the third, <span class="arithmatex">\(\sum_k \Psi_{i\alpha, j\beta,
 k\gamma} = 0\)</span>.</p>
 <p>The free force constants are the components that these relations leave, <code>parameters</code>
 and <code>parameters_third</code> of them. The fit makes the sum over the frames of
-<span class="arithmatex">\(|\mathbf F - \mathbf F_\text{fit}|^2\)</span> as small as it can, and <code>error</code> is
+<span class="arithmatex">\(|\mathbf F - \mathbf F_\text{fit}|^2\)</span> as small as it can, with <span class="arithmatex">\(\mathbf F\)</span> the forces of
+the frames and <span class="arithmatex">\(\mathbf F_\text{fit}\)</span> those of the force constants at their
+displacements, and <code>error</code> is
 <span class="arithmatex">\(|\mathbf F - \mathbf F_\text{fit}| / |\mathbf F|\)</span>. The displacement of each atom is that
 from the nearest atom of the supercell, through the periodic boundaries.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

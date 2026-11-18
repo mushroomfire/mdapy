@@ -8386,7 +8386,7 @@ A funcfl file holds numbers where a setfl file names its elements: see
 </tr>
 <tr>
 <td><code>average(fractions)</code></td>
-<td>the average-atom potential of an alloy of the elements</td>
+<td>the average-atom potential of an alloy of the elements, for a potential of the <code>eam/alloy</code> form; see <a href="#average-atom">Average atom</a></td>
 </tr>
 </tbody>
 </table>
@@ -8400,9 +8400,10 @@ of a system is one of them.</p>
 <div class="arithmatex">\[
 E_i = F_{s_i}\Big(\sum_j \rho_{s_j s_i}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 \]</div>
-<p>with the embedding energy <span class="arithmatex">\(F\)</span>, the electron density <span class="arithmatex">\(\rho_{ab}\)</span> that an atom
-of species <span class="arithmatex">\(a\)</span> gives one of species <span class="arithmatex">\(b\)</span>, and the pair potential <span class="arithmatex">\(\phi\)</span> of the
-species <span class="arithmatex">\(s\)</span> of the atoms, interpolated from the tables of the file as LAMMPS
+<p>where the sums run over the neighbors <span class="arithmatex">\(j\)</span> of atom <span class="arithmatex">\(i\)</span> within the cutoff, at
+the distances <span class="arithmatex">\(r_{ij}\)</span>, with the embedding energy <span class="arithmatex">\(F\)</span>, the electron density
+<span class="arithmatex">\(\rho_{ab}\)</span> that an atom of species <span class="arithmatex">\(a\)</span> gives one of species <span class="arithmatex">\(b\)</span>, and the pair
+potential <span class="arithmatex">\(\phi\)</span> of the species <span class="arithmatex">\(s_i\)</span> and <span class="arithmatex">\(s_j\)</span> of the atoms, interpolated from the tables of the file as LAMMPS
 <code>pair_style eam/alloy</code> and <code>eam/fs</code> do. In <code>eam/alloy</code> the density depends
 on the species that gives it only, <span class="arithmatex">\(\rho_{ab} = \rho_a\)</span>. Each pair's virial
 is shared equally by its two atoms.</p>
@@ -8448,7 +8449,7 @@ potential between two elements,</p>
 <td>int32</td>
 <td>2000</td>
 <td></td>
-<td>points of the tables in distance, up to the cutoff <span class="arithmatex">\(\sqrt{10}/2\)</span> times the largest fcc lattice constant <span class="arithmatex">\(\sqrt 2\, r_e\)</span></td>
+<td>points of the tables in distance, up to the cutoff <span class="arithmatex">\(\sqrt{10}/2\)</span> times the largest fcc lattice constant <span class="arithmatex">\(\sqrt 2\, r_e\)</span>, with <span class="arithmatex">\(r_e\)</span> the nearest-neighbor distance of an element in Zhou's parameters</td>
 </tr>
 <tr>
 <td><code>nrho</code></td>
@@ -8534,22 +8535,31 @@ files, raise <code>InvalidParameter</code>.</p>
 <a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">average</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"CuNiAl.average.eam.alloy"</span><span class="p">)</span>  <span class="c1"># Cu, Ni, Al and the average atom A</span>
 </code></pre></div>
 <p><code>average(fractions)</code> returns the average-atom potential of
-<a href="../../../reference/references/#varvenne2016">Varvenne et al. (2016)</a> for a random alloy with the
-fractions <span class="arithmatex">\(c_a\)</span> of the elements:</p>
+<a href="../../../reference/references/#varvenne2016">Varvenne et al. (2016)</a> for a random alloy. It
+takes a potential of the <code>eam/alloy</code> form, in which the density an atom gives
+depends on its own element only: one read from an <code>eam/alloy</code> file, funcfl
+files mixed into an alloy, <code>EAM.zhou</code>, or an <code>eam/fs</code> file whose elements give
+every element the same density. A Finnis–Sinclair potential whose elements give
+each element a density of its own raises <code>InvalidParameter</code>: the average atom
+would need a density for each element it gives one to.</p>
+<p>With <span class="arithmatex">\(c_a\)</span> the fraction of element <span class="arithmatex">\(a\)</span>, the average atom <span class="arithmatex">\(A\)</span> has the
+embedding energy <span class="arithmatex">\(F_A\)</span>, the density <span class="arithmatex">\(\rho_A\)</span> it gives, the pair potential
+<span class="arithmatex">\(\phi_{Ab}\)</span> with an atom of element <span class="arithmatex">\(b\)</span>, and <span class="arithmatex">\(\phi_{AA}\)</span> with another average
+atom:</p>
 <div class="arithmatex">\[
 F_A = \sum_a c_a F_a, \qquad \rho_A = \sum_a c_a \rho_a, \qquad
 \phi_{Ab} = \sum_a c_a \phi_{ab}, \qquad
-\phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab}.
+\phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab},
 \]</div>
+<p>the sums running over the elements of the potential, and <span class="arithmatex">\(F_a\)</span>, <span class="arithmatex">\(\rho_a\)</span> and
+<span class="arithmatex">\(\phi_{ab}\)</span> being those of its elements.</p>
 <p><code>fractions</code> is a mapping from element to fraction, or the fractions in
 the order of <code>elements</code>; elements left out have none, and the fractions sum
 to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the
 average atom, named <code>A</code>, last, so that LAMMPS can mix them, for example
 with <code>pair_coeff * * CuNiAl.average.eam.alloy A Cu</code> for a Cu solute in the
-average alloy. Invalid fractions raise <code>InvalidParameter</code>, and so does a
-Finnis–Sinclair potential whose elements give each element a density of its
-own: an average atom would need a density for each element it stands for.</p>
+average alloy. Invalid fractions raise <code>InvalidParameter</code>.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#varvenne2016">Varvenne et al. (2016)</a>, and the paper of the potential averaged.</p>

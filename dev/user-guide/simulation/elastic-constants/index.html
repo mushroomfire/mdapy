@@ -8418,10 +8418,15 @@ components as engineering strains (half on each off-diagonal entry), and the
 constants are central differences of the stress <span class="arithmatex">\(\sigma\)</span> (positive under
 tension) in the same order:</p>
 <div class="arithmatex">\[
-C_{jk} = \frac{\sigma_j(+\delta\, \mathbf e_k) - \sigma_j(-\delta\, \mathbf e_k)}{2\delta}.
+C_{jk} = \frac{\sigma_j(+\delta\, \mathbf e_k) - \sigma_j(-\delta\, \mathbf e_k)}{2\delta},
 \]</div>
-<p>With <span class="arithmatex">\(S = C^{-1}\)</span>, the moduli of a polycrystal are the Voigt and Reuss bounds
-and their mean, the Hill average
+<p>where <span class="arithmatex">\(\delta\)</span> is <code>strain</code>, <span class="arithmatex">\(\mathbf e_k\)</span> the unit strain of component <span class="arithmatex">\(k\)</span> alone,
+and <span class="arithmatex">\(\sigma_j(\pm\delta\, \mathbf e_k)\)</span> the component <span class="arithmatex">\(j\)</span> of the stress of the
+strained, relaxed crystal; <span class="arithmatex">\(j\)</span> and <span class="arithmatex">\(k\)</span> run over the six Voigt components.</p>
+<p>With the compliances <span class="arithmatex">\(S = C^{-1}\)</span>, whose entries <span class="arithmatex">\(S_{jk}\)</span> and those <span class="arithmatex">\(C_{jk}\)</span> of
+<span class="arithmatex">\(C\)</span> are numbered by the Voigt components from 1 to 6, the bulk moduli <span class="arithmatex">\(K\)</span> and
+shear moduli <span class="arithmatex">\(G\)</span> of a polycrystal are the Voigt (V) and Reuss (R) bounds and
+their mean, the Hill (H) average
 (<a href="../../../reference/references/#hill1952">Hill (1952)</a>):</p>
 <div class="arithmatex">\[
 \begin{aligned}

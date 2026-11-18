@@ -8545,10 +8545,13 @@ C(\mathbf q) = \frac{V}{N^2}\,\operatorname{Re}\,\hat P_1(\mathbf q)\,\hat P_2^*
 \qquad
 C(\mathbf r) = \frac{1}{N^2}\sum_{\mathbf q} \hat P_1(\mathbf q)\,\hat P_2^*(\mathbf q)\,e^{i\mathbf q\cdot\mathbf r},
 \]</div>
-<p>the second of which, with <span class="arithmatex">\(|\hat\rho|^2\)</span>, gives the radial distribution
-function of the grid. Both are averaged over the grid points in shells of
+<p>where <span class="arithmatex">\(\mathbf q\)</span> are the wave vectors of the grid, <span class="arithmatex">\(\mathbf r\)</span> the vectors between
+its points, <span class="arithmatex">\(V\)</span> the volume of the box, <span class="arithmatex">\(N\)</span> the number of atoms, <span class="arithmatex">\(i\)</span> the imaginary
+unit, <span class="arithmatex">\(^*\)</span> the complex conjugate and <span class="arithmatex">\(\operatorname{Re}\)</span> the real part. The second,
+with <span class="arithmatex">\(|\hat\rho|^2\)</span>, gives the radial distribution function of the grid. Both are averaged over the grid points in shells of
 <span class="arithmatex">\(|\mathbf q|\)</span> or <span class="arithmatex">\(|\mathbf r|\)</span>, leaving out the origin. The direct sum adds
-<span class="arithmatex">\(P_1(i)\,P_2(j)\)</span> over the ordered pairs closer than the cutoff in bins of
+<span class="arithmatex">\(P_1(i)\,P_2(j)\)</span>, the first property of atom <span class="arithmatex">\(i\)</span> times the second of atom <span class="arithmatex">\(j\)</span>, over
+the ordered pairs closer than the cutoff in bins of
 its distance and divides by <span class="arithmatex">\(N^2 / V\)</span> times the volume of the shell of each
 bin, as the radial distribution function does.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>

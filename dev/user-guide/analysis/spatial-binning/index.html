@@ -8457,8 +8457,10 @@ for a property the system does not have.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>The bin of an atom along a box vector is <span class="arithmatex">\(\lfloor n s \rfloor\)</span>, with <span class="arithmatex">\(s\)</span>
 its fractional coordinate along that vector, from 0 to below 1, and <span class="arithmatex">\(n\)</span>
-the number of bins. The density is the sum divided by the volume of a bin,
-<span class="arithmatex">\(V / (n_1 n_2 n_3)\)</span>.</p>
+the number of bins along it. The density is the sum divided by the volume of
+a bin, <span class="arithmatex">\(V / (n_1 n_2 n_3)\)</span>, with <span class="arithmatex">\(V\)</span> the volume of the box and <span class="arithmatex">\(n_1\)</span>, <span class="arithmatex">\(n_2\)</span> and
+<span class="arithmatex">\(n_3\)</span> the numbers of bins along its three vectors, 1 along a vector not
+binned.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li>OVITO <a href="https://docs.ovito.org/reference/pipelines/modifiers/spatial_binning.html">Spatial binning</a>,

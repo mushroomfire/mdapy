@@ -8354,7 +8354,7 @@ minimum of the energy can have imaginary frequencies.</p>
 <td>float64</td>
 <td>0.01</td>
 <td>Å</td>
-<td>the displacement <span class="arithmatex">\(h\)</span> of the atoms</td>
+<td>the displacement <span class="arithmatex">\(\Delta\)</span> of the atoms</td>
 </tr>
 <tr>
 <td><code>symmetry</code></td>
@@ -8393,8 +8393,10 @@ it is.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>phonons</code> returns a <code>Phonons</code>. Wave vectors are in units of the reciprocal
 lattice vectors of the cell: <span class="arithmatex">\(\mathbf q = (h, k, l)\)</span> is
-<span class="arithmatex">\(h\mathbf b_1 + k\mathbf b_2 + l\mathbf b_3\)</span>, with
-<span class="arithmatex">\(\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}\)</span>.</p>
+<span class="arithmatex">\(h\mathbf b_1 + k\mathbf b_2 + l\mathbf b_3\)</span>, where <span class="arithmatex">\(\mathbf b_j\)</span> are the reciprocal
+lattice vectors of the lattice vectors <span class="arithmatex">\(\mathbf a_i\)</span> of the cell,
+<span class="arithmatex">\(\mathbf a_i\cdot\mathbf b_j = 2\pi\delta_{ij}\)</span>, with <span class="arithmatex">\(\delta_{ij}\)</span> 1 for <span class="arithmatex">\(i = j\)</span> and 0
+otherwise.</p>
 <table>
 <thead>
 <tr>
@@ -8684,11 +8686,14 @@ stable or the supercell is too small.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>The force constants are central differences of the forces
 <span class="arithmatex">\(\mathbf F\)</span> on the atoms <span class="arithmatex">\(j\)</span> of the supercell when atom <span class="arithmatex">\(a\)</span> of the first
-cell moves by <span class="arithmatex">\(\pm h\)</span> along <span class="arithmatex">\(\beta\)</span>:</p>
+cell moves by <span class="arithmatex">\(\pm\Delta\)</span> (<code>displacement</code>) along the Cartesian direction <span class="arithmatex">\(\beta\)</span>:</p>
 <div class="arithmatex">\[
-\Phi_{a\beta, j\gamma} = -\frac{F_{j\gamma}(+h) - F_{j\gamma}(-h)}{2h},
+\Phi_{a\beta, j\gamma} = -\frac{F_{j\gamma}(+\Delta) - F_{j\gamma}(-\Delta)}{2\Delta},
 \]</div>
-<p>made symmetric, <span class="arithmatex">\(\Phi_{a\beta,(b,\mathbf L)\gamma} = \Phi_{b\gamma,(a,-\mathbf L)\beta}\)</span>,
+<p>with <span class="arithmatex">\(F_{j\gamma}(\pm\Delta)\)</span> the component <span class="arithmatex">\(\gamma\)</span> of the force on atom <span class="arithmatex">\(j\)</span>. They are
+made symmetric, <span class="arithmatex">\(\Phi_{a\beta,(b,\mathbf L)\gamma} = \Phi_{b\gamma,(a,-\mathbf L)\beta}\)</span>,
+where <span class="arithmatex">\((b, \mathbf L)\)</span> is the copy of atom <span class="arithmatex">\(b\)</span> of the cell in the cell shifted by the
+lattice translation <span class="arithmatex">\(\mathbf L\)</span>,
 and summing to zero over <span class="arithmatex">\(j\)</span>, so that moving the whole crystal costs no
 energy. The dynamical matrix of the atoms <span class="arithmatex">\(a\)</span> and <span class="arithmatex">\(b\)</span> of the cell, of
 masses <span class="arithmatex">\(m_a\)</span> and <span class="arithmatex">\(m_b\)</span>, is</p>
@@ -8697,37 +8702,53 @@ D_{a\beta, b\gamma}(\mathbf q) = \frac{1}{\sqrt{m_a m_b}} \sum_{j \in b}
 \Phi_{a\beta, j\gamma}\, \frac{1}{N_j} \sum_{\mathbf T}
 e^{i\mathbf q\cdot(\mathbf r_j + \mathbf T - \mathbf r_a)},
 \]</div>
-<p>where the sum runs over the atoms <span class="arithmatex">\(j\)</span> of the supercell that are copies of
-<span class="arithmatex">\(b\)</span>, and <span class="arithmatex">\(\mathbf T\)</span> over the <span class="arithmatex">\(N_j\)</span> translations of the supercell that put
-<span class="arithmatex">\(j\)</span> nearest to <span class="arithmatex">\(a\)</span>, all equally near
+<p>where <span class="arithmatex">\(\mathbf q\)</span> is the wave vector, <span class="arithmatex">\(i\)</span> the imaginary unit, <span class="arithmatex">\(\mathbf r_a\)</span> and
+<span class="arithmatex">\(\mathbf r_j\)</span> the positions of the atoms, the sum runs over the atoms <span class="arithmatex">\(j\)</span> of the
+supercell that are copies of <span class="arithmatex">\(b\)</span>, and <span class="arithmatex">\(\mathbf T\)</span> over the <span class="arithmatex">\(N_j\)</span> translations of the
+supercell that put <span class="arithmatex">\(j\)</span> nearest to <span class="arithmatex">\(a\)</span>, all equally near
 (<a href="../../../reference/references/#born1954">Born and Huang (1954)</a>). Its
-eigenvalues are <span class="arithmatex">\(\omega^2\)</span>, the frequencies <span class="arithmatex">\(\nu = \omega/2\pi\)</span>, with the
-sign of the eigenvalue; its eigenvectors <span class="arithmatex">\(\mathbf e\)</span> are the polarization
-vectors, so that atom <span class="arithmatex">\(b\)</span> in the cell at <span class="arithmatex">\(\mathbf R\)</span> moves as
-<span class="arithmatex">\(\mathbf e_b\, e^{i\mathbf q\cdot(\mathbf R + \mathbf r_b) - i\omega t}/\sqrt{m_b}\)</span>.</p>
+eigenvalues are <span class="arithmatex">\(\omega^2\)</span>, with <span class="arithmatex">\(\omega\)</span> the angular frequency and <span class="arithmatex">\(\nu = \omega/2\pi\)</span>
+the frequency, which takes the sign of the eigenvalue; its eigenvectors <span class="arithmatex">\(\mathbf e\)</span>
+are the polarization vectors, so that atom <span class="arithmatex">\(b\)</span> in the cell at the lattice translation
+<span class="arithmatex">\(\mathbf R\)</span> moves with the time <span class="arithmatex">\(t\)</span> as
+<span class="arithmatex">\(\mathbf e_b\, e^{i\mathbf q\cdot(\mathbf R + \mathbf r_b) - i\omega t}/\sqrt{m_b}\)</span>, with
+<span class="arithmatex">\(\mathbf e_b\)</span> the three components of <span class="arithmatex">\(\mathbf e\)</span> of atom <span class="arithmatex">\(b\)</span>.</p>
 <p>The density of states per atom of a cell of <span class="arithmatex">\(n\)</span> atoms, over <span class="arithmatex">\(K\)</span> wave
 vectors, is</p>
 <div class="arithmatex">\[
 g(\nu) = \frac{1}{Kn}\sum_{\mathbf q, s} \delta(\nu - \nu_{\mathbf q s}),
 \]</div>
-<p>with each delta function spread over the tetrahedra of the mesh between
+<p>where <span class="arithmatex">\(\nu_{\mathbf q s}\)</span> is the frequency of the branch <span class="arithmatex">\(s\)</span>, one of <span class="arithmatex">\(3n\)</span>, at the wave
+vector <span class="arithmatex">\(\mathbf q\)</span> of the mesh, and <span class="arithmatex">\(\delta\)</span> the Dirac delta function, each delta function spread over the tetrahedra of the mesh between
 the frequencies at their corners
 (<a href="../../../reference/references/#blochl1994">Blöchl et al. (1994)</a>), or a
 Gaussian. The projected density of atom <span class="arithmatex">\(a\)</span> weighs each mode by
 <span class="arithmatex">\(|\mathbf e_a|^2\)</span>, over the corners of each tetrahedron.</p>
-<p>The mode Grüneisen parameter of a mode of eigenvalue ω² and polarization <strong>e</strong> is</p>
+<p>The mode Grüneisen parameter of a mode of eigenvalue <span class="arithmatex">\(\omega^2\)</span> and polarization
+<span class="arithmatex">\(\mathbf e\)</span> at the volume <span class="arithmatex">\(V\)</span> of the cell is</p>
 <div class="arithmatex">\[
 \gamma = -\frac{V}{\omega}\frac{\partial \omega}{\partial V}
-= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e .
+= -\frac{V}{2\omega^2}\, \mathbf e^\dagger \frac{D(V_+) - D(V_-)}{V_+ - V_-} \mathbf e ,
 \]</div>
+<p>where <span class="arithmatex">\(D(V_-)\)</span> and <span class="arithmatex">\(D(V_+)\)</span> are the dynamical matrices at the same wave vector of the
+phonons <code>smaller</code> and <code>larger</code>, at the volumes <span class="arithmatex">\(V_-\)</span> and <span class="arithmatex">\(V_+\)</span>, and <span class="arithmatex">\(\mathbf e^\dagger\)</span>
+is the conjugate transpose of <span class="arithmatex">\(\mathbf e\)</span>.</p>
 <p>The thermal displacements of atom <span class="arithmatex">\(a\)</span> are</p>
 <div class="arithmatex">\[
 \langle u_{a\alpha} u_{a\beta} \rangle = \frac{1}{K m_a} \sum_{\mathbf q, s}
 \frac{\hbar}{\omega_{\mathbf q s}}\left(n_{\mathbf q s} + \frac12\right)
 \mathrm{Re}\, e_{a\alpha}(\mathbf q s)\, e^*_{a\beta}(\mathbf q s),
 \]</div>
-<p>with <span class="arithmatex">\(n\)</span> the Bose–Einstein occupation of the mode.</p>
-<p>With <span class="arithmatex">\(x = h\nu/k_B T\)</span>, each mode adds</p>
+<p>the mean at the temperature <span class="arithmatex">\(T\)</span> of the products of the displacements <span class="arithmatex">\(u_{a\alpha}\)</span>
+and <span class="arithmatex">\(u_{a\beta}\)</span> of atom <span class="arithmatex">\(a\)</span> along the Cartesian directions <span class="arithmatex">\(\alpha\)</span> and <span class="arithmatex">\(\beta\)</span>, where
+<span class="arithmatex">\(\hbar\)</span> is the reduced Planck constant, <span class="arithmatex">\(\omega_{\mathbf q s}\)</span> the angular frequency of
+the branch <span class="arithmatex">\(s\)</span> at <span class="arithmatex">\(\mathbf q\)</span>, <span class="arithmatex">\(n_{\mathbf q s} = 1/(e^{\hbar\omega_{\mathbf q s}/k_BT} - 1)\)</span>
+its Bose–Einstein occupation, <span class="arithmatex">\(k_B\)</span> the Boltzmann constant, <span class="arithmatex">\(e_{a\alpha}(\mathbf q s)\)</span> the
+component <span class="arithmatex">\(\alpha\)</span> of atom <span class="arithmatex">\(a\)</span> of its polarization, <span class="arithmatex">\(e^*\)</span> the complex conjugate and
+<span class="arithmatex">\(\mathrm{Re}\)</span> the real part.</p>
+<p>With <span class="arithmatex">\(h\)</span> the Planck constant, <span class="arithmatex">\(k_B\)</span> the Boltzmann constant and <span class="arithmatex">\(x = h\nu/k_B T\)</span> at
+the temperature <span class="arithmatex">\(T\)</span>, each mode of frequency <span class="arithmatex">\(\nu\)</span> adds to the free energy <span class="arithmatex">\(F\)</span>, the
+energy <span class="arithmatex">\(E\)</span>, the entropy <span class="arithmatex">\(S\)</span> and the heat capacity at constant volume <span class="arithmatex">\(C_V\)</span></p>
 <div class="arithmatex">\[
 F = \frac{h\nu}{2} + k_BT\ln(1 - e^{-x}),\quad
 E = h\nu\left(\frac12 + \frac{1}{e^x - 1}\right),\quad

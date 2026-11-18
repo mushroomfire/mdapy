@@ -8482,8 +8482,11 @@ element, the stable phases at <span class="arithmatex">\(T\)</span> are those on
 against <span class="arithmatex">\(x\)</span>. A straight piece of the hull between two points is a tie line: two phases
 with the same chemical potentials of both elements. A solution has</p>
 <div class="arithmatex">\[
-G(x, T) = \sum_k a_k(T) x^k + k_B T \left[ x \ln x + (1 - x) \ln (1 - x) \right].
+G(x, T) = \sum_k a_k(T) x^k + k_B T \left[ x \ln x + (1 - x) \ln (1 - x) \right],
 \]</div>
+<p>the polynomial of degree up to <code>degree</code> in <span class="arithmatex">\(x\)</span>, with coefficients <span class="arithmatex">\(a_k(T)\)</span> fitted at
+each temperature, plus the free energy of ideal mixing, with <span class="arithmatex">\(k_B\)</span> the Boltzmann
+constant.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>binary_phase_diagram</code> raises <code>InvalidParameter</code> for no phases, a phase with no free
 energies, a fraction out of range, no phase at the fractions 0 or 1, free energies with

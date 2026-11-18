@@ -8417,7 +8417,11 @@ the system lacks a column the calculator needs.</p>
 <div class="arithmatex">\[
 W_{ab} = -\frac{\partial E}{\partial \varepsilon_{ab}} = \sum_i x_{i,a} F_{i,b},
 \]</div>
-<p>the second form holding for systems without periodic directions.</p>
+<p>where <span class="arithmatex">\(E\)</span> is the total energy, <span class="arithmatex">\(a\)</span> and <span class="arithmatex">\(b\)</span> are the Cartesian directions x, y
+and z, and <span class="arithmatex">\(x_{i,a}\)</span> and <span class="arithmatex">\(F_{i,b}\)</span> are the components of the position and the
+force of atom <span class="arithmatex">\(i\)</span>, the sum running over the atoms; the second form holds for
+systems without periodic directions. In the table above, <span class="arithmatex">\(\sigma\)</span> is the
+stress and <span class="arithmatex">\(V\)</span> the volume of the box.</p>
 <h2 id="writing-a-calculator">Writing a calculator<a class="headerlink" href="#writing-a-calculator" title="Permanent link">&para;</a></h2>
 <p>A calculator subclasses <code>Calculator</code>, sets <code>cutoff</code>, <code>elements</code> and
 <code>implemented</code>, and defines <code>compute</code>, which must accept <code>neighbors=</code>.</p>

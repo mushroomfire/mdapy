@@ -8370,7 +8370,8 @@ function.</p>
 <p><img alt="Structure factor" src="../images/structure-factor.png" /></p>
 <p><em>The disordered alloy scatters at the (111), (200), (220) and (311)
 reflections of fcc, <span class="arithmatex">\(q = 2\pi\sqrt{h^2+k^2+l^2}/a\)</span> = 3.02, 3.49, 4.94 and
-5.79 Å⁻¹; between them <span class="arithmatex">\(S(q)\)</span> stays near zero.</em></p>
+5.79 Å⁻¹, with <span class="arithmatex">\((hkl)\)</span> the Miller indices of the reflection and <span class="arithmatex">\(a\)</span> the lattice
+constant; between them <span class="arithmatex">\(S(q)\)</span> stays near zero.</em></p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8493,7 +8494,8 @@ S_{ab}(\mathbf q) = \frac{1}{N} \operatorname{Re}\big[\rho_a(\mathbf q)\, \rho_b
 \]</div>
 <p>so that <span class="arithmatex">\(S = \sum_a S_{aa} + 2 \sum_{a &lt; b} S_{ab}\)</span>. The direct method
 averages these over the wave vectors <span class="arithmatex">\(\mathbf q = h\mathbf b_1 + k\mathbf
-b_2 + l\mathbf b_3\)</span> of the box, <span class="arithmatex">\(\mathbf b\)</span> its reciprocal vectors, in each
+b_2 + l\mathbf b_3\)</span> of the box, with integers <span class="arithmatex">\(h\)</span>, <span class="arithmatex">\(k\)</span> and <span class="arithmatex">\(l\)</span> and <span class="arithmatex">\(\mathbf b\)</span> its
+reciprocal vectors, in each
 bin of <span class="arithmatex">\(0 &lt; |\mathbf q| \le q_\text{max}\)</span>. A perfect crystal gives <span class="arithmatex">\(N\)</span> at its
 Bragg reflections and 0 elsewhere; an ideal gas gives 1.</p>
 <p>The Debye method transforms the radial distribution function <span class="arithmatex">\(g\)</span> and its
@@ -8510,7 +8512,8 @@ partial factors are related by</p>
 <div class="arithmatex">\[
 A_{ab}(q) = \frac{S_{ab}(q) - x_a \delta_{ab}}{x_a x_b} + 1 ,
 \]</div>
-<p>with the fractions <span class="arithmatex">\(x_a = N_a / N\)</span>; these are the conventions of OVITO.</p>
+<p>with the fractions <span class="arithmatex">\(x_a = N_a / N\)</span> and <span class="arithmatex">\(\delta_{ab}\)</span> 1 for <span class="arithmatex">\(a = b\)</span> and 0 otherwise;
+these are the conventions of OVITO.</p>
 <h2 id="why-the-results-differ-from-ovito">Why the results differ from OVITO<a class="headerlink" href="#why-the-results-differ-from-ovito" title="Permanent link">&para;</a></h2>
 <p>MDAPY follows the definitions above. OVITO's structure factor modifier
 (3.17.1) makes two other choices, so that its curves differ from those of

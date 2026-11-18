@@ -8436,9 +8436,10 @@ e^{-(r - r_{ij})^2 / 2\sigma^2},
 \qquad
 s_i = -2\pi\rho \int_0^{r_c} \big[g_i \ln g_i - g_i + 1\big]\, r^2 \,\mathrm dr ,
 \]</div>
-<p>where <span class="arithmatex">\(\rho\)</span> is the number density of the system or, with <code>local_density</code>,
+<p>where <span class="arithmatex">\(r_{ij}\)</span> is the distance of atoms <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(j\)</span>, <span class="arithmatex">\(s_i\)</span> the fingerprint of atom <span class="arithmatex">\(i\)</span>
+(<code>entropy</code>), and <span class="arithmatex">\(\rho\)</span> the number density of the system or, with <code>local_density</code>,
 the number of neighbors over the volume of the cutoff sphere. <span class="arithmatex">\(g_i\)</span> is
-evaluated at <span class="arithmatex">\(r = k\sigma\)</span> up to the cutoff and the integral is the
+evaluated at <span class="arithmatex">\(r = k\sigma\)</span> for <span class="arithmatex">\(k = 0, 1, 2, \dots\)</span> up to the cutoff and the integral is the
 trapezoid rule over those points, as in LAMMPS; where <span class="arithmatex">\(g_i &lt; 10^{-10}\)</span> the
 integrand is <span class="arithmatex">\(r^2\)</span>. With <code>average_cutoff</code>, <span class="arithmatex">\(s_i\)</span> is averaged with the values
 of the neighbors closer than it.</p>

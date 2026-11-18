@@ -8450,7 +8450,9 @@ has to be chosen. The parameters are those of
 </tr>
 </tbody>
 </table>
-<p>With <span class="arithmatex">\(S = C^{-1}\)</span> these are</p>
+<p>With the compliances <span class="arithmatex">\(S = C^{-1}\)</span>, whose indices 1, 2 and 3 are xx, yy and xy, these
+are the Young's moduli <span class="arithmatex">\(E_x\)</span> and <span class="arithmatex">\(E_y\)</span>, the Poisson ratios <span class="arithmatex">\(\nu_x\)</span> and <span class="arithmatex">\(\nu_y\)</span> of
+stretches along x and y, the shear modulus <span class="arithmatex">\(G\)</span> and the area modulus <span class="arithmatex">\(K\)</span>:</p>
 <div class="arithmatex">\[
 E_x = \frac{1}{S_{11}}, \quad E_y = \frac{1}{S_{22}}, \quad
 \nu_x = -\frac{S_{12}}{S_{11}}, \quad \nu_y = -\frac{S_{12}}{S_{22}}, \quad
@@ -8562,11 +8564,13 @@ cutoff between the default areas, so the example takes fewer.</p>
 </tr>
 </tbody>
 </table>
-<p>The free energy is fitted, at each temperature, by a cubic polynomial in
-<span class="arithmatex">\(1/A\)</span>, the form of the third-order Birch–Murnaghan equation in two dimensions;
-the area modulus is <span class="arithmatex">\(K = A\, \partial^2 G / \partial A^2\)</span>, the thermal
-expansion <span class="arithmatex">\(\alpha = (\partial S/\partial A)/K\)</span> and the heat capacity
-<span class="arithmatex">\(C_\sigma = C_A + T A K \alpha^2\)</span>.</p>
+<p>The free energy is fitted, at each temperature <span class="arithmatex">\(T\)</span>, by a cubic polynomial in
+<span class="arithmatex">\(1/A\)</span>, with <span class="arithmatex">\(A\)</span> the area per atom, the form of the third-order Birch–Murnaghan
+equation in two dimensions. With <span class="arithmatex">\(G\)</span> the Gibbs energy per atom and <span class="arithmatex">\(S\)</span> the entropy
+per atom, the area modulus is <span class="arithmatex">\(K = A\, \partial^2 G / \partial A^2\)</span>, the thermal
+expansion of the area <span class="arithmatex">\(\alpha = (\partial S/\partial A)/K\)</span>, and the heat capacity at
+constant pressure in the plane <span class="arithmatex">\(C_\sigma = C_A + T A K \alpha^2\)</span>, with <span class="arithmatex">\(C_A\)</span> the heat
+capacity at constant area.</p>
 <h2 id="elastic-constants-from-molecular-dynamics">Elastic constants from molecular dynamics<a class="headerlink" href="#elastic-constants-from-molecular-dynamics" title="Permanent link">&para;</a></h2>
 <p><code>md_elastic_constants</code> takes a sheet and returns its <code>SheetElasticResult</code> in
 N/m, with the standard errors in <code>errors</code>: the mean shape of the sheet under

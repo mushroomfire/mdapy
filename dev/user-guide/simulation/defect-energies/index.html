@@ -8404,18 +8404,23 @@ axis, and a minimization that does not converge.</p>
 <p>With <span class="arithmatex">\(E_N\)</span> the energy of the perfect crystal of <span class="arithmatex">\(N\)</span> atoms and <span class="arithmatex">\(E_{N-1}\)</span> that
 of the crystal with a vacancy, both relaxed,</p>
 <div class="arithmatex">\[
-E_v = E_{N-1} - \frac{N-1}{N} E_N .
+E_v = E_{N-1} - \frac{N-1}{N} E_N
 \]</div>
+<p>is the vacancy formation energy.</p>
 <p>With <span class="arithmatex">\(E_\text{slab}\)</span> the energy of the crystal opened by the vacuum, relaxed,
-and <span class="arithmatex">\(A\)</span> the area of each of its two surfaces,</p>
+<span class="arithmatex">\(E_\text{bulk}\)</span> that of the same crystal without vacuum, and <span class="arithmatex">\(A\)</span> the area of
+each of its two surfaces, the surface energy is</p>
 <div class="arithmatex">\[
 \gamma_s = \frac{E_\text{slab} - E_\text{bulk}}{2A} .
 \]</div>
-<p>The generalized stacking fault energy at the slip <span class="arithmatex">\(f\,\mathbf d\)</span> is</p>
+<p>The generalized stacking fault energy at the slip <span class="arithmatex">\(f\,\mathbf d\)</span>, a fraction
+<span class="arithmatex">\(f\)</span> from 0 to 1 of the slip vector <span class="arithmatex">\(\mathbf d\)</span> (<code>direction</code>), is</p>
 <div class="arithmatex">\[
 \gamma(f) = \frac{E(f\,\mathbf d) - E(0)}{A},
 \]</div>
-<p>each configuration relaxed along the normal of the fault only: a <code>movable</code>
+<p>with <span class="arithmatex">\(E(f\,\mathbf d)\)</span> the energy of the crystal slipped by <span class="arithmatex">\(f\,\mathbf d\)</span>
+across the fault plane, <span class="arithmatex">\(E(0)\)</span> that of the perfect crystal, and <span class="arithmatex">\(A\)</span> the area of
+the fault plane in the box, each configuration relaxed along the normal of the fault only: a <code>movable</code>
 column keeps the atoms still along the plane, as LAMMPS <code>fix setforce 0 0
 NULL</code> does. In fcc along <span class="arithmatex">\([11\bar2]\)</span> the curve has the unstable stacking
 fault energy as its first maximum and the intrinsic stacking fault energy

@@ -8463,14 +8463,18 @@ keeps one side.</p>
 <div class="arithmatex">\[
 C_{ij} = \frac{1}{V}\frac{\partial^2 F}{\partial\eta_i\,\partial\eta_j},
 \]</div>
-<p>in Voigt notation with engineering shears, by central differences of step
-<span class="arithmatex">\(h\)</span>; <span class="arithmatex">\(F\)</span> is the static energy <span class="arithmatex">\(E\)</span> and, but for the quasi-static method, the
-free energy of the vibrations. Under a pressure <span class="arithmatex">\(P\)</span> the stress–strain
-coefficients are
-<span class="arithmatex">\(B_{ijkl} = C_{ijkl} - P(\delta_{ik}\delta_{jl} + \delta_{il}\delta_{jk} - \delta_{ij}\delta_{kl})\)</span>.
-With the thermal expansion tensor <span class="arithmatex">\(\alpha\)</span>, from the cells of the grid
-against volume, and the heat capacity at constant volume <span class="arithmatex">\(C_V\)</span>, the
-adiabatic constants are</p>
+<p>with <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(j\)</span> the Voigt components 1 to 6 (xx, yy, zz, yz, xz, xy) and
+engineering shears, by central differences of step <span class="arithmatex">\(h\)</span>; <span class="arithmatex">\(F\)</span> is the static energy
+<span class="arithmatex">\(E\)</span> and, but for the quasi-static method, the free energy of the vibrations at the
+temperature <span class="arithmatex">\(T\)</span>. Under a pressure <span class="arithmatex">\(P\)</span> the stress–strain coefficients are</p>
+<div class="arithmatex">\[
+B_{ijkl} = C_{ijkl} - P(\delta_{ik}\delta_{jl} + \delta_{il}\delta_{jk} - \delta_{ij}\delta_{kl}),
+\]</div>
+<p>written here with the Cartesian indices <span class="arithmatex">\(i, j, k, l\)</span> of the constants as tensors, and
+<span class="arithmatex">\(\delta_{ik}\)</span> 1 for <span class="arithmatex">\(i = k\)</span> and 0 otherwise. With the thermal expansion tensor
+<span class="arithmatex">\(\alpha\)</span>, from the cells of the grid against volume, <span class="arithmatex">\(\alpha_k\)</span> its Voigt components,
+and the heat capacity of the cell at constant volume <span class="arithmatex">\(C_V\)</span>, the adiabatic constants
+<span class="arithmatex">\(C^S\)</span> follow from the isothermal ones <span class="arithmatex">\(C^T\)</span>:</p>
 <div class="arithmatex">\[
 C^S_{ij} = C^T_{ij} + \frac{T V \lambda_i\lambda_j}{C_V}, \qquad
 \lambda_i = \sum_k C^T_{ik}\,\alpha_k

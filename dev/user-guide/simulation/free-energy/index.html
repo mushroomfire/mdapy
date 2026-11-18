@@ -8592,28 +8592,40 @@ F = F_\mathrm{springs} + F_\mathrm{cm} + \frac{1}{2N}
 \left[ \int_0^1 (U - U_\mathrm{springs})\, d\lambda
 - \int_1^0 (U - U_\mathrm{springs})\, d\lambda \right],
 \]</div>
-<p>with the forces <span class="arithmatex">\((1-\lambda)\)</span> of the crystal and <span class="arithmatex">\(\lambda\)</span> of the springs, and</p>
+<p>the free energy <span class="arithmatex">\(F\)</span> per atom of the <span class="arithmatex">\(N\)</span> atoms at temperature <span class="arithmatex">\(T\)</span>, where <span class="arithmatex">\(U\)</span> is the
+potential energy of the crystal and <span class="arithmatex">\(U_\mathrm{springs}\)</span> that of the springs, and
+the coupling <span class="arithmatex">\(\lambda\)</span> goes from 0 to 1 and back with the forces <span class="arithmatex">\((1-\lambda)\)</span> of the
+crystal and <span class="arithmatex">\(\lambda\)</span> of the springs; the integrals are over the runs there and back.
+The springs and the center of mass give</p>
 <div class="arithmatex">\[
 F_\mathrm{springs} = \frac{3 k_B T}{N} \sum_i \ln\frac{\hbar\omega_i}{k_B T},
 \qquad
 F_\mathrm{cm} = \frac{k_B T}{N} \ln\left[ \frac{N}{V}
 \left( 2\pi \sum_i \frac{m_i^2}{M^2} \frac{k_B T}{k_i} \right)^{3/2} \right]
 \]</div>
-<p>for the center of mass, held fixed. Half the difference of the two ways removes the
-heat lost on the way.</p>
+<p>for the center of mass, held fixed, where <span class="arithmatex">\(k_B\)</span> is the Boltzmann constant, <span class="arithmatex">\(\hbar\)</span> the
+reduced Planck constant, <span class="arithmatex">\(\omega_i = \sqrt{k_i/m_i}\)</span> the angular frequency of the
+spring of atom <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(m_i\)</span> its mass and <span class="arithmatex">\(M\)</span> the mass of all the atoms. Half the
+difference of the two ways removes the heat lost on the way.</p>
 <p><strong>A liquid</strong> at volume <span class="arithmatex">\(V\)</span> is switched in the same way to the Uhlenbeck-Ford model
-<span class="arithmatex">\(U_\mathrm{UF} = -p\,k_B T \ln(1 - e^{-r^2/\sigma^2})\)</span>, with <span class="arithmatex">\(p = 50\)</span> and
-<span class="arithmatex">\(\sigma = 1.5\)</span> Å (<a href="../../../reference/references/#paulaleite2016">Paula Leite et al. (2016)</a>),
+of pairs of atoms at the distance <span class="arithmatex">\(r\)</span>, <span class="arithmatex">\(U_\mathrm{UF} = -p\,k_B T \ln(1 - e^{-r^2/\sigma^2})\)</span>
+summed over the pairs, with the strength <span class="arithmatex">\(p = 50\)</span> and the length <span class="arithmatex">\(\sigma = 1.5\)</span> Å (<a href="../../../reference/references/#paulaleite2016">Paula Leite et al. (2016)</a>),
 which is switched in turn from nothing, the ideal gas:</p>
 <div class="arithmatex">\[
 F = F_\mathrm{gas} + \frac{1}{N} \int_0^1 \langle U_\mathrm{UF} \rangle_\lambda\, d\lambda
-+ \frac{1}{N} \int_0^1 \langle U - U_\mathrm{UF} \rangle_\lambda\, d\lambda.
++ \frac{1}{N} \int_0^1 \langle U - U_\mathrm{UF} \rangle_\lambda\, d\lambda,
 \]</div>
-<p><strong>Between temperatures</strong> the free energy follows the enthalpy <span class="arithmatex">\(H\)</span> along runs with
-the temperature changing there and back, of which the mean is taken:</p>
+<p>with <span class="arithmatex">\(F_\mathrm{gas}\)</span> the free energy per atom of the ideal gas of the same atoms at
+the same volume and temperature, and <span class="arithmatex">\(\langle \cdot \rangle_\lambda\)</span> the mean over the
+run at the coupling <span class="arithmatex">\(\lambda\)</span>.</p>
+<p><strong>Between temperatures</strong> the Gibbs energy <span class="arithmatex">\(G\)</span> per atom follows the enthalpy <span class="arithmatex">\(H\)</span> per
+atom along runs with the temperature changing there and back, of which the mean is
+taken:</p>
 <div class="arithmatex">\[
-\frac{G(T)}{T} = \frac{G(T_0)}{T_0} - \int_{T_0}^{T} \frac{H(T')}{T'^2}\, dT'.
+\frac{G(T)}{T} = \frac{G(T_0)}{T_0} - \int_{T_0}^{T} \frac{H(T')}{T'^2}\, dT',
 \]</div>
+<p>from the first temperature <span class="arithmatex">\(T_0\)</span>, at which the switching gives <span class="arithmatex">\(G\)</span>, with <span class="arithmatex">\(T'\)</span> the
+temperature along the run.</p>
 <p>The Gibbs energy at pressure <span class="arithmatex">\(P\)</span> is <span class="arithmatex">\(G = F + PV\)</span>, with <span class="arithmatex">\(V\)</span> the mean volume at the
 first temperature and <span class="arithmatex">\(P\)</span>.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>

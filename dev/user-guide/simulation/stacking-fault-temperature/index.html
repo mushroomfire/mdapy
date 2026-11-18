@@ -8316,7 +8316,8 @@ energy at rest is the business of
 <p>The harmonic part of the same difference, for comparison: classical atoms in the
 <a href="../phonons/">phonons</a> of a perfect and a faulted cell of 24 (111) layers, each at the
 volume per atom of the crystal at that temperature. The free energy of the vibrations
-of classical atoms is <span class="arithmatex">\(k_BT\sum\ln(h\nu/k_BT)\)</span> over the modes, so the difference of
+of classical atoms is <span class="arithmatex">\(k_BT\sum\ln(h\nu/k_BT)\)</span> over the modes of frequencies <span class="arithmatex">\(\nu\)</span>, with
+<span class="arithmatex">\(h\)</span> the Planck constant, <span class="arithmatex">\(k_B\)</span> the Boltzmann constant and <span class="arithmatex">\(T\)</span> the temperature, so the difference of
 two cells of as many atoms is <span class="arithmatex">\(k_BT\)</span> times the difference of their sums of <span class="arithmatex">\(\ln\nu\)</span>,
 here averaged over a mesh of wave vectors that misses Γ. At 0 K only the static part is
 left, the fault at rest:</p>
@@ -8563,7 +8564,8 @@ gives something lower than the energy at rest.</p>
 <div class="arithmatex">\[
 \gamma(T) = \frac{F_\mathrm{fault}(T) - F_\mathrm{crystal}(T)}{A},
 \]</div>
-<p>where both free energies are those of <a href="../free-energy/"><code>free_energy</code></a> for solids, of
+<p>is the free energy of the fault per area at the temperature <span class="arithmatex">\(T\)</span>, with <span class="arithmatex">\(A\)</span> the area of the
+fault in the box, where both free energies are those of <a href="../free-energy/"><code>free_energy</code></a> for solids, of
 the same atoms in one box but for the box vector that the fault tilts. Classical atoms,
 as in molecular dynamics. With the phonons of the two cells, the
 <a href="../phonons/">harmonic part</a> of this difference is cheaper and free of noise, but it

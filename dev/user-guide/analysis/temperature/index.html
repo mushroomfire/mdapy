@@ -8387,7 +8387,9 @@ column in amu, else an <code>element</code> column for the standard atomic weigh
 <code>MissingProperty</code> without <code>velocities</code> or without both <code>mass</code> and <code>element</code>.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>For the group <span class="arithmatex">\(G_i\)</span> of atom <span class="arithmatex">\(i\)</span> and its neighbors closer than the cutoff,
-<span class="arithmatex">\(n_i\)</span> atoms with masses <span class="arithmatex">\(m_j\)</span> and velocities <span class="arithmatex">\(\mathbf v_j\)</span>,</p>
+<span class="arithmatex">\(n_i\)</span> atoms with masses <span class="arithmatex">\(m_j\)</span> and velocities <span class="arithmatex">\(\mathbf v_j\)</span>, the temperature of atom <span class="arithmatex">\(i\)</span>
+is <span class="arithmatex">\(T_i\)</span>, with <span class="arithmatex">\(k_B\)</span> the Boltzmann constant and <span class="arithmatex">\(\bar{\mathbf v}_i\)</span> the velocity of the
+center of mass of the group,</p>
 <div class="arithmatex">\[
 T_i = \frac{1}{3(n_i - 1)\, k_B} \sum_{j \in G_i} m_j
 \lvert \mathbf v_j - \bar{\mathbf v}_i \rvert^2 ,

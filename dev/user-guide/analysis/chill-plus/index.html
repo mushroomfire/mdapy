@@ -8367,11 +8367,14 @@ reach the cutoff.</p>
 <code>compute</code> raises it for a neighbor list that does not fit.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>Each molecule <span class="arithmatex">\(i\)</span> gets the bond order <span class="arithmatex">\(q_{3m}(i) = \sum_j Y_{3m}(\hat{\mathbf
-r}_{ij})\)</span> over its neighbors <span class="arithmatex">\(j\)</span>, with the spherical harmonics <span class="arithmatex">\(Y_{3m}\)</span> of
-degree 3, and each bond the correlation</p>
+r}_{ij})\)</span> over its neighbors <span class="arithmatex">\(j\)</span>, with <span class="arithmatex">\(\hat{\mathbf r}_{ij}\)</span> the unit vector from <span class="arithmatex">\(i\)</span> to <span class="arithmatex">\(j\)</span>
+and the spherical harmonics <span class="arithmatex">\(Y_{3m}\)</span> of degree 3, <span class="arithmatex">\(m\)</span> from <span class="arithmatex">\(-3\)</span> to 3; and each bond
+the correlation</p>
 <div class="arithmatex">\[
-c(i, j) = \frac{\operatorname{Re} \sum_m q_{3m}(i)\, q_{3m}(j)^*}{|q_3(i)|\, |q_3(j)|}.
+c(i, j) = \frac{\operatorname{Re} \sum_m q_{3m}(i)\, q_{3m}(j)^*}{|q_3(i)|\, |q_3(j)|},
 \]</div>
+<p>with <span class="arithmatex">\(\operatorname{Re}\)</span> the real part, <span class="arithmatex">\(^*\)</span> the complex conjugate and
+<span class="arithmatex">\(|q_3(i)| = \big(\sum_m |q_{3m}(i)|^2\big)^{1/2}\)</span>.</p>
 <p>A bond is staggered when <span class="arithmatex">\(c &lt; -0.8\)</span> and eclipsed when <span class="arithmatex">\(-0.35 &lt; c &lt; 0.25\)</span>. A
 molecule with four neighbors is, checked from the top of the table down:</p>
 <table>

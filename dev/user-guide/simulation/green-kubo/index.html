@@ -8495,14 +8495,18 @@ correlation.</p>
 <div class="arithmatex">\[
 \mathbf J = \frac{1}{V}\Big[\sum_i e_i \mathbf v_i + \sum_i \mathsf S_i \mathbf v_i\Big],
 \]</div>
-<p>with <span class="arithmatex">\(e_i\)</span> the kinetic and potential energy of atom <span class="arithmatex">\(i\)</span> and <span class="arithmatex">\(\mathsf S_i\)</span> its centroid
-stress times the volume, and the conductivity</p>
+<p>with <span class="arithmatex">\(V\)</span> the volume of the box, <span class="arithmatex">\(\mathbf v_i\)</span> the velocity of atom <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(e_i\)</span> its
+kinetic and potential energy and <span class="arithmatex">\(\mathsf S_i\)</span> its centroid stress times the volume.
+The thermal conductivity at the temperature <span class="arithmatex">\(T\)</span> is</p>
 <div class="arithmatex">\[
 \kappa_{\alpha\beta} = \frac{V}{k_B T^2} \int_0^{\tau} \langle J_\alpha(0)\, J_\beta(t)
 \rangle\, dt,
 \]</div>
-<p>each lag of the correlation the mean over every time origin of the samples, the integral
-by trapezoids up to <code>correlation</code>, and the correlation made symmetric in α and β
+<p>where <span class="arithmatex">\(\alpha\)</span> and <span class="arithmatex">\(\beta\)</span> are the Cartesian directions x, y and z, <span class="arithmatex">\(k_B\)</span> is the
+Boltzmann constant, <span class="arithmatex">\(\langle J_\alpha(0)\, J_\beta(t) \rangle\)</span> is the correlation of
+the flux at the lag <span class="arithmatex">\(t\)</span>, each lag the mean over every time origin of the samples, and
+the integral is taken by trapezoids up to <span class="arithmatex">\(\tau\)</span>, <code>correlation</code>, with the correlation
+made symmetric in <span class="arithmatex">\(\alpha\)</span> and <span class="arithmatex">\(\beta\)</span>
 (<a href="../../../reference/references/#schelling2002">Schelling et al. (2002)</a>).</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>

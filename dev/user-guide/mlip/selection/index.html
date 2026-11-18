@@ -8418,10 +8418,12 @@ to the nearest point already chosen (or in <code>selected</code>) is largest:</p
 <div class="arithmatex">\[
 i_{k+1} = \arg\max_i \min_{j \in S_k} \lVert \mathbf{x}_i - \mathbf{x}_j \rVert ,
 \]</div>
-<p>so that the chosen points spread over the whole set. The principal
-components are the eigenvectors of the covariance of the points,
-<span class="arithmatex">\(\frac{1}{M-1} \sum_i (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^\mathsf{T}\)</span>,
-by decreasing eigenvalue, the variance along each.</p>
+<p>where <span class="arithmatex">\(\mathbf x_i\)</span> are the points, the rows of the descriptors, <span class="arithmatex">\(S_k\)</span> the points
+chosen after <span class="arithmatex">\(k\)</span> steps (with <code>selected</code>) and <span class="arithmatex">\(i_{k+1}\)</span> the next one, so that the
+chosen points spread over the whole set. The principal components are the
+eigenvectors of the covariance of the <span class="arithmatex">\(M\)</span> points,
+<span class="arithmatex">\(\frac{1}{M-1} \sum_i (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^\mathsf{T}\)</span>
+with <span class="arithmatex">\(\bar{\mathbf x}\)</span> their mean, by decreasing eigenvalue, the variance along each.</p>
 
 
 

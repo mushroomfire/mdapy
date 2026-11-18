@@ -8372,7 +8372,9 @@ copies along <strong>a</strong> to its right, the rows of copies along <strong>b
 <p><code>replicate</code> gives the copies in a box with lattice vectors
 <span class="arithmatex">\(n_a\mathbf a\)</span>, <span class="arithmatex">\(n_b\mathbf b\)</span> and <span class="arithmatex">\(n_c\mathbf c\)</span> and the same origin:</p>
 <ul>
-<li>Copy <span class="arithmatex">\((i, j, l)\)</span> is number <span class="arithmatex">\(k = i + n_a (j + n_b l)\)</span>, so the copy along
+<li>With <span class="arithmatex">\(n_a\)</span>, <span class="arithmatex">\(n_b\)</span> and <span class="arithmatex">\(n_c\)</span> the copies along each vector (<code>repeat</code>) and <span class="arithmatex">\(N\)</span> the atoms
+  of the original, copy <span class="arithmatex">\((i, j, l)\)</span>, the <span class="arithmatex">\(i\)</span>-th along <strong>a</strong>, <span class="arithmatex">\(j\)</span>-th along <strong>b</strong> and <span class="arithmatex">\(l\)</span>-th
+  along <strong>c</strong> from 0, is number <span class="arithmatex">\(k = i + n_a (j + n_b l)\)</span>, so the copy along
   <strong>a</strong> changes fastest; its atoms are rows <span class="arithmatex">\(kN\)</span> to <span class="arithmatex">\(kN + N - 1\)</span>, in the
   order of the original.</li>
 <li>Its <code>id</code>s are those of the original plus <span class="arithmatex">\(k\)</span> times the largest <code>id</code>.

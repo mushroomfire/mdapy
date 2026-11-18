@@ -8314,7 +8314,9 @@ C11 of silicon with the Tersoff potential at 300 K came out 2 % too high.</p>
 <div class="arithmatex">\[
 C_{jk} = \frac{\bar\sigma_j(+\delta\,\mathbf e_k) - \bar\sigma_j(-\delta\,\mathbf e_k)}{2\delta},
 \]</div>
-<p>with <span class="arithmatex">\(\sigma\)</span> positive under tension. The standard error of each mean comes
+<p>where <span class="arithmatex">\(\delta\)</span> is <code>strain</code>, <span class="arithmatex">\(\mathbf e_k\)</span> the unit strain of the Voigt component <span class="arithmatex">\(k\)</span>
+alone (xx, yy, zz, yz, xz, xy), and <span class="arithmatex">\(\bar\sigma_j\)</span> the mean over the production run of
+the component <span class="arithmatex">\(j\)</span> of the stress, positive under tension. The standard error of each mean comes
 from the means of <code>blocks</code> blocks of the run, and the two errors of a
 column add in quadrature. Each entry off the diagonal is the mean of its
 two estimates, <span class="arithmatex">\(C_{jk}\)</span> and <span class="arithmatex">\(C_{kj}\)</span>, so that the constants are symmetric.
@@ -8438,10 +8440,15 @@ C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
 - \langle \sigma_{ij} \rangle \langle \sigma_{kl} \rangle \right)
 + \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
 \]</div>
-<p>the Born term, the second derivatives of the energy with the strain (LAMMPS
-<code>compute born/matrix numdiff</code>, strains of <span class="arithmatex">\(10^{-5}\)</span>, every ten records),
-then the fluctuations of the virial stress <span class="arithmatex">\(\sigma\)</span> (every <code>every</code> steps),
-then the momenta of the atoms but their center of mass. Under a mean stress
+<p>where <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(j\)</span>, <span class="arithmatex">\(k\)</span> and <span class="arithmatex">\(l\)</span> are the Cartesian directions x, y and z, <span class="arithmatex">\(\langle \cdot \rangle\)</span>
+the mean over the production run, <span class="arithmatex">\(V\)</span> the volume of the box, <span class="arithmatex">\(T\)</span> the temperature, <span class="arithmatex">\(N\)</span>
+the number of atoms, <span class="arithmatex">\(k_B\)</span> the Boltzmann constant and <span class="arithmatex">\(\delta_{ik}\)</span> the Kronecker delta,
+1 for <span class="arithmatex">\(i = k\)</span> and 0 otherwise. The three terms are the Born term <span class="arithmatex">\(C^{\mathrm B}\)</span>, the
+second derivatives of the energy with the strain at fixed fractional positions (LAMMPS
+<code>compute born/matrix numdiff</code>, strains of <span class="arithmatex">\(10^{-5}\)</span>, every ten records); the
+fluctuations of the virial stress <span class="arithmatex">\(\sigma\)</span> (every <code>every</code> steps), which give back the
+relaxation of the atoms; and the momenta of the atoms, counted as <span class="arithmatex">\(N - 1\)</span> as the thermostat
+keeps the momentum of the center of mass at zero. Under a mean stress
 they are made stress-strain coefficients, as the strains give them (Wallace):
 under a pressure <span class="arithmatex">\(P\)</span>, <span class="arithmatex">\(C_{11} - P\)</span>, <span class="arithmatex">\(C_{12} + P\)</span> and <span class="arithmatex">\(C_{44} - P\)</span>. The errors
 come from <code>blocks</code> blocks of the run; <code>strain</code> is unused.</p>

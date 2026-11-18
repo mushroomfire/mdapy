@@ -8437,8 +8437,8 @@ or temperature, and the errors of <code>random_alloy</code>; <code>Cancelled</co
 cancelled.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>With <span class="arithmatex">\(N^{(s)}_{ab}\)</span> the ordered pairs of shell <span class="arithmatex">\(s\)</span> from an atom of element
-<span class="arithmatex">\(a\)</span> to one of <span class="arithmatex">\(b\)</span>, <span class="arithmatex">\(P_s\)</span> all pairs of shell <span class="arithmatex">\(s\)</span> and <span class="arithmatex">\(x_a\)</span> the fractions, the
-deviation from a random alloy</p>
+<span class="arithmatex">\(a\)</span> to one of <span class="arithmatex">\(b\)</span>, <span class="arithmatex">\(P_s\)</span> all pairs of shell <span class="arithmatex">\(s\)</span>, <span class="arithmatex">\(x_a\)</span> the fractions and <span class="arithmatex">\(w_s\)</span> the
+weight of shell <span class="arithmatex">\(s\)</span> (<code>weights</code>), the deviation from a random alloy</p>
 <div class="arithmatex">\[
 D = \sum_s w_s \sum_{a,b} \left( \frac{N^{(s)}_{ab}}{P_s} - x_a x_b \right)^2
 \]</div>
@@ -8446,7 +8446,9 @@ D = \sum_s w_s \sum_{a,b} \left( \frac{N^{(s)}_{ab}}{P_s} - x_a x_b \right)^2
 <span class="arithmatex">\(\alpha^{(s)}_{ab} = 1 - N^{(s)}_{ab} / (x_a x_b P_s)\)</span> of every shell
 vanish. Starting from a random alloy, pairs of atoms of different elements
 swap places when the swap lowers <span class="arithmatex">\(D\)</span>, or with the probability
-<span class="arithmatex">\(e^{-\Delta D / T}\)</span> otherwise, while <span class="arithmatex">\(T\)</span> falls linearly to zero; the
+<span class="arithmatex">\(e^{-\Delta D / T}\)</span> otherwise, with <span class="arithmatex">\(\Delta D\)</span> the change of <span class="arithmatex">\(D\)</span> by the swap and <span class="arithmatex">\(T\)</span>
+the temperature of the annealing, which falls linearly from <code>temperature</code> times
+the typical change of a swap to zero over the <code>steps</code>; the
 arrangement with the lowest <span class="arithmatex">\(D\)</span> is returned.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>

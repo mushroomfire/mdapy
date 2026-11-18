@@ -8034,10 +8034,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#210-not-released" class="md-nav__link">
+  <a href="#210" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.1.0 (not released)
+        2.1.0
       
     </span>
   </a>
@@ -8497,10 +8497,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#210-not-released" class="md-nav__link">
+  <a href="#210" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.1.0 (not released)
+        2.1.0
       
     </span>
   </a>
@@ -8826,8 +8826,30 @@
 
 
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
-<h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
+<h2 id="210">2.1.0<a class="headerlink" href="#210" title="Permanent link">&para;</a></h2>
+<p>MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any
+calculator or of DFT to the thermal conductivity; elastic constants along directions, of
+polycrystals and from the fluctuations of the stress; the dislocation analysis, no longer
+experimental, with OVITO's CA files; sheets in every thermal method; <code>mdapy.fitting</code> for
+splines, least squares and equations of state; and fixes. What 2.1 holds is in the notes of
+2.1.0rc1 and 2.1.0rc2 below. Code written for 2.0 keeps working: the API of 2.0.0 holds,
+and from here on that of 2.1.0, its additions included, holds in every later 2.x release.
+Since 2.1.0rc2:</p>
 <ul>
+<li><code>PolynomialFit(coefficients, covariance, residuals, r_squared)</code>,
+  <code>SurfaceFit(powers, coefficients, covariance, residuals, r_squared)</code> and
+  <code>EquationOfState(form, parameters, covariance, residuals, r_squared)</code> are made of the
+  values they hold, such as a polynomial of known coefficients or an equation of state of
+  published parameters. In 2.1.0rc1 and rc2 the first two took the scaled form that the fits
+  evaluate in, and <code>EquationOfState</code> its bulk modulus in eV/Å³ and its errors.
+  <code>EquationOfState.covariance</code> gives the covariance of <code>e0</code>, <code>v0</code>, <code>b0</code> and <code>b0_prime</code>,
+  as each fit gives its own.</li>
+<li>The documentation says in words what each symbol of a formula stands for, and the
+  <a href="../../getting-started/learn/cheat-sheet/">cheat sheet</a> holds the additions of 2.1: fitting,
+  lattice dynamics from elastic constants to the thermal conductivity, dislocations and CA
+  files, and NEP with LAMMPS. The page of <a href="../../user-guide/simulation/eam/">EAM</a> says that
+  an average atom needs a potential of the eam/alloy form, as <code>EAM.average</code> refuses an
+  <code>eam/fs</code> one.</li>
 <li><code>md_elastic_constants</code> takes <code>method=None</code> by default: the strains for a crystal, the
   fluctuations for a sheet, which wrinkles under a strain that compresses it. Strains of
   ±1 % on 16 × 16 cells of graphene with LCBOP at 100 K gave C11 217 N/m along x and

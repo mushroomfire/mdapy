@@ -689,6 +689,43 @@ def test_dislocation_lines_stay_in_the_box():
         render(system, dislocations=result, dislocation_radius=0)
 
 
+def test_dislocation_lines_by_character():
+    """Lines by the angle of each piece to its Burgers vector, screw blue to
+    edge red, as coolwarm; or one color."""
+    from mdapy.visualization import colormap
+    from mdapy.visualization._render import _character_colors
+
+    b = np.array([0.0, 0.0, 2.5])
+    pieces = np.array([[0.0, 0, 1], [0.0, 0, -3], [1.0, 0, 0], [1.0, 0, 1]])
+    expected = colormap(np.array([0.0, 0, 90, 45]), "coolwarm", value_range=(0, 90))
+    np.testing.assert_allclose(_character_colors(pieces, b), expected, atol=1e-6)
+    options = dict(view="front", width=160, height=160, background=None, style="fast")
+
+    def lit(system, result, **more):
+        hidden = np.zeros(len(system), dtype=bool)
+        drawn = render(system, atoms=hidden, dislocations=result, **more, **options)
+        boxed = render(system, atoms=hidden, **options)
+        rgb = drawn[(drawn[..., 3] > 127) & ~(boxed[..., 3] > 127)][:, :3].astype(int)
+        return rgb[rgb.max(axis=1) > 100]
+
+    screw = dislocation_quadrupole(
+        "bcc screw", 2.865, (243.3, 145.0, 116.1), (6, 10, 5), elements="Fe"
+    )
+    found = DislocationAnalysis("bcc").compute(screw)
+    blue = lit(screw, found, dislocation_color="character")
+    assert len(blue) > 20 and (blue[:, 2] > blue[:, 0] + 50).mean() > 0.9
+    edge = dislocation_quadrupole(
+        "fcc edge", 3.615, (168.4, 121.4, 75.4), (14, 8, 3), elements="Cu"
+    )
+    perfect = DislocationAnalysis("fcc", perfect_only=True).compute(edge)
+    red = lit(edge, perfect, dislocation_color="character")
+    assert len(red) > 20 and (red[:, 0] > red[:, 2] + 50).mean() > 0.9
+    one = lit(screw, found, dislocation_color=(1.0, 0.0, 0.0))
+    assert len(one) > 20 and (one[:, 0] > one[:, 1] + 50).mean() > 0.9
+    with pytest.raises(InvalidParameter, match="dislocation_color"):
+        render(screw, dislocations=found, dislocation_color="plaid")
+
+
 def test_burgers_vector_arrows():
     """An arrow from the middle of each line along its Burgers vector, in
     one color or in that of the line."""

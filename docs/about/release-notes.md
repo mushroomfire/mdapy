@@ -27,6 +27,10 @@
   when asked, between the pieces of the scattering of each wave vector, as the other long
   calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises
   `mdapy.errors.Cancelled`.
+- `render(..., dislocation_color="family")` colors dislocation lines by the family of their
+  Burgers vector, as before; `"character"` by the angle of each piece of a line to its
+  Burgers vector, from blue for screw to red for edge on coolwarm; or in one color. See
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
 
 ## 2.1.0
 

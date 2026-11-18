@@ -146,6 +146,7 @@ nav:
           - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
           - A collision cascade in tungsten: examples/radiation-cascade.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
+          - Generated training sets for aluminium: examples/aluminium-training.md
           - Lattice dynamics of solid argon: examples/argon.md
           - Elastic constants of graphene: examples/graphene-elastic.md
       - Many calculations:
@@ -266,8 +267,10 @@ nav:
           - Choosing frames: user-guide/mlip/selection.md
           - Errors of a model: user-guide/mlip/errors.md
           - Uncertainty and novelty: user-guide/mlip/uncertainty.md
+          - Coverage of descriptor space: user-guide/mlip/coverage.md
           - Checking frames: user-guide/mlip/checks.md
           - Perturbed structures: user-guide/mlip/perturbation.md
+          - Generated structures: user-guide/mlip/generation.md
       - Visualization:
           - Rendering: user-guide/visualization/rendering.md
           - Movies: user-guide/visualization/movies.md

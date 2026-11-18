@@ -446,6 +446,7 @@ def render(
     mesh_alpha: float = 1.0,
     dislocations: Any = None,
     dislocation_radius: float = 0.5,
+    dislocation_color: Any = "family",
     burgers_vectors: bool = False,
     burgers_scale: float = 3.0,
     burgers_radius: float = 0.3,
@@ -530,6 +531,11 @@ def render(
         the parts outside moved in through the opposite faces.
     dislocation_radius : float32, optional
         Radius of the tubes in Å. Default 0.5.
+    dislocation_color : optional
+        "family" for the color of the family of the Burgers vector of each
+        line, "character" for the angle of each piece of a line to its
+        Burgers vector, from blue for screw (0°) to red for edge (90°) on
+        the colormap coolwarm, or one color. Default "family".
     burgers_vectors : bool, optional
         Also draw the Burgers vector of each line: an arrow from the middle
         of the line along the vector in space. Default False.
@@ -774,12 +780,30 @@ def render(
         from mdapy.analysis import DislocationAnalysis
 
         palette = DislocationAnalysis.FAMILY_COLORS[dislocations.crystal]
+        if isinstance(dislocation_color, str) and dislocation_color in (
+            "family",
+            "character",
+        ):
+            one = None
+        else:
+            try:
+                one = _color(dislocation_color)
+            except InvalidParameter:
+                raise InvalidParameter(
+                    "dislocation_color must be family, character or one color, "
+                    f"not {dislocation_color!r}"
+                ) from None
         starts, ends, rgb = [], [], []
         for line in dislocations.lines:
             a, b = _inside(line.points, system.box)
             starts.append(a)
             ends.append(b)
-            rgb.append(np.tile(palette[line.family], (len(a), 1)))
+            if one is not None:
+                rgb.append(np.tile(one, (len(a), 1)))
+            elif dislocation_color == "character":
+                rgb.append(_character_colors(b - a, line.spatial_burgers))
+            else:
+                rgb.append(np.tile(palette[line.family], (len(a), 1)))
         starts, ends, rgb = map(np.concatenate, (starts, ends, rgb))
         radius = float(dislocation_radius)
         if not radius > 0:
@@ -967,6 +991,15 @@ def _cones(bases, tips, radii, sides):
     disks, _ = _disks(bases, axes, radii, sides)
     triangles = np.concatenate([mantle, disks.reshape(len(bases), sides, 3, 3)], axis=1)
     return triangles.reshape(-1, 3, 3), np.repeat(np.arange(len(bases)), 2 * sides)
+
+
+def _character_colors(pieces: np.ndarray, burgers: np.ndarray) -> np.ndarray:
+    """(P, 3) colors of the pieces of a line by their angle to the Burgers
+    vector, 0° screw blue to 90° edge red."""
+    lengths = np.linalg.norm(pieces, axis=1) * np.linalg.norm(burgers)
+    cosine = np.abs(pieces @ burgers) / np.where(lengths > 0, lengths, 1.0)
+    angle = np.degrees(np.arccos(np.clip(cosine, 0.0, 1.0)))
+    return _colormap(angle, "coolwarm", value_range=(0.0, 90.0))
 
 
 def _burgers_arrows(scene, dislocations, box, palette, scale, radius, color, id_):

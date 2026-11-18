@@ -28,8 +28,20 @@
 
 ::: mdapy.mlip.novelty
 
-## Checking and perturbing frames
+## Coverage of descriptor space
+
+::: mdapy.mlip.QUESTS
+
+::: mdapy.mlip.entropy
+
+::: mdapy.mlip.information_gain
+
+## Checking, perturbing and generating frames
 
 ::: mdapy.mlip.check_frames
 
 ::: mdapy.mlip.perturb
+
+::: mdapy.mlip.generate_structures
+
+::: mdapy.mlip.GeneratedStructures

@@ -104,6 +104,15 @@ def test_detect_format_from_patterns(single_frame_format):
         mdapy.io.detect_format("water")  # patterns are case-sensitive
 
 
+@pytest.mark.parametrize("name", ["lines.ca", "dir/LINES.CA", "lines.ca.gz"])
+def test_a_ca_file_names_the_reader_of_dislocations(name):
+    """A CA file holds dislocations, not atoms: the error names its reader."""
+    with pytest.raises(UnsupportedFormat, match="mdapy.analysis.read_dislocations"):
+        mdapy.io.detect_format(name)
+    with pytest.raises(UnsupportedFormat, match="read_dislocations"):
+        mdapy.io.read(name)
+
+
 @pytest.mark.parametrize("name", ["a.unknown", "noextension", ".gz", "a.gz"])
 def test_detect_format_unknown(name):
     with pytest.raises(UnsupportedFormat, match="pass format=, one of cif, extxyz"):

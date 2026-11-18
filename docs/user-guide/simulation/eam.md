@@ -42,7 +42,9 @@ files of `pair_style eam`, and computes every property. The two setfl
 formats have the same lines, but an `eam/fs` file holds more values, which
 tells them apart: see [Finnis–Sinclair potentials](#finnissinclair-potentials).
 A funcfl file holds numbers where a setfl file names its elements: see
-[Funcfl files](#funcfl-files).
+[Funcfl files](#funcfl-files). `EAM(path, *, device="cpu", precision=None)`
+computes on the processor, or with `device="cuda"` on an NVIDIA GPU, in
+mixed or double precision: see [On the GPU](gpu.md).
 
 | Attribute | Type | Meaning |
 |---|---|---|
@@ -50,13 +52,14 @@ A funcfl file holds numbers where a setfl file names its elements: see
 | `elements` | tuple of str or `None` | the elements of the potential, in the order of the file; `None` for an average-atom potential |
 | `masses` | (n,) float64 | their masses in amu; the mass of the average atom for an average-atom potential |
 | `cutoff` | float64 | cutoff radius in Å |
+| `device`, `precision` | str | where it computes and in what precision, `"cpu"` and `"double"` or `"cuda"` and `"mixed"` or `"double"` |
 
 | Method | Returns |
 |---|---|
 | `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
 | `write(path)` | writes the potential as an `eam/alloy` file, or an `eam/fs` file for a Finnis–Sinclair potential, which LAMMPS reads and which reads back to the same tables |
-| `EAM.zhou(elements, *, nr=2000, nrho=2000)` | the potential of Zhou, Johnson and Wadley for the elements |
-| `average(fractions)` | the average-atom potential of an alloy of the elements, for a potential of the `eam/alloy` form; see [Average atom](#average-atom) |
+| `EAM.zhou(elements, *, nr=2000, nrho=2000, device="cpu", precision=None)` | the potential of Zhou, Johnson and Wadley for the elements |
+| `average(fractions)` | the average-atom potential of an alloy of the elements, for a potential of the `eam/alloy` form, on the device of this one; see [Average atom](#average-atom) |
 
 The atoms need an `element` column; elements the potential does not have
 raise `InvalidParameter`, and a malformed file raises
@@ -107,6 +110,7 @@ $$
 | `elements` | sequence of str | | | the elements, in the order of the file |
 | `nr` | int32 | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$, with $r_e$ the nearest-neighbor distance of an element in Zhou's parameters |
 | `nrho` | int32 | 2000 | | points of the embedding tables in density |
+| `device`, `precision` | str | `"cpu"`, `None` | | as for `EAM` |
 
 The parameters are fitted to the pure metals; the pair potentials between
 elements come from the rule above, not from a fit to alloys. An unknown or

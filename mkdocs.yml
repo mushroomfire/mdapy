@@ -242,6 +242,7 @@ nav:
           - Relaxation and dynamics:
               - Energy minimization: user-guide/simulation/minimize.md
               - Molecular dynamics: user-guide/simulation/dynamics.md
+              - On the GPU: user-guide/simulation/gpu.md
               - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:
               - Elastic constants: user-guide/simulation/elastic-constants.md
@@ -292,6 +293,7 @@ nav:
       - Analyses: performance/comparison.md
       - Reading and writing files: performance/files.md
       - Building structures: performance/builders.md
+      - Molecular dynamics on the GPU: performance/gpu.md
   - Reference:
       - Python API:
           - Overview: reference/api/index.md

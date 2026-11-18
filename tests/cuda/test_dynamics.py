@@ -74,8 +74,9 @@ def test_mixed_precision_keeps_the_energy():
         md.velocities(600, seed=1)
         md.run(5000, thermo=500)
         total = md.thermo["total_energy"].to_numpy()
-    # eV per atom over 10 ps; the perfect crystal at the start, all its
-    # pairs alike, rounds alike in single precision and is 5e-5 off
+    # eV per atom over 10 ps, after the first record: from the perfect
+    # crystal, where no force acts, the error of the time step moves the
+    # energy by 5e-5 in both precisions
     assert np.ptp(total[1:]) / len(system) < 1e-5
     assert abs(total[0] - total[1:].mean()) / len(system) < 1e-4
     cpu = EAM.zhou(["Cu", "Ni"])

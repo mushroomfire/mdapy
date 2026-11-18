@@ -7,8 +7,10 @@
   single precision for the terms of each pair and double for the positions and the
   sums, as the GPU package of LAMMPS in mixed precision) or `"double"`, and compute on
   the device with a neighbor list of their own; every calculator has `device` and
-  `precision`. The GPU part, the module `mdapy._cuda`, is built from source with the
-  CUDA toolkit, `-Ccmake.define.MDAPY_CUDA=ON`.
+  `precision`. `MolecularDynamics` with such a potential runs on the GPU whole, in
+  every ensemble, its atoms copied back only for records and frames. The GPU part, the
+  module `mdapy._cuda`, is built from source with the CUDA toolkit,
+  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/simulation/gpu.md).
 - Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:

@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.2.0 (not released)
+
+- `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
+  when asked, between the pieces of the scattering of each wave vector, as the other long
+  calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises
+  `mdapy.errors.Cancelled`.
+
 ## 2.1.0
 
 MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

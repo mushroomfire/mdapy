@@ -5,6 +5,8 @@
 
 #include "calculators/nep.h"
 
+#include "calculators/many_body.h"
+
 #include <algorithm>
 #include <cmath>
 #include <numeric>
@@ -170,64 +172,6 @@ void zbl_pair(const double* row, double r, double& energy, double& derivative) {
     derivative = vp * s + v * sp;
 }
 
-// For each pair p = (i, j, s) of a full neighbor list, the pair (j, i, -s).
-std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offsets,
-                                        const index_t* neighbors, const std::int8_t* shifts,
-                                        const Control& control) {
-    const std::int64_t count = offsets[n];
-    // each atom's pairs ordered by neighbor and shift
-    std::vector<std::int64_t> order(static_cast<std::size_t>(count));
-    const auto before = [&](std::int64_t a, std::int64_t b) {
-        if (neighbors[a] != neighbors[b]) {
-            return neighbors[a] < neighbors[b];
-        }
-        for (int e = 0; e < 3; ++e) {
-            if (shifts[3 * a + e] != shifts[3 * b + e]) {
-                return shifts[3 * a + e] < shifts[3 * b + e];
-            }
-        }
-        return false;
-    };
-    parallel_for(
-        n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t i = begin; i < end; ++i) {
-                std::iota(order.begin() + offsets[i], order.begin() + offsets[i + 1], offsets[i]);
-                std::sort(order.begin() + offsets[i], order.begin() + offsets[i + 1], before);
-            }
-        },
-        control);
-    std::vector<std::int64_t> reverse(static_cast<std::size_t>(count), -1);
-    parallel_for(
-        n, 0,
-        [&](std::int64_t begin, std::int64_t end) {
-            for (std::int64_t i = begin; i < end; ++i) {
-                for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const std::int64_t j = neighbors[p];
-                    const std::int64_t key[4] = {i, -shifts[3 * p], -shifts[3 * p + 1],
-                                                 -shifts[3 * p + 2]};
-                    const auto below = [&](std::int64_t q, const std::int64_t* k) {
-                        const std::int64_t mine[4] = {neighbors[q], shifts[3 * q],
-                                                      shifts[3 * q + 1], shifts[3 * q + 2]};
-                        return std::lexicographical_compare(mine, mine + 4, k, k + 4);
-                    };
-                    const auto first = order.begin() + offsets[j];
-                    const auto last = order.begin() + offsets[j + 1];
-                    const auto found = std::lower_bound(first, last, key, below);
-                    if (found != last && neighbors[*found] == i &&
-                        shifts[3 * *found] == key[1] && shifts[3 * *found + 1] == key[2] &&
-                        shifts[3 * *found + 2] == key[3]) {
-                        reverse[p] = *found;
-                    }
-                }
-            }
-        },
-        control);
-    if (std::find(reverse.begin(), reverse.end(), -1) != reverse.end()) {
-        throw std::invalid_argument("the neighbor list is not symmetric");
-    }
-    return reverse;
-}
 
 }  // namespace
 

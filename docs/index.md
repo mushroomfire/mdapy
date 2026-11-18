@@ -73,7 +73,7 @@ opens its pages.
 
 [<b>Neighbor lists</b><span>built once, shared by analyses and calculators</span>](basics/neighbor.md){ .feature-card }
 
-[<b>Calculators</b><span>native EAM · NEP; LAMMPS · ASE · VASP</span>](user-guide/simulation/calculators.md){ .feature-card }
+[<b>Calculators</b><span>native EAM · MEAM · Tersoff · NEP and more; LAMMPS · ASE · VASP</span>](user-guide/simulation/calculators.md){ .feature-card }
 
 </div>
 </div>

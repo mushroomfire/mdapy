@@ -12,6 +12,18 @@
 
 ::: mdapy.calculators.EAM
 
+::: mdapy.calculators.MEAM
+
+::: mdapy.calculators.ADP
+
+::: mdapy.calculators.Tersoff
+
+::: mdapy.calculators.StillingerWeber
+
+::: mdapy.calculators.LennardJones
+
+::: mdapy.calculators.Morse
+
 ::: mdapy.calculators.NEP
 
 ## Interfaces

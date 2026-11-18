@@ -3,19 +3,15 @@ GPU does with the module of the GPU, here a stand-in that computes on the
 processor; tests/cuda compares the GPU itself with the processor."""
 
 import sys
-import types
 
 import numpy as np
 import pytest
 
-from mdapy import _core
 from mdapy.calculators import EAM, LennardJones, Morse, _gpu
-from mdapy.core.box import Box
-from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
-from mdapy.neighbor import NeighborList
 
 from .eam_files import alloy
+from .gpu_stand_in import stand_in
 
 
 def test_device_and_precision():
@@ -42,84 +38,6 @@ def test_without_the_gpu_part():
             EAM.zhou(["Cu"], device="cuda")
     else:
         pytest.skip("the GPU part is there")
-
-
-class _Atoms:
-    def __init__(self, n):
-        self.size = n
-        self.species = self.positions = self.result = None
-
-    def set_species(self, species):
-        self.species = species.copy()
-
-    def set_positions(self, positions):
-        self.positions = positions.copy()
-
-    def forces(self):
-        return self.result[1]
-
-    def energies(self):
-        return self.result[0]
-
-    def virials(self):
-        return self.result[2]
-
-    def total_energy(self):
-        return float(self.result[0].sum())
-
-    def total_virial(self):
-        return self.result[2].sum(axis=0)
-
-
-class _Neighbors:
-    def __init__(self, cutoff, skin):
-        self.cutoff, self.skin = cutoff, skin
-
-    def update(self, atoms, h, lo, pbc):
-        if min(np.diag(h)) <= 2 * (self.cutoff + self.skin):
-            raise ValueError("the box is too thin")
-        return True
-
-
-class _Potential:
-    """A potential of the stand-in: the kernels of the processor."""
-
-    def __init__(self, make, compute):
-        self.native, self.compute_native = make, compute
-        self.asked = []
-
-    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic):
-        self.asked.append((energy, virial, atomic))
-        system = System(atoms.positions, Box(h, origin=lo, pbc=pbc))
-        nl = NeighborList.build(system, neighbors.cutoff)
-        atoms.result = self.compute_native(
-            self.native, atoms.species, atoms.positions, h, nl.offsets, nl.j,
-            nl.shifts, None, None,
-        )  # fmt: skip
-
-
-def stand_in(found=True):
-    native = _core.calculators
-
-    def make_eam(embedding, density, pair, drho, dr, cutoff, rho_max, precision):
-        made = native.make_eam(
-            embedding, density, pair, drho, dr, cutoff, rho_max=rho_max
-        )
-        return _Potential(made, native.compute_eam)
-
-    def make_pair(style, species, cutsq, offset, coefficients, precision):
-        made = native.make_pair(style, cutsq, offset, coefficients)
-        return _Potential(made, native.compute_pair)
-
-    def device_name():
-        if not found:
-            raise RuntimeError("no CUDA device: none was found")
-        return "stand-in"
-
-    return types.SimpleNamespace(
-        Atoms=_Atoms, Neighbors=_Neighbors, make_eam=make_eam, make_pair=make_pair,
-        device_name=device_name,
-    )  # fmt: skip
 
 
 def test_a_calculator_on_the_gpu(monkeypatch):

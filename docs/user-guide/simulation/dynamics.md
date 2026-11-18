@@ -114,7 +114,7 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     md.velocities(600, seed=1)
     md.command(
         "dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz\n"
-        "dump_modify frames element Cu sort id"
+        "dump_modify frames element Cu time yes"
     )
     md.run(5000, ensemble="nvt", temperature=300)
     md.command("undump frames")
@@ -122,15 +122,18 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
 cna = CommonNeighborAnalysis()
 with read_trajectory("frames.*.lammpstrj") as trajectory:
     for frame in trajectory:  # one frame in memory at a time
-        print(frame.info["timestep"], cna.compute(frame).counts()["fcc"])
+        print(frame.info["time"], cna.compute(frame).counts()["fcc"])
 ```
 
-The atoms are numbered from 1 in the order of `system`, and `sort id` writes
-them in that order; LAMMPS otherwise writes them as it holds them, which
-changes as it runs. Their positions are those of LAMMPS, which are those of
-`system` for a box at the origin with its first vector along x and its second
-in the xy plane, as `build_crystal` makes them, to the six digits a dump
-writes by default (`format float %.10g` writes more).
+LAMMPS writes the atoms in the order it holds them, which changes as it runs,
+each with its `id`, numbered from 1 in the order of `system`.
+[`AtomicDisplacement`](../analysis/displacement.md) and
+[`MeanSquaredDisplacement`](../analysis/msd.md) match the atoms of frames by
+it, and `frame.sort("id")` puts them in the order of `system`. Their positions
+are those of LAMMPS, which are those of `system` for a box at the origin with
+its first vector along x and its second in the xy plane, as `build_crystal`
+makes them, to the six digits a dump writes by default (`format float %.10g`
+writes more).
 
 ## Results
 

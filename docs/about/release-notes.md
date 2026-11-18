@@ -2,6 +2,11 @@
 
 ## 2.1.0 (not released)
 
+- The example [LAMMPS on many processes with MPI](../examples/mpi.md) is two scripts: one
+  started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
+  frames with a dump as it runs; the other analyses the files with every core. The frames of
+  `save_every` stay in the memory of every process, about 60 bytes per atom each; see
+  [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files).
 - `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
   cutoff with its change over an eighth of the range of the volumes, the spacing of the
   default nine, whatever their number. It compared it with the change between neighbouring

@@ -61,35 +61,15 @@ nb::object new_array(std::size_t ndim, const std::size_t* shape, T*& data) {
 // of its table; LAMMPS puts it one step beyond for funcfl files
 calculators::EamPotential make_eam(Table embedding, Table density, Table pair, double drho,
                                    double dr, double cutoff, std::optional<double> rho_max) {
-    calculators::EamPotential potential;
-    const auto elements = static_cast<int>(embedding.shape(0));
-    // one density per element, or per element and element of the neighbour
-    const auto per_element = static_cast<std::size_t>(elements);
-    const bool per_pair = elements > 1 && density.shape(0) == per_element * per_element;
-    if ((density.shape(0) != per_element && !per_pair) ||
-        pair.shape(0) != static_cast<std::size_t>(elements * (elements + 1) / 2) ||
-        pair.shape(1) != density.shape(1)) {
+    if (pair.shape(1) != density.shape(1)) {
         throw std::invalid_argument("inconsistent EAM tables");
     }
-    potential.density_per_pair = per_pair;
-    if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
-        throw std::invalid_argument("EAM table spacings and cutoff must be positive");
-    }
-    potential.elements = elements;
-    potential.cutoff = cutoff;
     const auto nrho = static_cast<int>(embedding.shape(1));
-    const auto nr = static_cast<int>(density.shape(1));
-    potential.rho_max = rho_max.value_or((nrho - 1) * drho);
-    for (int e = 0; e < elements; ++e) {
-        potential.embedding.emplace_back(embedding.data() + e * nrho, nrho, drho);
-    }
-    for (std::size_t k = 0; k < density.shape(0); ++k) {
-        potential.density.emplace_back(density.data() + k * nr, nr, dr);
-    }
-    for (std::size_t k = 0; k < pair.shape(0); ++k) {
-        potential.pair.emplace_back(pair.data() + k * nr, nr, dr);
-    }
-    return potential;
+    return calculators::make_eam_potential(
+        embedding.data(), static_cast<int>(embedding.shape(0)), nrho, density.data(),
+        static_cast<int>(density.shape(0)), pair.data(), static_cast<int>(pair.shape(0)),
+        static_cast<int>(density.shape(1)), drho, dr, cutoff,
+        rho_max.value_or((nrho - 1) * drho));
 }
 
 nb::tuple compute_eam(const calculators::EamPotential& potential, Species species,
@@ -155,11 +135,11 @@ void check_input(std::int64_t count, Species species, Positions positions, Offse
 // coefficients: (species, species, 4), see PairPotential.
 calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat offset,
                                      Flat coefficients) {
-    calculators::PairPotential potential;
+    calculators::PairStyle kind;
     if (style == "lj/cut") {
-        potential.style = calculators::PairStyle::LennardJones;
+        kind = calculators::PairStyle::LennardJones;
     } else if (style == "morse") {
-        potential.style = calculators::PairStyle::Morse;
+        kind = calculators::PairStyle::Morse;
     } else {
         throw std::invalid_argument("unknown pair style");
     }
@@ -168,17 +148,8 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
         coefficients.shape(0) != 4 * t * t) {
         throw std::invalid_argument("inconsistent pair tables");
     }
-    potential.species = static_cast<int>(t);
-    potential.cutsq.assign(cutsq.data(), cutsq.data() + t * t);
-    potential.offset.assign(offset.data(), offset.data() + t * t);
-    potential.coefficients.assign(coefficients.data(), coefficients.data() + 4 * t * t);
-    for (const double c2 : potential.cutsq) {
-        if (!(c2 >= 0.0)) {
-            throw std::invalid_argument("cutoffs must not be negative");
-        }
-        potential.cutoff = std::max(potential.cutoff, std::sqrt(c2));
-    }
-    return potential;
+    return calculators::make_pair_potential(kind, static_cast<int>(t), cutsq.data(),
+                                            offset.data(), coefficients.data());
 }
 
 nb::tuple compute_pair(const calculators::PairPotential& potential, Species species,

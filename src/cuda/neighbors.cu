@@ -1,0 +1,331 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+//
+// The neighbor list on the device: the atoms binned into cells at least as
+// wide as the cutoff and the skin, sorted by cell with a stable sort, so that
+// the list comes out in the same order every time; each atom then looks at
+// the atoms of its cell and the cells around it.
+
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <stdexcept>
+#include <string>
+#include <vector>
+
+#include "cuda/atoms.cuh"
+#include "cuda/neighbors.cuh"
+
+namespace mdapy::cuda {
+
+namespace {
+
+constexpr double kPi = 3.14159265358979323846;
+
+// The thickness of the box along each vector: its volume over the area of
+// the face of the other two.
+void thickness(const Box& box, double out[3]) {
+    const double* h = box.h;
+    auto cross = [&](int a, int b, double c[3]) {
+        c[0] = h[3 * a + 1] * h[3 * b + 2] - h[3 * a + 2] * h[3 * b + 1];
+        c[1] = h[3 * a + 2] * h[3 * b] - h[3 * a] * h[3 * b + 2];
+        c[2] = h[3 * a] * h[3 * b + 1] - h[3 * a + 1] * h[3 * b];
+    };
+    double c[3];
+    cross(1, 2, c);
+    const double volume = std::fabs(h[0] * c[0] + h[1] * c[1] + h[2] * c[2]);
+    for (int k = 0; k < 3; ++k) {
+        cross((k + 1) % 3, (k + 2) % 3, c);
+        out[k] = volume / std::sqrt(c[0] * c[0] + c[1] * c[1] + c[2] * c[2]);
+    }
+}
+
+double volume_of(const Box& box) {
+    const double* h = box.h;
+    return std::fabs(h[0] * (h[4] * h[8] - h[5] * h[7]) - h[1] * (h[3] * h[8] - h[5] * h[6]) +
+                     h[2] * (h[3] * h[7] - h[4] * h[6]));
+}
+
+// m = inverse(a) b for 3 x 3 matrices of rows.
+void inverse_times(const Box& a, const Box& b, double m[9]) {
+    const DeviceBox<double> da = device_box<double>(a);
+    for (int r = 0; r < 3; ++r) {
+        for (int c = 0; c < 3; ++c) {
+            double s = 0.0;
+            for (int k = 0; k < 3; ++k) {
+                s += da.inverse[3 * r + k] * b.h[3 * k + c];
+            }
+            m[3 * r + c] = s;
+        }
+    }
+}
+
+__global__ void bin(std::int64_t n, const double4* x, DeviceBox<double> box, int3 cells,
+                    std::int32_t* keys, std::int32_t* order) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double4 p = x[i];
+    const double r[3] = {p.x - box.lo[0], p.y - box.lo[1], p.z - box.lo[2]};
+    const int count[3] = {cells.x, cells.y, cells.z};
+    int c[3];
+    for (int k = 0; k < 3; ++k) {
+        double s = r[0] * box.inverse[k] + r[1] * box.inverse[3 + k] + r[2] * box.inverse[6 + k];
+        if (box.pbc[k]) s -= floor(s);
+        // atoms outside a direction that is not periodic go to its first or
+        // last cell, which the cells around them still reach
+        const double scaled = s * count[k];
+        // (a position that is not finite lands in a cell too, never outside)
+        c[k] = !(scaled >= 0.0) ? 0
+                                : (scaled >= count[k] ? count[k] - 1 : static_cast<int>(scaled));
+    }
+    keys[i] = (c[2] * cells.y + c[1]) * cells.x + c[0];
+    order[i] = static_cast<std::int32_t>(i);
+}
+
+__global__ void bounds(std::int64_t n, const std::int32_t* keys, std::int32_t* begin,
+                       std::int32_t* end) {
+    const std::int64_t p = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (p >= n) return;
+    const std::int32_t k = keys[p];
+    if (p == 0 || keys[p - 1] != k) begin[k] = static_cast<std::int32_t>(p);
+    if (p == n - 1 || keys[p + 1] != k) end[k] = static_cast<std::int32_t>(p + 1);
+}
+
+// The cells around a cell along a direction: offsets from low to high,
+// wrapped when periodic, else those inside.
+struct Around {
+    int low[3], high[3], wrap[3];
+};
+
+__global__ void list(std::int64_t n, const double4* x, DeviceBox<double> box, int3 cells,
+                     Around around, const std::int32_t* keys, const std::int32_t* sorted_keys,
+                     const std::int32_t* sorted, const std::int32_t* begin,
+                     const std::int32_t* end, double reach2, int most, std::int32_t* indices,
+                     std::int32_t* counts, int* found) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    (void)sorted_keys;
+    const double4 xi = x[i];
+    const int key = keys[i];
+    const int own[3] = {key % cells.x, (key / cells.x) % cells.y, key / (cells.x * cells.y)};
+    const int count[3] = {cells.x, cells.y, cells.z};
+    int m = 0;
+    for (int dz = around.low[2]; dz <= around.high[2]; ++dz) {
+        int cz = own[2] + dz;
+        if (around.wrap[2]) cz = (cz + count[2]) % count[2];
+        else if (cz < 0 || cz >= count[2]) continue;
+        for (int dy = around.low[1]; dy <= around.high[1]; ++dy) {
+            int cy = own[1] + dy;
+            if (around.wrap[1]) cy = (cy + count[1]) % count[1];
+            else if (cy < 0 || cy >= count[1]) continue;
+            for (int dx = around.low[0]; dx <= around.high[0]; ++dx) {
+                int cx = own[0] + dx;
+                if (around.wrap[0]) cx = (cx + count[0]) % count[0];
+                else if (cx < 0 || cx >= count[0]) continue;
+                const int cell = (cz * cells.y + cy) * cells.x + cx;
+                for (int p = begin[cell]; p < end[cell]; ++p) {
+                    const int j = sorted[p];
+                    if (j == i) continue;
+                    const double4 xj = x[j];
+                    double rx = xj.x - xi.x, ry = xj.y - xi.y, rz = xj.z - xi.z;
+                    minimum_image(box, rx, ry, rz);
+                    if (rx * rx + ry * ry + rz * rz < reach2) {
+                        if (m < most) indices[static_cast<std::int64_t>(m) * n + i] = j;
+                        ++m;
+                    }
+                }
+            }
+        }
+    }
+    counts[i] = m < most ? m : most;
+    atomicMax(found, m);
+}
+
+// The square of how far each atom moved since the list was built, without
+// what moving with the box gives it: (x - lo) - (x0 - lo0) m, m = h0^-1 h.
+struct Matrix {
+    double m[9];
+};
+
+__global__ void moved(std::int64_t n, const double4* x, const double4* x0, double3 lo,
+                      double3 lo0, Matrix m, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double4 a = x[i];
+    const double4 b = x0[i];
+    const double r0[3] = {b.x - lo0.x, b.y - lo0.y, b.z - lo0.z};
+    double d[3] = {a.x - lo.x, a.y - lo.y, a.z - lo.z};
+    for (int c = 0; c < 3; ++c) {
+        d[c] -= r0[0] * m.m[c] + r0[1] * m.m[3 + c] + r0[2] * m.m[6 + c];
+    }
+    out[i] = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+}
+
+}  // namespace
+
+Neighbors::Neighbors(double cutoff, double skin) : impl_(std::make_unique<Impl>()) {
+    if (!(cutoff > 0.0) || !(skin >= 0.0)) {
+        throw std::invalid_argument("the cutoff must be positive and the skin not negative");
+    }
+    impl_->cutoff = cutoff;
+    impl_->skin = skin;
+    impl_->found.resize(1);
+}
+
+Neighbors::~Neighbors() = default;
+
+double Neighbors::cutoff() const { return impl_->cutoff; }
+double Neighbors::skin() const { return impl_->skin; }
+std::int64_t Neighbors::builds() const { return impl_->builds; }
+int Neighbors::most() const { return impl_->most; }
+
+bool Neighbors::update(const Atoms& atoms, const Box& box) {
+    Impl& l = *impl_;
+    const Atoms::Impl& a = atoms.impl();
+    const double reach = l.cutoff + l.skin;
+    double thick[3];
+    thickness(box, thick);
+    for (int k = 0; k < 3; ++k) {
+        if (box.pbc[k] && !(thick[k] > 2.0 * reach)) {
+            throw std::invalid_argument(
+                "the box is " + std::to_string(thick[k]) + " A thick along its vector " +
+                std::to_string(k + 1) + ": on the GPU it must be thicker than twice the cutoff "
+                "and the skin, " + std::to_string(2.0 * reach) +
+                " A, along each periodic direction; compute smaller boxes on the processor");
+        }
+    }
+    const DeviceBox<double> dbox = device_box<double>(box);
+    const std::int64_t n = a.n;
+    bool build = l.builds == 0 || l.n != n;
+    if (!build && l.atoms_version == a.version &&
+        std::memcmp(&l.box_built, &box, sizeof(Box)) == 0) {
+        return false;  // nothing moved
+    }
+    if (!build) {
+        // the atoms moved, and the box changed shape: a pair can come closer
+        // by twice the largest displacement and by its length times the strain
+        double m[9];
+        inverse_times(l.box_built, box, m);
+        double strain = 0.0;
+        for (int r = 0; r < 3; ++r) {
+            for (int c = 0; c < 3; ++c) {
+                const double e = m[3 * r + c] - (r == c ? 1.0 : 0.0);
+                strain += e * e;
+            }
+        }
+        strain = std::sqrt(strain);
+        Matrix mm{};
+        std::memcpy(mm.m, m, sizeof(m));
+        l.displacement.resize(static_cast<std::size_t>(n));
+        moved<<<blocks(n), kBlock>>>(
+            n, a.x.data(), l.x_built.data(), make_double3(box.lo[0], box.lo[1], box.lo[2]),
+            make_double3(l.box_built.lo[0], l.box_built.lo[1], l.box_built.lo[2]), mm,
+            l.displacement.data());
+        MDAPY_LAUNCHED();
+        const double farthest = std::sqrt(largest(l.displacement.data(), n));
+        if (!std::isfinite(farthest)) {
+            throw NotFinite("the positions are not finite: atoms may have overlapped");
+        }
+        build = 2.0 * farthest + reach * strain > l.skin;
+    }
+    if (!build) {
+        return false;
+    }
+    // cells at least as wide as the reach, at most about 8 per atom
+    int cells[3];
+    for (int k = 0; k < 3; ++k) {
+        cells[k] = std::max(1, static_cast<int>(std::floor(thick[k] / reach)));
+    }
+    while (static_cast<double>(cells[0]) * cells[1] * cells[2] > 8.0 * n + 64.0) {
+        const int k = static_cast<int>(std::max_element(cells, cells + 3) - cells);
+        cells[k] = std::max(1, cells[k] / 2);
+    }
+    const int total = cells[0] * cells[1] * cells[2];
+    Around around{};
+    for (int k = 0; k < 3; ++k) {
+        if (box.pbc[k]) {
+            around.wrap[k] = 1;
+            around.low[k] = cells[k] >= 3 ? -1 : 0;
+            around.high[k] = cells[k] >= 2 ? 1 : 0;
+        } else {
+            around.wrap[k] = 0;
+            around.low[k] = -1;
+            around.high[k] = 1;
+        }
+    }
+    const auto size = static_cast<std::size_t>(n);
+    l.keys.resize(size);
+    l.keys_sorted.resize(size);
+    l.order.resize(size);
+    l.order_sorted.resize(size);
+    l.counts.resize(size);
+    l.cell_begin.resize(static_cast<std::size_t>(total));
+    l.cell_end.resize(static_cast<std::size_t>(total));
+    const int3 grid = make_int3(cells[0], cells[1], cells[2]);
+    bin<<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, l.keys.data(), l.order.data());
+    MDAPY_LAUNCHED();
+    int bits = 1;
+    while ((1 << bits) < total) ++bits;
+    std::size_t scratch = 0;
+    MDAPY_CUDA(cub::DeviceRadixSort::SortPairs(nullptr, scratch, l.keys.data(),
+                                               l.keys_sorted.data(), l.order.data(),
+                                               l.order_sorted.data(), static_cast<int>(n), 0,
+                                               bits));
+    if (l.sort_scratch.size() < scratch) l.sort_scratch.resize(scratch);
+    MDAPY_CUDA(cub::DeviceRadixSort::SortPairs(l.sort_scratch.data(), scratch, l.keys.data(),
+                                               l.keys_sorted.data(), l.order.data(),
+                                               l.order_sorted.data(), static_cast<int>(n), 0,
+                                               bits));
+    l.cell_begin.zero();
+    l.cell_end.zero();
+    bounds<<<blocks(n), kBlock>>>(n, l.keys_sorted.data(), l.cell_begin.data(),
+                                  l.cell_end.data());
+    MDAPY_LAUNCHED();
+    if (l.most == 0) {
+        const double density = n / volume_of(box);
+        l.most = static_cast<int>(std::ceil(1.3 * density * 4.0 / 3.0 * kPi * reach * reach *
+                                            reach)) + 8;
+    }
+    for (;;) {
+        l.indices.resize(static_cast<std::size_t>(l.most) * size);
+        l.found.zero();
+        list<<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around, l.keys.data(),
+                                    l.keys_sorted.data(), l.order_sorted.data(),
+                                    l.cell_begin.data(), l.cell_end.data(), reach * reach, l.most,
+                                    l.indices.data(), l.counts.data(), l.found.data());
+        MDAPY_LAUNCHED();
+        int found = 0;
+        l.found.download(&found, 1);
+        if (found <= l.most) break;
+        l.most = found + found / 8 + 4;  // more columns, and once more
+    }
+    l.x_built.resize(size);
+    MDAPY_CUDA(cudaMemcpy(l.x_built.data(), a.x.data(), size * sizeof(double4),
+                          cudaMemcpyDeviceToDevice));
+    l.box_built = box;
+    l.atoms_version = a.version;
+    l.n = n;
+    ++l.builds;
+    return true;
+}
+
+void Neighbors::get(std::int32_t* counts, std::int32_t* indices) const {
+    const Impl& l = *impl_;
+    const auto n = static_cast<std::size_t>(l.n);
+    const auto most = static_cast<std::size_t>(l.most);
+    std::vector<std::int32_t> columns(most * n);
+    l.counts.download(counts, n);
+    l.indices.download(columns.data(), columns.size());
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t k = 0; k < most; ++k) {
+            indices[i * most + k] =
+                static_cast<int>(k) < counts[i] ? columns[k * n + i] : -1;
+        }
+    }
+}
+
+}  // namespace mdapy::cuda

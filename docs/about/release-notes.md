@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
+  `LennardJones` and `Morse` take `device="cuda"` and `precision`, `"mixed"` (by default,
+  single precision for the terms of each pair and double for the positions and the
+  sums, as the GPU package of LAMMPS in mixed precision) or `"double"`, and compute on
+  the device with a neighbor list of their own; every calculator has `device` and
+  `precision`. The GPU part, the module `mdapy._cuda`, is built from source with the
+  CUDA toolkit, `-Ccmake.define.MDAPY_CUDA=ON`.
 - Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:

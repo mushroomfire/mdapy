@@ -51,6 +51,36 @@ void Spline::evaluate(double x, double& value, double& derivative) const {
     derivative = (c[0] * p + c[1]) * p + c[2];
 }
 
+EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
+                                const double* density, int densities, const double* pair,
+                                int pairs, int nr, double drho, double dr, double cutoff,
+                                double rho_max) {
+    EamPotential potential;
+    // one density per element, or per element and element of the neighbour
+    const bool per_pair = elements > 1 && densities == elements * elements;
+    if ((densities != elements && !per_pair) || pairs != elements * (elements + 1) / 2) {
+        throw std::invalid_argument("inconsistent EAM tables");
+    }
+    if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
+        throw std::invalid_argument("EAM table spacings and cutoff must be positive");
+    }
+    potential.density_per_pair = per_pair;
+    potential.elements = elements;
+    potential.cutoff = cutoff;
+    potential.rho_max = rho_max;
+    for (int e = 0; e < elements; ++e) {
+        potential.embedding.emplace_back(embedding + static_cast<std::size_t>(e) * nrho, nrho,
+                                         drho);
+    }
+    for (int k = 0; k < densities; ++k) {
+        potential.density.emplace_back(density + static_cast<std::size_t>(k) * nr, nr, dr);
+    }
+    for (int k = 0; k < pairs; ++k) {
+        potential.pair.emplace_back(pair + static_cast<std::size_t>(k) * nr, nr, dr);
+    }
+    return potential;
+}
+
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,

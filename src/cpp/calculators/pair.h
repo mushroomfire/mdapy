@@ -33,6 +33,12 @@ struct PairPotential {
 // neighbor list in CSR form whose pair vectors are those of
 // neighbor::pair_vector. Each atom gathers its own pairs; the energy and the
 // virial of each pair are shared equally by its two atoms.
+// The potential of tables of species x species entries: squared cutoffs,
+// energies taken off and 4 coefficients each. Throws std::invalid_argument
+// for negative cutoffs.
+PairPotential make_pair_potential(PairStyle style, int species, const double* cutsq,
+                                  const double* offset, const double* coefficients);
+
 void compute_pair(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,

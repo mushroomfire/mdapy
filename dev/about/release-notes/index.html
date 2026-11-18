@@ -8800,6 +8800,13 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="210-not-released">2.1.0 (not released)<a class="headerlink" href="#210-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>MolecularDynamics</code> keeps the atoms of a system outside its box along a direction that is
+  not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
+  the face of its box, as <code>build_crystal("graphene")</code> makes it, loses the atoms that a run
+  takes below it. <code>md_elastic_constants</code> of graphene by fluctuations at 10 K started from
+  such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
+  static. If LAMMPS holds fewer atoms than the system, <code>MolecularDynamics</code> raises
+  <code>InvalidParameter</code>.</li>
 <li>The example <a href="../../examples/mpi/">LAMMPS on many processes with MPI</a> is two scripts: one
   started by <code>mpirun</code> builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of

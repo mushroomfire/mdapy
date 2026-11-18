@@ -38,8 +38,13 @@
 #include "analysis/voronoi.h"
 #include "build/crystal.h"
 #include "build/polycrystal.h"
+#include "calculators/adp.h"
 #include "calculators/eam.h"
+#include "calculators/meam.h"
 #include "calculators/nep.h"
+#include "calculators/pair.h"
+#include "calculators/stillinger_weber.h"
+#include "calculators/tersoff.h"
 #include "core/parallel.h"
 #include "core/wrap.h"
 #include "identify/planar_faults.h"
@@ -528,6 +533,7 @@ Pairs alloy_pairs(double cutoff) {
 }
 
 void many_frames(const mdapy::calculators::NepModel& nep);
+void classic_potentials(const Pairs& p, const mdapy::calculators::EamPotential& eam);
 
 void calculators() {
     // EAM with smooth analytic tables
@@ -633,6 +639,138 @@ void calculators() {
         }
     }
     many_frames(nep);
+    classic_potentials(p, eam);
+}
+
+// Lennard-Jones, Tersoff, Stillinger-Weber, ADP and MEAM on the alloy: the
+// same results for any thread count.
+void classic_potentials(const Pairs& p, const mdapy::calculators::EamPotential& eam) {
+    namespace c = mdapy::calculators;
+    c::PairPotential lj;
+    lj.species = 2;
+    lj.cutoff = 4.5;
+    lj.cutsq.assign(4, 4.5 * 4.5);
+    lj.offset.assign(4, 0.0);
+    for (int k = 0; k < 4; ++k) {
+        const double e = 0.01 * (1 + k), s = 2.3 + 0.05 * k;
+        const double row[4] = {48 * e * std::pow(s, 12.0), 24 * e * std::pow(s, 6.0),
+                               4 * e * std::pow(s, 12.0), 4 * e * std::pow(s, 6.0)};
+        lj.coefficients.insert(lj.coefficients.end(), row, row + 4);
+    }
+    // Si of Tersoff, its triplets alike, cut off at 3 Å
+    std::vector<double> rows;
+    for (int t = 0; t < 8; ++t) {
+        const double row[14] = {3.0,   1.0,  0.0,   1.0039e5, 16.217, -0.59825 + 0.01 * t, 0.78734,
+                                1.1e-6, 1.7322, 471.18, 2.85,   0.15,  2.4799, 1830.8};
+        rows.insert(rows.end(), row, row + 14);
+    }
+    const c::TersoffPotential tersoff = c::make_tersoff(2, rows.data());
+    // Si of Stillinger and Weber, cos theta0 apart between the triplets
+    rows.clear();
+    for (int t = 0; t < 8; ++t) {
+        const double row[11] = {2.1683, 2.0951, 1.8, 21.0, 1.2, -1.0 / 3.0 + 0.01 * t,
+                                7.049556277, 0.6022245584, 4.0, 0.0, 0.0};
+        rows.insert(rows.end(), row, row + 11);
+    }
+    const c::StillingerWeberPotential sw = c::make_stillinger_weber(2, rows.data());
+    // ADP: the EAM with dipoles and quadrupoles
+    c::AdpPotential adp;
+    adp.elements = 2;
+    adp.cutoff = eam.cutoff;
+    adp.embedding = eam.embedding;
+    adp.density = eam.density;
+    adp.pair = eam.pair;
+    const int nr = 500;
+    const double dr = 0.01;
+    for (int k = 0; k < 3; ++k) {
+        std::vector<double> u(nr), w(nr);
+        for (int m = 0; m < nr; ++m) {
+            const double r = m * dr, f = r < adp.cutoff ? (adp.cutoff - r) * (adp.cutoff - r) : 0.0;
+            u[m] = 0.01 * (1 + k) * std::exp(-r) * f;
+            w[m] = -0.005 * (1 + k) * std::exp(-r) * f;
+        }
+        adp.dipole.emplace_back(u.data(), nr, dr);
+        adp.quadrupole.emplace_back(w.data(), nr, dr);
+    }
+    // MEAM of two fcc elements, partly screened, a smooth pair table
+    c::MeamPotential meam;
+    meam.elements = 2;
+    meam.rc = 3.5;
+    meam.cutoff = 3.7;
+    meam.nr = 400;
+    meam.dr = 1.1 * meam.rc / meam.nr;
+    for (int row = 0; row < 17; ++row) {
+        for (int e = 0; e < 2; ++e) {
+            const double values[17] = {1.0, 3.6, 2.2, 6.0, 2.2, 3.1, 2.5, 2.9, 1.07, 3.5,
+                                       2.5 + 0.05 * e, 12.0, 12.0, 3.0, 0.0, 0.0, 0.0};
+            meam.element.push_back(values[row]);
+        }
+    }
+    meam.ebound.assign(4, 2.8 * 2.8 / (4.0 * 1.8));
+    meam.cmin.assign(8, 0.8);
+    meam.cmax.assign(8, 2.8);
+    for (int pair = 0; pair < 3; ++pair) {
+        std::vector<double> phi(static_cast<std::size_t>(meam.nr)), s1(phi.size()), s2(phi.size()),
+            s3(phi.size());
+        for (int m = 0; m < meam.nr; ++m) {
+            const double r = m * meam.dr;
+            phi[static_cast<std::size_t>(m)] = (0.2 + 0.05 * pair) * std::exp(-1.5 * (r - 2.5)) - 0.4 * std::exp(-0.75 * (r - 2.5));
+        }
+        for (int m = 0; m + 1 < meam.nr; ++m) {
+            s1[static_cast<std::size_t>(m)] = phi[static_cast<std::size_t>(m + 1)] - phi[static_cast<std::size_t>(m)];
+        }
+        meam.table.insert(meam.table.end(), phi.begin(), phi.end());
+        meam.table.insert(meam.table.end(), s1.begin(), s1.end());
+        meam.table.insert(meam.table.end(), s2.begin(), s2.end());
+        meam.table.insert(meam.table.end(), s3.begin(), s3.end());
+        for (std::size_t m = 0; m < phi.size(); ++m) {
+            s1[m] /= meam.dr;
+        }
+        meam.table.insert(meam.table.end(), s1.begin(), s1.end());
+        meam.table.insert(meam.table.end(), s2.begin(), s2.end());
+        meam.table.insert(meam.table.end(), s3.begin(), s3.end());
+    }
+
+    const std::size_t n = static_cast<std::size_t>(p.n);
+    const mdapy::neighbor::NeighborPairs& q = p.pairs;
+    const char* names[5] = {"Lennard-Jones", "Tersoff", "Stillinger-Weber", "ADP", "MEAM"};
+    std::vector<double> first[5][3];
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        std::vector<double> results[5][3];
+        for (int k = 0; k < 5; ++k) {
+            results[k][0].resize(n);
+            results[k][1].resize(3 * n);
+            results[k][2].resize(9 * n);
+        }
+        const auto args = [&](int k) { return std::make_tuple(results[k][0].data(), results[k][1].data(), results[k][2].data()); };
+        auto [e0, f0, w0] = args(0);
+        c::compute_pair(lj, p.n, p.species.data(), p.positions.data(), p.matrix, q.offsets.data(),
+                        q.neighbors.data(), q.shifts.data(), e0, f0, w0);
+        auto [e1, f1, w1] = args(1);
+        c::compute_tersoff(tersoff, p.n, p.species.data(), p.positions.data(), p.matrix,
+                           q.offsets.data(), q.neighbors.data(), q.shifts.data(), e1, f1, w1);
+        auto [e2, f2, w2] = args(2);
+        c::compute_stillinger_weber(sw, p.n, p.species.data(), p.positions.data(), p.matrix,
+                                    q.offsets.data(), q.neighbors.data(), q.shifts.data(), e2, f2,
+                                    w2);
+        auto [e3, f3, w3] = args(3);
+        c::compute_adp(adp, p.n, p.species.data(), p.positions.data(), p.matrix, q.offsets.data(),
+                       q.neighbors.data(), q.shifts.data(), e3, f3, w3);
+        auto [e4, f4, w4] = args(4);
+        c::compute_meam(meam, p.n, p.species.data(), p.positions.data(), p.matrix,
+                        q.offsets.data(), q.neighbors.data(), q.shifts.data(), e4, f4, w4);
+        for (int k = 0; k < 5; ++k) {
+            if (threads == kThreads[0]) {
+                for (int m = 0; m < 3; ++m) {
+                    first[k][m] = results[k][m];
+                }
+            }
+            check(results[k][0] == first[k][0] && results[k][1] == first[k][1] &&
+                      results[k][2] == first[k][2],
+                  (std::string(names[k]) + " gives the same results for any thread count").c_str());
+        }
+    }
 }
 
 // Many small frames, a frame on a thread: the same for any thread count, and

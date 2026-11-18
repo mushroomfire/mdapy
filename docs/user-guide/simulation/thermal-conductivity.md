@@ -2,7 +2,7 @@
 
 # Thermal conductivity
 
-`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None)`
+`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None, progress=None, cancel=None)`
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order [force constants](force-constants.md).
@@ -63,6 +63,8 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 | `mesh` | int32 or (3,) int32 | | | the number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
 | `sigma` | float64 or `None` | `None` | THz | the width of a Gaussian that stands for the conservation of energy in each scattering; by default the linear tetrahedron method |
 | `symmetry` | bool or `None` | `None` | | compute the irreducible wave vectors only and average the group velocities with the rotations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `progress` | callable | `None` | | called as `progress(done, total)` with the pieces of the scattering computed, those of each irreducible wave vector in turn |
+| `cancel` | `CancelToken` | `None` | | stops the calculation between pieces, which raises `Cancelled` |
 
 **Conservation of energy.** Each scattering conserves energy, and on a mesh of wave
 vectors the delta functions that say so are spread. By default they are integrated over

@@ -44,7 +44,7 @@ jobs:
         id: lammps
         with:
           path: lammps-wheel
-          key: lammps-stable_30Sep2026-manybody-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
+          key: lammps-stable_30Sep2026-manybody-meam-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
       - if: steps.lammps.outputs.cache-hit == 'true'
         run: pip install lammps-wheel/lammps-*.whl
       - run: pip install ".[dev]"

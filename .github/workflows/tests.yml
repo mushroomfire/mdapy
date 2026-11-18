@@ -128,14 +128,14 @@ jobs:
         id: lammps
         with:
           path: lammps-wheel
-          key: lammps-stable_30Sep2026-manybody-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
+          key: lammps-stable_30Sep2026-manybody-meam-molecule-extra-compute-extra-fix-extra-pair-voronoi-${{ runner.os }}-py3.13
       - name: Build LAMMPS
         if: steps.lammps.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 --branch stable_30Sep2026 https://github.com/lammps/lammps.git
           cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
             -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
-            -D PKG_MANYBODY=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
+            -D PKG_MANYBODY=on -D PKG_MEAM=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
             -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on \
             -D PKG_VORONOI=on -D DOWNLOAD_VORO=on -D Python_EXECUTABLE="$(which python)"
           cmake --build lammps-build -j 4

@@ -2,6 +2,35 @@
 
 ## 2.2.0 (not released)
 
+- Native calculators of the classic potentials of LAMMPS, which read its files and compute
+  energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
+  virial of each term among its atoms as LAMMPS does:
+  [`MEAM`](../user-guide/simulation/meam.md) (`pair_style meam`, first and second
+  neighbors, the reference structures fcc, bcc, hcp, dia, dim, sc, b1, b2 and l12),
+  [`ADP`](../user-guide/simulation/adp.md) (`pair_style adp`),
+  [`Tersoff`](../user-guide/simulation/tersoff.md) (`pair_style tersoff`),
+  [`StillingerWeber`](../user-guide/simulation/stillinger-weber.md) (`pair_style sw`),
+  [`LennardJones`](../user-guide/simulation/pair-potentials.md) (`pair_style lj/cut`, with its
+  mixing rules) and [`Morse`](../user-guide/simulation/pair-potentials.md) (`pair_style morse`).
+  Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
+  LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
+  their mean, the same whatever the order. Each has the `cutoff`, `elements` and
+  `implemented` of every calculator; `masses`, `path`, `cutoffs`, `epsilon`, `sigma`, `rc`,
+  `library` and `parameters` where they apply.
+- `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
+  as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
+  LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
+  constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
+  LAMMPS; a `movable` column keeps atoms still. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md).
+- `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
+  when asked, between the pieces of the scattering of each wave vector, as the other long
+  calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises
+  `mdapy.errors.Cancelled`.
+- `render(..., dislocation_color="family")` colors dislocation lines by the family of their
+  Burgers vector, as before; `"character"` by the angle of each piece of a line to its
+  Burgers vector, from blue for screw to red for edge on coolwarm; or in one color. See
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
 - `mdapy.io.read`, `read_trajectory` and `detect_format` name
   `mdapy.analysis.read_dislocations` in their error for a CA file (`.ca`), which holds
   dislocations rather than atoms; they only said that the format was unknown.

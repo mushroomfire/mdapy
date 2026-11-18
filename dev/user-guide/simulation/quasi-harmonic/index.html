@@ -8566,8 +8566,8 @@ not converge within <code>max_steps</code>, imaginary frequencies at a volume, a
 equilibrium volume outside the volumes, as well as for the errors of
 <a href="../phonons/"><code>phonons</code></a>. It also raises it, before the phonons of the grid,
 where a pair of atoms crosses the cutoff of the calculator between the volumes
-and the free energy jumps there by more than 2 % of its change between
-neighbouring volumes, which distorts the results by percents or more.</p>
+and the free energy jumps there by more than 2 % of its change over an eighth
+of the range of the volumes, which distorts the results by percents or more.</p>
 <h3 id="crossing-the-cutoff">Crossing the cutoff<a class="headerlink" href="#crossing-the-cutoff" title="Permanent link">&para;</a></h3>
 <p>Where a pair of atoms comes within <code>displacement</code> of the cutoff at some
 volumes and not at others, the free energy jumps by as much as the potential
@@ -8576,13 +8576,16 @@ nearest the crossing so that the pair lies 2, 3 and 4 displacements inside and
 outside the cutoff, and extrapolates the free energy of the vibrations at the
 highest temperature to the cutoff from either side, and the static energy from
 1e-4 Å either side. It compares the jump with the second difference of the
-static energy over neighbouring volumes, which the results come from:</p>
+static energy over an eighth of the range of the volumes, the spacing of the
+default nine. A jump distorts the fit through the volumes by as much whether
+there are 6 or 25 of them, so their range sets the scale, not their number.
+With the default volumes:</p>
 <table>
 <thead>
 <tr>
 <th>Potential</th>
 <th>Its functions at the cutoff</th>
-<th>Jump, of the change between neighbouring volumes</th>
+<th>Jump, of the change over an eighth of the range</th>
 </tr>
 </thead>
 <tbody>
@@ -8615,7 +8618,8 @@ and <code>quasi_harmonic</code> raises <code>InvalidParameter</code>, naming the
 its part. Choose volumes or pressures all on one side of the crossing, or a
 potential smooth at its cutoff. The Zhou potentials cut off at the fifth shell
 of their fcc crystal, which every range of volumes about it crosses, with a
-jump of 1 %.</p>
+jump of 1 %. Their copper also turns unstable between 1.07 and 1.08 of its
+volume, which the default volumes reach: give it volumes up to 1.07.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>At each temperature <span class="arithmatex">\(T\)</span>, the free energy</p>
 <div class="arithmatex">\[

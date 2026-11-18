@@ -1957,6 +1957,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/cluster-melting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A copper cluster melting in MDAPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/radiation-cascade/" class="md-nav__link">
         
   
@@ -9011,6 +9039,13 @@
   constants, and Langevin dynamics, <code>run(..., thermostat="langevin", seed=)</code>, also in
   LAMMPS; a <code>movable</code> column keeps atoms still. See
   <a href="../../user-guide/simulation/dynamics/">Molecular dynamics</a>.</li>
+<li><code>MolecularDynamics.iterate(steps, *, save_every, ...)</code> runs as <code>run</code> does and gives the
+  atoms every <code>save_every</code> steps as the run reaches them, keeping none, so that
+  <code>mdapy.io.write(path, md.iterate(...))</code> writes a trajectory while it runs, in LAMMPS
+  and in MDAPY; the run stops where the reading stops. See
+  <a href="../../user-guide/simulation/dynamics/#frames-in-files">Frames in files</a>. A run of no
+  steps records the thermodynamic state once, and with <code>save_every</code> keeps the atoms once,
+  not twice.</li>
 <li><code>thermal_conductivity(..., progress=None, cancel=None)</code> reports its progress and stops
   when asked, between the pieces of the scattering of each wave vector, as the other long
   calculations do: <code>progress(done, total)</code> counts the pieces, and a <code>CancelToken</code> raises

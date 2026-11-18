@@ -1959,6 +1959,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/cluster-melting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A copper cluster melting in MDAPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/radiation-cascade/" class="md-nav__link">
         
   
@@ -7589,6 +7617,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.MolecularDynamics.iterate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iterate
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8759,6 +8798,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.MolecularDynamics.iterate" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        iterate
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9634,7 +9684,8 @@ positive under tension).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Closes the LAMMPS instance; the dynamics stops.</p>
+        <p>Closes the LAMMPS instance; the dynamics stops, and the frames of
+an <code>iterate</code> end.</p>
 
 
     </div>
@@ -9704,7 +9755,8 @@ calculator).</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>If LAMMPS rejects them, or the dynamics runs in MDAPY.</p>
+                <p>If LAMMPS rejects them, the dynamics runs in MDAPY, or the frames
+of an <code>iterate</code> are being read.</p>
               </div>
             </td>
           </tr>
@@ -9795,7 +9847,8 @@ total momentum.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For a negative temperature or a seed that is not positive.</p>
+                <p>For a negative temperature or a seed that is not positive, or
+while the frames of an <code>iterate</code> are being read.</p>
               </div>
             </td>
           </tr>
@@ -10014,8 +10067,8 @@ the start and the end. Default 100.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Keeps the atoms every this many steps. Default None, keeping
-none.</p>
+                <p>Keeps the atoms every this many steps, in <code>frames</code>. Default
+None, keeping none.</p>
               </div>
             </td>
             <td>
@@ -10073,7 +10126,335 @@ none.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For invalid options, or if LAMMPS fails.</p>
+                <p>For invalid options, if LAMMPS fails, or while the frames of an
+<code>iterate</code> are being read.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code>CalculationFailed</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the energy or the forces stop being finite, in MDAPY.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Cancelled (mdapy.errors.Cancelled)" href="../utilities/#mdapy.errors.Cancelled">Cancelled</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If cancelled.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.simulation.MolecularDynamics.iterate" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">iterate</span>
+
+
+<a href="#mdapy.simulation.MolecularDynamics.iterate" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Runs molecular dynamics as <code>run</code> does, giving the atoms every
+save_every steps as the run reaches them instead of keeping them: the
+run goes on as the frames are read, and stops where their reading
+ends.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>steps</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of steps.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>save_every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Gives the atoms every this many steps, and at the start unless
+the run before gave them there.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>ensemble</code>
+            </td>
+            <td>
+                  <code>(nve, nvt, npt, nph)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Constant energy, or a thermostat, and barostat, or a barostat
+alone. Default "nve".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;nve&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code>float64 or (float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperature in K of the thermostat, or its values at the start
+and the end of the run; needed for "nvt" and "npt".</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>pressure</code>
+            </td>
+            <td>
+                  <code>float64 or (float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Pressure in GPa of the barostat, or its values at the start and
+the end; needed for "npt" and "nph".</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>barostat</code>
+            </td>
+            <td>
+                  <code>(iso, aniso, tri, xy)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The box changes alike in every direction, along each axis, in
+any way, or alike along its first two vectors with the third
+kept. A sheet, periodic along its first two vectors only, changes
+in its plane only: alike along them for "iso" and "xy", along
+each for "aniso", and in any way in the plane for "tri". Default
+"iso".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;iso&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>thermostat</code>
+            </td>
+            <td>
+                  <code>(nose - hoover, langevin)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
+"nose-hoover".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;nose-hoover&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>thermostat_damping</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Damping time of the thermostat in ps. Default 100 time steps.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>barostat_damping</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Damping time of the barostat in ps. Default 1000 time steps.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the random forces of Langevin dynamics, positive;
+unpredictable when None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>thermo</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Records the thermodynamic state every this many steps, and at
+the start and the end. Default 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>progress</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called as <code>progress(done, total)</code> with the steps run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cancel</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CancelToken (mdapy.core.threads.CancelToken)" href="../utilities/#mdapy.CancelToken">CancelToken</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Stops the run, which raises <code>mdapy.errors.Cancelled</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>iterator of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The frames, each as <code>system</code> gives it, read once; <code>frames</code>
+keeps none of them.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For invalid options, if LAMMPS fails, or while the frames of
+another <code>iterate</code> are being read; the options are checked at
+once, the rest as the frames are read.</p>
               </div>
             </td>
           </tr>

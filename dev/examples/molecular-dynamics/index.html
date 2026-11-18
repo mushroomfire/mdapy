@@ -16,7 +16,7 @@
         <link rel="prev" href="../elastic-anisotropy/">
       
       
-        <link rel="next" href="../radiation-cascade/">
+        <link rel="next" href="../cluster-melting/">
       
       
         
@@ -2062,6 +2062,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cluster-melting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A copper cluster melting in MDAPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -8633,7 +8661,7 @@ deformation, which <code>run</code> cannot give (see below).</p>
 </tr>
 <tr>
 <td>Keep the atoms for analysis</td>
-<td><code>save_every=</code> gives <code>frames</code>, each a <code>System</code> for any analysis of MDAPY</td>
+<td><code>save_every=</code> gives <code>frames</code>, each a <code>System</code> for any analysis of MDAPY; <code>md.iterate(steps, save_every=...)</code> gives them one at a time as the run goes, for a file or an analysis, keeping none</td>
 </tr>
 <tr>
 <td>Go on from the end</td>
@@ -8687,9 +8715,9 @@ deformation, which <code>run</code> cannot give (see below).</p>
 <td>the fixes and <code>md.command("run 10000")</code>: <code>thermo</code> and <code>frames</code> record only <code>run</code>, and <code>md.system</code> reads the atoms after</td>
 </tr>
 <tr>
-<td>Many frames of a large system</td>
+<td>Many frames of a large system in <code>frames</code></td>
 <td><code>frames</code> stay in memory</td>
-<td><code>md.command("dump ...")</code>, read with <code>mdapy.io.read_trajectory</code></td>
+<td><code>mdapy.io.write(path, md.iterate(...))</code>, which writes them as the run goes (<a href="../../user-guide/simulation/dynamics/#frames-in-files">Frames in files</a>), or <code>md.command("dump ...")</code>; read with <code>mdapy.io.read_trajectory</code></td>
 </tr>
 </tbody>
 </table>
@@ -8786,13 +8814,13 @@ on a GPU in this way, with <code>pair_style nep/kk</code>.</p>
         
         
           
-          <a href="../radiation-cascade/" class="md-footer__link md-footer__link--next" aria-label="Next: A collision cascade in tungsten">
+          <a href="../cluster-melting/" class="md-footer__link md-footer__link--next" aria-label="Next: A copper cluster melting in MDAPY">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                A collision cascade in tungsten
+                A copper cluster melting in MDAPY
               </div>
             </div>
             <div class="md-footer__button md-icon">

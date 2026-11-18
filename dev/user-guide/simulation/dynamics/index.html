@@ -1961,6 +1961,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../examples/cluster-melting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A copper cluster melting in MDAPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../examples/radiation-cascade/" class="md-nav__link">
         
   
@@ -8507,7 +8535,9 @@ calculator of MDAPY, such as <a href="../nep/">NEP</a>, <a href="../eam/">EAM</a
 <a href="../../interop/ase-calculators/">ASE calculator</a>, it runs in MDAPY itself. The
 two take the same calls and give the same results.
 <a href="../../../examples/molecular-dynamics/">Molecular dynamics through LAMMPS</a> shows it at
-work, says what it is not made for, and how to run it on several threads or a GPU.</p>
+work, says what it is not made for, and how to run it on several threads or a GPU;
+<a href="../../../examples/cluster-melting/">A copper cluster melting in MDAPY</a> runs it in MDAPY
+itself, writing the atoms to a file as the run goes.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
@@ -8630,6 +8660,10 @@ temperature then counts the directions in which the atoms move.</p>
 <td>runs <code>steps</code> steps</td>
 </tr>
 <tr>
+<td><code>iterate(steps, *, save_every, ...)</code>, the other parameters those of <code>run</code></td>
+<td>runs as <code>run</code> does, giving the atoms every <code>save_every</code> steps as the run reaches them and keeping none: see <a href="#frames-in-files">Frames in files</a></td>
+</tr>
+<tr>
 <td><code>command(commands)</code></td>
 <td>runs any LAMMPS commands, one or several lines (LAMMPS only)</td>
 </tr>
@@ -8722,7 +8756,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>int32</td>
 <td><code>None</code></td>
 <td></td>
-<td>keeps the atoms every this many steps</td>
+<td>keeps the atoms every this many steps, in <code>frames</code>; <code>iterate</code> gives them instead, and needs it</td>
 </tr>
 <tr>
 <td><code>progress</code></td>
@@ -8758,26 +8792,52 @@ starts.</p>
 <h3 id="frames-in-files">Frames in files<a class="headerlink" href="#frames-in-files" title="Permanent link">&para;</a></h3>
 <p>The frames that <code>save_every</code> keeps stay in memory as long as the
 <code>MolecularDynamics</code> or its <code>frames</code> do, about 60 bytes per atom each: a
-hundred frames of a million atoms take 6 GB. For many frames or many atoms,
-LAMMPS writes them as it runs with a <code>dump</code>, keeping none, and
+hundred frames of a million atoms take 6 GB. <code>iterate</code> runs as <code>run</code> does
+but gives each frame as the run reaches it and keeps none, so that
+<a href="../../../basics/io/"><code>mdapy.io.write</code></a> writes them to a file one at a
+time while the run goes on, and
 <a href="../../../basics/trajectory/"><code>read_trajectory</code></a> reads them back one at a time:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonNeighborAnalysis</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="s2">"dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz</span><span class="se">\n</span><span class="s2">"</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>        <span class="s2">"dump_modify frames element Cu time yes"</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="p">)</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"undump frames"</span><span class="p">)</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a><span class="n">cna</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a><span class="k">with</span> <span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"frames.*.lammpstrj"</span><span class="p">)</span> <span class="k">as</span> <span class="n">trajectory</span><span class="p">:</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">trajectory</span><span class="p">:</span>  <span class="c1"># one frame in memory at a time</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">cna</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.identify</span><span class="w"> </span><span class="kn">import</span> <span class="n">CommonNeighborAnalysis</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">frames</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">mdapy</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"frames.xyz"</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>  <span class="c1"># one frame in memory at a time</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">cna</span> <span class="o">=</span> <span class="n">CommonNeighborAnalysis</span><span class="p">()</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="k">with</span> <span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"frames.xyz"</span><span class="p">)</span> <span class="k">as</span> <span class="n">trajectory</span><span class="p">:</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">trajectory</span><span class="p">:</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">cna</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">])</span>
+</code></pre></div>
+<p>or analyzes them as they come, without a file:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">md</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">):</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>        <span class="nb">print</span><span class="p">(</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">cna</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">counts</span><span class="p">()[</span><span class="s2">"fcc"</span><span class="p">])</span>
+</code></pre></div>
+<p>Each frame is a <code>System</code> as <code>system</code> gives it: the atoms in the order of
+<code>system</code>, with their velocities, images and other columns, in full
+precision, the box, and the step and the time in <code>info</code>, in LAMMPS and in
+MDAPY alike. The run goes on as the frames are read, from the first, and
+stops where their reading stops, such as at a <code>break</code> out of the loop, with
+the steps run so far kept; while they are being read, the dynamics takes no
+other <code>run</code>, <code>iterate</code>, <code>velocities</code> or <code>command</code>. As <code>save_every</code> does, it
+gives the atoms at the start unless the run before gave them there, so that
+the frames of runs one after the other follow each other once each.</p>
+<p>With LAMMPS, a <code>dump</code> writes the frames too, from LAMMPS itself:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">"dump frames all custom 500 frames.*.lammpstrj id element x y z vx vy vz</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">"dump_modify frames element Cu time yes"</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"undump frames"</span><span class="p">)</span>
 </code></pre></div>
 <p>LAMMPS writes the atoms in the order it holds them, which changes as it runs,
 each with its <code>id</code>, numbered from 1 in the order of <code>system</code>.
@@ -8787,7 +8847,11 @@ it, and <code>frame.sort("id")</code> puts them in the order of <code>system</co
 are those of LAMMPS, which are those of <code>system</code> for a box at the origin with
 its first vector along x and its second in the xy plane, as <code>build_crystal</code>
 makes them, to the six digits a dump writes by default (<code>format float %.10g</code>
-writes more).</p>
+writes more). <code>iterate</code> is the better choice: it writes any format of
+several frames, in the order and the orientation of <code>system</code>, in LAMMPS and
+in MDAPY. A dump suits a run over several processes with
+<a href="../../../examples/mpi/">MPI</a>, where each process would receive every atom
+of every frame of <code>iterate</code>.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8811,7 +8875,7 @@ writes more).</p>
 <tr>
 <td><code>frames</code></td>
 <td>tuple of <code>System</code></td>
-<td>the atoms kept in all the runs so far, as <code>system</code> gives them</td>
+<td>the atoms that <code>save_every</code> of <code>run</code> kept in all the runs so far, as <code>system</code> gives them</td>
 </tr>
 <tr>
 <td><code>step</code></td>
@@ -8890,7 +8954,11 @@ in MDAPY with a calculator without virials or, for <code>"nph"</code>, atoms wit
 temperature, and a thermostat with no atom free to move; in MDAPY, it raises
 <code>CalculationFailed</code> when the energy or the forces stop being finite. <code>command</code>
 and <code>lammps</code> raise <code>InvalidParameter</code> in MDAPY, <code>command</code> for commands LAMMPS
-rejects, and <code>lammps</code> after <code>close</code>.</p>
+rejects, and <code>lammps</code> after <code>close</code>. <code>iterate</code> raises what <code>run</code> raises, for
+its options at once and for the rest as its frames are read, and
+<code>InvalidParameter</code> without <code>save_every</code>; <code>run</code>, <code>iterate</code>, <code>velocities</code> and
+<code>command</code> raise <code>InvalidParameter</code> while the frames of an <code>iterate</code> are
+being read.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p>For MDAPY's own dynamics:

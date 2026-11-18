@@ -92,6 +92,8 @@ triangular lattice. The closest packed (111) surface has the lowest energy.*
 
 ## Common slip systems
 
+With $a$ and $c$ the lattice constants of the crystal:
+
 | Crystal | Slip system | x (slip) | y | z (normal) | Whole slip vector |
 |---|---|---|---|---|---|
 | fcc | {111}<110>, full dislocations | [1-10] | [11-2] | [111] | $a/\sqrt2$ |

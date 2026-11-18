@@ -30,6 +30,14 @@ one name everywhere.
 | average atom | The single species of an average-atom potential, standing for a random alloy; `A` in potential files. |
 | `eam/alloy`, `eam/fs` | The LAMMPS styles and file formats of embedded atom method potentials that `EAM` reads: in `eam/alloy` (setfl) each element gives every element the same electron density, in `eam/fs` (Finnis–Sinclair) each element its own. |
 | funcfl | The file format of LAMMPS `pair_style eam`, of DYNAMO: one element, its embedding energy, effective charge and electron density; several files make an alloy, the pairs from the charges. |
+| MEAM | The modified embedded atom method: an embedding energy in a density of partial densities of orders 0 to 3, of the angles of the neighbors, and pairs screened by their common neighbors; `MEAM` reads the library and parameter files of LAMMPS `pair_style meam`. |
+| screening | In MEAM, the factor S<sub>ij</sub> from 0 to 1 by which the atoms near a pair, inside an ellipse of C below C<sub>max</sub> about it, weaken it; fully screened below C<sub>min</sub>. |
+| reference structure | In MEAM, the crystal of an element or a pair (`lattce`: fcc, bcc, hcp, dia, dim, sc, b1, b2, l12) whose energy against the distance of the neighbors is the Rose function, which sets the pair function. |
+| ADP | The angular-dependent potential: the embedded atom method with the dipole and quadrupole of the neighbors of each atom; `ADP` reads the files of LAMMPS `pair_style adp`. |
+| bond order | In the Tersoff potential, the factor b<sub>ij</sub> of the attraction of a bond, falling with the number of the other neighbors of the atom and their angles. |
+| `.tersoff`, `.sw` | The files of LAMMPS `pair_style tersoff` and `sw`: an entry of numbers for each triplet of elements i j k, the two-body ones of a pair i–j in the entry i j j. |
+| label | A name of a potential file that is not an element, as `Si(D)` of a Tersoff file or `AlS` of a MEAM library; `elements={"Si": "Si(D)"}` maps the element of the atoms to it. |
+| mixing rule | How the parameters of a pair of two elements follow from those of each, as the geometric or arithmetic means of `LennardJones` (`pair_modify mix` of LAMMPS). |
 | `Result` | Base class of the objects returned by analyses. |
 | reference | A reference configuration, for example in atomic strain analysis. |
 | unwrapped positions | Positions moved by whole periodic images so that no cluster or molecule is cut by the periodic boundaries, or, along a trajectory, so that atoms move continuously through them; with an `image` column, the positions plus the image flags times the lattice vectors. |

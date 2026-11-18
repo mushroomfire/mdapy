@@ -98,7 +98,8 @@ $$
 d(i, j) = \min(|k_i - k_j|,\; n - |k_i - k_j|)
 $$
 
-for atoms at places $k_i$ and $k_j$ of the ring. A ring with a shortcut,
+for atoms $i$ and $j$ at places $k_i$ and $k_j$ of the ring of $n$ atoms, with
+$d(i, j)$ the number of bonds of the shortest path between them in the network. A ring with a shortcut,
 a shorter path between two of its atoms elsewhere in the network, is
 two smaller rings and is left out. Two atoms joined by several paths of
 the same length make every ring of two of them a shortest-path ring: the

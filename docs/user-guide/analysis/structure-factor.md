@@ -35,7 +35,8 @@ with plot.style():
 
 *The disordered alloy scatters at the (111), (200), (220) and (311)
 reflections of fcc, $q = 2\pi\sqrt{h^2+k^2+l^2}/a$ = 3.02, 3.49, 4.94 and
-5.79 Å⁻¹; between them $S(q)$ stays near zero.*
+5.79 Å⁻¹, with $(hkl)$ the Miller indices of the reflection and $a$ the lattice
+constant; between them $S(q)$ stays near zero.*
 
 ## Parameters
 
@@ -95,7 +96,8 @@ $$
 
 so that $S = \sum_a S_{aa} + 2 \sum_{a < b} S_{ab}$. The direct method
 averages these over the wave vectors $\mathbf q = h\mathbf b_1 + k\mathbf
-b_2 + l\mathbf b_3$ of the box, $\mathbf b$ its reciprocal vectors, in each
+b_2 + l\mathbf b_3$ of the box, with integers $h$, $k$ and $l$ and $\mathbf b$ its
+reciprocal vectors, in each
 bin of $0 < |\mathbf q| \le q_\text{max}$. A perfect crystal gives $N$ at its
 Bragg reflections and 0 elsewhere; an ideal gas gives 1.
 
@@ -118,7 +120,8 @@ $$
 A_{ab}(q) = \frac{S_{ab}(q) - x_a \delta_{ab}}{x_a x_b} + 1 ,
 $$
 
-with the fractions $x_a = N_a / N$; these are the conventions of OVITO.
+with the fractions $x_a = N_a / N$ and $\delta_{ab}$ 1 for $a = b$ and 0 otherwise;
+these are the conventions of OVITO.
 
 ## Why the results differ from OVITO
 

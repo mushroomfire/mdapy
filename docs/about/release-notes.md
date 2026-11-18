@@ -2,12 +2,38 @@
 
 ## 2.2.0 (not released)
 
+- Native calculators of the classic potentials of LAMMPS, which read its files and compute
+  energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
+  virial of each term among its atoms as LAMMPS does:
+  [`MEAM`](../user-guide/simulation/meam.md) (`pair_style meam`, first and second
+  neighbors, the reference structures fcc, bcc, hcp, dia, dim, sc, b1, b2 and l12),
+  [`ADP`](../user-guide/simulation/adp.md) (`pair_style adp`),
+  [`Tersoff`](../user-guide/simulation/tersoff.md) (`pair_style tersoff`),
+  [`StillingerWeber`](../user-guide/simulation/stillinger-weber.md) (`pair_style sw`),
+  [`LennardJones`](../user-guide/simulation/pair-potentials.md) (`pair_style lj/cut`, with its
+  mixing rules) and [`Morse`](../user-guide/simulation/pair-potentials.md) (`pair_style morse`).
+  Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
+  LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
+  their mean, the same whatever the order. Each has the `cutoff`, `elements` and
+  `implemented` of every calculator; `masses`, `path`, `cutoffs`, `epsilon`, `sigma`, `rc`,
+  `library` and `parameters` where they apply.
 - `MolecularDynamics` runs in MDAPY itself with any calculator but a LAMMPS one, such
   as NEP, EAM or an ASE calculator, for small systems: the equations and steps of
   LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
   constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
   LAMMPS; a `movable` column keeps atoms still. See
   [Molecular dynamics](../user-guide/simulation/dynamics.md).
+- `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
+  when asked, between the pieces of the scattering of each wave vector, as the other long
+  calculations do: `progress(done, total)` counts the pieces, and a `CancelToken` raises
+  `mdapy.errors.Cancelled`.
+- `render(..., dislocation_color="family")` colors dislocation lines by the family of their
+  Burgers vector, as before; `"character"` by the angle of each piece of a line to its
+  Burgers vector, from blue for screw to red for edge on coolwarm; or in one color. See
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
+- `mdapy.io.read`, `read_trajectory` and `detect_format` name
+  `mdapy.analysis.read_dislocations` in their error for a CA file (`.ca`), which holds
+  dislocations rather than atoms; they only said that the format was unknown.
 - `mlip.entropy` measures how much of descriptor space a training set covers, and
   `mlip.information_gain` what new structures add to it, without labels and whatever the
   model: the methods of QUESTS, with its descriptor of the nearest neighbors of each atom,
@@ -26,8 +52,64 @@
   generation ended; the `config_type` of each, bulk, slab or cluster, groups them. See
   [Generated structures](../user-guide/mlip/generation.md).
 
-## 2.1.0 (not released)
+## 2.1.0
 
+MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any
+calculator or of DFT to the thermal conductivity; elastic constants along directions, of
+polycrystals and from the fluctuations of the stress; the dislocation analysis, no longer
+experimental, with OVITO's CA files; sheets in every thermal method; `mdapy.fitting` for
+splines, least squares and equations of state; and fixes. What 2.1 holds is in the notes of
+2.1.0rc1 and 2.1.0rc2 below. Code written for 2.0 keeps working: the API of 2.0.0 holds,
+and from here on that of 2.1.0, its additions included, holds in every later 2.x release.
+Since 2.1.0rc2:
+
+- `PolynomialFit(coefficients, covariance, residuals, r_squared)`,
+  `SurfaceFit(powers, coefficients, covariance, residuals, r_squared)` and
+  `EquationOfState(form, parameters, covariance, residuals, r_squared)` are made of the
+  values they hold, such as a polynomial of known coefficients or an equation of state of
+  published parameters. In 2.1.0rc1 and rc2 the first two took the scaled form that the fits
+  evaluate in, and `EquationOfState` its bulk modulus in eV/Å³ and its errors.
+  `EquationOfState.covariance` gives the covariance of `e0`, `v0`, `b0` and `b0_prime`,
+  as each fit gives its own.
+- The documentation says in words what each symbol of a formula stands for, and the
+  [cheat sheet](../getting-started/learn/cheat-sheet.md) holds the additions of 2.1: fitting,
+  lattice dynamics from elastic constants to the thermal conductivity, dislocations and CA
+  files, and NEP with LAMMPS. The page of [EAM](../user-guide/simulation/eam.md) says that
+  an average atom needs a potential of the eam/alloy form, as `EAM.average` refuses an
+  `eam/fs` one.
+- `md_elastic_constants` takes `method=None` by default: the strains for a crystal, the
+  fluctuations for a sheet, which wrinkles under a strain that compresses it. Strains of
+  ±1 % on 16 × 16 cells of graphene with LCBOP at 100 K gave C11 217 N/m along x and
+  176 N/m along y, against 274 N/m for both from the fluctuations. A new example,
+  [Elastic constants of graphene](../examples/graphene-elastic.md), compares molecular
+  dynamics with the quasi-harmonic approximation from 100 to 1000 K and on sheets of 128
+  to 2048 atoms.
+- `MolecularDynamics` keeps the atoms of a system outside its box along a direction that is
+  not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
+  the face of its box, as `build_crystal("graphene")` makes it, loses the atoms that a run
+  takes below it. `md_elastic_constants` of graphene by fluctuations at 10 K started from
+  such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
+  static. If LAMMPS holds fewer atoms than the system, `MolecularDynamics` raises
+  `InvalidParameter`.
+- Under MPI, `md_elastic_constants` with `method="fluctuation"`, `green_kubo` and
+  `free_energy` read the values that LAMMPS writes to a file on its main process, which sends
+  them to the others. Each process looked for them in a temporary folder of its own, where
+  only the main process's had them, and stopped. `md_elastic_constants` averages 50 boxes of
+  its run into the mean box, as `free_energy` and `melting_point` do, rather than one every
+  `every` steps, each kept with all its atoms on every process: 20 000 steps of 6912 atoms
+  took about 800 MB on each.
+- The example [LAMMPS on many processes with MPI](../examples/mpi.md) is two scripts: one
+  started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
+  frames with a dump as it runs; the other analyses the files with every core. The frames of
+  `save_every` stay in the memory of every process, about 60 bytes per atom each; see
+  [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files).
+- `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
+  cutoff with its change over an eighth of the range of the volumes, the spacing of the
+  default nine, whatever their number. It compared it with the change between neighbouring
+  volumes, so that more volumes over the same range were refused although the results did
+  not change: 13 volumes of `EAM.zhou` copper from 0.97 to 1.07 at 400 K had a jump of 3.5 %
+  and were refused, 7 had 0.9 %; both now have 1.6 % and give the same results within 1 %.
+  See [Crossing the cutoff](../user-guide/simulation/quasi-harmonic.md#crossing-the-cutoff).
 - `plot.parity` draws several sets on the same axes: their range and one diagonal hold them
   all, where each call had set them to its own set.
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points
@@ -256,7 +338,8 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
   `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
   Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
-  parameters with their errors and covariance. See
+  parameters with their errors and covariance, and each result can be made of given
+  parameters, such as a polynomial of known coefficients. See
   [Interpolation](../user-guide/fitting/interpolation.md),
   [Curve fitting](../user-guide/fitting/curve-fitting.md) and
   [Equations of state](../user-guide/fitting/equation-of-state.md).

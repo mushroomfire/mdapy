@@ -221,7 +221,8 @@ lattice Burgers vectors of a crystal along the box read as usual.
 
 `render(system, dislocations=result)` draws the lines as tubes in the
 colors of their families, cut at the periodic boundaries; their colors are
-`DislocationAnalysis.FAMILY_COLORS[crystal]`. With `burgers_vectors=True`
+`DislocationAnalysis.FAMILY_COLORS[crystal]`, or with `dislocation_color`
+those of their character, below, or one color. With `burgers_vectors=True`
 an arrow from the middle of each line shows its Burgers vector in space,
 `burgers_scale` times as long. `mesh=result.defect_mesh` draws the defect
 mesh.
@@ -242,6 +243,44 @@ np.average(angles, weights=weights)  # 60, the mean along the line
 
 Around a loop the angle runs from screw where the line runs along its
 Burgers vector to edge where it runs across it.
+
+`render(..., dislocation_color="character")` colors each piece of a line by
+that angle, on the colormap coolwarm, from blue for screw to red for edge:
+the 60° partials of the edge dislocations beside the 30° partials of screw
+dislocations, each pair with its stacking fault between them:
+
+```python
+from mdapy.visualization import colormap
+
+screws = dislocation_quadrupole(
+    "fcc screw", 3.615, (168.4, 121.4, 75.4), (6, 8, 10), elements="Cu", dissociation=10
+)
+split = DislocationAnalysis("fcc").compute(screws)
+shades = colormap(np.array([0.0, 30.0, 60.0, 90.0]), "coolwarm", value_range=(0, 90))
+angles = dict(zip(("0°, screw", "30°", "60°", "90°, edge"), shades))
+pictures = [
+    render(
+        crystal,
+        atoms=found.structure == found.names.index("hcp"),
+        color=(0.75, 0.75, 0.75),  # gray, apart from the colors of the lines
+        radius=0.6,
+        dislocations=found,
+        dislocation_color="character",
+        legend=angles,
+        width=640,
+        height=500,
+    )
+    for crystal, found in ((system, result), (screws, split))
+]
+write_png("images/dislocation-character.png", np.hstack(pictures))
+```
+
+![Partial dislocations colored by their angle to the Burgers vector](images/dislocation-character.png)
+
+*The Shockley partials of edge dislocations (left), at 60° to their Burgers
+vectors, and of screw dislocations (right), at 30°, colored from screw blue
+to edge red, with the hcp atoms of the stacking faults between each pair in
+gray.*
 
 ### Core atoms
 
@@ -339,7 +378,9 @@ the lattice about a line is turned from it, and the crystal is the one the
 file names, or for the files of OVITO the structure of the most atoms in
 clusters. `read_dislocations` reads versions 5 to 7, the first frame of a
 file of several, and raises `FileFormatError` for a file that does not
-follow the format.
+follow the format. A CA file holds no atoms, so `mdapy.io.read` and
+`read_trajectory`, which read systems, do not read it, and their error for a
+`.ca` file names `read_dislocations`.
 
 ## Errors
 

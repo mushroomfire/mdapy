@@ -18,7 +18,8 @@ import mdapy
 from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.errors import InvalidParameter
+from mdapy.core.threads import CancelToken
+from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.lattice_dynamics import (
     ForceConstants,
     displaced_supercells,
@@ -140,6 +141,34 @@ def test_the_results_cannot_change(copper):
     for name in ("kappa", "gamma", "q", "weights", "group_velocities"):
         with pytest.raises(ValueError):
             getattr(result, name)[0] = 0
+
+
+def test_progress_and_cancel(copper):
+    """The pieces of the scattering counted from none to all, the same result
+    as without; a token cancelled stops it, one cancelled on the way too."""
+    seen = []
+    result = thermal_conductivity(
+        copper, [300.0], mesh=5, progress=lambda done, total: seen.append((done, total))
+    )
+    total = seen[0][1]
+    assert seen[0] == (0, total) and seen[-1] == (total, total) and total > 1
+    assert [d for d, _ in seen] == list(range(total + 1))
+    plain = thermal_conductivity(copper, [300.0], mesh=5)
+    np.testing.assert_array_equal(result.kappa, plain.kappa)
+    token = CancelToken()
+    token.cancel()
+    with pytest.raises(Cancelled, match="thermal conductivity was cancelled"):
+        thermal_conductivity(copper, [300.0], mesh=5, cancel=token)
+    token = CancelToken()
+
+    def stop_halfway(done, total):
+        if done == total // 2:
+            token.cancel()
+
+    with pytest.raises(Cancelled):
+        thermal_conductivity(
+            copper, [300.0], mesh=5, progress=stop_halfway, cancel=token
+        )
 
 
 def test_errors(copper):

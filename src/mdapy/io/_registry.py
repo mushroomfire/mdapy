@@ -116,7 +116,8 @@ def detect_format(path: str | os.PathLike) -> str:
     Raises
     ------
     UnsupportedFormat
-        If no format, or more than one, matches the name.
+        If no format, or more than one, matches the name; for a CA file of
+        dislocations (.ca), naming ``mdapy.analysis.read_dislocations``.
     """
     name = Path(path).name
     for suffix in COMPRESSION_SUFFIXES:
@@ -133,6 +134,11 @@ def detect_format(path: str | os.PathLike) -> str:
         ]
     if len(matches) == 1:
         return matches[0]
+    if not matches and extension == ".ca":
+        raise UnsupportedFormat(
+            f"{os.fspath(path)!r} is a CA file of dislocations, which holds no "
+            "atoms: mdapy.analysis.read_dislocations reads it"
+        )
     if not matches:
         raise UnsupportedFormat(
             f"cannot tell the format of {os.fspath(path)!r} from its name; "

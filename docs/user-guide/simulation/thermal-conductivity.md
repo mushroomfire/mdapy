@@ -2,7 +2,7 @@
 
 # Thermal conductivity
 
-`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None)`
+`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None, progress=None, cancel=None)`
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order [force constants](force-constants.md).
@@ -63,6 +63,8 @@ Debye temperature, and the lifetimes of the modes of the irreducible wave vector
 | `mesh` | int32 or (3,) int32 | | | the number of wave vectors along each reciprocal lattice vector, of a mesh through Γ |
 | `sigma` | float64 or `None` | `None` | THz | the width of a Gaussian that stands for the conservation of energy in each scattering; by default the linear tetrahedron method |
 | `symmetry` | bool or `None` | `None` | | compute the irreducible wave vectors only and average the group velocities with the rotations of the crystal, found by [spglib](../analysis/space-group.md): `True`, `False`, or by default whenever spglib is installed |
+| `progress` | callable | `None` | | called as `progress(done, total)` with the pieces of the scattering computed, those of each irreducible wave vector in turn |
+| `cancel` | `CancelToken` | `None` | | stops the calculation between pieces, which raises `Cancelled` |
 
 **Conservation of energy.** Each scattering conserves energy, and on a mesh of wave
 vectors the delta functions that say so are spread. By default they are integrated over
@@ -125,8 +127,10 @@ mass, a temperature that is not positive, a mesh that is not positive integers, 
 
 ## Definition
 
-A mode λ = (**q**, s) of frequency ω<sub>λ</sub> scatters with two others, λ′ and λ″,
-with **q** = **q**′ + **q**″ up to a reciprocal lattice vector, at the rate
+A mode $\lambda = (\mathbf q, s)$, of the branch $s$ at the wave vector $\mathbf q$, of
+angular frequency $\omega_\lambda$, scatters with two others, $\lambda' = (\mathbf q', s')$
+and $\lambda'' = (\mathbf q'', s'')$, with $\mathbf q = \mathbf q' + \mathbf q''$ up to a
+reciprocal lattice vector, at the rate
 
 $$
 \Gamma_\lambda = \frac{18\pi}{\hbar^2} \sum_{\lambda'\lambda''}
@@ -136,8 +140,10 @@ $$
 - \delta(\omega_\lambda - \omega_{\lambda'} + \omega_{\lambda''})\big)\Big],
 $$
 
-with $n$ the Bose–Einstein occupations at the temperature, each δ integrated over the
-tetrahedra of the mesh or a Gaussian of width `sigma`, and
+with $\hbar$ the reduced Planck constant, $n_\lambda$ the Bose–Einstein occupations at
+the temperature, $\delta$ the Dirac delta function, each integrated over the
+tetrahedra of the mesh or a Gaussian of width `sigma`, and $-\lambda$ the mode
+$(-\mathbf q, s)$. The amplitude of the scattering is
 
 $$
 \Phi_{\lambda\lambda'\lambda''} = \frac{1}{\sqrt N}\frac{1}{3!}
@@ -148,9 +154,13 @@ $$
 e^{i(\mathbf q'\cdot\mathbf r_{ab} + \mathbf q''\cdot\mathbf r_{ac})},
 $$
 
-the third order force constants Ψ of an atom $a$ of the cell and atoms $b$ and $c$ of
-the crystal, at the shortest images of their pairs, and $N$ the number of wave vectors
-of the mesh ([Togo et al. (2015)](../../reference/references.md#togo2015)). `gamma` is
+where $\Psi$ are the third order force constants of an atom $a$ of the cell and atoms
+$b$ and $c$ of the crystal along the Cartesian directions $\alpha$, $\beta$ and
+$\gamma$, $m_a$, $m_b$ and $m_c$ the masses of the atoms, $e_{a\alpha}(\lambda)$ the
+component $\alpha$ of atom $a$ of the polarization of mode $\lambda$, $i$ the imaginary
+unit, $\mathbf r_{ab}$ and $\mathbf r_{ac}$ the shortest images of $\mathbf r_b - \mathbf
+r_a$ and $\mathbf r_c - \mathbf r_a$ between the positions of the atoms, and $N$ the
+number of wave vectors of the mesh ([Togo et al. (2015)](../../reference/references.md#togo2015)). `gamma` is
 Γ<sub>λ</sub>/2π, the lifetime is τ<sub>λ</sub> = 1/(2Γ<sub>λ</sub>), and modes of the
 same frequency share their mean Γ. The conductivity is
 
@@ -159,8 +169,9 @@ $$
 v_{\lambda\alpha} v_{\lambda\beta}\, \tau_\lambda ,
 $$
 
-with $V$ the volume of the cell, $C_\lambda$ the heat capacity of the mode and **v** its
-group velocity, summed over the irreducible wave vectors with their weights and $v_\alpha
+with $\alpha$ and $\beta$ the Cartesian directions, $V$ the volume of the cell,
+$C_\lambda$ the heat capacity of the mode, $v_{\lambda\alpha}$ the component $\alpha$ of
+its group velocity $\mathbf v_\lambda$ and $\tau_\lambda$ its lifetime, summed over the irreducible wave vectors with their weights and $v_\alpha
 v_\beta$ averaged over the rotations of the crystal
 ([Togo et al. (2023)](../../reference/references.md#togo2023)).
 

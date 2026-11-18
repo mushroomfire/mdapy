@@ -40,6 +40,11 @@ On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
 { #bartok2013 }
 
+**Baskes (1992).** M. I. Baskes, Modified embedded-atom potentials for cubic
+materials and impurities, *Phys. Rev. B* **46**, 2727 (1992).
+[doi:10.1103/PhysRevB.46.2727](https://doi.org/10.1103/PhysRevB.46.2727)
+{ #baskes1992 }
+
 **Baughman et al. (1998).** R. H. Baughman, J. M. Shacklette, A. A. Zakhidov and S.
 Stafström, Negative Poisson's ratios as a common feature of cubic metals, *Nature*
 **392**, 362 (1998).
@@ -227,6 +232,11 @@ clusters, *J. Phys. Chem.* **91**, 4950 (1987).
 [doi:10.1021/j100303a014](https://doi.org/10.1021/j100303a014)
 { #honeycutt1987 }
 
+**Jones (1924).** J. E. Jones, On the determination of molecular fields. II.
+From the equation of state of a gas, *Proc. R. Soc. Lond. A* **106**, 463 (1924).
+[doi:10.1098/rspa.1924.0082](https://doi.org/10.1098/rspa.1924.0082)
+{ #jones1924 }
+
 **Kelchner et al. (1998).** C. L. Kelchner, S. J. Plimpton and J. C.
 Hamilton, Dislocation nucleation and defect structure during surface
 indentation, *Phys. Rev. B* **58**, 11085 (1998).
@@ -263,6 +273,12 @@ determination of crystal structures based on averaged local bond order
 parameters, *J. Chem. Phys.* **129**, 114707 (2008).
 [doi:10.1063/1.2977970](https://doi.org/10.1063/1.2977970)
 { #lechner2008 }
+
+**Lee and Baskes (2000).** B.-J. Lee and M. I. Baskes, Second
+nearest-neighbor modified embedded-atom-method potential, *Phys. Rev. B* **62**,
+8564 (2000).
+[doi:10.1103/PhysRevB.62.8564](https://doi.org/10.1103/PhysRevB.62.8564)
+{ #lee2000 }
 
 **Lin et al. (2008).** Z. Lin, R. A. Johnson and L. V. Zhigilei,
 Computational study of the generation of crystal defects in a bcc metal
@@ -304,11 +320,23 @@ analysis of disordered particulate matter, *J. Chem. Phys.* **138**, 044501
 [doi:10.1063/1.4774084](https://doi.org/10.1063/1.4774084)
 { #mickel2013 }
 
+**Mishin, Mehl and Papaconstantopoulos (2005).** Y. Mishin, M. J. Mehl and
+D. A. Papaconstantopoulos, Phase stability in the Fe–Ni system: investigation by
+first-principles calculations and atomistic simulations, *Acta Mater.* **53**,
+4029 (2005).
+[doi:10.1016/j.actamat.2005.05.001](https://doi.org/10.1016/j.actamat.2005.05.001)
+{ #mishin2005 }
+
 **Morris et al. (1994).** J. R. Morris, C. Z. Wang, K. M. Ho and C. T. Chan, Melting
 line of aluminum from simulations of coexisting phases, *Phys. Rev. B* **49**, 3109
 (1994).
 [doi:10.1103/PhysRevB.49.3109](https://doi.org/10.1103/PhysRevB.49.3109)
 { #morris1994 }
+
+**Morse (1929).** P. M. Morse, Diatomic molecules according to the wave
+mechanics. II. Vibrational levels, *Phys. Rev.* **34**, 57 (1929).
+[doi:10.1103/PhysRev.34.57](https://doi.org/10.1103/PhysRev.34.57)
+{ #morse1929 }
 
 **Murnaghan (1944).** F. D. Murnaghan, The compressibility of media under
 extreme pressures, *Proc. Natl. Acad. Sci. USA* **30**, 244 (1944).
@@ -400,6 +428,12 @@ Ronchetti, Bond-orientational order in liquids and glasses, *Phys. Rev. B*
 [doi:10.1103/PhysRevB.28.784](https://doi.org/10.1103/PhysRevB.28.784)
 { #steinhardt1983 }
 
+**Stillinger and Weber (1985).** F. H. Stillinger and T. A. Weber, Computer
+simulation of local order in condensed phases of silicon, *Phys. Rev. B* **31**,
+5262 (1985).
+[doi:10.1103/PhysRevB.31.5262](https://doi.org/10.1103/PhysRevB.31.5262)
+{ #stillinger1985 }
+
 **Stroh (1958).** A. N. Stroh, Dislocations and cracks in anisotropic
 elasticity, *Philos. Mag.* **3**, 625 (1958).
 [doi:10.1080/14786435808565804](https://doi.org/10.1080/14786435808565804)
@@ -457,6 +491,16 @@ Frenkel, Numerical calculation of the rate of crystal nucleation in a
 Lennard-Jones system at moderate undercooling, *J. Chem. Phys.* **104**,
 9932 (1996). [doi:10.1063/1.471721](https://doi.org/10.1063/1.471721)
 { #tenwolde1996 }
+
+**Tersoff (1988).** J. Tersoff, New empirical approach for the structure and
+energy of covalent systems, *Phys. Rev. B* **37**, 6991 (1988).
+[doi:10.1103/PhysRevB.37.6991](https://doi.org/10.1103/PhysRevB.37.6991)
+{ #tersoff1988 }
+
+**Tersoff (1989).** J. Tersoff, Modeling solid-state chemistry: interatomic
+potentials for multicomponent systems, *Phys. Rev. B* **39**, 5566 (1989).
+[doi:10.1103/PhysRevB.39.5566](https://doi.org/10.1103/PhysRevB.39.5566)
+{ #tersoff1989 }
 
 **Thompson et al. (2022).** A. P. Thompson et al., LAMMPS - a flexible
 simulation tool for particle-based materials modeling at the atomic, meso,

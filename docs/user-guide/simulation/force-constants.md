@@ -270,28 +270,41 @@ sites, are those of the energy to second order, or to third with `cutoff_third`:
 
 $$
 F_{i\alpha} = -\sum_{j\beta} \Phi_{i\alpha, j\beta}\, u_{j\beta}
-- \frac12 \sum_{j\beta, k\gamma} \Psi_{i\alpha, j\beta, k\gamma}\, u_{j\beta} u_{k\gamma} .
+- \frac12 \sum_{j\beta, k\gamma} \Psi_{i\alpha, j\beta, k\gamma}\, u_{j\beta} u_{k\gamma} ,
 $$
+
+where $i$, $j$ and $k$ are atoms of the supercell, $\alpha$, $\beta$ and $\gamma$
+the Cartesian directions x, y and z, $F_{i\alpha}$ and $u_{j\beta}$ components of
+forces and displacements, $\Phi$ the second order force constants, the second
+derivatives of the energy with respect to the displacements (`second`), and $\Psi$
+the third order ones, its third derivatives (`third`); the $\frac12$ comes from
+the expansion of the energy, in which each pair $j\beta, k\gamma$ appears twice.
 
 The force constants are those of the supercell with its periodic boundaries, or, with a
 cutoff, those of the pairs of the crystal no farther apart than it. They obey every
 relation that is exact:
 
-- the operations $(R, \mathbf t)$ of the crystal, those that map the supercell onto itself
-  without a cutoff and all of them with one: $\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}$;
+- the operations $g = (R, \mathbf t)$ of the crystal, a rotation $R$ followed by a
+  translation $\mathbf t$, those that map the supercell onto itself without a cutoff and
+  all of them with one: $\Phi(g i, g j) = R\, \Phi(i, j)\, R^{\mathsf T}$, where $g i$ is
+  the atom that $g$ takes atom $i$ to and $\Phi(i, j)$ the $3 \times 3$ block of atoms
+  $i$ and $j$;
 - the exchange of the two atoms: $\Phi_{i\alpha, j\beta} = \Phi_{j\beta, i\alpha}$;
 - the sum rule, so that moving the whole crystal costs no energy:
   $\sum_j \Phi_{i\alpha, j\beta} = 0$.
 
 The third order force constants $\Psi$, `third`, are those of three atoms of the crystal
 each no farther than `cutoff_third` from the others, under every operation of the crystal,
-$\Psi(g i, g j, g k) = R \otimes R \otimes R\, \Psi(i, j, k)$, the same for every order of
+$\Psi(g i, g j, g k) = R \otimes R \otimes R\, \Psi(i, j, k)$, with $\otimes$ the
+tensor product, so that $R$ turns each of the three directions, the same for every order of
 the three atoms, and summing to zero over the third, $\sum_k \Psi_{i\alpha, j\beta,
 k\gamma} = 0$.
 
 The free force constants are the components that these relations leave, `parameters`
 and `parameters_third` of them. The fit makes the sum over the frames of
-$|\mathbf F - \mathbf F_\text{fit}|^2$ as small as it can, and `error` is
+$|\mathbf F - \mathbf F_\text{fit}|^2$ as small as it can, with $\mathbf F$ the forces of
+the frames and $\mathbf F_\text{fit}$ those of the force constants at their
+displacements, and `error` is
 $|\mathbf F - \mathbf F_\text{fit}| / |\mathbf F|$. The displacement of each atom is that
 from the nearest atom of the supercell, through the periodic boundaries.
 

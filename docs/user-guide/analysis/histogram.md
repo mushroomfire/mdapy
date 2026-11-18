@@ -43,7 +43,8 @@ with plot.style():
 ![Histogram of a velocity component](images/histogram.png)
 
 *4000 values of $v_x$ in 40 bins, normalized as a density, against the
-Gaussian of variance $k_BT/m$.*
+Gaussian of variance $k_BT/m$, with $k_B$ the Boltzmann constant, $T$ = 300 K and $m$
+the mass of a copper atom.*
 
 ## Parameters
 

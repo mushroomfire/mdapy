@@ -44,7 +44,8 @@ result.energy, result.error  # J/m²
 The harmonic part of the same difference, for comparison: classical atoms in the
 [phonons](phonons.md) of a perfect and a faulted cell of 24 (111) layers, each at the
 volume per atom of the crystal at that temperature. The free energy of the vibrations
-of classical atoms is $k_BT\sum\ln(h\nu/k_BT)$ over the modes, so the difference of
+of classical atoms is $k_BT\sum\ln(h\nu/k_BT)$ over the modes of frequencies $\nu$, with
+$h$ the Planck constant, $k_B$ the Boltzmann constant and $T$ the temperature, so the difference of
 two cells of as many atoms is $k_BT$ times the difference of their sums of $\ln\nu$,
 here averaged over a mesh of wave vectors that misses Γ. At 0 K only the static part is
 left, the fault at rest:
@@ -159,7 +160,8 @@ $$
 \gamma(T) = \frac{F_\mathrm{fault}(T) - F_\mathrm{crystal}(T)}{A},
 $$
 
-where both free energies are those of [`free_energy`](free-energy.md) for solids, of
+is the free energy of the fault per area at the temperature $T$, with $A$ the area of the
+fault in the box, where both free energies are those of [`free_energy`](free-energy.md) for solids, of
 the same atoms in one box but for the box vector that the fault tilts. Classical atoms,
 as in molecular dynamics. With the phonons of the two cells, the
 [harmonic part](phonons.md) of this difference is cheaper and free of noise, but it

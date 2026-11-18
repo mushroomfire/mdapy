@@ -125,16 +125,20 @@ $$
 \mathbf J = \frac{1}{V}\Big[\sum_i e_i \mathbf v_i + \sum_i \mathsf S_i \mathbf v_i\Big],
 $$
 
-with $e_i$ the kinetic and potential energy of atom $i$ and $\mathsf S_i$ its centroid
-stress times the volume, and the conductivity
+with $V$ the volume of the box, $\mathbf v_i$ the velocity of atom $i$, $e_i$ its
+kinetic and potential energy and $\mathsf S_i$ its centroid stress times the volume.
+The thermal conductivity at the temperature $T$ is
 
 $$
 \kappa_{\alpha\beta} = \frac{V}{k_B T^2} \int_0^{\tau} \langle J_\alpha(0)\, J_\beta(t)
 \rangle\, dt,
 $$
 
-each lag of the correlation the mean over every time origin of the samples, the integral
-by trapezoids up to `correlation`, and the correlation made symmetric in α and β
+where $\alpha$ and $\beta$ are the Cartesian directions x, y and z, $k_B$ is the
+Boltzmann constant, $\langle J_\alpha(0)\, J_\beta(t) \rangle$ is the correlation of
+the flux at the lag $t$, each lag the mean over every time origin of the samples, and
+the integral is taken by trapezoids up to $\tau$, `correlation`, with the correlation
+made symmetric in $\alpha$ and $\beta$
 ([Schelling et al. (2002)](../../reference/references.md#schelling2002)).
 
 !!! quote "Please cite"

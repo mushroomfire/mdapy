@@ -6,6 +6,7 @@
 """The lattice thermal conductivity of a crystal in the relaxation-time
 approximation, from its second and third order force constants."""
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
@@ -14,7 +15,8 @@ from numpy.typing import ArrayLike
 from mdapy import units
 from mdapy._core import analysis as _scattering
 from mdapy.analysis._symmetry import _rotations
-from mdapy.errors import InvalidParameter
+from mdapy.core.threads import CancelToken
+from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.lattice_dynamics._force_constants import ForceConstants
 from mdapy.lattice_dynamics._phonons import (
     _SAME_VELOCITY,
@@ -164,6 +166,8 @@ def thermal_conductivity(
     mesh: int | ArrayLike,
     sigma: float | None = None,
     symmetry: bool | None = None,
+    progress: Callable[[int, int], None] | None = None,
+    cancel: CancelToken | None = None,
 ) -> ThermalConductivity:
     """The lattice thermal conductivity of a crystal in the relaxation-time
     approximation, from three-phonon scattering.
@@ -188,6 +192,12 @@ def thermal_conductivity(
         Compute the irreducible wave vectors only, and average the group
         velocities, with the rotations of the crystal found by spglib: True,
         False, or by default whenever spglib is installed.
+    progress : callable, optional
+        Called as ``progress(done, total)`` with the pieces of the scattering
+        computed, those of each irreducible wave vector in turn.
+    cancel : CancelToken, optional
+        Stops the calculation between pieces, which raises
+        ``mdapy.errors.Cancelled``.
 
     Returns
     -------
@@ -203,6 +213,8 @@ def thermal_conductivity(
         in every direction, an atom has no mass, a temperature is not
         positive, the mesh is not positive integers, sigma is not positive,
         or symmetry is True without spglib.
+    Cancelled
+        If cancelled.
     """
     if constants.third is None:
         raise InvalidParameter(
@@ -288,6 +300,16 @@ def thermal_conductivity(
     rates = np.zeros((len(temperatures), len(irreducible), modes))
     grid = np.round(q * counts).astype(np.int64)
     angular = 2 * np.pi * 1e12  # rad/s per THz
+    pieces = len(irreducible) * -(-total // chunk_size)
+    done = 0
+
+    def check() -> None:
+        if progress is not None:
+            progress(done, pieces)
+        if cancel is not None and cancel.cancelled:
+            raise Cancelled("the thermal conductivity was cancelled")
+
+    check()
     for slot, index in enumerate(irreducible):
         first = flat(weighted[index].reshape(modes, modes))
         for start in range(0, total, chunk_size):
@@ -352,6 +374,8 @@ def thermal_conductivity(
                 0.0 if sigma is None else angular * sigma,
                 angular * _SAME_VELOCITY,
             ).reshape(len(temperatures), modes)
+            done += 1
+            check()
     gamma = rates * (18 * np.pi / _HBAR**2) * (_HBAR / 2) ** 3 / 36 / total
     gamma /= 2 * np.pi * 1e12  # THz
     # modes of one frequency share their width

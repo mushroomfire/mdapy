@@ -19,9 +19,12 @@ result.stress  # (3, 3) GPa
 system = result.attach(system)  # forces as a column, energy and virial in info
 ```
 
-MDAPY's calculators are [EAM](eam.md), [NEP](nep.md), [LAMMPS](lammps.md),
-which makes any interaction of LAMMPS a calculator, and [VASP](vasp.md),
-which runs VASP for each calculation. Any calculator serves
+MDAPY's own calculators are [EAM](eam.md), [MEAM](meam.md), [ADP](adp.md),
+[Tersoff](tersoff.md), [Stillinger–Weber](stillinger-weber.md),
+[Lennard-Jones and Morse](pair-potentials.md), which read the files of LAMMPS
+and compute them as LAMMPS does, and the machine-learned [NEP](nep.md). Besides,
+[LAMMPS](lammps.md) makes any interaction of LAMMPS a calculator, and
+[VASP](vasp.md) runs VASP for each calculation. Any calculator serves
 [energy minimization](minimize.md) and [elastic constants](elastic-constants.md).
 
 ## The calculator interface
@@ -77,7 +80,11 @@ $$
 W_{ab} = -\frac{\partial E}{\partial \varepsilon_{ab}} = \sum_i x_{i,a} F_{i,b},
 $$
 
-the second form holding for systems without periodic directions.
+where $E$ is the total energy, $a$ and $b$ are the Cartesian directions x, y
+and z, and $x_{i,a}$ and $F_{i,b}$ are the components of the position and the
+force of atom $i$, the sum running over the atoms; the second form holds for
+systems without periodic directions. In the table above, $\sigma$ is the
+stress and $V$ the volume of the box.
 
 ## Writing a calculator
 

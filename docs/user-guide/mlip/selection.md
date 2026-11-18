@@ -97,7 +97,9 @@ $$
 i_{k+1} = \arg\max_i \min_{j \in S_k} \lVert \mathbf{x}_i - \mathbf{x}_j \rVert ,
 $$
 
-so that the chosen points spread over the whole set. The principal
-components are the eigenvectors of the covariance of the points,
-$\frac{1}{M-1} \sum_i (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^\mathsf{T}$,
-by decreasing eigenvalue, the variance along each.
+where $\mathbf x_i$ are the points, the rows of the descriptors, $S_k$ the points
+chosen after $k$ steps (with `selected`) and $i_{k+1}$ the next one, so that the
+chosen points spread over the whole set. The principal components are the
+eigenvectors of the covariance of the $M$ points,
+$\frac{1}{M-1} \sum_i (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^\mathsf{T}$
+with $\bar{\mathbf x}$ their mean, by decreasing eigenvalue, the variance along each.

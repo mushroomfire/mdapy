@@ -28,7 +28,7 @@ result.bulk_modulus(), result.shear_modulus()
 
 The crystal first runs at the temperature and pressure (Nosé–Hoover,
 `fix npt`): `equilibration` steps, then `production` steps over which its box
-is averaged every `every` steps. Its last atoms, put in the mean box, are the
+is averaged, at 50 times evenly spread. Its last atoms, put in the mean box, are the
 reference. For each of the six components of the strain in Voigt order,
 strains of $+\delta$ and $-\delta$ of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities

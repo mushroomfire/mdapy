@@ -2,6 +2,13 @@
 
 ## 2.1.0 (not released)
 
+- Under MPI, `md_elastic_constants` with `method="fluctuation"`, `green_kubo` and
+  `free_energy` read the values that LAMMPS writes to a file on its main process, which sends
+  them to the others. Each process looked for them in a temporary folder of its own, where
+  only the main process's had them, and stopped. `md_elastic_constants` averages 50 boxes of
+  its run into the mean box, as `free_energy` and `melting_point` do, rather than one every
+  `every` steps, each kept with all its atoms on every process: 20 000 steps of 6912 atoms
+  took about 800 MB on each.
 - The example [LAMMPS on many processes with MPI](../examples/mpi.md) is two scripts: one
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of

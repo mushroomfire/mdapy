@@ -25,7 +25,7 @@ from mdapy.lattice_dynamics._elastic import (
     _strained,
 )
 from mdapy.lattice_dynamics._sheets import _is_sheet
-from mdapy.simulation._dynamics import MolecularDynamics
+from mdapy.simulation._dynamics import MolecularDynamics, _read_written
 
 
 def _averaged(stresses: np.ndarray, blocks: int) -> tuple[np.ndarray, np.ndarray]:
@@ -48,6 +48,8 @@ _BORN = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 4), (5, 5),
 _DELTA = 1e-5
 # the Born term once in this many records of the stress
 _BORN_EVERY = 10
+# the boxes averaged into the mean box, evenly spread over the run
+_BOXES = 50
 
 
 def _tensor(voigt: np.ndarray) -> np.ndarray:
@@ -111,9 +113,10 @@ def _fluctuations(
             md.command("unfix mdapy_stress")
             md.command("unfix mdapy_born")
             table = md.thermo.filter(md.thermo["step"] > start)
-        # pxx pyy pzz pxy pxz pyz in bar, as stresses in GPa in the frame of
-        # the system
-        p = np.atleast_2d(np.loadtxt(stress_file, comments="#"))[:, 1:]
+            # pxx pyy pzz pxy pxz pyz in bar, as stresses in GPa in the frame
+            # of the system
+            p = _read_written(md.lammps, stress_file)[:, 1:]
+            values = _read_written(md.lammps, born_file)[:, 1:]
         tensors = np.zeros((len(p), 3, 3))
         for column, (a, b) in enumerate(
             ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))
@@ -121,7 +124,6 @@ def _fluctuations(
             tensors[:, a, b] = tensors[:, b, a] = -p[:, column] * units.BAR_TO_GPA
         tensors = rotation @ tensors @ rotation.T
         virial = np.stack([tensors[:, a, b] for a, b in _PAIRS], axis=1)
-        values = np.atleast_2d(np.loadtxt(born_file, comments="#"))[:, 1:]
     volume = float(table["volume"].mean())
     born = np.zeros((len(values), 6, 6))
     for m, (i, j) in enumerate(_BORN):
@@ -226,7 +228,7 @@ def md_elastic_constants(
     production : int32, optional
         Steps of each average. Default 20000.
     every : int32, optional
-        Steps between the stresses and boxes averaged. Default 10.
+        Steps between the stresses averaged. Default 10.
     blocks : int32, optional
         Number of blocks of each average for its standard error. Default 5.
     barostat : {"iso", "aniso", "tri"}, optional
@@ -277,7 +279,12 @@ def md_elastic_constants(
             "barostat": barostat,
         }
         md.run(int(equilibration), ensemble="npt", **thermal, **run)
-        md.run(int(production), ensemble="npt", save_every=int(every), **thermal, **run)
+        # the box at _BOXES times: each frame keeps every atom, on every
+        # process under MPI
+        boxes_every = max(int(production) // _BOXES, 1)
+        md.run(
+            int(production), ensemble="npt", save_every=boxes_every, **thermal, **run
+        )
         boxes = np.array([f.box.matrix for f in md.frames[1:]])
         last = md.system
     mean = Box(boxes.mean(axis=0), origin=last.box.origin, pbc=last.box.pbc)

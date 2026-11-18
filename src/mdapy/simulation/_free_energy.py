@@ -24,7 +24,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.simulation._dynamics import MolecularDynamics
+from mdapy.simulation._dynamics import MolecularDynamics, _read_written
 
 _PHASES = ("solid", "liquid")
 # the Uhlenbeck-Ford model of the liquid path: its strength over kT, its length
@@ -219,9 +219,9 @@ def _switch(step: int, steps: int) -> str:
     return f"{t}^5*(70*{t}^4-315*{t}^3+540*{t}^2-420*{t}+126)"
 
 
-def _integral(path: Path, sign: int = 1) -> float:
+def _integral(md: MolecularDynamics, path: str, sign: int = 1) -> float:
     """The integral of the first column over the second of a printed file."""
-    data = np.loadtxt(path, comments="#", ndmin=2)
+    data = _read_written(md.lammps, path)
     return sign * float(np.trapezoid(data[:, 0], data[:, 1]))
 
 
@@ -403,8 +403,8 @@ def _frenkel_ladd(
         md.command(_printing(backward))
         _run(md, switching, counter)
         md.command("unfix mdapy_print")
-        there = _integral(Path(forward)) / n  # solid minus springs, dλ from 0 to 1
-        back = _integral(Path(backward)) / n  # the same, from 1 to 0
+        there = _integral(md, forward) / n  # solid minus springs, dλ from 0 to 1
+        back = _integral(md, backward) / n  # the same, from 1 to 0
     einstein, fixed = _einstein(crystal, temperature, springs)
     return einstein + fixed + 0.5 * (there - back), -0.5 * (there + back)
 
@@ -503,8 +503,8 @@ def _liquid_reference(
         _run(md, switching, counter)
         md.command("unfix mdapy_print")
         # the interaction minus the model, dλ from 0 to 1 and from 1 to 0
-        there = _integral(Path(paths["to_model"])) / n
-        back = _integral(Path(paths["from_model"])) / n
+        there = _integral(md, paths["to_model"]) / n
+        back = _integral(md, paths["from_model"]) / n
     # the model alone is cheap, and its dissipation the larger: four times as long
     model, spread = _model_excess(
         liquid,
@@ -580,8 +580,8 @@ def _model_excess(
         md.command(_printing(up))
         _run(md, switching, counter)
         md.command("unfix mdapy_print")
-        rise = _integral(Path(up)) / n
-        fall = _integral(Path(down)) / n
+        rise = _integral(md, up) / n
+        fall = _integral(md, down) / n
     return 0.5 * (rise - fall), 0.5 * (rise + fall)
 
 

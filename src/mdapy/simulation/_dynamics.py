@@ -5,6 +5,7 @@
 
 """Molecular dynamics in LAMMPS, with the interaction of a LAMMPS calculator."""
 
+import os
 import weakref
 from typing import Any
 
@@ -44,6 +45,34 @@ def _pair(value: float | tuple[float, float] | None, name: str) -> tuple | None:
             f"{name} must be a number or (start, stop), not {value!r}"
         )
     return pair
+
+
+def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
+    """The rows of numbers of a file that a fix of LAMMPS wrote, on every
+    process: under MPI the main process alone writes it, into its own
+    folder, and sends what it reads to the others."""
+
+    def read() -> np.ndarray:
+        return np.loadtxt(path, comments="#", ndmin=2)
+
+    if int(lmp.extract_setting("world_size")) == 1:
+        return read()
+    comm = lmp.get_mpi_comm()
+    if comm is None:
+        raise InvalidParameter(
+            "LAMMPS on several processes needs mpi4py, by which its main process "
+            "shares the values it writes"
+        )
+    data: Any = None
+    if comm.rank == 0:
+        try:
+            data = read()
+        except Exception as error:  # sent too, or the others would wait for ever
+            data = error
+    data = comm.bcast(data, root=0)
+    if isinstance(data, Exception):
+        raise data
+    return data
 
 
 class MolecularDynamics:

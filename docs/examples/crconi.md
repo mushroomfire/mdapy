@@ -302,6 +302,35 @@ for t, result in zip(hot[::3], md[::3]):
 900 K: C11 225.2, C12 152.7, C44 107.4 GPa
 ```
 
+With `method="fluctuation"`, the crystal runs once more at each temperature, at
+its mean box, and the constants come from the
+[fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress):
+1 ns at zero pressure for the mean box, then 1 ns at that box, about
+17 minutes on one GPU:
+
+<!-- skip-test -->
+```python
+fluctuating = [
+    md_elastic_constants(
+        crystal, gpu, t, timestep=0.002, equilibration=10000, production=500000,
+        method="fluctuation",
+    )
+    for t in hot
+]  # fmt: skip
+for t, result in zip(hot[::3], fluctuating[::3]):
+    print("%.0f K: C11 %.1f, C12 %.1f, C44 %.1f GPa" % (t, *cubic(result.constants)))
+```
+
+```text
+300 K: C11 268.9, C12 173.7, C44 131.9 GPa
+600 K: C11 247.8, C12 163.7, C44 119.8 GPa
+900 K: C11 225.5, C12 152.9, C44 107.6 GPa
+```
+
+The two methods differ by at most 0.4 GPa at every temperature from 300 to
+1000 K, within twice their standard errors of 0.1 to 0.4 GPa: the strains and
+the fluctuations of the same crystal give the same constants.
+
 Against the isothermal constants of the quasi-harmonic approximation:
 
 <!-- skip-test -->
@@ -309,26 +338,31 @@ Against the isothermal constants of the quasi-harmonic approximation:
 quasi = np.array([cubic(c) for c in thermal.isothermal])
 dynamic = np.array([cubic(result.constants) for result in md])
 spread = np.array([cubic(result.errors) for result in md])
+fluctuation = np.array([cubic(result.constants) for result in fluctuating])
 with plot.style():
     fig, ax = plot.figure("single")
     for k, name in enumerate(("C$_{11}$", "C$_{12}$", "C$_{44}$")):
         (line,) = ax.plot(temperatures, quasi[:, k], label=f"{name}, quasi-harmonic")
         ax.errorbar(hot, dynamic[:, k], spread[:, k], fmt="o", color=line.get_color(),
-                    capsize=2, label=f"{name}, MD")  # fmt: skip
+                    capsize=2, label=f"{name}, MD, strains")  # fmt: skip
+        ax.plot(hot, fluctuation[:, k], "s", ms=9, mfc="none", color=line.get_color(),
+                label=f"{name}, MD, fluctuations")  # fmt: skip
     ax.set_xlabel("temperature (K)")
     ax.set_ylabel("elastic constants (GPa)")
-    ax.legend(ncol=2)
+    ax.legend(ncol=3, fontsize="x-small")
     plot.save(fig, "images/crconi-md", formats=("png",))
 ```
 
 ![Isothermal elastic constants of CrCoNi: quasi-harmonic against molecular dynamics](images/crconi-md.png)
 
 *The isothermal constants of CrCoNi with the NEP model: lines from the quasi-harmonic
-approximation, points from molecular dynamics, with their standard errors, smaller than
-the points. At 300 K the two agree to 1 GPa. Above, the constants of molecular dynamics
-soften more slowly: at 1000 K C11 is 217 against 213 GPa, C12 149 against 142 GPa and
-C44 104 against 100 GPa: the quasi-harmonic approximation, which takes the
-anharmonic vibrations in only through the volume, softens the crystal faster.*
+approximation, points from molecular dynamics, by strains (filled, with their standard
+errors, smaller than the points) and by fluctuations (open squares). At 300 K
+molecular dynamics and the quasi-harmonic approximation agree to 1 GPa. Above, the
+constants of molecular dynamics soften more slowly: at 1000 K C11 is 217 against 213 GPa,
+C12 149 against 142 GPa and C44 104 against 100 GPa: the quasi-harmonic approximation,
+which takes the anharmonic vibrations in only through the volume, softens the crystal
+faster.*
 
 Molecular dynamics treats the atoms as classical, the quasi-harmonic approximation
 quantum mechanically, with their zero-point vibrations; from 300 K on the difference is

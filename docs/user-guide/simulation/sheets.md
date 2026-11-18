@@ -153,8 +153,8 @@ capacity at constant area.
 
 `md_elastic_constants` takes a sheet and returns its `SheetElasticResult` in
 N/m, with the standard errors in `errors`: the mean shape of the sheet under
-`pressure` in its plane, then the mean tensions under strains along xx, yy
-and xy. `pressure` is in GPa over the height of the box, as in molecular
+`pressure` in its plane, then, by default, the fluctuations of its stress at
+that shape. `pressure` is in GPa over the height of the box, as in molecular
 dynamics below, and the barostats change the sheet in its plane only.
 
 <!-- skip-test -->
@@ -163,10 +163,26 @@ from mdapy.lattice_dynamics import md_elastic_constants
 from mdapy.transform import replicate
 
 hot = md_elastic_constants(
-    replicate(sheet, (8, 8, 1)), potential, 300.0, timestep=0.0005
-)
+    replicate(sheet, (16, 16, 1)), potential, 300.0, timestep=0.0005,
+    equilibration=20000, production=1000000,
+)  # fmt: skip
 hot.constants, hot.errors  # (3, 3) N/m
 ```
+
+A sheet takes the fluctuations, as a strain that compresses it wrinkles it:
+the sheet bends out of its plane rather than shorten, and resists less than
+under a stretch. With `method="strain"`, the strains of +1 % and −1 % average
+the two responses. On 16 × 16 cells of graphene with LCBOP at 100 K they give
+C11 217 N/m along x and 176 N/m along y, which the symmetry makes equal,
+against 274 N/m for both from the fluctuations. Near 0 K, where the sheet
+hardly ripples, the strains still hold.
+
+The fluctuations need long runs, as the vibrations across the sheet change
+slowly: a million steps of 0.5 fs give errors of a few N/m on 512 atoms. The
+constants of a free sheet depend on its size, as its ripples grow with it;
+[Elastic constants of graphene](../../examples/graphene-elastic.md) compares
+molecular dynamics with the quasi-harmonic approximation from 100 to 1000 K
+and on sheets of 128 to 2048 atoms.
 
 ## In gigapascals
 

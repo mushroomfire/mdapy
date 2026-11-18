@@ -3,7 +3,7 @@
 `mdapy.lattice_dynamics.md_elastic_constants(system, potential, temperature,
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
 production=20000, every=10, blocks=5, barostat="tri", seed=1,
-method="strain")` gives the isothermal elastic constants of a crystal at a
+method=None)` gives the isothermal elastic constants of a crystal at a
 temperature from [molecular dynamics](dynamics.md) in LAMMPS, with their
 standard errors: from the mean stress under small strains, at the cost of
 thirteen runs, or, with `method="fluctuation"`, from the fluctuations of the
@@ -72,7 +72,7 @@ gives that limit.
 | `blocks` | int32 | 5 | | blocks of each average for its standard error |
 | `barostat` | str | `"tri"` | | how the box finds its mean shape: `"iso"`, `"aniso"` or `"tri"` |
 | `seed` | int32 | 1 | | seed of the starting velocities and of the thermostat of the strained runs |
-| `method` | str | `"strain"` | | `"strain"`, the mean stress under strains, or `"fluctuation"`, the fluctuations of the stress |
+| `method` | str | `None` | | `"strain"`, the mean stress under strains, or `"fluctuation"`, the fluctuations of the stress; by default `"strain"` for a crystal and `"fluctuation"` for a [sheet](sheets.md#elastic-constants-from-molecular-dynamics), which wrinkles under a strain that compresses it |
 
 ## From the fluctuations of the stress
 
@@ -108,8 +108,13 @@ fluctuating = md_elastic_constants(
 ```
 
 The two methods agree within their errors, for copper (EAM of Mishin) from 20
-to 900 K and from 256 to 2048 atoms, for copper under 10 GPa, and for C11 and
-C12 of silicon (Tersoff) at 10 and 300 K. What they cost differs:
+to 900 K and from 256 to 2048 atoms, for copper under 10 GPa, for C11 and C12
+of silicon (Tersoff) at 10 and 300 K, and for the CrCoNi alloy with a NEP model
+from 300 to 1000 K, to 0.4 GPa, in
+[A machine-learned potential for CrCoNi](../../examples/crconi.md#from-molecular-dynamics).
+They differ for a sheet, which wrinkles under a strain that compresses it; see
+[Sheets](sheets.md#elastic-constants-from-molecular-dynamics). What they cost
+differs:
 
 | | Strain | Fluctuation |
 |---|---|---|

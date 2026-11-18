@@ -341,15 +341,20 @@ spread = np.array([cubic(result.errors) for result in md])
 fluctuation = np.array([cubic(result.constants) for result in fluctuating])
 with plot.style():
     fig, ax = plot.figure("single")
+    columns = [[], [], []]  # of the legend: each row one constant
     for k, name in enumerate(("C$_{11}$", "C$_{12}$", "C$_{44}$")):
         (line,) = ax.plot(temperatures, quasi[:, k], label=f"{name}, quasi-harmonic")
-        ax.errorbar(hot, dynamic[:, k], spread[:, k], fmt="o", color=line.get_color(),
-                    capsize=2, label=f"{name}, MD, strains")  # fmt: skip
-        ax.plot(hot, fluctuation[:, k], "s", ms=9, mfc="none", color=line.get_color(),
-                label=f"{name}, MD, fluctuations")  # fmt: skip
+        bars = ax.errorbar(hot, dynamic[:, k], spread[:, k], fmt="o",
+                           color=line.get_color(), capsize=2,
+                           label=f"{name}, MD, strains")  # fmt: skip
+        (boxes,) = ax.plot(hot, fluctuation[:, k], "s", ms=9, mfc="none",
+                           color=line.get_color(),
+                           label=f"{name}, MD, fluctuations")  # fmt: skip
+        for column, handle in zip(columns, (line, bars, boxes)):
+            column.append(handle)
     ax.set_xlabel("temperature (K)")
     ax.set_ylabel("elastic constants (GPa)")
-    ax.legend(ncol=3, fontsize="x-small")
+    ax.legend(handles=sum(columns, []), ncol=3, fontsize="x-small", markerscale=0.7)
     plot.save(fig, "images/crconi-md", formats=("png",))
 ```
 

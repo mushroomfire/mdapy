@@ -236,10 +236,10 @@ public:
     double cutoff() const override { return cutoff_; }
     int species() const override { return elements_; }
 
-    void compute(Atoms& atoms, const Neighbors& neighbors, const Box& box, bool energy,
+    void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                  bool virial, bool atomic_virials) override {
         Atoms::Impl& a = atoms.impl();
-        const Neighbors::Impl& l = neighbors.impl();
+        Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
@@ -247,8 +247,8 @@ public:
         const std::int64_t n = a.n;
         fp_.resize(static_cast<std::size_t>(n));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
-        const Real4<Real>* x = a.positions<Real>();
-        const Images<Real> b = images_of<Real>(box);
+        const Real4<Real>* x = l.local<Real>(a, box);
+        const Images<Real> b = l.steps<Real>(box);
         Tables<Real> t{pairs_.view(), embedding_.view(), density_.data(), pair_.data(),
                        elements_, static_cast<Real>(cutoff_ * cutoff_), rho_max_};
         const unsigned g = blocks(n);

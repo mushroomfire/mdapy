@@ -68,15 +68,6 @@ DeviceBox<Real> device_box(const Box& box) {
 template DeviceBox<float> device_box<float>(const Box&);
 template DeviceBox<double> device_box<double>(const Box&);
 
-template <class Real>
-Images<Real> images_of(const Box& box) {
-    Images<Real> out{};
-    for (int k = 0; k < 9; ++k) out.h[k] = static_cast<Real>(box.h[k]);
-    return out;
-}
-
-template Images<float> images_of<float>(const Box&);
-template Images<double> images_of<double>(const Box&);
 
 namespace {
 

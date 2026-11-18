@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include "cuda/atoms.cuh"
 #include "cuda/device.cuh"
 
 namespace mdapy::cuda {
@@ -27,6 +28,26 @@ struct Neighbors::Impl {
     Buffer<unsigned char> sort_scratch;
     Buffer<double> displacement;     // (n,) for the test of the skin
     Buffer<int> found;               // the most neighbors an atom has
+    // How the pairs are reached. With cells, the code of a pair is the cell
+    // of its neighbor around its own, d of -1, 0 or 1 along each vector, and
+    // x_j - x_i = l_j - l_i + sum d_k h_k / n_k, l the position of each atom
+    // from the corner of its cell: small numbers, which single precision
+    // holds to a fraction of a micrometre whatever the size of the box.
+    // Without (fewer than 3 cells along a periodic direction), the code is
+    // the image of the box, n_k = 1 and l from the corner of the box.
+    bool with_cells = false;
+    int3 cells{1, 1, 1};
+    Buffer<float4> local_single;
+    Buffer<double4a> local_double;
+    std::uint64_t local_version[2] = {0, 0};  // of the atoms they were made from
+    Box local_box[2]{};
+
+    // The positions l of the atoms for the potentials, in a precision.
+    template <class Real>
+    const Real4<Real>* local(const Atoms::Impl& atoms, const Box& box);
+    // The vectors h_k / n_k of the codes of the pairs.
+    template <class Real>
+    Images<Real> steps(const Box& box) const;
 };
 
 }  // namespace mdapy::cuda

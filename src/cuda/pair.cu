@@ -108,10 +108,10 @@ public:
     double cutoff() const override { return cutoff_; }
     int species() const override { return species_; }
 
-    void compute(Atoms& atoms, const Neighbors& neighbors, const Box& box, bool energy,
+    void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                  bool virial, bool atomic_virials) override {
         Atoms::Impl& a = atoms.impl();
-        const Neighbors::Impl& l = neighbors.impl();
+        Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
@@ -129,11 +129,11 @@ public:
 
 private:
     template <PairStyle Style>
-    void launch(Atoms::Impl& a, const Neighbors::Impl& l, const Box& box, bool energy,
+    void launch(Atoms::Impl& a, Neighbors::Impl& l, const Box& box, bool energy,
                 bool virial) {
         const std::int64_t n = a.n;
-        const Real4<Real>* x = a.positions<Real>();
-        const Images<Real> b = images_of<Real>(box);
+        const Real4<Real>* x = l.local<Real>(a, box);
+        const Images<Real> b = l.steps<Real>(box);
         PairTables<Real> t{coefficients_.data(), cutsq_.data(), offset_.data(), species_};
         const unsigned g = blocks(n);
         double* e = energy ? a.energies.data() : nullptr;

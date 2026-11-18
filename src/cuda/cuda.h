@@ -131,7 +131,7 @@ public:
     virtual int species() const = 0;
     // The forces on the atoms, and their energies, their total virial and
     // the virial of each atom when asked. The list must be up to date.
-    virtual void compute(Atoms& atoms, const Neighbors& neighbors, const Box& box, bool energy,
+    virtual void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                          bool virial, bool atomic_virials) = 0;
 };
 

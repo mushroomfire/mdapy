@@ -133,18 +133,16 @@ DeviceBox<Real> device_box(const Box& box);
 constexpr int kIndexBits = 27;
 constexpr std::uint32_t kIndexMask = (1u << kIndexBits) - 1u;
 
-// The vectors of a box in a precision, for the images of pairs.
+// The steps of the codes of pairs, h_k / n_k, rows, in a precision.
 template <class Real>
 struct Images {
     Real h[9];
 };
 
-template <class Real>
-Images<Real> images_of(const Box& box);
-
-// x_j - x_i + s h of a pair, s from the image of its code: most pairs need
-// no shift, and the others compute it, as an array of 27 vectors indexed at
-// run time would be read from local memory.
+// x_j - x_i of a pair from l_j - l_i: plus d . steps, d of -1, 0 or 1 along
+// each vector by its code (Neighbors::Impl). Most pairs have one of a few
+// codes; an array of the 27 vectors indexed at run time would be read from
+// local memory.
 template <class Real>
 __device__ inline void add_image(const Images<Real>& b, std::uint32_t code, Real& x, Real& y,
                                  Real& z) {

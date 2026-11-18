@@ -210,7 +210,7 @@ NB_MODULE(_cuda, m) {
         .def_prop_ro("species", &Potential::species)
         .def(
             "compute",
-            [](Potential& p, Atoms& a, const Neighbors& l, Matrix h, Vector lo,
+            [](Potential& p, Atoms& a, Neighbors& l, Matrix h, Vector lo,
                std::array<bool, 3> pbc, bool energy, bool virial, bool atomic_virials) {
                 const Box box = make_box(h, lo, pbc);
                 nb::gil_scoped_release release;

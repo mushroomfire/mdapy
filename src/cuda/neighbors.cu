@@ -174,7 +174,9 @@ __global__ void list(std::int64_t n, const double4a* x, const float4* xf, Device
                 const float image[3] = {sx * boxf.h[0] + sy * boxf.h[3] + sz * boxf.h[6],
                                         sx * boxf.h[1] + sy * boxf.h[4] + sz * boxf.h[7],
                                         sx * boxf.h[2] + sy * boxf.h[5] + sz * boxf.h[8]};
-                const int cell_code = (sx + 1) + 3 * (sy + 1) + 9 * (sz + 1);
+                // the code of the pairs: the cell around, with cells; the image
+                // of the box of each pair, found below, without
+                const int cell_code = (dx + 1) + 3 * (dy + 1) + 9 * (dz + 1);
                 for (int j = begin[cell]; j < end[cell]; ++j) {
                     if (j == i) continue;
                     int code = cell_code;
@@ -219,11 +221,39 @@ __global__ void list(std::int64_t n, const double4a* x, const float4* xf, Device
     atomicMax(found, m);
 }
 
-// The square of how far each atom moved since the list was built, without
-// what moving with the box gives it: (x - lo) - (x0 - lo0) m, m = h0^-1 h.
 struct Matrix {
     double m[9];
 };
+
+// The position of each atom from the corner of its cell, the cell of the
+// last build in the box now, which moves with the box: l = x - lo - sum
+// c_k / n_k h_k, in a precision, the species as w.
+template <class Real>
+__global__ void to_local(std::int64_t n, const double4a* x, const std::int32_t* keys, int3 cells,
+                         int with_cells, Matrix h, double3 lo, Real4<Real>* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double4a p = x[i];
+    double f[3] = {0.0, 0.0, 0.0};
+    if (with_cells) {
+        const int key = keys[i];
+        f[0] = static_cast<double>(key % cells.x) / cells.x;
+        f[1] = static_cast<double>((key / cells.x) % cells.y) / cells.y;
+        f[2] = static_cast<double>(key / (cells.x * cells.y)) / cells.z;
+    }
+    const double corner[3] = {lo.x + f[0] * h.m[0] + f[1] * h.m[3] + f[2] * h.m[6],
+                              lo.y + f[0] * h.m[1] + f[1] * h.m[4] + f[2] * h.m[7],
+                              lo.z + f[0] * h.m[2] + f[1] * h.m[5] + f[2] * h.m[8]};
+    Real4<Real> l;
+    l.x = static_cast<Real>(p.x - corner[0]);
+    l.y = static_cast<Real>(p.y - corner[1]);
+    l.z = static_cast<Real>(p.z - corner[2]);
+    l.w = static_cast<Real>(p.w);
+    out[i] = l;
+}
+
+// The square of how far each atom moved since the list was built, without
+// what moving with the box gives it: (x - lo) - (x0 - lo0) m, m = h0^-1 h.
 
 __global__ void moved(std::int64_t n, const double4a* x, const double4a* x0, double3 lo,
                       double3 lo0, Matrix m, double* out) {
@@ -240,6 +270,46 @@ __global__ void moved(std::int64_t n, const double4a* x, const double4a* x0, dou
 }
 
 }  // namespace
+
+template <class Real>
+const Real4<Real>* Neighbors::Impl::local(const Atoms::Impl& atoms, const Box& box) {
+    constexpr int k = sizeof(Real) == sizeof(float) ? 0 : 1;
+    Buffer<Real4<Real>>* out;
+    if constexpr (k == 0) {
+        out = &local_single;
+    } else {
+        out = &local_double;
+    }
+    if (local_version[k] != atoms.version || std::memcmp(&local_box[k], &box, sizeof(Box)) != 0) {
+        out->resize(static_cast<std::size_t>(n));
+        Matrix h{};
+        std::memcpy(h.m, box.h, sizeof(h.m));
+        to_local<Real><<<blocks(n), kBlock>>>(n, atoms.x.data(), keys_sorted.data(), cells,
+                                              with_cells ? 1 : 0, h,
+                                              make_double3(box.lo[0], box.lo[1], box.lo[2]),
+                                              out->data());
+        MDAPY_LAUNCHED();
+        local_version[k] = atoms.version;
+        local_box[k] = box;
+    }
+    return out->data();
+}
+
+template <class Real>
+Images<Real> Neighbors::Impl::steps(const Box& box) const {
+    Images<Real> out{};
+    const int count[3] = {cells.x, cells.y, cells.z};
+    for (int r = 0; r < 3; ++r) {
+        const int c = with_cells ? count[r] : 1;
+        for (int k = 0; k < 3; ++k) out.h[3 * r + k] = static_cast<Real>(box.h[3 * r + k] / c);
+    }
+    return out;
+}
+
+template const float4* Neighbors::Impl::local<float>(const Atoms::Impl&, const Box&);
+template const double4a* Neighbors::Impl::local<double>(const Atoms::Impl&, const Box&);
+template Images<float> Neighbors::Impl::steps<float>(const Box&) const;
+template Images<double> Neighbors::Impl::steps<double>(const Box&) const;
 
 Neighbors::Neighbors(double cutoff, double skin) : impl_(std::make_unique<Impl>()) {
     if (!(cutoff > 0.0) || !(skin >= 0.0)) {
@@ -377,6 +447,8 @@ bool Neighbors::update(Atoms& atoms, const Box& box) {
         l.found.zero();
         bool shifts = true;
         for (int k = 0; k < 3; ++k) shifts = shifts && (!box.pbc[k] || cells[k] >= 3);
+        l.with_cells = shifts;
+        l.cells = grid;
         // the rounding of positions in single precision, with room to spare
         double extent = std::fabs(box.lo[0]) + std::fabs(box.lo[1]) + std::fabs(box.lo[2]);
         for (int k = 0; k < 9; ++k) extent += std::fabs(box.h[k]);
@@ -416,9 +488,25 @@ void Neighbors::get(const Atoms& atoms, std::int32_t* counts, std::int32_t* indi
     const Impl& l = *impl_;
     const auto n = static_cast<std::size_t>(l.n);
     const auto most = static_cast<std::size_t>(l.most);
-    std::vector<std::int32_t> columns(most * n), placed(n);
+    std::vector<std::int32_t> columns(most * n), placed(n), keys(n);
     l.counts.download(placed.data(), n);
     l.indices.download(columns.data(), columns.size());
+    l.keys_sorted.download(keys.data(), n);
+    const int count[3] = {l.cells.x, l.cells.y, l.cells.z};
+    // the image of the box a pair is reached through, from the cell around
+    auto image = [&](std::size_t p, std::uint32_t code) {
+        if (!l.with_cells) return static_cast<std::int32_t>(code);
+        const int key = keys[p];
+        const int own[3] = {key % count[0], (key / count[0]) % count[1], key / (count[0] * count[1])};
+        const int d[3] = {static_cast<int>(code % 3u) - 1, static_cast<int>((code / 3u) % 3u) - 1,
+                          static_cast<int>(code / 9u) - 1};
+        int s[3];
+        for (int k = 0; k < 3; ++k) {
+            const int c = own[k] + d[k];
+            s[k] = c < 0 ? -1 : (c >= count[k] ? 1 : 0);
+        }
+        return static_cast<std::int32_t>((s[0] + 1) + 3 * (s[1] + 1) + 9 * (s[2] + 1));
+    };
     const auto& original = atoms.impl().order();  // the caller's atom at each place
     auto caller = [&](std::size_t p) { return original.empty() ? p : static_cast<std::size_t>(original[p]); };
     for (std::size_t p = 0; p < n; ++p) {
@@ -429,7 +517,7 @@ void Neighbors::get(const Atoms& atoms, std::int32_t* counts, std::int32_t* indi
             const auto packed = static_cast<std::uint32_t>(columns[k * n + p]);
             indices[i * most + k] =
                 there ? static_cast<std::int32_t>(caller(packed & kIndexMask)) : -1;
-            images[i * most + k] = there ? static_cast<std::int32_t>(packed >> kIndexBits) : -1;
+            images[i * most + k] = there ? image(p, packed >> kIndexBits) : -1;
         }
     }
 }

@@ -2279,6 +2279,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#large-systems-and-long-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large systems and long runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-to-keep-in-mind" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8275,6 +8286,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#large-systems-and-long-runs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Large systems and long runs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#what-to-keep-in-mind" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8314,7 +8336,10 @@ through MDAPY, the <a href="../../user-guide/simulation/lammps/">LAMMPS calculat
 them together: LAMMPS splits the atoms among the processes, and the results,
 energies, forces and saved frames, come back whole to each. What MDAPY
 computes itself, building a structure or analysing it, is better done once,
-on the main process, than repeated on every one.</p>
+on the main process, than repeated on every one. That suits a short run such
+as the one here, in which LAMMPS takes most of the time;
+<a href="#large-systems-and-long-runs">Large systems and long runs</a> says when to
+split the work instead.</p>
 <p>This page heats a copper crystal with a void on many processes, and finds how
 much of it stays fcc.</p>
 <h2 id="what-it-needs">What it needs<a class="headerlink" href="#what-it-needs" title="Permanent link">&para;</a></h2>
@@ -8465,6 +8490,47 @@ the whole script:</p>
 </table>
 <p>The parts of fcc atoms are the same on every number of processes, and the
 temperature at the end agrees within 1e-7.</p>
+<h2 id="large-systems-and-long-runs">Large systems and long runs<a class="headerlink" href="#large-systems-and-long-runs" title="Permanent link">&para;</a></h2>
+<p>The script holds a hundred thousand atoms and six frames, and its analysis
+takes seconds. With more atoms, more frames or a longer analysis, three things
+in it grow.</p>
+<p><strong>The frames kept fill the memory of every process.</strong> LAMMPS gathers the atoms
+of all the processes into each for a frame of <code>save_every</code>, and the frames stay
+in memory to the end of the script: about 60 bytes per atom and frame, on each
+process. The six frames here take 40 MB on each process; a hundred frames of a
+million atoms would take 6 GB on each, 100 GB on 16 processes. LAMMPS writes
+frames itself as it runs, with a <code>dump</code>: the main process takes the atoms of one
+process at a time, writes them and keeps none.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mf">1800.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="s2">"dump frames all custom 1000 void.*.lammpstrj id element x y z</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="s2">"dump_modify frames element Cu sort id"</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">900.0</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">500</span><span class="p">)</span>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"undump frames"</span><span class="p">)</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="n">thermo</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span>
+</code></pre></div>
+<p>On 4 processes, 40 frames of 108 000 atoms kept by <code>save_every</code> took 280 MB
+more on each process; written by the dump, less than 25 MB, whatever their
+number. <a href="../../basics/trajectory/"><code>read_trajectory</code></a> reads the files back one
+frame at a time; <a href="../../user-guide/simulation/dynamics/#frames-in-files">Frames in files</a>
+says how they match the system.</p>
+<p><strong>The other processes wait while the main process works.</strong> Every process is
+held for the whole script, and only LAMMPS uses them all: building a large
+structure, such as a polycrystal, or analysing every frame, such as with a
+dislocation analysis, leaves the rest idle. Split such work into scripts of
+their own: build the structure and write it as a LAMMPS data file; run it
+under <code>mpirun</code>, reading it with <code>mdapy.io.read</code> on the main process and writing
+the frames with a dump; and analyse the files afterwards with every core,
+as threads of MDAPY, or one frame per process as in
+<a href="../high-throughput/">Screening alloys in many processes</a>.</p>
+<p><strong>Every process holds the whole system.</strong> <code>comm.bcast</code> sends it to each, and
+MDAPY gives LAMMPS all the atoms from each process, of which each keeps its
+own. For tens of millions of atoms, run LAMMPS on an input of its own, which
+reads a data file in pieces on the main process, each process keeping the
+atoms of each piece that are its own.</p>
 <h2 id="what-to-keep-in-mind">What to keep in mind<a class="headerlink" href="#what-to-keep-in-mind" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Every line runs on every process</strong> unless it is under <code>if main</code>: building
@@ -8482,7 +8548,7 @@ temperature at the end agrees within 1e-7.</p>
   threads of MDAPY in each would compete for them. Heavy analyses run faster
   afterwards, in a script of their own on the saved frames, with every core.</li>
 <li><strong>Every process holds every saved frame.</strong> Save few, or let LAMMPS write
-  them with <code>md.command("dump ...")</code> and read them afterwards.</li>
+  them with a dump, as in <a href="#large-systems-and-long-runs">Large systems and long runs</a>.</li>
 <li><strong>The trajectory depends on the number of processes</strong>, by rounding: the
   processes sum the forces in another order, and molecular dynamics makes the
   difference grow, as in LAMMPS alone. Averages, such as the temperature or

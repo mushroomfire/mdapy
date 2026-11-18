@@ -48,7 +48,7 @@ value_range=None, representation="spheres", radius=None, bonds=None,
 bond_radius=None, box=True,
 box_radius=None, box_color="black", polyhedra=None, polyhedra_alpha=0.6,
 polyhedra_color="atom", polyhedra_edges=None, mesh=None, mesh_color="#8fb0d8",
-mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5,
+mesh_alpha=1.0, dislocations=None, dislocation_radius=0.5, dislocation_color="family",
 burgers_vectors=False, burgers_scale=3.0, burgers_radius=0.3,
 burgers_color=(0.7, 0.7, 0.7), vectors=None, vector_scale=1.0,
 vector_radius=0.5, vector_color=(1.0, 1.0, 0.0), vector_alignment="base",
@@ -77,6 +77,7 @@ lines=None, line_radius=0.1, line_color=(0.6, 0.6, 0.6), wrap_lines=False, legen
 | `mesh_alpha` | float32 | 1 | | its opacity |
 | `dislocations` | `DislocationResult` | `None` | | dislocation lines, such as those of the [dislocation analysis](../analysis/dislocations.md): tubes in the colors of the families of their Burgers vectors, cut at the periodic faces of the box |
 | `dislocation_radius` | float32 | 0.5 | Å | the radius of the tubes |
+| `dislocation_color` | | `"family"` | | `"family"`, the color of the family of the Burgers vector of each line; `"character"`, the angle of each piece to its Burgers vector, from blue for screw (0°) to red for edge (90°) on coolwarm; or one color |
 | `burgers_vectors` | bool | `False` | | also an arrow from the middle of each line along its Burgers vector in space |
 | `burgers_scale` | float32 | 3 | | the length of the arrows in Burgers vectors |
 | `burgers_radius` | float32 | 0.3 | Å | the radius of their shafts |

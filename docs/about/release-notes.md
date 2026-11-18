@@ -1,5 +1,12 @@
 # Release notes
 
+## 2.2.0 (not released)
+
+- `render(..., dislocation_color="family")` colors dislocation lines by the family of their
+  Burgers vector, as before; `"character"` by the angle of each piece of a line to its
+  Burgers vector, from blue for screw to red for edge on coolwarm; or in one color. See
+  [Screw and edge](../user-guide/analysis/dislocations.md#screw-and-edge).
+
 ## 2.1.0
 
 MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

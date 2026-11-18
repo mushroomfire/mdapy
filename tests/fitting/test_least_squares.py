@@ -11,6 +11,8 @@ from mdapy.errors import InvalidParameter
 from mdapy.fitting import (
     MODELS,
     Model,
+    PolynomialFit,
+    SurfaceFit,
     arrhenius,
     exponential,
     fit_curve,
@@ -239,3 +241,58 @@ def test_curve_errors():
         fit_curve(gaussian, x, np.exp(-((x - 0.3) ** 2) / 0.01), [1, 5, 1], max_steps=1)
     with pytest.raises(KeyError):
         fit_curve(exponential, x, np.exp(-x))["width"]
+
+
+def test_a_polynomial_of_given_coefficients():
+    x = np.linspace(-1, 2, 7)
+    made = PolynomialFit([1.0, -2.0, 0.5], np.zeros((3, 3)), np.zeros(7), 1.0)
+    np.testing.assert_allclose(made(x), 1 - 2 * x + 0.5 * x**2)
+    np.testing.assert_allclose(made(x, 1), -2 + x)
+    np.testing.assert_allclose(made(x, 3), 0.0)
+    assert repr(made) == "PolynomialFit(degree 2)"
+    assert not made.coefficients.flags.writeable
+    # the coefficients of a fit, as far from 0 as the temperatures of a
+    # crystal, give its values; the fit itself is evaluated about the middle
+    t = np.linspace(300, 1500, 30)
+    fitted = fit_polynomial(t, 11 + 1e-3 * t + 2e-7 * t**2 - 1e-11 * t**3, 3)
+    again = PolynomialFit(
+        fitted.coefficients, fitted.covariance, fitted.residuals, fitted.r_squared
+    )
+    np.testing.assert_allclose(again(t), fitted(t), rtol=1e-12)
+    np.testing.assert_allclose(again(t, 1), fitted(t, 1), rtol=1e-7)
+    np.testing.assert_array_equal(again.errors, fitted.errors)
+    for bad in (
+        ([], np.zeros((0, 0)), [0.0]),
+        ([1.0, 2.0], np.eye(3), [0.0]),
+        ([1.0, 2.0], np.eye(2), 0.0),
+    ):
+        with pytest.raises(InvalidParameter, match="coefficients must be"):
+            PolynomialFit(*bad, 1.0)
+
+
+def test_a_surface_of_given_terms():
+    x, y = np.meshgrid(np.linspace(-1, 1, 4), np.linspace(0, 2, 4))
+    powers = [[0, 0], [1, 0], [1, 1]]
+    made = SurfaceFit(powers, [1.0, 2.0, -0.5], np.zeros((3, 3)), np.zeros(16), 1.0)
+    np.testing.assert_allclose(made(x, y), 1 + 2 * x - 0.5 * x * y)
+    np.testing.assert_allclose(made(x, y, dx=1), 2 - 0.5 * y)
+    np.testing.assert_allclose(made(x, y, dx=1, dy=1), -0.5)
+    assert made.powers.dtype == np.int64 and not made.powers.flags.writeable
+    fitted = fit_surface(
+        x.ravel() + 300, y.ravel(), (1 + 2 * x - 0.5 * x * y).ravel(), 2
+    )
+    again = SurfaceFit(
+        fitted.powers,
+        fitted.coefficients,
+        fitted.covariance,
+        fitted.residuals,
+        fitted.r_squared,
+    )
+    np.testing.assert_allclose(again(x + 300, y), fitted(x + 300, y), atol=1e-8)
+    for bad in (
+        [[0, 0], [1, 0]],
+        [[0, 0], [1, 0], [-1, 1]],
+        [[0, 0], [1, 0], [0.5, 1]],
+    ):
+        with pytest.raises(InvalidParameter, match="powers must be"):
+            SurfaceFit(bad, [1.0, 2.0, -0.5], np.zeros((3, 3)), np.zeros(16), 1.0)

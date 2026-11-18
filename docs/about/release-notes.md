@@ -2,6 +2,13 @@
 
 ## 2.1.0 (not released)
 
+- `MolecularDynamics` keeps the atoms of a system outside its box along a direction that is
+  not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
+  the face of its box, as `build_crystal("graphene")` makes it, loses the atoms that a run
+  takes below it. `md_elastic_constants` of graphene by fluctuations at 10 K started from
+  such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
+  static. If LAMMPS holds fewer atoms than the system, `MolecularDynamics` raises
+  `InvalidParameter`.
 - Under MPI, `md_elastic_constants` with `method="fluctuation"`, `green_kubo` and
   `free_energy` read the values that LAMMPS writes to a file on its main process, which sends
   them to the others. Each process looked for them in a temporary folder of its own, where
@@ -249,7 +256,8 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `stretched_exponential`, `gaussian`, `lorentzian`, `arrhenius` and `power_law`; and
   `fit_eos`, an `EquationOfState` of one of the `FORMS` Birch–Murnaghan, Vinet and
   Murnaghan, with its `energy` and `pressure` at any volume. Each fit gives its
-  parameters with their errors and covariance. See
+  parameters with their errors and covariance, and each result can be made of given
+  parameters, such as a polynomial of known coefficients. See
   [Interpolation](../user-guide/fitting/interpolation.md),
   [Curve fitting](../user-guide/fitting/curve-fitting.md) and
   [Equations of state](../user-guide/fitting/equation-of-state.md).

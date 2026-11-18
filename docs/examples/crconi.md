@@ -387,42 +387,48 @@ shear modulus as it is and raises the bulk modulus alone:
 
 <!-- skip-test -->
 ```python
-def young_and_shear(constants):
-    """Young's and shear moduli, averages of Voigt, Reuss and Hill."""
-    moduli = [ElasticResult(c) for c in constants]
-    bulk = np.array([m.bulk_modulus() for m in moduli])
-    shear = np.array([m.shear_modulus() for m in moduli])
-    return 9 * bulk * shear / (3 * bulk + shear), shear
+def moduli(constants):
+    """Young's and shear moduli of a polycrystal, Hill averages, of each (6, 6)
+    constants."""
+    results = [ElasticResult(c) for c in constants]
+    return np.array([[r.young_modulus(), r.shear_modulus()] for r in results])
 
 
-young, shear = young_and_shear(thermal.adiabatic)
+# the heat that a strain releases, added to the isothermal constants of MD
 at = np.searchsorted(temperatures, hot)
 heat = thermal.adiabatic[at] - thermal.isothermal[at]
-young_md, shear_md = young_and_shear(np.array([r.constants for r in md]) + heat)
-
+quasi = moduli(thermal.adiabatic)
+strains = moduli(np.array([r.constants for r in md]) + heat)
+fluctuations = moduli(np.array([r.constants for r in fluctuating]) + heat)
 einstein = 1 / (np.exp(362 / hot) - 1)
-young_measured, shear_measured = 244.9 - 32 * einstein, 93.6 - 11.9 * einstein
-print("T (K)   E: QHA     MD   measured   G: QHA    MD  measured (GPa)")
-for t in (300, 600, 900):
-    k, j = np.flatnonzero(temperatures == t)[0], np.flatnonzero(hot == t)[0]
-    print(
-        f"{t:5.0f}   {young[k]:9.1f} {young_md[j]:6.1f} {young_measured[j]:8.1f}"
-        f"   {shear[k]:8.1f} {shear_md[j]:5.1f} {shear_measured[j]:7.1f}"
-    )
+measured = np.stack([244.9 - 32 * einstein, 93.6 - 11.9 * einstein], axis=1)
+
+for k, name in enumerate(("Young's modulus", "shear modulus")):
+    print(f"{name} (GPa): quasi-harmonic, MD by strains, by fluctuations, measured")
+    for t in (300, 600, 900):
+        i, j = np.flatnonzero(temperatures == t)[0], np.flatnonzero(hot == t)[0]
+        print(
+            f"  {t:.0f} K: {quasi[i, k]:.1f}, {strains[j, k]:.1f}, "
+            f"{fluctuations[j, k]:.1f}, {measured[j, k]:.1f}"
+        )
 
 with plot.style():
     fig, axes = plot.figure("double", ncols=2)
-    for ax, model, dynamic, fit, name in zip(
-        axes,
-        (young, shear),
-        (young_md, shear_md),
-        (young_measured, shear_measured),
-        ("Young's modulus (GPa)", "shear modulus (GPa)"),
+    for k, (ax, name) in enumerate(
+        zip(axes, ("Young's modulus (GPa)", "shear modulus (GPa)"))
     ):
-        ax.plot(temperatures, model, "-o", color="#2a78d6", label="NEP, quasi-harmonic")
-        ax.plot(hot, dynamic, "s", color="#d55e00", markerfacecolor="none",
-                markersize=5, label="NEP, MD")  # fmt: skip
-        ax.plot(hot, fit, "X", color="#1f1f1e", label="Exp.")
+        ax.plot(
+            temperatures,
+            quasi[:, k],
+            "-o",
+            color="#2a78d6",
+            label="NEP, quasi-harmonic",
+        )
+        ax.plot(hot, strains[:, k], "o", color="#d55e00", markersize=4,
+                label="NEP, MD, strains")  # fmt: skip
+        ax.plot(hot, fluctuations[:, k], "s", color="#d55e00", markerfacecolor="none",
+                markersize=7, label="NEP, MD, fluctuations")  # fmt: skip
+        ax.plot(hot, measured[:, k], "X", color="#1f1f1e", label="Exp.")
         ax.set_xlabel("temperature (K)")
         ax.set_ylabel(name)
     axes[1].legend(frameon=False)
@@ -430,15 +436,20 @@ with plot.style():
 ```
 
 ```text
-T (K)   E: QHA     MD   measured   G: QHA    MD  measured (GPa)
-  300       230.8  230.4    231.2       87.7  87.5    88.5
-  600       209.4  209.2    206.3       79.0  78.8    79.2
-  900       185.0  186.2    180.3       69.2  69.5    69.6
+Young's modulus (GPa): quasi-harmonic, MD by strains, by fluctuations, measured
+  300 K: 230.8, 230.4, 230.9, 231.2
+  600 K: 209.4, 209.2, 209.1, 206.3
+  900 K: 185.0, 186.2, 186.6, 180.3
+shear modulus (GPa): quasi-harmonic, MD by strains, by fluctuations, measured
+  300 K: 87.7, 87.5, 87.7, 88.5
+  600 K: 79.0, 78.8, 78.7, 79.2
+  900 K: 69.2, 69.5, 69.6, 69.6
 ```
 
-![Young's and shear moduli of CrCoNi against temperature: the NEP model in the quasi-harmonic approximation and in molecular dynamics against measurements](images/crconi-moduli.png)
+![Young's and shear moduli of CrCoNi against temperature: the NEP model in the quasi-harmonic approximation and in molecular dynamics, by strains and by fluctuations, against measurements](images/crconi-moduli.png)
 
-The two methods give nearly the same moduli, within 1.7 GPa from 300 to
-1000 K. The shear modulus follows the measurements to 1 GPa over the whole
-range; Young's modulus departs from them as the temperature rises, by 3 % at
-900 K.
+The quasi-harmonic approximation and molecular dynamics give nearly the same
+moduli, within 1.9 GPa from 300 to 1000 K, and the strains and the
+fluctuations within 0.5 GPa. The shear modulus follows the measurements to
+1.1 GPa over the whole range; Young's modulus departs from them as the
+temperature rises, by 3 % at 900 K.

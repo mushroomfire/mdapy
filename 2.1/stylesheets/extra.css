@@ -1,0 +1,176 @@
+/* The colors of the site: ink and neutral grays. The red stays in the logo,
+   and on a link under the pointer. */
+:root > * {
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #f3f2f0;
+  --md-primary-fg-color--dark: #e6e5e2;
+  --md-primary-bg-color: #1c1a1b;
+  --md-primary-bg-color--light: #5f5b5a;
+  --md-accent-fg-color: #a80f2a;
+  --md-accent-fg-color--transparent: rgba(28, 26, 27, 0.08);
+  --md-accent-bg-color: #ffffff;
+  --md-typeset-a-color: #1c1a1b;
+}
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #1b1b1d;
+  --md-default-bg-color--light: #1b1b1dbf;
+  --md-code-bg-color: #26262a;
+  --md-primary-fg-color: #1f2125;
+  --md-primary-fg-color--light: #2a2c30;
+  --md-primary-fg-color--dark: #17181b;
+  --md-primary-bg-color: #f2f0ec;
+  --md-primary-bg-color--light: #a9a7a3;
+  --md-accent-fg-color: #f0657b;
+  --md-accent-fg-color--transparent: rgba(242, 240, 236, 0.1);
+  --md-accent-bg-color: #1c1a1b;
+  --md-typeset-a-color: #e8e6e1;
+}
+.md-header {
+  box-shadow: 0 1px 0 var(--md-default-fg-color--lightest);
+}
+.md-tabs {
+  box-shadow: 0 1px 0 var(--md-default-fg-color--lightest);
+}
+.md-search__form,
+.md-search__form:hover {
+  background-color: var(--md-primary-fg-color--light);
+}
+.md-search__input::placeholder,
+.md-search__icon {
+  color: var(--md-primary-bg-color--light);
+}
+.md-header__button.md-logo img {
+  height: 1.6rem;
+}
+/* Links in ink stand out by a line under them. */
+.md-typeset a:not(.headerlink) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--md-default-fg-color--lighter);
+  text-underline-offset: 0.15em;
+}
+
+/* The logo heading the home page, centered. */
+.md-typeset h1.logo {
+  text-align: center;
+}
+
+/* The map of the features on the home page: a row for each stage, the
+   core in ink, each box a link to its pages. */
+.md-typeset .feature-map {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1.2em 0 1.6em;
+}
+.md-typeset .feature-stage {
+  display: grid;
+  grid-template-columns: 4.6rem minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: stretch;
+}
+.md-typeset .feature-label {
+  margin: 0;
+  align-self: center;
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset .feature-cells {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: 0.5rem;
+}
+.md-typeset .feature-cells > p {
+  display: flex;
+  margin: 0;
+}
+.md-typeset a.feature-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.3rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-typeset-a-color);
+  text-decoration: none;
+  line-height: 1.35;
+  transition: border-color 125ms, color 125ms;
+}
+.md-typeset a.feature-card b {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.md-typeset a.feature-card span {
+  font-size: 0.66rem;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset a.feature-card:hover,
+.md-typeset a.feature-card:focus-visible {
+  border-color: var(--md-default-fg-color--light);
+}
+.md-typeset a.feature-card:hover b,
+.md-typeset a.feature-card:focus-visible b {
+  color: var(--md-accent-fg-color);
+}
+/* the core: the system, its neighbor lists and the calculators, in ink */
+.md-typeset .feature-core a.feature-card {
+  background: var(--md-primary-bg-color);
+  border-color: var(--md-primary-bg-color);
+  color: var(--md-primary-fg-color);
+}
+.md-typeset .feature-core a.feature-card span {
+  color: var(--md-primary-fg-color);
+  opacity: 0.7;
+}
+.md-typeset .feature-core a.feature-card:hover b,
+.md-typeset .feature-core a.feature-card:focus-visible b {
+  color: var(--md-primary-fg-color);
+  text-decoration: underline;
+}
+/* the simulation, a chain: relaxation, then the two methods that start
+   from a relaxed crystal */
+.md-typeset .feature-chain {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr);
+}
+.md-typeset .feature-chain > p:has(.feature-arrow) {
+  align-items: center;
+}
+.md-typeset .feature-arrow {
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.9rem;
+}
+@media screen and (max-width: 37.5em) {
+  .md-typeset .feature-stage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+  }
+  .md-typeset .feature-stage + .feature-stage {
+    margin-top: 0.4rem;
+  }
+  .md-typeset .feature-chain {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .md-typeset .feature-chain > p:has(.feature-arrow) {
+    justify-content: center;
+  }
+  .md-typeset .feature-arrow {
+    display: inline-block;
+    transform: rotate(90deg);
+    line-height: 1;
+  }
+}
+
+/* The banner over a version other than the latest release: neutral, as the rest. */
+.md-banner--warning {
+  background-color: var(--md-primary-fg-color--dark);
+  color: var(--md-primary-bg-color);
+}
+.md-banner--warning a,
+.md-banner--warning a:hover {
+  color: var(--md-primary-bg-color);
+  text-decoration: underline;
+}

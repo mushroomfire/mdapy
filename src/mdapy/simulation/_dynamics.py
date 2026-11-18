@@ -8,6 +8,7 @@ with any other calculator."""
 
 import os
 import weakref
+from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
@@ -365,6 +366,8 @@ class MolecularDynamics:
         self.__pbc = system.box.pbc
         self.__rows: list[dict] = []
         self.__frames: list[System] = []
+        self.__saved: int | None = None  # the step of the last frame kept or given
+        self.__reading: Any = None  # the frames of an iterate not read to the end
         if isinstance(potential, LAMMPS):
             self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
         else:
@@ -387,7 +390,11 @@ class MolecularDynamics:
         return self.__lammps_engine().lammps
 
     def close(self) -> None:
-        """Closes the LAMMPS instance; the dynamics stops."""
+        """Closes the LAMMPS instance; the dynamics stops, and the frames of
+        an ``iterate`` end."""
+        reading = self.__reading() if self.__reading is not None else None
+        if reading is not None:
+            reading.close()
         self.__engine.close()
 
     def __enter__(self) -> "MolecularDynamics":
@@ -412,8 +419,10 @@ class MolecularDynamics:
         Raises
         ------
         InvalidParameter
-            If LAMMPS rejects them, or the dynamics runs in MDAPY.
+            If LAMMPS rejects them, the dynamics runs in MDAPY, or the frames
+            of an ``iterate`` are being read.
         """
+        self.__idle()
         self.__lammps_engine().command(commands)
 
     # -- reading the state ----------------------------------------------
@@ -454,6 +463,15 @@ class MolecularDynamics:
         if self.__engine.closed:
             raise InvalidParameter("this molecular dynamics is closed")
 
+    def __idle(self) -> None:
+        """Refuses to change the dynamics while the frames of an iterate
+        are being read: its run is still going."""
+        if self.__reading is not None and self.__reading() is not None:
+            raise InvalidParameter(
+                "the frames of an iterate are being read: read them to the end "
+                "or close them first"
+            )
+
     # -- running ----------------------------------------------------------
 
     def velocities(self, temperature: float, *, seed: int) -> None:
@@ -470,7 +488,8 @@ class MolecularDynamics:
         Raises
         ------
         InvalidParameter
-            For a negative temperature or a seed that is not positive.
+            For a negative temperature or a seed that is not positive, or
+            while the frames of an ``iterate`` are being read.
         """
         if not temperature >= 0:
             raise InvalidParameter(
@@ -479,6 +498,7 @@ class MolecularDynamics:
         if int(seed) < 1:
             raise InvalidParameter(f"seed must be positive, not {seed!r}")
         self.__open()
+        self.__idle()
         self.__engine.velocities(float(temperature), int(seed))
 
     def run(
@@ -534,8 +554,8 @@ class MolecularDynamics:
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
         save_every : int32, optional
-            Keeps the atoms every this many steps. Default None, keeping
-            none.
+            Keeps the atoms every this many steps, in ``frames``. Default
+            None, keeping none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -544,12 +564,162 @@ class MolecularDynamics:
         Raises
         ------
         InvalidParameter
-            For invalid options, or if LAMMPS fails.
+            For invalid options, if LAMMPS fails, or while the frames of an
+            ``iterate`` are being read.
         CalculationFailed
             If the energy or the forces stop being finite, in MDAPY.
         Cancelled
             If cancelled.
         """
+        spec = self.__plan(
+            steps,
+            ensemble,
+            temperature,
+            pressure,
+            barostat,
+            thermostat,
+            thermostat_damping,
+            barostat_damping,
+            seed,
+            thermo,
+            save_every,
+        )
+        self.__idle()
+        self.__frames.extend(self.__steps(spec, progress, cancel))
+
+    def iterate(
+        self,
+        steps: int,
+        *,
+        save_every: int,
+        ensemble: str = "nve",
+        temperature: float | tuple[float, float] | None = None,
+        pressure: float | tuple[float, float] | None = None,
+        barostat: str = "iso",
+        thermostat: str = "nose-hoover",
+        thermostat_damping: float | None = None,
+        barostat_damping: float | None = None,
+        seed: int | None = None,
+        thermo: int = 100,
+        progress: Any = None,
+        cancel: CancelToken | None = None,
+    ) -> Iterator[System]:
+        """Runs molecular dynamics as ``run`` does, giving the atoms every
+        save_every steps as the run reaches them instead of keeping them: the
+        run goes on as the frames are read, and stops where their reading
+        ends.
+
+        Parameters
+        ----------
+        steps : int32
+            Number of steps.
+        save_every : int32
+            Gives the atoms every this many steps, and at the start unless
+            the run before gave them there.
+        ensemble : {"nve", "nvt", "npt", "nph"}, optional
+            Constant energy, or a thermostat, and barostat, or a barostat
+            alone. Default "nve".
+        temperature : float64 or (float64, float64), optional
+            Temperature in K of the thermostat, or its values at the start
+            and the end of the run; needed for "nvt" and "npt".
+        pressure : float64 or (float64, float64), optional
+            Pressure in GPa of the barostat, or its values at the start and
+            the end; needed for "npt" and "nph".
+        barostat : {"iso", "aniso", "tri", "xy"}, optional
+            The box changes alike in every direction, along each axis, in
+            any way, or alike along its first two vectors with the third
+            kept. A sheet, periodic along its first two vectors only, changes
+            in its plane only: alike along them for "iso" and "xy", along
+            each for "aniso", and in any way in the plane for "tri". Default
+            "iso".
+        thermostat : {"nose-hoover", "langevin"}, optional
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
+            "nose-hoover".
+        thermostat_damping : float64, optional
+            Damping time of the thermostat in ps. Default 100 time steps.
+        barostat_damping : float64, optional
+            Damping time of the barostat in ps. Default 1000 time steps.
+        seed : int32, optional
+            Seed of the random forces of Langevin dynamics, positive;
+            unpredictable when None.
+        thermo : int32, optional
+            Records the thermodynamic state every this many steps, and at
+            the start and the end. Default 100.
+        progress : callable, optional
+            Called as ``progress(done, total)`` with the steps run.
+        cancel : CancelToken, optional
+            Stops the run, which raises ``mdapy.errors.Cancelled``.
+
+
+        Returns
+        -------
+        iterator of System
+            The frames, each as ``system`` gives it, read once; ``frames``
+            keeps none of them.
+
+        Raises
+        ------
+        InvalidParameter
+            For invalid options, if LAMMPS fails, or while the frames of
+            another ``iterate`` are being read; the options are checked at
+            once, the rest as the frames are read.
+        CalculationFailed
+            If the energy or the forces stop being finite, in MDAPY.
+        Cancelled
+            If cancelled.
+        """
+        if save_every is None:
+            raise InvalidParameter("iterate needs save_every")
+        spec = self.__plan(
+            steps,
+            ensemble,
+            temperature,
+            pressure,
+            barostat,
+            thermostat,
+            thermostat_damping,
+            barostat_damping,
+            seed,
+            thermo,
+            save_every,
+        )
+        return self.__read(spec, progress, cancel)
+
+    def __read(
+        self, spec: dict[str, Any], progress: Any, cancel: CancelToken | None
+    ) -> Iterator[System]:
+        """The frames of an iterate: no other run, command or velocities
+        while they are being read, from the first to the last or until they
+        are closed."""
+        self.__idle()
+        frames = self.__steps(spec, progress, cancel)
+        try:
+            first = next(frames)
+        except StopIteration:
+            return
+        self.__reading = weakref.ref(frames)
+        try:
+            yield first
+            yield from frames
+        finally:
+            frames.close()
+            self.__reading = None
+
+    def __plan(
+        self,
+        steps: int,
+        ensemble: str,
+        temperature: float | tuple[float, float] | None,
+        pressure: float | tuple[float, float] | None,
+        barostat: str,
+        thermostat: str,
+        thermostat_damping: float | None,
+        barostat_damping: float | None,
+        seed: int | None,
+        thermo: int,
+        save_every: int | None,
+    ) -> dict[str, Any]:
+        """The checked options of a run."""
         steps = int(steps)
         if steps < 0:
             raise InvalidParameter(f"steps must not be negative, not {steps!r}")
@@ -607,21 +777,29 @@ class MolecularDynamics:
             if barostat_damping is None
             else float(barostat_damping),
             "seed": None if seed is None else int(seed),
+            "thermo": int(thermo),
+            "save_every": None if save_every is None else int(save_every),
         }
+        return spec
+
+    def __steps(
+        self, spec: dict[str, Any], progress: Any, cancel: CancelToken | None
+    ) -> Iterator[System]:
+        """Runs, recording the thermodynamic state, and gives the atoms every
+        save_every steps; the run ends where the frames stop being read."""
         engine = self.__engine
-        thermo, done = int(thermo), 0
+        steps, thermo, every = spec["steps"], spec["thermo"], spec["save_every"]
+        done = 0
         try:
             engine.start(spec)
             start = engine.step
             if not self.__rows or self.__rows[-1]["step"] != start:
                 self.__rows.append(engine.record())
-            if save_every is not None and (
-                not self.__frames or self.__frames[-1].info["timestep"] != start
-            ):
-                self.__frames.append(engine.system)
+            if every is not None and self.__saved != start:
+                self.__saved = start
+                yield engine.system
             stops = set(range(thermo, steps, thermo)) | {steps}
-            if save_every is not None:
-                every = int(save_every)
+            if every is not None:
                 stops |= set(range(every, steps + 1, every))
             for stop in sorted(stops):
                 if cancel is not None and cancel.cancelled:
@@ -630,9 +808,11 @@ class MolecularDynamics:
                 done = stop
                 if done % thermo == 0 or done == steps:
                     self.__rows.append(engine.record())
-                if save_every is not None and done % int(save_every) == 0:
-                    self.__frames.append(engine.system)
                 if progress is not None:
                     progress(done, steps)
+                if every is not None and done % every == 0:
+                    self.__saved = engine.step
+                    yield engine.system
         finally:
-            engine.finish()
+            if not engine.closed:
+                engine.finish()

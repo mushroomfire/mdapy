@@ -10,7 +10,7 @@ from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
-from mdapy.fitting import FORMS, fit_eos
+from mdapy.fitting import FORMS, EquationOfState, fit_eos
 from mdapy.fitting._eos import _FORMS
 
 ASE_NAMES = {
@@ -88,3 +88,52 @@ def test_eos_errors():
         fit_eos(volumes - 12, volumes)
     with pytest.raises(InvalidParameter, match="no minimum within the volumes"):
         fit_eos(volumes, -volumes)  # falling all the way
+
+
+@pytest.mark.parametrize("form", FORMS)
+def test_covariance_as_scipy(copper, form):
+    optimize = pytest.importorskip("scipy.optimize")
+    volumes, energies = copper
+    rng = np.random.default_rng(2)
+    noisy = energies + rng.normal(0, 1e-3, len(volumes))
+    fitted = fit_eos(volumes, noisy, form=form)
+    scale = np.array([1.0, 1.0, units.EV_PER_A3_TO_GPA, 1.0])
+    start = np.array([fitted.e0, fitted.v0, fitted.b0, fitted.b0_prime]) / scale
+    p, covariance = optimize.curve_fit(
+        _FORMS[form][0].function, volumes, noisy, p0=start
+    )
+    np.testing.assert_allclose(
+        [fitted.e0, fitted.v0, fitted.b0, fitted.b0_prime], p * scale, rtol=1e-6
+    )
+    # the derivatives of scipy, by finite differences, give the same errors
+    # and correlations to 1e-4
+    expected = covariance * np.outer(scale, scale)
+    errors = np.sqrt(np.diag(expected))
+    np.testing.assert_allclose(fitted.errors, errors, rtol=1e-4)
+    np.testing.assert_allclose(
+        fitted.covariance / np.outer(fitted.errors, fitted.errors),
+        expected / np.outer(errors, errors),
+        atol=1e-4,
+    )
+    np.testing.assert_allclose(fitted.errors, np.sqrt(np.diag(fitted.covariance)))
+    assert not fitted.covariance.flags.writeable
+
+
+def test_an_equation_of_state_of_given_parameters(copper):
+    volumes, energies = copper
+    fitted = fit_eos(volumes, energies, form="vinet")
+    again = EquationOfState(
+        "vinet",
+        [fitted.e0, fitted.v0, fitted.b0, fitted.b0_prime],
+        fitted.covariance,
+        fitted.residuals,
+        fitted.r_squared,
+    )
+    np.testing.assert_allclose(again.energy(volumes), fitted.energy(volumes))
+    np.testing.assert_allclose(again.pressure(volumes), fitted.pressure(volumes))
+    np.testing.assert_array_equal(again.errors, fitted.errors)
+    assert repr(again) == repr(fitted)
+    with pytest.raises(InvalidParameter, match="form must be one of"):
+        EquationOfState("birch", [0, 1, 1, 4], np.eye(4), [0.0], 1.0)
+    with pytest.raises(InvalidParameter, match="covariance"):
+        EquationOfState("vinet", [0, 1, 1, 4], np.eye(3), [0.0], 1.0)

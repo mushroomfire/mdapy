@@ -121,7 +121,12 @@ The models, with x along the curve and their parameters in the order of the func
 | `residuals` | (n,) float64 | the values less the fit |
 | `r_squared` | float64 | the coefficient of determination, 1 for a perfect fit |
 | `steps` | int32 | of `CurveFit`, the steps the fit took |
-| `fit(x)` | float64 | the fitted curve at points; `PolynomialFit(x, derivative)` and `SurfaceFit(x, y, dx=, dy=)` give derivatives too |
+| `fit(x)` | float64 | the fitted curve at points; `fit(x, derivative)` of a `PolynomialFit` and `fit(x, y, dx=, dy=)` of a `SurfaceFit` give derivatives too |
+
+`PolynomialFit(coefficients, covariance, residuals, r_squared)` and
+`SurfaceFit(powers, coefficients, covariance, residuals, r_squared)` make a
+polynomial or a surface of given coefficients, with its values and derivatives
+at any point.
 
 ## Errors
 

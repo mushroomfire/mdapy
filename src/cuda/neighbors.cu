@@ -134,14 +134,19 @@ struct Around {
 // of the wrap of its index: x_j - x_i + s h, s of the cell, for every atom of
 // it. Otherwise the shortest image of each pair from its fractional
 // coordinates.
+// With shifts the pairs are found in single precision, x and the box h in
+// float, within the reach and a margin larger than their rounding: a list
+// with a few pairs more, never fewer. Without, in double precision.
 template <bool Shifts>
-__global__ void list(std::int64_t n, const double4a* x, DeviceBox<double> box, int3 cells,
-                     Around around, const std::int32_t* keys, const std::int32_t* begin,
-                     const std::int32_t* end, double reach2, int most, std::int32_t* indices,
-                     std::int32_t* counts, int* found) {
+__global__ void list(std::int64_t n, const double4a* x, const float4* xf, DeviceBox<double> box,
+                     DeviceBox<float> boxf, int3 cells, Around around, const std::int32_t* keys,
+                     const std::int32_t* begin, const std::int32_t* end, double reach2,
+                     float reach2f, int most, std::int32_t* indices, std::int32_t* counts,
+                     int* found) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const double4a xi = x[i];
+    const float4 fi = Shifts ? xf[i] : make_float4(0.0f, 0.0f, 0.0f, 0.0f);
     const int key = keys[i];  // the atoms are in the order of their cells
     const int own[3] = {key % cells.x, (key / cells.x) % cells.y, key / (cells.x * cells.y)};
     const int count[3] = {cells.x, cells.y, cells.z};
@@ -166,18 +171,22 @@ __global__ void list(std::int64_t n, const double4a* x, DeviceBox<double> box, i
                 } else if (cx < 0 || cx >= count[0]) continue;
                 const int cell = (cz * cells.y + cy) * cells.x + cx;
                 // the image of the cell: the atoms of the cell before the wrap
-                const double image[3] = {sx * box.h[0] + sy * box.h[3] + sz * box.h[6],
-                                         sx * box.h[1] + sy * box.h[4] + sz * box.h[7],
-                                         sx * box.h[2] + sy * box.h[5] + sz * box.h[8]};
+                const float image[3] = {sx * boxf.h[0] + sy * boxf.h[3] + sz * boxf.h[6],
+                                        sx * boxf.h[1] + sy * boxf.h[4] + sz * boxf.h[7],
+                                        sx * boxf.h[2] + sy * boxf.h[5] + sz * boxf.h[8]};
                 const int cell_code = (sx + 1) + 3 * (sy + 1) + 9 * (sz + 1);
                 for (int j = begin[cell]; j < end[cell]; ++j) {
                     if (j == i) continue;
-                    const double4a xj = x[j];
-                    double r[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
                     int code = cell_code;
+                    bool near;
                     if (Shifts) {
-                        for (int c = 0; c < 3; ++c) r[c] += image[c];
+                        const float4 fj = xf[j];
+                        const float r0 = fj.x - fi.x + image[0], r1 = fj.y - fi.y + image[1],
+                                    r2 = fj.z - fi.z + image[2];
+                        near = r0 * r0 + r1 * r1 + r2 * r2 < reach2f;
                     } else {
+                        const double4a xj = x[j];
+                        double r[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
                         // the shortest image: atoms in the box along the periodic
                         // directions are at most one box apart
                         const double d[3] = {r[0], r[1], r[2]};
@@ -193,8 +202,9 @@ __global__ void list(std::int64_t n, const double4a* x, DeviceBox<double> box, i
                                 code += shift * stride;
                             }
                         }
+                        near = r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < reach2;
                     }
-                    if (r[0] * r[0] + r[1] * r[1] + r[2] * r[2] < reach2) {
+                    if (near) {
                         if (m < most) {
                             indices[static_cast<std::int64_t>(m) * n + i] = static_cast<std::int32_t>(
                                 static_cast<std::uint32_t>(j) | (static_cast<std::uint32_t>(code) << kIndexBits));
@@ -367,15 +377,22 @@ bool Neighbors::update(Atoms& atoms, const Box& box) {
         l.found.zero();
         bool shifts = true;
         for (int k = 0; k < 3; ++k) shifts = shifts && (!box.pbc[k] || cells[k] >= 3);
+        // the rounding of positions in single precision, with room to spare
+        double extent = std::fabs(box.lo[0]) + std::fabs(box.lo[1]) + std::fabs(box.lo[2]);
+        for (int k = 0; k < 9; ++k) extent += std::fabs(box.h[k]);
+        const double margin = 1e-3 + 1e-6 * extent;
+        const auto reach2f = static_cast<float>((reach + margin) * (reach + margin));
+        const float4* xf = shifts ? a.positions<float>() : nullptr;
+        const DeviceBox<float> fbox = device_box<float>(box);
         if (shifts) {
-            list<true><<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around,
+            list<true><<<blocks(n), kBlock>>>(n, a.x.data(), xf, dbox, fbox, grid, around,
                                               l.keys_sorted.data(), l.cell_begin.data(),
-                                              l.cell_end.data(), reach * reach, l.most,
+                                              l.cell_end.data(), reach * reach, reach2f, l.most,
                                               l.indices.data(), l.counts.data(), l.found.data());
         } else {
-            list<false><<<blocks(n), kBlock>>>(n, a.x.data(), dbox, grid, around,
+            list<false><<<blocks(n), kBlock>>>(n, a.x.data(), xf, dbox, fbox, grid, around,
                                                l.keys_sorted.data(), l.cell_begin.data(),
-                                               l.cell_end.data(), reach * reach, l.most,
+                                               l.cell_end.data(), reach * reach, reach2f, l.most,
                                                l.indices.data(), l.counts.data(), l.found.data());
         }
         MDAPY_LAUNCHED();

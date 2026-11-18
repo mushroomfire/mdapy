@@ -77,7 +77,11 @@ $$
 W_{ab} = -\frac{\partial E}{\partial \varepsilon_{ab}} = \sum_i x_{i,a} F_{i,b},
 $$
 
-the second form holding for systems without periodic directions.
+where $E$ is the total energy, $a$ and $b$ are the Cartesian directions x, y
+and z, and $x_{i,a}$ and $F_{i,b}$ are the components of the position and the
+force of atom $i$, the sum running over the atoms; the second form holds for
+systems without periodic directions. In the table above, $\sigma$ is the
+stress and $V$ the volume of the box.
 
 ## Writing a calculator
 

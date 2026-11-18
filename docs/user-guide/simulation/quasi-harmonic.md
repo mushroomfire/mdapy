@@ -155,13 +155,14 @@ $$
 F(V, T) = E(V) + F_\mathrm{vib}(V, T) + PV,
 $$
 
-with $E$ the static energy and $F_\mathrm{vib}$ the harmonic free energy
-of the vibrations at volume $V$, is fit by the third-order Birch–Murnaghan
+with $E$ the static energy, $F_\mathrm{vib}$ the harmonic free energy
+of the vibrations at volume $V$ and $P$ the pressure (`pressure`), is fit by the third-order Birch–Murnaghan
 form, a cubic polynomial in $V^{-2/3}$, by least squares. Its minimum is the
 equilibrium volume $V(T)$ and the Gibbs energy $G = F(V(T), T)$, its
 curvature there the bulk modulus $B_T = V\,\partial^2F/\partial V^2$. The
 entropy $S_\mathrm{vib}$ and the heat capacity $C_V$ of the vibrations,
-fit alike, give at $V(T)$
+fit alike, give at $V(T)$ the entropy $S$, the volumetric thermal expansion
+$\alpha$ and the heat capacity at constant pressure $C_P$:
 
 $$
 S = S_\mathrm{vib}, \qquad

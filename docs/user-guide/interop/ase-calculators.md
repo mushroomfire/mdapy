@@ -61,8 +61,9 @@ The properties of each side and those of the other they come from:
 | `stress` | eV/Å³ | `virial`, $W = -\sigma V$ | eV |
 | `stresses` | eV/Å³ | `atomic_virials`, $-\sigma_i V$ | eV |
 
-ASE gives stresses in the order xx, yy, zz, yz, xz, xy, positive under
-tension. Each side offers the properties that the other computes. An MDAPY
+Here $\sigma$ is the stress of ASE, $\sigma_i$ that of atom $i$, $W$ the virial and $V$
+the volume of the box. ASE gives stresses in the order xx, yy, zz, yz, xz, xy,
+positive under tension. Each side offers the properties that the other computes. An MDAPY
 calculator in ASE gives its energy as both `energy` and `free_energy`; an
 ASE calculator in MDAPY gives `free_energy` as the energy where it computes
 one, since the forces derive from it.

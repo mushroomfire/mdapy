@@ -99,8 +99,10 @@ for a property the system does not have.
 
 The bin of an atom along a box vector is $\lfloor n s \rfloor$, with $s$
 its fractional coordinate along that vector, from 0 to below 1, and $n$
-the number of bins. The density is the sum divided by the volume of a bin,
-$V / (n_1 n_2 n_3)$.
+the number of bins along it. The density is the sum divided by the volume of
+a bin, $V / (n_1 n_2 n_3)$, with $V$ the volume of the box and $n_1$, $n_2$ and
+$n_3$ the numbers of bins along its three vectors, 1 along a vector not
+binned.
 
 ## See also
 

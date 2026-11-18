@@ -111,8 +111,8 @@ cancelled.
 ## Definition
 
 With $N^{(s)}_{ab}$ the ordered pairs of shell $s$ from an atom of element
-$a$ to one of $b$, $P_s$ all pairs of shell $s$ and $x_a$ the fractions, the
-deviation from a random alloy
+$a$ to one of $b$, $P_s$ all pairs of shell $s$, $x_a$ the fractions and $w_s$ the
+weight of shell $s$ (`weights`), the deviation from a random alloy
 
 $$
 D = \sum_s w_s \sum_{a,b} \left( \frac{N^{(s)}_{ab}}{P_s} - x_a x_b \right)^2
@@ -122,7 +122,9 @@ is zero when the Warren–Cowley parameters
 $\alpha^{(s)}_{ab} = 1 - N^{(s)}_{ab} / (x_a x_b P_s)$ of every shell
 vanish. Starting from a random alloy, pairs of atoms of different elements
 swap places when the swap lowers $D$, or with the probability
-$e^{-\Delta D / T}$ otherwise, while $T$ falls linearly to zero; the
+$e^{-\Delta D / T}$ otherwise, with $\Delta D$ the change of $D$ by the swap and $T$
+the temperature of the annealing, which falls linearly from `temperature` times
+the typical change of a swap to zero over the `steps`; the
 arrangement with the lowest $D$ is returned.
 
 !!! quote "Please cite"

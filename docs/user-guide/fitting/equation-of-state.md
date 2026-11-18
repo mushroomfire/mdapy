@@ -79,7 +79,11 @@ volumes.
 
 ## Definition
 
-With $\eta = (V_0/V)^{2/3}$ and $x = (V/V_0)^{1/3}$:
+The energy $E$ at a volume $V$, in each of the three forms, has four
+parameters: $E_0$ and $V_0$, the energy and volume at the minimum (`e0` and
+`v0`); $B_0$, the bulk modulus there (`b0`); and $B_0'$, the derivative of the
+bulk modulus with respect to the pressure (`b0_prime`). With
+$\eta = (V_0/V)^{2/3}$ and $x = (V/V_0)^{1/3}$:
 
 $$
 E_\text{BM} = E_0 + \frac{9 V_0 B_0}{16}\left[(\eta - 1)^3 B_0' + (\eta - 1)^2 (6 - 4\eta)\right],

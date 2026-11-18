@@ -256,7 +256,8 @@ u_1 = -\frac{b_e}{2\pi}\left[\arctan\frac{x_2}{x_1} + \frac{x_1 x_2}{2(1-\nu)(x_
 u_2 = \frac{b_e}{2\pi}\left[\frac{1-2\nu}{4(1-\nu)} \ln(x_1^2 + x_2^2) + \frac{x_1^2 - x_2^2}{4(1-\nu)(x_1^2+x_2^2)}\right],
 $$
 
-with $\nu$ Poisson's ratio: counterclockwise around the line, the atoms
+with $u_1$, $u_2$ and $u_3$ the displacements along $x_1$, $x_2$ and $x_3$, and $\nu$
+Poisson's ratio: counterclockwise around the line, the atoms
 along a circuit add up to $\mathbf b$ in the perfect crystal. The cut of the screw part is the half plane
 $x_1 < 0$; that of the edge part the half plane $x_1 > 0$, where the atoms
 below the plane first move by $|b_e|/2$ along $x_1$ and those above it move
@@ -272,10 +273,12 @@ $$
 \mathbf a_\alpha \ln(x_1 + p_\alpha x_2)\, \mathbf l_\alpha \cdot \mathbf b ,
 $$
 
-with $p_\alpha$ the three roots of positive imaginary part of
-$\det[Q + p(R + R^\mathsf T) + p^2 T] = 0$, $Q_{ik} = C_{i1k1}$,
-$R_{ik} = C_{i1k2}$, $T_{ik} = C_{i2k2}$, and $(\mathbf a_\alpha,
-\mathbf l_\alpha)$ the eigenvectors of the sextic problem scaled to
+where $\mathbf u$ is the displacement, $\operatorname{Im}$ the imaginary part,
+$\alpha = 1, 2, 3$ numbers the roots $p_\alpha$ of positive imaginary part of
+$\det[Q + p(R + R^\mathsf T) + p^2 T] = 0$, with the $3 \times 3$ matrices
+$Q_{ik} = C_{i1k1}$, $R_{ik} = C_{i1k2}$ and $T_{ik} = C_{i2k2}$, and
+$(\mathbf a_\alpha, \mathbf l_\alpha)$ are the eigenvectors of the sextic problem of
+Stroh, the displacement and the traction parts of each root, scaled to
 $2\, \mathbf a_\alpha \cdot \mathbf l_\alpha = 1$. The cut is the half
 plane $x_1 < 0$ for every part; crossing it from below to above, the
 displacement drops by $\mathbf b$. With the line along z and the cut
@@ -309,7 +312,8 @@ $$
 \,(\hat{\mathbf z} \times \mathbf d_s) \cdot \mathbf c_k ,
 $$
 
-with $\mathbf d_s$ each piece of the cut and $\mathbf b_s$ minus the
+with $L_x$ and $L_y$ the lengths of the box along x and y, $\hat{\mathbf z}$ the unit
+vector along the lines, $\mathbf d_s$ each piece of the cut and $\mathbf b_s$ minus the
 Burgers vector of the lines before it: the plastic strain of the dipole,
 which leaves no mean stress in the crystal.
 

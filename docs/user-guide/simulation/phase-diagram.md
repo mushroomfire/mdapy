@@ -149,8 +149,12 @@ against $x$. A straight piece of the hull between two points is a tie line: two 
 with the same chemical potentials of both elements. A solution has
 
 $$
-G(x, T) = \sum_k a_k(T) x^k + k_B T \left[ x \ln x + (1 - x) \ln (1 - x) \right].
+G(x, T) = \sum_k a_k(T) x^k + k_B T \left[ x \ln x + (1 - x) \ln (1 - x) \right],
 $$
+
+the polynomial of degree up to `degree` in $x$, with coefficients $a_k(T)$ fitted at
+each temperature, plus the free energy of ideal mixing, with $k_B$ the Boltzmann
+constant.
 
 ## Errors
 

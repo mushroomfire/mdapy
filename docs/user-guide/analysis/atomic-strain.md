@@ -113,6 +113,10 @@ F = \Big(\sum_j \mathbf d_j \mathbf d^{0\,T}_j\Big)\Big(\sum_j \mathbf d^0_j \ma
 \eta = \tfrac{1}{2}(F^T F - I),
 $$
 
+with $I$ the identity and $\eta$ the Green–Lagrange strain tensor, of components
+$\eta_{xx}, \eta_{xy}, \dots$ along the axes. The von Mises shear strain $\eta_\text{s}$
+and the nonaffine squared displacement $D^2_\text{min}$ are
+
 $$
 \eta_\text{s} = \sqrt{\eta_{xy}^2 + \eta_{xz}^2 + \eta_{yz}^2
 + \tfrac{1}{6}\big[(\eta_{xx}-\eta_{yy})^2 + (\eta_{yy}-\eta_{zz})^2 + (\eta_{xx}-\eta_{zz})^2\big]},

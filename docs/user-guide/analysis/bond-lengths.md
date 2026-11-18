@@ -84,8 +84,8 @@ counts.
 
 ## Definition
 
-A bond between atoms $i$ and $j$ is
-$\lvert \mathbf{r}_j - \mathbf{r}_i \rvert$ long, the difference taken to
+A bond between atoms $i$ and $j$, at the positions $\mathbf r_i$ and $\mathbf r_j$, is
+$l = \lvert \mathbf{r}_j - \mathbf{r}_i \rvert$ long, the difference taken to
 the nearest periodic image, and counted in the bin
 $\lfloor l / \Delta l \rfloor$, $\Delta l$ the cutoff over the number of
 bins.

@@ -56,7 +56,7 @@ A funcfl file holds numbers where a setfl file names its elements: see
 | `compute(system, properties, *, neighbors=None, progress=None, cancel=None)` | as every calculator, with the `progress=` and `cancel=` of [Parallelism](../../basics/parallelism.md#progress-and-cancellation) |
 | `write(path)` | writes the potential as an `eam/alloy` file, or an `eam/fs` file for a Finnis–Sinclair potential, which LAMMPS reads and which reads back to the same tables |
 | `EAM.zhou(elements, *, nr=2000, nrho=2000)` | the potential of Zhou, Johnson and Wadley for the elements |
-| `average(fractions)` | the average-atom potential of an alloy of the elements |
+| `average(fractions)` | the average-atom potential of an alloy of the elements, for a potential of the `eam/alloy` form; see [Average atom](#average-atom) |
 
 The atoms need an `element` column; elements the potential does not have
 raise `InvalidParameter`, and a malformed file raises
@@ -71,9 +71,10 @@ $$
 E_i = F_{s_i}\Big(\sum_j \rho_{s_j s_i}(r_{ij})\Big) + \frac{1}{2}\sum_j \phi_{s_i s_j}(r_{ij}),
 $$
 
-with the embedding energy $F$, the electron density $\rho_{ab}$ that an atom
-of species $a$ gives one of species $b$, and the pair potential $\phi$ of the
-species $s$ of the atoms, interpolated from the tables of the file as LAMMPS
+where the sums run over the neighbors $j$ of atom $i$ within the cutoff, at
+the distances $r_{ij}$, with the embedding energy $F$, the electron density
+$\rho_{ab}$ that an atom of species $a$ gives one of species $b$, and the pair
+potential $\phi$ of the species $s_i$ and $s_j$ of the atoms, interpolated from the tables of the file as LAMMPS
 `pair_style eam/alloy` and `eam/fs` do. In `eam/alloy` the density depends
 on the species that gives it only, $\rho_{ab} = \rho_a$. Each pair's virial
 is shared equally by its two atoms.
@@ -104,7 +105,7 @@ $$
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `elements` | sequence of str | | | the elements, in the order of the file |
-| `nr` | int32 | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$ |
+| `nr` | int32 | 2000 | | points of the tables in distance, up to the cutoff $\sqrt{10}/2$ times the largest fcc lattice constant $\sqrt 2\, r_e$, with $r_e$ the nearest-neighbor distance of an element in Zhou's parameters |
 | `nrho` | int32 | 2000 | | points of the embedding tables in density |
 
 The parameters are fitted to the pure metals; the pair potentials between
@@ -192,14 +193,27 @@ average.write("CuNiAl.average.eam.alloy")  # Cu, Ni, Al and the average atom A
 ```
 
 `average(fractions)` returns the average-atom potential of
-[Varvenne et al. (2016)](../../reference/references.md#varvenne2016) for a random alloy with the
-fractions $c_a$ of the elements:
+[Varvenne et al. (2016)](../../reference/references.md#varvenne2016) for a random alloy. It
+takes a potential of the `eam/alloy` form, in which the density an atom gives
+depends on its own element only: one read from an `eam/alloy` file, funcfl
+files mixed into an alloy, `EAM.zhou`, or an `eam/fs` file whose elements give
+every element the same density. A Finnis–Sinclair potential whose elements give
+each element a density of its own raises `InvalidParameter`: the average atom
+would need a density for each element it gives one to.
+
+With $c_a$ the fraction of element $a$, the average atom $A$ has the
+embedding energy $F_A$, the density $\rho_A$ it gives, the pair potential
+$\phi_{Ab}$ with an atom of element $b$, and $\phi_{AA}$ with another average
+atom:
 
 $$
 F_A = \sum_a c_a F_a, \qquad \rho_A = \sum_a c_a \rho_a, \qquad
 \phi_{Ab} = \sum_a c_a \phi_{ab}, \qquad
-\phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab}.
+\phi_{AA} = \sum_{a,b} c_a c_b \phi_{ab},
 $$
+
+the sums running over the elements of the potential, and $F_a$, $\rho_a$ and
+$\phi_{ab}$ being those of its elements.
 
 `fractions` is a mapping from element to fraction, or the fractions in
 the order of `elements`; elements left out have none, and the fractions sum
@@ -207,9 +221,7 @@ to 1. In MDAPY every atom of a system is the average atom, whatever its
 element. The written file holds the elements of the potential and the
 average atom, named `A`, last, so that LAMMPS can mix them, for example
 with `pair_coeff * * CuNiAl.average.eam.alloy A Cu` for a Cu solute in the
-average alloy. Invalid fractions raise `InvalidParameter`, and so does a
-Finnis–Sinclair potential whose elements give each element a density of its
-own: an average atom would need a density for each element it stands for.
+average alloy. Invalid fractions raise `InvalidParameter`.
 
 !!! quote "Please cite"
     [Varvenne et al. (2016)](../../reference/references.md#varvenne2016), and the paper of the potential averaged.

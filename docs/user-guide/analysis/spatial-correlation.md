@@ -126,10 +126,13 @@ C(\mathbf q) = \frac{V}{N^2}\,\operatorname{Re}\,\hat P_1(\mathbf q)\,\hat P_2^*
 C(\mathbf r) = \frac{1}{N^2}\sum_{\mathbf q} \hat P_1(\mathbf q)\,\hat P_2^*(\mathbf q)\,e^{i\mathbf q\cdot\mathbf r},
 $$
 
-the second of which, with $|\hat\rho|^2$, gives the radial distribution
-function of the grid. Both are averaged over the grid points in shells of
+where $\mathbf q$ are the wave vectors of the grid, $\mathbf r$ the vectors between
+its points, $V$ the volume of the box, $N$ the number of atoms, $i$ the imaginary
+unit, $^*$ the complex conjugate and $\operatorname{Re}$ the real part. The second,
+with $|\hat\rho|^2$, gives the radial distribution function of the grid. Both are averaged over the grid points in shells of
 $|\mathbf q|$ or $|\mathbf r|$, leaving out the origin. The direct sum adds
-$P_1(i)\,P_2(j)$ over the ordered pairs closer than the cutoff in bins of
+$P_1(i)\,P_2(j)$, the first property of atom $i$ times the second of atom $j$, over
+the ordered pairs closer than the cutoff in bins of
 its distance and divides by $N^2 / V$ times the volume of the shell of each
 bin, as the radial distribution function does.
 

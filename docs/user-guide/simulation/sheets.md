@@ -70,7 +70,9 @@ has to be chosen. The parameters are those of
 | `shear_modulus()` | float64 | the shear modulus in N/m |
 | `area_modulus()` | float64 | the area modulus in N/m: the tension per unit of relative change of the area |
 
-With $S = C^{-1}$ these are
+With the compliances $S = C^{-1}$, whose indices 1, 2 and 3 are xx, yy and xy, these
+are the Young's moduli $E_x$ and $E_y$, the Poisson ratios $\nu_x$ and $\nu_y$ of
+stretches along x and y, the shear modulus $G$ and the area modulus $K$:
 
 $$
 E_x = \frac{1}{S_{11}}, \quad E_y = \frac{1}{S_{22}}, \quad
@@ -139,11 +141,13 @@ cutoff between the default areas, so the example takes fewer.
 | `free_energies` | (A, T) float64 | the vibrational free energy per atom at each area and temperature in eV |
 | `cells` | tuple of `System` | the relaxed cell at each area |
 
-The free energy is fitted, at each temperature, by a cubic polynomial in
-$1/A$, the form of the third-order Birch–Murnaghan equation in two dimensions;
-the area modulus is $K = A\, \partial^2 G / \partial A^2$, the thermal
-expansion $\alpha = (\partial S/\partial A)/K$ and the heat capacity
-$C_\sigma = C_A + T A K \alpha^2$.
+The free energy is fitted, at each temperature $T$, by a cubic polynomial in
+$1/A$, with $A$ the area per atom, the form of the third-order Birch–Murnaghan
+equation in two dimensions. With $G$ the Gibbs energy per atom and $S$ the entropy
+per atom, the area modulus is $K = A\, \partial^2 G / \partial A^2$, the thermal
+expansion of the area $\alpha = (\partial S/\partial A)/K$, and the heat capacity at
+constant pressure in the plane $C_\sigma = C_A + T A K \alpha^2$, with $C_A$ the heat
+capacity at constant area.
 
 ## Elastic constants from molecular dynamics
 

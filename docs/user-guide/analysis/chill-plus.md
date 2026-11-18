@@ -69,12 +69,16 @@ The constructor raises `InvalidParameter` for a cutoff that is not positive;
 ## Definition
 
 Each molecule $i$ gets the bond order $q_{3m}(i) = \sum_j Y_{3m}(\hat{\mathbf
-r}_{ij})$ over its neighbors $j$, with the spherical harmonics $Y_{3m}$ of
-degree 3, and each bond the correlation
+r}_{ij})$ over its neighbors $j$, with $\hat{\mathbf r}_{ij}$ the unit vector from $i$ to $j$
+and the spherical harmonics $Y_{3m}$ of degree 3, $m$ from $-3$ to 3; and each bond
+the correlation
 
 $$
-c(i, j) = \frac{\operatorname{Re} \sum_m q_{3m}(i)\, q_{3m}(j)^*}{|q_3(i)|\, |q_3(j)|}.
+c(i, j) = \frac{\operatorname{Re} \sum_m q_{3m}(i)\, q_{3m}(j)^*}{|q_3(i)|\, |q_3(j)|},
 $$
+
+with $\operatorname{Re}$ the real part, $^*$ the complex conjugate and
+$|q_3(i)| = \big(\sum_m |q_{3m}(i)|^2\big)^{1/2}$.
 
 A bond is staggered when $c < -0.8$ and eclipsed when $-0.35 < c < 0.25$. A
 molecule with four neighbors is, checked from the top of the table down:

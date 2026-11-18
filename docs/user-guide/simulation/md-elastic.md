@@ -44,7 +44,9 @@ $$
 C_{jk} = \frac{\bar\sigma_j(+\delta\,\mathbf e_k) - \bar\sigma_j(-\delta\,\mathbf e_k)}{2\delta},
 $$
 
-with $\sigma$ positive under tension. The standard error of each mean comes
+where $\delta$ is `strain`, $\mathbf e_k$ the unit strain of the Voigt component $k$
+alone (xx, yy, zz, yz, xz, xy), and $\bar\sigma_j$ the mean over the production run of
+the component $j$ of the stress, positive under tension. The standard error of each mean comes
 from the means of `blocks` blocks of the run, and the two errors of a
 column add in quadrature. Each entry off the diagonal is the mean of its
 two estimates, $C_{jk}$ and $C_{kj}$, so that the constants are symmetric.
@@ -85,10 +87,15 @@ C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
 + \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
 $$
 
-the Born term, the second derivatives of the energy with the strain (LAMMPS
-`compute born/matrix numdiff`, strains of $10^{-5}$, every ten records),
-then the fluctuations of the virial stress $\sigma$ (every `every` steps),
-then the momenta of the atoms but their center of mass. Under a mean stress
+where $i$, $j$, $k$ and $l$ are the Cartesian directions x, y and z, $\langle \cdot \rangle$
+the mean over the production run, $V$ the volume of the box, $T$ the temperature, $N$
+the number of atoms, $k_B$ the Boltzmann constant and $\delta_{ik}$ the Kronecker delta,
+1 for $i = k$ and 0 otherwise. The three terms are the Born term $C^{\mathrm B}$, the
+second derivatives of the energy with the strain at fixed fractional positions (LAMMPS
+`compute born/matrix numdiff`, strains of $10^{-5}$, every ten records); the
+fluctuations of the virial stress $\sigma$ (every `every` steps), which give back the
+relaxation of the atoms; and the momenta of the atoms, counted as $N - 1$ as the thermostat
+keeps the momentum of the center of mass at zero. Under a mean stress
 they are made stress-strain coefficients, as the strains give them (Wallace):
 under a pressure $P$, $C_{11} - P$, $C_{12} + P$ and $C_{44} - P$. The errors
 come from `blocks` blocks of the run; `strain` is unused.

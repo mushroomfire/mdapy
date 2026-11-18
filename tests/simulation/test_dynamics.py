@@ -261,6 +261,46 @@ def test_a_cluster(potential):
         assert md.thermo["total_energy"].len() == 2
 
 
+def test_atoms_outside_the_box_along_a_direction_not_periodic(potential):
+    """A sheet whose atoms lie on the face of the box, some a little below it,
+    as after a run: every atom stays, where it was, in a box grown to it."""
+    slab = build_crystal("fcc", 3.4, elements="Cu", repeat=(3, 3, 2))
+    sheet = slab.with_box(mdapy.Box(slab.box.matrix, pbc=(True, True, False)))
+    z = sheet["positions"][:, 2].copy()
+    z[0] = -0.05
+    sheet = sheet.with_columns(
+        positions=np.column_stack([sheet["positions"][:, :2], z])
+    )
+    with MolecularDynamics(sheet, potential) as md:
+        assert md.lammps.get_natoms() == len(sheet)
+        np.testing.assert_allclose(
+            md.system["positions"], sheet["positions"], atol=1e-9
+        )
+        md.run(0)  # the box grows to the atoms as the run sets up
+        assert md.system.box.origin[2] <= -0.05
+
+
+def test_lammps_leaving_out_atoms(potential, monkeypatch):
+    from mdapy.simulation import _dynamics
+
+    class Fewer:
+        """LAMMPS that holds an atom fewer than it was given."""
+
+        def __init__(self, lmp):
+            self.lmp = lmp
+
+        def __getattr__(self, name):
+            return getattr(self.lmp, name)
+
+        def get_natoms(self):
+            return self.lmp.get_natoms() - 1
+
+    real = _dynamics._lammps
+    monkeypatch.setattr(_dynamics, "_lammps", lambda *a, **k: Fewer(real(*a, **k)))
+    with pytest.raises(InvalidParameter, match="holds 107 of the 108 atoms"):
+        MolecularDynamics(crystal(), potential)
+
+
 @pytest.mark.parametrize(
     "matrix",
     [

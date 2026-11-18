@@ -9,6 +9,20 @@
   [Elastic constants of graphene](../examples/graphene-elastic.md), compares molecular
   dynamics with the quasi-harmonic approximation from 100 to 1000 K and on sheets of 128
   to 2048 atoms.
+- `MolecularDynamics` keeps the atoms of a system outside its box along a direction that is
+  not periodic: the box grows to them. LAMMPS left them out without a word, and a sheet on
+  the face of its box, as `build_crystal("graphene")` makes it, loses the atoms that a run
+  takes below it. `md_elastic_constants` of graphene by fluctuations at 10 K started from
+  such a box and gave C11 243 N/m with LCBOP; it now gives 329 N/m, against 331 N/m
+  static. If LAMMPS holds fewer atoms than the system, `MolecularDynamics` raises
+  `InvalidParameter`.
+- Under MPI, `md_elastic_constants` with `method="fluctuation"`, `green_kubo` and
+  `free_energy` read the values that LAMMPS writes to a file on its main process, which sends
+  them to the others. Each process looked for them in a temporary folder of its own, where
+  only the main process's had them, and stopped. `md_elastic_constants` averages 50 boxes of
+  its run into the mean box, as `free_energy` and `melting_point` do, rather than one every
+  `every` steps, each kept with all its atoms on every process: 20 000 steps of 6912 atoms
+  took about 800 MB on each.
 - The example [LAMMPS on many processes with MPI](../examples/mpi.md) is two scripts: one
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of

@@ -261,6 +261,46 @@ def test_a_cluster(potential):
         assert md.thermo["total_energy"].len() == 2
 
 
+def test_atoms_outside_the_box_along_a_direction_not_periodic(potential):
+    """A sheet whose atoms lie on the face of the box, some a little below it,
+    as after a run: every atom stays, where it was, in a box grown to it."""
+    slab = build_crystal("fcc", 3.4, elements="Cu", repeat=(3, 3, 2))
+    sheet = slab.with_box(mdapy.Box(slab.box.matrix, pbc=(True, True, False)))
+    z = sheet["positions"][:, 2].copy()
+    z[0] = -0.05
+    sheet = sheet.with_columns(
+        positions=np.column_stack([sheet["positions"][:, :2], z])
+    )
+    with MolecularDynamics(sheet, potential) as md:
+        assert md.lammps.get_natoms() == len(sheet)
+        np.testing.assert_allclose(
+            md.system["positions"], sheet["positions"], atol=1e-9
+        )
+        md.run(0)  # the box grows to the atoms as the run sets up
+        assert md.system.box.origin[2] <= -0.05
+
+
+def test_lammps_leaving_out_atoms(potential, monkeypatch):
+    from mdapy.simulation import _dynamics
+
+    class Fewer:
+        """LAMMPS that holds an atom fewer than it was given."""
+
+        def __init__(self, lmp):
+            self.lmp = lmp
+
+        def __getattr__(self, name):
+            return getattr(self.lmp, name)
+
+        def get_natoms(self):
+            return self.lmp.get_natoms() - 1
+
+    real = _dynamics._lammps
+    monkeypatch.setattr(_dynamics, "_lammps", lambda *a, **k: Fewer(real(*a, **k)))
+    with pytest.raises(InvalidParameter, match="holds 107 of the 108 atoms"):
+        MolecularDynamics(crystal(), potential)
+
+
 @pytest.mark.parametrize(
     "matrix",
     [
@@ -405,3 +445,47 @@ def test_nph_keeps_the_pressure_and_the_enthalpy(potential):
         + units.GPA_TO_EV_PER_A3 * half["volume"].to_numpy()
     )
     assert np.ptp(enthalpy) / len(crystal()) < 5e-3
+
+
+class _Comm:
+    """The communicator of one process of several, as mpi4py's."""
+
+    def __init__(self, rank, sent=None):
+        self.rank, self.sent = rank, sent
+
+    def bcast(self, data, root=0):
+        assert root == 0
+        return data if self.rank == 0 else self.sent
+
+
+class _Lammps:
+    def __init__(self, size, comm=None):
+        self.size, self.comm = size, comm
+
+    def extract_setting(self, name):
+        assert name == "world_size"
+        return self.size
+
+    def get_mpi_comm(self):
+        return self.comm
+
+
+def test_a_file_written_by_lammps_is_read_on_the_main_process_and_sent(tmp_path):
+    from mdapy.simulation._dynamics import _read_written
+
+    path = tmp_path / "values.txt"
+    path.write_text("# step value\n10 1.5\n")
+    np.testing.assert_array_equal(_read_written(_Lammps(1), path), [[10, 1.5]])
+    main = _read_written(_Lammps(4, _Comm(0)), path)
+    np.testing.assert_array_equal(main, [[10, 1.5]])
+    # another process, whose own folder holds nothing, gets what the main read
+    missing = tmp_path / "missing.txt"
+    other = _read_written(_Lammps(4, _Comm(1, sent=main)), missing)
+    np.testing.assert_array_equal(other, main)
+    # an error of the main process reaches every process
+    with pytest.raises(FileNotFoundError):
+        _read_written(_Lammps(4, _Comm(0)), missing)
+    with pytest.raises(FileNotFoundError):
+        _read_written(_Lammps(4, _Comm(1, sent=FileNotFoundError("missing"))), path)
+    with pytest.raises(InvalidParameter, match="needs mpi4py"):
+        _read_written(_Lammps(4, None), path)

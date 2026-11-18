@@ -88,7 +88,8 @@ g_{ab}(r_k) = \frac{V}{N_a N_b}\, \frac{n^{ab}_k}{\tfrac{4}{3}\pi\,(r_{k+1}^3 - 
 $$
 
 with $V$ the volume of the box, $N$ the number of atoms and $N_a$ that of
-element $a$; a pair at distance $r$ is in bin $\lfloor r / \Delta r \rfloor$.
+element $a$; a pair at distance $r$ is in bin $\lfloor r / \Delta r \rfloor$, with
+$\Delta r = r_{k+1} - r_k$ the width of a bin, `cutoff` over `bins`.
 The partial functions add up as $g = \sum_{a,b} x_a x_b\, g_{ab}$ with the
 fractions $x_a = N_a / N$. The volume is that of the box also along
 directions that are not periodic, where $g$ does not tend to 1.

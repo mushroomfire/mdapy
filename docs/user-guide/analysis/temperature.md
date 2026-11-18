@@ -77,7 +77,9 @@ The constructor raises `InvalidParameter` for a cutoff that is not positive;
 ## Definition
 
 For the group $G_i$ of atom $i$ and its neighbors closer than the cutoff,
-$n_i$ atoms with masses $m_j$ and velocities $\mathbf v_j$,
+$n_i$ atoms with masses $m_j$ and velocities $\mathbf v_j$, the temperature of atom $i$
+is $T_i$, with $k_B$ the Boltzmann constant and $\bar{\mathbf v}_i$ the velocity of the
+center of mass of the group,
 
 $$
 T_i = \frac{1}{3(n_i - 1)\, k_B} \sum_{j \in G_i} m_j

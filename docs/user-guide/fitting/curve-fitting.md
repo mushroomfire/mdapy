@@ -93,7 +93,7 @@ surface.powers  # (6, 2): the powers (i, j) of the terms
 | `max_steps` | int32 | 500 | the most steps |
 | `tolerance` | float64 | 1e-12 | the fit has converged when a step changes the sum of squares by less than this fraction of it |
 
-The models, with x along the curve:
+The models, with x along the curve and their parameters in the order of the function:
 
 | Model | Function | Parameters |
 |---|---|---|
@@ -101,7 +101,7 @@ The models, with x along the curve:
 | `stretched_exponential` | A e<sup>−(x/τ)<sup>β</sup></sup> | `amplitude`, `time`, `exponent` |
 | `gaussian` | A e<sup>−(x−μ)²/2w²</sup> | `amplitude`, `center`, `width` |
 | `lorentzian` | A w² / ((x−μ)² + w²) | `amplitude`, `center`, `width` |
-| `arrhenius` | A e<sup>−E/k<sub>B</sub>T</sup>, T in K, E in eV | `prefactor`, `energy` |
+| `arrhenius` | A e<sup>−E/k<sub>B</sub>T</sup>, with x the temperature T in K, E in eV and k<sub>B</sub> the Boltzmann constant | `prefactor`, `energy` |
 | `power_law` | A x<sup>b</sup> | `prefactor`, `exponent` |
 
 `Model(name, function, parameters, guess=None)` makes a model of a function:
@@ -121,7 +121,12 @@ The models, with x along the curve:
 | `residuals` | (n,) float64 | the values less the fit |
 | `r_squared` | float64 | the coefficient of determination, 1 for a perfect fit |
 | `steps` | int32 | of `CurveFit`, the steps the fit took |
-| `fit(x)` | float64 | the fitted curve at points; `PolynomialFit(x, derivative)` and `SurfaceFit(x, y, dx=, dy=)` give derivatives too |
+| `fit(x)` | float64 | the fitted curve at points; `fit(x, derivative)` of a `PolynomialFit` and `fit(x, y, dx=, dy=)` of a `SurfaceFit` give derivatives too |
+
+`PolynomialFit(coefficients, covariance, residuals, r_squared)` and
+`SurfaceFit(powers, coefficients, covariance, residuals, r_squared)` make a
+polynomial or a surface of given coefficients, with its values and derivatives
+at any point.
 
 ## Errors
 
@@ -134,14 +139,20 @@ does not converge within `max_steps`.
 ## Definition
 
 The fit minimizes the sum of squares of the weighted residuals,
-$\sum_i \left(y_i - f(x_i; \mathbf p)\right)^2 / \sigma_i^2$.
-Polynomials and surfaces are linear in their coefficients and are solved at
-once; `fit_curve` takes steps of the Levenberg–Marquardt method from the
-guess. The covariance of the parameters is
-$(J^\mathsf{T} W J)^{-1}$, with $J$ the derivatives of the function with
-respect to the parameters and $W$ the weights $1/\sigma_i^2$, multiplied
-by the variance of the residuals, $\chi^2/(n - p)$, unless
-`absolute_sigma`.
+
+$$
+\chi^2 = \sum_{i=1}^{n} \frac{\left(y_i - f(x_i; \mathbf p)\right)^2}{\sigma_i^2},
+$$
+
+over the $n$ points $x_i$ with values $y_i$, where $f$ is the polynomial,
+surface or function with its $p$ parameters $\mathbf p$, and $\sigma_i$ the
+uncertainty of $y_i$ (`sigma`, 1 by default). Polynomials and surfaces are
+linear in their coefficients and are solved at once; `fit_curve` takes steps
+of the Levenberg–Marquardt method from the guess. The covariance of the
+parameters is $(J^\mathsf{T} W J)^{-1}$, with $J$ the $n \times p$ matrix of the
+derivatives of $f(x_i; \mathbf p)$ with respect to the parameters and $W$ the
+diagonal matrix of the weights $1/\sigma_i^2$, multiplied by the variance of
+the residuals, $\chi^2/(n - p)$, unless `absolute_sigma`.
 
 ## See also
 

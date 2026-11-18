@@ -115,6 +115,20 @@ def test_parity():
         plot.parity([1.0], [1.0, 2.0])
 
 
+def test_parity_of_several_sets():
+    """Sets drawn on the same axes widen its range, which holds them all,
+    and its one diagonal; each has its error in the legend."""
+    ax = plot.parity([0.0, 1.0], [0.1, 1.0], label="small")
+    plot.parity([-5.0, 3.0], [-5.0, 3.5], ax=ax, label="wide")
+    plot.parity([0.5], [0.5], ax=ax, label="inside")
+    low, high = ax.get_xlim()
+    assert low < -5.0 and high > 3.5 and ax.get_ylim() == (low, high)
+    assert len(ax.lines) == 1
+    np.testing.assert_allclose(ax.lines[0].get_xdata(), [low, high])
+    texts = [t.get_text() for t in ax.get_legend().get_texts()]
+    assert [t.split(":")[0] for t in texts] == ["small", "wide", "inside"]
+
+
 def test_scatter():
     """A point for each atom with finite values, at most max_points of them,
     the same each time."""

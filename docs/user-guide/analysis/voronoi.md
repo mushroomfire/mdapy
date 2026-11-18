@@ -191,7 +191,9 @@ V_i = \{\, \mathbf x : \lvert \mathbf x - \mathbf r_i \rvert \le
 \text{ for every } (j, \mathbf s) \ne (i, \mathbf 0) \,\},
 $$
 
-with $H$ the matrix of the lattice vectors as rows. It is a convex
+with $H$ the matrix of the lattice vectors as rows, $\mathbf s$ a row of three
+integers, the periodic image $\mathbf r_j + \mathbf s H$ of atom $j$ (only zero along
+directions that are not periodic), and $\mathbf x$ the points of the cell. It is a convex
 polyhedron whose faces lie on the planes halfway to its neighbors, or on a
 wall of the box in a direction that is not periodic. A face counts when its
 area $A$ and its edges satisfy

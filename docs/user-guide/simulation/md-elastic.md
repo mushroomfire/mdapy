@@ -3,7 +3,7 @@
 `mdapy.lattice_dynamics.md_elastic_constants(system, potential, temperature,
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
 production=20000, every=10, blocks=5, barostat="tri", seed=1,
-method="strain")` gives the isothermal elastic constants of a crystal at a
+method=None)` gives the isothermal elastic constants of a crystal at a
 temperature from [molecular dynamics](dynamics.md) in LAMMPS, with their
 standard errors: from the mean stress under small strains, at the cost of
 thirteen runs, or, with `method="fluctuation"`, from the fluctuations of the
@@ -28,7 +28,7 @@ result.bulk_modulus(), result.shear_modulus()
 
 The crystal first runs at the temperature and pressure (Nosé–Hoover,
 `fix npt`): `equilibration` steps, then `production` steps over which its box
-is averaged every `every` steps. Its last atoms, put in the mean box, are the
+is averaged, at 50 times evenly spread. Its last atoms, put in the mean box, are the
 reference. For each of the six components of the strain in Voigt order,
 strains of $+\delta$ and $-\delta$ of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
@@ -44,7 +44,9 @@ $$
 C_{jk} = \frac{\bar\sigma_j(+\delta\,\mathbf e_k) - \bar\sigma_j(-\delta\,\mathbf e_k)}{2\delta},
 $$
 
-with $\sigma$ positive under tension. The standard error of each mean comes
+where $\delta$ is `strain`, $\mathbf e_k$ the unit strain of the Voigt component $k$
+alone (xx, yy, zz, yz, xz, xy), and $\bar\sigma_j$ the mean over the production run of
+the component $j$ of the stress, positive under tension. The standard error of each mean comes
 from the means of `blocks` blocks of the run, and the two errors of a
 column add in quadrature. Each entry off the diagonal is the mean of its
 two estimates, $C_{jk}$ and $C_{kj}$, so that the constants are symmetric.
@@ -70,7 +72,7 @@ gives that limit.
 | `blocks` | int32 | 5 | | blocks of each average for its standard error |
 | `barostat` | str | `"tri"` | | how the box finds its mean shape: `"iso"`, `"aniso"` or `"tri"` |
 | `seed` | int32 | 1 | | seed of the starting velocities and of the thermostat of the strained runs |
-| `method` | str | `"strain"` | | `"strain"`, the mean stress under strains, or `"fluctuation"`, the fluctuations of the stress |
+| `method` | str | `None` | | `"strain"`, the mean stress under strains, or `"fluctuation"`, the fluctuations of the stress; by default `"strain"` for a crystal and `"fluctuation"` for a [sheet](sheets.md#elastic-constants-from-molecular-dynamics), which wrinkles under a strain that compresses it |
 
 ## From the fluctuations of the stress
 
@@ -85,10 +87,15 @@ C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
 + \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
 $$
 
-the Born term, the second derivatives of the energy with the strain (LAMMPS
-`compute born/matrix numdiff`, strains of $10^{-5}$, every ten records),
-then the fluctuations of the virial stress $\sigma$ (every `every` steps),
-then the momenta of the atoms but their center of mass. Under a mean stress
+where $i$, $j$, $k$ and $l$ are the Cartesian directions x, y and z, $\langle \cdot \rangle$
+the mean over the production run, $V$ the volume of the box, $T$ the temperature, $N$
+the number of atoms, $k_B$ the Boltzmann constant and $\delta_{ik}$ the Kronecker delta,
+1 for $i = k$ and 0 otherwise. The three terms are the Born term $C^{\mathrm B}$, the
+second derivatives of the energy with the strain at fixed fractional positions (LAMMPS
+`compute born/matrix numdiff`, strains of $10^{-5}$, every ten records); the
+fluctuations of the virial stress $\sigma$ (every `every` steps), which give back the
+relaxation of the atoms; and the momenta of the atoms, counted as $N - 1$ as the thermostat
+keeps the momentum of the center of mass at zero. Under a mean stress
 they are made stress-strain coefficients, as the strains give them (Wallace):
 under a pressure $P$, $C_{11} - P$, $C_{12} + P$ and $C_{44} - P$. The errors
 come from `blocks` blocks of the run; `strain` is unused.
@@ -101,8 +108,13 @@ fluctuating = md_elastic_constants(
 ```
 
 The two methods agree within their errors, for copper (EAM of Mishin) from 20
-to 900 K and from 256 to 2048 atoms, for copper under 10 GPa, and for C11 and
-C12 of silicon (Tersoff) at 10 and 300 K. What they cost differs:
+to 900 K and from 256 to 2048 atoms, for copper under 10 GPa, for C11 and C12
+of silicon (Tersoff) at 10 and 300 K, and for the CrCoNi alloy with a NEP model
+from 300 to 1000 K, to 0.4 GPa, in
+[A machine-learned potential for CrCoNi](../../examples/crconi.md#from-molecular-dynamics).
+They differ for a sheet, which wrinkles under a strain that compresses it; see
+[Sheets](sheets.md#elastic-constants-from-molecular-dynamics). What they cost
+differs:
 
 | | Strain | Fluctuation |
 |---|---|---|

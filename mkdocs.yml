@@ -147,6 +147,7 @@ nav:
           - A collision cascade in tungsten: examples/radiation-cascade.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
           - Lattice dynamics of solid argon: examples/argon.md
+          - Elastic constants of graphene: examples/graphene-elastic.md
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md
           - Sharing neighbor lists: examples/neighbor-lists.md

@@ -110,19 +110,24 @@ The density of the neighbors of element Z about atom i is a Gaussian of
 width σ on each, the atom itself included:
 
 $$
-\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} < r_\text{cut} + 3.72\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2}.
+\rho^Z_i(\mathbf r) = \sum_{j \in Z,\; r_{ij} < r_\text{cut} + 3.72\sigma} e^{-|\mathbf r - \mathbf r_{ij}|^2 / 2\sigma^2},
 $$
 
-Its coefficients in radial functions $g_{nl}$ and real spherical harmonics
-$Y_{lm}$ are $c^Z_{nlm} = \int g_{nl}(r)\, Y_{lm}(\hat{\mathbf r})\, \rho^Z_i(\mathbf r)\, d\mathbf r$,
-and the power spectrum is
+the sum running over the atoms $j$ of element $Z$ at the vectors $\mathbf r_{ij}$ from
+atom $i$, of length $r_{ij}$, with $r_\text{cut}$ the `cutoff` and $\sigma$ `sigma`. Its
+coefficients in the radial functions $g_{nl}$, $n$ from 1 to `n_max`, and the real
+spherical harmonics $Y_{lm}$ of degree $l$ up to `l_max`, with $\hat{\mathbf r}$ the
+direction of $\mathbf r$, are $c^Z_{nlm} = \int g_{nl}(r)\, Y_{lm}(\hat{\mathbf r})\, \rho^Z_i(\mathbf r)\, d\mathbf r$,
+and the power spectrum of the pairs of elements $Z_1$ and $Z_2$ and of radial
+functions $n$ and $n'$ is
 
 $$
 p^{Z_1 Z_2}_{n n' l} = \pi \sqrt{\frac{8}{2l + 1}} \sum_{m=-l}^{l} c^{Z_1}_{nlm}\, c^{Z_2}_{n'lm}.
 $$
 
-The radial functions of each l are Gaussians $r^l e^{-\alpha_k r^2}$ that
-decay to a thousandth at n_max lengths from 1 Å to `cutoff`, made
+The radial functions of each $l$ are made of `n_max` Gaussians $r^l e^{-\alpha_k r^2}$,
+whose exponents $\alpha_k$ make them decay to a thousandth at `n_max` lengths from
+1 Å to `cutoff`, made
 orthonormal by Löwdin's symmetric orthonormalization; with them the
 integrals over r have a closed form, so that no integral is approximated.
 

@@ -84,9 +84,10 @@ e^{-(r - r_{ij})^2 / 2\sigma^2},
 s_i = -2\pi\rho \int_0^{r_c} \big[g_i \ln g_i - g_i + 1\big]\, r^2 \,\mathrm dr ,
 $$
 
-where $\rho$ is the number density of the system or, with `local_density`,
+where $r_{ij}$ is the distance of atoms $i$ and $j$, $s_i$ the fingerprint of atom $i$
+(`entropy`), and $\rho$ the number density of the system or, with `local_density`,
 the number of neighbors over the volume of the cutoff sphere. $g_i$ is
-evaluated at $r = k\sigma$ up to the cutoff and the integral is the
+evaluated at $r = k\sigma$ for $k = 0, 1, 2, \dots$ up to the cutoff and the integral is the
 trapezoid rule over those points, as in LAMMPS; where $g_i < 10^{-10}$ the
 integrand is $r^2$. With `average_cutoff`, $s_i$ is averaged with the values
 of the neighbors closer than it.

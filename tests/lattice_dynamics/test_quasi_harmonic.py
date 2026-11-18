@@ -14,7 +14,7 @@ from mdapy.calculators import EAM
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics import elastic_constants, primitive_cell, quasi_harmonic
 from mdapy.lattice_dynamics._phonons import _crossing, _cutoff_jump
-from mdapy.lattice_dynamics._quasi_harmonic import _Fit, _neighbouring
+from mdapy.lattice_dynamics._quasi_harmonic import _Fit, _spacing
 from mdapy.simulation import minimize
 
 from calculators.eam_files import write_setfl
@@ -148,15 +148,17 @@ def truncated(tmp_path_factory):
 def test_a_pair_that_crosses_the_cutoff(truncated):
     # the fourth shell, 5.14 Å at zero stress, comes inside the cutoff of 5 Å
     # below 0.92 of the volume, and the free energy jumps by most of its change
-    # between neighbouring volumes; raised before the phonons of the grid
+    # over an eighth of the range of the volumes; raised before the phonons of
+    # the grid
     potential, cell = truncated
     with pytest.raises(
         InvalidParameter,
         match=r"a pair of atoms crosses the cutoff of the calculator, 5 Å, between "
         r"the volumes: it is 4\.86\d\d Å apart at volume ratio 0\.85 and 5\.13\d\d Å "
         r"at volume ratio 1\. The free energy at 300 K jumps there by \d\.\d+ eV per "
-        r"atom, \d\d% of its change between neighbouring volumes, more than the 2% "
-        r"that the results tolerate: the potential is not smooth at its cutoff\. Use "
+        r"atom, \d+% of its change over an eighth of the range of the volumes, more "
+        r"than the 2% that the results tolerate: the potential is not smooth at its "
+        r"cutoff\. Use "
         r"volumes or pressures all on one side of the crossing, or a potential "
         r"smooth at its cutoff",
     ):
@@ -184,13 +186,22 @@ def test_a_potential_smooth_at_its_cutoff_crosses_it(copper):
 
 def test_zhou_potentials_cross_their_cutoff():
     # their cutoff is the fifth shell of their fcc crystal, which every range of
-    # volumes about it crosses; their functions nearly vanish there: a jump of
-    # about 1 % of the change between neighbouring volumes, computed
+    # volumes about it crosses; their functions nearly vanish there: at 400 K a
+    # jump of 1.6 % of the change over an eighth of the range, computed with 7
+    # volumes as with 13, and alike (against the change between neighbouring
+    # volumes the 13 had 3.5 % and were refused, the 7 0.9 %)
     potential = EAM.zhou(["Cu"])
     cell = primitive_cell(build_crystal("fcc", 3.615, elements="Cu"))
-    volumes = np.linspace(0.97, 1.07, 7)
-    result = quasi_harmonic(cell, potential, [0.0, 100.0], volumes=volumes)
-    assert np.all(np.diff(result.volume) > 0)
+    few, many = (
+        quasi_harmonic(
+            cell, potential, [0.0, 400.0], volumes=np.linspace(0.97, 1.07, n)
+        )
+        for n in (7, 13)
+    )
+    assert np.all(np.diff(few.volume) > 0)
+    assert many.volume == pytest.approx(few.volume, rel=1e-4)
+    assert many.thermal_expansion == pytest.approx(few.thermal_expansion, rel=0.01)
+    assert many.bulk_modulus == pytest.approx(few.bulk_modulus, rel=0.01)
     fifth = (3.615 * 1.5, 3.615 * 0.5, 0.0)  # a fifth neighbour, on the cutoff
     static, vibration, change = _cutoff_jump(
         cell, fifth, potential, None, 0.01, None, 100.0, 10, 1.015 ** (1 / 3) - 1
@@ -229,11 +240,15 @@ def test_the_jump_at_the_cutoff_of_a_sheet():
     assert vibration > 0 and change > 0
 
 
-def test_neighbouring_volumes():
+def test_the_spacing_is_that_of_nine_volumes_over_the_range():
     sizes = np.array([1.1, 1.0, 1.21])  # in any order
-    assert _neighbouring(sizes, 0, 3) == pytest.approx((1.21 ** (1 / 3) - 1) / 2)
-    assert _neighbouring(sizes, 1, 3) == pytest.approx(1.1 ** (1 / 3) - 1)
-    assert _neighbouring(sizes, 2, 2) == pytest.approx(1.1**0.5 - 1, rel=1e-6)
+    assert _spacing(sizes, 3) == pytest.approx((1.21 ** (1 / 3) - 1) / 8)
+    assert _spacing(sizes, 2) == pytest.approx(0.1 / 8)
+    nine = np.linspace(0.97, 1.09, 9)  # the default volumes
+    steps = (nine[1:] / nine[:-1]) ** (1 / 3) - 1
+    assert steps.min() < _spacing(nine, 3) < steps.max()
+    for n in (5, 25):  # whatever the number of volumes
+        assert _spacing(np.linspace(0.97, 1.09, n), 3) == _spacing(nine, 3)
 
 
 def test_crossing_follows_the_atoms_across_the_box():

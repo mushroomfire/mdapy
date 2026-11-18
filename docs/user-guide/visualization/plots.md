@@ -80,7 +80,7 @@ from its center.*
 | `figure(width="single", height=None, *, nrows=1, ncols=1, **options)` | a figure one column (88 mm) or two (180 mm) wide, or `width` mm; `height` in mm, by default 3/4 of a panel's width per row; `options` go to `plt.subplots` |
 | `panel_label(ax, text, *, x=-0.12, y=1.02)` | a bold label at the top left of a panel |
 | `save(fig, path, *, formats=("pdf", "svg", "png"))` | the figure in each format, the text of SVG kept as text |
-| `parity(reference, predicted, *, ax=None, label="", unit="", scale=1.0, density=False, color=None)` | predicted against reference values with the diagonal, the root mean square error, times `scale`, in the legend; `density` draws a hexagonal map |
+| `parity(reference, predicted, *, ax=None, label="", unit="", scale=1.0, density=False, color=None)` | predicted against reference values with the diagonal, the root mean square error, times `scale`, in the legend; `density` draws a hexagonal map; sets drawn on the same `ax` share its range and diagonal |
 | `scatter(system, x, y, *, ax=None, atoms=None, max_points=20000, color=None)` | two columns, components or expressions of the atoms (or of those of the mask or indices `atoms`) against each other, as `system[x]` takes them, the atoms with finite values; at most `max_points` of them, picked at random with a fixed seed |
 | `rdf(result, *, ax=None, partial=False)` | g(r), or the partial functions |
 | `structure_factor(result, *, ax=None)` | S(q) |

@@ -379,7 +379,8 @@ file names, or for the files of OVITO the structure of the most atoms in
 clusters. `read_dislocations` reads versions 5 to 7, the first frame of a
 file of several, and raises `FileFormatError` for a file that does not
 follow the format. A CA file holds no atoms, so `mdapy.io.read` and
-`read_trajectory`, which read systems, do not read it.
+`read_trajectory`, which read systems, do not read it, and their error for a
+`.ca` file names `read_dislocations`.
 
 ## Errors
 

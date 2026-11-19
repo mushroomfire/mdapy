@@ -402,7 +402,6 @@ public:
         }
         const std::int64_t n = a.n;
         const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        const std::int32_t* reverse = l.reversed();
         derivative_.resize(static_cast<std::size_t>(3 * plane));
         order_.resize(static_cast<std::size_t>(plane));
         prefactor_.resize(static_cast<std::size_t>(plane));
@@ -413,12 +412,17 @@ public:
         const Images<Real> b = l.steps<Real>(box);
         const TersoffTables<Real> t{entries_.data(), same_.data(), elements_,
                                     static_cast<Real>(cutoff_ * cutoff_)};
+        // the pairs within cutmax, every pair a term counts
+        pairs_.build(l, x, b, t.cutmax2);
+        const std::int32_t* indices = pairs_.indices();
+        const std::int32_t* counts = pairs_.counts();
+        const std::int32_t* reverse = pairs_.reverse();
         const unsigned g = blocks(n);
-        tersoff_zeta<Real><<<g, kBlock>>>(n, x, b, l.indices.data(), l.counts.data(), t,
-                                          order_.data(), prefactor_.data());
+        tersoff_zeta<Real><<<g, kBlock>>>(n, x, b, indices, counts, t, order_.data(),
+                                          prefactor_.data());
         MDAPY_LAUNCHED();
         const auto terms = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, x, b, l.indices.data(), l.counts.data(), t,
+            kernel<<<g, kBlock>>>(n, plane, x, b, indices, counts, t,
                                   order_.data(), prefactor_.data(), derivative_.data(),
                                   share_energy_.data(), share_virial_.data(), a.energies.data(),
                                   a.virials.data());
@@ -436,9 +440,9 @@ public:
         }
         MDAPY_LAUNCHED();
         const auto gather = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, l.indices.data(), l.counts.data(), reverse,
-                                  derivative_.data(), share_energy_.data(), share_virial_.data(),
-                                  nullptr, a.forces.data(), a.energies.data(), a.virials.data());
+            kernel<<<g, kBlock>>>(n, plane, indices, counts, reverse, derivative_.data(),
+                                  share_energy_.data(), share_virial_.data(), nullptr,
+                                  a.forces.data(), a.energies.data(), a.virials.data());
         };
         if (atomic && energy && virial) gather(gather_shares<Real, true, true, true>);
         else if (atomic && energy) gather(gather_shares<Real, true, false, true>);
@@ -456,6 +460,7 @@ private:
     Buffer<unsigned char> same_;
     Buffer<Real> derivative_, order_, prefactor_;
     Buffer<double> share_energy_, share_virial_;
+    ShortPairs pairs_;
 };
 
 }  // namespace

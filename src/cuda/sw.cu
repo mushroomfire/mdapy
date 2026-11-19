@@ -278,15 +278,20 @@ public:
         }
         const std::int64_t n = a.n;
         const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        const std::int32_t* reverse = l.reversed();
         derivative_.resize(static_cast<std::size_t>(3 * plane));
         if (atomic && energy) share_energy_.resize(static_cast<std::size_t>(plane));
         if (atomic && virial) share_virial_.resize(static_cast<std::size_t>(9 * plane));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
+        // the pairs within the largest cutoff of the entries, every pair an
+        // entry counts
+        pairs_.build(l, x, b, static_cast<Real>(cutoff_ * cutoff_));
+        const std::int32_t* indices = pairs_.indices();
+        const std::int32_t* counts = pairs_.counts();
+        const std::int32_t* reverse = pairs_.reverse();
         const SwTables<Real> t{entries_.data(), same2_.data(), same3_.data(), elements_};
-        Args args{n, plane, x, b, l.indices.data(), l.counts.data(), t, derivative_.data(),
+        Args args{n, plane, x, b, indices, counts, t, derivative_.data(),
                   share_energy_.data(), share_virial_.data(), a.energies.data(), a.virials.data()};
         if (atomic) {
             run<true>(args, energy, virial);
@@ -295,9 +300,9 @@ public:
         }
         const unsigned g = blocks(n);
         const auto gather_args = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, l.indices.data(), l.counts.data(), reverse,
-                                  derivative_.data(), share_energy_.data(), share_virial_.data(),
-                                  nullptr, a.forces.data(), a.energies.data(), a.virials.data());
+            kernel<<<g, kBlock>>>(n, plane, indices, counts, reverse, derivative_.data(),
+                                  share_energy_.data(), share_virial_.data(), nullptr,
+                                  a.forces.data(), a.energies.data(), a.virials.data());
         };
         if (atomic && energy && virial) gather_args(gather_shares<Real, true, true, true>);
         else if (atomic && energy) gather_args(gather_shares<Real, true, false, true>);
@@ -345,6 +350,7 @@ private:
     Buffer<unsigned char> same2_, same3_;
     Buffer<Real> derivative_;
     Buffer<double> share_energy_, share_virial_;
+    ShortPairs pairs_;
 };
 
 }  // namespace

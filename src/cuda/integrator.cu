@@ -110,15 +110,9 @@ struct Rotation {
     double r[9];
 };
 
-// The vector of each atom in the axes of the system, w = v R^T, its
-// components along which the atom may not move set to zero, and back, w R.
-__global__ void restrict_kernel(std::int64_t n, Rotation t, const std::int32_t* movable,
-                                double* v) {
-    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
-    const std::int32_t m = movable[i];
-    if (m == 7) return;
-    double* u = v + 3 * i;
+// A vector in the axes of the system, w = u R^T, its components along
+// which the atom may not move set to zero, and back, w R.
+__device__ inline void project(const Rotation& t, std::int32_t m, double* u) {
     double w[3];
     for (int b = 0; b < 3; ++b) {
         w[b] = ((m >> b) & 1) ? u[0] * t.r[3 * b] + u[1] * t.r[3 * b + 1] + u[2] * t.r[3 * b + 2]
@@ -127,6 +121,72 @@ __global__ void restrict_kernel(std::int64_t n, Rotation t, const std::int32_t* 
     for (int c = 0; c < 3; ++c) {
         u[c] = w[0] * t.r[c] + w[1] * t.r[3 + c] + w[2] * t.r[6 + c];
     }
+}
+
+// The vector of each atom projected, and set, the velocities prescribed
+// added (null for forces).
+__global__ void restrict_kernel(std::int64_t n, Rotation t, const std::int32_t* movable,
+                                const double* prescribed, double* v) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const std::int32_t m = movable[i];
+    if (m == 7) return;
+    double* u = v + 3 * i;
+    project(t, m, u);
+    if (prescribed != nullptr) {
+        for (int c = 0; c < 3; ++c) u[c] += prescribed[3 * i + c];
+    }
+}
+
+__global__ void add_kernel(std::int64_t components, const double* added, double* f) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k < components) f[k] += added[k];
+}
+
+// The forces of the atoms of group bit, zero for the others, in 3 columns.
+__global__ void group_force_kernel(std::int64_t n, int bit, const std::int32_t* groups,
+                                   const double* f, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const bool in = ((groups[i] >> bit) & 1) != 0;
+    for (int c = 0; c < 3; ++c) out[c * n + i] = in ? f[3 * i + c] : 0.0;
+}
+
+// m |v|^2 of each atom over the components that move freely.
+__global__ void free_kinetic_kernel(std::int64_t n, Rotation t, const std::int32_t* movable,
+                                    const double* m, const double* v, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    double u[3] = {v[3 * i], v[3 * i + 1], v[3 * i + 2]};
+    if (movable != nullptr && movable[i] != 7) project(t, movable[i], u);
+    out[i] = m[i] * (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]);
+}
+
+// A Langevin bath on the atoms of group bit: the change of m |v|^2 / 2 of
+// each atom in out, zero for the others.
+__global__ void bath_kernel(std::int64_t n, int bit, const std::int32_t* groups, double c1,
+                            double c2, double kt, unsigned long long seed,
+                            unsigned long long counter, Rotation t, const std::int32_t* movable,
+                            const double* m, double* v, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    out[i] = 0.0;
+    if (((groups[i] >> bit) & 1) == 0) return;
+    curandStatePhilox4_32_10_t state;
+    curand_init(seed, static_cast<unsigned long long>(i), 4ULL * counter, &state);
+    const double2 g01 = curand_normal2_double(&state);
+    const double2 g23 = curand_normal2_double(&state);
+    double g[3] = {g01.x, g01.y, g23.x};
+    if (movable != nullptr && movable[i] != 7) project(t, movable[i], g);
+    const double mass = m[i], sigma = sqrt(kt / mass);
+    double* u = v + 3 * i;
+    double before = 0.0, after = 0.0;
+    for (int c = 0; c < 3; ++c) {
+        before += u[c] * u[c];
+        u[c] = c1 * u[c] + c2 * sigma * g[c];
+        after += u[c] * u[c];
+    }
+    out[i] = 0.5 * mass * (after - before);
 }
 
 // m v_a v_b of each atom in 6 columns, xx yy zz yz xz xy.
@@ -240,19 +300,111 @@ void Atoms::set_movable(const bool* movable, const double* rotation) {
 
 namespace {
 
-void restricted(Atoms::Impl& a, double* vectors) {
-    if (a.movable.size() != static_cast<std::size_t>(a.n)) return;  // every atom moves
+bool moves_freely(const Atoms::Impl& a) {
+    return a.movable.size() != static_cast<std::size_t>(a.n);
+}
+
+Rotation rotation_of(const Atoms::Impl& a) {
     Rotation t{};
     for (int k = 0; k < 9; ++k) t.r[k] = a.rotation[k];
-    restrict_kernel<<<blocks(a.n), kBlock>>>(a.n, t, a.movable.data(), vectors);
+    return t;
+}
+
+void restricted(Atoms::Impl& a, double* vectors, const double* prescribed) {
+    if (moves_freely(a)) return;  // every atom moves
+    restrict_kernel<<<blocks(a.n), kBlock>>>(a.n, rotation_of(a), a.movable.data(), prescribed,
+                                             vectors);
     MDAPY_LAUNCHED();
+}
+
+// Three doubles of each atom from the caller, at the places of the atoms.
+void placed_triples(Atoms::Impl& a, const double* values, Buffer<double>& out) {
+    if (values == nullptr) {
+        out.resize(0);
+        return;
+    }
+    std::vector<double> placed(static_cast<std::size_t>(3 * a.n));
+    a.to_places(values, placed.data(), 3);
+    out.upload(placed.data(), placed.size());
 }
 
 }  // namespace
 
-void Atoms::restrict_forces() { restricted(*impl_, impl_->forces.data()); }
+void Atoms::clear_movable() { impl_->movable.resize(0); }
 
-void Atoms::restrict_velocities() { restricted(*impl_, impl_->velocities.data()); }
+void Atoms::restrict_forces() { restricted(*impl_, impl_->forces.data(), nullptr); }
+
+void Atoms::restrict_velocities() {
+    Impl& a = *impl_;
+    const bool set = a.prescribed.size() == static_cast<std::size_t>(3 * a.n);
+    restricted(a, a.velocities.data(), set ? a.prescribed.data() : nullptr);
+}
+
+void Atoms::set_prescribed(const double* velocities) {
+    placed_triples(*impl_, velocities, impl_->prescribed);
+}
+
+void Atoms::set_added(const double* forces) { placed_triples(*impl_, forces, impl_->added); }
+
+void Atoms::add_forces() {
+    Impl& a = *impl_;
+    if (a.added.size() != static_cast<std::size_t>(3 * a.n)) return;
+    add_kernel<<<blocks(3 * a.n), kBlock>>>(3 * a.n, a.added.data(), a.forces.data());
+    MDAPY_LAUNCHED();
+}
+
+void Atoms::set_groups(const std::int32_t* bits) {
+    Impl& a = *impl_;
+    if (bits == nullptr) {
+        a.groups.resize(0);
+        return;
+    }
+    std::vector<std::int32_t> placed(static_cast<std::size_t>(a.n));
+    a.to_places(bits, placed.data(), 1);
+    a.groups.upload(placed.data(), placed.size());
+}
+
+void Atoms::group_forces(int count, double* sums) const {
+    Impl& a = *impl_;
+    if (a.groups.size() != static_cast<std::size_t>(a.n)) {
+        throw std::logic_error("the atoms have no groups");
+    }
+    a.scratch.resize(static_cast<std::size_t>(6 * a.n));
+    for (int g = 0; g < count; ++g) {
+        group_force_kernel<<<blocks(a.n), kBlock>>>(a.n, g, a.groups.data(), a.forces.data(),
+                                                    a.scratch.data());
+        MDAPY_LAUNCHED();
+        sum_columns(a.scratch.data(), 3, a.n, sums + 3 * g);
+    }
+}
+
+double Atoms::kinetic_free() const {
+    Impl& a = *impl_;
+    a.scratch.resize(static_cast<std::size_t>(6 * a.n));
+    free_kinetic_kernel<<<blocks(a.n), kBlock>>>(
+        a.n, rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(), a.masses.data(),
+        a.velocities.data(), a.scratch.data());
+    MDAPY_LAUNCHED();
+    double out = 0.0;
+    sum_columns(a.scratch.data(), 1, a.n, &out);
+    return out;
+}
+
+double Atoms::bath(int bit, double c1, double c2, double kt, std::uint64_t seed,
+                   std::uint64_t counter) {
+    Impl& a = *impl_;
+    if (a.groups.size() != static_cast<std::size_t>(a.n)) {
+        throw std::logic_error("the atoms have no groups");
+    }
+    a.scratch.resize(static_cast<std::size_t>(6 * a.n));
+    bath_kernel<<<blocks(a.n), kBlock>>>(a.n, bit, a.groups.data(), c1, c2, kt, seed, counter,
+                                         rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(),
+                                         a.masses.data(), a.velocities.data(), a.scratch.data());
+    MDAPY_LAUNCHED();
+    double out = 0.0;
+    sum_columns(a.scratch.data(), 1, a.n, &out);
+    return out;
+}
 
 void Atoms::kinetic(double* tensor) const {
     Impl& a = *impl_;

@@ -244,6 +244,7 @@ nav:
               - Energy minimization: user-guide/simulation/minimize.md
               - Molecular dynamics: user-guide/simulation/dynamics.md
               - Groups and controls: user-guide/simulation/controls.md
+              - Deformation: user-guide/simulation/deformation.md
               - On the GPU: user-guide/simulation/gpu.md
               - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:

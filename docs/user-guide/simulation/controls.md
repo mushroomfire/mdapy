@@ -4,7 +4,8 @@ A run of [molecular dynamics](dynamics.md) can hold some atoms still, move
 others at a velocity, push others and keep others at a temperature: the
 controls of the run. Each acts on
 a group, an (N,) bool mask over the atoms of the system, and lasts for the
-run it is given to, through `controls` of `run` or `iterate`.
+run it is given to, through `controls` of `run` or `iterate`; a
+[`Deform`](deformation.md) among them deforms the box.
 
 Copper sheared between two walls at 300 K: the bottom wall held, the top
 one moved along x at 0.2 Å/ps, 20 m/s, the force of the crystal on it
@@ -75,6 +76,7 @@ the force at one step, which the vibrations of the atoms shake.*
 | `Move(mask, velocity, *, name=None)` | the atoms move together at `velocity`, (3,) float64 in Å/ps in the axes of the system, whatever the forces on them; with a `name`, `thermo` records `<name>_force`, the force of the potential on them |
 | `AddForce(mask, force)` | adds `force`, (3,) float64 in eV/Å in the axes of the system, to each atom (LAMMPS `fix addforce`) |
 | `Langevin(mask, temperature, *, damping=None, seed=None, name=None)` | a heat bath: friction and random forces on the atoms of the group alone, as the `"langevin"` thermostat of `run` gives every atom; with a `name`, `thermo` records `<name>_energy`, the heat in eV it gave the group since the run began, negative when it took heat away |
+| `Deform(*, xx=0.0, yy=0.0, zz=0.0, yz=0.0, xz=0.0, xy=0.0, kind="engineering")` | the box stretched, compressed or sheared at constant strain rates, the atoms carried with it: see [Deformation](deformation.md) |
 
 | Parameter | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -110,8 +112,8 @@ the force at one step, which the vibrations of the atoms shake.*
   bath draws its random forces in MDAPY as the `"langevin"` thermostat does,
   over half steps; in LAMMPS it is a `fix langevin`, whose random forces
   differ, so the runs agree in their averages.
-- Atoms held or moved by a control and a barostat do not go together: the
-  box would carry the walls.
+- Atoms held or moved by a control do not go together with a barostat or a
+  `Deform`: the box would carry the walls.
 - In LAMMPS the controls are its fixes: `setforce` with `velocity set` for
   `Hold`, `move linear` for `Move`, `addforce` for `AddForce`, and the
   ensemble on the atoms that move freely, whose temperature counts the
@@ -126,9 +128,9 @@ the force at one step, which the vibrations of the atoms shake.*
 ## Errors
 
 `run` and `iterate` raise `InvalidParameter` for a control that is not a
-`Hold`, `Move`, `AddForce` or `Langevin`, a group of another number of atoms,
+`Hold`, `Move`, `AddForce`, `Langevin` or `Deform`, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
-in two baths, two controls of one name, held or moved atoms with a barostat,
+in two baths, two controls of one name, held or moved atoms with a barostat or a `Deform`,
 a bath with the thermostat of `"nvt"` or `"npt"`, on the GPU more than 31
 groups moved with a name or bathed, and, in LAMMPS, more than 24 controls or
 atoms held along some directions in a box not in the form of LAMMPS. The controls raise it for a mask that is not

@@ -14,6 +14,11 @@
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   [Groups and controls](../user-guide/simulation/controls.md).
+- `mdapy.simulation.Deform`, a control that stretches, compresses or shears the
+  box at constant strain rates, engineering or true, the atoms carried with it,
+  with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
+  GPU and in LAMMPS (`fix deform`) alike. See
+  [Deformation](../user-guide/simulation/deformation.md).
 - `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
   or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
   in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).

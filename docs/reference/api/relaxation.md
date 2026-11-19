@@ -10,6 +10,8 @@
 
 ::: mdapy.simulation.MolecularDynamics
 
+::: mdapy.simulation.thermal_velocities
+
 ::: mdapy.simulation.Hold
 
 ::: mdapy.simulation.Move
@@ -18,7 +20,9 @@
 
 ::: mdapy.simulation.Langevin
 
-::: mdapy.simulation.thermal_velocities
+::: mdapy.simulation.Deform
+
+::: mdapy.simulation.AdaptiveTimestep
 
 ## Defect energies
 

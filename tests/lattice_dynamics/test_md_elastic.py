@@ -3,39 +3,73 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Elastic constants from molecular dynamics in LAMMPS. Skipped where LAMMPS
-is not installed."""
+"""Elastic constants from molecular dynamics, in MDAPY and in LAMMPS where it
+is installed; the Born term of MDAPY against that of LAMMPS."""
 
 import numpy as np
 import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LAMMPS
+from mdapy.calculators import EAM, LAMMPS, LennardJones
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics import elastic_constants, md_elastic_constants
-from mdapy.simulation import minimize
+from mdapy.lattice_dynamics._md_elastic import _born
+from mdapy.simulation import MolecularDynamics, minimize
 
 from calculators.eam_files import write_setfl
 
-lammps = pytest.importorskip("lammps")
-
 
 @pytest.fixture(scope="module")
-def copper(tmp_path_factory):
-    setfl = write_setfl(tmp_path_factory.mktemp("eam") / "CuNi.eam.alloy")
+def setfl(tmp_path_factory):
+    return write_setfl(tmp_path_factory.mktemp("eam") / "CuNi.eam.alloy")
+
+
+def lammps_eam(setfl):
+    pytest.importorskip("lammps")
+    return LAMMPS(f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni", ["Cu", "Ni"])
+
+
+@pytest.fixture(scope="module", params=["mdapy", "lammps"])
+def copper(request, setfl):
+    """MDAPY's EAM, the calculator of the dynamics, MDAPY's own or LAMMPS,
+    and the relaxed crystal."""
+    eam = EAM(setfl)
     relaxed = minimize(
         build_crystal("fcc", 3.29, elements="Cu", repeat=(3, 3, 3)),
-        EAM(setfl),
+        eam,
         cell="full",
         max_force=1e-10,
         max_stress=1e-8,
         max_steps=10000,
     ).system
-    potential = LAMMPS(
-        f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni", ["Cu", "Ni"]
+    potential = eam if request.param == "mdapy" else lammps_eam(setfl)
+    return eam, potential, relaxed
+
+
+def test_the_born_term_of_lammps(setfl):
+    """MDAPY's Born term of a shaken crystal in a tilted box, the 21 values of
+    LAMMPS's compute born/matrix numdiff for the same atoms."""
+    potential = lammps_eam(setfl)
+    crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
+    matrix = crystal.box.matrix.copy()
+    matrix[1, 0], matrix[2, 0], matrix[2, 1] = 0.8, -0.5, 0.3  # the form of LAMMPS
+    crystal = crystal.with_box(mdapy.Box(matrix), scale_positions=True)
+    rng = np.random.default_rng(0)
+    kinds = rng.choice(["Cu", "Ni"], len(crystal))
+    shaken = crystal.with_columns(
+        positions=crystal["positions"] + rng.normal(0, 0.1, (len(crystal), 3)),
+        element=list(kinds),
     )
-    return EAM(setfl), potential, relaxed
+    ours = _born(shaken, EAM(setfl))
+    with MolecularDynamics(shaken, potential) as md:
+        md.command("compute mdapy_v all pressure NULL virial")
+        md.command("compute mdapy_b all born/matrix numdiff 1e-5 mdapy_v")
+        md.command("run 0")
+        theirs = np.array(md.lammps.numpy.extract_compute("mdapy_b", 0, 1)[:21])
+    np.testing.assert_allclose(
+        ours, theirs, rtol=1e-7, atol=1e-7 * np.abs(theirs).max()
+    )
 
 
 def test_cold_crystal_has_the_static_constants(copper):
@@ -130,7 +164,8 @@ def test_fluctuations_and_strains_agree(copper):
         assert abs(strained.constants[a, b] - fluctuating.constants[a, b]) < 4 * spread
 
 
-def test_fluctuations_of_an_ideal_gas():
+@pytest.mark.parametrize("engine", ["mdapy", "lammps"])
+def test_fluctuations_of_an_ideal_gas(engine):
     """Atoms without forces: no Born term and no fluctuations of the virial,
     the kinetic term alone, and under its pressure P the stress-strain
     coefficients B11 = B12 = P and B44 = 0."""
@@ -139,7 +174,11 @@ def test_fluctuations_of_an_ideal_gas():
         mdapy.Box(20.0),
         elements=["Ar"] * 64,
     )
-    potential = LAMMPS("pair_style zero 3.0\npair_coeff * *", ["Ar"])
+    if engine == "mdapy":
+        potential = LennardJones({"Ar": (0.0, 3.4)}, 3.0)
+    else:
+        pytest.importorskip("lammps")
+        potential = LAMMPS("pair_style zero 3.0\npair_coeff * *", ["Ar"])
     pressure = 0.05  # GPa
     result = md_elastic_constants(
         gas,
@@ -161,3 +200,5 @@ def test_the_method_must_be_known(copper):
     _, potential, relaxed = copper
     with pytest.raises(InvalidParameter, match="method must be"):
         md_elastic_constants(relaxed, potential, 300.0, method="green-kubo")
+    with pytest.raises(InvalidParameter, match="calculator"):
+        md_elastic_constants(relaxed, "Cu.eam.alloy", 300.0)

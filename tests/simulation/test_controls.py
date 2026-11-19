@@ -189,7 +189,10 @@ def test_errors(potentials):
     system, bottom, top, _ = slab()
     n = len(system)
     with MolecularDynamics(system, eam) as md:
-        with pytest.raises(InvalidParameter, match="Hold, Move, AddForce or Langevin"):
+        with pytest.raises(
+            InvalidParameter,
+            match="Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep",
+        ):
             md.run(1, controls=["hold"])
         with pytest.raises(InvalidParameter, match="values, not one"):
             md.run(1, controls=Hold(np.ones(3, dtype=bool)))

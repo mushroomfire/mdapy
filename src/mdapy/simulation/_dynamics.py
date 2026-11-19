@@ -97,6 +97,8 @@ class _Lammps:
     """The state of the dynamics in LAMMPS and its steps."""
 
     def __init__(self, system: System, potential: LAMMPS, timestep: float):
+        self.__timestep = float(timestep)
+        self.__adaptive = False  # whether a run changes the time step
         if "element" not in system.table.columns:
             raise MissingProperty("molecular dynamics needs the element column")
         if (
@@ -320,7 +322,28 @@ create_box {len(potential.elements)} box
             other = "z" if self.__swapped else "y"
             barostat = run["barostat"]
             sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
-            if barostat == "xy" or (sheet and barostat == "iso"):
+            deform = next(
+                (c for c in run["controls"] if isinstance(c, _controls.Deform)), None
+            )
+            if deform is not None:
+                if barostat not in ("iso", "aniso") or deform.rates[3:].any():
+                    raise InvalidParameter(
+                        'a barostat with a deformation needs "iso" or "aniso" and no '
+                        "shear"
+                    )
+                if sheet:
+                    raise InvalidParameter(
+                        "a deformed sheet with a barostat is not supported"
+                    )
+                left = [d for k, d in enumerate("xyz") if deform.rates[k] == 0.0]
+                if not left:
+                    raise InvalidParameter(
+                        "the deformation leaves the barostat no length"
+                    )
+                fix += "".join(f" {d} {span}" for d in left)
+                if barostat == "iso" and len(left) > 1:
+                    fix += f" couple {''.join(left)}"
+            elif barostat == "xy" or (sheet and barostat == "iso"):
                 fix += f" x {span} {other} {span} couple x{other}"
             elif sheet:  # in the plane only
                 fix += f" x {span} {other} {span}"
@@ -372,6 +395,10 @@ create_box {len(potential.elements)} box
             for group in self.__groups:
                 self.command(f"group {group} delete")
         self.__fixes, self.__computes, self.__groups = [], [], []
+        if self.__holder and self.__adaptive:
+            # fix dt/reset leaves its last time step
+            self.command(f"timestep {self.__timestep!r}")
+        self.__adaptive = False
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
@@ -440,6 +467,42 @@ create_box {len(potential.elements)} box
                     self.command(f"compute {name}_force {group} reduce sum fx fy fz")
                     self.__computes.append(f"{name}_force")
                     moves.append((control.name, f"{name}_force"))
+            elif isinstance(control, _controls.Deform):
+                if not (aligned and not self.__swapped):
+                    raise InvalidParameter(
+                        "a deformation needs a box whose first vector is along x and "
+                        "second in the xy plane"
+                    )
+                if control.kind == "true" and control.rates[3:].any():
+                    raise InvalidParameter("tilts deform at engineering rates only")
+                control._periodic(self.__pbc)
+                style = "trate" if control.kind == "true" else "erate"
+                words = []
+                for k, part in enumerate(("x", "y", "z", "yz", "xz", "xy")):
+                    rate = float(control.rates[k])
+                    if rate != 0.0:
+                        words.append(f"{part} {'erate' if k > 2 else style} {rate!r}")
+                self.command(
+                    f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
+                )
+                self.__fixes.append(name)
+            elif isinstance(control, _controls.AdaptiveTimestep):
+                low = (
+                    "NULL"
+                    if control.min_timestep is None
+                    else repr(control.min_timestep)
+                )
+                high = (
+                    self.__timestep
+                    if control.max_timestep is None
+                    else control.max_timestep
+                )
+                self.command(
+                    f"fix {name} all dt/reset {control.every} {low} {high!r} "
+                    f"{control.max_distance!r} units box"
+                )
+                self.__fixes.append(name)
+                self.__adaptive = True
             elif isinstance(control, _controls.Langevin):
                 group = self.__group(name, control.mask)
                 t0, t1 = control.temperature
@@ -764,13 +827,16 @@ class MolecularDynamics:
         save_every : int32, optional
             Keeps the atoms every this many steps, in ``frames``. Default
             None, keeping none.
-        controls : sequence of Hold, Move, AddForce or Langevin, optional
-            What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, pushed, or kept at a temperature. Held and
+        controls : sequence of controls, optional
+            Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+            is done to groups of atoms, the box or the time step during the
+            run: atoms held, moved at a velocity, pushed, or kept at a
+            temperature, the box deformed at constant rates, the time step
+            set by the fastest atom. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
-            with a barostat, baths not with the thermostat of "nvt" or
-            "npt". Default none.
+            with a barostat or a deformation, baths not with the thermostat
+            of "nvt" or "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -862,13 +928,16 @@ class MolecularDynamics:
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        controls : sequence of Hold, Move, AddForce or Langevin, optional
-            What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, pushed, or kept at a temperature. Held and
+        controls : sequence of controls, optional
+            Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+            is done to groups of atoms, the box or the time step during the
+            run: atoms held, moved at a velocity, pushed, or kept at a
+            temperature, the box deformed at constant rates, the time step
+            set by the fastest atom. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
-            with a barostat, baths not with the thermostat of "nvt" or
-            "npt". Default none.
+            with a barostat or a deformation, baths not with the thermostat
+            of "nvt" or "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional

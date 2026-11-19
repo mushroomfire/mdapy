@@ -147,6 +147,13 @@ viscoplastic deformation in amorphous solids, *Phys. Rev. E* **57**, 7192
 (1998). [doi:10.1103/PhysRevE.57.7192](https://doi.org/10.1103/PhysRevE.57.7192)
 { #falk1998 }
 
+**Fan et al. (2015).** Z. Fan, L. F. C. Pereira, H.-Q. Wang, J.-C. Zheng, D.
+Donadio and A. Harju, Force and heat current formulas for many-body potentials in
+molecular dynamics simulations with applications to thermal conductivity
+calculations, *Phys. Rev. B* **92**, 094301 (2015).
+[doi:10.1103/PhysRevB.92.094301](https://doi.org/10.1103/PhysRevB.92.094301)
+{ #fan2015 }
+
 **Fan et al. (2022).** Z. Fan et al., GPUMD: A package for constructing
 accurate machine-learned potentials and performing highly efficient
 atomistic simulations, *J. Chem. Phys.* **157**, 114801 (2022).

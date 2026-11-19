@@ -65,10 +65,30 @@ class _Barostat(NamedTuple):
     scale: np.ndarray
 
 
-def _barostat(name: str, pbc: np.ndarray, swapped: bool, h: np.ndarray) -> _Barostat:
+def _barostat(
+    name: str,
+    pbc: np.ndarray,
+    swapped: bool,
+    h: np.ndarray,
+    deformed: np.ndarray | None = None,
+) -> _Barostat:
     """The barostat of a name, for a box with these periodic directions in
-    the frame of LAMMPS, as the fix of the LAMMPS dynamics sets it."""
+    the frame of LAMMPS, as the fix of the LAMMPS dynamics sets it; with
+    deformed, (3,) bool, the lengths a deformation changes, on the others
+    alone, coupled for "iso", as fix npt y ... z ... couple yz."""
     flags = np.zeros(6, dtype=bool)
+    if deformed is not None:
+        flags[:3] = ~deformed
+        left = "".join("xyz"[k] for k in range(3) if flags[k])
+        couple = left if name == "iso" and len(left) > 1 else "none"
+        scale = np.array(
+            [
+                bool(flags[2] and pbc[2] and h[2, 1] != 0.0),
+                bool(flags[2] and pbc[2] and h[2, 0] != 0.0),
+                bool(flags[1] and pbc[1] and h[1, 0] != 0.0),
+            ]
+        )
+        return _Barostat(flags, couple, "aniso", True, scale)
     # tilts that scale with the lengths: yz and xz with z, xy with y
     scale = np.array(
         [
@@ -97,6 +117,36 @@ def _barostat(name: str, pbc: np.ndarray, swapped: bool, h: np.ndarray) -> _Baro
         return _Barostat(flags, "none", "tri", False, np.zeros(3, dtype=bool))
     flags[:3] = True
     return _Barostat(flags, "xyz" if name == "iso" else "none", name, False, scale)
+
+
+# the time step of an atom that neither moves nor feels a force, as LAMMPS's
+_BIG = 1.0e20
+
+
+def _step_limit(
+    v: np.ndarray, f: np.ndarray, masses: np.ndarray, distance: float
+) -> float:
+    """The largest time step in which no atom moves more than distance by
+    its velocity and its force, as LAMMPS's fix dt/reset finds it: the
+    smaller of distance / |v| and sqrt(2 distance m / |f|), scaled down if
+    the move of v dt + f dt^2 / 2m is still longer."""
+    inverse = (1.0 / masses)[:, None]
+    vsq = np.einsum("ij,ij->i", v, v)
+    fsq = np.einsum("ij,ij->i", f, f)
+    with np.errstate(divide="ignore"):
+        dtv = np.where(vsq > 0.0, distance / np.sqrt(vsq), _BIG)
+        dtf = np.where(
+            fsq > 0.0,
+            np.sqrt(2.0 * distance / (_FTM2V * np.sqrt(fsq) * inverse[:, 0])),
+            _BIG,
+        )
+    dt = np.minimum(dtv, dtf)[:, None]
+    move = dt * v + 0.5 * dt * dt * inverse * f * _FTM2V
+    length = np.sqrt(np.einsum("ij,ij->i", move, move))
+    dt = dt[:, 0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dt = np.where(length > distance, dt * distance / length, dt)
+    return float(dt.min()) if len(dt) else _BIG
 
 
 def _upper(h: np.ndarray) -> np.ndarray:
@@ -158,6 +208,11 @@ class _HostAtoms:
     @velocities.setter
     def velocities(self, v: np.ndarray) -> None:
         self.__v = v
+
+    @property
+    def forces(self) -> np.ndarray:
+        """Those of the last computation, as the steps use them."""
+        return self.__forces
 
     def twice_kinetic(self) -> float:
         return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
@@ -342,6 +397,8 @@ class _Native:
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
         self.__moves: tuple = ()  # the names of the moved groups recorded
         self.__controlled = False  # whether the run has controls
+        self.__deform: Any = None  # the Deform of the run
+        self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
         self.__prescribed = False  # whether controls set velocities
         self.__heat: list = []  # the heat each gave since the run began, eV
@@ -530,15 +587,27 @@ class _Native:
                 f"a barostat needs the virial, which "
                 f"{type(self.__calculator).__name__} does not compute"
             )
-        self.__set_controls(run.get("controls", ()), barostat)
+        controls = run.get("controls", ())
+        self.__set_deform(
+            next((c for c in controls if isinstance(c, _controls.Deform)), None),
+            barostat,
+            run["barostat"],
+        )
+        self.__set_controls(controls, barostat)
         if (thermostat or langevin) and self.__dof < 1:
             raise InvalidParameter("a thermostat needs atoms that move")
         dt = self.timestep
         self.__dt = dt
         self.__first = self.__step
-        self.__time0 = self.__time
+        # the time of a step, from the step where the time step last changed
+        self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
         self.__compute()
+        self.__adaptive = next(
+            (c for c in controls if isinstance(c, _controls.AdaptiveTimestep)), None
+        )
+        if self.__adaptive is not None:
+            self.__reset_dt()  # at the start of the run, as fix dt/reset
         self.__nh = thermostat
         self.__langevin = langevin
         self.__pstat = barostat
@@ -577,7 +646,13 @@ class _Native:
 
     def __setup_barostat(self, run: dict[str, Any]) -> None:
         h = self.__h
-        b = _barostat(run["barostat"], self.__frame_pbc, self.__swapped, h)
+        b = _barostat(
+            run["barostat"],
+            self.__frame_pbc,
+            self.__swapped,
+            h,
+            None if self.__deform is None else self.__deform.rates[:3] != 0.0,
+        )
         self.__b = b
         p0, p1 = (p * _GPA_TO_EV_PER_A3 for p in run["pressures"])
         self.__p_start = np.where(b.flags, p0, 0.0)
@@ -605,6 +680,79 @@ class _Native:
         self.__mtk_term2 = 0.0
         self.__press_target(0)
         self.__p_current = self.__couple()
+
+    def __set_deform(self, deform: Any, barostat: bool, style: str) -> None:
+        """The box at the start of a deformation, as fix deform takes it."""
+        self.__deform = deform
+        if deform is None:
+            return
+        if not (np.array_equal(self.__rotation, np.eye(3)) and not self.__swapped):
+            raise InvalidParameter(
+                "a deformation needs a box whose first vector is along x and second "
+                "in the xy plane"
+            )
+        if deform.kind == "true" and deform.rates[3:].any():
+            raise InvalidParameter("tilts deform at engineering rates only")
+        deform._periodic(self.__pbc)
+        if barostat:
+            if style not in ("iso", "aniso") or deform.rates[3:].any():
+                raise InvalidParameter(
+                    'a barostat with a deformation needs "iso" or "aniso" and no shear'
+                )
+            if (deform.rates[:3] != 0.0).all():
+                raise InvalidParameter("the deformation leaves the barostat no length")
+            sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
+            if sheet:
+                raise InvalidParameter(
+                    "a deformed sheet with a barostat is not supported"
+                )
+        h = self.__h
+        self.__deform_lo = self.__lo.copy()
+        self.__deform_hi = self.__lo + np.diag(h)
+        self.__deform_tilt = np.array([h[2, 1], h[2, 0], h[1, 0]])
+
+    def __apply_deform(self, step: int) -> None:
+        """The box of the deformation at the end of a step, and the atoms
+        carried with it: the targets of fix deform, linear in the steps of
+        the run for its rates of length and of tilt, exponential for true
+        rates of length."""
+        d = self.__deform
+        done = step - self.__first
+        delta = done / self.__steps if done else 0.0
+        span = self.__steps * self.__dt  # the time of the whole run
+        old, old_lo = self.__h.copy(), self.__lo.copy()
+        lo, hi = old_lo.copy(), old_lo + np.diag(old)
+        lo0, hi0 = self.__deform_lo, self.__deform_hi
+        for i in range(3):
+            rate = d.rates[i]
+            if rate == 0.0:
+                continue
+            if d.kind == "true":
+                shift = 0.5 * ((hi0[i] - lo0[i]) * math.exp(rate * done * self.__dt))
+                lo[i] = 0.5 * (lo0[i] + hi0[i]) - shift
+                hi[i] = 0.5 * (lo0[i] + hi0[i]) + shift
+            else:
+                shift = 0.5 * span * rate * (hi0[i] - lo0[i])
+                lo[i] = lo0[i] + delta * ((lo0[i] - shift) - lo0[i])
+                hi[i] = hi0[i] + delta * ((hi0[i] + shift) - hi0[i])
+        # the tilts yz, xz and xy; the lengths across which they grow
+        tilt = np.array([old[2, 1], old[2, 0], old[1, 0]])
+        across = np.array([hi0[2] - lo0[2], hi0[2] - lo0[2], hi0[1] - lo0[1]])
+        for k in range(3):
+            rate = d.rates[3 + k]
+            if rate != 0.0:
+                start = self.__deform_tilt[k]
+                tilt[k] = start + delta * ((start + span * rate * across[k]) - start)
+        lengths = hi - lo
+        new = np.array(
+            [
+                [lengths[0], 0.0, 0.0],
+                [tilt[2], lengths[1], 0.0],
+                [tilt[1], tilt[0], lengths[2]],
+            ]
+        )
+        self.__atoms.remap(old_lo, old, lo, new)
+        self.__h, self.__lo = new, lo
 
     def __set_controls(self, controls: tuple, barostat: bool) -> None:
         """The free components, prescribed velocities, added forces and
@@ -637,6 +785,8 @@ class _Native:
                     control.seed if control.seed is not None else secrets.randbits(63)
                 )
                 baths.append((control, seed, damping))
+            elif isinstance(control, (_controls.Deform, _controls.AdaptiveTimestep)):
+                continue
             elif isinstance(control, _controls.Move):
                 free[control.mask] = False
                 prescribed[control.mask] = control.velocity
@@ -685,6 +835,8 @@ class _Native:
 
     def finish(self) -> None:
         self.__run = {}
+        self.__deform = None
+        self.__adaptive = None
         if self.__controlled:
             self.__reset_controls()
 
@@ -744,7 +896,25 @@ class _Native:
             self.__ornstein_uhlenbeck(step)
         if self.__baths:
             self.__bathe(step)
-        self.__time = self.__time0 + (step - self.__first) * dt
+        if self.__deform is not None:
+            self.__apply_deform(step)  # at the end of the step, as fix deform 1
+        self.__time = self.__atime + (step - self.__atimestep) * dt
+        if self.__adaptive is not None and step % self.__adaptive.every == 0:
+            self.__reset_dt()
+
+    def __reset_dt(self) -> None:
+        """The time step of the fastest atom within the bounds, as fix
+        dt/reset at the end of a step; the time goes on from this step."""
+        a = self.__adaptive
+        dt = _step_limit(
+            self.__atoms.velocities, self.__atoms.forces, self.__masses, a.max_distance
+        )
+        if a.min_timestep is not None:
+            dt = max(dt, a.min_timestep)
+        dt = min(dt, self.timestep if a.max_timestep is None else a.max_timestep)
+        if dt != self.__dt:
+            self.__atime, self.__atimestep = self.__time, self.__step
+            self.__dt = dt
 
     def __ornstein_uhlenbeck(self, step: int) -> None:
         """Friction and noise for half a step."""
@@ -832,6 +1002,8 @@ class _Native:
             diagonal[:2] = diagonal[:2].mean()
         elif b.couple == "xz":
             diagonal[[0, 2]] = diagonal[[0, 2]].mean()
+        elif b.couple == "yz":
+            diagonal[1:] = diagonal[1:].mean()
         out = np.zeros(6)
         out[:3] = diagonal
         out[3:] = [tensor[1, 2], tensor[0, 2], tensor[0, 1]]

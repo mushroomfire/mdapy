@@ -7119,10 +7119,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#copper-eam-of-zhou-et-al" class="md-nav__link">
+  <a href="#cu-eam-of-zhou-et-al" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Copper, EAM of Zhou et al.
+        Cu, EAM of Zhou et al.
       
     </span>
   </a>
@@ -7130,10 +7130,65 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#argon-lennard-jones-cut-at-85-a" class="md-nav__link">
+  <a href="#ar-lennard-jones" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Argon, Lennard-Jones cut at 8.5 Å
+        Ar, Lennard-Jones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cu-morse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cu, Morse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ni-adp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ni, ADP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#si-stillinger-weber" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Si, Stillinger-Weber
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#si-tersoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Si, Tersoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cu-meam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cu, MEAM
       
     </span>
   </a>
@@ -8620,10 +8675,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#copper-eam-of-zhou-et-al" class="md-nav__link">
+  <a href="#cu-eam-of-zhou-et-al" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Copper, EAM of Zhou et al.
+        Cu, EAM of Zhou et al.
       
     </span>
   </a>
@@ -8631,10 +8686,65 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#argon-lennard-jones-cut-at-85-a" class="md-nav__link">
+  <a href="#ar-lennard-jones" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Argon, Lennard-Jones cut at 8.5 Å
+        Ar, Lennard-Jones
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cu-morse" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cu, Morse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ni-adp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Ni, ADP
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#si-stillinger-weber" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Si, Stillinger-Weber
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#si-tersoff" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Si, Tersoff
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cu-meam" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cu, MEAM
       
     </span>
   </a>
@@ -8694,40 +8804,43 @@
 
 
 <h1 id="molecular-dynamics-on-the-gpu">Molecular dynamics on the GPU<a class="headerlink" href="#molecular-dynamics-on-the-gpu" title="Permanent link">&para;</a></h1>
-<p>MDAPY and LAMMPS run the same molecular dynamics at constant energy on one NVIDIA GPU:
-copper with the EAM potential of Zhou et al. and argon with Lennard-Jones, from 16 000
-to 2 million atoms, MDAPY with its <a href="../../user-guide/simulation/gpu/">potentials on the GPU</a>
-and LAMMPS with its KOKKOS package, in mixed and in double precision, and with its GPU
-package in mixed precision.</p>
+<p>MDAPY and LAMMPS run the same molecular dynamics at constant energy on one NVIDIA GPU,
+for each potential that MDAPY has on the <a href="../../user-guide/simulation/gpu/">GPU</a> and the
+KOKKOS package of LAMMPS has too: EAM, Lennard-Jones, Morse, ADP, Stillinger–Weber,
+Tersoff and MEAM, from 16 000 to 2 million atoms, in mixed and in double precision.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p>A workstation: an NVIDIA RTX A2000 12GB (Ampere, driver 580.196), an Intel Core
-i5-12600K, Ubuntu 24.04. CUDA 13.5 and GCC 13.3; MDAPY 2.2.0 in development, built with
-<code>-Ccmake.define.MDAPY_CUDA=ON</code>; LAMMPS stable_30Sep2026 with KOKKOS for this GPU
-(<code>Kokkos_ARCH_AMPERE86</code>), once with <code>KOKKOS_PREC=mixed</code> and once in double precision,
-and with the GPU package (<code>GPU_PREC=mixed</code>, <code>GPU_ARCH=sm_86</code>).</p>
-<p><img alt="Atom-steps per second of MDAPY and LAMMPS on one GPU against the number of atoms" src="../images/gpu.png" /></p>
+<p>A node of the Triton cluster of Aalto University: an NVIDIA Tesla V100-PCIE-32GB
+(Volta, driver 580.173.02) and an Intel Xeon Gold 6134. CUDA 12.6.2 and GCC 13.3.0;
+MDAPY 2.2.0 in development, built with <code>-Ccmake.define.MDAPY_CUDA=ON
+-Ccmake.define.CMAKE_CUDA_ARCHITECTURES=70</code>; LAMMPS stable_30Sep2026 with KOKKOS for
+this GPU (<code>Kokkos_ARCH_VOLTA70</code>), once with <code>KOKKOS_PREC=mixed</code> and once in double
+precision.</p>
+<p><img alt="Atom-steps per second of MDAPY and LAMMPS KOKKOS on one V100 against the number of atoms" src="../images/gpu.png" /></p>
 <p><em>How many atom-steps each runs in a second: higher is faster. Solid lines in mixed
-precision, dashed in double; for KOKKOS the faster of its two neighbor lists at each size.</em></p>
+precision, dashed in double; for KOKKOS the faster of its neighbor lists at each size.</em></p>
 <h3 id="what-they-show">What they show<a class="headerlink" href="#what-they-show" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Mixed precision</strong>: MDAPY is the fastest at every size, 1.1 to 1.6 times faster than
-  KOKKOS for copper and 1.3 to 1.4 times for argon, and 1.5 to 2.8 times faster than
-  the GPU package, which moves the atoms on the processor and copies them to the GPU
-  at every step.</li>
-<li><strong>Double precision</strong>: MDAPY is about as fast as KOKKOS for the smaller systems and
-  1.15 to 1.35 times slower for the largest. This GPU computes in double precision a
-  small part as fast as in single.</li>
+<li><strong>Mixed precision</strong>: MDAPY is the faster for EAM, 1.3 to 1.8 times, Lennard-Jones,
+  1.15 to 1.3 times, Morse, 1.2 to 1.8 times, ADP, 2.5 to 3 times, and MEAM, 3.4
+  times; for Stillinger–Weber and Tersoff the two are about as fast, within 13 %.</li>
+<li><strong>Double precision</strong>: MDAPY is the faster for EAM, Morse, ADP and MEAM, by about as
+  much, and about as fast for Lennard-Jones; for Stillinger–Weber and Tersoff it is
+  0.8 times as fast for the larger systems.</li>
+<li>The many-body potentials of MDAPY sum the forces of each atom from the derivatives
+  of its pairs in an order that does not change, so that a run repeats to the last
+  bit; KOKKOS adds them up with atomic operations as the threads find them. For the
+  three-body terms of Stillinger–Weber and Tersoff in double precision this costs MDAPY
+  its lead.</li>
 </ul>
 <h3 id="times">Times<a class="headerlink" href="#times" title="Permanent link">&para;</a></h3>
-<p>The time of a step in ms; for KOKKOS the faster of its two neighbor lists.</p>
-<h4 id="copper-eam-of-zhou-et-al">Copper, EAM of Zhou et al.<a class="headerlink" href="#copper-eam-of-zhou-et-al" title="Permanent link">&para;</a></h4>
+<p>The time of a step in ms; for KOKKOS the faster of its neighbor lists.</p>
+<h4 id="cu-eam-of-zhou-et-al">Cu, EAM of Zhou et al.<a class="headerlink" href="#cu-eam-of-zhou-et-al" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
 <tr>
 <th style="text-align: right;">Atoms</th>
 <th style="text-align: right;">MDAPY, mixed</th>
 <th style="text-align: right;">KOKKOS, mixed</th>
-<th style="text-align: right;">GPU package, mixed</th>
 <th style="text-align: right;">MDAPY, double</th>
 <th style="text-align: right;">KOKKOS, double</th>
 </tr>
@@ -8735,46 +8848,41 @@ precision, dashed in double; for KOKKOS the faster of its two neighbor lists at 
 <tbody>
 <tr>
 <td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.32</td>
+<td style="text-align: right;">0.58</td>
+<td style="text-align: right;">0.40</td>
 <td style="text-align: right;">0.63</td>
-<td style="text-align: right;">1.03</td>
-<td style="text-align: right;">1.34</td>
-<td style="text-align: right;">3.78</td>
-<td style="text-align: right;">4.40</td>
 </tr>
 <tr>
 <td style="text-align: right;">256,000</td>
-<td style="text-align: right;">4.28</td>
-<td style="text-align: right;">6.17</td>
-<td style="text-align: right;">10.22</td>
-<td style="text-align: right;">23.24</td>
-<td style="text-align: right;">21.03</td>
+<td style="text-align: right;">1.40</td>
+<td style="text-align: right;">2.25</td>
+<td style="text-align: right;">2.33</td>
+<td style="text-align: right;">3.00</td>
 </tr>
 <tr>
 <td style="text-align: right;">864,000</td>
-<td style="text-align: right;">16.73</td>
-<td style="text-align: right;">18.86</td>
-<td style="text-align: right;">35.56</td>
-<td style="text-align: right;">92.70</td>
-<td style="text-align: right;">68.30</td>
+<td style="text-align: right;">5.07</td>
+<td style="text-align: right;">6.67</td>
+<td style="text-align: right;">8.53</td>
+<td style="text-align: right;">9.23</td>
 </tr>
 <tr>
 <td style="text-align: right;">2,048,000</td>
-<td style="text-align: right;">41.49</td>
-<td style="text-align: right;">45.01</td>
-<td style="text-align: right;">84.12</td>
-<td style="text-align: right;">234.88</td>
-<td style="text-align: right;">173.87</td>
+<td style="text-align: right;">11.53</td>
+<td style="text-align: right;">14.69</td>
+<td style="text-align: right;">19.56</td>
+<td style="text-align: right;">20.75</td>
 </tr>
 </tbody>
 </table>
-<h4 id="argon-lennard-jones-cut-at-85-a">Argon, Lennard-Jones cut at 8.5 Å<a class="headerlink" href="#argon-lennard-jones-cut-at-85-a" title="Permanent link">&para;</a></h4>
+<h4 id="ar-lennard-jones">Ar, Lennard-Jones<a class="headerlink" href="#ar-lennard-jones" title="Permanent link">&para;</a></h4>
 <table>
 <thead>
 <tr>
 <th style="text-align: right;">Atoms</th>
 <th style="text-align: right;">MDAPY, mixed</th>
 <th style="text-align: right;">KOKKOS, mixed</th>
-<th style="text-align: right;">GPU package, mixed</th>
 <th style="text-align: right;">MDAPY, double</th>
 <th style="text-align: right;">KOKKOS, double</th>
 </tr>
@@ -8782,55 +8890,268 @@ precision, dashed in double; for KOKKOS the faster of its two neighbor lists at 
 <tbody>
 <tr>
 <td style="text-align: right;">16,384</td>
-<td style="text-align: right;">0.30</td>
-<td style="text-align: right;">0.39</td>
-<td style="text-align: right;">0.44</td>
-<td style="text-align: right;">0.78</td>
-<td style="text-align: right;">0.78</td>
+<td style="text-align: right;">0.14</td>
+<td style="text-align: right;">0.16</td>
+<td style="text-align: right;">0.14</td>
+<td style="text-align: right;">0.16</td>
 </tr>
 <tr>
 <td style="text-align: right;">131,072</td>
-<td style="text-align: right;">1.85</td>
-<td style="text-align: right;">2.44</td>
-<td style="text-align: right;">3.53</td>
-<td style="text-align: right;">4.74</td>
-<td style="text-align: right;">4.41</td>
+<td style="text-align: right;">0.37</td>
+<td style="text-align: right;">0.49</td>
+<td style="text-align: right;">0.52</td>
+<td style="text-align: right;">0.52</td>
 </tr>
 <tr>
 <td style="text-align: right;">442,368</td>
-<td style="text-align: right;">5.22</td>
-<td style="text-align: right;">6.96</td>
-<td style="text-align: right;">13.06</td>
-<td style="text-align: right;">13.12</td>
-<td style="text-align: right;">11.85</td>
+<td style="text-align: right;">1.07</td>
+<td style="text-align: right;">1.32</td>
+<td style="text-align: right;">1.42</td>
+<td style="text-align: right;">1.47</td>
 </tr>
 <tr>
 <td style="text-align: right;">1,048,576</td>
-<td style="text-align: right;">11.40</td>
-<td style="text-align: right;">15.48</td>
-<td style="text-align: right;">31.41</td>
-<td style="text-align: right;">30.74</td>
-<td style="text-align: right;">26.72</td>
+<td style="text-align: right;">2.41</td>
+<td style="text-align: right;">2.82</td>
+<td style="text-align: right;">3.14</td>
+<td style="text-align: right;">3.08</td>
+</tr>
+</tbody>
+</table>
+<h4 id="cu-morse">Cu, Morse<a class="headerlink" href="#cu-morse" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Atoms</th>
+<th style="text-align: right;">MDAPY, mixed</th>
+<th style="text-align: right;">KOKKOS, mixed</th>
+<th style="text-align: right;">MDAPY, double</th>
+<th style="text-align: right;">KOKKOS, double</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.19</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">0.23</td>
+<td style="text-align: right;">0.25</td>
+</tr>
+<tr>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">0.74</td>
+<td style="text-align: right;">1.09</td>
+<td style="text-align: right;">0.96</td>
+<td style="text-align: right;">1.24</td>
+</tr>
+<tr>
+<td style="text-align: right;">864,000</td>
+<td style="text-align: right;">2.14</td>
+<td style="text-align: right;">3.78</td>
+<td style="text-align: right;">3.09</td>
+<td style="text-align: right;">4.53</td>
+</tr>
+<tr>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">4.87</td>
+<td style="text-align: right;">8.25</td>
+<td style="text-align: right;">7.13</td>
+<td style="text-align: right;">10.04</td>
+</tr>
+</tbody>
+</table>
+<h4 id="ni-adp">Ni, ADP<a class="headerlink" href="#ni-adp" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Atoms</th>
+<th style="text-align: right;">MDAPY, mixed</th>
+<th style="text-align: right;">KOKKOS, mixed</th>
+<th style="text-align: right;">MDAPY, double</th>
+<th style="text-align: right;">KOKKOS, double</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">0.51</td>
+<td style="text-align: right;">1.25</td>
+<td style="text-align: right;">0.70</td>
+<td style="text-align: right;">1.67</td>
+</tr>
+<tr>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">3.01</td>
+<td style="text-align: right;">9.05</td>
+<td style="text-align: right;">4.34</td>
+<td style="text-align: right;">11.81</td>
+</tr>
+<tr>
+<td style="text-align: right;">864,000</td>
+<td style="text-align: right;">9.71</td>
+<td style="text-align: right;">30.54</td>
+<td style="text-align: right;">14.58</td>
+<td style="text-align: right;">37.29</td>
+</tr>
+<tr>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">22.64</td>
+<td style="text-align: right;">67.02</td>
+<td style="text-align: right;">35.68</td>
+<td style="text-align: right;">86.42</td>
+</tr>
+</tbody>
+</table>
+<h4 id="si-stillinger-weber">Si, Stillinger-Weber<a class="headerlink" href="#si-stillinger-weber" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Atoms</th>
+<th style="text-align: right;">MDAPY, mixed</th>
+<th style="text-align: right;">KOKKOS, mixed</th>
+<th style="text-align: right;">MDAPY, double</th>
+<th style="text-align: right;">KOKKOS, double</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">32,768</td>
+<td style="text-align: right;">0.26</td>
+<td style="text-align: right;">0.29</td>
+<td style="text-align: right;">0.34</td>
+<td style="text-align: right;">0.32</td>
+</tr>
+<tr>
+<td style="text-align: right;">262,144</td>
+<td style="text-align: right;">1.25</td>
+<td style="text-align: right;">1.37</td>
+<td style="text-align: right;">1.92</td>
+<td style="text-align: right;">1.62</td>
+</tr>
+<tr>
+<td style="text-align: right;">884,736</td>
+<td style="text-align: right;">4.27</td>
+<td style="text-align: right;">4.06</td>
+<td style="text-align: right;">6.08</td>
+<td style="text-align: right;">4.87</td>
+</tr>
+<tr>
+<td style="text-align: right;">2,097,152</td>
+<td style="text-align: right;">9.27</td>
+<td style="text-align: right;">9.37</td>
+<td style="text-align: right;">14.17</td>
+<td style="text-align: right;">11.29</td>
+</tr>
+</tbody>
+</table>
+<h4 id="si-tersoff">Si, Tersoff<a class="headerlink" href="#si-tersoff" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Atoms</th>
+<th style="text-align: right;">MDAPY, mixed</th>
+<th style="text-align: right;">KOKKOS, mixed</th>
+<th style="text-align: right;">MDAPY, double</th>
+<th style="text-align: right;">KOKKOS, double</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">32,768</td>
+<td style="text-align: right;">0.20</td>
+<td style="text-align: right;">0.22</td>
+<td style="text-align: right;">0.26</td>
+<td style="text-align: right;">0.26</td>
+</tr>
+<tr>
+<td style="text-align: right;">262,144</td>
+<td style="text-align: right;">0.88</td>
+<td style="text-align: right;">0.94</td>
+<td style="text-align: right;">1.46</td>
+<td style="text-align: right;">1.21</td>
+</tr>
+<tr>
+<td style="text-align: right;">884,736</td>
+<td style="text-align: right;">3.20</td>
+<td style="text-align: right;">2.78</td>
+<td style="text-align: right;">4.59</td>
+<td style="text-align: right;">3.58</td>
+</tr>
+<tr>
+<td style="text-align: right;">2,097,152</td>
+<td style="text-align: right;">5.88</td>
+<td style="text-align: right;">6.36</td>
+<td style="text-align: right;">10.84</td>
+<td style="text-align: right;">8.36</td>
+</tr>
+</tbody>
+</table>
+<h4 id="cu-meam">Cu, MEAM<a class="headerlink" href="#cu-meam" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th style="text-align: right;">Atoms</th>
+<th style="text-align: right;">MDAPY, mixed</th>
+<th style="text-align: right;">KOKKOS, mixed</th>
+<th style="text-align: right;">MDAPY, double</th>
+<th style="text-align: right;">KOKKOS, double</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: right;">32,000</td>
+<td style="text-align: right;">1.94</td>
+<td style="text-align: right;">6.68</td>
+<td style="text-align: right;">2.56</td>
+<td style="text-align: right;">8.80</td>
+</tr>
+<tr>
+<td style="text-align: right;">256,000</td>
+<td style="text-align: right;">11.94</td>
+<td style="text-align: right;">43.18</td>
+<td style="text-align: right;">17.63</td>
+<td style="text-align: right;">59.34</td>
+</tr>
+<tr>
+<td style="text-align: right;">864,000</td>
+<td style="text-align: right;">39.66</td>
+<td style="text-align: right;">135.14</td>
+<td style="text-align: right;">57.70</td>
+<td style="text-align: right;">189.79</td>
+</tr>
+<tr>
+<td style="text-align: right;">2,048,000</td>
+<td style="text-align: right;">94.36</td>
+<td style="text-align: right;">323.39</td>
+<td style="text-align: right;">136.96</td>
+<td style="text-align: right;">457.68</td>
 </tr>
 </tbody>
 </table>
 <h2 id="how-it-was-measured">How it was measured<a class="headerlink" href="#how-it-was-measured" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Each run builds the fcc crystal, gives it the velocities of 600 K (copper, time step
-  2 fs) or 60 K (argon, 5 fs), runs 50 steps at constant energy and times the next
-  300, with a skin of 1 Å and the neighbor list checked at every step.</li>
+<li>Each run builds the crystal, gives it the velocities of a temperature, runs 50 steps
+  at constant energy and times the next 300, with a skin of 1 Å and the neighbor list
+  checked at every step: fcc copper at 600 K with a time step of 2 fs for EAM, Morse
+  and MEAM, fcc nickel at 600 K and 2 fs for ADP, diamond silicon at 1000 K and 1 fs
+  for Stillinger–Weber and Tersoff, fcc argon at 60 K and 5 fs for Lennard-Jones.</li>
+<li>The potentials: the EAM of Zhou et al. for copper, written by MDAPY; Lennard-Jones
+  with ε = 0.0104 eV and σ = 3.40 Å cut at 8.5 Å; Morse with D0 = 0.3429 eV,
+  α = 1.3588 Å⁻¹ and r0 = 2.866 Å cut at 6.5 Å; and the files of the potentials
+  folder of LAMMPS, <code>Ni.adp</code>, <code>Si.sw</code>, <code>Si.tersoff</code>, and <code>library.meam</code> with
+  <code>Cu.meam</code>.</li>
 <li>LAMMPS reports the time of its loop. The time of MDAPY is that of <code>run</code>, which also
   computes the forces and records the state at its start and its end.</li>
 <li>KOKKOS ran with full neighbor lists and Newton's third law off, its default on GPUs,
-  and with half lists and the law on; the faster counts. The half lists were faster but
-  for the smallest systems.</li>
-<li>This GPU slows down as it warms: each run started after 45 s of rest.</li>
+  and with half lists and the law on; the faster counts. Its Stillinger–Weber, Tersoff
+  and MEAM need the law on, so half lists only.</li>
 </ul>
 <h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
 <p>The comparison is <code>benchmarks/gpu.py</code> in the source repository. It runs the LAMMPS
-executables that the environment variables name and leaves out those not given.</p>
+executables that the environment variables name and leaves out those not given;
+<code>LAMMPS_POTENTIALS</code> is the potentials folder of LAMMPS.</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">LMP_KOKKOS_MIXED</span><span class="o">=</span>/path/to/kokkos-mixed/lmp<span class="w"> </span><span class="nv">LMP_KOKKOS_DOUBLE</span><span class="o">=</span>/path/to/kokkos/lmp<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nv">LMP_GPU</span><span class="o">=</span>/path/to/gpu/lmp<span class="w"> </span>python<span class="w"> </span>benchmarks/gpu.py<span class="w"> </span>run<span class="w"> </span>--rest<span class="w"> </span><span class="m">45</span><span class="w"> </span>--output<span class="w"> </span>gpu.json
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nv">LAMMPS_POTENTIALS</span><span class="o">=</span>/path/to/lammps/potentials<span class="w"> </span>python<span class="w"> </span>benchmarks/gpu.py<span class="w"> </span>run<span class="w"> </span>--output<span class="w"> </span>gpu.json
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>python<span class="w"> </span>benchmarks/gpu.py<span class="w"> </span>table<span class="w"> </span>gpu.json
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>python<span class="w"> </span>benchmarks/gpu.py<span class="w"> </span>plot<span class="w"> </span>gpu.json<span class="w"> </span>gpu.png
 </code></pre></div>

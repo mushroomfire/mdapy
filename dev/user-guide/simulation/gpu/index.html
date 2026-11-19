@@ -8710,7 +8710,7 @@ After it, double precision keeps the energy to 0.2 µeV per atom, and mixed prec
 lets it drift by less than 0.1 µeV per atom per ps.</em></p>
 <h2 id="building-the-gpu-part">Building the GPU part<a class="headerlink" href="#building-the-gpu-part" title="Permanent link">&para;</a></h2>
 <p>The wheels of MDAPY on PyPI hold no GPU part. MDAPY built from its source with the
-CUDA toolkit (tested with CUDA 13.5) holds it, the module <code>mdapy._cuda</code>:</p>
+CUDA toolkit (tested with CUDA 12.6 and 13.5) holds it, the module <code>mdapy._cuda</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
 </code></pre></div>
 <p>It is compiled for the GPU of the machine; <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>

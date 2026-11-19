@@ -4,11 +4,17 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import importlib.util
+import os
 import re
 
-import pytest
+# Figures drawn off screen: on macOS the default backend makes every process
+# that draws an application with an icon in the Dock, the workers of pytest
+# and the processes the examples of the documentation start among them.
+os.environ.setdefault("MPLBACKEND", "Agg")
 
-import mdapy
+import pytest  # noqa: E402
+
+import mdapy  # noqa: E402
 
 # OVITO and freud both use voro++: the Voronoi tessellation of whichever is
 # loaded second crashes. OVITO is loaded first, before any test module

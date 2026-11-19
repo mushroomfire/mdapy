@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.lattice_dynamics.nemd(system, potential, temperature)`: the thermal
+  conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
+  two slabs of the box, the heat they drive over the gradient of temperature between
+  them; in MDAPY, on the GPU and in LAMMPS. See
+  [NEMD conductivity](../user-guide/simulation/nemd.md).
 - `mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)`: the
   thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
   small field pushing each atom through its virial, as GPUMD does, with EAM, the

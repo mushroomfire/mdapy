@@ -539,3 +539,28 @@ def test_hnemd_as_on_the_processor():
     power = np.stack(thermo["heat_flux"].to_numpy()) @ (field * 3)
     work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.001)])
     assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_nemd(precision):
+    """Two baths on the GPU drive heat through solid argon: its conductivity
+    of the order of that of argon, the gradient set by the baths."""
+    from mdapy.calculators import LennardJones
+    from mdapy.lattice_dynamics import nemd
+
+    argon = LennardJones(
+        {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device="cuda", precision=precision
+    )
+    result = nemd(
+        build_crystal("fcc", 5.28, elements="Ar", repeat=(4, 4, 16)),
+        argon,
+        40.0,
+        difference=10.0,
+        timestep=0.004,
+        equilibration=2000,
+        relaxation=10000,
+        production=40000,
+        every=50,
+    )
+    assert 0.2 < result.kappa < 2.0
+    assert result.temperatures[10] > result.temperatures[0] + 5.0

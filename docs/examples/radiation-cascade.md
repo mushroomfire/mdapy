@@ -120,7 +120,7 @@ with plot.style():
     bottom.set_ylabel("Frenkel pairs")
     bottom.set_xlabel("Time (ps)")
     plot.save(fig, "images/radiation-cascade", formats=("png",))
-pairs.max(), pairs[-1]  # 23 at the peak of the cascade, 4 at the end
+pairs.max(), pairs[-1]  # 23 at the peak of the cascade, 3 at the end
 ```
 
 ![The temperature and the Frenkel pairs of a cascade of 2 keV in tungsten](images/radiation-cascade.png)
@@ -128,7 +128,7 @@ pairs.max(), pairs[-1]  # 23 at the peak of the cascade, 4 at the end
 *A cascade of 2 keV in 54000 atoms of tungsten, under three minutes on one V100 GPU.
 The temperature of the box starts near 580 K, as the 2 keV of the PKA count in the
 kinetic energy of all the atoms, and falls back to 300 K as the border takes the heat
-away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps: most of the atoms
+away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps and 3 after 8 ps: most of the atoms
 knocked out of their places fall back into vacancies as the cascade cools. The dynamics
 are chaotic, so another run, or another GPU, leaves a few more or fewer.*
 
@@ -152,8 +152,8 @@ render(
 
 ![The vacancies and interstitials left by the cascade](images/radiation-cascade-defects.png)
 
-*The four vacancies in blue, at the center of the box where the cascade began, and the
-four interstitials around them in red, each two atoms sharing one site.*
+*The three vacancies in blue, at the center of the box where the cascade began, and the
+three interstitials around them in red, each two atoms sharing one site.*
 
 ## See also
 

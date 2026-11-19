@@ -26,6 +26,8 @@
 
 ::: mdapy.simulation.Switch
 
+::: mdapy.simulation.Wall
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

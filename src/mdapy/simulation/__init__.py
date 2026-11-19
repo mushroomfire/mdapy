@@ -14,6 +14,7 @@ from mdapy.simulation._controls import (
     Langevin,
     Move,
     Switch,
+    Wall,
 )
 from mdapy.simulation._defect_energies import (
     StackingFaultResult,
@@ -71,6 +72,7 @@ __all__ = [
     "Switch",
     "TieLine",
     "VacancyResult",
+    "Wall",
     "binary_phase_diagram",
     "free_energy",
     "melting_point",

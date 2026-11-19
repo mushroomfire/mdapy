@@ -133,6 +133,11 @@ public:
     void drive(const double* field);
     // (3,) the potential part of the heat flux times the volume, sum_i W_i v_i.
     void heat_flux(double* flux) const;
+    // A flat wall (simulation/_controls.py): each atom with x . normal <
+    // offset put back by as much, its velocity along the normal made
+    // 2 speed - v . normal; normal (3,) a unit vector in the frame of the
+    // atoms, into the side they are kept on.
+    void reflect(const double* normal, double offset, double speed);
 
     struct Impl;
     Impl& impl() { return *impl_; }

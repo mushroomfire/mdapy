@@ -226,6 +226,13 @@ class DeviceAtoms:
     def kick_drift(self, c: float, dt: float) -> None:
         self.__atoms.kick_drift(c, dt)
 
+    def reflect(self, normal: np.ndarray, offset: float, speed: float) -> None:
+        """A flat wall: each atom with x . normal < offset put back by as
+        much, its velocity along the normal made 2 speed - v . normal."""
+        self.__atoms.reflect(
+            np.ascontiguousarray(normal, dtype=np.float64), float(offset), float(speed)
+        )
+
     def scale(self, factor: Any) -> None:
         f = np.broadcast_to(np.asarray(factor, dtype=np.float64), (3,))
         self.__atoms.scale(float(f[0]), float(f[1]), float(f[2]))

@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.simulation.Wall`, a control of a flat wall across an axis that reflects
+  the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
+  piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and
+  `fix wall/piston`; in MDAPY, on the GPU and in LAMMPS alike. See
+  [Walls](../user-guide/simulation/walls.md).
 - `SpatialBinning` reduces moving atoms: `reduction="mass_mean"`, the mean weighted by
   mass, the velocity of the center of mass of a bin for a column of velocities;
   `"temperature"` of the velocities and `"stress"` of the virials of each atom, both

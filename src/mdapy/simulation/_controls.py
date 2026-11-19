@@ -370,6 +370,90 @@ class Switch:
         )
 
 
+class Wall:
+    """A flat wall across an axis that reflects the atoms that pass it, still
+    or moving at a constant velocity: a momentum mirror that a crystal hits,
+    or a piston that drives a shock into it, as LAMMPS's fix wall/reflect
+    and fix wall/piston. After the atoms move in a step, an atom past the
+    wall is put back by as much and its velocity across the wall becomes
+    2 u - v, u that of the wall.
+
+    Parameters
+    ----------
+    axis : {"x", "y", "z"}, optional
+        The axis of the system the wall is across; the periodic vectors of
+        the box must be normal to it. Default "z".
+    side : {"low", "high"}, optional
+        The atoms are kept above the wall ("low") or below it ("high").
+        Default "low".
+    position : float64, optional
+        The coordinate of the wall along the axis at the start of the run in
+        Å. Default None, the face of the box on that side at the start of
+        the run.
+    velocity : float64, optional
+        The velocity of the wall along the axis in Å/ps; positive moves it
+        along the axis. Default 0, a still wall. In LAMMPS a wall moves on
+        the low side of z only, up z.
+    """
+
+    def __init__(
+        self,
+        axis: str = "z",
+        *,
+        side: str = "low",
+        position: float | None = None,
+        velocity: float = 0.0,
+    ):
+        if not isinstance(axis, str) or axis not in ("x", "y", "z"):
+            raise InvalidParameter(f"axis must be x, y or z, not {axis!r}")
+        if side not in ("low", "high"):
+            raise InvalidParameter(f"side must be low or high, not {side!r}")
+        if position is not None and not np.isfinite(position):
+            raise InvalidParameter(f"position must be finite, not {position!r}")
+        if isinstance(velocity, bool) or not np.isfinite(velocity):
+            raise InvalidParameter(f"velocity must be finite, not {velocity!r}")
+        self.axis = axis
+        self.side = side
+        self.position = None if position is None else float(position)
+        self.velocity = float(velocity)
+
+    @property
+    def _sign(self) -> float:
+        """+1 for a wall that keeps the atoms above it, -1 below."""
+        return 1.0 if self.side == "low" else -1.0
+
+    @property
+    def _normal(self) -> np.ndarray:
+        """(3,) the unit vector into the side the atoms are kept on."""
+        out = np.zeros(3)
+        out["xyz".index(self.axis)] = self._sign
+        return out
+
+    def _start(self, matrix: np.ndarray, origin: np.ndarray, pbc: Any) -> float:
+        """The coordinate of the wall at the start in a box of the system:
+        its position, or the face of the box on its side. Refuses a box with
+        a periodic vector that is not normal to the axis, across which the
+        wall would cut its images."""
+        k = "xyz".index(self.axis)
+        for vector, periodic in zip(matrix, pbc):
+            if periodic and abs(vector[k]) > 1e-9 * np.linalg.norm(vector):
+                raise InvalidParameter(
+                    f"a wall across {self.axis} needs a box whose periodic vectors "
+                    f"are normal to {self.axis}"
+                )
+        if self.position is not None:
+            return self.position
+        cube = np.array([[i, j, m] for i in (0, 1) for j in (0, 1) for m in (0, 1)])
+        corners = origin + cube @ matrix
+        return float(corners[:, k].min() if self.side == "low" else corners[:, k].max())
+
+    def __repr__(self) -> str:
+        return (
+            f"Wall(axis={self.axis!r}, side={self.side!r}, position={self.position!r}, "
+            f"velocity={self.velocity!r})"
+        )
+
+
 class _HeatField:
     """The driving field of homogeneous nonequilibrium molecular dynamics
     (HNEMD) for a run: each atom pushed by the field through its virial, the
@@ -391,6 +475,7 @@ CONTROLS = (
     Deform,
     AdaptiveTimestep,
     Switch,
+    Wall,
     _HeatField,
 )
 
@@ -408,11 +493,13 @@ def checked(controls: Any, n: int) -> tuple:
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
     deforms = adaptive = switches = fields = 0
+    walls: set = set()
+    moving_walls = False
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
                 "a control must be one of Hold, Move, AddForce, Langevin, Deform, "
-                f"AdaptiveTimestep or Switch, not {control!r}"
+                f"AdaptiveTimestep, Switch or Wall, not {control!r}"
             )
         if isinstance(control, Deform):
             if deforms:
@@ -423,6 +510,14 @@ def checked(controls: Any, n: int) -> tuple:
             if adaptive:
                 raise InvalidParameter("a run takes one AdaptiveTimestep")
             adaptive += 1
+            continue
+        if isinstance(control, Wall):
+            if (control.axis, control.side) in walls:
+                raise InvalidParameter(
+                    f"two walls on the {control.side} side of {control.axis}"
+                )
+            walls.add((control.axis, control.side))
+            moving_walls = moving_walls or control.velocity != 0.0
             continue
         if isinstance(control, _HeatField):
             if fields:
@@ -473,6 +568,12 @@ def checked(controls: Any, n: int) -> tuple:
     if fields and (switches or deforms or moved.any()):
         raise InvalidParameter(
             "a heat field with a Switch, a Deform or moved atoms is not supported"
+        )
+    if walls and deforms:
+        raise InvalidParameter("a wall with a Deform is not supported")
+    if adaptive and moving_walls:
+        raise InvalidParameter(
+            "an adaptive time step with a moving wall is not supported"
         )
     if adaptive and deforms:
         raise InvalidParameter("an adaptive time step with a Deform is not supported")

@@ -58,7 +58,7 @@ with plot.style():
 value at 0.1 ps. In the first picosecond, alike in both precisions, it is the error of
 the time step of 2 fs, as the atoms leave the perfect crystal, where no force acts.
 After it, double precision keeps the energy to 0.2 µeV per atom, and mixed precision
-lets it drift by about 0.6 µeV per atom per ps; a thermostat takes that out.*
+lets it drift by less than 0.1 µeV per atom per ps.*
 
 ## Building the GPU part
 
@@ -96,10 +96,16 @@ a neighbor list given to it is not used. Every calculator has `device` and `prec
 
 | | Mixed | Double |
 |---|---|---|
-| Forces, atom by atom | within about 1e-5 of the largest force | those of the processor to rounding, 1e-14 |
-| Energies | within about 1e-5 of the energy of each atom | to rounding |
-| Total virial | within about 1e-4 of its largest component | to rounding |
+| Forces, atom by atom | within about 1e-6 of the largest force, 4e-6 for Tersoff | those of the processor to rounding, 1e-14 |
+| Energies | of each atom within about 1e-6 of the largest, the total within 1e-6 | to rounding |
+| Total virial | within about 1e-6 of its largest component | to rounding |
 | Molecular dynamics | the same runs as long as rounding allows | the runs of the processor, step by step, in every ensemble |
+
+Single precision holds the position of each atom from the corner of its cell of the
+neighbor list, a few Å, so that these hold whatever the size of the box. A pair within
+its rounding, some 1e-6 Å, of the cutoff of a potential whose energy does not go to zero
+there, such as `LennardJones` and `Morse` without `shift`, may count on one side on the
+GPU and on the other on the processor.
 
 In double precision a consumer GPU computes much slower than in single, a part of
 its speed in single precision. Langevin dynamics draws its random forces on the GPU:

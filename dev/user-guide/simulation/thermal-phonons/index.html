@@ -8612,32 +8612,33 @@
 
 <h1 id="phonons-at-finite-temperature">Phonons at finite temperature<a class="headerlink" href="#phonons-at-finite-temperature" title="Permanent link">&para;</a></h1>
 <p><code>mdapy.lattice_dynamics.thermal_phonons(cell, potential, temperature)</code> gives the
-phonons of a crystal at a temperature from molecular dynamics in
-<a href="../lammps/">LAMMPS</a>: the force constants that best give the forces on the moving
-atoms. They hold what <a href="../phonons/">harmonic phonons</a> leave out: the vibrations
+phonons of a crystal at a temperature from <a href="../dynamics/">molecular dynamics</a>: the
+force constants that best give the forces on the moving atoms. They hold what <a href="../phonons/">harmonic phonons</a> leave out: the vibrations
 feel the crystal away from its minimum, and the box has the size it has at that
 temperature. <code>phonons_from_frames</code> does the same with frames from any dynamics,
 such as <em>ab initio</em> molecular dynamics.</p>
+<p>Copper with the EAM potential of Mishin et al., the file
+<a href="https://github.com/lammps/lammps/blob/develop/potentials/Cu_mishin1.eam.alloy"><code>Cu_mishin1.eam.alloy</code></a>
+of LAMMPS, which MDAPY's <a href="../eam/">EAM</a> reads; the dynamics run in MDAPY. The 120 ps of
+dynamics of 256 atoms take about half a minute:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">phonons</span><span class="p">,</span> <span class="n">primitive_cell</span><span class="p">,</span> <span class="n">thermal_phonons</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="s2">"pair_style eam/alloy</span><span class="se">\n</span><span class="s2">pair_coeff * * Cu_mishin1.eam.alloy Cu"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"Cu"</span><span class="p">]</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">primitive_cell</span><span class="p">(</span><span class="n">crystal</span><span class="p">)</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">cold</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">hot</span> <span class="o">=</span> <span class="n">thermal_phonons</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span>  <span class="c1"># a Phonons, as phonons gives</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">hot</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">hot</span><span class="o">.</span><span class="n">dos</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">hot</span><span class="o">.</span><span class="n">thermal</span><span class="p">([</span><span class="mf">1000.0</span><span class="p">])</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">"Cu_mishin1.eam.alloy"</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">primitive_cell</span><span class="p">(</span><span class="n">crystal</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">cold</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">hot</span> <span class="o">=</span> <span class="n">thermal_phonons</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span>  <span class="c1"># a Phonons, as phonons gives</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">hot</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">)</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">hot</span><span class="o">.</span><span class="n">dos</span><span class="p">(</span><span class="mi">20</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">hot</span><span class="o">.</span><span class="n">thermal</span><span class="p">([</span><span class="mf">1000.0</span><span class="p">])</span>
 </code></pre></div>
 <p>The result is a <a href="../phonons/#results"><code>Phonons</code></a>: its frequencies, band structures,
 densities of states and thermal properties are read as those of harmonic phonons.</p>
@@ -8668,8 +8669,8 @@ points meet:</p>
 </code></pre></div>
 <p><img alt="Phonons of copper at rest and at 1000 K" src="../images/thermal-phonons.png" /></p>
 <p><em>Copper with the EAM potential of Mishin et al.: the bands at rest, and at 1000 K,
-softer by 10 to 15 %, as the crystal has expanded and the atoms feel their
-neighbors further from where they rest.</em></p>
+softer by 9 to 17 %, as the crystal has expanded by 5.5 % in volume and the atoms
+feel their neighbors further from where they rest.</em></p>
 <table>
 <thead>
 <tr>
@@ -8690,10 +8691,10 @@ neighbors further from where they rest.</em></p>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction</td>
+<td>the interaction: any calculator of energies and forces; the dynamics run in MDAPY, or in LAMMPS for a <a href="../lammps/">LAMMPS calculator</a></td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -8774,7 +8775,10 @@ neighbors further from where they rest.</em></p>
 </tr>
 </tbody>
 </table>
-<p>The <code>cell</code> of the result has the mean box at the temperature. The vibrations are
+<p>The box first takes its mean size under the pressure with a Nosé–Hoover thermostat
+and barostat; then a Langevin thermostat, which samples the vibrations as a
+Nosé–Hoover one does not, keeps the atoms at the temperature while the frames are
+taken. The <code>cell</code> of the result has the mean box at the temperature. The vibrations are
 those of classical atoms, as in molecular dynamics, so well below the Debye
 temperature <a href="../phonons/">harmonic phonons</a> with the
 <a href="../quasi-harmonic/">quasi-harmonic approximation</a> are better.</p>
@@ -8846,7 +8850,7 @@ over the symmetry operations of the crystal.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>thermal_phonons</code> raises <code>InvalidParameter</code> for a box that is not periodic in every
 direction, a temperature or a time that is not positive, a <code>potential</code> that is not a
-<code>LAMMPS</code> calculator, too few frames for the force constants, or if LAMMPS fails;
+calculator, too few frames for the force constants, or if the dynamics fail;
 <code>MissingProperty</code> for a system without an <code>element</code> column; <code>Cancelled</code> when
 cancelled. <code>phonons_from_frames</code> raises <code>InvalidParameter</code> for a frame with another
 number of atoms, too few frames or an invalid supercell, and <code>MissingProperty</code> for a

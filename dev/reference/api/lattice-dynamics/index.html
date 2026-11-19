@@ -16035,10 +16035,10 @@ point energy.</p>
 
     <div class="doc doc-contents first">
 
-        <p>Phonons of a crystal at a temperature, from molecular dynamics in LAMMPS:
-the force constants that best give the forces on the moving atoms, which
-change with the temperature as the vibrations feel the crystal further from
-its minimum.</p>
+        <p>Phonons of a crystal at a temperature, from molecular dynamics: the force
+constants that best give the forces on the moving atoms, which change with
+the temperature as the vibrations feel the crystal further from its
+minimum. The dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -16074,11 +16074,11 @@ in every direction; best its primitive cell.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction.</p>
+                <p>The interaction: any calculator of energies and forces.</p>
               </div>
             </td>
             <td>
@@ -16309,7 +16309,7 @@ installed.</p>
             <td>
               <div class="doc-md-description">
                 <p>For invalid options, a box not periodic in every direction, too few
-frames, or if LAMMPS fails.</p>
+frames, or if the dynamics fail.</p>
               </div>
             </td>
           </tr>

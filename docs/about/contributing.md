@@ -213,7 +213,7 @@ git clone --depth 1 --branch stable_30Sep2026 https://github.com/lammps/lammps.g
 cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
     -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
     -D PKG_MANYBODY=on -D PKG_MEAM=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
-    -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on \
+    -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on -D PKG_SHOCK=on \
     -D PKG_VORONOI=on -D DOWNLOAD_VORO=on -D PKG_PHONON=on \
     -D PKG_KOKKOS=on -D Kokkos_ENABLE_SERIAL=on -D Kokkos_ENABLE_THREADS=on \
     -D Python_EXECUTABLE="$(which python)"
@@ -229,6 +229,7 @@ pip install lammps-build/lammps-*.whl
 | `MOLECULE` | molecular files |
 | `EXTRA-COMPUTE` | bond angles, the entropy fingerprint and Ackland-Jones |
 | `EXTRA-FIX`, `EXTRA-PAIR` | free energies of solids and liquids |
+| `SHOCK` | walls that move as pistons, and the Hugoniostat |
 | `VORONOI` | the Voronoi analysis |
 | `PHONON` | dynamical matrices |
 | `KOKKOS` on the CPU | the shutdown of Kokkos at exit; a build of it for GPUs skips this test |

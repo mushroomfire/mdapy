@@ -603,3 +603,40 @@ def test_walls(precision):
     assert np.abs(d).max() < 1e-7
     np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
     np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_nphug(precision):
+    """The Hugoniostat along z on the GPU: the run of the processor in double
+    precision; in mixed precision the box compressed to the pressure."""
+    system = crystal()
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                1000,
+                ensemble="nphug",
+                pressure=20.0,
+                barostat="z",
+                thermo=50,
+                thermostat_damping=0.1,
+                barostat_damping=0.5,
+            )
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    late = -np.stack(ta["stress"].to_numpy())[10:, 2]
+    assert late.mean() == pytest.approx(20.0, abs=1.5)
+    assert a.box.matrix[2, 2] < 0.97 * system.box.matrix[2, 2]
+    if precision == "mixed":
+        return
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-9)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    for column in ("hugoniot", "shock_velocity", "particle_velocity"):
+        np.testing.assert_allclose(ta[column], tb[column], rtol=1e-7, atol=1e-6)

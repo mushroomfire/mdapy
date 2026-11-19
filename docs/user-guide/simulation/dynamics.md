@@ -78,7 +78,7 @@ with MolecularDynamics(small, model, timestep=0.002) as md:
 ```
 
 MDAPY integrates the equations of motion that LAMMPS's fixes `nve`, `nvt`,
-`npt` and `nph` integrate, in the same steps: velocity Verlet, a chain of
+`npt`, `nph` and `nphug` integrate, in the same steps: velocity Verlet, a chain of
 three Nosé–Hoover thermostats, and the barostat of Martyna, Tobias and Klein
 on the lengths and tilts of the box. Its constants of nature are those of
 MDAPY (CODATA 2018), which differ from those of LAMMPS's metal units by about
@@ -110,7 +110,7 @@ temperature then counts the directions in which the atoms move.
 | Method or attribute | Meaning |
 |---|---|
 | `velocities(temperature, *, seed)` | random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions |
-| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, thermo=100, save_every=None, controls=None, progress=None, cancel=None)` | runs `steps` steps |
+| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, hugoniot=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)` | runs `steps` steps |
 | `iterate(steps, *, save_every, ...)`, the other parameters those of `run` | runs as `run` does, giving the atoms every `save_every` steps as the run reaches them and keeping none: see [Frames in files](#frames-in-files) |
 | `command(commands)` | runs any LAMMPS commands, one or several lines (LAMMPS only) |
 | `lammps` | the LAMMPS instance itself (LAMMPS only) |
@@ -118,15 +118,16 @@ temperature then counts the directions in which the atoms move.
 
 | Parameter of `run` | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `ensemble` | str | `"nve"` | | `"nve"`, or `"nvt"` with a thermostat, or `"npt"` with a thermostat and a barostat, or `"nph"` with a barostat alone (LAMMPS `fix nve`, `nvt`, `npt`, `nph`) |
+| `ensemble` | str | `"nve"` | | `"nve"`, or `"nvt"` with a thermostat, or `"npt"` with a thermostat and a barostat, or `"nph"` with a barostat alone (LAMMPS `fix nve`, `nvt`, `npt`, `nph`), or `"nphug"`, a barostat and a thermostat that holds the atoms on the Hugoniot of a reference state (`fix nphug`): see [Hugoniostat](hugoniostat.md) |
 | `temperature` | float64 or (float64, float64) | | K | the temperature of the thermostat, or its values at the start and end of the run; for `"nvt"` and `"npt"` |
-| `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"` and `"nph"` |
-| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), or alike along its first two vectors with the third kept (`"xy"`); [a sheet](sheets.md#molecular-dynamics) changes in its plane only |
+| `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"`, `"nph"` and `"nphug"`, which takes one value |
+| `barostat` | str | `"iso"` | | the box changes alike in every direction (`"iso"`), along each axis (`"aniso"`), in any way (`"tri"`), alike along its first two vectors with the third kept (`"xy"`), or along one axis alone, the others kept (`"x"`, `"y"` or `"z"`, LAMMPS `fix npt ... z`), in a box periodic along it with its first vector along x and its second in the xy plane; [a sheet](sheets.md#molecular-dynamics) changes in its plane only |
 | `thermostat` | str | `"nose-hoover"` | | a chain of Nosé–Hoover thermostats, or `"langevin"` dynamics (LAMMPS `fix langevin` with `fix nve` or `nph`) |
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that sum to zero, so that the total momentum is kept, as LAMMPS's `fix langevin ... zero yes`: each atom's noise less an equal share of their total momentum; with no atoms held or moved. In mixed precision on the GPU the forces, of single precision, move the momentum a little themselves |
+| `hugoniot` | (float64, float64, float64) | `None` | eV, Å³, GPa | for `"nphug"`, the reference state of the Hugoniot: its total energy, volume and pressure, along the axis of a barostat along one axis; `None`, the state at the start of the run |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
 | `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch` or `Wall`: what is done to groups of atoms, the box, the time step or the potential during the run, or the walls that reflect the atoms; see [Groups and controls](controls.md) |
@@ -316,6 +317,8 @@ of every frame of `iterate`.
 | `pressure` | float64 | GPa | pressure; NaN in MDAPY with a calculator without virials |
 | `volume` | float64 | Å³ | volume of the box |
 | `stress` | (6,) float64 | GPa | stress in Voigt order xx, yy, zz, yz, xz, xy, positive under tension, in the axes of `system` |
+| `hugoniot` | float64 | K | with `"nphug"`: how far the state is from the Hugoniot, the energy it lacks over the kinetic energy of 1 K: see [Hugoniostat](hugoniostat.md) |
+| `shock_velocity`, `particle_velocity` | float64 | Å/ps | with `"nphug"`: the velocities of a steady shock to this state and of the matter behind it |
 
 ## Errors
 
@@ -332,9 +335,13 @@ without masses or elements; `run` for a negative number of
 steps, an unknown ensemble, barostat or thermostat, a thermostat without a
 positive temperature, a barostat without a pressure, `"aniso"` or `"tri"` in
 a box that is not periodic, `"xy"` in a box not periodic along its first two
-vectors, `thermo`, `save_every` or `seed` that are not positive, a barostat
-in MDAPY with a calculator without virials or, for `"nph"`, atoms without a
-temperature, and a thermostat with no atom free to move; in MDAPY, it raises
+vectors, `"x"`, `"y"` or `"z"` in a box not periodic along that axis or not
+in the form of LAMMPS, `"nphug"` with two pressures, a temperature, Langevin
+dynamics or controls, `"xy"` or a box that is not periodic, a `hugoniot`
+that is not three numbers with a positive volume or that is given to another
+ensemble, `thermo`, `save_every` or `seed` that are not positive, a barostat
+in MDAPY with a calculator without virials or, for `"nph"` and `"nphug"`,
+atoms without a temperature, and a thermostat with no atom free to move; in MDAPY, it raises
 `CalculationFailed` when the energy or the forces stop being finite. `command`
 and `lammps` raise `InvalidParameter` in MDAPY, `command` for commands LAMMPS
 rejects, and `lammps` after `close`. `iterate` raises what `run` raises, for

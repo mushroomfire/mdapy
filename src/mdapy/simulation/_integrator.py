@@ -76,8 +76,11 @@ def _barostat(
     """The barostat of a name, for a box with these periodic directions in
     the frame of LAMMPS, as the fix of the LAMMPS dynamics sets it; with
     deformed, (3,) bool, the lengths a deformation changes, on the others
-    alone, coupled for "iso", as fix npt y ... z ... couple yz."""
+    alone, coupled for "iso", as fix npt y ... z ... couple yz; "x", "y"
+    or "z" on that length alone."""
     flags = np.zeros(6, dtype=bool)
+    if name in ("x", "y", "z"):  # along one axis, as fix npt z ...
+        deformed = np.array([axis != name for axis in "xyz"])
     if deformed is not None:
         flags[:3] = ~deformed
         left = "".join("xyz"[k] for k in range(3) if flags[k])
@@ -490,6 +493,7 @@ class _Native:
         self.__deform: Any = None  # the Deform of the run
         self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__switch: Any = None  # the Switch of the run
+        self.__hugoniostat = False  # whether the run is nphug
         self.__walls: tuple = ()  # (normal, offset, speed) of each wall
         self.__heating = False  # whether a heat field drives the run
         self.__keep = False  # whether the Langevin noise keeps the momentum
@@ -632,7 +636,7 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        } | self.__switch_record() | self.__field_record()  # fmt: skip
+        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record()  # fmt: skip
 
     def __field_record(self) -> dict[str, Any]:
         """The potential part of the heat flux times the volume of a run of
@@ -745,9 +749,12 @@ class _Native:
         thermostat and barostat, as the fixes of LAMMPS do at its start."""
         ensemble = run["ensemble"]
         self.__run = run
-        thermostat = ensemble in ("nvt", "npt") and run["thermostat"] == "nose-hoover"
+        hugoniostat = ensemble == "nphug"
+        thermostat = hugoniostat or (
+            ensemble in ("nvt", "npt") and run["thermostat"] == "nose-hoover"
+        )
         langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
-        barostat = ensemble in ("npt", "nph")
+        barostat = ensemble in ("npt", "nph", "nphug")
         if barostat and "virial" not in self.__properties:
             raise InvalidParameter(
                 f"a barostat needs the virial, which "
@@ -793,6 +800,15 @@ class _Native:
         self.__langevin = langevin
         self.__pstat = barostat
         t0, _ = run["temperatures"] if run["temperatures"] else (None, None)
+        if hugoniostat:
+            # the masses of the chains and of the barostat from the
+            # temperature at the start, as fix nphug sets them
+            t0 = self.temperature()
+            if not t0 >= 1e-6:
+                raise InvalidParameter(
+                    "nphug needs atoms with a temperature, for the masses of its "
+                    "thermostat and barostat"
+                )
         # the target temperature of the chains, as the fixes of LAMMPS
         # update it: at the start of each step, after the barostat's chain
         self.__target = t0
@@ -808,6 +824,13 @@ class _Native:
             self.__atoms.seed(run["seed"])
             self.__gamma = 1.0 / run["thermostat_damping"]
         if barostat:
+            if run["barostat"] in ("x", "y", "z") and not (
+                np.array_equal(self.__rotation, np.eye(3)) and not self.__swapped
+            ):
+                raise InvalidParameter(
+                    "a barostat along one axis needs a box whose first vector is "
+                    "along x and second in the xy plane"
+                )
             if thermostat or langevin:
                 # the temperature of the barostat: the target of the
                 # thermostat, as fix npt; with Langevin dynamics, its value
@@ -824,6 +847,9 @@ class _Native:
             if not thermostat:
                 self.__target = self.__p_temperature
             self.__setup_barostat(run)
+        self.__hugoniostat = hugoniostat
+        if hugoniostat:
+            self.__set_hugoniot(run["hugoniot"])
 
     def __setup_barostat(self, run: dict[str, Any]) -> None:
         h = self.__h
@@ -834,6 +860,8 @@ class _Native:
             h,
             None if self.__deform is None else self.__deform.rates[:3] != 0.0,
         )
+        if run["ensemble"] == "nphug":  # fix nphug leaves out the deviatoric stress
+            b = b._replace(deviatoric=False)
         self.__b = b
         p0, p1 = (p * _GPA_TO_EV_PER_A3 for p in run["pressures"])
         self.__p_start = np.where(b.flags, p0, 0.0)
@@ -861,6 +889,55 @@ class _Native:
         self.__mtk_term2 = 0.0
         self.__press_target(0)
         self.__p_current = self.__couple()
+
+    def __set_hugoniot(self, reference: Any) -> None:
+        """The reference state of the Hugoniot of nphug, given or that of the
+        start: the total energy, the volume and the pressure, along the axis
+        of a barostat along one axis or the mean of the diagonal; and the
+        density, as fix nphug sets them; the target temperature of the first
+        step's barostat chain, 0.01 K, as there."""
+        flags = self.__b.flags[:3]
+        self.__hug_axis = int(np.flatnonzero(flags)[0]) if flags.sum() == 1 else None
+        if reference is None:
+            p = self.__p_current
+            e0 = self.__energy + 0.5 * self.__twice_kinetic()
+            v0 = self.__volume()
+            k = self.__hug_axis
+            p0 = float(p[k]) if k is not None else float(p[:3].sum() / 3.0)
+        else:
+            e0, v0, p0 = reference
+            p0 *= _GPA_TO_EV_PER_A3
+        self.__hug_reference = (float(e0), float(v0), float(p0))
+        self.__rho0 = _MVV2E * float(self.__masses.sum()) / float(v0)
+        self.__target = 0.01
+
+    def __hugoniot(self) -> tuple[float, float, float]:
+        """The distance from the Hugoniot in K, the shock velocity and the
+        particle velocity in Å/ps, of the state now, as fix nphug gives them."""
+        e0, v0, p0 = self.__hug_reference
+        tensor = self.__pressure_tensor()
+        k = self.__hug_axis
+        p = float(tensor[k, k]) if k is not None else float(np.trace(tensor)) / 3.0
+        v = self.__volume()
+        e = self.__energy + 0.5 * self.__twice_kinetic()
+        distance = (0.5 * (p + p0) * (v0 - v) + e0 - e) / (self.__dof * _KB)
+        strain = 1.0 - v / v0
+        shock = (
+            0.0
+            if strain < 1e-10 or p < p0
+            else math.sqrt((p - p0) / (self.__rho0 * strain))
+        )
+        return distance, shock, shock * strain
+
+    def __hugoniot_record(self) -> dict[str, float]:
+        if not self.__hugoniostat:
+            return {}
+        distance, shock, particle = self.__hugoniot()
+        return {
+            "hugoniot": distance,
+            "shock_velocity": shock,
+            "particle_velocity": particle,
+        }
 
     def __set_deform(self, deform: Any, barostat: bool, style: str) -> None:
         """The box at the start of a deformation, as fix deform takes it."""
@@ -1028,6 +1105,7 @@ class _Native:
         self.__deform = None
         self.__adaptive = None
         self.__walls = ()
+        self.__hugoniostat = False
         if self.__switch is not None:
             self.__atoms.set_switch(False)
             self.__switch = None
@@ -1067,8 +1145,12 @@ class _Native:
         if self.__pstat:
             self.__nhc_press()
         if self.__nh:
-            self.__target = self.__t_target(step)
-            self.__t_current = self.temperature()
+            now = self.temperature()
+            if self.__hugoniostat:  # the temperature that brings it to the Hugoniot
+                self.__target = now + self.__hugoniot()[0]
+            else:
+                self.__target = self.__t_target(step)
+            self.__t_current = now
             self.__nhc_temp()
         if self.__pstat:
             self.__p_current = self.__couple()
@@ -1086,7 +1168,8 @@ class _Native:
             elapsed = (step - self.__first) * dt
             for normal, offset, speed in self.__walls:
                 self.__atoms.reflect(normal, offset + speed * elapsed, speed)
-        self.__compute(full)
+        # nphug needs the energy of every step
+        self.__compute(full or self.__hugoniostat)
         self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:
             self.__v_press()
@@ -1147,8 +1230,9 @@ class _Native:
         dt4, dt8 = 0.25 * dt, 0.125 * dt
         kt = _KB * self.__target
         eta_dot, eta_dotdot, mass = self.__eta_dot, self.__eta_dotdot, self.__eta_mass
-        mass[0] = self.__dof * kt / self.__t_freq**2
-        mass[1:] = kt / self.__t_freq**2
+        if not self.__hugoniostat:  # fix nphug keeps the masses of its start
+            mass[0] = self.__dof * kt / self.__t_freq**2
+            mass[1:] = kt / self.__t_freq**2
         ke_target = self.__dof * kt
         kecurrent = self.__dof * _KB * self.__t_current
         eta_dotdot[0] = (kecurrent - ke_target) / mass[0]

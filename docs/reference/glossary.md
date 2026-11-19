@@ -218,6 +218,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
 | controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, and `AdaptiveTimestep`, how long the steps are, given by `controls` of `run` or `iterate` |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
+| HNEMD | homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, `hnemd` |
 | switching, λ | of `Switch`: the potential of a run turned into another, the forces of (1 − λ) times the one and λ times the other, λ going from `start` to `stop` along the run; the integral over λ of the difference of their energies is the difference of their free energies |
 | Einstein crystal | atoms tied each to its own site by a harmonic spring, `Springs`, whose free energy is known: the reference of the free energy of a solid |
 | Uhlenbeck–Ford model | `UhlenbeckFord`, the soft repulsion −ε ln(1 − exp(−r²/σ²)) of finite reach, whose free energy is known: the reference of the free energy of a liquid |

@@ -2,6 +2,10 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)`: the
+  thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
+  small field pushing each atom through its virial, as GPUMD does, with EAM, the
+  pair potentials and NEP. See [HNEMD conductivity](../user-guide/simulation/hnemd.md).
 - `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
   LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
   other melts with a thermostat of its own, and the crystal gets its velocities

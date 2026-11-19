@@ -370,7 +370,29 @@ class Switch:
         )
 
 
-CONTROLS = (Hold, Move, AddForce, Langevin, Deform, AdaptiveTimestep, Switch)
+class _HeatField:
+    """The driving field of homogeneous nonequilibrium molecular dynamics
+    (HNEMD) for a run: each atom pushed by the field through its virial, the
+    pushes less their mean, so that heat flows along the field; ``thermo``
+    records ``heat_flux``, the potential part of the heat flux times the
+    volume. The field is in 1/Å, in the axes of the system."""
+
+    def __init__(self, field: Any):
+        self.field = _vector(field, "field")
+        if not self.field.any():
+            raise InvalidParameter("the field must not be zero")
+
+
+CONTROLS = (
+    Hold,
+    Move,
+    AddForce,
+    Langevin,
+    Deform,
+    AdaptiveTimestep,
+    Switch,
+    _HeatField,
+)
 
 
 def checked(controls: Any, n: int) -> tuple:
@@ -385,7 +407,7 @@ def checked(controls: Any, n: int) -> tuple:
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
-    deforms = adaptive = switches = 0
+    deforms = adaptive = switches = fields = 0
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
@@ -401,6 +423,11 @@ def checked(controls: Any, n: int) -> tuple:
             if adaptive:
                 raise InvalidParameter("a run takes one AdaptiveTimestep")
             adaptive += 1
+            continue
+        if isinstance(control, _HeatField):
+            if fields:
+                raise InvalidParameter("a run takes one heat field")
+            fields += 1
             continue
         if isinstance(control, Switch):
             if switches:
@@ -442,6 +469,10 @@ def checked(controls: Any, n: int) -> tuple:
     if deforms and (moved.any() or held.any()):
         raise InvalidParameter(
             "a deformed box with held or moved atoms is not supported"
+        )
+    if fields and (switches or deforms or moved.any()):
+        raise InvalidParameter(
+            "a heat field with a Switch, a Deform or moved atoms is not supported"
         )
     if adaptive and deforms:
         raise InvalidParameter("an adaptive time step with a Deform is not supported")

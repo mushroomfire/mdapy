@@ -187,6 +187,8 @@ class _HostAtoms:
         self.__wide: NeighborList | None = None
         self.__rng: np.random.Generator | None = None
         # a Switch: the other interaction, its neighbor list, and λ
+        self.__field: np.ndarray | None = None  # of HNEMD, in the frame
+        self.__virials: np.ndarray | None = None  # of each atom, for the field
         self.__target: Any = False  # False: no switch; None: the ideal gas
         self.__target_wide: NeighborList | None = None
         self.weight = 0.0
@@ -245,11 +247,18 @@ class _HostAtoms:
             if neighbors is None:
                 self.__wide = NeighborList.build(current, cutoff + _SKIN)
                 neighbors = self.__wide._follow(current, cutoff)
-        result = self.__calculator.compute(
-            current, self.__properties, neighbors=neighbors
-        )
+        wanted = self.__properties
+        if self.__field is not None:
+            wanted = wanted + ("atomic_virials",)
+        result = self.__calculator.compute(current, wanted, neighbors=neighbors)
         forces = np.asarray(result.forces, dtype=float)
         energy = float(result.energy)
+        if self.__field is not None:
+            # each atom pushed by the field through its virial, W^T F, the
+            # pushes less their mean, as GPUMD's HNEMD
+            self.__virials = np.asarray(result.atomic_virials, dtype=float)
+            push = np.einsum("a,iab->ib", self.__field, self.__virials)
+            forces = forces + (push - push.mean(axis=0))
         work = (
             np.asarray(result.virial, dtype=float)
             if "virial" in self.__properties
@@ -380,6 +389,17 @@ class _HostAtoms:
         return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
                            - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
 
+    def set_field(self, field: np.ndarray | None) -> None:
+        """The driving field of HNEMD in the frame, or None for none."""
+        self.__field = field
+        self.__virials = None
+
+    def heat_flux(self) -> np.ndarray:
+        """(3,) the potential part of the heat flux times the volume in the
+        frame, sum_i W_i v_i, of the virials of the last computation and the
+        velocities now."""
+        return np.einsum("iab,ib->a", self.__virials, self.__v)
+
     def set_switch(self, target: Any) -> None:
         """The other interaction of a Switch, None for none, or False for no
         switch."""
@@ -460,6 +480,7 @@ class _Native:
         self.__deform: Any = None  # the Deform of the run
         self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__switch: Any = None  # the Switch of the run
+        self.__heating = False  # whether a heat field drives the run
         self.__keep = False  # whether the Langevin noise keeps the momentum
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
         self.__prescribed = False  # whether controls set velocities
@@ -600,7 +621,33 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        } | self.__switch_record()  # fmt: skip
+        } | self.__switch_record() | self.__field_record()  # fmt: skip
+
+    def __field_record(self) -> dict[str, Any]:
+        """The potential part of the heat flux times the volume of a run of
+        HNEMD, in the axes of the system."""
+        if not self.__heating:
+            return {}
+        flux = self.__from_frame(self.__atoms.heat_flux()[None, :])[0]
+        return {"heat_flux": [float(x) for x in flux]}
+
+    def __set_field(self, control: Any) -> None:
+        """The driving field of HNEMD in the frame of the dynamics."""
+        if control is None:
+            return
+        if not isinstance(self.__atoms, _HostAtoms):
+            raise InvalidParameter(
+                'HNEMD runs on the processor: a calculator with device="cpu"'
+            )
+        calculator = self.__calculator
+        if not getattr(calculator, "_heat_flux", False):
+            raise InvalidParameter(
+                "the heat flux needs the centroid stress of each atom, which "
+                f"{type(calculator).__name__} does not give; EAM, the pair "
+                "potentials and NEP give it"
+            )
+        self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
+        self.__heating = True
 
     def __switch_record(self) -> dict[str, float]:
         """λ of a named Switch and the energy of its target minus that of the
@@ -704,6 +751,9 @@ class _Native:
         self.__set_switch(
             next((c for c in controls if isinstance(c, _controls.Switch)), None),
             barostat,
+        )
+        self.__set_field(
+            next((c for c in controls if isinstance(c, _controls._HeatField)), None)
         )
         self.__keep = bool(run.get("keep_momentum", False))
         if self.__keep:
@@ -902,7 +952,12 @@ class _Native:
                 baths.append((control, seed, damping))
             elif isinstance(
                 control,
-                (_controls.Deform, _controls.AdaptiveTimestep, _controls.Switch),
+                (
+                    _controls.Deform,
+                    _controls.AdaptiveTimestep,
+                    _controls.Switch,
+                    _controls._HeatField,
+                ),
             ):
                 continue
             elif isinstance(control, _controls.Move):
@@ -958,6 +1013,9 @@ class _Native:
         if self.__switch is not None:
             self.__atoms.set_switch(False)
             self.__switch = None
+        if self.__heating:
+            self.__atoms.set_field(None)
+            self.__heating = False
         if self.__controlled:
             self.__reset_controls()
 

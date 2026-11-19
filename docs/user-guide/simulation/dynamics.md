@@ -2,31 +2,29 @@
 
 `mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001)`
 runs molecular dynamics of a system and gives back the thermodynamic state,
-the atoms along the way and the system at the end. With a
-[LAMMPS calculator](lammps.md), the dynamics runs in LAMMPS; with any other
-calculator of MDAPY, such as [NEP](nep.md), [EAM](eam.md) or an
-[ASE calculator](../interop/ase-calculators.md), it runs in MDAPY itself. The
-two take the same calls and give the same results.
-[Molecular dynamics through LAMMPS](../../examples/molecular-dynamics.md) shows it at
-work, says what it is not made for, and how to run it on several threads or a GPU;
-[A copper cluster melting in MDAPY](../../examples/cluster-melting.md) runs it in MDAPY
-itself, writing the atoms to a file as the run goes.
+the atoms along the way and the system at the end. With any calculator of MDAPY,
+such as [EAM](eam.md), [NEP](nep.md) or an
+[ASE calculator](../interop/ase-calculators.md), it runs in MDAPY itself, on the
+processor or, for a potential with `device="cuda"`, on an NVIDIA [GPU](gpu.md); with a
+[LAMMPS calculator](lammps.md) it runs in LAMMPS. The two take the same calls and give
+the same runs, step by step.
+[A copper cluster melting in MDAPY](../../examples/cluster-melting.md) runs it in MDAPY,
+writing the atoms to a file as the run goes;
+[Molecular dynamics through LAMMPS](../../examples/molecular-dynamics.md) runs it in
+LAMMPS on several threads or a GPU.
 
-<!-- skip-test -->
 ```python
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import EAM
 from mdapy.simulation import MolecularDynamics
 
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
-)
-crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))
+copper = EAM.zhou(["Cu"])
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 6))  # 864 atoms
 
-with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+with MolecularDynamics(crystal, copper, timestep=0.002) as md:
     md.velocities(600, seed=1)
-    md.run(10000, ensemble="npt", temperature=300, pressure=0.0, thermo=100)
-    md.run(5000, ensemble="nvt", temperature=300, save_every=500)
+    md.run(5000, ensemble="npt", temperature=300, pressure=0.0, thermo=100)
+    md.run(2500, ensemble="nvt", temperature=300, save_every=500)
     md.thermo  # polars DataFrame: step, time, temperature, energies, ...
     md.frames  # the atoms every 500 steps of the second run
     hot = md.system  # the atoms at the end, with velocities and images
@@ -34,12 +32,11 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
 
 The thermodynamic state along the two runs:
 
-<!-- skip-test -->
 ```python
 from mdapy.visualization import plot
 
 thermo = md.thermo
-a = (thermo["volume"] / 512) ** (1 / 3)  # lattice parameter of the 8 x 8 x 8 cells
+a = (thermo["volume"] / 216) ** (1 / 3)  # lattice parameter of the 6 x 6 x 6 cells
 with plot.style():
     fig, (top, bottom) = plot.figure("single", 100, nrows=2, sharex=True)
     top.plot(thermo["time"], thermo["temperature"])
@@ -48,7 +45,7 @@ with plot.style():
     bottom.set_ylabel("Lattice parameter (Å)")
     bottom.set_xlabel("Time (ps)")
     for ax in (top, bottom):
-        ax.axvline(20.0, color="0.5", linestyle="--")  # npt, then nvt
+        ax.axvline(10.0, color="0.5", linestyle="--")  # npt, then nvt
     plot.save(fig, "images/dynamics", formats=("png",))
 ```
 
@@ -56,14 +53,13 @@ with plot.style():
 
 *Copper started at 600 K: half the kinetic energy goes into the potential
 energy at once, and the thermostat holds the rest at 300 K. The barostat
-expands the box from the lattice parameter of 0 K to that of 300 K at zero
-pressure; after the dashed line the box is fixed (nvt).*
+expands the box from the lattice parameter of 0 K, 3.615 Å, to that of 300 K at zero
+pressure, 3.648 Å; after the dashed line the box is fixed (nvt).*
 
-## In MDAPY, with any calculator
+## In MDAPY
 
-The same calls run a small system with a calculator that LAMMPS does not
-have, here a NEP model, or any model with an ASE calculator, with no LAMMPS
-installed:
+The same calls run a calculator that LAMMPS does not have, here a NEP model, or any
+model with an ASE calculator, with no LAMMPS installed:
 
 <!-- skip-test -->
 ```python
@@ -88,11 +84,12 @@ once; a neighbor list with a skin of 1 Å serves several steps while the box
 keeps its shape. The masses are those of the `mass` column, or of the
 elements; LAMMPS takes those of some potential files, such as EAM's.
 
-It is made for small systems, from a few atoms to some thousands, such as
-those of the training sets of machine-learned potentials; large systems and
-long runs on the processor, and anything beyond these ensembles, are for
-LAMMPS. With a potential on an NVIDIA GPU, the same dynamics runs there, for
-millions of atoms: see [On the GPU](gpu.md).
+On the processor it suits small systems, from a few atoms to some thousands, such as
+those of the training sets of machine-learned potentials; with a potential on an NVIDIA
+GPU the same dynamics runs there, for millions of atoms: see [On the GPU](gpu.md). Its
+[controls](controls.md) hold, move, push, heat, deform, indent and shock the atoms, on
+the processor and on the GPU alike. Large systems on many processors, and fixes beyond
+these, are for LAMMPS.
 
 A `movable` column, (N, 3) bool as VASP's selective dynamics, keeps atoms
 still along the directions where it is False, in MDAPY's dynamics only; the
@@ -104,6 +101,30 @@ temperature then counts the directions in which the atoms move.
 | `potential` | calculator | | | the interaction: a `LAMMPS` calculator, run in LAMMPS, or any other calculator, run in MDAPY, which needs energies and forces, and the virial for a barostat |
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `log` | str, path or stream | `None` | | writes the runs to this file, which it overwrites, or to this stream, such as `sys.stdout`: see [Log](#log) |
+
+## In LAMMPS
+
+With a [LAMMPS calculator](lammps.md) the same calls run in LAMMPS: its fixes `nve`,
+`nvt`, `npt`, `nph`, `nphug` and `msst`, and the controls as its fixes, with any of its
+potentials and packages, on several processes with MPI or on GPUs:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import LAMMPS
+
+potential = LAMMPS(
+    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
+)
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(8, 8, 8))
+with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+    md.velocities(600, seed=1)
+    md.run(10000, ensemble="npt", temperature=300, pressure=0.0, thermo=100)
+    md.command("compute peratom all pe/atom")  # any LAMMPS command between runs
+```
+
+[Molecular dynamics through LAMMPS](../../examples/molecular-dynamics.md) says what it
+is not made for, and how to run it on several threads or a GPU;
+[LAMMPS on many processes with MPI](../../examples/mpi.md) runs it with MPI.
 
 ## Running
 

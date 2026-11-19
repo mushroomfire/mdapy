@@ -241,19 +241,22 @@ nav:
               - NEP: user-guide/simulation/nep.md
               - LAMMPS: user-guide/simulation/lammps.md
               - VASP: user-guide/simulation/vasp.md
-          - Relaxation and dynamics:
+          - Relaxation:
               - Energy minimization: user-guide/simulation/minimize.md
+              - Defect energies: user-guide/simulation/defect-energies.md
+          - Molecular dynamics:
               - Molecular dynamics: user-guide/simulation/dynamics.md
+              - On the GPU: user-guide/simulation/gpu.md
               - Groups and controls: user-guide/simulation/controls.md
-              - Deformation: user-guide/simulation/deformation.md
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md
               - Switching between potentials: user-guide/simulation/switching.md
-              - Walls: user-guide/simulation/walls.md
+          - Mechanical loading:
+              - Deformation: user-guide/simulation/deformation.md
               - Indentation: user-guide/simulation/indentation.md
+          - Shock compression:
+              - Walls: user-guide/simulation/walls.md
               - Hugoniostat: user-guide/simulation/hugoniostat.md
               - Multiscale shock technique: user-guide/simulation/msst.md
-              - On the GPU: user-guide/simulation/gpu.md
-              - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:
               - Elastic constants: user-guide/simulation/elastic-constants.md
               - Elastic constants at finite temperature: user-guide/simulation/thermal-elastic.md
@@ -261,13 +264,14 @@ nav:
               - Phonons: user-guide/simulation/phonons.md
               - Force constants: user-guide/simulation/force-constants.md
               - Bond stiffness: user-guide/simulation/bond-stiffness.md
-              - Thermal conductivity: user-guide/simulation/thermal-conductivity.md
-              - Green–Kubo conductivity: user-guide/simulation/green-kubo.md
-              - HNEMD conductivity: user-guide/simulation/hnemd.md
-              - NEMD conductivity: user-guide/simulation/nemd.md
               - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
               - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
               - Sheets: user-guide/simulation/sheets.md
+          - Thermal conductivity:
+              - From phonons: user-guide/simulation/thermal-conductivity.md
+              - Green–Kubo: user-guide/simulation/green-kubo.md
+              - HNEMD: user-guide/simulation/hnemd.md
+              - NEMD: user-guide/simulation/nemd.md
           - Thermodynamics:
               - Free energy: user-guide/simulation/free-energy.md
               - Melting point: user-guide/simulation/melting-point.md

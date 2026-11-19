@@ -120,7 +120,7 @@ that seed.
 
 `MolecularDynamics` with a potential on the GPU runs every ensemble, `"nve"`, `"nvt"`,
 `"npt"` and `"nph"`, with every barostat and both thermostats, as
-[MDAPY's own dynamics](dynamics.md#in-mdapy-with-any-calculator) does on the
+[MDAPY's own dynamics](dynamics.md#in-mdapy) does on the
 processor. Along every periodic direction the box must be thicker than twice the
 cutoff of the potential and the skin, 1 Å, at every step, also as a barostat changes
 it; smaller boxes and small systems are for the processor. A `movable` column holds

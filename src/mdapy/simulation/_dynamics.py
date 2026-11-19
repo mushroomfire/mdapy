@@ -26,8 +26,8 @@ from mdapy.simulation import _controls
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log
 
-_ENSEMBLES = ("nve", "nvt", "npt", "nph")
-_BAROSTATS = ("iso", "aniso", "tri", "xy")
+_ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug")
+_BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
 _THERMOSTATS = ("nose-hoover", "langevin")
 # thermo keywords of LAMMPS and the columns they become
 # the columns of the log: name in thermo, format, width
@@ -63,6 +63,48 @@ def _pair(value: float | tuple[float, float] | None, name: str) -> tuple | None:
             f"{name} must be a number or (start, stop), not {value!r}"
         )
     return pair
+
+
+def _hugoniot(value: Any, ensemble: str) -> tuple[float, float, float] | None:
+    """The reference state of nphug, (energy, volume, pressure), or None."""
+    if value is None:
+        return None
+    if ensemble != "nphug":
+        raise InvalidParameter('hugoniot is for the ensemble "nphug"')
+    try:
+        energy, volume, pressure = (float(v) for v in value)
+    except (TypeError, ValueError):
+        raise InvalidParameter(
+            f"hugoniot must be (energy, volume, pressure), not {value!r}"
+        ) from None
+    if not (np.isfinite([energy, pressure]).all() and volume > 0):
+        raise InvalidParameter(
+            "hugoniot needs a finite energy and pressure and a positive volume, "
+            f"not {value!r}"
+        )
+    return energy, volume, pressure
+
+
+def _check_nphug(
+    pressures: tuple, temperatures: Any, thermostat: str, barostat: str, pbc: Any
+) -> None:
+    """What fix nphug takes: one pressure, no temperature, the chain of
+    Nosé-Hoover thermostats, a hydrostatic or uniaxial barostat, a box
+    periodic in every direction."""
+    if pressures[0] != pressures[1]:
+        raise InvalidParameter("nphug holds one pressure: not a start and a stop")
+    if temperatures is not None:
+        raise InvalidParameter(
+            "nphug takes its temperature from the Hugoniot: give no temperature"
+        )
+    if thermostat != "nose-hoover":
+        raise InvalidParameter('nphug needs the "nose-hoover" thermostat')
+    if barostat == "xy":
+        raise InvalidParameter(
+            'nphug needs a barostat "iso", "aniso", "tri", "x", "y" or "z"'
+        )
+    if not np.all(pbc):
+        raise InvalidParameter("nphug needs a box periodic in every direction")
 
 
 def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
@@ -152,6 +194,7 @@ class _Lammps:
         self.__moves: tuple = ()
         self.__baths: tuple = ()
         self.__temperature: str | None = None
+        self.__hugoniostat = False  # whether the run is fix nphug
         self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
@@ -296,6 +339,11 @@ create_box {len(potential.elements)} box
         for name, fix in self.__baths:
             # the tally of LAMMPS is the energy the bath took away
             row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
+        if self.__hugoniostat:  # the first three of the vector of fix nphug
+            for k, name in enumerate(
+                ("hugoniot", "shock_velocity", "particle_velocity")
+            ):
+                row[name] = float(lmp.extract_fix("mdapy_integrate", 0, 1, k))
         return row
 
     # -- running ----------------------------------------------------------
@@ -316,7 +364,10 @@ create_box {len(potential.elements)} box
         if ensemble in ("nvt", "npt") and not langevin:
             t0, t1 = run["temperatures"]
             fix += f" temp {t0!r} {t1!r} {float(run['thermostat_damping'])!r}"
-        if ensemble in ("npt", "nph"):
+        if ensemble == "nphug":
+            # the temperatures are those of the Hugoniot: these two are not used
+            fix += f" temp 1.0 1.0 {float(run['thermostat_damping'])!r}"
+        if ensemble in ("npt", "nph", "nphug"):
             p0, p1 = (p * units.GPA_TO_BAR for p in run["pressures"])
             span = f"{p0!r} {p1!r} {float(run['barostat_damping'])!r}"
             # the second vector of the box is the z axis of LAMMPS when swapped
@@ -344,6 +395,14 @@ create_box {len(potential.elements)} box
                 fix += "".join(f" {d} {span}" for d in left)
                 if barostat == "iso" and len(left) > 1:
                     fix += f" couple {''.join(left)}"
+            elif barostat in ("x", "y", "z"):
+                aligned = np.allclose(self.__rotation, np.eye(3), rtol=0, atol=1e-12)
+                if not (aligned and not self.__swapped):
+                    raise InvalidParameter(
+                        "a barostat along one axis needs a box whose first vector is "
+                        "along x and second in the xy plane"
+                    )
+                fix += f" {barostat} {span}"
             elif barostat == "xy" or (sheet and barostat == "iso"):
                 fix += f" x {span} {other} {span} couple x{other}"
             elif sheet:  # in the plane only
@@ -356,9 +415,18 @@ create_box {len(potential.elements)} box
                 # the barostat's mass from the temperature of the thermostat
                 fix += f" ptemp {run['temperatures'][0]!r}"
         self.__fixes, self.__computes, self.__groups = [], [], []
-        group, extra = self.__set_controls(run["controls"], ensemble in ("npt", "nph"))
+        group, extra = self.__set_controls(
+            run["controls"], ensemble in ("npt", "nph", "nphug")
+        )
         self.command(f"fix mdapy_integrate {group} {fix}")
         self.__fixes.insert(0, "mdapy_integrate")
+        self.__hugoniostat = ensemble == "nphug"
+        if self.__hugoniostat and run["hugoniot"] is not None:
+            e0, v0, p0 = run["hugoniot"]
+            self.command(
+                f"fix_modify mdapy_integrate e0 {e0!r} v0 {v0!r} "
+                f"p0 {p0 * units.GPA_TO_BAR!r}"
+            )
         if extra is not None and ensemble in ("nvt", "npt") and not langevin:
             # the thermostat counts the directions that move freely
             self.command(f"compute_modify mdapy_integrate_temp extra/dof {extra}")
@@ -405,6 +473,7 @@ create_box {len(potential.elements)} box
             # fix dt/reset leaves its last time step
             self.command(f"timestep {self.__timestep!r}")
         self.__adaptive = False
+        self.__hugoniostat = False
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
@@ -837,6 +906,7 @@ class MolecularDynamics:
         barostat_damping: float | None = None,
         seed: int | None = None,
         keep_momentum: bool = False,
+        hugoniot: tuple[float, float, float] | None = None,
         thermo: int = 100,
         save_every: int | None = None,
         controls: Any = None,
@@ -849,22 +919,29 @@ class MolecularDynamics:
         ----------
         steps : int32
             Number of steps.
-        ensemble : {"nve", "nvt", "npt", "nph"}, optional
+        ensemble : {"nve", "nvt", "npt", "nph", "nphug"}, optional
             Constant energy, or a thermostat, and barostat, or a barostat
-            alone. Default "nve".
+            alone, or a barostat and a thermostat that keeps the atoms on the
+            Hugoniot of a reference state, as LAMMPS's fix nphug. Default
+            "nve".
         temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
         pressure : float64 or (float64, float64), optional
             Pressure in GPa of the barostat, or its values at the start and
-            the end; needed for "npt" and "nph".
-        barostat : {"iso", "aniso", "tri", "xy"}, optional
+            the end; needed for "npt", "nph" and "nphug", one value for
+            "nphug".
+        barostat : {"iso", "aniso", "tri", "xy", "x", "y", "z"}, optional
             The box changes alike in every direction, along each axis, in
-            any way, or alike along its first two vectors with the third
-            kept. A sheet, periodic along its first two vectors only, changes
-            in its plane only: alike along them for "iso" and "xy", along
-            each for "aniso", and in any way in the plane for "tri". Default
-            "iso".
+            any way, alike along its first two vectors with the third kept,
+            or along one axis alone, the others kept. A sheet, periodic along
+            its first two vectors only, changes in its plane only: alike
+            along them for "iso" and "xy", along each for "aniso", and in
+            any way in the plane for "tri". Along one axis the box needs its
+            first vector along x and its second in the xy plane, periodic
+            along that axis. "nphug" takes "iso", "aniso" and "tri" under
+            the same pressure along every axis, or one axis for a uniaxial
+            compression. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
             "nose-hoover".
@@ -879,6 +956,11 @@ class MolecularDynamics:
             With Langevin dynamics, random forces that sum to zero, which keep
             the total momentum, as LAMMPS's fix langevin zero yes; with no
             atoms held or moved. Default False.
+        hugoniot : (float64, float64, float64), optional
+            For "nphug", the reference state of the Hugoniot: its total
+            energy in eV, volume in Å³ and pressure in GPa, along the axis
+            of a barostat along one axis. Default None, the state at the
+            start of the run.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -924,6 +1006,7 @@ class MolecularDynamics:
             save_every,
             controls,
             keep_momentum,
+            hugoniot,
         )
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
@@ -942,6 +1025,7 @@ class MolecularDynamics:
         barostat_damping: float | None = None,
         seed: int | None = None,
         keep_momentum: bool = False,
+        hugoniot: tuple[float, float, float] | None = None,
         thermo: int = 100,
         controls: Any = None,
         progress: Any = None,
@@ -959,22 +1043,29 @@ class MolecularDynamics:
         save_every : int32
             Gives the atoms every this many steps, and at the start unless
             the run before gave them there.
-        ensemble : {"nve", "nvt", "npt", "nph"}, optional
+        ensemble : {"nve", "nvt", "npt", "nph", "nphug"}, optional
             Constant energy, or a thermostat, and barostat, or a barostat
-            alone. Default "nve".
+            alone, or a barostat and a thermostat that keeps the atoms on the
+            Hugoniot of a reference state, as LAMMPS's fix nphug. Default
+            "nve".
         temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
         pressure : float64 or (float64, float64), optional
             Pressure in GPa of the barostat, or its values at the start and
-            the end; needed for "npt" and "nph".
-        barostat : {"iso", "aniso", "tri", "xy"}, optional
+            the end; needed for "npt", "nph" and "nphug", one value for
+            "nphug".
+        barostat : {"iso", "aniso", "tri", "xy", "x", "y", "z"}, optional
             The box changes alike in every direction, along each axis, in
-            any way, or alike along its first two vectors with the third
-            kept. A sheet, periodic along its first two vectors only, changes
-            in its plane only: alike along them for "iso" and "xy", along
-            each for "aniso", and in any way in the plane for "tri". Default
-            "iso".
+            any way, alike along its first two vectors with the third kept,
+            or along one axis alone, the others kept. A sheet, periodic along
+            its first two vectors only, changes in its plane only: alike
+            along them for "iso" and "xy", along each for "aniso", and in
+            any way in the plane for "tri". Along one axis the box needs its
+            first vector along x and its second in the xy plane, periodic
+            along that axis. "nphug" takes "iso", "aniso" and "tri" under
+            the same pressure along every axis, or one axis for a uniaxial
+            compression. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
             "nose-hoover".
@@ -989,6 +1080,11 @@ class MolecularDynamics:
             With Langevin dynamics, random forces that sum to zero, which keep
             the total momentum, as LAMMPS's fix langevin zero yes; with no
             atoms held or moved. Default False.
+        hugoniot : (float64, float64, float64), optional
+            For "nphug", the reference state of the Hugoniot: its total
+            energy in eV, volume in Å³ and pressure in GPa, along the axis
+            of a barostat along one axis. Default None, the state at the
+            start of the run.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -1041,6 +1137,7 @@ class MolecularDynamics:
             save_every,
             controls,
             keep_momentum,
+            hugoniot,
         )
         return self.__read(spec, progress, cancel)
 
@@ -1079,16 +1176,18 @@ class MolecularDynamics:
         save_every: int | None,
         controls: Any = None,
         keep_momentum: bool = False,
+        hugoniot: tuple[float, float, float] | None = None,
     ) -> dict[str, Any]:
         """The checked options of a run."""
         checked = _controls.checked(controls, self.__n)
-        if ensemble in ("nvt", "npt") and any(
+        if ensemble in ("nvt", "npt", "nphug") and any(
             isinstance(c, _controls.Langevin) for c in checked
         ):
             raise InvalidParameter(
                 "Langevin controls take the place of the thermostat: use them with "
                 "nve or nph"
             )
+        reference = _hugoniot(hugoniot, ensemble)
         steps = int(steps)
         if steps < 0:
             raise InvalidParameter(f"steps must not be negative, not {steps!r}")
@@ -1128,15 +1227,21 @@ class MolecularDynamics:
         pressures = _pair(pressure, "pressure")
         if ensemble in ("nvt", "npt") and temperatures is None:
             raise InvalidParameter(f"{ensemble} needs a temperature")
-        if ensemble in ("npt", "nph") and pressures is None:
+        if ensemble in ("npt", "nph", "nphug") and pressures is None:
             raise InvalidParameter(f"{ensemble} needs a pressure")
+        if ensemble == "nphug":
+            _check_nphug(pressures, temperatures, thermostat, barostat, self.__pbc)
         if temperatures is not None and ensemble in ("nvt", "npt"):
             if not min(temperatures) > 0:
                 raise InvalidParameter(
                     f"the temperature must be positive, not {temperature!r}"
                 )
         sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
-        if ensemble in ("npt", "nph"):
+        if ensemble in ("npt", "nph", "nphug"):
+            if barostat in ("x", "y", "z") and not self.__pbc["xyz".index(barostat)]:
+                raise InvalidParameter(
+                    f"a barostat along {barostat} needs a box periodic along it"
+                )
             if barostat == "xy" and not self.__pbc[:2].all():
                 raise InvalidParameter(
                     "this barostat needs a box periodic along its first two vectors"
@@ -1163,6 +1268,7 @@ class MolecularDynamics:
             else float(barostat_damping),
             "seed": None if seed is None else int(seed),
             "keep_momentum": bool(keep_momentum),
+            "hugoniot": reference,
             "thermo": int(thermo),
             "save_every": None if save_every is None else int(save_every),
             "controls": checked,
@@ -1255,7 +1361,12 @@ class MolecularDynamics:
             if spec["thermostat"] == "langevin" and spec["seed"] is not None:
                 text += f", seed {spec['seed']}"
             parts.append(text)
-        if ensemble in ("npt", "nph"):
+        if ensemble == "nphug":
+            parts.append(
+                f"thermostat on the Hugoniot with damping "
+                f"{spec['thermostat_damping']!r} ps"
+            )
+        if ensemble in ("npt", "nph", "nphug"):
             parts.append(
                 f"{span(spec['pressures'], 'GPa')}, barostat {spec['barostat']} with "
                 f"damping {spec['barostat_damping']!r} ps"

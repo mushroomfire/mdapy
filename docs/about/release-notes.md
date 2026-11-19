@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- `run(..., ensemble="nphug")`, the Hugoniostat of LAMMPS's `fix nphug`: a barostat
+  at one pressure, along one axis or alike along every axis, and a thermostat that
+  drives the energy to the Hugoniot of the state at the start, or of `hugoniot`;
+  `thermo` records the distance from it and the shock and particle velocities. And
+  barostats along one axis, `barostat="x"`, `"y"` or `"z"`, as `fix npt ... z`.
+  In MDAPY, on the GPU and in LAMMPS alike. See
+  [Hugoniostat](../user-guide/simulation/hugoniostat.md).
 - `mdapy.simulation.Wall`, a control of a flat wall across an axis that reflects
   the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
   piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and

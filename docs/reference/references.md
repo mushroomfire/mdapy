@@ -404,6 +404,12 @@ Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101*
 [doi:10.1103/PhysRevLett.101.055504](https://doi.org/10.1103/PhysRevLett.101.055504)
 { #ranganathan2008 }
 
+**Ravelo et al. (2004).** R. Ravelo, B. L. Holian, T. C. Germann and P. S. Lomdahl,
+Constant-stress Hugoniostat method for following the dynamical evolution of shocked
+matter, *Phys. Rev. B* **70**, 014103 (2004).
+[doi:10.1103/PhysRevB.70.014103](https://doi.org/10.1103/PhysRevB.70.014103)
+{ #ravelo2004 }
+
 **Schelling et al. (2002).** P. K. Schelling, S. R. Phillpot and P. Keblinski,
 Comparison of atomic-level simulation methods for computing thermal conductivity,
 *Phys. Rev. B* **65**, 144306 (2002).

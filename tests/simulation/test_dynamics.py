@@ -416,7 +416,7 @@ def test_commands_and_the_instance(potential):
         ({"ensemble": "nvt"}, "nvt needs a temperature"),
         ({"ensemble": "npt", "temperature": 300}, "npt needs a pressure"),
         ({"ensemble": "nph"}, "nph needs a pressure"),
-        ({"barostat": "z"}, "barostat must be one of"),
+        ({"barostat": "w"}, "barostat must be one of"),
         ({"thermo": 0}, "thermo and save_every must be positive"),
         ({"save_every": 0}, "thermo and save_every must be positive"),
         ({"ensemble": "nvt", "temperature": (1, 2, 3)}, "temperature must be"),

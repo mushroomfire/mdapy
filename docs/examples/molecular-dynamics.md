@@ -176,9 +176,10 @@ Several functions of MDAPY run their molecular dynamics this way:
 [elastic constants](../user-guide/simulation/md-elastic.md),
 [free energies](../user-guide/simulation/free-energy.md),
 [melting points](../user-guide/simulation/melting-point.md),
-[pressure–temperature diagrams](../user-guide/simulation/pressure-temperature.md),
-[phonons at a temperature](../user-guide/simulation/thermal-phonons.md) and
-[stacking faults at a temperature](../user-guide/simulation/stacking-fault-temperature.md).
+[pressure–temperature diagrams](../user-guide/simulation/pressure-temperature.md) and
+[stacking faults at a temperature](../user-guide/simulation/stacking-fault-temperature.md);
+[phonons at a temperature](../user-guide/simulation/thermal-phonons.md) run theirs in
+MDAPY, or in LAMMPS for a LAMMPS calculator.
 
 ## What it is not made for
 

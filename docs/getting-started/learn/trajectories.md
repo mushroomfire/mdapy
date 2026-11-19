@@ -1,23 +1,20 @@
-<!-- needs: lammps -->
-
 # 5. A nanoparticle melts
 
 Everything so far has been one configuration. Over time you get a trajectory,
 a sequence of systems. This lesson heats a copper nanoparticle until it melts
-and watches it happen. The molecular dynamics runs in
-[LAMMPS](https://www.lammps.org), through its Python module; about half a minute
-on a laptop.
+and watches it happen. The molecular dynamics runs in MDAPY itself, with its
+EAM potential of copper; about half a minute on a laptop.
 
 ## Set up
 
-The particle sits in the middle of a box that is not periodic. MDAPY writes the
-potential file, so there is nothing to download:
+The particle sits in the middle of a box that is not periodic. The potential
+is MDAPY's own, so there is nothing to download:
 
 ```python
 import numpy as np
 import mdapy as mp
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LAMMPS
+from mdapy.calculators import EAM
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 12, 12))
 center = crystal["positions"].mean(axis=0)
@@ -26,10 +23,7 @@ particle = mp.System(
     inside["positions"] - center + 60.0, mp.Box(120.0, pbc=False), elements="Cu"
 )
 
-EAM.zhou(["Cu"]).write("Cu.eam.alloy")
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM.zhou(["Cu"])
 print(len(particle))
 ```
 
@@ -101,7 +95,7 @@ with plot.style():
 
 ![The share of fcc atoms and the energy against temperature](images/melting.png)
 
-*By about 1100 K no fcc atoms remain, and on the way there the energy rises
+*By about 1200 K no fcc atoms remain, and on the way there the energy rises
 faster: the heat of melting. Bulk copper melts at 1358 K. A particle of 3 nm
 melts sooner, as its many surface atoms are bound less strongly.*
 
@@ -155,7 +149,7 @@ The melting differs a little from one computer to another, so your numbers may t
 
 ```text
 61
-[0.61 0.6  0.49 0.3  0.03 0.   0.  ]
+[0.61 0.6  0.49 0.26 0.06 0.   0.  ]
 ```
 
 ## Try it

@@ -192,13 +192,19 @@ pair is a third of the gap between pairs. A fault between two pairs, the
 shuffle set, cuts one bond per atom; one within a pair, the glide set,
 cuts three. `height` puts the fault at a fractional height of the box: the
 middle of a wide or of a narrow gap between the planes of atoms. Silicon
-with the Stillinger–Weber potential of LAMMPS:
+with the Stillinger–Weber potential, the file of its parameters as in the
+potentials of LAMMPS:
 
-<!-- skip-test -->
 ```python
-from mdapy.calculators import LAMMPS
+from pathlib import Path
 
-silicon = LAMMPS("pair_style sw\npair_coeff * * Si.sw Si", elements=["Si"])
+from mdapy.calculators import StillingerWeber
+
+Path("Si.sw").write_text(
+    "Si Si Si 2.1683 2.0951 1.80 21.0 1.20 -0.333333333333 7.049556277 0.6022245584 "
+    "4.0 0.0 0.0\n"
+)
+silicon = StillingerWeber("Si.sw")
 a = 5.431
 partial = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]  # x along <112>, y along <110>
 crystal = build_crystal(

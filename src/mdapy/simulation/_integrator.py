@@ -194,6 +194,10 @@ class _HostAtoms:
     def drift(self, dt: float) -> None:
         self.__x += dt * self.__v
 
+    def kick_drift(self, c: float, dt: float) -> None:
+        self.kick(c)
+        self.drift(dt)
+
     def scale(self, factor: Any) -> None:
         self.__v *= factor
 
@@ -554,12 +558,13 @@ class _Native:
             self.__press_target(step)
             self.__omega_dot_update()
             self.__v_press()
-        self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:
+            self.__atoms.kick(0.5 * dt * _FTM2V)
             self.__remap()
-        self.__atoms.drift(dt)
-        if self.__pstat:
+            self.__atoms.drift(dt)
             self.__remap()
+        else:
+            self.__atoms.kick_drift(0.5 * dt * _FTM2V, dt)
         self.__compute(full)
         self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:

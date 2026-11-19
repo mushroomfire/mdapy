@@ -8,6 +8,9 @@
   LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
   MEAM, whose virials of each atom do not give the heat flux, are refused. See
   [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+- `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
+  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
+  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

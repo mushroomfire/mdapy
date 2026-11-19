@@ -1,5 +1,3 @@
-<!-- needs: lammps -->
-
 # A polycrystal of graphene
 
 Two-dimensional grains are a columnar polycrystal one layer thick. This page builds seven
@@ -37,20 +35,27 @@ same way.
 
 ## The boundaries settle
 
-Minimizing and a short run at 300 K, here with the Tersoff parameters of carbon of
-[Lindsay and Broido (2010)](../reference/references.md#lindsay2010), bond the atoms at the
-boundaries where they can reach each other. The box follows the sheet with `barostat="xy"`:
+Minimizing and a short run at 300 K bond the atoms at the boundaries where they can reach
+each other, here with a [NEP](../user-guide/simulation/nep.md) model of carbon trained with
+TorchNEP on the GAP-2017 data. The box follows the sheet with `barostat="xy"`.
+
+!!! note "Cite the model and the data"
+
+    The model comes from [Wu et al. (2026), TorchNEP](../reference/references.md#wu2026torchnep),
+    trained on the data of [Deringer and Csányi (2017)](../reference/references.md#deringer2017).
+    Cite both when you use it.
+
+<!-- files: carbon -->
+
+Download the model [`nep.txt`](carbon/nep.txt) (a copy of `carbon/nep_torchnep.txt` of the
+[TorchNEP models](https://github.com/mushroomfire/TorchNEP_models)) into the working
+directory:
 
 ```python
-from pathlib import Path
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import NEP
 from mdapy.simulation import MolecularDynamics, minimize
 
-Path("C.tersoff").write_text(
-    "C C C 3.0 1.0 0.0 3.8049e4 4.3484 -0.930 0.72751 1.5724e-7 "
-    "2.2119 430.0 1.95 0.15 3.4879 1393.6\n"
-)
-carbon = LAMMPS("pair_style tersoff\npair_coeff * * C.tersoff C", ["C"])
+carbon = NEP("nep.txt")
 minimized = minimize(flakes, carbon, max_force=0.05, max_steps=2000).system
 with MolecularDynamics(minimized, carbon, timestep=0.0005) as md:
     md.velocities(600, seed=1)
@@ -69,7 +74,7 @@ from mdapy.analysis import RingStatistics
 from mdapy.visualization import render, write_png
 
 rings = RingStatistics(20, cutoff=1.8).compute(settled)
-rings.counts[6] / rings.counts.sum()  # about 0.94 of the rings are hexagons
+rings.counts[6] / rings.counts.sum()  # about 0.93 of the rings are hexagons
 mesh, ring = rings.polygons(settled)
 colors = {
     3: (0.30, 0.69, 0.29),
@@ -110,7 +115,7 @@ write_png("images/graphene-polycrystal.png", np.hstack([by_grain, by_ring]))
 
 *Seven grains of graphene, turned about the normal of the sheet, after 3 ps at 300 K. Left:
 the grains stay whole. Right: the rings up to 20 atoms, those of 10 or more in one color.
-Pentagons, heptagons and larger rings form where the boundaries closed, and the large rings
-are the holes left in them.*
+Pentagons, heptagons and rings of up to nine atoms form where the boundaries closed; with
+this potential they closed whole, leaving no larger ring.*
 
 The elastic constants and phonons of a perfect sheet are on [Sheets](../user-guide/simulation/sheets.md).

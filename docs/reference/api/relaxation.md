@@ -10,6 +10,8 @@
 
 ::: mdapy.simulation.MolecularDynamics
 
+::: mdapy.simulation.thermal_velocities
+
 ::: mdapy.simulation.Hold
 
 ::: mdapy.simulation.Move

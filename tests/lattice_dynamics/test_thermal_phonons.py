@@ -4,8 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Phonons from displaced atoms and their forces: small displacements give the
-force constants of the displacement method; molecular dynamics is skipped where
-LAMMPS is not installed."""
+force constants of the displacement method; molecular dynamics in MDAPY, and in
+LAMMPS where it is installed."""
 
 import numpy as np
 import pytest
@@ -174,11 +174,12 @@ def test_against_symfc(potential):
     )
 
 
-lammps = pytest.importorskip("lammps")
-
-
-@pytest.fixture(scope="module")
-def dynamics(setfl):
+@pytest.fixture(scope="module", params=["mdapy", "lammps"])
+def dynamics(request, setfl, potential):
+    """The calculator of the dynamics: MDAPY's own, or LAMMPS."""
+    if request.param == "mdapy":
+        return potential
+    pytest.importorskip("lammps")
     return LAMMPS(f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni", ["Cu", "Ni"])
 
 
@@ -216,11 +217,16 @@ def test_the_displacements_of_the_dynamics(dynamics, potential):
     big = _supercell(cell, result.supercell)
     from mdapy.simulation import MolecularDynamics
 
+    langevin = dict(
+        ensemble="nvt",
+        temperature=temperature,
+        thermostat="langevin",
+        thermostat_damping=0.1,
+    )
     with MolecularDynamics(big, dynamics, timestep=0.002) as md:
         md.velocities(2 * temperature, seed=3)
-        md.command(f"fix t all langevin {temperature} {temperature} 0.1 4 zero yes")
-        md.run(1000, ensemble="nve", thermo=1000)
-        md.run(5000, ensemble="nve", thermo=5000, save_every=50)
+        md.run(1000, thermo=1000, seed=4, **langevin)
+        md.run(5000, thermo=5000, save_every=50, seed=5, **langevin)
         frames = md.frames
     squares = []
     for frame in frames:
@@ -254,6 +260,17 @@ def test_progress_and_cancel(dynamics, potential):
     token.cancel()
     with pytest.raises(Cancelled):
         thermal_phonons(cell, dynamics, 100.0, cancel=token, **options)
+    # cancelled between the runs
+    token = CancelToken()
+    with pytest.raises(Cancelled):
+        thermal_phonons(
+            cell,
+            dynamics,
+            100.0,
+            cancel=token,
+            progress=lambda done, total: token.cancel(),
+            **options,
+        )
 
 
 def test_the_default_supercell_is_thick_enough(dynamics, potential):
@@ -284,8 +301,8 @@ def test_invalid_input(dynamics, potential):
             thermal_phonons(cell, dynamics, 100.0, **wrong)
     with pytest.raises(InvalidParameter, match="temperature"):
         thermal_phonons(cell, dynamics, 0.0)
-    with pytest.raises(InvalidParameter, match="LAMMPS"):
-        thermal_phonons(cell, potential, 100.0)
+    with pytest.raises(InvalidParameter, match="calculator"):
+        thermal_phonons(cell, "Cu.eam.alloy", 100.0)
     with pytest.raises(MissingProperty, match="element"):
         thermal_phonons(cell.drop("element"), dynamics, 100.0)
     with pytest.raises(InvalidParameter, match="periodic"):

@@ -259,6 +259,7 @@ nav:
               - Thermal conductivity: user-guide/simulation/thermal-conductivity.md
               - Green–Kubo conductivity: user-guide/simulation/green-kubo.md
               - HNEMD conductivity: user-guide/simulation/hnemd.md
+              - NEMD conductivity: user-guide/simulation/nemd.md
               - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
               - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
               - Sheets: user-guide/simulation/sheets.md

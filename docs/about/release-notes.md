@@ -26,7 +26,8 @@
   springs of an Einstein crystal; and `mdapy.calculators.UhlenbeckFord`, LAMMPS's
   `pair_style ufm`, also on the GPU. `run(..., keep_momentum=True)` gives Langevin
   dynamics whose random forces keep the total momentum (`fix langevin ... zero yes`).
-  See [Switching between potentials](../user-guide/simulation/switching.md) and
+  `stacking_fault_free_energy` runs in MDAPY likewise. See
+  [Switching between potentials](../user-guide/simulation/switching.md) and
   [Free energy](../user-guide/simulation/free-energy.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the

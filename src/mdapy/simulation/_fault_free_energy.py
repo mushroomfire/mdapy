@@ -13,6 +13,7 @@ from numpy.typing import ArrayLike
 
 from mdapy import units
 from mdapy.build._defects import _axis, slip
+from mdapy.calculators._base import Calculator
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.result import Result
 from mdapy.core.system import System
@@ -21,6 +22,7 @@ from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.simulation._defect_energies import _options, _relaxed
 from mdapy.simulation._free_energy import (
     _frenkel_ladd,
+    _frenkel_ladd_in_mdapy,
     _Progress,
     _solid_state,
     _spring_constants,
@@ -68,7 +70,7 @@ def _between_layers(crystal: System, k: int) -> float:
 
 def _free_energies(
     crystal: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     timestep: float,
     settle: int,
@@ -82,8 +84,9 @@ def _free_energies(
     springs = _spring_constants(
         crystal, potential, temperature, timestep, settle, seed, counter
     )
+    solid = _frenkel_ladd if isinstance(potential, LAMMPS) else _frenkel_ladd_in_mdapy
     runs = [
-        _frenkel_ladd(
+        solid(
             crystal,
             potential,
             temperature,
@@ -102,7 +105,7 @@ def _free_energies(
 
 def stacking_fault_free_energy(
     crystal: System,
-    potential: LAMMPS,
+    potential: Calculator,
     direction: ArrayLike,
     temperatures: float | ArrayLike,
     *,
@@ -131,8 +134,10 @@ def stacking_fault_free_energy(
         axis, such as fcc with z along [111]. The wider the plane the smaller the
         error, as the error of the free energy of the atoms grows more slowly than
         the area does.
-    potential : LAMMPS
-        The interaction.
+    potential : Calculator
+        The interaction: any calculator of energies, forces and virials on
+        the processor; the dynamics run in MDAPY, or in LAMMPS for a LAMMPS
+        calculator.
     direction : array_like
         (3,) float64, the slip vector in Å, in the plane, such as a/6 [11-2].
     temperatures : float64 or array_like
@@ -174,14 +179,19 @@ def stacking_fault_free_energy(
     ------
     InvalidParameter
         For invalid options, a plane not normal to the axis, a box not periodic in
-        every direction, or if LAMMPS fails.
+        every direction, a potential that is not a calculator or computes on
+        the GPU in MDAPY, or if the dynamics fail.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
         If cancelled.
     """
-    if not isinstance(potential, LAMMPS):
-        raise InvalidParameter("potential must be a mdapy.calculators.LAMMPS")
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
+    if not isinstance(potential, LAMMPS) and potential.device != "cpu":
+        raise InvalidParameter(
+            'the free energy runs on the processor: a calculator with device="cpu"'
+        )
     if "element" not in crystal.table.columns:
         raise MissingProperty("the free energy needs the element column")
     if not crystal.box.pbc.all():

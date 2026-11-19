@@ -113,8 +113,9 @@ system = system.with_columns(result)  # per-atom values, as columns
 
 ## Simulate
 
-Molecular dynamics, and the methods that run it, need a `LAMMPS` calculator, written
-`lammps` below; the others take any calculator. See
+Molecular dynamics runs with any calculator, in MDAPY itself, or in LAMMPS with a
+`LAMMPS` calculator; the methods written with `lammps` below still need a `LAMMPS`
+calculator. See
 [Molecular dynamics](../../user-guide/simulation/dynamics.md),
 [Defect energies](../../user-guide/simulation/defect-energies.md),
 [Melting point](../../user-guide/simulation/melting-point.md) and
@@ -122,7 +123,7 @@ Molecular dynamics, and the methods that run it, need a `LAMMPS` calculator, wri
 
 | I want | Write |
 |---|---|
-| molecular dynamics | `with MolecularDynamics(system, lammps, timestep=0.002) as md:` |
+| molecular dynamics | `with MolecularDynamics(system, potential, timestep=0.002) as md:` |
 | to start it at a temperature | `md.velocities(600, seed=1)` |
 | to run it | `md.run(10000, ensemble="npt", temperature=300, pressure=0.0, save_every=500)` |
 | what it gives | `md.thermo`, `md.frames`, `md.system` |

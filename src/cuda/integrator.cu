@@ -72,6 +72,38 @@ __global__ void reflect_kernel(std::int64_t n, double3 normal, double offset, do
     u[2] += change * normal.z;
 }
 
+__global__ void squares_kernel(std::int64_t n, const double* v, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double* u = v + 3 * i;
+    out[i] = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+}
+
+__global__ void msst_kernel(std::int64_t n, double half, double base, double axial, int axis,
+                            bool trial, double ftm2v, const double* f, const double* m,
+                            double* v, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double mass = m[i];
+    double sum = 0.0;
+    for (int k = 0; k < 3; ++k) {
+        const double c = f[3 * i + k] * ftm2v / mass;
+        double d = base / mass;
+        if (k == axis) d -= axial;
+        const double u = v[3 * i + k];
+        double w;
+        if (fabs(half * d) > 1.0e-06) {
+            const double e = exp(d * half);
+            w = e * (c + d * u - c / e) / d;
+        } else {
+            w = u + (c + d * u) * half + 0.5 * (d * d * u + c * d) * half * half;
+        }
+        if (!trial) v[3 * i + k] = w;
+        sum += w * w;
+    }
+    out[i] = sum;
+}
+
 __global__ void scale_kernel(std::int64_t n, double3 factor, double* v) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -366,6 +398,29 @@ void Atoms::reflect(const double* normal, double offset, double speed) {
                                             offset, speed, a.x.data(), a.velocities.data());
     MDAPY_LAUNCHED();
     ++a.version;
+}
+
+double Atoms::speed_squares() const {
+    Impl& a = *impl_;
+    a.scratch.resize(static_cast<std::size_t>(a.n));
+    squares_kernel<<<blocks(a.n), kBlock>>>(a.n, a.velocities.data(), a.scratch.data());
+    MDAPY_LAUNCHED();
+    double out = 0.0;
+    sum_columns(a.scratch.data(), 1, a.n, &out);
+    return out;
+}
+
+double Atoms::msst_kick(double half, double base, double axial, int axis, bool trial,
+                        double ftm2v) {
+    Impl& a = *impl_;
+    a.scratch.resize(static_cast<std::size_t>(a.n));
+    msst_kernel<<<blocks(a.n), kBlock>>>(a.n, half, base, axial, axis, trial, ftm2v,
+                                         a.forces.data(), a.masses.data(), a.velocities.data(),
+                                         a.scratch.data());
+    MDAPY_LAUNCHED();
+    double out = 0.0;
+    sum_columns(a.scratch.data(), 1, a.n, &out);
+    return out;
 }
 
 void Atoms::scale(double fx, double fy, double fz) {

@@ -170,6 +170,75 @@ def _symmetric(voigt: np.ndarray) -> np.ndarray:
     return out
 
 
+class _Msst:
+    """The variables of the multiscale shock technique of a run, as LAMMPS's
+    fix msst keeps them: the rate of the volume, the sum of the squares of
+    the velocities, the position behind the front, and the reference."""
+
+    def __init__(self, axis: int, speed: float, settings: dict, mass: float,
+                 reference: tuple[float, float, float]):  # fmt: skip
+        self.axis, self.speed = axis, speed
+        self.q, self.mu, self.tscale = (settings[k] for k in ("q", "mu", "tscale"))
+        self.mass = mass
+        self.e0, self.v0, self.p0 = reference
+        self.omega = 0.0
+        self.vsum = 0.0
+        self.position = 0.0
+
+    def cell(self, p: float, volume: float, half: float) -> None:
+        """The rate of the volume half a step on, at a fixed volume and atoms."""
+        mass, v0 = self.mass, self.v0
+        driving = _MVV2E * self.speed * self.speed * mass * (v0 - volume) / (v0 * v0)
+        a = mass * (p - self.p0 - driving) / (self.q * _MVV2E)
+        b = mass * self.mu / (self.q * volume)
+        if volume > v0 and a > 0.0:  # no blow-up of the volume
+            a = -a
+        w = self.omega
+        if b * half > 1.0e-06:
+            self.omega = (w + a * (math.exp(b * half) - 1.0) / b) * math.exp(-b * half)
+        else:
+            self.omega = (
+                w + (a - b * w) * half + 0.5 * (b * b * w - a * b) * half * half
+            )
+
+    def damping(self, volume: float, vsum: float) -> tuple[float, float]:
+        """The terms of the velocities: the viscous one, over the mass of an
+        atom, and that of the rate of the volume along the axis."""
+        base = self.mu * self.omega * self.omega / (vsum * volume) if self.mu else 0.0
+        return base, 2.0 * self.omega / volume
+
+    def records(self, e: float, p: float, volume: float, dof: int) -> dict[str, float]:
+        mass, v0, p0, us = self.mass, self.v0, self.p0, self.speed
+        strain = 1.0 - volume / v0
+        return {
+            "hugoniot": (0.5 * (p + p0) * (v0 - volume) + self.e0 - e) / (dof * _KB),
+            "rayleigh": (p - p0 - mass * us * us * _MVV2E * strain / v0)
+            * _EV_PER_A3_TO_GPA,
+            "particle_velocity": us * strain,
+            "lagrangian_position": self.position,
+            "msst_energy": self.q * self.omega**2 / (2.0 * mass) * _MVV2E
+            - 0.5 * mass * us * us * strain * strain * _MVV2E
+            - p0 * (v0 - volume),
+        }
+
+
+def _msst_velocities(
+    v: np.ndarray, f: np.ndarray, masses: np.ndarray, half: float, terms: tuple
+) -> np.ndarray:
+    """The velocities of fix msst half a step on: exp(D t) (C + D v - C exp(-D t)) / D,
+    or its expansion for a small D t, with C = ftm2v f / m and D the terms."""
+    base, axial, axis, ftm2v = terms
+    m = masses[:, None]
+    c = f * ftm2v / m
+    d = np.repeat(base / m, 3, axis=1)
+    d[:, axis] -= axial
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        e = np.exp(d * half)
+        exact = e * (c + d * v - c / e) / d
+    small = v + (c + d * v) * half + 0.5 * (d * d * v + c * d) * half * half
+    return np.where(np.abs(half * d) > 1.0e-06, exact, small)
+
+
 class _HostAtoms:
     """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
     positions, velocities and forces in the frame of LAMMPS, and the steps
@@ -326,6 +395,28 @@ class _HostAtoms:
     def kick_drift(self, c: float, dt: float) -> None:
         self.kick(c)
         self.drift(dt)
+
+    def speed_squares(self) -> float:
+        """The sum of the squares of the velocities."""
+        return float(np.einsum("ij,ij->", self.__v, self.__v))
+
+    def msst_kick(
+        self,
+        half: float,
+        base: float,
+        axial: float,
+        axis: int,
+        trial: bool,
+        ftm2v: float,
+    ) -> float:
+        """The velocities of fix msst half a step on, kept unless trial; the
+        sum of their squares."""
+        v = _msst_velocities(
+            self.__v, self.__forces, self.__masses, half, (base, axial, axis, ftm2v)
+        )
+        if not trial:
+            self.__v = v
+        return float(np.einsum("ij,ij->", v, v))
 
     def reflect(self, normal: np.ndarray, offset: float, speed: float) -> None:
         """A flat wall: each atom with x . normal < offset put back by as
@@ -494,6 +585,7 @@ class _Native:
         self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__switch: Any = None  # the Switch of the run
         self.__hugoniostat = False  # whether the run is nphug
+        self.__msst: _Msst | None = None  # the shock of a run of msst
         self.__walls: tuple = ()  # (normal, offset, speed) of each wall
         self.__heating = False  # whether a heat field drives the run
         self.__keep = False  # whether the Langevin noise keeps the momentum
@@ -636,7 +728,7 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record()  # fmt: skip
+        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record() | self.__msst_record()  # fmt: skip
 
     def __field_record(self) -> dict[str, Any]:
         """The potential part of the heat flux times the volume of a run of
@@ -733,12 +825,13 @@ class _Native:
     def __compute(self, full: bool = True) -> None:
         """The forces; the energy and the virial too when full or with a
         barostat (on the GPU; the processor always computes all three)."""
+        pressure = full or self.__pstat or self.__msst is not None
         energy, virial = self.__atoms.compute(
-            self.__table, self.__box(), full, full or self.__pstat
+            self.__table, self.__box(), full, pressure
         )
         if full:
             self.__energy = energy
-        if "virial" in self.__properties and (full or self.__pstat):
+        if "virial" in self.__properties and pressure:
             self.__virial = virial
         self.__computed = True
 
@@ -850,6 +943,8 @@ class _Native:
         self.__hugoniostat = hugoniostat
         if hugoniostat:
             self.__set_hugoniot(run["hugoniot"])
+        if ensemble == "msst":
+            self.__set_msst(run)
 
     def __setup_barostat(self, run: dict[str, Any]) -> None:
         h = self.__h
@@ -928,6 +1023,97 @@ class _Native:
             else math.sqrt((p - p0) / (self.__rho0 * strain))
         )
         return distance, shock, shock * strain
+
+    def __set_msst(self, run: dict[str, Any]) -> None:
+        """The shock of a run of msst, as fix msst sets it up: the reference
+        state, given or that of the start; and the share tscale of the kinetic
+        energy given to the rate of the volume, against the axis."""
+        if "virial" not in self.__properties:
+            raise InvalidParameter(
+                f"msst needs the virial, which {type(self.__calculator).__name__} "
+                "does not compute"
+            )
+        if not (np.array_equal(self.__rotation, np.eye(3)) and not self.__swapped):
+            raise InvalidParameter(
+                "msst needs a box whose first vector is along x and second in the "
+                "xy plane"
+            )
+        if self.__free is not None:
+            raise InvalidParameter("msst with atoms held is not supported")
+        axis = "xyz".index(run["barostat"])
+        settings = run["msst"]
+        reference = run["hugoniot"]
+        if reference is None:
+            e0 = self.__energy + 0.5 * self.__twice_kinetic()
+            v0 = self.__volume()
+            p0 = float(self.__pressure_tensor()[axis, axis])
+        else:
+            e0, v0, p0 = reference
+            p0 *= _GPA_TO_EV_PER_A3
+        msst = _Msst(
+            axis,
+            float(run["shock_velocity"]),
+            settings,
+            float(self.__masses.sum()),
+            (float(e0), float(v0), float(p0)),
+        )
+        twice = self.__twice_kinetic()
+        if twice > 0.0 and msst.tscale > 0.0:
+            msst.omega = -math.sqrt(msst.tscale * msst.mass / msst.q * twice / _MVV2E)
+            self.__atoms.scale(math.sqrt(1.0 - msst.tscale))
+        self.__msst = msst
+
+    def __msst_record(self) -> dict[str, float]:
+        msst = self.__msst
+        if msst is None:
+            return {}
+        k = msst.axis
+        energy = self.__energy + 0.5 * self.__twice_kinetic()
+        p = float(self.__pressure_tensor()[k, k])
+        return msst.records(energy, p, self.__volume(), self.__dof)
+
+    def __msst_remap(self, dilation: float) -> None:
+        """The box scaled along the axis about its middle, its tilts kept, the
+        atoms carried with it and their velocities along it scaled, as the
+        remap of fix msst."""
+        k = self.__msst.axis
+        old, old_lo = self.__h.copy(), self.__lo.copy()
+        hi = old_lo[k] + old[k, k]
+        middle = 0.5 * (old_lo[k] + hi)
+        new, lo = old.copy(), old_lo.copy()
+        lo[k] = (old_lo[k] - middle) * dilation + middle
+        new[k, k] = (hi - middle) * dilation + middle - lo[k]
+        self.__atoms.remap(old_lo, old, lo, new)
+        factor = np.ones(3)
+        factor[k] = dilation
+        self.__atoms.scale(factor)
+        self.__h, self.__lo = new, lo
+
+    def __msst_step(self, dt: float, full: bool) -> None:
+        """A step of fix msst: the rate of the volume, the velocities, the box
+        and the atoms over the first half, the forces, then the velocities and
+        the rate of the volume over the second."""
+        msst, atoms = self.__msst, self.__atoms
+        k, half = msst.axis, 0.5 * dt
+        volume = self.__volume()
+        msst.cell(float(self.__pressure_tensor()[k, k]), volume, half)
+        # the sum of the squares of the velocities half a step on, by trial
+        base, axial = msst.damping(volume, atoms.speed_squares())
+        msst.vsum = atoms.msst_kick(half, base, axial, k, True, _FTM2V)
+        base, axial = msst.damping(volume, msst.vsum)
+        atoms.msst_kick(half, base, axial, k, False, _FTM2V)
+        first = volume + msst.omega * half
+        self.__msst_remap(first / volume)
+        atoms.drift(dt)
+        second = first + msst.omega * half
+        self.__msst_remap(second / first)
+        self.__compute(full)
+        volume = self.__volume()
+        base, axial = msst.damping(volume, msst.vsum)
+        atoms.msst_kick(half, base, axial, k, False, _FTM2V)
+        volume = self.__volume()
+        msst.cell(float(self.__pressure_tensor()[k, k]), volume, half)
+        msst.position -= msst.speed * volume / msst.v0 * dt
 
     def __hugoniot_record(self) -> dict[str, float]:
         if not self.__hugoniostat:
@@ -1106,6 +1292,7 @@ class _Native:
         self.__adaptive = None
         self.__walls = ()
         self.__hugoniostat = False
+        self.__msst = None
         if self.__switch is not None:
             self.__atoms.set_switch(False)
             self.__switch = None
@@ -1134,6 +1321,10 @@ class _Native:
         self.__step += 1
         step = self.__step
         dt = self.__dt
+        if self.__msst is not None:  # its own integrator, as fix msst
+            self.__msst_step(dt, full)
+            self.__time = self.__atime + (step - self.__atimestep) * dt
+            return
         if self.__switch is not None:  # at the start of the step, as fix ti/spring
             self.__atoms.weight = self.__switch.weight(
                 (step - self.__first) / self.__steps

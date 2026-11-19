@@ -222,6 +222,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | piston, momentum mirror | a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston |
 | Hugoniot | the states a steady shock wave can leave behind it from a reference state of energy E₀, volume V₀ and pressure P₀: those with E − E₀ = ½(P + P₀)(V₀ − V) |
 | Hugoniostat, `"nphug"` | molecular dynamics at a pressure, along one axis or alike along every axis, whose thermostat drives the energy to the Hugoniot, as LAMMPS's `fix nphug`: a point of the Hugoniot without a shock wave |
+| MSST, `"msst"` | the multiscale shock technique: the box compressed along one axis by an equation of motion of its length that drives the stress to the Rayleigh line of a shock velocity, as LAMMPS's `fix msst`; the matter behind a steady shock, without the front |
+| Rayleigh line | the states a steady shock of velocity U_s reaches from a reference: P − P₀ = ρ₀U_s²(1 − V/V₀) |
+| Lagrangian position | of MSST: where the box is in the matter at rest, from where the shock reached it |
 | shock velocity, particle velocity | of a steady shock to a state of strain ε = 1 − V/V₀: the speed of its front, √((P − P₀)/(ρ₀ε)), and that of the matter behind it, ε times the first |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
 | NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |

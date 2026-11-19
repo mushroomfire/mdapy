@@ -138,6 +138,14 @@ public:
     // 2 speed - v . normal; normal (3,) a unit vector in the frame of the
     // atoms, into the side they are kept on.
     void reflect(const double* normal, double offset, double speed);
+    // The multiscale shock technique (LAMMPS's fix msst): the sum of the
+    // squares of the velocities; and the velocities half a step on,
+    // v = exp(d t) (c + d v - c exp(-d t)) / d, or its expansion for a small
+    // d t, with c = ftm2v f / m and d = base / m, less axial along the axis,
+    // kept unless trial; the sum of their squares.
+    double speed_squares() const;
+    double msst_kick(double half, double base, double axial, int axis, bool trial,
+                     double ftm2v);
 
     struct Impl;
     Impl& impl() { return *impl_; }

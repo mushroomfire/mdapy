@@ -26,7 +26,7 @@ from mdapy.simulation import _controls
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log
 
-_ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug")
+_ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
 _THERMOSTATS = ("nose-hoover", "langevin")
 # thermo keywords of LAMMPS and the columns they become
@@ -69,8 +69,8 @@ def _hugoniot(value: Any, ensemble: str) -> tuple[float, float, float] | None:
     """The reference state of nphug, (energy, volume, pressure), or None."""
     if value is None:
         return None
-    if ensemble != "nphug":
-        raise InvalidParameter('hugoniot is for the ensemble "nphug"')
+    if ensemble not in ("nphug", "msst"):
+        raise InvalidParameter('hugoniot is for the ensembles "nphug" and "msst"')
     try:
         energy, volume, pressure = (float(v) for v in value)
     except (TypeError, ValueError):
@@ -83,6 +83,48 @@ def _hugoniot(value: Any, ensemble: str) -> tuple[float, float, float] | None:
             f"not {value!r}"
         )
     return energy, volume, pressure
+
+
+# the settings of msst and their defaults, those of LAMMPS's fix msst
+_MSST = {"q": 10.0, "mu": 0.0, "tscale": 0.01}
+
+
+def _check_msst(
+    run: dict[str, Any], barostat: str, pbc: Any, controls: tuple
+) -> dict[str, float]:
+    """What fix msst takes: a shock velocity, an axis, a box periodic in
+    every direction, no pressure, temperature or controls; its settings with
+    their defaults."""
+    speed, settings = run["shock_velocity"], run["msst"]
+    if speed is None:
+        raise InvalidParameter("msst needs a shock_velocity")
+    if isinstance(speed, bool) or not (np.isfinite(speed) and speed >= 0):
+        raise InvalidParameter(
+            f"shock_velocity must be a number not negative, not {speed!r}"
+        )
+    if barostat not in ("x", "y", "z"):
+        raise InvalidParameter(
+            'msst needs the axis of the shock: barostat "x", "y" or "z"'
+        )
+    if run["pressures"] is not None or run["temperatures"] is not None:
+        raise InvalidParameter("msst takes no pressure or temperature")
+    if controls:
+        raise InvalidParameter("msst takes no controls")
+    if not np.all(pbc):
+        raise InvalidParameter("msst needs a box periodic in every direction")
+    if settings is None:
+        settings = {}
+    if not isinstance(settings, dict) or set(settings) - set(_MSST):
+        raise InvalidParameter(
+            f"msst takes a dict of q, mu and tscale, not {settings!r}"
+        )
+    out = _MSST | {k: float(v) for k, v in settings.items()}
+    if not (out["q"] > 0 and out["mu"] >= 0 and 0 <= out["tscale"] <= 1):
+        raise InvalidParameter(
+            "msst needs q positive, mu not negative and tscale from 0 to 1, "
+            f"not {settings!r}"
+        )
+    return out
 
 
 def _check_nphug(
@@ -195,6 +237,7 @@ class _Lammps:
         self.__baths: tuple = ()
         self.__temperature: str | None = None
         self.__hugoniostat = False  # whether the run is fix nphug
+        self.__shock = False  # whether the run is fix msst
         self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
@@ -339,6 +382,12 @@ create_box {len(potential.elements)} box
         for name, fix in self.__baths:
             # the tally of LAMMPS is the energy the bath took away
             row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
+        if self.__shock:  # the vector and the scalar of fix msst
+            names = ("hugoniot", "rayleigh", "particle_velocity", "lagrangian_position")
+            for k, name in enumerate(names):
+                row[name] = float(lmp.extract_fix("mdapy_integrate", 0, 1, k))
+            row["rayleigh"] *= units.BAR_TO_GPA
+            row["msst_energy"] = float(lmp.extract_fix("mdapy_integrate", 0, 0))
         if self.__hugoniostat:  # the first three of the vector of fix nphug
             for k, name in enumerate(
                 ("hugoniot", "shock_velocity", "particle_velocity")
@@ -367,6 +416,8 @@ create_box {len(potential.elements)} box
         if ensemble == "nphug":
             # the temperatures are those of the Hugoniot: these two are not used
             fix += f" temp 1.0 1.0 {float(run['thermostat_damping'])!r}"
+        if ensemble == "msst":
+            fix += self.__msst(run)
         if ensemble in ("npt", "nph", "nphug"):
             p0, p1 = (p * units.GPA_TO_BAR for p in run["pressures"])
             span = f"{p0!r} {p1!r} {float(run['barostat_damping'])!r}"
@@ -421,6 +472,7 @@ create_box {len(potential.elements)} box
         self.command(f"fix mdapy_integrate {group} {fix}")
         self.__fixes.insert(0, "mdapy_integrate")
         self.__hugoniostat = ensemble == "nphug"
+        self.__shock = ensemble == "msst"
         if self.__hugoniostat and run["hugoniot"] is not None:
             e0, v0, p0 = run["hugoniot"]
             self.command(
@@ -474,9 +526,27 @@ create_box {len(potential.elements)} box
             self.command(f"timestep {self.__timestep!r}")
         self.__adaptive = False
         self.__hugoniostat = False
+        self.__shock = False
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+
+    def __msst(self, run: dict[str, Any]) -> str:
+        """The arguments of fix msst, in a box in the form of LAMMPS."""
+        aligned = np.allclose(self.__rotation, np.eye(3), rtol=0, atol=1e-12)
+        if not (aligned and not self.__swapped):
+            raise InvalidParameter(
+                "msst needs a box whose first vector is along x and second in the "
+                "xy plane"
+            )
+        settings = run["msst"]
+        words = f" {run['barostat']} {run['shock_velocity']!r}" + "".join(
+            f" {k} {settings[k]!r}" for k in ("q", "mu", "tscale")
+        )
+        if run["hugoniot"] is not None:
+            e0, v0, p0 = run["hugoniot"]
+            words += f" p0 {p0 * units.GPA_TO_BAR!r} v0 {v0!r} e0 {e0!r}"
+        return words
 
     def __wall(self, name: str, wall: Any, aligned: bool) -> None:
         """A still wall as fix wall/reflect, a moving one as fix wall/piston,
@@ -907,6 +977,8 @@ class MolecularDynamics:
         seed: int | None = None,
         keep_momentum: bool = False,
         hugoniot: tuple[float, float, float] | None = None,
+        shock_velocity: float | None = None,
+        msst: dict[str, float] | None = None,
         thermo: int = 100,
         save_every: int | None = None,
         controls: Any = None,
@@ -919,11 +991,12 @@ class MolecularDynamics:
         ----------
         steps : int32
             Number of steps.
-        ensemble : {"nve", "nvt", "npt", "nph", "nphug"}, optional
+        ensemble : {"nve", "nvt", "npt", "nph", "nphug", "msst"}, optional
             Constant energy, or a thermostat, and barostat, or a barostat
             alone, or a barostat and a thermostat that keeps the atoms on the
-            Hugoniot of a reference state, as LAMMPS's fix nphug. Default
-            "nve".
+            Hugoniot of a reference state, as LAMMPS's fix nphug, or the box
+            compressed along an axis as by a steady shock of shock_velocity,
+            as fix msst. Default "nve".
         temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
@@ -941,7 +1014,7 @@ class MolecularDynamics:
             first vector along x and its second in the xy plane, periodic
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
-            compression. Default "iso".
+            compression; "msst" the axis of the shock. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
             "nose-hoover".
@@ -957,10 +1030,17 @@ class MolecularDynamics:
             the total momentum, as LAMMPS's fix langevin zero yes; with no
             atoms held or moved. Default False.
         hugoniot : (float64, float64, float64), optional
-            For "nphug", the reference state of the Hugoniot: its total
-            energy in eV, volume in Å³ and pressure in GPa, along the axis
-            of a barostat along one axis. Default None, the state at the
-            start of the run.
+            For "nphug" and "msst", the reference state of the Hugoniot: its
+            total energy in eV, volume in Å³ and pressure in GPa, along the
+            axis of a barostat along one axis or of the shock. Default None,
+            the state at the start of the run.
+        shock_velocity : float64, optional
+            For "msst", the velocity of the shock in Å/ps, not negative.
+        msst : dict, optional
+            For "msst", its settings: "q", the mass of the box in amu²/Å⁴
+            (default 10), "mu", an artificial viscosity in amu/(Å ps)
+            (default 0), and "tscale", the share of the kinetic energy given
+            to the compression at the start (default 0.01), as in fix msst.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -1007,6 +1087,8 @@ class MolecularDynamics:
             controls,
             keep_momentum,
             hugoniot,
+            shock_velocity,
+            msst,
         )
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
@@ -1026,6 +1108,8 @@ class MolecularDynamics:
         seed: int | None = None,
         keep_momentum: bool = False,
         hugoniot: tuple[float, float, float] | None = None,
+        shock_velocity: float | None = None,
+        msst: dict[str, float] | None = None,
         thermo: int = 100,
         controls: Any = None,
         progress: Any = None,
@@ -1043,11 +1127,12 @@ class MolecularDynamics:
         save_every : int32
             Gives the atoms every this many steps, and at the start unless
             the run before gave them there.
-        ensemble : {"nve", "nvt", "npt", "nph", "nphug"}, optional
+        ensemble : {"nve", "nvt", "npt", "nph", "nphug", "msst"}, optional
             Constant energy, or a thermostat, and barostat, or a barostat
             alone, or a barostat and a thermostat that keeps the atoms on the
-            Hugoniot of a reference state, as LAMMPS's fix nphug. Default
-            "nve".
+            Hugoniot of a reference state, as LAMMPS's fix nphug, or the box
+            compressed along an axis as by a steady shock of shock_velocity,
+            as fix msst. Default "nve".
         temperature : float64 or (float64, float64), optional
             Temperature in K of the thermostat, or its values at the start
             and the end of the run; needed for "nvt" and "npt".
@@ -1065,7 +1150,7 @@ class MolecularDynamics:
             first vector along x and its second in the xy plane, periodic
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
-            compression. Default "iso".
+            compression; "msst" the axis of the shock. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
             "nose-hoover".
@@ -1081,10 +1166,17 @@ class MolecularDynamics:
             the total momentum, as LAMMPS's fix langevin zero yes; with no
             atoms held or moved. Default False.
         hugoniot : (float64, float64, float64), optional
-            For "nphug", the reference state of the Hugoniot: its total
-            energy in eV, volume in Å³ and pressure in GPa, along the axis
-            of a barostat along one axis. Default None, the state at the
-            start of the run.
+            For "nphug" and "msst", the reference state of the Hugoniot: its
+            total energy in eV, volume in Å³ and pressure in GPa, along the
+            axis of a barostat along one axis or of the shock. Default None,
+            the state at the start of the run.
+        shock_velocity : float64, optional
+            For "msst", the velocity of the shock in Å/ps, not negative.
+        msst : dict, optional
+            For "msst", its settings: "q", the mass of the box in amu²/Å⁴
+            (default 10), "mu", an artificial viscosity in amu/(Å ps)
+            (default 0), and "tscale", the share of the kinetic energy given
+            to the compression at the start (default 0.01), as in fix msst.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -1138,6 +1230,8 @@ class MolecularDynamics:
             controls,
             keep_momentum,
             hugoniot,
+            shock_velocity,
+            msst,
         )
         return self.__read(spec, progress, cancel)
 
@@ -1177,6 +1271,8 @@ class MolecularDynamics:
         controls: Any = None,
         keep_momentum: bool = False,
         hugoniot: tuple[float, float, float] | None = None,
+        shock_velocity: float | None = None,
+        msst: dict[str, float] | None = None,
     ) -> dict[str, Any]:
         """The checked options of a run."""
         checked = _controls.checked(controls, self.__n)
@@ -1231,6 +1327,23 @@ class MolecularDynamics:
             raise InvalidParameter(f"{ensemble} needs a pressure")
         if ensemble == "nphug":
             _check_nphug(pressures, temperatures, thermostat, barostat, self.__pbc)
+        if ensemble != "msst" and (shock_velocity is not None or msst is not None):
+            raise InvalidParameter(
+                'shock_velocity and msst are for the ensemble "msst"'
+            )
+        settings = None
+        if ensemble == "msst":
+            settings = _check_msst(
+                {
+                    "shock_velocity": shock_velocity,
+                    "msst": msst,
+                    "pressures": pressures,
+                    "temperatures": temperatures,
+                },
+                barostat,
+                self.__pbc,
+                checked,
+            )
         if temperatures is not None and ensemble in ("nvt", "npt"):
             if not min(temperatures) > 0:
                 raise InvalidParameter(
@@ -1269,6 +1382,8 @@ class MolecularDynamics:
             "seed": None if seed is None else int(seed),
             "keep_momentum": bool(keep_momentum),
             "hugoniot": reference,
+            "shock_velocity": None if shock_velocity is None else float(shock_velocity),
+            "msst": settings,
             "thermo": int(thermo),
             "save_every": None if save_every is None else int(save_every),
             "controls": checked,
@@ -1361,6 +1476,12 @@ class MolecularDynamics:
             if spec["thermostat"] == "langevin" and spec["seed"] is not None:
                 text += f", seed {spec['seed']}"
             parts.append(text)
+        if ensemble == "msst":
+            settings = ", ".join(f"{k} {v!r}" for k, v in spec["msst"].items())
+            parts.append(
+                f"shock along {spec['barostat']} at {spec['shock_velocity']!r} Å/ps, "
+                f"{settings}"
+            )
         if ensemble == "nphug":
             parts.append(
                 f"thermostat on the Hugoniot with damping "

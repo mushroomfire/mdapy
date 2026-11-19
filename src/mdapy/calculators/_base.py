@@ -109,6 +109,11 @@ class Calculator(ABC):
     implemented: frozenset[str] = PROPERTIES
     device: str = "cpu"
     precision: str = "double"
+    # whether the atomic energies and virials give the heat flux: virials of
+    # pairwise forces split in halves, or the derivatives of the energy of
+    # each atom with the positions of the others (Fan et al., PRB 92, 094301
+    # (2015)); not the virials of many-body terms split among their atoms
+    _heat_flux: bool = False
 
     @abstractmethod
     def compute(

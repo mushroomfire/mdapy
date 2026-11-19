@@ -2,6 +2,17 @@
 
 ## 2.2.0 (not released)
 
+- `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
+  run in MDAPY, with the heat flux of the atomic energies and virials of the
+  potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in
+  LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
+  MEAM, whose virials of each atom do not give the heat flux, are refused. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+
+- `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
+  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
+  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+
 - `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
   velocities of a temperature for the atoms of a system, or of a part of
   them, with no total momentum, those `MolecularDynamics.velocities` gives in
@@ -19,9 +30,7 @@
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
   [Deformation](../user-guide/simulation/deformation.md).
-- `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
-  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
-  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

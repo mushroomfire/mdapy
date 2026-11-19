@@ -14,9 +14,11 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy import units
+from mdapy.calculators._base import Calculator
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
+from mdapy.lattice_dynamics._phonons import _masses
 from mdapy.simulation._dynamics import MolecularDynamics, _read_written
 
 # W/(m K) of 1 eV/(Å ps K)
@@ -168,9 +170,57 @@ def green_kubo_from_flux(
     )
 
 
+def _flux(frame: System, potential: Calculator) -> np.ndarray:
+    """(3,) the heat flux of the atoms times the volume in eV Å/ps: their
+    energies carried with them and the work of their virials, as LAMMPS's
+    compute heat/flux gives it."""
+    result = potential.compute(frame, ("atomic_energies", "atomic_virials"))
+    v = frame["velocities"]
+    kinetic = 0.5 * _masses(frame) * (v * v).sum(axis=1) * units.AMU_A2_PER_PS2_TO_EV
+    energies = result.atomic_energies + kinetic
+    return energies @ v + np.einsum("iab,ib->a", result.atomic_virials, v)
+
+
+def _flux_in_lammps(md: MolecularDynamics, production: int, every: int) -> np.ndarray:
+    """The heat flux of the production run, from LAMMPS's compute heat/flux
+    with the centroid stress of each atom."""
+    with tempfile.TemporaryDirectory() as folder:
+        path = os.path.join(folder, "flux.txt")
+        md.command(
+            "compute mdapy_ke all ke/atom\n"
+            "compute mdapy_pe all pe/atom\n"
+            "compute mdapy_stress all centroid/stress/atom NULL virial\n"
+            "compute mdapy_flux all heat/flux mdapy_ke mdapy_pe mdapy_stress\n"
+            f"fix mdapy_flux all ave/time {every} 1 {every} "
+            f"c_mdapy_flux[1] c_mdapy_flux[2] c_mdapy_flux[3] file {path} "
+            'format " %.17g"'
+        )
+        try:
+            md.run(production, ensemble="nve", thermo=every)
+        except InvalidParameter as error:
+            if "centroid" not in str(error):
+                raise
+            raise InvalidParameter(
+                "the heat flux needs the centroid stress of each atom, which "
+                f"this potential does not give LAMMPS: {error}"
+            ) from None
+        md.command("unfix mdapy_flux")
+        return _read_written(md.lammps, path)[:, 1:]
+
+
+def _flux_in_mdapy(
+    md: MolecularDynamics, potential: Calculator, production: int, every: int
+) -> np.ndarray:
+    """The heat flux of the production run in MDAPY's own dynamics, from the
+    atomic energies and virials of the potential every ``every`` steps."""
+    frames = md.iterate(production, save_every=every, ensemble="nve", thermo=every)
+    next(frames)  # the atoms at the start, where the equilibration ended
+    return np.array([_flux(frame, potential) for frame in frames])
+
+
 def green_kubo(
     system: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     *,
     timestep: float = 0.001,
@@ -182,17 +232,19 @@ def green_kubo(
     seed: int = 1,
 ) -> GreenKubo:
     """The thermal conductivity of a crystal or liquid at a temperature, from
-    the fluctuations of the heat flux in equilibrium molecular dynamics in
-    LAMMPS, by the Green-Kubo relation.
+    the fluctuations of the heat flux in equilibrium molecular dynamics, by
+    the Green-Kubo relation. The dynamics run in MDAPY, or in LAMMPS for a
+    LAMMPS calculator.
 
     Parameters
     ----------
     system : System
         The atoms in a box periodic in every direction, of its size at the
         temperature, with an ``element`` column.
-    potential : LAMMPS
-        The interaction, as a LAMMPS calculator; a many-body one must give
-        LAMMPS the centroid stress of each atom.
+    potential : Calculator
+        The interaction: in MDAPY, EAM, a pair potential or NEP, whose
+        virials of each atom give the heat flux; in LAMMPS, a many-body one
+        must give LAMMPS the centroid stress of each atom.
     temperature : float64
         Temperature in K, positive.
     timestep : float64, optional
@@ -224,6 +276,14 @@ def green_kubo(
         each atom, the errors of ``green_kubo_from_flux``, or those of
         ``MolecularDynamics``.
     """
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
+    if not (isinstance(potential, LAMMPS) or potential._heat_flux):
+        raise InvalidParameter(
+            "the heat flux needs the centroid stress of each atom, which "
+            f"{type(potential).__name__} does not give; EAM, the pair potentials "
+            "and NEP give it"
+        )
     if not system.box.pbc.all():
         raise InvalidParameter(
             "the Green-Kubo conductivity needs a box periodic in every direction"
@@ -233,35 +293,17 @@ def green_kubo(
     if min(int(equilibration), int(production), int(every)) < 1:
         raise InvalidParameter("equilibration, production and every must be positive")
     every = int(every)
-    with tempfile.TemporaryDirectory() as folder:
-        path = os.path.join(folder, "flux.txt")
-        with MolecularDynamics(system, potential, timestep=timestep) as md:
-            md.velocities(2 * temperature, seed=seed)
-            md.run(int(equilibration), ensemble="nvt", temperature=temperature)
-            md.command(
-                "compute mdapy_ke all ke/atom\n"
-                "compute mdapy_pe all pe/atom\n"
-                "compute mdapy_stress all centroid/stress/atom NULL virial\n"
-                "compute mdapy_flux all heat/flux mdapy_ke mdapy_pe mdapy_stress\n"
-                f"fix mdapy_flux all ave/time {every} 1 {every} "
-                f"c_mdapy_flux[1] c_mdapy_flux[2] c_mdapy_flux[3] file {path} "
-                'format " %.17g"'
-            )
-            start = md.step
-            try:
-                md.run(int(production), ensemble="nve", thermo=every)
-            except InvalidParameter as error:
-                if "centroid" not in str(error):
-                    raise
-                raise InvalidParameter(
-                    "the heat flux needs the centroid stress of each atom, which "
-                    f"this potential does not give LAMMPS: {error}"
-                ) from None
-            md.command("unfix mdapy_flux")
-            thermo = md.thermo.filter(md.thermo["step"] > start)
-            volume = float(np.mean(thermo["volume"].to_numpy()))
-            mean = float(np.mean(thermo["temperature"].to_numpy()))
-            flux = _read_written(md.lammps, path)[:, 1:]
+    with MolecularDynamics(system, potential, timestep=timestep) as md:
+        md.velocities(2 * temperature, seed=seed)
+        md.run(int(equilibration), ensemble="nvt", temperature=temperature)
+        start = md.step
+        if isinstance(potential, LAMMPS):
+            flux = _flux_in_lammps(md, int(production), every)
+        else:
+            flux = _flux_in_mdapy(md, potential, int(production), every)
+        thermo = md.thermo.filter(md.thermo["step"] > start)
+        volume = float(np.mean(thermo["volume"].to_numpy()))
+        mean = float(np.mean(thermo["temperature"].to_numpy()))
     return green_kubo_from_flux(
         flux,
         interval=every * float(timestep),

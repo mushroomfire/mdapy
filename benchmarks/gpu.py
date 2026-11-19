@@ -4,52 +4,105 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Molecular dynamics on one NVIDIA GPU: MDAPY against LAMMPS with KOKKOS, in
-mixed and in double precision, and with its GPU package in mixed precision,
-for copper with the EAM of Zhou et al. and argon with Lennard-Jones, at
-constant energy.
+mixed and in double precision, at constant energy, for each potential of
+MDAPY that KOKKOS also has.
 
-    LMP_KOKKOS_MIXED=... LMP_KOKKOS_DOUBLE=... LMP_GPU=... \\
+    LMP_KOKKOS_MIXED=... LMP_KOKKOS_DOUBLE=... LAMMPS_POTENTIALS=... \\
         python benchmarks/gpu.py run --output gpu.json
     python benchmarks/gpu.py table gpu.json
     python benchmarks/gpu.py plot gpu.json gpu.png
 
-Each run builds the crystal, gives it the velocities of a temperature, runs 50
-steps and times the next 300. LAMMPS reports the time of its loop; MDAPY
-that of MolecularDynamics.run, which records the state at its start and end.
-KOKKOS runs with full neighbor lists and Newton's third law off, its
-default on GPUs, and with half lists and the law on; both are kept. A LAMMPS
-not given by its variable is left out. --rest waits that many seconds before
-each run, for a GPU that slows down as it warms to cool first.
+LAMMPS_POTENTIALS is the potentials folder of LAMMPS, which holds the files
+of ADP, Stillinger-Weber, Tersoff and MEAM. Each run builds the crystal, gives
+it the velocities of a temperature, runs 50 steps and times the next 300.
+LAMMPS reports the time of its loop; MDAPY that of MolecularDynamics.run,
+which records the state at its start and end. KOKKOS runs with full neighbor
+lists and Newton's third law off, its default on GPUs, and with half lists and
+the law on; both are kept, and a setting a style does not take is left out. A
+LAMMPS not given by its variable is left out. --rest waits that many seconds
+before each run, for a GPU that slows down as it warms to cool first.
 """
 
 import argparse
+import gc
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 import time
 from pathlib import Path
 
+COPPER = ("fcc", 3.615, "Cu", 63.546)
+SILICON = ("diamond", 5.431, "Si", 28.0855)
 # name: crystal (structure, lattice constant, element, mass), temperature K,
-# time step ps, sizes (repeats of the cubic cell), the LAMMPS interaction
+# time step ps, sizes (repeats of the cubic cell), the LAMMPS interaction and
+# the files of LAMMPS it reads
 CASES = {
     "eam": {
-        "title": "Copper, EAM of Zhou et al.",
-        "crystal": ("fcc", 3.615, "Cu", 63.546),
+        "title": "Cu, EAM of Zhou et al.",
+        "crystal": COPPER,
         "temperature": 600.0,
         "timestep": 0.002,
         "repeats": (20, 40, 60, 80),
         "lammps": "pair_style eam/alloy\npair_coeff * * Cu_zhou.eam.alloy Cu",
+        "files": (),
     },
     "lj": {
-        "title": "Argon, Lennard-Jones cut at 8.5 Å",
+        "title": "Ar, Lennard-Jones",
         "crystal": ("fcc", 5.26, "Ar", 39.948),
         "temperature": 60.0,
         "timestep": 0.005,
         "repeats": (16, 32, 48, 64),
         "lammps": "pair_style lj/cut 8.5\npair_coeff 1 1 0.0104 3.40",
+        "files": (),
+    },
+    "morse": {
+        "title": "Cu, Morse",
+        "crystal": COPPER,
+        "temperature": 600.0,
+        "timestep": 0.002,
+        "repeats": (20, 40, 60, 80),
+        "lammps": "pair_style morse 6.5\npair_coeff 1 1 0.3429 1.3588 2.866",
+        "files": (),
+    },
+    "adp": {
+        "title": "Ni, ADP",
+        "crystal": ("fcc", 3.52, "Ni", 58.6934),
+        "temperature": 600.0,
+        "timestep": 0.002,
+        "repeats": (20, 40, 60, 80),
+        "lammps": "pair_style adp\npair_coeff * * Ni.adp Ni",
+        "files": ("Ni.adp",),
+    },
+    "sw": {
+        "title": "Si, Stillinger-Weber",
+        "crystal": SILICON,
+        "temperature": 1000.0,
+        "timestep": 0.001,
+        "repeats": (16, 32, 48, 64),
+        "lammps": "pair_style sw\npair_coeff * * Si.sw Si",
+        "files": ("Si.sw",),
+    },
+    "tersoff": {
+        "title": "Si, Tersoff",
+        "crystal": SILICON,
+        "temperature": 1000.0,
+        "timestep": 0.001,
+        "repeats": (16, 32, 48, 64),
+        "lammps": "pair_style tersoff\npair_coeff * * Si.tersoff Si",
+        "files": ("Si.tersoff",),
+    },
+    "meam": {
+        "title": "Cu, MEAM",
+        "crystal": COPPER,
+        "temperature": 600.0,
+        "timestep": 0.002,
+        "repeats": (20, 40, 60, 80),
+        "lammps": "pair_style meam\npair_coeff * * library.meam Cu Cu.meam Cu",
+        "files": ("library.meam", "Cu.meam"),
     },
 }
 WARM, STEPS = 50, 300
@@ -92,77 +145,111 @@ def run_lammps(executable: str, flags: list[str], text: str, folder: Path) -> fl
     return float(seconds) / int(steps)
 
 
-def run_mdapy(case: dict, repeat: int, precision: str) -> float:
+def potential(name: str, folder: Path, precision: str):
+    """The potential of MDAPY of a case, on the GPU."""
+    from mdapy.calculators import (
+        ADP,
+        EAM,
+        MEAM,
+        LennardJones,
+        Morse,
+        StillingerWeber,
+        Tersoff,
+    )
+
+    options = {"device": "cuda", "precision": precision}
+    if name == "eam":
+        return EAM.zhou(["Cu"], **options)
+    if name == "lj":
+        return LennardJones((0.0104, 3.40), 8.5, **options)
+    if name == "morse":
+        return Morse({"Cu": (0.3429, 1.3588, 2.866)}, 6.5, **options)
+    if name == "adp":
+        return ADP(folder / "Ni.adp", **options)
+    if name == "sw":
+        return StillingerWeber(folder / "Si.sw", **options)
+    if name == "tersoff":
+        return Tersoff(folder / "Si.tersoff", **options)
+    return MEAM(folder / "library.meam", ["Cu"], folder / "Cu.meam", **options)
+
+
+def run_mdapy(
+    name: str, case: dict, repeat: int, precision: str, folder: Path
+) -> float:
     from mdapy.build import build_crystal
-    from mdapy.calculators import EAM, LennardJones
     from mdapy.simulation import MolecularDynamics
 
     structure, a, element, _ = case["crystal"]
     system = build_crystal(structure, a, elements=element, repeat=(repeat,) * 3)
-    if element == "Cu":
-        potential = EAM.zhou(["Cu"], device="cuda", precision=precision)
-    else:
-        potential = LennardJones(
-            (0.0104, 3.40), 8.5, device="cuda", precision=precision
-        )
-    with MolecularDynamics(system, potential, timestep=case["timestep"]) as md:
+    interaction = potential(name, folder, precision)
+    with MolecularDynamics(system, interaction, timestep=case["timestep"]) as md:
         md.velocities(case["temperature"], seed=1)
         md.run(WARM, thermo=WARM)
         start = time.perf_counter()
         md.run(STEPS, thermo=STEPS)
-        return (time.perf_counter() - start) / STEPS
+        seconds = (time.perf_counter() - start) / STEPS
+    del md, interaction
+    gc.collect()
+    return seconds
 
 
-def run(output: Path, rest: float) -> None:
+def machine() -> dict:
+    """The GPU, its driver and the processor."""
+    out = {}
+    try:
+        query = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,driver_version,memory.total",
+             "--format=csv,noheader"],
+            capture_output=True, text=True, check=True,
+        ).stdout.strip().splitlines()  # fmt: skip
+        out["gpu"] = query[0] if query else ""
+    except (OSError, subprocess.CalledProcessError):
+        out["gpu"] = ""
+    try:
+        lscpu = subprocess.run(["lscpu"], capture_output=True, text=True).stdout
+        model = re.search(r"Model name:\s*(.*)", lscpu)
+        out["cpu"] = model.group(1).strip() if model else ""
+    except OSError:
+        out["cpu"] = ""
+    return out
+
+
+def run(output: Path, rest: float, names: list[str]) -> None:
     from mdapy.calculators import EAM
 
     programs = {
         "kokkos mixed": os.environ.get("LMP_KOKKOS_MIXED"),
         "kokkos double": os.environ.get("LMP_KOKKOS_DOUBLE"),
-        "gpu package mixed": os.environ.get("LMP_GPU"),
     }
+    potentials = os.environ.get("LAMMPS_POTENTIALS")
+    info = machine()
     records = []
     with tempfile.TemporaryDirectory() as tmp:
         folder = Path(tmp)
         EAM.zhou(["Cu"]).write(folder / "Cu_zhou.eam.alloy")
-        for name, case in CASES.items():
+        for name in names:
+            case = CASES[name]
+            for file in case["files"]:
+                if not potentials:
+                    raise SystemExit(f"{name} needs LAMMPS_POTENTIALS for {file}")
+                shutil.copy(Path(potentials) / file, folder / file)
             for repeat in case["repeats"]:
-                atoms = 4 * repeat**3
+                structure = case["crystal"][0]
+                atoms = (4 if structure == "fcc" else 8) * repeat**3
                 text = lammps_input(case, repeat)
                 runs = []
                 for program, executable in programs.items():
                     if not executable:
                         continue
-                    if program.startswith("kokkos"):
-                        for setting, options in KOKKOS.items():
-                            flags = [
-                                "-k",
-                                "on",
-                                "g",
-                                "1",
-                                "-sf",
-                                "kk",
-                                "-pk",
-                                "kokkos",
-                                *options.split(),
-                            ]
-                            runs.append(
-                                (
-                                    program,
-                                    setting,
-                                    lambda f=flags, e=executable: run_lammps(
-                                        e, f, text, folder
-                                    ),
-                                )
-                            )
-                    else:
-                        flags = ["-sf", "gpu", "-pk", "gpu", "1"]
+                    for setting, options in KOKKOS.items():
+                        flags = ["-k", "on", "g", "1", "-sf", "kk", "-pk", "kokkos",
+                                 *options.split()]  # fmt: skip
                         runs.append(
                             (
                                 program,
-                                "",
-                                lambda f=flags, e=executable: run_lammps(
-                                    e, f, text, folder
+                                setting,
+                                lambda f=flags, e=executable, t=text: run_lammps(
+                                    e, f, t, folder
                                 ),
                             )
                         )
@@ -171,19 +258,31 @@ def run(output: Path, rest: float) -> None:
                         (
                             f"mdapy {precision}",
                             "",
-                            lambda p=precision: run_mdapy(case, repeat, p),
+                            lambda p=precision, n=name, c=case, r=repeat: run_mdapy(
+                                n, c, r, p, folder
+                            ),
                         )
                     )
                 for program, setting, measure in runs:
                     time.sleep(rest)
-                    seconds = measure()
+                    try:
+                        seconds = measure()
+                    except subprocess.CalledProcessError as error:
+                        said = (error.stdout or "") + (error.stderr or "")
+                        tail = [s for s in said.splitlines() if "ERROR" in s]
+                        tail = tail or said.strip().splitlines()[-1:]
+                        print(f"{name} {atoms:>9} {program:<14} {setting:<5} failed: {tail}",
+                              flush=True)  # fmt: skip
+                        continue
                     records.append({"case": name, "program": program, "setting": setting,
                                     "atoms": atoms, "seconds_per_step": seconds})  # fmt: skip
                     print(
-                        f"{name} {atoms:>9} {program:<18} {setting:<5} {seconds * 1e3:9.3f} ms/step",
+                        f"{name} {atoms:>9} {program:<14} {setting:<5} {seconds * 1e3:9.3f} ms/step",
                         flush=True,
                     )
-    output.write_text(json.dumps({"records": records}, indent=1))
+                    output.write_text(
+                        json.dumps({"machine": info, "records": records}, indent=1)
+                    )
 
 
 def best(records: list[dict]) -> dict:
@@ -196,19 +295,12 @@ def best(records: list[dict]) -> dict:
     return out
 
 
-PROGRAMS = (
-    "mdapy mixed",
-    "kokkos mixed",
-    "gpu package mixed",
-    "mdapy double",
-    "kokkos double",
-)
+PROGRAMS = ("mdapy mixed", "kokkos mixed", "mdapy double", "kokkos double")
 NAMES = {
     "mdapy mixed": "MDAPY, mixed",
-    "kokkos mixed": "LAMMPS KOKKOS, mixed",
-    "gpu package mixed": "LAMMPS GPU package, mixed",
+    "kokkos mixed": "KOKKOS, mixed",
     "mdapy double": "MDAPY, double",
-    "kokkos double": "LAMMPS KOKKOS, double",
+    "kokkos double": "KOKKOS, double",
 }
 
 
@@ -216,6 +308,8 @@ def table(path: Path) -> None:
     fastest = best(json.loads(path.read_text())["records"])
     for name, case in CASES.items():
         sizes = sorted({k[2] for k in fastest if k[0] == name})
+        if not sizes:
+            continue
         programs = [
             p for p in PROGRAMS if any(k[1] == p for k in fastest if k[0] == name)
         ]
@@ -234,16 +328,19 @@ def plot(path: Path, image: Path) -> None:
     from mdapy.visualization import plot as mplot
 
     fastest = best(json.loads(path.read_text())["records"])
+    names = [n for n in CASES if any(k[0] == n for k in fastest)]
     styles = {
         "mdapy mixed": ("C0", "-", "o"),
         "kokkos mixed": ("C1", "-", "s"),
-        "gpu package mixed": ("C2", "-", "^"),
         "mdapy double": ("C0", "--", "o"),
         "kokkos double": ("C1", "--", "s"),
     }
+    columns = 4
+    rows = -(-(len(names) + 1) // columns)
     with mplot.style():
-        fig, axes = mplot.figure("double", ncols=2)
-        for ax, (name, case) in zip(axes, CASES.items()):
+        fig, axes = mplot.figure("double", nrows=rows, ncols=columns)
+        axes = axes.ravel()
+        for ax, name in zip(axes, names):
             for program in PROGRAMS:
                 points = sorted((k[2], r["seconds_per_step"]) for k, r in fastest.items()
                                 if k[0] == name and k[1] == program)  # fmt: skip
@@ -252,17 +349,17 @@ def plot(path: Path, image: Path) -> None:
                 atoms = [p[0] for p in points]
                 rate = [p[0] / p[1] / 1e6 for p in points]
                 color, line, marker = styles[program]
-                ax.plot(
-                    atoms,
-                    rate,
-                    color=color,
-                    linestyle=line,
-                    marker=marker,
-                    label=NAMES[program],
-                )
-            ax.set(xscale="log", xlabel="Atoms", ylabel="Million atom-steps per second",
-                   title=case["title"], ylim=(0, None))  # fmt: skip
-        axes[0].legend()
+                ax.plot(atoms, rate, color=color, linestyle=line, marker=marker,
+                        label=NAMES[program])  # fmt: skip
+            ax.set(xscale="log", title=CASES[name]["title"], ylim=(0, None))
+        for ax in axes[len(names) :]:
+            ax.axis("off")
+        for ax in axes[::columns]:
+            ax.set_ylabel("Matom-steps/s")
+        for ax in axes[len(names) - columns : len(names)]:
+            ax.set_xlabel("Atoms")
+        handles, labels = axes[0].get_legend_handles_labels()
+        axes[len(names)].legend(handles, labels, loc="center")
         mplot.save(fig, str(image.with_suffix("")), formats=("png",))
 
 
@@ -272,6 +369,7 @@ def main() -> int:
     r = sub.add_parser("run")
     r.add_argument("--output", type=Path, default=Path("gpu.json"))
     r.add_argument("--rest", type=float, default=0.0)
+    r.add_argument("--cases", nargs="+", choices=list(CASES), default=list(CASES))
     t = sub.add_parser("table")
     t.add_argument("path", type=Path)
     p = sub.add_parser("plot")
@@ -279,7 +377,7 @@ def main() -> int:
     p.add_argument("image", type=Path)
     args = parser.parse_args()
     if args.command == "run":
-        run(args.output, args.rest)
+        run(args.output, args.rest, args.cases)
     elif args.command == "table":
         table(args.path)
     else:

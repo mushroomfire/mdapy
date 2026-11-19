@@ -148,6 +148,7 @@ NB_MODULE(_cuda, m) {
              })
         .def("kick", &Atoms::kick, nb::arg("c"))
         .def("drift", &Atoms::drift, nb::arg("dt"))
+        .def("kick_drift", &Atoms::kick_drift, nb::arg("c"), nb::arg("dt"))
         .def("scale", &Atoms::scale, nb::arg("fx"), nb::arg("fy"), nb::arg("fz"))
         .def("shear", &Atoms::shear, nb::arg("half"), nb::arg("yz"), nb::arg("xz"),
              nb::arg("xy"))
@@ -170,6 +171,50 @@ NB_MODULE(_cuda, m) {
             nb::arg("movable"), nb::arg("rotation"))
         .def("restrict_forces", &Atoms::restrict_forces)
         .def("restrict_velocities", &Atoms::restrict_velocities)
+        .def("clear_movable", &Atoms::clear_movable)
+        .def(
+            "set_prescribed",
+            [](Atoms& a, Positions velocities) {
+                if (static_cast<std::int64_t>(velocities.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one velocity per atom");
+                }
+                a.set_prescribed(velocities.data());
+            },
+            nb::arg("velocities"))
+        .def("clear_prescribed", [](Atoms& a) { a.set_prescribed(nullptr); })
+        .def(
+            "set_added",
+            [](Atoms& a, Positions forces) {
+                if (static_cast<std::int64_t>(forces.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one force per atom");
+                }
+                a.set_added(forces.data());
+            },
+            nb::arg("forces"))
+        .def("clear_added", [](Atoms& a) { a.set_added(nullptr); })
+        .def("add_forces", &Atoms::add_forces)
+        .def(
+            "set_groups",
+            [](Atoms& a, Species bits) {
+                if (static_cast<std::int64_t>(bits.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one group word per atom");
+                }
+                a.set_groups(bits.data());
+            },
+            nb::arg("bits"))
+        .def("clear_groups", [](Atoms& a) { a.set_groups(nullptr); })
+        .def(
+            "group_forces",
+            [](const Atoms& a, int count) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(count), 3}, data);
+                a.group_forces(count, data);
+                return out;
+            },
+            nb::arg("count"))
+        .def("kinetic_free", &Atoms::kinetic_free)
+        .def("bath", &Atoms::bath, nb::arg("bit"), nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
+             nb::arg("seed"), nb::arg("counter"))
         .def("kinetic",
              [](const Atoms& a) {
                  double* data;

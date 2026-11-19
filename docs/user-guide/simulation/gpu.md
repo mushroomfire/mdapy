@@ -65,7 +65,7 @@ lets it drift by less than 0.1 µeV per atom per ps.*
 ## Building the GPU part
 
 The wheels of MDAPY on PyPI hold no GPU part. MDAPY built from its source with the
-CUDA toolkit (tested with CUDA 13.5) holds it, the module `mdapy._cuda`:
+CUDA toolkit (tested with CUDA 12.6 and 13.5) holds it, the module `mdapy._cuda`:
 
 ```bash
 pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
@@ -124,7 +124,8 @@ that seed.
 processor. Along every periodic direction the box must be thicker than twice the
 cutoff of the potential and the skin, 1 Å, at every step, also as a barostat changes
 it; smaller boxes and small systems are for the processor. A `movable` column holds
-atoms along the directions where it is False, as on the processor.
+atoms along the directions where it is False, and the [controls](controls.md) of a run
+hold, move, push and bathe groups of atoms, as on the processor.
 
 ## Errors
 

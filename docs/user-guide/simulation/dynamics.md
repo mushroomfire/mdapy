@@ -110,7 +110,7 @@ temperature then counts the directions in which the atoms move.
 | Method or attribute | Meaning |
 |---|---|
 | `velocities(temperature, *, seed)` | random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions |
-| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, progress=None, cancel=None)` | runs `steps` steps |
+| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)` | runs `steps` steps |
 | `iterate(steps, *, save_every, ...)`, the other parameters those of `run` | runs as `run` does, giving the atoms every `save_every` steps as the run reaches them and keeping none: see [Frames in files](#frames-in-files) |
 | `command(commands)` | runs any LAMMPS commands, one or several lines (LAMMPS only) |
 | `lammps` | the LAMMPS instance itself (LAMMPS only) |
@@ -128,8 +128,39 @@ temperature then counts the directions in which the atoms move.
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
+| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce` or `Langevin`: what is done to groups of atoms during the run; see [Groups and controls](controls.md) |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
+
+The velocities of `system`, if it has them, are where the dynamics starts;
+`thermal_velocities` gives a system those of a temperature, the same as
+`velocities` gives in MDAPY with the same seed, to all its atoms or to a
+part, the others still: a flyer of copper at 300 K that strikes the rest
+at 1 km/s, 10 Å/ps,
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import MolecularDynamics, thermal_velocities
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 4, 4))
+flyer = crystal["positions"][:, 0] < 20.0
+v = thermal_velocities(crystal, 300.0, seed=1, mask=flyer)
+v[flyer, 0] += 10.0
+with MolecularDynamics(crystal.with_columns(velocities=v), EAM.zhou(["Cu"])) as md:
+    md.run(10)
+```
+
+| Parameter of `thermal_velocities` | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `system` | `System` | | | the atoms, with a `mass` or an `element` column; a `movable` column keeps them still along the directions where it is False, and then their total momentum is not removed |
+| `temperature` | float64 | | K | the temperature, not negative |
+| `seed` | int32 | | | seed of the random numbers, positive |
+| `mask` | (N,) bool | every atom | | the atoms that get velocities, with no total momentum among them; the others get none |
+
+It returns the (N, 3) float64 velocities in Å/ps: Gaussian, scaled so that
+their kinetic energy is that of the temperature over 3n − 3 directions of
+the n atoms of `mask`, or over those a `movable` column frees.
 
 A run goes in pieces between the steps at which something is recorded; the
 pieces run as one run would, a temperature or pressure changing from its
@@ -145,8 +176,7 @@ box may have any orientation and need not be periodic: LAMMPS gets it rotated
 into its own form, its non-periodic directions shrink-wrapped but never
 smaller than the box of `system`, and everything comes back in the
 orientation of `system`. MDAPY's own dynamics works in the same form of the
-box. The velocities of `system`, if it has them, are where the dynamics
-starts.
+box.
 
 ### Log
 
@@ -294,8 +324,10 @@ in LAMMPS, a `movable` column that holds atoms in LAMMPS, commands that
 LAMMPS rejects, and a `log` that is neither a path nor a stream, or that
 cannot be written; `MissingProperty` for a system without elements (or, in
 MDAPY, without masses); `ImportError` without the LAMMPS Python module, for a
-LAMMPS calculator. `velocities` raises `InvalidParameter` for a negative
-temperature or a seed that is not positive; `run` for a negative number of
+LAMMPS calculator. `velocities` and `thermal_velocities` raise `InvalidParameter` for a negative
+temperature or a seed that is not positive, and `thermal_velocities` for a
+mask that is not one bool for each atom and `MissingProperty` for a system
+without masses or elements; `run` for a negative number of
 steps, an unknown ensemble, barostat or thermostat, a thermostat without a
 positive temperature, a barostat without a pressure, `"aniso"` or `"tri"` in
 a box that is not periodic, `"xy"` in a box not periodic along its first two

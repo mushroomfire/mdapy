@@ -286,3 +286,115 @@ def test_errors():
     positions[1] = positions[0]
     with pytest.raises(CalculationFailed, match="not finite"):
         run(system.with_columns(positions=positions), lj, 20)
+
+
+def walls(seed=0):
+    """A shaken crystal with its bottom, top and middle layers."""
+    system = crystal(seed=seed)
+    rng = np.random.default_rng(seed)
+    system = system.with_columns(
+        positions=system["positions"] + rng.normal(0, 0.03, (len(system), 3))
+    )
+    z = system.box.to_fractional(system["positions"])[:, 2]
+    return system, z < 0.2, z > 0.8, (z > 0.45) & (z < 0.55)
+
+
+def test_controls_as_on_the_processor():
+    from mdapy.simulation import AddForce, Hold, Move
+
+    system, bottom, top, middle = walls()
+    controls = [
+        Hold(bottom, directions="xz"),
+        Move(top, (0.4, -0.2, 0.1), name="top"),
+        AddForce(middle, (0.0, 0.05, 0.02)),
+    ]
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(200, ensemble="nvt", temperature=300, thermo=50, controls=controls)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    np.testing.assert_allclose(
+        np.stack(ta["top_force"]), np.stack(tb["top_force"]), rtol=0, atol=1e-6
+    )
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_heat_baths(precision):
+    """A hot and a cold bath: the energy changes by the heat they gave, and a
+    seed gives the same run."""
+    from mdapy.simulation import Hold, Langevin
+
+    system, bottom, top, middle = walls()
+    potential = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
+    runs = []
+    for _ in range(2):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                2000,
+                thermo=100,
+                controls=[
+                    Langevin(bottom, 600.0, damping=0.1, seed=3, name="hot"),
+                    Langevin(top, 100.0, damping=0.1, seed=4, name="cold"),
+                    Hold(middle, directions="z"),
+                ],
+            )
+            runs.append((md.thermo, md.system))
+    thermo, end = runs[0]
+    energy = thermo["total_energy"].to_numpy()
+    heat = thermo["hot_energy"].to_numpy() + thermo["cold_energy"].to_numpy()
+    assert thermo["hot_energy"][-1] > 5.0 and thermo["cold_energy"][-1] < -5.0
+    assert np.abs(energy - energy[0] - heat).max() < 0.05
+    np.testing.assert_array_equal(runs[1][1]["velocities"], end["velocities"])
+    assert np.abs(end["velocities"][middle, 2]).max() < 1e-12
+
+
+def test_deformation_as_on_the_processor():
+    """A box stretched, compressed and sheared on the GPU, then with a
+    barostat on the lengths left: the runs of the processor."""
+    from mdapy.simulation import Deform
+
+    system, *_ = walls()
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                200,
+                ensemble="nvt",
+                temperature=300,
+                thermo=50,
+                controls=Deform(xx=0.2, zz=-0.1, xy=0.3),
+            )
+            md.run(
+                100,
+                ensemble="npt",
+                temperature=300,
+                pressure=0.0,
+                barostat="aniso",
+                controls=Deform(yy=0.2, kind="true"),
+            )
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-9)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    np.testing.assert_allclose(
+        np.stack(ta["stress"]), np.stack(tb["stress"]), rtol=0, atol=1e-6
+    )

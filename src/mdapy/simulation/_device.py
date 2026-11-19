@@ -55,12 +55,15 @@ class DeviceAtoms:
         self.__atoms.set_masses(np.ascontiguousarray(masses, dtype=np.float64))
         self.__atoms.set_positions(np.ascontiguousarray(x, dtype=np.float64))
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
-        self.__held = movable is not None
-        if self.__held:
-            self.__atoms.set_movable(
-                np.ascontiguousarray(movable, dtype=bool),
-                np.ascontiguousarray(rotation, dtype=np.float64),
-            )
+        self.__rotation = np.ascontiguousarray(
+            np.eye(3) if rotation is None else rotation, dtype=np.float64
+        )
+        self.__movable = movable  # the atoms the system itself holds
+        self.__held = False
+        self.__set_free(movable)
+        self.__watched = 0  # groups whose forces are summed: bits 0 to this
+        self.__baths: list = []  # (bit, seed, [counter]) of each bath
+        self.sums: list = []
         self.__neighbors = module.Neighbors(on.cutoff, skin)
         self.__potential = on.potential
         self.__h = np.zeros((3, 3))  # the box, for the images of the wrapped atoms
@@ -103,6 +106,9 @@ class DeviceAtoms:
         self.__potential.compute(
             self.__atoms, self.__neighbors, h, lo, pbc, energy, virial, False
         )
+        if self.__watched:
+            self.sums = list(self.__atoms.group_forces(self.__watched))
+        self.__atoms.add_forces()
         if self.__held:
             self.__atoms.restrict_forces()
         e = math.nan
@@ -119,6 +125,9 @@ class DeviceAtoms:
     def drift(self, dt: float) -> None:
         self.__atoms.drift(dt)
 
+    def kick_drift(self, c: float, dt: float) -> None:
+        self.__atoms.kick_drift(c, dt)
+
     def scale(self, factor: Any) -> None:
         f = np.broadcast_to(np.asarray(factor, dtype=np.float64), (3,))
         self.__atoms.scale(float(f[0]), float(f[1]), float(f[2]))
@@ -128,6 +137,73 @@ class DeviceAtoms:
 
     def restrict(self) -> None:
         self.__atoms.restrict_velocities()
+
+    def __set_free(self, free: np.ndarray | None) -> None:
+        self.__held = free is not None
+        if self.__held:
+            self.__atoms.set_movable(
+                np.ascontiguousarray(free, dtype=bool), self.__rotation
+            )
+        else:
+            self.__atoms.clear_movable()
+
+    def set_controls(
+        self,
+        free: np.ndarray | None,
+        prescribed: np.ndarray | None,
+        added: np.ndarray | None,
+        watched: tuple,
+        baths: tuple,
+    ) -> None:
+        """The controls of a run, as _HostAtoms.set_controls takes them: the
+        groups whose forces are summed and the baths as bits of a word of
+        each atom."""
+        atoms = self.__atoms
+        self.__set_free(free)
+        if prescribed is None:
+            atoms.clear_prescribed()
+        else:
+            atoms.set_prescribed(np.ascontiguousarray(prescribed, dtype=np.float64))
+        if added is None:
+            atoms.clear_added()
+        else:
+            atoms.set_added(np.ascontiguousarray(added, dtype=np.float64))
+        masks = [*watched, *(mask for mask, _ in baths)]
+        if len(masks) > 31:
+            raise InvalidParameter("the GPU takes at most 31 groups moved or bathed")
+        if masks:
+            bits = np.zeros(len(masks[0]), dtype=np.int32)
+            for k, mask in enumerate(masks):
+                bits[mask] |= np.int32(1 << k)
+            atoms.set_groups(bits)
+        else:
+            atoms.clear_groups()
+        self.__watched = len(watched)
+        self.__baths = [
+            (len(watched) + k, int(seed) % (1 << 63), [0])
+            for k, (_, seed) in enumerate(baths)
+        ]
+        self.sums = []
+
+    def clear_controls(self) -> None:
+        atoms = self.__atoms
+        self.__set_free(self.__movable)
+        atoms.clear_prescribed()
+        atoms.clear_added()
+        atoms.clear_groups()
+        self.__watched = 0
+        self.__baths = []
+        self.sums = []
+
+    def twice_kinetic_free(self) -> float:
+        return float(self.__atoms.kinetic_free()) * _MVV2E
+
+    def bath(self, k: int, c1: float, c2: float, kt: float) -> float:
+        """Bath k for half a step: the kinetic energy it added, in eV."""
+        bit, seed, counter = self.__baths[k]
+        heat = self.__atoms.bath(bit, c1, c2, kt, seed, counter[0])
+        counter[0] += 1
+        return float(heat) * _MVV2E
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray

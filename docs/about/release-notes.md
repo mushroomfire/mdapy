@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
+  velocities of a temperature for the atoms of a system, or of a part of
+  them, with no total momentum, those `MolecularDynamics.velocities` gives in
+  MDAPY with the same seed; a system's velocities are where a run starts. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md#running).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,

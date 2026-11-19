@@ -130,6 +130,32 @@ temperature then counts the directions in which the atoms move.
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 
+The velocities of `system`, if it has them, are where the dynamics starts;
+`thermal_velocities` gives a system those of a temperature, the same as
+`velocities` gives in MDAPY with the same seed, to all its atoms or to a
+part, the others still: a flyer of copper at 300 K that strikes the rest
+at 1 km/s, 10 Å/ps,
+
+```python
+from mdapy.simulation import thermal_velocities
+
+flyer = crystal["positions"][:, 0] < 20.0
+v = thermal_velocities(crystal, 300.0, seed=1, mask=flyer)
+v[flyer, 0] += 10.0
+md = MolecularDynamics(crystal.with_columns(velocities=v), potential)
+```
+
+| Parameter of `thermal_velocities` | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `system` | `System` | | | the atoms, with a `mass` or an `element` column; a `movable` column keeps them still along the directions where it is False, and then their total momentum is not removed |
+| `temperature` | float64 | | K | the temperature, not negative |
+| `seed` | int32 | | | seed of the random numbers, positive |
+| `mask` | (N,) bool | every atom | | the atoms that get velocities, with no total momentum among them; the others get none |
+
+It returns the (N, 3) float64 velocities in Å/ps: Gaussian, scaled so that
+their kinetic energy is that of the temperature over 3n − 3 directions of
+the n atoms of `mask`, or over those a `movable` column frees.
+
 A run goes in pieces between the steps at which something is recorded; the
 pieces run as one run would, a temperature or pressure changing from its
 start to its end value across all of them. With Langevin dynamics and a
@@ -144,8 +170,7 @@ box may have any orientation and need not be periodic: LAMMPS gets it rotated
 into its own form, its non-periodic directions shrink-wrapped but never
 smaller than the box of `system`, and everything comes back in the
 orientation of `system`. MDAPY's own dynamics works in the same form of the
-box. The velocities of `system`, if it has them, are where the dynamics
-starts.
+box.
 
 ### Frames in files
 
@@ -248,8 +273,10 @@ calculator, a time step that is not positive, elements without an atom type
 in LAMMPS, a `movable` column that holds atoms in LAMMPS, and commands that
 LAMMPS rejects; `MissingProperty` for a system without elements (or, in
 MDAPY, without masses); `ImportError` without the LAMMPS Python module, for a
-LAMMPS calculator. `velocities` raises `InvalidParameter` for a negative
-temperature or a seed that is not positive; `run` for a negative number of
+LAMMPS calculator. `velocities` and `thermal_velocities` raise `InvalidParameter` for a negative
+temperature or a seed that is not positive, and `thermal_velocities` for a
+mask that is not one bool for each atom and `MissingProperty` for a system
+without masses or elements; `run` for a negative number of
 steps, an unknown ensemble, barostat or thermostat, a thermostat without a
 positive temperature, a barostat without a pressure, `"aniso"` or `"tri"` in
 a box that is not periodic, `"xy"` in a box not periodic along its first two

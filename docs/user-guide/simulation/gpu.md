@@ -65,7 +65,7 @@ lets it drift by less than 0.1 µeV per atom per ps.*
 ## Building the GPU part
 
 The wheels of MDAPY on PyPI hold no GPU part. MDAPY built from its source with the
-CUDA toolkit (tested with CUDA 13.5) holds it, the module `mdapy._cuda`:
+CUDA toolkit (tested with CUDA 12.6 and 13.5) holds it, the module `mdapy._cuda`:
 
 ```bash
 pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON

@@ -18,14 +18,30 @@ namespace mdapy::cuda {
 
 namespace {
 
-__global__ void kick_kernel(std::int64_t n, double c, const double* f, const double* m,
+// One thread for each component, so that the reads and writes are coalesced.
+__global__ void kick_kernel(std::int64_t components, double c, const double* f, const double* m,
                             double* v) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= components) return;
+    v[k] += c * f[k] / m[k / 3];
+}
+
+// kick then drift, as one pass: the same arithmetic.
+__global__ void kick_drift_kernel(std::int64_t n, double c, double dt, const double* f,
+                                  const double* m, double* v, double4a* x) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const double mass = m[i];
+    double u[3];
     for (int a = 0; a < 3; ++a) {
-        v[3 * i + a] += c * f[3 * i + a] / mass;
+        u[a] = v[3 * i + a] + c * f[3 * i + a] / mass;
+        v[3 * i + a] = u[a];
     }
+    double4a p = x[i];
+    p.x += dt * u[0];
+    p.y += dt * u[1];
+    p.z += dt * u[2];
+    x[i] = p;
 }
 
 __global__ void drift_kernel(std::int64_t n, double dt, const double* v, double4a* x) {
@@ -152,9 +168,17 @@ void Atoms::get_velocities(double* velocities) const {
 
 void Atoms::kick(double c) {
     Impl& a = *impl_;
-    kick_kernel<<<blocks(a.n), kBlock>>>(a.n, c, a.forces.data(), a.masses.data(),
-                                         a.velocities.data());
+    kick_kernel<<<blocks(3 * a.n), kBlock>>>(3 * a.n, c, a.forces.data(), a.masses.data(),
+                                             a.velocities.data());
     MDAPY_LAUNCHED();
+}
+
+void Atoms::kick_drift(double c, double dt) {
+    Impl& a = *impl_;
+    kick_drift_kernel<<<blocks(a.n), kBlock>>>(a.n, c, dt, a.forces.data(), a.masses.data(),
+                                               a.velocities.data(), a.x.data());
+    MDAPY_LAUNCHED();
+    ++a.version;
 }
 
 void Atoms::drift(double dt) {

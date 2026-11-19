@@ -65,6 +65,10 @@ class Atoms:
     def drift(self, dt):
         self.x += dt * self.v
 
+    def kick_drift(self, c, dt):
+        self.kick(c)
+        self.drift(dt)
+
     def scale(self, fx, fy, fz):
         self.v *= np.array([fx, fy, fz])
 

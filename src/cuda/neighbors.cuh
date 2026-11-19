@@ -17,6 +17,7 @@ struct Neighbors::Impl {
     std::int64_t builds = 0;
     int most = 0;                    // columns of the list
     Buffer<std::int32_t> indices;    // (most, n): neighbor k of atom i at k * n + i
+    Buffer<std::int32_t> rows;       // (n, most): the same by atom, as a build writes it
     Buffer<std::int32_t> counts;     // (n,)
     // the state of the last build, to tell when to build again
     Buffer<double4a> x_built;

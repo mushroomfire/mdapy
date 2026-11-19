@@ -118,7 +118,10 @@ the force at one step, which the vibrations of the atoms shake.*
   same directions; the runs are those of MDAPY, step by step. Atoms held
   along some directions only need there a box whose first vector is along x
   and second in the xy plane, the axes of LAMMPS.
-- On the GPU the controls are not yet supported.
+- On the [GPU](gpu.md) the controls act on the device as on the processor,
+  their groups following the atoms; a bath draws its random forces there as
+  the GPU's `"langevin"` thermostat does, the same for the same seed, other
+  than those of the processor.
 
 ## Errors
 
@@ -126,9 +129,9 @@ the force at one step, which the vibrations of the atoms shake.*
 `Hold`, `Move`, `AddForce` or `Langevin`, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat,
-a bath with the thermostat of `"nvt"` or `"npt"`, controls on the GPU, and,
-in LAMMPS, more than 24 controls or atoms held along some directions in a
-box not in the form of LAMMPS. The controls raise it for a mask that is not
+a bath with the thermostat of `"nvt"` or `"npt"`, on the GPU more than 31
+groups moved with a name or bathed, and, in LAMMPS, more than 24 controls or
+atoms held along some directions in a box not in the form of LAMMPS. The controls raise it for a mask that is not
 (N,) bool, `directions` other than some of x, y and z, a velocity or force
 that is not three finite numbers, a temperature that is not positive, a
 damping that is not positive, a seed that is not a positive integer, and a

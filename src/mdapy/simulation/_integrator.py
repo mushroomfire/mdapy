@@ -17,6 +17,7 @@ The work runs in the frame of the LAMMPS box (a along x, b in the xy plane),
 where the barostat acts on the lengths and tilts of the box."""
 
 import math
+import secrets
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -144,6 +145,7 @@ class _HostAtoms:
         self.prescribed: np.ndarray | None = None
         self.watched: tuple = ()
         self.sums: list = []
+        self.__baths: list = []
 
     @property
     def positions(self) -> np.ndarray:
@@ -234,12 +236,36 @@ class _HostAtoms:
     def seed(self, seed: int | None) -> None:
         self.__rng = np.random.default_rng(seed)
 
-    def bath(
-        self, mask: np.ndarray, c1: float, c2: float, kt: float, rng: Any
-    ) -> float:
-        """v = c1 v + c2 sqrt(kt / m) g on the atoms of a mask, g Gaussian
-        of rng in the directions they move freely; the kinetic energy it
-        added, in eV."""
+    def set_controls(
+        self,
+        free: np.ndarray | None,
+        prescribed: np.ndarray | None,
+        added: np.ndarray | None,
+        watched: tuple,
+        baths: tuple,
+    ) -> None:
+        """The controls of a run: the free components (in the axes of the
+        system; the restriction given at the start follows them), the
+        velocities of the others and the forces added (frame of LAMMPS), the
+        groups whose forces are summed, and (mask, seed) of each bath."""
+        self.prescribed, self.added, self.watched = prescribed, added, watched
+        self.__baths = [(mask, np.random.default_rng(seed)) for mask, seed in baths]
+
+    def clear_controls(self) -> None:
+        self.prescribed = self.added = None
+        self.watched = ()
+        self.__baths = []
+
+    def twice_kinetic_free(self) -> float:
+        """Of the components that move freely."""
+        v = self.__restrict(self.__v)
+        return float(np.einsum("i,ij,ij->", self.__masses, v, v)) * _MVV2E
+
+    def bath(self, k: int, c1: float, c2: float, kt: float) -> float:
+        """v = c1 v + c2 sqrt(kt / m) g on the atoms of bath k, g Gaussian of
+        its random numbers in the directions they move freely; the kinetic
+        energy it added, in eV."""
+        mask, rng = self.__baths[k]
         masses = self.__masses[mask]
         before = self.__v[mask]
         noise = np.zeros_like(self.__v)
@@ -316,7 +342,8 @@ class _Native:
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
         self.__moves: tuple = ()  # the names of the moved groups recorded
         self.__controlled = False  # whether the run has controls
-        self.__baths: tuple = ()  # (control, random numbers, damping) of each bath
+        self.__baths: tuple = ()  # (control, seed, damping) of each bath
+        self.__prescribed = False  # whether controls set velocities
         self.__heat: list = []  # the heat each gave since the run began, eV
         self.timestep = float(timestep)
         self.__step = 0
@@ -406,12 +433,12 @@ class _Native:
         """Of the components that move freely."""
         if self.__dof < 1:
             return math.nan
-        if getattr(self.__atoms, "prescribed", None) is None:
-            # the others are still
-            twice = self.__twice_kinetic()
-        else:
-            v = self.__from_frame(self.__atoms.velocities) * self.__free
-            twice = float(np.einsum("i,ij,ij->", self.__masses, v, v)) * _MVV2E
+        # without velocities set by controls the components held are still
+        twice = (
+            self.__atoms.twice_kinetic_free()
+            if self.__prescribed
+            else self.__twice_kinetic()
+        )
         return twice / (self.__dof * _KB)
 
     def __twice_kinetic(self) -> float:
@@ -587,8 +614,6 @@ class _Native:
         if not controls:
             self.__reset_controls()
             return
-        if isinstance(self.__atoms, _device.DeviceAtoms):
-            raise InvalidParameter("controls run on the processor for now")
         free = (
             np.ones((n, 3), dtype=bool)
             if self.__movable is None
@@ -608,7 +633,10 @@ class _Native:
                     if control.damping is not None
                     else 100 * self.timestep
                 )
-                baths.append((control, np.random.default_rng(control.seed), damping))
+                seed = (
+                    control.seed if control.seed is not None else secrets.randbits(63)
+                )
+                baths.append((control, seed, damping))
             elif isinstance(control, _controls.Move):
                 free[control.mask] = False
                 prescribed[control.mask] = control.velocity
@@ -629,9 +657,14 @@ class _Native:
             else int(free.sum())
         )
         atoms = self.__atoms
-        atoms.prescribed = self.__to_frame(prescribed) if prescribed.any() else None
-        atoms.added = self.__to_frame(added) if adds else None
-        atoms.watched = tuple(watched)
+        atoms.set_controls(
+            self.__free,
+            self.__to_frame(prescribed) if prescribed.any() else None,
+            self.__to_frame(added) if adds else None,
+            tuple(watched),
+            tuple((control.mask, seed) for control, seed, _ in baths),
+        )
+        self.__prescribed = bool(prescribed.any())
         self.__moves = tuple(moves)
         self.__baths = tuple(baths)
         self.__heat = [0.0] * len(baths)
@@ -647,10 +680,8 @@ class _Native:
         self.__moves = ()
         self.__baths = ()
         self.__heat = []
-        atoms = self.__atoms
-        if isinstance(atoms, _HostAtoms):
-            atoms.prescribed = atoms.added = None
-            atoms.watched = ()
+        self.__prescribed = False
+        self.__atoms.clear_controls()
 
     def finish(self) -> None:
         self.__run = {}
@@ -725,13 +756,11 @@ class _Native:
         """Friction and noise of each bath for half a step, the heat it
         gives counted."""
         fraction = self.__fraction(step)
-        for k, (control, rng, damping) in enumerate(self.__baths):
+        for k, (control, _, damping) in enumerate(self.__baths):
             t0, t1 = control.temperature
             kt = _KB * (t0 + fraction * (t1 - t0)) * _FTM2V
             c1 = math.exp(-0.5 * self.__dt / damping)
-            self.__heat[k] += self.__atoms.bath(
-                control.mask, c1, math.sqrt(1.0 - c1 * c1), kt, rng
-            )
+            self.__heat[k] += self.__atoms.bath(k, c1, math.sqrt(1.0 - c1 * c1), kt)
 
     def __nhc_temp(self) -> None:
         """Half a step of the chain of thermostats on the atoms."""
@@ -751,7 +780,7 @@ class _Native:
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
         factor = math.exp(-0.5 * dt * eta_dot[0])
         self.__atoms.scale(factor)
-        if getattr(self.__atoms, "prescribed", None) is not None:
+        if self.__prescribed:
             self.__atoms.restrict()  # the moved atoms keep their velocities
         self.__t_current *= factor * factor
         eta_dotdot[0] = (self.__dof * _KB * self.__t_current - ke_target) / mass[0]

@@ -276,18 +276,62 @@ def test_moved_atoms_under_langevin(potentials):
     assert np.abs(a["velocities"][bottom, :2]).max() > 0.0
 
 
-def test_not_on_the_gpu_yet(potentials, monkeypatch):
+def test_on_the_gpu(potentials, monkeypatch):
+    """The controls of the dynamics on the GPU, its module stood in for on
+    the processor: the runs of the processor, and the heat of the baths."""
     from mdapy.calculators import _gpu
+    from mdapy.simulation import Langevin
 
     from calculators.gpu_stand_in import stand_in
 
     monkeypatch.setattr(_gpu, "cuda", stand_in)
-    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 4))
-    held = np.zeros(len(system), dtype=bool)
-    held[:10] = True
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(4, 4, 6))
+    rng = np.random.default_rng(0)
+    system = system.with_columns(
+        positions=system["positions"] + rng.normal(0, 0.03, (len(system), 3))
+    )
+    z = system.box.to_fractional(system["positions"])[:, 2]
+    bottom, top, middle = z < 0.2, z > 0.8, (z > 0.45) & (z < 0.55)
+    controls = [
+        Hold(bottom, directions="xz"),
+        Move(top, (0.4, -0.2, 0.1), name="top"),
+        AddForce(middle, (0.0, 0.05, 0.02)),
+    ]
+    out = []
+    for device in ("cuda", "cpu"):
+        with MolecularDynamics(
+            system, EAM.zhou(["Cu"], device=device), timestep=0.002
+        ) as md:
+            md.velocities(300, seed=1)
+            md.run(40, ensemble="nvt", temperature=300, thermo=20, controls=controls)
+            md.run(5, thermo=5)  # free again
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["positions"], b["positions"], atol=1e-9)
+    np.testing.assert_allclose(a["velocities"], b["velocities"], atol=1e-8)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-9)
+    np.testing.assert_allclose(
+        np.stack(ta["top_force"].drop_nulls()),
+        np.stack(tb["top_force"].drop_nulls()),
+        atol=1e-9,
+    )
+    hot = Langevin(bottom, 600.0, damping=0.1, seed=3, name="hot")
+    cold = Langevin(top, 100.0, damping=0.1, name="cold")
+    with MolecularDynamics(
+        system, EAM.zhou(["Cu"], device="cuda"), timestep=0.002
+    ) as md:
+        md.velocities(300, seed=1)
+        md.run(1000, thermo=100, controls=[hot, cold, Hold(middle, directions="z")])
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    heat = thermo["hot_energy"].to_numpy() + thermo["cold_energy"].to_numpy()
+    assert np.abs(energy - energy[0] - heat).max() < 0.03
     with MolecularDynamics(system, EAM.zhou(["Cu"], device="cuda")) as md:
-        with pytest.raises(InvalidParameter, match="processor for now"):
-            md.run(1, controls=Hold(held))
+        many = [Move(z == z, (0, 0, 0), name="all")] + [
+            Langevin(np.zeros(len(system), dtype=bool), 300.0) for _ in range(31)
+        ]
+        with pytest.raises(InvalidParameter, match="at most 31"):
+            md.run(1, controls=many)
 
 
 def baths(system, bottom, top):

@@ -12,6 +12,7 @@ from pathlib import Path
 import numpy as np
 
 from mdapy import units
+from mdapy.calculators._base import Calculator
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -67,33 +68,55 @@ def _voigt(tensor: np.ndarray) -> np.ndarray:
     return np.array([[tensor[i, j, k, m] for k, m in _PAIRS] for i, j in _PAIRS])
 
 
-def _fluctuations(
+def _born(system: System, potential: Calculator) -> np.ndarray:
+    """(21,) the Born term of the atoms of system in eV, in the axes of the
+    system and the order of _BORN, as LAMMPS's compute born/matrix numdiff
+    gives it: central differences of the virial under strains of +-_DELTA of
+    the box and the atoms, then the terms of the virial itself (Zhen, Comput.
+    Phys. Commun. 183, 261 (2012))."""
+
+    def virial(strained: System) -> np.ndarray:
+        w = potential.compute(strained, ("virial",)).virial
+        return np.array([w[a, b] for a, b in _PAIRS])
+
+    # the derivative of each component of the virial (rows) under each strain
+    slopes = np.zeros((6, 6))
+    for k, (a, b) in enumerate(_PAIRS):
+        tensor = np.zeros((3, 3))
+        tensor[a, b] = tensor[b, a] = _DELTA if a == b else 0.5 * _DELTA
+        plus = virial(_strained(system, tensor))
+        minus = virial(_strained(system, -tensor))
+        slopes[:, k] = -(plus - minus) / (2 * _DELTA)
+    # of the pair (i, j), i <= j, the component i under the strain j, as
+    # LAMMPS keeps the later of the two
+    values = np.array([slopes[i, j] for i, j in _BORN])
+    xx, yy, zz, yz, xz, xy = virial(system)
+    values[:6] += [2 * xx, 2 * yy, 2 * zz, (yy + zz) / 2, (xx + zz) / 2, (xx + yy) / 2]
+    values[[9, 10, 12, 14, 15, 16]] += [xz, xy, yz, xy, yz, xz]
+    values[[18, 19, 20]] += [xy / 2, xz / 2, yz / 2]
+    return values
+
+
+def _sampled_in_lammps(
     reference: System,
     potential: LAMMPS,
-    temperature: float,
-    *,
     timestep: float,
+    langevin: dict,
+    *,
     equilibration: int,
     production: int,
     every: int,
-    blocks: int,
     seed: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    """The (6, 6) elastic constants of the reference box in GPa and their
-    standard errors, from one run at constant volume: the Born term, the
-    fluctuations of the virial stress and the kinetic term, as stress-strain
-    coefficients under the mean stress."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, object]:
+    """The virial stresses in GPa (n, 6), the values of the Born term in eV
+    (m, 21) in the frame of LAMMPS, its rotation from the frame of the system,
+    and the thermodynamic state of the production run, in LAMMPS."""
     rotation = reference.box.to_lammps().rotation  # into the frame of LAMMPS
     with tempfile.TemporaryDirectory() as folder:
         stress_file = Path(folder) / "stress.txt"
         born_file = Path(folder) / "born.txt"
         with MolecularDynamics(reference, potential, timestep=timestep) as md:
-            damping = 100 * md.timestep
-            md.command(
-                f"fix mdapy_langevin all langevin {float(temperature)!r} "
-                f"{float(temperature)!r} {damping!r} {int(seed)} zero yes"
-            )
-            md.run(equilibration, ensemble="nve", thermo=every)
+            md.run(equilibration, thermo=every, seed=seed, **langevin)
             start = md.step
             md.command("compute mdapy_virial all pressure NULL virial")
             md.command(
@@ -109,7 +132,7 @@ def _fluctuations(
                 f"fix mdapy_born all ave/time {sparse} 1 {sparse} c_mdapy_born[*] "
                 f"file {born_file}"
             )
-            md.run(production, ensemble="nve", thermo=every)
+            md.run(production, thermo=every, seed=seed + 1, **langevin)
             md.command("unfix mdapy_stress")
             md.command("unfix mdapy_born")
             table = md.thermo.filter(md.thermo["step"] > start)
@@ -117,13 +140,78 @@ def _fluctuations(
             # of the system
             p = _read_written(md.lammps, stress_file)[:, 1:]
             values = _read_written(md.lammps, born_file)[:, 1:]
-        tensors = np.zeros((len(p), 3, 3))
-        for column, (a, b) in enumerate(
-            ((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))
-        ):
-            tensors[:, a, b] = tensors[:, b, a] = -p[:, column] * units.BAR_TO_GPA
-        tensors = rotation @ tensors @ rotation.T
-        virial = np.stack([tensors[:, a, b] for a, b in _PAIRS], axis=1)
+    tensors = np.zeros((len(p), 3, 3))
+    for column, (a, b) in enumerate(((0, 0), (1, 1), (2, 2), (0, 1), (0, 2), (1, 2))):
+        tensors[:, a, b] = tensors[:, b, a] = -p[:, column] * units.BAR_TO_GPA
+    tensors = rotation @ tensors @ rotation.T
+    virial = np.stack([tensors[:, a, b] for a, b in _PAIRS], axis=1)
+    return virial, values, rotation, table
+
+
+def _sampled_in_mdapy(
+    reference: System,
+    potential: Calculator,
+    timestep: float,
+    langevin: dict,
+    *,
+    equilibration: int,
+    production: int,
+    every: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, object]:
+    """As _sampled_in_lammps, from MDAPY's own dynamics: the virial stress of
+    each frame and the Born term of every _BORN_EVERY-th, in the axes of the
+    system."""
+    stresses, values = [], []
+    with MolecularDynamics(reference, potential, timestep=timestep) as md:
+        md.run(equilibration, thermo=every, seed=seed, **langevin)
+        start = md.step
+        frames = md.iterate(
+            production, save_every=every, thermo=every, seed=seed + 1, **langevin
+        )
+        next(frames)  # the atoms at the start, where the equilibration ended
+        for k, frame in enumerate(frames, start=1):
+            stress = potential.compute(frame, ("virial",)).stress
+            stresses.append([stress[a, b] for a, b in _PAIRS])
+            if k % _BORN_EVERY == 0:
+                values.append(_born(frame, potential))
+        table = md.thermo.filter(md.thermo["step"] > start)
+    return np.array(stresses), np.array(values), np.eye(3), table
+
+
+def _fluctuations(
+    reference: System,
+    potential: Calculator,
+    temperature: float,
+    *,
+    timestep: float,
+    equilibration: int,
+    production: int,
+    every: int,
+    blocks: int,
+    seed: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """The (6, 6) elastic constants of the reference box in GPa and their
+    standard errors, from one run at constant volume: the Born term, the
+    fluctuations of the virial stress and the kinetic term, as stress-strain
+    coefficients under the mean stress."""
+    langevin = {
+        "ensemble": "nvt",
+        "temperature": float(temperature),
+        "thermostat": "langevin",
+        "thermostat_damping": 100 * timestep,
+    }
+    sample = _sampled_in_lammps if isinstance(potential, LAMMPS) else _sampled_in_mdapy
+    virial, values, rotation, table = sample(
+        reference,
+        potential,
+        timestep,
+        langevin,
+        equilibration=equilibration,
+        production=production,
+        every=every,
+        seed=seed,
+    )
     volume = float(table["volume"].mean())
     born = np.zeros((len(values), 6, 6))
     for m, (i, j) in enumerate(_BORN):
@@ -138,9 +226,9 @@ def _fluctuations(
     kinetic = np.zeros((6, 6))
     kinetic[[0, 1, 2], [0, 1, 2]] = 2.0
     kinetic[[3, 4, 5], [3, 4, 5]] = 1.0
-    # the momenta of all atoms but the center of mass, whose momentum the
-    # thermostat keeps at zero, as the temperature of LAMMPS counts them
-    kinetic *= (len(reference) - 1) * kt / volume * units.EV_PER_A3_TO_GPA
+    # the momenta of all the atoms, the center of mass among them, as the
+    # Langevin thermostat brings each to the temperature
+    kinetic *= len(reference) * kt / volume * units.EV_PER_A3_TO_GPA
     factor = volume / kt / units.EV_PER_A3_TO_GPA  # 1/GPa
     stress = np.stack(table["stress"].to_numpy())
     eye = np.eye(3)
@@ -188,7 +276,7 @@ def _fluctuations(
 
 def md_elastic_constants(
     system: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     *,
     pressure: float = 0.0,
@@ -203,8 +291,9 @@ def md_elastic_constants(
     method: str | None = None,
 ) -> ElasticResult | SheetElasticResult:
     """Isothermal elastic constants of a crystal at a temperature, from
-    molecular dynamics in LAMMPS: from the mean stress under small strains,
-    or from the fluctuations of the stress at the mean box.
+    molecular dynamics: from the mean stress under small strains, or from the
+    fluctuations of the stress at the mean box. The dynamics run in MDAPY, or
+    in LAMMPS for a LAMMPS calculator.
 
     Parameters
     ----------
@@ -212,8 +301,8 @@ def md_elastic_constants(
         The crystal, periodic in every direction, or a sheet: periodic along
         two vectors in the x-y plane and not along a third along z; with an
         ``element`` column.
-    potential : LAMMPS
-        The interaction, as a LAMMPS calculator.
+    potential : Calculator
+        The interaction: any calculator of energies, forces and virials.
     temperature : float64
         Temperature in K, positive.
     pressure : float64, optional
@@ -258,6 +347,8 @@ def md_elastic_constants(
         temperature, strain or numbers of steps that are not positive, fewer
         than two blocks, or the errors of ``MolecularDynamics``.
     """
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
     sheet = _is_sheet(system.box, "elastic constants")
     if method is None:
         method = "fluctuation" if sheet else "strain"
@@ -331,15 +422,18 @@ def md_elastic_constants(
                 # a Langevin thermostat, as a Nose-Hoover one, being
                 # deterministic, does not bring all the vibrations of a crystal
                 # to the temperature after the strain; the same noise for both
-                # signs, which the difference of their stresses then cancels
-                damping = 100 * md.timestep
-                md.command(
-                    f"fix mdapy_langevin all langevin {float(temperature)!r} "
-                    f"{float(temperature)!r} {damping!r} {int(seed) + k + 1} zero yes"
+                # signs, which the difference of their stresses then cancels;
+                # one run, one stream of noise
+                start = md.step + int(equilibration)
+                md.run(
+                    int(equilibration) + int(production),
+                    ensemble="nvt",
+                    temperature=float(temperature),
+                    thermostat="langevin",
+                    thermostat_damping=100 * md.timestep,
+                    seed=int(seed) + k + 1,
+                    **run,
                 )
-                md.run(int(equilibration), ensemble="nve", **run)
-                start = md.step
-                md.run(int(production), ensemble="nve", **run)
                 table = md.thermo.filter(md.thermo["step"] > start)
             stresses = np.stack(table["stress"].to_numpy())[:, columns]
             if sheet:  # the tension, N/m: the stress times the height of the box

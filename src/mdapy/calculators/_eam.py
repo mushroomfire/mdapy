@@ -317,6 +317,9 @@ class EAM(Calculator):
         Cutoff radius in Å.
     """
 
+    # its forces are pairwise, and their virials split in halves
+    _heat_flux = True
+
     def __init__(
         self,
         path: str | os.PathLike | Sequence[str | os.PathLike],

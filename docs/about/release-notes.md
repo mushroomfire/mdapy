@@ -2,6 +2,31 @@
 
 ## 2.2.0 (not released)
 
+- `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
+  LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
+  other melts with a thermostat of its own, and the crystal gets its velocities
+  from `thermal_velocities`, in either engine. See
+  [Melting point](../user-guide/simulation/melting-point.md).
+- `md_elastic_constants` takes any calculator: its molecular dynamics run in
+  MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
+  `run` in either; the Born term of the fluctuations in MDAPY is that of
+  LAMMPS's `compute born/matrix numdiff`. The kinetic term counts all N atoms,
+  as the thermostat no longer holds the momentum of the center of mass. See
+  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
+- `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
+  run in MDAPY, with the heat flux of the atomic energies and virials of the
+  potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in
+  LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
+  MEAM, whose virials of each atom do not give the heat flux, are refused. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+- `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
+  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
+  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+- `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
+  velocities of a temperature for the atoms of a system, or of a part of
+  them, with no total momentum, those `MolecularDynamics.velocities` gives in
+  MDAPY with the same seed; a system's velocities are where a run starts. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md#running).
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
   hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
   velocity and record the force on them (`Move`), push them (`AddForce`), or

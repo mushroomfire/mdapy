@@ -120,6 +120,12 @@ metals, *Phys. Rev. B* **29**, 6443 (1984).
 [doi:10.1103/PhysRevB.29.6443](https://doi.org/10.1103/PhysRevB.29.6443)
 { #daw1984 }
 
+**Deringer and Csányi (2017).** V. L. Deringer and G. Csányi, Machine learning
+based interatomic potential for amorphous carbon, *Phys. Rev. B* **95**, 094203
+(2017).
+[doi:10.1103/PhysRevB.95.094203](https://doi.org/10.1103/PhysRevB.95.094203)
+{ #deringer2017 }
+
 **Edelsbrunner and Mücke (1994).** H. Edelsbrunner and E. P. Mücke,
 Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
 [doi:10.1145/174462.156635](https://doi.org/10.1145/174462.156635)
@@ -140,6 +146,13 @@ Sci.* **2**, 279 (1994).
 viscoplastic deformation in amorphous solids, *Phys. Rev. E* **57**, 7192
 (1998). [doi:10.1103/PhysRevE.57.7192](https://doi.org/10.1103/PhysRevE.57.7192)
 { #falk1998 }
+
+**Fan et al. (2015).** Z. Fan, L. F. C. Pereira, H.-Q. Wang, J.-C. Zheng, D.
+Donadio and A. Harju, Force and heat current formulas for many-body potentials in
+molecular dynamics simulations with applications to thermal conductivity
+calculations, *Phys. Rev. B* **92**, 094301 (2015).
+[doi:10.1103/PhysRevB.92.094301](https://doi.org/10.1103/PhysRevB.92.094301)
+{ #fan2015 }
 
 **Fan et al. (2022).** Z. Fan et al., GPUMD: A package for constructing
 accurate machine-learned potentials and performing highly efficient

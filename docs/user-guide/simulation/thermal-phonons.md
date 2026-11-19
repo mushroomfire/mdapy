@@ -1,24 +1,26 @@
 # Phonons at finite temperature
 
 `mdapy.lattice_dynamics.thermal_phonons(cell, potential, temperature)` gives the
-phonons of a crystal at a temperature from molecular dynamics in
-[LAMMPS](lammps.md): the force constants that best give the forces on the moving
-atoms. They hold what [harmonic phonons](phonons.md) leave out: the vibrations
+phonons of a crystal at a temperature from [molecular dynamics](dynamics.md): the
+force constants that best give the forces on the moving atoms. They hold what [harmonic phonons](phonons.md) leave out: the vibrations
 feel the crystal away from its minimum, and the box has the size it has at that
 temperature. `phonons_from_frames` does the same with frames from any dynamics,
 such as *ab initio* molecular dynamics.
+
+Copper with the EAM potential of Mishin et al., the file
+[`Cu_mishin1.eam.alloy`](https://github.com/lammps/lammps/blob/develop/potentials/Cu_mishin1.eam.alloy)
+of LAMMPS, which MDAPY's [EAM](eam.md) reads; the dynamics run in MDAPY. The 120 ps of
+dynamics of 256 atoms take about half a minute:
 
 <!-- skip-test -->
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import EAM
 from mdapy.lattice_dynamics import phonons, primitive_cell, thermal_phonons
 from mdapy.simulation import minimize
 
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM("Cu_mishin1.eam.alloy")
 crystal = minimize(
     build_crystal("fcc", 3.615, elements="Cu"), potential, cell="full", max_stress=1e-4
 ).system
@@ -65,13 +67,13 @@ with plot.style():
 ![Phonons of copper at rest and at 1000 K](images/thermal-phonons.png)
 
 *Copper with the EAM potential of Mishin et al.: the bands at rest, and at 1000 K,
-softer by 10 to 15 %, as the crystal has expanded and the atoms feel their
-neighbors further from where they rest.*
+softer by 9 to 17 %, as the crystal has expanded by 5.5 % in volume and the atoms
+feel their neighbors further from where they rest.*
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `cell` | `System` | | | the cell of the crystal, relaxed, periodic in every direction, with an `element` column; best its primitive cell |
-| `potential` | `LAMMPS` | | | the interaction |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies and forces; the dynamics run in MDAPY, or in LAMMPS for a [LAMMPS calculator](lammps.md) |
 | `temperature` | float64 | | K | the temperature |
 | `supercell` | int32, (3,) int32 or (3, 3) int32 | | | as in [`phonons`](phonons.md); by default the supercell nearest a cube that is at least twice the cutoff of the potential thick in every direction |
 | `pressure` | float64 or `None` | 0 | GPa | the pressure at which the box takes its mean size first, with the symmetry of the crystal; `None` to keep the box of `cell` |
@@ -84,7 +86,10 @@ neighbors further from where they rest.*
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
-The `cell` of the result has the mean box at the temperature. The vibrations are
+The box first takes its mean size under the pressure with a Nosé–Hoover thermostat
+and barostat; then a Langevin thermostat, which samples the vibrations as a
+Nosé–Hoover one does not, keeps the atoms at the temperature while the frames are
+taken. The `cell` of the result has the mean box at the temperature. The vibrations are
 those of classical atoms, as in molecular dynamics, so well below the Debye
 temperature [harmonic phonons](phonons.md) with the
 [quasi-harmonic approximation](quasi-harmonic.md) are better.
@@ -138,7 +143,7 @@ over the symmetry operations of the crystal.
 
 `thermal_phonons` raises `InvalidParameter` for a box that is not periodic in every
 direction, a temperature or a time that is not positive, a `potential` that is not a
-`LAMMPS` calculator, too few frames for the force constants, or if LAMMPS fails;
+calculator, too few frames for the force constants, or if the dynamics fail;
 `MissingProperty` for a system without an `element` column; `Cancelled` when
 cancelled. `phonons_from_frames` raises `InvalidParameter` for a frame with another
 number of atoms, too few frames or an invalid supercell, and `MissingProperty` for a

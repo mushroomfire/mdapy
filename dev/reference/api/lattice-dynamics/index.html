@@ -5326,6 +5326,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -11246,8 +11302,9 @@ cell, or symmetry True without spglib.</p>
     <div class="doc doc-contents first">
 
         <p>Isothermal elastic constants of a crystal at a temperature, from
-molecular dynamics in LAMMPS: from the mean stress under small strains,
-or from the fluctuations of the stress at the mean box.</p>
+molecular dynamics: from the mean stress under small strains, or from the
+fluctuations of the stress at the mean box. The dynamics run in MDAPY, or
+in LAMMPS for a LAMMPS calculator.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -11284,11 +11341,11 @@ two vectors in the x-y plane and not along a third along z; with an
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction, as a LAMMPS calculator.</p>
+                <p>The interaction: any calculator of energies, forces and virials.</p>
               </div>
             </td>
             <td>
@@ -15256,8 +15313,9 @@ that do not scatter.</p>
     <div class="doc doc-contents first">
 
         <p>The thermal conductivity of a crystal or liquid at a temperature, from
-the fluctuations of the heat flux in equilibrium molecular dynamics in
-LAMMPS, by the Green-Kubo relation.</p>
+the fluctuations of the heat flux in equilibrium molecular dynamics, by
+the Green-Kubo relation. The dynamics run in MDAPY, or in LAMMPS for a
+LAMMPS calculator.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -15293,12 +15351,13 @@ temperature, with an <code>element</code> column.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction, as a LAMMPS calculator; a many-body one must give
-LAMMPS the centroid stress of each atom.</p>
+                <p>The interaction: in MDAPY, EAM, a pair potential or NEP, whose
+virials of each atom give the heat flux; in LAMMPS, a many-body one
+must give LAMMPS the centroid stress of each atom.</p>
               </div>
             </td>
             <td>

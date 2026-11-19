@@ -16,7 +16,7 @@
         <link rel="prev" href="../dynamics/">
       
       
-        <link rel="next" href="../gpu/">
+        <link rel="next" href="../deformation/">
       
       
         
@@ -5426,6 +5426,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8643,7 +8699,8 @@
 others at a velocity, push others and keep others at a temperature: the
 controls of the run. Each acts on
 a group, an (N,) bool mask over the atoms of the system, and lasts for the
-run it is given to, through <code>controls</code> of <code>run</code> or <code>iterate</code>.</p>
+run it is given to, through <code>controls</code> of <code>run</code> or <code>iterate</code>; a
+<a href="../deformation/"><code>Deform</code></a> among them deforms the box.</p>
 <p>Copper sheared between two walls at 300 K: the bottom wall held, the top
 one moved along x at 0.2 Å/ps, 20 m/s, the force of the crystal on it
 recorded.</p>
@@ -8721,6 +8778,14 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 <tr>
 <td><code>Langevin(mask, temperature, *, damping=None, seed=None, name=None)</code></td>
 <td>a heat bath: friction and random forces on the atoms of the group alone, as the <code>"langevin"</code> thermostat of <code>run</code> gives every atom; with a <code>name</code>, <code>thermo</code> records <code>&lt;name&gt;_energy</code>, the heat in eV it gave the group since the run began, negative when it took heat away</td>
+</tr>
+<tr>
+<td><code>Deform(*, xx=0.0, yy=0.0, zz=0.0, yz=0.0, xz=0.0, xy=0.0, kind="engineering")</code></td>
+<td>the box stretched, compressed or sheared at constant strain rates, the atoms carried with it: see <a href="../deformation/">Deformation</a></td>
+</tr>
+<tr>
+<td><code>AdaptiveTimestep(max_distance, *, min_timestep=None, max_timestep=None, every=1)</code></td>
+<td>the time step of the fastest atom, in which no atom moves more than <code>max_distance</code>: see <a href="../adaptive-timestep/">Adaptive time step</a></td>
 </tr>
 </tbody>
 </table>
@@ -8816,8 +8881,8 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
   bath draws its random forces in MDAPY as the <code>"langevin"</code> thermostat does,
   over half steps; in LAMMPS it is a <code>fix langevin</code>, whose random forces
   differ, so the runs agree in their averages.</li>
-<li>Atoms held or moved by a control and a barostat do not go together: the
-  box would carry the walls.</li>
+<li>Atoms held or moved by a control do not go together with a barostat or a
+  <code>Deform</code>: the box would carry the walls.</li>
 <li>In LAMMPS the controls are its fixes: <code>setforce</code> with <code>velocity set</code> for
   <code>Hold</code>, <code>move linear</code> for <code>Move</code>, <code>addforce</code> for <code>AddForce</code>, and the
   ensemble on the atoms that move freely, whose temperature counts the
@@ -8831,9 +8896,9 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 </ul>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>run</code> and <code>iterate</code> raise <code>InvalidParameter</code> for a control that is not a
-<code>Hold</code>, <code>Move</code>, <code>AddForce</code> or <code>Langevin</code>, a group of another number of atoms,
+<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code> or <code>AdaptiveTimestep</code>, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
-in two baths, two controls of one name, held or moved atoms with a barostat,
+in two baths, two controls of one name, held or moved atoms with a barostat or a <code>Deform</code>,
 a bath with the thermostat of <code>"nvt"</code> or <code>"npt"</code>, on the GPU more than 31
 groups moved with a name or bathed, and, in LAMMPS, more than 24 controls or
 atoms held along some directions in a box not in the form of LAMMPS. The controls raise it for a mask that is not
@@ -8893,13 +8958,13 @@ name that is not a word.</p>
         
         
           
-          <a href="../gpu/" class="md-footer__link md-footer__link--next" aria-label="Next: On the GPU">
+          <a href="../deformation/" class="md-footer__link md-footer__link--next" aria-label="Next: Deformation">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                On the GPU
+                Deformation
               </div>
             </div>
             <div class="md-footer__button md-icon">

@@ -5447,6 +5447,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -8751,29 +8807,35 @@ temperature at which the solid and the liquid coexist is the melting point, whic
 <a href="../../user-guide/simulation/melting-point/"><code>melting_point</code></a> finds from a box that
 holds both.</p>
 <h2 id="stretching-at-constant-temperature">Stretching at constant temperature<a class="headerlink" href="#stretching-at-constant-temperature" title="Permanent link">&para;</a></h2>
-<p><code>command</code> runs any LAMMPS command. A fix added before <code>run</code> takes part in it, beside
-the thermostat of <code>run</code>: here <code>fix deform</code> stretches the box along x by 0.1 % per ps,
-to 10 %, at 1 K and at 300 K, after the box has relaxed at zero pressure:</p>
+<p>A <a href="../../user-guide/simulation/deformation/"><code>Deform</code></a> among the <code>controls</code> of <code>run</code>
+stretches the box along x by 0.1 % per ps, to 10 %, at 1 K and at 300 K, after the box
+has relaxed at zero pressure; in LAMMPS it is <code>fix deform</code>:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">curves</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="k">for</span> <span class="n">temperature</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">):</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>        <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>        <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>            <span class="mi">10000</span><span class="p">,</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>            <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>            <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>            <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>            <span class="n">barostat</span><span class="o">=</span><span class="s2">"aniso"</span><span class="p">,</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="p">)</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">)</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"fix pull all deform 1 x erate 0.001 remap x"</span><span class="p">)</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">50000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">250</span><span class="p">)</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="n">md</span><span class="o">.</span><span class="n">command</span><span class="p">(</span><span class="s2">"unfix pull"</span><span class="p">)</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="n">stretched</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">[</span><span class="n">start</span><span class="p">:]</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">volume</span> <span class="o">=</span> <span class="n">stretched</span><span class="p">[</span><span class="s2">"volume"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
-<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="n">stress</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">stretched</span><span class="p">[</span><span class="s2">"stress"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
-<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>    <span class="n">curves</span><span class="p">[</span><span class="n">temperature</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">volume</span> <span class="o">/</span> <span class="n">volume</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">stress</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">Deform</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">curves</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">for</span> <span class="n">temperature</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">):</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>        <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">temperature</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>        <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>            <span class="mi">10000</span><span class="p">,</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>            <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>            <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>            <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>            <span class="n">barostat</span><span class="o">=</span><span class="s2">"aniso"</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">start</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">)</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>        <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>            <span class="mi">50000</span><span class="p">,</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>            <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>            <span class="n">temperature</span><span class="o">=</span><span class="n">temperature</span><span class="p">,</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>            <span class="n">thermo</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>            <span class="n">controls</span><span class="o">=</span><span class="n">Deform</span><span class="p">(</span><span class="n">xx</span><span class="o">=</span><span class="mf">0.001</span><span class="p">),</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>        <span class="n">stretched</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">[</span><span class="n">start</span><span class="p">:]</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>    <span class="n">volume</span> <span class="o">=</span> <span class="n">stretched</span><span class="p">[</span><span class="s2">"volume"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">()</span>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>    <span class="n">stress</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">stretched</span><span class="p">[</span><span class="s2">"stress"</span><span class="p">]</span><span class="o">.</span><span class="n">to_numpy</span><span class="p">())</span>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a>    <span class="n">curves</span><span class="p">[</span><span class="n">temperature</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">volume</span> <span class="o">/</span> <span class="n">volume</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">stress</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">])</span>
 </code></pre></div>
 <p>The same strains without heat: the stress of the strained crystal, as the potential
 gives it.</p>
@@ -8803,9 +8865,9 @@ the crystal gives way and its stress stops rising; the static crystal, held perf
 goes on. At 300 K the crystal is softer. The curves bend from the start: the
 stiffness of copper, 168.5 GPa at zero strain for this potential, falls as it is
 stretched.</em></p>
-<p>The box keeps its size along y and z, so this is uniaxial strain. A uniaxial stress,
-with y and z free under zero pressure, needs a barostat on y and z beside the
-deformation, which <code>run</code> cannot give (see below).</p>
+<p>The box keeps its size along y and z, so this is uniaxial strain. For a uniaxial
+stress, with y and z free under zero pressure, <code>ensemble="npt"</code> with <code>pressure=0.0</code> and
+<code>barostat="aniso"</code> beside the <code>Deform</code> holds them at zero stress.</p>
 <h2 id="what-it-does">What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8836,8 +8898,12 @@ deformation, which <code>run</code> cannot give (see below).</p>
 <td><code>md.system</code> holds the atoms, with velocities and images, for <a href="../../user-guide/simulation/minimize/"><code>minimize</code></a>, an analysis or a file</td>
 </tr>
 <tr>
+<td>Hold, move, push or heat groups of atoms, deform the box</td>
+<td><code>controls=</code> of <code>run</code>: <code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code> and <code>Deform</code>, which become the fixes of LAMMPS (<a href="../../user-guide/simulation/controls/">Groups and controls</a>)</td>
+</tr>
+<tr>
 <td>Add a fix or a compute of LAMMPS</td>
-<td><code>md.command(...)</code> before <code>run</code>, and <code>unfix</code> after: <code>deform</code>, <code>setforce</code> to hold some atoms, <code>langevin</code> with <code>ensemble="nve"</code>, <code>velocity</code> to push atoms</td>
+<td><code>md.command(...)</code> before <code>run</code>, and <code>unfix</code> after</td>
 </tr>
 <tr>
 <td>Read what LAMMPS holds</td>
@@ -8879,7 +8945,7 @@ MDAPY, or in LAMMPS for a LAMMPS calculator.</p>
 <td>Kokkos on the threads of one node or a GPU (below); for more, <code>mpirun</code> with an input script, and MDAPY on its dump files</td>
 </tr>
 <tr>
-<td>An integrator of one's own, such as a barostat on y and z while x is stretched</td>
+<td>An integrator of one's own, such as <code>fix nvt/sllod</code> for a shear flow</td>
 <td>each <code>run</code> adds its thermostat or barostat, and a second one would move the atoms twice</td>
 <td>the fixes and <code>md.command("run 10000")</code>: <code>thermo</code> and <code>frames</code> record only <code>run</code>, and <code>md.system</code> reads the atoms after</td>
 </tr>

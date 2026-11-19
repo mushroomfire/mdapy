@@ -5344,6 +5344,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8643,33 +8699,31 @@
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
 production=20000, every=10, blocks=5, barostat="tri", seed=1,
 method=None)</code> gives the isothermal elastic constants of a crystal at a
-temperature from <a href="../dynamics/">molecular dynamics</a> in LAMMPS, with their
-standard errors: from the mean stress under small strains, at the cost of
+temperature from <a href="../dynamics/">molecular dynamics</a>, in MDAPY or in LAMMPS for a
+<a href="../lammps/">LAMMPS calculator</a>, with their standard errors: from the mean stress under small strains, at the cost of
 thirteen runs, or, with <code>method="fluctuation"</code>, from the fluctuations of the
 stress in one run, <a href="#from-the-fluctuations-of-the-stress">below</a>. Both take
 in the anharmonic vibrations that the <a href="../thermal-elastic/">quasi-harmonic
 approximation</a> leaves out.</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">md_elastic_constants</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">replicate</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">"pair_style eam/alloy</span><span class="se">\n</span><span class="s2">pair_coeff * * Cu_mishin1.eam.alloy Cu"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"Cu"</span><span class="p">]</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">replicate</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>  <span class="c1"># large enough for small fluctuations</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">result</span> <span class="o">=</span> <span class="n">md_elastic_constants</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">600.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">result</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># C11 and its standard error, GPa</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">result</span><span class="o">.</span><span class="n">bulk_modulus</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">shear_modulus</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">"Cu_mishin1.eam.alloy"</span><span class="p">)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">replicate</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>  <span class="c1"># large enough for small fluctuations</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">result</span> <span class="o">=</span> <span class="n">md_elastic_constants</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">600.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">result</span><span class="o">.</span><span class="n">constants</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># C11 and its standard error, GPa</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">result</span><span class="o">.</span><span class="n">bulk_modulus</span><span class="p">(),</span> <span class="n">result</span><span class="o">.</span><span class="n">shear_modulus</span><span class="p">()</span>
 </code></pre></div>
-<p>The crystal first runs at the temperature and pressure (Nosé–Hoover,
-<code>fix npt</code>): <code>equilibration</code> steps, then <code>production</code> steps over which its box
+<p>The crystal first runs at the temperature and pressure (Nosé–Hoover):
+<code>equilibration</code> steps, then <code>production</code> steps over which its box
 is averaged, at 50 times evenly spread. Its last atoms, put in the mean box, are the
 reference. For each of the six components of the strain in Voigt order,
 strains of <span class="arithmatex">\(+\delta\)</span> and <span class="arithmatex">\(-\delta\)</span> of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
 moved with the box) each run <code>equilibration</code> steps at constant volume and
-temperature, with a Langevin thermostat (<code>fix langevin</code> and <code>fix nve</code>), then
+temperature, with the Langevin thermostat of <a href="../dynamics/"><code>run</code></a>, then
 <code>production</code> steps over which the stress is averaged. The two runs of a
 component share the noise of the thermostat, which their difference cancels
 in part. A Nosé–Hoover thermostat, being deterministic, does not bring all
@@ -8710,10 +8764,10 @@ gives that limit.</p>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction, as a <a href="../lammps/">LAMMPS calculator</a></td>
+<td>the interaction: any calculator of energies, forces and virials; the dynamics run in MDAPY, or in LAMMPS for a <a href="../lammps/">LAMMPS calculator</a></td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -8802,17 +8856,18 @@ the temperature with a Langevin thermostat. The constants are</p>
 C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
 - \frac{V}{k_B T} \left( \langle \sigma_{ij} \sigma_{kl} \rangle
 - \langle \sigma_{ij} \rangle \langle \sigma_{kl} \rangle \right)
-+ \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
++ \frac{N k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
 \]</div>
 <p>where <span class="arithmatex">\(i\)</span>, <span class="arithmatex">\(j\)</span>, <span class="arithmatex">\(k\)</span> and <span class="arithmatex">\(l\)</span> are the Cartesian directions x, y and z, <span class="arithmatex">\(\langle \cdot \rangle\)</span>
 the mean over the production run, <span class="arithmatex">\(V\)</span> the volume of the box, <span class="arithmatex">\(T\)</span> the temperature, <span class="arithmatex">\(N\)</span>
 the number of atoms, <span class="arithmatex">\(k_B\)</span> the Boltzmann constant and <span class="arithmatex">\(\delta_{ik}\)</span> the Kronecker delta,
 1 for <span class="arithmatex">\(i = k\)</span> and 0 otherwise. The three terms are the Born term <span class="arithmatex">\(C^{\mathrm B}\)</span>, the
-second derivatives of the energy with the strain at fixed fractional positions (LAMMPS
-<code>compute born/matrix numdiff</code>, strains of <span class="arithmatex">\(10^{-5}\)</span>, every ten records); the
+second derivatives of the energy with the strain at fixed fractional positions, every
+ten records, as LAMMPS's <code>compute born/matrix numdiff</code> gives them: central differences
+of the virial under strains of <span class="arithmatex">\(10^{-5}\)</span>, and terms of the virial itself; the
 fluctuations of the virial stress <span class="arithmatex">\(\sigma\)</span> (every <code>every</code> steps), which give back the
-relaxation of the atoms; and the momenta of the atoms, counted as <span class="arithmatex">\(N - 1\)</span> as the thermostat
-keeps the momentum of the center of mass at zero. Under a mean stress
+relaxation of the atoms; and the momenta of all the atoms, the center of mass among
+them, which the Langevin thermostat brings to the temperature as the others. Under a mean stress
 they are made stress-strain coefficients, as the strains give them (Wallace):
 under a pressure <span class="arithmatex">\(P\)</span>, <span class="arithmatex">\(C_{11} - P\)</span>, <span class="arithmatex">\(C_{12} + P\)</span> and <span class="arithmatex">\(C_{44} - P\)</span>. The errors
 come from <code>blocks</code> blocks of the run; <code>strain</code> is unused.</p>
@@ -8871,7 +8926,7 @@ differs:</p>
 <tr>
 <td>cost of one record</td>
 <td>a step</td>
-<td>a step, and some 15 steps for the Born term every ten records</td>
+<td>a step, and the Born term, 13 evaluations of the forces, every ten records; in MDAPY also an evaluation for the virial stress of each record</td>
 </tr>
 </tbody>
 </table>
@@ -8889,8 +8944,8 @@ number of steps the fluctuations take one run where the strains take twelve:
 periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
 fewer than two blocks or fewer samples than blocks, a <code>method</code> other than
 <code>"strain"</code> and <code>"fluctuation"</code>, and the errors of
-<a href="../dynamics/"><code>MolecularDynamics</code></a>. The fluctuations need a LAMMPS with the
-package EXTRA-COMPUTE, for <code>compute born/matrix</code>.</p>
+<a href="../dynamics/"><code>MolecularDynamics</code></a>, and for a <code>potential</code> that is not a calculator.
+In LAMMPS the fluctuations need the package EXTRA-COMPUTE, for <code>compute born/matrix</code>.</p>
 
 
 

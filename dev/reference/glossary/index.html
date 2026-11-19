@@ -5326,6 +5326,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9568,7 +9624,19 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 </tr>
 <tr>
 <td>controls</td>
-<td>of a run of molecular dynamics: <code>Hold</code>, <code>Move</code>, <code>AddForce</code> and <code>Langevin</code>, what is done to groups of atoms during the run, given by <code>controls</code> of <code>run</code> or <code>iterate</code></td>
+<td>of a run of molecular dynamics: <code>Hold</code>, <code>Move</code>, <code>AddForce</code> and <code>Langevin</code>, what is done to groups of atoms during the run, <code>Deform</code>, what is done to the box, and <code>AdaptiveTimestep</code>, how long the steps are, given by <code>controls</code> of <code>run</code> or <code>iterate</code></td>
+</tr>
+<tr>
+<td>strain rate</td>
+<td>of <code>Deform</code>: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (<code>"engineering"</code>) or of its length now (<code>"true"</code>); of a tilt, as a part of the length it grows across</td>
+</tr>
+<tr>
+<td>adaptive time step</td>
+<td>of <code>AdaptiveTimestep</code>: the time step of the fastest atom, in which no atom moves more than <code>max_distance</code>, within the bounds <code>min_timestep</code> and <code>max_timestep</code>, set every <code>every</code> steps</td>
+</tr>
+<tr>
+<td>uniaxial strain, uniaxial stress</td>
+<td>a crystal stretched along one axis with its lengths across held, and with them free under zero stress, a barostat on them</td>
 </tr>
 <tr>
 <td><code>heat_capacity</code></td>

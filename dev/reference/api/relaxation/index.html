@@ -5326,6 +5326,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -7802,6 +7858,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.simulation.thermal_velocities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_velocities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.simulation.Hold" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -7856,6 +7923,28 @@
     <span class="md-ellipsis">
       
         Langevin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Deform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deform
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.AdaptiveTimestep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AdaptiveTimestep
       
     </span>
   </a>
@@ -9044,6 +9133,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.simulation.thermal_velocities" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        thermal_velocities
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.simulation.Hold" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9098,6 +9198,28 @@
     <span class="md-ellipsis">
       
         Langevin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Deform" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deform
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.AdaptiveTimestep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AdaptiveTimestep
       
     </span>
   </a>
@@ -10434,16 +10556,19 @@ None, keeping none.</p>
                 <code>controls</code>
             </td>
             <td>
-                  <code>sequence of Hold, Move, AddForce or Langevin</code>
+                  <code>sequence of controls</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>What is done to groups of atoms during the run: atoms held,
-moved at a velocity, pushed, or kept at a temperature. Held and
+                <p>Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+is done to groups of atoms, the box or the time step during the
+run: atoms held, moved at a velocity, pushed, or kept at a
+temperature, the box deformed at constant rates, the time step
+set by the fastest atom. Held and
 moved atoms take no part in the thermostat, and the temperature
 counts the directions that move freely; held or moved atoms not
-with a barostat, baths not with the thermostat of "nvt" or
-"npt". Default none.</p>
+with a barostat or a deformation, baths not with the thermostat
+of "nvt" or "npt". Default none.</p>
               </div>
             </td>
             <td>
@@ -10757,16 +10882,19 @@ the start and the end. Default 100.</p>
                 <code>controls</code>
             </td>
             <td>
-                  <code>sequence of Hold, Move, AddForce or Langevin</code>
+                  <code>sequence of controls</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>What is done to groups of atoms during the run: atoms held,
-moved at a velocity, pushed, or kept at a temperature. Held and
+                <p>Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+is done to groups of atoms, the box or the time step during the
+run: atoms held, moved at a velocity, pushed, or kept at a
+temperature, the box deformed at constant rates, the time step
+set by the fastest atom. Held and
 moved atoms take no part in the thermostat, and the temperature
 counts the directions that move freely; held or moved atoms not
-with a barostat, baths not with the thermostat of "nvt" or
-"npt". Default none.</p>
+with a barostat or a deformation, baths not with the thermostat
+of "nvt" or "npt". Default none.</p>
               </div>
             </td>
             <td>
@@ -10885,6 +11013,169 @@ once, the rest as the frames are read.</p>
 
 
   </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.simulation.thermal_velocities" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">thermal_velocities</span>
+
+
+<a href="#mdapy.simulation.thermal_velocities" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">thermal_velocities</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">seed</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Random velocities of a temperature: Gaussian, with no total momentum,
+and scaled so that their kinetic energy is that of the temperature
+exactly; those that <code>MolecularDynamics.velocities</code> gives in MDAPY with
+the same seed.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The atoms, with a <code>mass</code> or an <code>element</code> column; a <code>movable</code>
+column, (N, 3) bool, keeps them still along the directions where it
+is False, and then the total momentum is not removed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperature in K, not negative.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the random numbers, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) bool, the atoms that get velocities, whose total momentum is
+removed; the others get none. Default every atom.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N, 3) float64 velocities in Å/ps, for
+<code>system.with_columns(velocities=...)</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a negative temperature, a seed that is not positive, or a mask
+that is not one bool for each atom.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="MissingProperty (mdapy.errors.MissingProperty)" href="../utilities/#mdapy.errors.MissingProperty">MissingProperty</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the system has neither a <code>mass</code> nor an <code>element</code> column.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
 
     </div>
 
@@ -11335,6 +11626,326 @@ heat away. Default None, recording none.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Deform" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Deform</span>
+
+
+<a href="#mdapy.simulation.Deform" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Deform</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">xx</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">yy</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">zz</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">yz</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xz</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">xy</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s1">'engineering'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The box deformed at constant rates for a run: stretched, compressed or
+sheared, the atoms carried with it, as LAMMPS's fix deform with erate
+or trate, remap x. With a barostat, the barostat holds the pressure of
+the lengths the deformation leaves: a crystal stretched along x at zero
+pressure along y and z.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>xx</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Strain rates of the lengths of the box along x, y and z, in 1/ps;
+positive stretches. Default 0, the length left.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>yy</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Strain rates of the lengths of the box along x, y and z, in 1/ps;
+positive stretches. Default 0, the length left.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>zz</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Strain rates of the lengths of the box along x, y and z, in 1/ps;
+positive stretches. Default 0, the length left.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>yz</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Shear strain rates in 1/ps: the tilt yz grows by the rate times the
+length along z at the start, every ps, xz the same, and xy by the
+rate times the length along y. Default 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>xz</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Shear strain rates in 1/ps: the tilt yz grows by the rate times the
+length along z at the start, every ps, xz the same, and xy by the
+rate times the length along y. Default 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>xy</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Shear strain rates in 1/ps: the tilt yz grows by the rate times the
+length along z at the start, every ps, xz the same, and xy by the
+rate times the length along y. Default 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>kind</code>
+            </td>
+            <td>
+                  <code>(engineering, true)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Of the lengths: growing by the rate times their length at the start
+every ps (LAMMPS erate), or by the rate times their length now (trate,
+exponentially). Default "engineering".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;engineering&#34;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.AdaptiveTimestep" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">AdaptiveTimestep</span>
+
+
+<a href="#mdapy.simulation.AdaptiveTimestep" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AdaptiveTimestep</span><span class="p">(</span><span class="n">max_distance</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">min_timestep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">max_timestep</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The time step of a run set by the fastest atom, as LAMMPS's fix
+dt/reset: at the start of the run and every <code>every</code> steps, the largest
+step in which no atom moves more than <code>max_distance</code>, by its velocity
+and its force, within the bounds; for the collisions of a cascade, whose
+atoms start fast and slow down.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_distance</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The largest distance an atom moves in a step, in Å, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>min_timestep</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The smallest time step in ps, positive. Default None, no bound.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_timestep</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The largest time step in ps, positive. Default None, the time step
+of <code>MolecularDynamics</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps between the settings of the time step, positive. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
             </td>
           </tr>
       </tbody>

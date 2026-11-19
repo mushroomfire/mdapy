@@ -5344,6 +5344,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8638,20 +8694,22 @@
   
 
 
-<!-- needs: lammps -->
-
 <h1 id="greenkubo-conductivity">Green–Kubo conductivity<a class="headerlink" href="#greenkubo-conductivity" title="Permanent link">&para;</a></h1>
 <p><code>mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)</code> gives the
 thermal conductivity of a crystal or a liquid from the fluctuations of the heat flux in
-equilibrium <a href="../dynamics/">molecular dynamics</a> in LAMMPS, by the Green–Kubo relation;
+equilibrium <a href="../dynamics/">molecular dynamics</a>, in MDAPY or in LAMMPS for a
+<a href="../lammps/">LAMMPS calculator</a>, by the Green–Kubo relation;
 <code>green_kubo_from_flux</code> does the same with a heat flux from any molecular dynamics. Unlike
 the <a href="../thermal-conductivity/">relaxation-time approximation</a>, it holds every order of
 anharmonicity, the atoms move as classical particles, and it needs no force constants.</p>
+<p>Solid argon with MDAPY's <a href="../pair-potentials/">Lennard-Jones</a> potential; the 105 000
+steps of 256 atoms run in MDAPY in about two minutes:</p>
+<!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LennardJones</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.lattice_dynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">green_kubo</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">argon</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span><span class="s2">"pair_style lj/cut 8.5</span><span class="se">\n</span><span class="s2">pair_coeff * * 0.0104 3.405"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"Ar"</span><span class="p">])</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">argon</span> <span class="o">=</span> <span class="n">LennardJones</span><span class="p">({</span><span class="s2">"Ar"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0104</span><span class="p">,</span> <span class="mf">3.405</span><span class="p">)},</span> <span class="mf">8.5</span><span class="p">)</span>  <span class="c1"># ε in eV, σ in Å, cutoff</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">5.28</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Ar"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>  <span class="c1"># 256 atoms</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">result</span> <span class="o">=</span> <span class="n">green_kubo</span><span class="p">(</span>
@@ -8665,10 +8723,11 @@ anharmonicity, the atoms move as classical particles, and it needs no force cons
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">correlation</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="p">)</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">result</span><span class="o">.</span><span class="n">kappa</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span>  <span class="c1"># W/(m K)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">result</span>  <span class="c1"># GreenKubo(0.6587 ± 0.07 W/(m K) at 38.8035 K), the mean of x, y and z</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">result</span>  <span class="c1"># GreenKubo(0.4546 ± 0.099 W/(m K) at 39.9926 K), the mean of x, y and z</span>
 </code></pre></div>
 <p>The integral of the correlation of the flux grows over the first picoseconds and then
 holds its value, about which it wanders at longer lags by the noise of the correlation:</p>
+<!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
@@ -8703,10 +8762,10 @@ time.</em></p>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction; a many-body one must give LAMMPS the centroid stress of each atom</td>
+<td>the interaction: in MDAPY, <a href="../eam/">EAM</a>, a <a href="../pair-potentials/">pair potential</a> or <a href="../nep/">NEP</a>; in LAMMPS, a many-body one must give LAMMPS the centroid stress of each atom</td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -8767,13 +8826,26 @@ time.</em></p>
 </tbody>
 </table>
 <p>The atoms first reach the temperature with a Nosé–Hoover thermostat, then run at
-constant energy, which the thermostat would disturb, while LAMMPS records the heat flux
-every <code>every</code> steps: its kinetic and potential parts and the virial of the
-<a href="https://docs.lammps.org/compute_stress_atom.html">centroid stress</a> of each atom, which
-is the right one for many-body potentials such as EAM
-(<a href="../../../reference/references/#surblys2019">Surblys et al. (2019)</a>). A potential for
-which LAMMPS has no centroid stress, such as Stillinger–Weber or Tersoff, is refused.
-The temperature of the result is the mean of the run at constant energy.</p>
+constant energy, which the thermostat would disturb, while the heat flux is recorded
+every <code>every</code> steps: the energy each atom carries and the work of the virial of each
+atom. The virial must be one that gives the flux of heat:</p>
+<ul>
+<li>in LAMMPS, the <a href="https://docs.lammps.org/compute_stress_atom.html">centroid stress</a>
+  of each atom, the right one for many-body potentials
+  (<a href="../../../reference/references/#surblys2019">Surblys et al. (2019)</a>), with
+  <code>compute heat/flux</code>; a potential for which LAMMPS has no centroid stress, such as
+  Stillinger–Weber or Tersoff, is refused;</li>
+<li>in MDAPY, the atomic energies and virials of the potential: for EAM and the pair
+  potentials, the virials of their pairwise forces split in halves, the centroid
+  stress of LAMMPS, so that the flux is that of <code>compute heat/flux</code> for the same atoms;
+  for NEP, the virial of each atom from the derivatives of the energies of the others
+  with its position, as GPUMD computes it
+  (<a href="../../../reference/references/#fan2015">Fan et al. (2015)</a>). The virials of
+  Stillinger–Weber, Tersoff, ADP and MEAM split their many-body terms among their
+  atoms, which gives a wrong flux, so these are refused. In MDAPY each record costs an
+  evaluation of the forces more.</li>
+</ul>
+<p>The temperature of the result is the mean of the run at constant energy.</p>
 <p><code>green_kubo_from_flux(flux, *, interval, volume, temperature, correlation, blocks=5)</code>
 takes a heat flux of any molecular dynamics: (S, 3) samples of the heat flux times the
 volume in eV Å/ps, as LAMMPS's <code>compute heat/flux</code> gives it in metal units, every
@@ -8788,7 +8860,9 @@ compare boxes of growing size. For argon at 40 K, 500 atoms over 800 ps give
 0.75 ± 0.14 W/(m K), and the relaxation-time approximation from the force constants of
 the same potential 0.81 W/(m K); the two differ by the orders of anharmonicity the one
 holds and the other leaves out, by the classical motion of the atoms, and by the
-statistics of the run.</p>
+statistics of the run. Ten runs of 256 atoms over 200 ps, each with another seed, give
+0.67 ± 0.08 W/(m K) in MDAPY and 0.70 ± 0.06 W/(m K) in LAMMPS, the means of the runs
+with their standard errors, while single runs spread from 0.3 to 1.0 W/(m K).</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>green_kubo</code> and <code>green_kubo_from_flux</code> return a <code>GreenKubo</code>.</p>
 <table>
@@ -8848,8 +8922,8 @@ statistics of the run.</p>
 <p>Every array is read-only.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>green_kubo</code> raises <code>InvalidParameter</code> for a box that is not periodic in every
-direction, a temperature or numbers of steps that are not positive, a potential without
-the centroid stress of each atom, and the errors of <code>green_kubo_from_flux</code> and of
+direction, a temperature or numbers of steps that are not positive, a <code>potential</code> that
+is not a calculator or whose virials do not give the heat flux, and the errors of <code>green_kubo_from_flux</code> and of
 <a href="../dynamics/"><code>MolecularDynamics</code></a>. <code>green_kubo_from_flux</code> raises it for a flux that is
 not (S, 3) and finite, an interval, volume, temperature or correlation that is not
 positive, <code>blocks</code> less than 2 or not an integer, and blocks shorter than the

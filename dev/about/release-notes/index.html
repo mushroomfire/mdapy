@@ -5324,6 +5324,62 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/deformation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deformation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9186,6 +9242,32 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>md_elastic_constants</code> takes any calculator: its molecular dynamics run in
+  MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
+  <code>run</code> in either; the Born term of the fluctuations in MDAPY is that of
+  LAMMPS's <code>compute born/matrix numdiff</code>. The kinetic term counts all N atoms,
+  as the thermostat no longer holds the momentum of the center of mass. See
+  <a href="../../user-guide/simulation/md-elastic/">Elastic constants from molecular dynamics</a>.</li>
+<li>
+<p><code>green_kubo</code> takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
+  run in MDAPY, with the heat flux of the atomic energies and virials of the
+  potential, the flux of LAMMPS's <code>compute heat/flux</code> for the same atoms; or in
+  LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
+  MEAM, whose virials of each atom do not give the heat flux, are refused. See
+  <a href="../../user-guide/simulation/green-kubo/">Green–Kubo conductivity</a>.</p>
+</li>
+<li>
+<p><code>thermal_phonons</code> takes any calculator: its molecular dynamics run in MDAPY,
+  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of <code>run</code>
+  in either. See <a href="../../user-guide/simulation/thermal-phonons/">Phonons at finite temperature</a>.</p>
+</li>
+<li>
+<p><code>mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)</code>:
+  velocities of a temperature for the atoms of a system, or of a part of
+  them, with no total momentum, those <code>MolecularDynamics.velocities</code> gives in
+  MDAPY with the same seed; a system's velocities are where a run starts. See
+  <a href="../../user-guide/simulation/dynamics/#running">Molecular dynamics</a>.</p>
+</li>
 <li>Controls of molecular dynamics: <code>run(..., controls=[...])</code> and <code>iterate</code>
   hold groups of atoms still (<code>mdapy.simulation.Hold</code>), move them at a
   velocity and record the force on them (<code>Move</code>), push them (<code>AddForce</code>), or
@@ -9193,15 +9275,25 @@
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   <a href="../../user-guide/simulation/controls/">Groups and controls</a>.</li>
-<li><code>thermal_phonons</code> takes any calculator: its molecular dynamics run in MDAPY,
-  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of <code>run</code>
-  in either. See <a href="../../user-guide/simulation/thermal-phonons/">Phonons at finite temperature</a>.</li>
-<li><code>MolecularDynamics(log=...)</code> and <code>minimize(log=..., log_every=10)</code> write what
+<li><code>mdapy.simulation.Deform</code>, a control that stretches, compresses or shears the
+  box at constant strain rates, engineering or true, the atoms carried with it,
+  with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
+  GPU and in LAMMPS (<code>fix deform</code>) alike. See
+  <a href="../../user-guide/simulation/deformation/">Deformation</a>.</li>
+<li>
+<p><code>mdapy.simulation.AdaptiveTimestep</code>, a control that sets the time step by the
+  fastest atom, so that no atom moves more than a distance in a step, within
+  bounds, as LAMMPS's <code>fix dt/reset</code>: for collision cascades; in MDAPY, on the GPU
+  and in LAMMPS alike. See <a href="../../user-guide/simulation/adaptive-timestep/">Adaptive time step</a>.</p>
+</li>
+<li>
+<p><code>MolecularDynamics(log=...)</code> and <code>minimize(log=..., log_every=10)</code> write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall
   time, and the speed of each run or where it stopped; rows of numbers between
   lines that start with <code>#</code>, which <code>numpy.loadtxt</code> reads back. See
-  <a href="../../user-guide/simulation/dynamics/#log">Molecular dynamics</a>.</li>
+  <a href="../../user-guide/simulation/dynamics/#log">Molecular dynamics</a>.</p>
+</li>
 <li>The potentials of MDAPY run on an NVIDIA GPU with CUDA: <code>EAM</code>, <code>EAM.zhou</code>,
   <code>LennardJones</code>, <code>Morse</code>, <code>ADP</code>, <code>Tersoff</code>, <code>StillingerWeber</code>, <code>MEAM</code> and <code>NEP</code> take <code>device="cuda"</code>
   and <code>precision</code>, <code>"mixed"</code> (by default,

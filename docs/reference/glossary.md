@@ -208,6 +208,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `extreme` | `"min"` or `"max"`: the smallest or largest value of a quantity of two directions over the second |
 | isothermal, adiabatic | elastic constants at constant temperature, and at constant entropy (those of sound waves) |
 | `errors` | standard errors of the means of a molecular dynamics result, from block averages, in its units |
+| about the center of mass | of the moving reductions of `SpatialBinning`: the velocities of the atoms of a bin less the velocity of its center of mass, so that the motion of the bin as a whole counts as no heat and no stress |
 | `thermo` | the thermodynamic state of a molecular dynamics run, a table of `step`, `time`, `temperature`, `potential_energy`, `kinetic_energy`, `total_energy`, `pressure`, `volume` and `stress` |
 | ensemble | `"nve"`, `"nvt"`, `"npt"` or `"nph"` |
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |

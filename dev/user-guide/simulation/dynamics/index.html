@@ -16,7 +16,7 @@
         <link rel="prev" href="../minimize/">
       
       
-        <link rel="next" href="../gpu/">
+        <link rel="next" href="../controls/">
       
       
         
@@ -5437,6 +5437,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups and controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8827,7 +8855,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions</td>
 </tr>
 <tr>
-<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, progress=None, cancel=None)</code></td>
+<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)</code></td>
 <td>runs <code>steps</code> steps</td>
 </tr>
 <tr>
@@ -8928,6 +8956,13 @@ temperature then counts the directions in which the atoms move.</p>
 <td><code>None</code></td>
 <td></td>
 <td>keeps the atoms every this many steps, in <code>frames</code>; <code>iterate</code> gives them instead, and needs it</td>
+</tr>
+<tr>
+<td><code>controls</code></td>
+<td>sequence</td>
+<td><code>None</code></td>
+<td></td>
+<td><code>Hold</code>, <code>Move</code>, <code>AddForce</code> or <code>Langevin</code>: what is done to groups of atoms during the run; see <a href="../controls/">Groups and controls</a></td>
 </tr>
 <tr>
 <td><code>progress</code></td>
@@ -9230,13 +9265,13 @@ Langevin dynamics.</p>
         
         
           
-          <a href="../gpu/" class="md-footer__link md-footer__link--next" aria-label="Next: On the GPU">
+          <a href="../controls/" class="md-footer__link md-footer__link--next" aria-label="Next: Groups and controls">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                On the GPU
+                Groups and controls
               </div>
             </div>
             <div class="md-footer__button md-icon">

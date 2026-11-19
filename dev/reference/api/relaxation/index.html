@@ -5298,6 +5298,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups and controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -7773,6 +7801,67 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hold
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hold">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Hold.axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        axes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Move" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Move
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.AddForce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AddForce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Langevin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Langevin
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -8954,6 +9043,67 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Hold" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Hold
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Hold">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Hold.axes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        axes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Move" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Move
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.AddForce" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AddForce
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Langevin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Langevin
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9838,8 +9988,11 @@ step and time in <code>info</code>.</p>
 
         <p>The thermodynamic state every <code>thermo</code> steps of the runs: step,
 time (ps), temperature (K), potential, kinetic and total energy
-(eV), pressure (GPa), volume (Å³) and stress (GPa, Voigt order,
-positive under tension).</p>
+(eV), pressure (GPa), volume (Å³), stress (GPa, Voigt order,
+positive under tension), <code>&lt;name&gt;_force</code>, (3,) eV/Å, for each named
+group a <code>Move</code> moved, and <code>&lt;name&gt;_energy</code> (eV), the heat each
+named <code>Langevin</code> bath gave since its run began, null in the other
+runs.</p>
 
     </div>
 
@@ -10069,7 +10222,7 @@ while the frames of an <code>iterate</code> are being read.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10278,6 +10431,27 @@ None, keeping none.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>controls</code>
+            </td>
+            <td>
+                  <code>sequence of Hold, Move, AddForce or Langevin</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>What is done to groups of atoms during the run: atoms held,
+moved at a velocity, pushed, or kept at a temperature. Held and
+moved atoms take no part in the thermostat, and the temperature
+counts the directions that move freely; held or moved atoms not
+with a barostat, baths not with the thermostat of "nvt" or
+"npt". Default none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>progress</code>
             </td>
             <td>
@@ -10368,7 +10542,7 @@ None, keeping none.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.iterate" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10580,6 +10754,27 @@ the start and the end. Default 100.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>controls</code>
+            </td>
+            <td>
+                  <code>sequence of Hold, Move, AddForce or Langevin</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>What is done to groups of atoms during the run: atoms held,
+moved at a velocity, pushed, or kept at a temperature. Held and
+moved atoms take no part in the thermostat, and the temperature
+counts the directions that move freely; held or moved atoms not
+with a barostat, baths not with the thermostat of "nvt" or
+"npt". Default none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>progress</code>
             </td>
             <td>
@@ -10686,6 +10881,485 @@ once, the rest as the frames are read.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Hold" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Hold</span>
+
+
+<a href="#mdapy.simulation.Hold" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Hold</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">directions</span><span class="o">=</span><span class="s1">'xyz'</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Atoms kept still along some directions for a run: their velocities
+there are zero and their forces do nothing, as a <code>movable</code> column that
+is False there.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) bool, the atoms held.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>directions</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axes of the system along which they are held, any of "x", "y"
+and "z". Default "xyz", still.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;xyz&#39;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="mdapy.simulation.Hold.axes" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">axes</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#mdapy.simulation.Hold.axes" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">axes</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>(3,) bool, the axes held.</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Move" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Move</span>
+
+
+<a href="#mdapy.simulation.Move" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Move</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">velocity</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>Atoms moved together at a velocity for a run, whatever the forces on
+them: a rigid part that drives the rest, such as a wall that shears a
+crystal or a piston. The force the rest of the atoms exert on the group
+is recorded.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) bool, the atoms moved.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>velocity</code>
+            </td>
+            <td>
+                  <code>(float64, float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Their velocity in Å/ps, in the axes of the system.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With a name, <code>thermo</code> records <code>&lt;name&gt;_force</code>, the force of the
+potential on the group in eV/Å. Default None, recording none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.AddForce" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">AddForce</span>
+
+
+<a href="#mdapy.simulation.AddForce" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AddForce</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">force</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A force added to each atom of a group for a run, as LAMMPS's fix
+addforce: a load on a part of the system.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) bool, the atoms pushed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>force</code>
+            </td>
+            <td>
+                  <code>(float64, float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The force on each in eV/Å, in the axes of the system.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Langevin" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Langevin</span>
+
+
+<a href="#mdapy.simulation.Langevin" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Langevin</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A Langevin thermostat on a group of atoms for a run, friction and
+random forces on them alone: a heat bath, such as the source and the
+sink of heat that flows through a crystal, or the borders that take up
+the heat of a cascade. With a name, <code>thermo</code> records the heat it gave
+the group since the run began.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>mask</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) bool, the atoms of the bath.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code>float64 or (float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its temperature in K, positive, or its values at the start and the
+end of the run.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>damping</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its damping time in ps, positive. Default 100 time steps.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of its random forces, positive; unpredictable when None.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With a name, <code>thermo</code> records <code>&lt;name&gt;_energy</code>, the heat in eV
+the bath gave the group since the run began, negative when it took
+heat away. Default None, recording none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
 
 
 

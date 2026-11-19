@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/gpu/">
       
       
-        <link rel="prev" href="../dynamics/">
+        <link rel="prev" href="../controls/">
       
       
         <link rel="next" href="../defect-energies/">
@@ -5315,6 +5315,34 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups and controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -8827,7 +8855,8 @@ that seed.</p>
 processor. Along every periodic direction the box must be thicker than twice the
 cutoff of the potential and the skin, 1 Å, at every step, also as a barostat changes
 it; smaller boxes and small systems are for the processor. A <code>movable</code> column holds
-atoms along the directions where it is False, as on the processor.</p>
+atoms along the directions where it is False, and the <a href="../controls/">controls</a> of a run
+hold, move, push and bathe groups of atoms, as on the processor.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>A potential with <code>device="cuda"</code> raises <code>InvalidParameter</code> when MDAPY was built
 without its GPU part, when there is no GPU, for a <code>device</code> or a <code>precision</code> not in
@@ -8870,7 +8899,7 @@ when the positions, the energy or the forces stop being finite.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../dynamics/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Molecular dynamics">
+          <a href="../controls/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Groups and controls">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -8880,7 +8909,7 @@ when the positions, the energy or the forces stop being finite.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Molecular dynamics
+                Groups and controls
               </div>
             </div>
           </a>

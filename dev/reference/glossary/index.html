@@ -5298,6 +5298,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/controls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Groups and controls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9533,6 +9561,14 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td><code>iterate</code></td>
 <td>of <code>MolecularDynamics</code>: a run that gives the atoms every <code>save_every</code> steps as it reaches them and keeps none, going on as they are read</td>
+</tr>
+<tr>
+<td>group</td>
+<td>of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts</td>
+</tr>
+<tr>
+<td>controls</td>
+<td>of a run of molecular dynamics: <code>Hold</code>, <code>Move</code>, <code>AddForce</code> and <code>Langevin</code>, what is done to groups of atoms during the run, given by <code>controls</code> of <code>run</code> or <code>iterate</code></td>
 </tr>
 <tr>
 <td><code>heat_capacity</code></td>

@@ -129,6 +129,14 @@ class DeviceAtoms:
             e, w = self.__switched(h, lo, pbc, energy, virial)
         if self.__watched:
             self.sums = list(self.__atoms.group_forces(self.__watched))
+        self.indented = []
+        for (kind, axis, sign, k, radius), at in zip(self.indenters, self.indenter_at):
+            where = np.zeros(3)
+            where[:] = at if np.ndim(at) else (float(at), 0.0, 0.0)
+            out = self.__atoms.indent(
+                kind, axis, sign, k, radius, where, np.ascontiguousarray(h), pbc
+            )
+            self.indented.append((float(out[0]), np.asarray(out[1:], dtype=float)))
         self.__atoms.add_forces()
         if self.__held:
             self.__atoms.restrict_forces()
@@ -225,6 +233,10 @@ class DeviceAtoms:
 
     def kick_drift(self, c: float, dt: float) -> None:
         self.__atoms.kick_drift(c, dt)
+
+    indenters: tuple = ()  # (kind, axis, sign, k, radius) of each indenter
+    indenter_at: tuple = ()  # their centers or planes at the step
+    indented: list = []  # (energy, force on it) of each, of the last computation
 
     def speed_squares(self) -> float:
         """The sum of the squares of the velocities."""

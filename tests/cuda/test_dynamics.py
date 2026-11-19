@@ -676,3 +676,50 @@ def test_msst(precision):
     np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
     for column in ("hugoniot", "rayleigh", "particle_velocity", "msst_energy"):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-7, atol=1e-6)
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_indenters(precision):
+    """A sphere pressed into a crystal open along z, and a plane holding up
+    its bottom, on the GPU: the run of the processor in double precision; in
+    mixed precision the force on the sphere that of the processor's run, its
+    chaos aside."""
+    from mdapy.simulation import Indenter
+
+    system = crystal()
+    system = system.with_box(mdapy.Box(system.box.matrix, pbc=(True, True, False)))
+    top = float(system["positions"][:, 2].max())
+    middle = system.box.matrix[0, 0] / 2
+    controls = [
+        Indenter(center=(middle, middle, top + 9.0), radius=10.0,
+                 velocity=(0.0, 0.0, -2.0), name="tip"),
+        Indenter("plane", axis="z", position=0.5, side="low", name="floor"),
+    ]  # fmt: skip
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(500, thermo=50, controls=controls)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    force = np.stack(tb["tip_force"].to_numpy())
+    assert force[:, 2].max() > 1.0  # it presses
+    np.testing.assert_allclose(
+        np.stack(ta["tip_force"].to_numpy())[:, 2].max(), force[:, 2].max(), rtol=0.05
+    )
+    if precision == "mixed":
+        return
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) * np.array([1, 1, 0]) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    for name in ("tip", "floor"):
+        np.testing.assert_allclose(
+            np.stack(ta[f"{name}_force"].to_numpy()),
+            np.stack(tb[f"{name}_force"].to_numpy()),
+            rtol=0,
+            atol=1e-6,
+        )

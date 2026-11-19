@@ -69,6 +69,17 @@ class Atoms:
         self.kick(c)
         self.drift(dt)
 
+    def indent(self, kind, axis, sign, k, radius, at, h, pbc):
+        from mdapy.simulation._integrator import _indented
+
+        where = at[0] if kind == 2 else np.asarray(at)
+        push, energy, on = _indented(
+            self.x, np.asarray(h), pbc, (kind, axis, sign, k, radius), where
+        )
+        energies, forces, virials = self.result
+        self.result = (energies, forces + push, virials)
+        return np.array([energy, *on])
+
     def speed_squares(self):
         return float((self.v * self.v).sum())
 

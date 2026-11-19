@@ -249,6 +249,7 @@ nav:
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md
               - Switching between potentials: user-guide/simulation/switching.md
               - Walls: user-guide/simulation/walls.md
+              - Indentation: user-guide/simulation/indentation.md
               - Hugoniostat: user-guide/simulation/hugoniostat.md
               - Multiscale shock technique: user-guide/simulation/msst.md
               - On the GPU: user-guide/simulation/gpu.md

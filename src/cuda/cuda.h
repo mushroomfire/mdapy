@@ -144,6 +144,14 @@ public:
     // d t, with c = ftm2v f / m and d = base / m, less axial along the axis,
     // kept unless trial; the sum of their squares.
     double speed_squares() const;
+    // A virtual indenter (LAMMPS's fix indent): kind 0 a sphere about at, 1 a
+    // cylinder through at along the axis, 2 the region beyond the plane at[0]
+    // across the axis; K (R - r)^2 out of a sphere or a cylinder (sign 1) or
+    // into it (-1), the displacements in the minimum image of LAMMPS in the
+    // box h with pbc, or K d^2 back across the plane on the side sign. The
+    // forces added; out (4,) its energy and the force on it.
+    void indent(int kind, int axis, double sign, double k, double radius, const double* at,
+                const double* h, const bool* pbc, double* out);
     double msst_kick(double half, double base, double axial, int axis, bool trial,
                      double ftm2v);
 

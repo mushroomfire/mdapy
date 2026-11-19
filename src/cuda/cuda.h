@@ -90,8 +90,28 @@ public:
     // transposed; then restrict_* removes the other components of the forces
     // or the velocities, as simulation/_integrator.py does on the processor.
     void set_movable(const bool* movable, const double* rotation);
+    void clear_movable();  // every atom moves freely
     void restrict_forces();
     void restrict_velocities();
+
+    // The controls of a run (simulation/_controls.py): the velocities of the
+    // components the movable mask holds, (n, 3) in the frame of the atoms
+    // and zero where they move freely, which restrict_velocities sets; forces
+    // added to the atoms, (n, 3), which add_forces adds; and the groups of the
+    // atoms, (n,), bit k for group k. Null clears each.
+    void set_prescribed(const double* velocities);
+    void set_added(const double* forces);
+    void add_forces();
+    void set_groups(const std::int32_t* bits);
+    // (count, 3): the sums of the forces of the atoms of groups 0 to count - 1.
+    void group_forces(int count, double* sums) const;
+    // The sum of m |v|^2 over the components that move freely.
+    double kinetic_free() const;
+    // A Langevin bath on group bit, v = c1 v + c2 sqrt(kt / m) g in the
+    // directions that move freely, g Gaussian of a seed and a counter; the
+    // change of the sum of m |v|^2 / 2 of its atoms.
+    double bath(int bit, double c1, double c2, double kt, std::uint64_t seed,
+                std::uint64_t counter);
 
     struct Impl;
     Impl& impl() { return *impl_; }

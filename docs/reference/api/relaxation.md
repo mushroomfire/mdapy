@@ -10,6 +10,14 @@
 
 ::: mdapy.simulation.MolecularDynamics
 
+::: mdapy.simulation.Hold
+
+::: mdapy.simulation.Move
+
+::: mdapy.simulation.AddForce
+
+::: mdapy.simulation.Langevin
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

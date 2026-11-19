@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
+  hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
+  velocity and record the force on them (`Move`), push them (`AddForce`), or
+  keep them at a temperature and record the heat this takes (`Langevin`), for
+  that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
+  count the directions that move freely. See
+  [Groups and controls](../user-guide/simulation/controls.md).
 - `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
   or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
   in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).

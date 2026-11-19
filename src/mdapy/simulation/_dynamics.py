@@ -238,6 +238,8 @@ class _Lammps:
         self.__temperature: str | None = None
         self.__hugoniostat = False  # whether the run is fix nphug
         self.__shock = False  # whether the run is fix msst
+        self.__variables: list[str] = []  # the variables of the run
+        self.__indented: tuple = ()  # (name, fix) of each named indenter
         self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
@@ -382,6 +384,11 @@ create_box {len(potential.elements)} box
         for name, fix in self.__baths:
             # the tally of LAMMPS is the energy the bath took away
             row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
+        for name, fix in self.__indented:  # the vector and the scalar of fix indent
+            row[f"{name}_force"] = [
+                float(lmp.extract_fix(fix, 0, 1, k)) for k in range(3)
+            ]
+            row[f"{name}_energy"] = float(lmp.extract_fix(fix, 0, 0))
         if self.__shock:  # the vector and the scalar of fix msst
             names = ("hugoniot", "rayleigh", "particle_velocity", "lagrangian_position")
             for k, name in enumerate(names):
@@ -516,7 +523,11 @@ create_box {len(potential.elements)} box
                 self.command(f"uncompute {compute}")
             for group in self.__groups:
                 self.command(f"group {group} delete")
+            for variable in self.__variables:
+                self.command(f"variable {variable} delete")
         self.__fixes, self.__computes, self.__groups = [], [], []
+        self.__variables = []
+        self.__indented = ()
         if self.__holder and self.__piston:
             flags = " ".join("p" if p else "m" for p in self.__pbc)
             self.command(f"change_box all boundary {flags}")
@@ -530,6 +541,52 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+
+    def __indenter(self, name: str, indenter: Any, aligned: bool) -> None:
+        """A virtual indenter as fix indent, its moving coordinates variables
+        of the steps of the run."""
+        if not (aligned and not self.__swapped):
+            raise InvalidParameter(
+                "an indenter needs a box whose first vector is along x and second "
+                "in the xy plane"
+            )
+        dt = float(self.lammps.extract_global("dt"))
+
+        def coordinate(value: float, velocity: float, k: int) -> str:
+            start = float(value - self.__lo[k])  # LAMMPS's box starts at 0
+            if velocity == 0.0:
+                return repr(start)
+            variable = f"{name}_{'xyz'[k]}"
+            self.command(
+                f"variable {variable} equal {start!r}+{float(velocity) * dt!r}*elaplong"
+            )
+            self.__variables.append(variable)
+            return f"v_{variable}"
+
+        if indenter.shape == "plane":
+            k = "xyz".index(indenter.axis)
+            if self.__pbc[k]:
+                raise InvalidParameter(
+                    f"a plane indenter across {indenter.axis} needs a box not periodic "
+                    f"along {indenter.axis}"
+                )
+            where = coordinate(indenter.position, indenter.velocity, k)
+            side = "hi" if indenter.side == "high" else "lo"
+            geometry = f"plane {indenter.axis} {where} {side}"
+        else:
+            c, v = indenter.center, indenter.velocity
+            if indenter.shape == "sphere":
+                axes = (0, 1, 2)
+                geometry = "sphere"
+            else:
+                axes = tuple(k for k in range(3) if "xyz"[k] != indenter.axis)
+                geometry = f"cylinder {indenter.axis}"
+            geometry += "".join(f" {coordinate(c[k], v[k], k)}" for k in axes)
+            geometry += f" {indenter.radius!r} side {indenter.side}"
+        self.command(
+            f"fix {name} all indent {indenter.stiffness!r} {geometry} units box"
+        )
+        self.__fixes.append(name)
 
     def __msst(self, run: dict[str, Any]) -> str:
         """The arguments of fix msst, in a box in the form of LAMMPS."""
@@ -617,8 +674,18 @@ create_box {len(potential.elements)} box
         moved = np.zeros(n, dtype=bool)
         moves, baths = [], []
         constrained = False
+        # the indenters first, so that the setforce of held atoms comes after
+        indented = []
+        for k, control in enumerate(controls):
+            if isinstance(control, _controls.Indenter):
+                self.__indenter(f"mdapy_c{k}", control, aligned)
+                if control.name is not None:
+                    indented.append((control.name, f"mdapy_c{k}"))
+        self.__indented = tuple(indented)
         for k, control in enumerate(controls):
             name = f"mdapy_c{k}"
+            if isinstance(control, _controls.Indenter):
+                continue
             if isinstance(control, _controls.Hold):
                 if not aligned and control.directions != "xyz":
                     raise InvalidParameter(

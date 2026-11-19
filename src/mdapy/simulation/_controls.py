@@ -454,6 +454,146 @@ class Wall:
         )
 
 
+class Indenter:
+    """A virtual indenter that pushes the atoms out of it, as LAMMPS's fix
+    indent: an atom at a distance r inside a sphere or a cylinder of radius R
+    feels K (R - r)^2 away from it, and one past a plane K d^2 back across
+    it, d how far past. Still or moving at a constant velocity; with a name,
+    ``thermo`` records the force of the atoms on it and its energy.
+
+    Parameters
+    ----------
+    shape : {"sphere", "cylinder", "plane"}, optional
+        A sphere, a cylinder along ``axis``, or the region beyond a plane
+        across ``axis``. Default "sphere".
+    center : (3,) float64, optional
+        The center of the sphere, or a point on the axis of the cylinder, at
+        the start of the run in Å; for a sphere and a cylinder.
+    radius : float64, optional
+        The radius of the sphere or of the cylinder in Å, not negative; for
+        a sphere and a cylinder.
+    axis : {"x", "y", "z"}, optional
+        The axis of the cylinder, or that across the plane.
+    position : float64, optional
+        The coordinate of the plane along its axis at the start of the run in
+        Å; for a plane.
+    side : str, optional
+        For a sphere or a cylinder "out", pushing the atoms out of it, or
+        "in", keeping them inside (default "out"); for a plane the side it
+        fills, "low" or "high".
+    stiffness : float64, optional
+        K in eV/Å³, not negative. Default 10.
+    velocity : (3,) float64 or float64, optional
+        The velocity of the center in Å/ps, or of the plane along its axis.
+        Default None, still.
+    name : str, optional
+        Records ``<name>_force``, (3,) the force of the atoms on the
+        indenter in eV/Å, and ``<name>_energy`` in eV.
+    """
+
+    def __init__(
+        self,
+        shape: str = "sphere",
+        *,
+        center: Any = None,
+        radius: float | None = None,
+        axis: str | None = None,
+        position: float | None = None,
+        side: str | None = None,
+        stiffness: float = 10.0,
+        velocity: Any = None,
+        name: str | None = None,
+    ):
+        if shape not in ("sphere", "cylinder", "plane"):
+            raise InvalidParameter(
+                f"shape must be sphere, cylinder or plane, not {shape!r}"
+            )
+        if isinstance(stiffness, bool) or not (
+            np.isfinite(stiffness) and stiffness >= 0
+        ):
+            raise InvalidParameter(
+                f"stiffness must be a number not negative, not {stiffness!r}"
+            )
+        self.shape = shape
+        self.stiffness = float(stiffness)
+        self.name = _name(name)
+        if shape == "plane":
+            if axis not in ("x", "y", "z"):
+                raise InvalidParameter(f"a plane needs an axis x, y or z, not {axis!r}")
+            if position is None or not np.isfinite(position):
+                raise InvalidParameter(
+                    f"a plane needs a finite position, not {position!r}"
+                )
+            if side not in ("low", "high"):
+                raise InvalidParameter(
+                    f"a plane needs a side low or high, not {side!r}"
+                )
+            if center is not None or radius is not None:
+                raise InvalidParameter(
+                    "a plane takes a position, not a center or radius"
+                )
+            velocity = 0.0 if velocity is None else velocity
+            if (
+                isinstance(velocity, bool)
+                or np.ndim(velocity)
+                or not np.isfinite(velocity)
+            ):
+                raise InvalidParameter(
+                    f"the velocity of a plane is one number, not {velocity!r}"
+                )
+            self.axis, self.position, self.side = axis, float(position), side
+            self.center, self.radius = None, None
+            self.velocity = float(velocity)
+            return
+        if shape == "cylinder" and axis not in ("x", "y", "z"):
+            raise InvalidParameter(f"a cylinder needs an axis x, y or z, not {axis!r}")
+        if shape == "sphere" and axis is not None:
+            raise InvalidParameter("a sphere takes no axis")
+        if position is not None:
+            raise InvalidParameter(f"a {shape} takes a center, not a position")
+        if center is None:
+            raise InvalidParameter(f"a {shape} needs a center")
+        if (
+            radius is None
+            or isinstance(radius, bool)
+            or not (np.isfinite(radius) and radius >= 0)
+        ):
+            raise InvalidParameter(
+                f"radius must be a number not negative, not {radius!r}"
+            )
+        side = "out" if side is None else side
+        if side not in ("out", "in"):
+            raise InvalidParameter(f"side must be out or in, not {side!r}")
+        self.axis, self.position, self.side = axis, None, side
+        self.center = _vector(center, "center")
+        self.radius = float(radius)
+        still = velocity is None
+        self.velocity = _vector((0.0, 0.0, 0.0) if still else velocity, "velocity")
+
+    @property
+    def moving(self) -> bool:
+        return bool(np.any(self.velocity != 0.0))
+
+    def _at(self, time: float) -> Any:
+        """The center, or the position of the plane, after a time in ps."""
+        if self.shape == "plane":
+            return self.position + self.velocity * time
+        return self.center + self.velocity * time
+
+    def __repr__(self) -> str:
+        where = (
+            f"axis={self.axis!r}, position={self.position!r}"
+            if self.shape == "plane"
+            else f"center={self.center.tolist()!r}, radius={self.radius!r}"
+            + (f", axis={self.axis!r}" if self.axis else "")
+        )
+        velocity = self.velocity if self.shape == "plane" else self.velocity.tolist()
+        return (
+            f"Indenter({self.shape!r}, {where}, side={self.side!r}, "
+            f"stiffness={self.stiffness!r}, velocity={velocity!r}, name={self.name!r})"
+        )
+
+
 class _HeatField:
     """The driving field of homogeneous nonequilibrium molecular dynamics
     (HNEMD) for a run: each atom pushed by the field through its virial, the
@@ -476,6 +616,7 @@ CONTROLS = (
     AdaptiveTimestep,
     Switch,
     Wall,
+    Indenter,
     _HeatField,
 )
 
@@ -495,11 +636,12 @@ def checked(controls: Any, n: int) -> tuple:
     deforms = adaptive = switches = fields = 0
     walls: set = set()
     moving_walls = False
+    indenters = moving_indenters = 0
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
                 "a control must be one of Hold, Move, AddForce, Langevin, Deform, "
-                f"AdaptiveTimestep, Switch or Wall, not {control!r}"
+                f"AdaptiveTimestep, Switch, Wall or Indenter, not {control!r}"
             )
         if isinstance(control, Deform):
             if deforms:
@@ -518,6 +660,14 @@ def checked(controls: Any, n: int) -> tuple:
                 )
             walls.add((control.axis, control.side))
             moving_walls = moving_walls or control.velocity != 0.0
+            continue
+        if isinstance(control, Indenter):
+            indenters += 1
+            moving_indenters += control.moving
+            if control.name is not None:
+                if control.name in names:
+                    raise InvalidParameter(f"two controls are named {control.name!r}")
+                names.add(control.name)
             continue
         if isinstance(control, _HeatField):
             if fields:
@@ -571,6 +721,12 @@ def checked(controls: Any, n: int) -> tuple:
         )
     if walls and deforms:
         raise InvalidParameter("a wall with a Deform is not supported")
+    if indenters and deforms:
+        raise InvalidParameter("an indenter with a Deform is not supported")
+    if adaptive and moving_indenters:
+        raise InvalidParameter(
+            "an adaptive time step with a moving indenter is not supported"
+        )
     if adaptive and moving_walls:
         raise InvalidParameter(
             "an adaptive time step with a moving wall is not supported"

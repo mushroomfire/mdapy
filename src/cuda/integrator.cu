@@ -18,6 +18,11 @@ namespace mdapy::cuda {
 
 namespace {
 
+// A box, its vectors in rows.
+struct Cell {
+    double h[9];
+};
+
 // One thread for each component, so that the reads and writes are coalesced.
 __global__ void kick_kernel(std::int64_t components, double c, const double* f, const double* m,
                             double* v) {
@@ -70,6 +75,49 @@ __global__ void reflect_kernel(std::int64_t n, double3 normal, double offset, do
     u[0] += change * normal.x;
     u[1] += change * normal.y;
     u[2] += change * normal.z;
+}
+
+__global__ void indent_kernel(std::int64_t n, int kind, int axis, double sign, double k,
+                              double radius, double3 at, Cell box, int3 pbc, const double4a* x,
+                              double* f, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double4a p = x[i];
+    const double u[3] = {p.x, p.y, p.z};
+    double push[3] = {0.0, 0.0, 0.0};
+    double energy = 0.0;
+    if (kind == 2) {
+        const double dr = sign * (at.x - u[axis]);
+        if (dr < 0.0) {
+            push[axis] = -sign * k * dr * dr;
+            energy = -k / 3.0 * dr * dr * dr;
+        }
+    } else {
+        double d[3] = {u[0] - at.x, u[1] - at.y, u[2] - at.z};
+        if (kind == 1) d[axis] = 0.0;
+        // the minimum image of LAMMPS: along z, then y, then x, the tilts carried
+        if (pbc.z) {
+            const double m = rint(d[2] / box.h[8]);
+            for (int c = 0; c < 3; ++c) d[c] -= m * box.h[6 + c];
+        }
+        if (pbc.y) {
+            const double m = rint(d[1] / box.h[4]);
+            for (int c = 0; c < 3; ++c) d[c] -= m * box.h[3 + c];
+        }
+        if (pbc.x) d[0] -= rint(d[0] / box.h[0]) * box.h[0];
+        const double r = sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+        const double dr = sign > 0.0 ? r - radius : radius - r;
+        if (dr < 0.0) {
+            const double magnitude = sign * k * dr * dr;
+            for (int c = 0; c < 3; ++c) push[c] = d[c] * magnitude / r;
+            energy = -k / 3.0 * dr * dr * dr;
+        }
+    }
+    for (int c = 0; c < 3; ++c) f[3 * i + c] += push[c];
+    out[i] = energy;
+    out[n + i] = -push[0];
+    out[2 * n + i] = -push[1];
+    out[3 * n + i] = -push[2];
 }
 
 __global__ void squares_kernel(std::int64_t n, const double* v, double* out) {
@@ -193,10 +241,6 @@ __global__ void mix_kernel(std::int64_t components, double w, const double* kept
     if (k >= components) return;
     f[k] = kept != nullptr ? (1.0 - w) * kept[k] + w * f[k] : (1.0 - w) * f[k];
 }
-
-struct Cell {
-    double h[9];
-};
 
 // The forces and energies of springs to sites, the positions unwrapped by
 // their images.
@@ -398,6 +442,20 @@ void Atoms::reflect(const double* normal, double offset, double speed) {
                                             offset, speed, a.x.data(), a.velocities.data());
     MDAPY_LAUNCHED();
     ++a.version;
+}
+
+void Atoms::indent(int kind, int axis, double sign, double k, double radius, const double* at,
+                   const double* h, const bool* pbc, double* out) {
+    Impl& a = *impl_;
+    Cell box;
+    for (int c = 0; c < 9; ++c) box.h[c] = h[c];
+    a.scratch.resize(static_cast<std::size_t>(4 * a.n));
+    indent_kernel<<<blocks(a.n), kBlock>>>(
+        a.n, kind, axis, sign, k, radius, make_double3(at[0], at[1], at[2]), box,
+        make_int3(pbc[0] ? 1 : 0, pbc[1] ? 1 : 0, pbc[2] ? 1 : 0), a.x.data(), a.forces.data(),
+        a.scratch.data());
+    MDAPY_LAUNCHED();
+    sum_columns(a.scratch.data(), 4, a.n, out);
 }
 
 double Atoms::speed_squares() const {

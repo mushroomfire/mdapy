@@ -239,6 +239,47 @@ def _msst_velocities(
     return np.where(np.abs(half * d) > 1.0e-06, exact, small)
 
 
+def _minimum_image(d: np.ndarray, h: np.ndarray, pbc: Any) -> np.ndarray:
+    """Displacements in their minimum image as LAMMPS takes it in a box h of
+    its form: along z, then y, then x, the tilts carried."""
+    d = d.copy()
+    if pbc[2]:
+        d -= np.rint(d[:, 2] / h[2, 2])[:, None] * h[2]
+    if pbc[1]:
+        d -= np.rint(d[:, 1] / h[1, 1])[:, None] * h[1]
+    if pbc[0]:
+        d[:, 0] -= np.rint(d[:, 0] / h[0, 0]) * h[0, 0]
+    return d
+
+
+def _indented(
+    x: np.ndarray, h: np.ndarray, pbc: Any, spec: tuple, at: Any
+) -> tuple[np.ndarray, float, np.ndarray]:
+    """The forces of a virtual indenter on the atoms, its energy and the force
+    on it, as fix indent: spec (kind, axis, sign, k, radius), kind 0 a sphere,
+    1 a cylinder, 2 a plane, at its center or the position of the plane."""
+    kind, axis, sign, k, radius = spec
+    forces = np.zeros_like(x)
+    if kind == 2:
+        dr = sign * (at - x[:, axis])
+        past = dr < 0.0
+        push = -sign * k * dr[past] ** 2
+        forces[past, axis] = push
+        on = np.zeros(3)
+        on[axis] = -push.sum()
+        return forces, float(-(k / 3.0 * dr[past] ** 3).sum()), on
+    d = x - at
+    if kind == 1:
+        d[:, axis] = 0.0
+    d = _minimum_image(d, h, pbc)
+    r = np.sqrt(np.einsum("ij,ij->i", d, d))
+    dr = r - radius if sign > 0 else radius - r
+    past = dr < 0.0
+    push = d[past] * (sign * k * dr[past] ** 2 / r[past])[:, None]
+    forces[past] = push
+    return forces, float(-(k / 3.0 * dr[past] ** 3).sum()), -push.sum(axis=0)
+
+
 class _HostAtoms:
     """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
     positions, velocities and forces in the frame of LAMMPS, and the steps
@@ -344,6 +385,11 @@ class _HostAtoms:
             )
         # the forces of the potential on the watched groups
         self.sums = [forces[mask].sum(axis=0) for mask in self.watched]
+        self.indented = []
+        for spec, at in zip(self.indenters, self.indenter_at):
+            push, work, on = _indented(self.__x, box.matrix, box.pbc, spec, at)
+            forces = forces + push
+            self.indented.append((work, on))
         if self.added is not None:
             forces = forces + self.added
         self.__forces = self.__restrict(forces)
@@ -395,6 +441,10 @@ class _HostAtoms:
     def kick_drift(self, c: float, dt: float) -> None:
         self.kick(c)
         self.drift(dt)
+
+    indenters: tuple = ()  # (kind, axis, sign, k, radius) of each indenter
+    indenter_at: tuple = ()  # their centers or planes at the step
+    indented: list = []  # (energy, force on it) of each, of the last computation
 
     def speed_squares(self) -> float:
         """The sum of the squares of the velocities."""
@@ -586,6 +636,7 @@ class _Native:
         self.__switch: Any = None  # the Switch of the run
         self.__hugoniostat = False  # whether the run is nphug
         self.__msst: _Msst | None = None  # the shock of a run of msst
+        self.__indenters: tuple = ()  # the Indenter controls of the run
         self.__walls: tuple = ()  # (normal, offset, speed) of each wall
         self.__heating = False  # whether a heat field drives the run
         self.__keep = False  # whether the Langevin noise keeps the momentum
@@ -728,7 +779,7 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record() | self.__msst_record()  # fmt: skip
+        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record() | self.__msst_record() | self.__indenter_record()  # fmt: skip
 
     def __field_record(self) -> dict[str, Any]:
         """The potential part of the heat flux times the volume of a run of
@@ -751,6 +802,43 @@ class _Native:
             )
         self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
         self.__heating = True
+
+    def __set_indenters(self, indenters: tuple) -> None:
+        """The virtual indenters of a run, in a box of the form of LAMMPS: a
+        plane across an axis along which the box is not periodic."""
+        self.__indenters = ()
+        self.__atoms.indenters = ()
+        if not indenters:
+            return
+        if not (np.array_equal(self.__rotation, np.eye(3)) and not self.__swapped):
+            raise InvalidParameter(
+                "an indenter needs a box whose first vector is along x and second "
+                "in the xy plane"
+            )
+        specs = []
+        for indenter in indenters:
+            axis = "xyz".index(indenter.axis) if indenter.axis else 0
+            if indenter.shape == "plane":
+                if self.__frame_pbc[axis]:
+                    raise InvalidParameter(
+                        f"a plane indenter across {indenter.axis} needs a box not "
+                        f"periodic along {indenter.axis}"
+                    )
+                sign = 1.0 if indenter.side == "high" else -1.0
+            else:
+                sign = 1.0 if indenter.side == "out" else -1.0
+            kind = ("sphere", "cylinder", "plane").index(indenter.shape)
+            specs.append((kind, axis, sign, indenter.stiffness, indenter.radius or 0.0))
+        self.__indenters = indenters
+        self.__atoms.indenters = tuple(specs)
+
+    def __indenter_record(self) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for indenter, (energy, on) in zip(self.__indenters, self.__atoms.indented):
+            if indenter.name is not None:
+                out[f"{indenter.name}_force"] = [float(v) for v in on]
+                out[f"{indenter.name}_energy"] = float(energy)
+        return out
 
     def __set_walls(self, walls: tuple) -> None:
         """The plane of each wall in the frame of the dynamics at the start of
@@ -826,6 +914,9 @@ class _Native:
         """The forces; the energy and the virial too when full or with a
         barostat (on the GPU; the processor always computes all three)."""
         pressure = full or self.__pstat or self.__msst is not None
+        if self.__indenters:  # where they are at this step
+            elapsed = (self.__step - self.__first) * self.__dt
+            self.__atoms.indenter_at = tuple(c._at(elapsed) for c in self.__indenters)
         energy, virial = self.__atoms.compute(
             self.__table, self.__box(), full, pressure
         )
@@ -869,6 +960,9 @@ class _Native:
         self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
         self.__set_walls(tuple(c for c in controls if isinstance(c, _controls.Wall)))
+        self.__set_indenters(
+            tuple(c for c in controls if isinstance(c, _controls.Indenter))
+        )
         self.__set_switch(
             next((c for c in controls if isinstance(c, _controls.Switch)), None),
             barostat,
@@ -1236,6 +1330,7 @@ class _Native:
                     _controls.AdaptiveTimestep,
                     _controls.Switch,
                     _controls.Wall,
+                    _controls.Indenter,
                     _controls._HeatField,
                 ),
             ):
@@ -1293,6 +1388,8 @@ class _Native:
         self.__walls = ()
         self.__hugoniostat = False
         self.__msst = None
+        self.__indenters = ()
+        self.__atoms.indenters = ()
         if self.__switch is not None:
             self.__atoms.set_switch(False)
             self.__switch = None

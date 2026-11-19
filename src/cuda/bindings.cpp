@@ -176,6 +176,17 @@ NB_MODULE(_cuda, m) {
         .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
         .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
         .def("speed_squares", &Atoms::speed_squares)
+        .def(
+            "indent",
+            [](Atoms& a, int kind, int axis, double sign, double k, double radius, Vector at,
+               Matrix h, std::array<bool, 3> pbc) {
+                double* data;
+                nb::object out = new_array({4}, data);
+                a.indent(kind, axis, sign, k, radius, at.data(), h.data(), pbc.data(), data);
+                return out;
+            },
+            nb::arg("kind"), nb::arg("axis"), nb::arg("sign"), nb::arg("k"), nb::arg("radius"),
+            nb::arg("at"), nb::arg("h"), nb::arg("pbc"))
         .def("msst_kick", &Atoms::msst_kick, nb::arg("half"), nb::arg("base"), nb::arg("axial"),
              nb::arg("axis"), nb::arg("trial"), nb::arg("ftm2v"))
         .def(

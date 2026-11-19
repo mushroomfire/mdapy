@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.simulation.Indenter`, a control of a virtual indenter, as LAMMPS's
+  `fix indent`: a sphere, a cylinder or a plane, still or moving, that pushes the
+  atoms inside it out with a force K d², recording the force on it and its energy;
+  in MDAPY, on the GPU and in LAMMPS alike. See
+  [Indentation](../user-guide/simulation/indentation.md).
 - The example [A shock wave in copper](../examples/shock.md): a piston at 1 km/s
   through 102400 atoms on a GPU, the profiles of velocity, pressure and temperature
   behind the front, and the stacking faults it leaves.

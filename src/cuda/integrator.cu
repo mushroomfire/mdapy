@@ -18,6 +18,13 @@ namespace mdapy::cuda {
 
 namespace {
 
+// The 32-bit numbers of Philox that the noise of an atom draws at a step: two
+// curand_normal2_double, four each. The stream of each atom moves on by as many
+// at each step, so that no number is drawn twice; by fewer, the noise of one step
+// would repeat a component of the step before, and the thermostat would no longer
+// sample the canonical ensemble.
+constexpr unsigned long long kDrawn = 8;
+
 // A box, its vectors in rows.
 struct Cell {
     double h[9];
@@ -195,7 +202,7 @@ __global__ void langevin_kernel(std::int64_t n, double c1, double c2, double kt,
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), 4ULL * counter, &state);
+    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
     const double2 g01 = curand_normal2_double(&state);
     const double2 g23 = curand_normal2_double(&state);
     const double sigma = sqrt(kt / m[i]);
@@ -213,7 +220,7 @@ __global__ void noise_kernel(std::int64_t n, double c2, double kt, unsigned long
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), 4ULL * counter, &state);
+    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
     const double2 g01 = curand_normal2_double(&state);
     const double2 g23 = curand_normal2_double(&state);
     const double sigma = c2 * sqrt(kt / m[i]);
@@ -361,7 +368,7 @@ __global__ void bath_kernel(std::int64_t n, int bit, const std::int32_t* groups,
     out[i] = 0.0;
     if (((groups[i] >> bit) & 1) == 0) return;
     curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), 4ULL * counter, &state);
+    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
     const double2 g01 = curand_normal2_double(&state);
     const double2 g23 = curand_normal2_double(&state);
     double g[3] = {g01.x, g01.y, g23.x};

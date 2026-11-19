@@ -18,6 +18,7 @@ import polars as pl
 from mdapy import units
 from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator
+from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter
@@ -51,7 +52,9 @@ class DeviceAtoms:
         module = _gpu.cuda()
         self.__module = module
         self.__atoms = module.Atoms(len(system))
-        self.__atoms.set_species(np.ascontiguousarray(calculator._species(system)))
+        self.__system = system
+        self.__species = np.ascontiguousarray(calculator._species(system))
+        self.__atoms.set_species(self.__species)
         self.__atoms.set_masses(np.ascontiguousarray(masses, dtype=np.float64))
         self.__atoms.set_positions(np.ascontiguousarray(x, dtype=np.float64))
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
@@ -64,11 +67,20 @@ class DeviceAtoms:
         self.__watched = 0  # groups whose forces are summed: bits 0 to this
         self.__baths: list = []  # (bit, seed, [counter]) of each bath
         self.sums: list = []
+        self.__cutoff, self.__skin = on.cutoff, skin
         self.__neighbors = module.Neighbors(on.cutoff, skin)
         self.__potential = on.potential
         self.__h = np.zeros((3, 3))  # the box, for the images of the wrapped atoms
         self.__seed = 0
         self.__counter = 0
+        # a Switch: the other interaction (False for none, None for the ideal
+        # gas), its potential on the device and its species, and λ
+        self.__target: Any = False
+        self.__other: Any = None
+        self.__other_species: np.ndarray | None = None
+        self.weight = 0.0
+        self.parts = (math.nan, math.nan)
+        self.__field: np.ndarray | None = None  # of HNEMD, in the frame
 
     @property
     def positions(self) -> np.ndarray:
@@ -107,21 +119,103 @@ class DeviceAtoms:
             raise InvalidParameter(str(error)) from None
         except self.__module.NotFinite:
             raise CalculationFailed(_NOT_FINITE) from None
+        driven = self.__field is not None
         self.__potential.compute(
-            self.__atoms, self.__neighbors, h, lo, pbc, energy, virial, False
+            self.__atoms, self.__neighbors, h, lo, pbc, energy, virial or driven, driven
         )
+        if driven:
+            self.__atoms.drive(self.__field)
+        if self.__target is not False:
+            e, w = self.__switched(h, lo, pbc, energy, virial)
         if self.__watched:
             self.sums = list(self.__atoms.group_forces(self.__watched))
         self.__atoms.add_forces()
         if self.__held:
             self.__atoms.restrict_forces()
-        e = math.nan
-        if energy:
-            e = self.__atoms.total_energy()
-            if not math.isfinite(e):
-                raise CalculationFailed(_NOT_FINITE)
-        w = self.__atoms.total_virial() if virial else np.full((3, 3), np.nan)
+        if self.__target is False:
+            e = self.__atoms.total_energy() if energy else math.nan
+            w = self.__atoms.total_virial() if virial else np.full((3, 3), np.nan)
+        if energy and not math.isfinite(e):
+            raise CalculationFailed(_NOT_FINITE)
         return e, w
+
+    def __switched(
+        self, h: np.ndarray, lo: np.ndarray, pbc: Any, energy: bool, virial: bool
+    ) -> tuple[float, np.ndarray]:
+        """(1 - λ) times the potential plus λ times the other interaction of a
+        Switch: the energy and the virial, the forces mixed on the device; the
+        energies of the two kept."""
+        atoms, weight = self.__atoms, self.weight
+        first = atoms.total_energy() if energy else math.nan
+        work = atoms.total_virial() if virial else np.full((3, 3), np.nan)
+        other, push = 0.0, np.zeros((3, 3))
+        if self.__target is None:  # the ideal gas
+            atoms.mix_forces(weight, False)
+        elif isinstance(self.__target, Springs):
+            atoms.stash_forces()
+            other = atoms.springs(np.ascontiguousarray(h))
+            atoms.mix_forces(weight, True)
+        else:
+            atoms.stash_forces()
+            if self.__other_species is not None:
+                atoms.set_species(self.__other_species)
+            with_virial = virial and "virial" in self.__target.implemented
+            self.__other.potential.compute(
+                atoms, self.__neighbors, h, lo, pbc, energy, with_virial, False
+            )
+            other = atoms.total_energy() if energy else math.nan
+            if with_virial:
+                push = atoms.total_virial()
+            if self.__other_species is not None:
+                atoms.set_species(self.__species)
+            atoms.mix_forces(weight, True)
+        self.parts = (first, other)
+        return (1.0 - weight) * first + weight * other, (
+            1.0 - weight
+        ) * work + weight * push
+
+    def set_switch(self, target: Any) -> None:
+        """The other interaction of a Switch, None for none, or False for no
+        switch; a calculator on the GPU, or Springs."""
+        if isinstance(self.__target, Springs):
+            self.__atoms.clear_springs()
+        if self.__other is not None and self.__other.cutoff > self.__cutoff:
+            self.__neighbors = self.__module.Neighbors(self.__cutoff, self.__skin)
+        self.__target, self.__other, self.__other_species = target, None, None
+        self.weight = 0.0
+        self.parts = (math.nan, math.nan)
+        if target is False or target is None:
+            return
+        if isinstance(target, Springs):
+            self.__atoms.set_springs(
+                np.ascontiguousarray(target.sites, dtype=np.float64),
+                np.ascontiguousarray(target.constants, dtype=np.float64),
+            )
+            return
+        on = getattr(target, "_on_device", None)
+        if on is None:
+            self.__target = False
+            raise InvalidParameter(
+                "the target of a Switch on the GPU must compute on the GPU too: "
+                f'{type(target).__name__} with device="cuda"'
+            )
+        self.__other = on
+        species = np.ascontiguousarray(target._species(self.__system))
+        if not np.array_equal(species, self.__species):
+            self.__other_species = species
+        if on.cutoff > self.__cutoff:  # one list for both, as each sorts the atoms
+            self.__neighbors = self.__module.Neighbors(on.cutoff, self.__skin)
+
+    def set_field(self, field: np.ndarray | None) -> None:
+        """The driving field of HNEMD in the frame, or None for none."""
+        self.__field = (
+            None if field is None else np.ascontiguousarray(field, dtype=np.float64)
+        )
+
+    def heat_flux(self) -> np.ndarray:
+        """(3,) the potential part of the heat flux times the volume in the
+        frame, of the virials of the last computation and the velocities now."""
+        return self.__atoms.heat_flux()
 
     def kick(self, c: float) -> None:
         self.__atoms.kick(c)
@@ -224,10 +318,11 @@ class DeviceAtoms:
         self.__seed = secrets.randbits(63) if seed is None else int(seed)
         self.__counter = 0
 
-    def langevin(self, c1: float, c2: float, kt: float) -> None:
+    def langevin(self, c1: float, c2: float, kt: float, keep: bool = False) -> None:
         """v = c1 v + c2 sqrt(kt / m) g, g Gaussian of the seed and a counter,
-        with the noise of held directions removed."""
-        self.__atoms.langevin(c1, c2, kt, self.__seed, self.__counter)
+        with the noise of held directions removed; with keep, less an equal
+        share of the momentum of the noise."""
+        self.__atoms.langevin(c1, c2, kt, self.__seed, self.__counter, keep)
         self.__counter += 1
         if self.__held:
             self.__atoms.restrict_velocities()

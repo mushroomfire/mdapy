@@ -135,9 +135,9 @@ def stacking_fault_free_energy(
         error, as the error of the free energy of the atoms grows more slowly than
         the area does.
     potential : Calculator
-        The interaction: any calculator of energies, forces and virials on
-        the processor; the dynamics run in MDAPY, or in LAMMPS for a LAMMPS
-        calculator.
+        The interaction: any calculator of energies, forces and virials, on
+        the processor or the GPU; the dynamics run in MDAPY, or in LAMMPS for
+        a LAMMPS calculator.
     direction : array_like
         (3,) float64, the slip vector in Å, in the plane, such as a/6 [11-2].
     temperatures : float64 or array_like
@@ -179,8 +179,8 @@ def stacking_fault_free_energy(
     ------
     InvalidParameter
         For invalid options, a plane not normal to the axis, a box not periodic in
-        every direction, a potential that is not a calculator or computes on
-        the GPU in MDAPY, or if the dynamics fail.
+        every direction, a potential that is not a calculator, or if the
+        dynamics fail.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
@@ -188,10 +188,7 @@ def stacking_fault_free_energy(
     """
     if not isinstance(potential, Calculator):
         raise InvalidParameter("potential must be a mdapy calculator")
-    if not isinstance(potential, LAMMPS) and potential.device != "cpu":
-        raise InvalidParameter(
-            'the free energy runs on the processor: a calculator with device="cpu"'
-        )
+
     if "element" not in crystal.table.columns:
         raise MissingProperty("the free energy needs the element column")
     if not crystal.box.pbc.all():

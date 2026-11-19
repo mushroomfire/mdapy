@@ -533,7 +533,13 @@ def _liquid_reference_in_mdapy(
     the Uhlenbeck-Ford model and back, and the model into the ideal gas."""
     n = len(liquid)
     kt = units.BOLTZMANN * temperature
-    model = UhlenbeckFord((_UF_STRENGTH * kt, _UF_LENGTH), _UF_CUTOFF)
+    # on the device of the potential, as the switching computes both there
+    model = UhlenbeckFord(
+        (_UF_STRENGTH * kt, _UF_LENGTH),
+        _UF_CUTOFF,
+        device=potential.device,
+        precision=potential.precision,
+    )
     seeds = [seed + 100_000 * k for k in range(8)]
     with MolecularDynamics(liquid, potential, timestep=timestep) as md:
         md.velocities(temperature, seed=seed)
@@ -974,9 +980,9 @@ def free_energy(
         direction: for a solid at their places in the crystal (relax them
         first), for a liquid anywhere, as it is melted first.
     potential : Calculator
-        The interaction: any calculator of energies, forces and virials on
-        the processor; a LAMMPS one for a liquid needs one pair style, not a
-        hybrid.
+        The interaction: any calculator of energies, forces and virials, on
+        the processor or the GPU; a LAMMPS one for a liquid needs one pair
+        style, not a hybrid.
     temperatures : float64 or array_like
         Temperatures in K, positive. The free energy is calculated at the
         first, and followed from there to the others, which must lie on one
@@ -1038,10 +1044,6 @@ def free_energy(
     if not isinstance(potential, Calculator):
         raise InvalidParameter("potential must be a mdapy calculator")
     in_lammps = isinstance(potential, LAMMPS)
-    if not in_lammps and potential.device != "cpu":
-        raise InvalidParameter(
-            'the free energy runs on the processor: a calculator with device="cpu"'
-        )
     if "element" not in system.table.columns:
         raise MissingProperty("the free energy needs the element column")
     if not system.box.pbc.all():

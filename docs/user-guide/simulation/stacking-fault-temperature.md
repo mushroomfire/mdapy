@@ -125,7 +125,7 @@ gives something lower than the energy at rest.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `crystal` | `System` | | | the crystal, relaxed, with an `element` column, periodic in every direction, with the plane of the fault normal to the Cartesian axis of `axis`, such as fcc with z along [111] |
-| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials on the processor; the dynamics run in MDAPY, or in LAMMPS for a [LAMMPS calculator](lammps.md) |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials, on the processor or the GPU; the dynamics run in MDAPY, or in LAMMPS for a [LAMMPS calculator](lammps.md) |
 | `direction` | (3,) float64 | | Å | (3,) the slip vector in the plane, such as a/6 [11-2] |
 | `temperatures` | float64 or (T,) float64 | | K | the temperatures |
 | `height` | float64 | between the two layers nearest the middle | | the fault, as a fractional coordinate along the box vector of `axis` |
@@ -171,7 +171,7 @@ gets worse with the temperature.
 
 `stacking_fault_free_energy` raises `InvalidParameter` for invalid options, a plane not
 normal to the axis, a box not periodic in every direction, a `potential` that is not a
-calculator or computes on the GPU in MDAPY, or if the dynamics fail;
+calculator, or if the dynamics fail;
 `MissingProperty` for a crystal without an `element` column; `Cancelled` when
 cancelled.
 

@@ -835,8 +835,8 @@ class MolecularDynamics:
             unpredictable when None.
         keep_momentum : bool, optional
             With Langevin dynamics, random forces that sum to zero, which keep
-            the total momentum, as LAMMPS's fix langevin zero yes; on the
-            processor, with no atoms held or moved. Default False.
+            the total momentum, as LAMMPS's fix langevin zero yes; with no
+            atoms held or moved. Default False.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -945,8 +945,8 @@ class MolecularDynamics:
             unpredictable when None.
         keep_momentum : bool, optional
             With Langevin dynamics, random forces that sum to zero, which keep
-            the total momentum, as LAMMPS's fix langevin zero yes; on the
-            processor, with no atoms held or moved. Default False.
+            the total momentum, as LAMMPS's fix langevin zero yes; with no
+            atoms held or moved. Default False.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.

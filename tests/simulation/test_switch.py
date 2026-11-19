@@ -11,6 +11,7 @@ crystal into another; the Langevin noise that keeps the momentum."""
 import numpy as np
 import pytest
 
+import mdapy
 from mdapy.calculators import EAM, LAMMPS, Springs, UhlenbeckFord, _gpu
 from mdapy.errors import InvalidParameter
 from mdapy.simulation import Hold, MolecularDynamics, Move, Switch
@@ -206,17 +207,67 @@ def test_errors(potentials, monkeypatch):  # noqa: F811
                 md.run(1, controls=Switch(None))
     monkeypatch.setattr(_gpu, "cuda", stand_in)
     gpu = EAM.zhou(["Al", "Cu"], device="cuda")
-    with MolecularDynamics(system.drop("mass"), gpu) as md:
-        with pytest.raises(InvalidParameter, match="on the processor"):
-            md.run(1, controls=Switch(None))
-        with pytest.raises(InvalidParameter, match="on the processor"):
-            md.run(
-                1,
-                ensemble="nvt",
-                temperature=300.0,
-                thermostat="langevin",
-                keep_momentum=True,
-            )
+    with MolecularDynamics(big(), gpu) as md:
+        with pytest.raises(InvalidParameter, match="compute on the GPU too"):
+            md.run(1, controls=Switch(UhlenbeckFord(UF, 6.0)))
+        md.run(2)  # usable after the refusal
+
+
+def big():
+    """A crystal thick enough for the GPU."""
+    from mdapy.build import build_crystal
+
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(5, 5, 5))
+    rng = np.random.default_rng(0)
+    return system.with_columns(
+        positions=system["positions"] + rng.normal(0, 0.05, (len(system), 3)),
+        element=list(rng.choice(["Al", "Cu"], len(system), p=[0.2, 0.8])),
+    )
+
+
+@pytest.mark.parametrize("target", ["ufm", "springs", "gas"])
+def test_on_the_gpu(monkeypatch, target):
+    """A Switch on the GPU, its module stood in for on the processor: the runs
+    of the processor, the difference of the energies too."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    system = big()
+    out = []
+    for device in ("cuda", "cpu"):
+        if target == "ufm":  # one kind of atom: species other than those of EAM
+            other = UhlenbeckFord(UF, 6.5, device=device)
+        elif target == "springs":
+            other = Springs(system["positions"], 1.5)
+        else:
+            other = None
+        potential = EAM.zhou(["Al", "Cu"], device=device)
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(60, thermo=20, controls=Switch(other, name="s"))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["positions"], b["positions"], atol=1e-9)
+    np.testing.assert_allclose(a["velocities"], b["velocities"], atol=1e-8)
+    np.testing.assert_allclose(ta["s_difference"], tb["s_difference"], rtol=1e-9)
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )
+
+
+def test_the_kept_momentum_on_the_gpu(monkeypatch):
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    with MolecularDynamics(big(), EAM.zhou(["Al", "Cu"], device="cuda")) as md:
+        md.velocities(300.0, seed=1)
+        md.run(
+            100,
+            ensemble="nvt",
+            temperature=300.0,
+            thermostat="langevin",
+            keep_momentum=True,
+            seed=2,
+        )
+        end = md.system
+    masses = mdapy.elements.atomic_masses(list(end["element"]))
+    assert np.abs(masses @ end["velocities"]).max() < 1e-9
 
 
 def test_springs_in_a_turned_box(potentials):  # noqa: F811

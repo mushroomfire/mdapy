@@ -159,7 +159,29 @@ NB_MODULE(_cuda, m) {
             },
             nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
         .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
-             nb::arg("seed"), nb::arg("counter"))
+             nb::arg("seed"), nb::arg("counter"), nb::arg("keep") = false)
+        .def("stash_forces", &Atoms::stash_forces)
+        .def("mix_forces", &Atoms::mix_forces, nb::arg("weight"), nb::arg("other"))
+        .def(
+            "set_springs",
+            [](Atoms& a, Positions sites, Flat constants) {
+                if (static_cast<std::int64_t>(sites.shape(0)) != a.size() ||
+                    static_cast<std::int64_t>(constants.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one site and one constant per atom");
+                }
+                a.set_springs(sites.data(), constants.data());
+            },
+            nb::arg("sites"), nb::arg("constants"))
+        .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
+        .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
+        .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def("heat_flux",
+             [](const Atoms& a) {
+                 double* data;
+                 nb::object out = new_array({3}, data);
+                 a.heat_flux(data);
+                 return out;
+             })
         .def(
             "set_movable",
             [](Atoms& a, Movable movable, Matrix rotation) {

@@ -12,9 +12,8 @@ with 2 keV in tungsten and counts the defects with the
     [`nep.txt`](high-throughput/nep.txt), has a ZBL repulsion at short range, from 1 to
     2 Å: atoms that meet at the speeds of a cascade come much closer than in a crystal,
     where only such a repulsion describes them. A potential without one lets them
-    pass through each other. The molecular dynamics run in LAMMPS with the NEP of
-    KOKKOS, `pair_style nep/kk`, on a GPU, as in the
-    [example of CrCoNi](crconi.md#from-molecular-dynamics).
+    pass through each other. The molecular dynamics run in MDAPY with the NEP on a
+    [GPU](../user-guide/simulation/gpu.md), `device="cuda"`.
 
 <!-- files: high-throughput -->
 
@@ -25,16 +24,15 @@ with 2 keV in tungsten and counts the defects with the
 import numpy as np
 from mdapy import units
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import NEP
 from mdapy.simulation import MolecularDynamics, minimize
 from mdapy.transform import replicate
 
-gpu = LAMMPS(
-    "pair_style nep/kk\npair_coeff * * nep.txt W",
-    ["W"],
-    cmdargs=["-k", "on", "g", "1", "-sf", "kk", "-pk", "kokkos", "newton", "on", "neigh", "half"],
-)  # fmt: skip
-cell = minimize(build_crystal("bcc", 3.17, elements="W"), gpu, cell="full").system
+gpu = NEP("nep.txt", device="cuda")
+# the cell of two atoms on the processor: it is too small for the lists of the GPU
+cell = minimize(
+    build_crystal("bcc", 3.17, elements="W"), NEP("nep.txt"), cell="full"
+).system
 crystal = replicate(cell, (30, 30, 30))  # 54000 atoms, 9.5 nm wide
 
 with MolecularDynamics(crystal, gpu, timestep=0.002) as md:
@@ -78,25 +76,25 @@ np.linalg.norm(start["velocities"][pka])  # Å/ps, 458
 
 ## The cascade
 
-The time step adapts to the fastest atom, `fix dt/reset` of LAMMPS: no atom moves
+The time step adapts to the fastest atom, an
+[`AdaptiveTimestep`](../user-guide/simulation/adaptive-timestep.md): no atom moves
 more than 0.05 Å in a step, up to steps of 1 fs once the cascade has cooled. The atoms
-within 1 nm of the faces of the box keep 300 K and carry the heat of the cascade
-away, as the crystal around it would:
+within 1 nm of the faces of the box keep 300 K in a
+[`Langevin`](../user-guide/simulation/controls.md) bath and carry the heat of the
+cascade away, as the crystal around it would:
 
 <!-- skip-test -->
 ```python
+from mdapy.simulation import AdaptiveTimestep, Langevin
+
 L = start.box.lengths
+inside = start.box.to_fractional(start["positions"]) * L
+core = ((inside > 10) & (inside < L - 10)).all(axis=1)
+controls = [AdaptiveTimestep(0.05), Langevin(~core, 300.0, damping=0.1, seed=7)]
 with MolecularDynamics(start, gpu, timestep=0.001) as md:
-    md.command(
-        "fix adapt all dt/reset 1 NULL 0.001 0.05 units box\n"
-        f"region core block 10 {L[0] - 10} 10 {L[1] - 10} 10 {L[2] - 10}\n"
-        "group core region core\n"
-        "group border subtract all core\n"
-        "fix cool border langevin 300 300 0.1 7"
-    )
-    md.run(20000, ensemble="nve", thermo=200, save_every=500)
+    md.run(20000, ensemble="nve", thermo=200, save_every=500, controls=controls)
     thermo, frames = md.thermo, md.frames
-frames[-1].info["time"]  # ps, about 20: the steps grew from 0.2 fs to 1 fs
+frames[-1].info["time"]  # ps, about 19: the steps grew from 0.1 fs to 1 fs
 ```
 
 ## The defects
@@ -122,17 +120,17 @@ with plot.style():
     bottom.set_ylabel("Frenkel pairs")
     bottom.set_xlabel("Time (ps)")
     plot.save(fig, "images/radiation-cascade", formats=("png",))
-pairs.max(), pairs[-1]  # 26 at the peak of the cascade, about 5 at the end
+pairs.max(), pairs[-1]  # 23 at the peak of the cascade, 4 at the end
 ```
 
 ![The temperature and the Frenkel pairs of a cascade of 2 keV in tungsten](images/radiation-cascade.png)
 
-*A cascade of 2 keV in 54000 atoms of tungsten. The temperature of the box starts near
-580 K, as the 2 keV of the PKA count in the kinetic energy of all the atoms, and falls
-back to 300 K as the border takes the heat away. Of the 26 Frenkel pairs at half a
-picosecond, 5 are left after 3 ps: most of the atoms knocked out of their places fall
-back into vacancies as the cascade cools. The dynamics are chaotic, so another run, or
-another GPU, leaves a few more or fewer.*
+*A cascade of 2 keV in 54000 atoms of tungsten, under three minutes on one V100 GPU.
+The temperature of the box starts near 580 K, as the 2 keV of the PKA count in the
+kinetic energy of all the atoms, and falls back to 300 K as the border takes the heat
+away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps: most of the atoms
+knocked out of their places fall back into vacancies as the cascade cools. The dynamics
+are chaotic, so another run, or another GPU, leaves a few more or fewer.*
 
 The vacancies and the interstitials at the end:
 
@@ -154,12 +152,13 @@ render(
 
 ![The vacancies and interstitials left by the cascade](images/radiation-cascade-defects.png)
 
-*The five vacancies in blue, at the center of the box where the cascade began, and the
-five interstitials around them in red, each two atoms sharing one site.*
+*The four vacancies in blue, at the center of the box where the cascade began, and the
+four interstitials around them in red, each two atoms sharing one site.*
 
 ## See also
 
 - [Wigner–Seitz analysis](../user-guide/analysis/wigner-seitz.md).
 - [Molecular dynamics](../user-guide/simulation/dynamics.md).
-- LAMMPS [`fix dt/reset`](https://docs.lammps.org/fix_dt_reset.html) and
-  [`fix langevin`](https://docs.lammps.org/fix_langevin.html).
+- [Adaptive time step](../user-guide/simulation/adaptive-timestep.md),
+  [Groups and controls](../user-guide/simulation/controls.md) and
+  [On the GPU](../user-guide/simulation/gpu.md).

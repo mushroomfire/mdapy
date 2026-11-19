@@ -10,18 +10,20 @@ temperature. A run in which one phase takes over gives a new guess, until both l
 <!-- skip-test -->
 ```python
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import EAM
 from mdapy.simulation import melting_point, minimize
 
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM("Cu_mishin1.eam.alloy", device="cuda")  # the file of LAMMPS
+# the cell of four atoms on the processor: it is too small for the lists of the GPU
 crystal = minimize(
-    build_crystal("fcc", 3.615, elements="Cu"), potential, cell="full", max_stress=1e-4
+    build_crystal("fcc", 3.615, elements="Cu"),
+    EAM("Cu_mishin1.eam.alloy"),
+    cell="full",
+    max_stress=1e-4,
 ).system
 
 result = melting_point(crystal, potential, 1000.0)
-result.temperature, result.error  # 1323 K, 0.7 K
+result.temperature, result.error  # 1324 K, 1.2 K
 result.attempts  # how the search went
 ```
 
@@ -44,10 +46,11 @@ with plot.style():
 
 ![The two phases reaching their common temperature](images/melting-point.png)
 
-*Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K. The
-runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases; its fifth stretch
-agreed with the fourth and gave 1323 K.
-Here is its last stretch.*
+*Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K, in
+51 minutes on one V100 GPU. The runs from 1000 and 1150 K froze; the one from 1322 K kept
+both phases, but its temperature still moved by more than 3 K between its stretches
+after five of them, and the next, from 1326 K, gave 1324 K in two that agreed. Here is
+its last stretch.*
 
 The crystal is repeated to about `num_atoms` atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:

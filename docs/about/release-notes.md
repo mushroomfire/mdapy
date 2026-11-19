@@ -9,6 +9,11 @@
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   [Groups and controls](../user-guide/simulation/controls.md).
+- `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
+  velocities of a temperature for the atoms of a system, or of a part of
+  them, with no total momentum, those `MolecularDynamics.velocities` gives in
+  MDAPY with the same seed; a system's velocities are where a run starts. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md#running).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

@@ -39,6 +39,7 @@ from mdapy.simulation._phase_diagram import (
     binary_phase_diagram,
     pressure_temperature_diagram,
 )
+from mdapy.simulation._velocities import thermal_velocities
 
 __all__ = [
     "AddForce",
@@ -67,5 +68,6 @@ __all__ = [
     "stacking_fault_energy",
     "stacking_fault_free_energy",
     "surface_energy",
+    "thermal_velocities",
     "vacancy_formation_energy",
 ]

@@ -18,6 +18,8 @@
 
 ::: mdapy.simulation.Langevin
 
+::: mdapy.simulation.thermal_velocities
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

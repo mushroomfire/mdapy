@@ -72,6 +72,8 @@ both zero beyond a σ.
 |---|---|---|
 | `path` | str or path-like | a `.sw` file: for each triplet of elements i, j, k, the 11 numbers ε, σ, a, λ, γ, cos θ0, A, B, p, q and tol, over one or more lines |
 | `elements` | sequence of str, or mapping | the elements to use, as the names after the file in `pair_coeff` of LAMMPS; every triplet of them needs an entry. A mapping takes the element of the atoms to a label of the file. Default every element of the file |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](gpu.md) |
+| `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |
 |---|---|---|

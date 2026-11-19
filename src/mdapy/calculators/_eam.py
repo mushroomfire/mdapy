@@ -12,7 +12,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import calculators as _native
-from mdapy.calculators import _zhou
+from mdapy.calculators import _gpu, _zhou
 from mdapy.calculators._base import Calculator, CalculatorResult
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -294,6 +294,13 @@ class EAM(Calculator):
         number of values, as an ``eam/fs`` file holds the density each
         element gives each element; or one or several funcfl files of
         ``pair_style eam``, one element each, mixed as LAMMPS mixes them.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -310,12 +317,19 @@ class EAM(Calculator):
         Cutoff radius in Å.
     """
 
-    def __init__(self, path: str | os.PathLike | Sequence[str | os.PathLike]):
+    def __init__(
+        self,
+        path: str | os.PathLike | Sequence[str | os.PathLike],
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
+    ):
+        placement = _gpu.resolve(device, precision)
         paths = [path] if isinstance(path, (str, os.PathLike)) else list(path)
         if not paths:
             raise InvalidParameter("give the file of the potential")
         if len(paths) == 1 and not _is_funcfl(paths[0]):
-            self.__set(_read_setfl(paths[0]), os.fspath(paths[0]))
+            self.__set(_read_setfl(paths[0]), os.fspath(paths[0]), placement=placement)
             return
         if not all(_is_funcfl(p) for p in paths):
             raise InvalidParameter(
@@ -325,6 +339,7 @@ class EAM(Calculator):
         self.__set(
             _funcfl_tables([_read_funcfl(p) for p in paths]),
             names[0] if len(names) == 1 else names,
+            placement=placement,
         )
 
     def __set(
@@ -332,6 +347,7 @@ class EAM(Calculator):
         tables: dict[str, Any],
         path: str | tuple[str, ...] | None,
         average: bool = False,
+        placement: tuple[str, str] = ("cpu", "double"),
     ):
         self.path = path
         self.__tables = tables
@@ -347,6 +363,22 @@ class EAM(Calculator):
             tables["cutoff"],
             rho_max=tables.get("rho_max"),
         )
+        self.device, self.precision = placement
+        self.__gpu: _gpu.OnDevice | None = None
+        if self.device == "cuda":
+            self.__gpu = _gpu.OnDevice(
+                _gpu.cuda().make_eam(
+                    tables["embedding"],
+                    tables["density"],
+                    tables["pair"],
+                    tables["drho"],
+                    tables["dr"],
+                    tables["cutoff"],
+                    self.__potential.rho_max,
+                    self.precision,
+                ),
+                self.cutoff,
+            )
         self.__species = np.full(len(SYMBOLS), -1, dtype=np.int32)
         if average:
             self.elements = None
@@ -360,14 +392,25 @@ class EAM(Calculator):
                 self.__species[SYMBOLS.index(names[k])] = k
 
     @classmethod
-    def __built(cls, tables: dict[str, Any], average: bool = False) -> "EAM":
+    def __built(
+        cls,
+        tables: dict[str, Any],
+        average: bool = False,
+        placement: tuple[str, str] = ("cpu", "double"),
+    ) -> "EAM":
         potential = cls.__new__(cls)
-        potential.__set(tables, None, average)
+        potential.__set(tables, None, average, placement)
         return potential
 
     @classmethod
     def zhou(
-        cls, elements: Sequence[str], *, nr: int = 2000, nrho: int = 2000
+        cls,
+        elements: Sequence[str],
+        *,
+        nr: int = 2000,
+        nrho: int = 2000,
+        device: str = "cpu",
+        precision: str | None = None,
     ) -> "EAM":
         """The potential of Zhou, Johnson and Wadley for elements, tabulated as
         the LAMMPS tool tools/eam_database does.
@@ -380,13 +423,18 @@ class EAM(Calculator):
         nr, nrho : int32, optional
             Number of points of the tables in distance and in density.
             Default 2000.
+        device : {"cpu", "cuda"}, optional
+            Where it computes, as for ``EAM``. Default "cpu".
+        precision : {"mixed", "double"}, optional
+            Its precision, as for ``EAM``.
 
         Returns
         -------
         EAM
             The potential, written to a file with ``write``.
         """
-        return cls.__built(_zhou.tables(list(elements), nr, nrho))
+        placement = _gpu.resolve(device, precision)
+        return cls.__built(_zhou.tables(list(elements), nr, nrho), placement=placement)
 
     def average(self, fractions: Mapping[str, float] | Sequence[float]) -> "EAM":
         """The average-atom potential of an alloy of the elements.
@@ -465,7 +513,9 @@ class EAM(Calculator):
         tables["pair"] = np.vstack(
             [t["pair"], mixed, np.einsum("a,ar->r", weights, mixed)]
         )
-        return EAM.__built(tables, average=True)
+        return EAM.__built(
+            tables, average=True, placement=(self.device, self.precision)
+        )
 
     def write(self, path: str | os.PathLike) -> None:
         """Writes the potential as a LAMMPS ``eam/alloy`` (setfl) file, or
@@ -507,19 +557,10 @@ class EAM(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        if self.__average:
-            species = np.full(len(system), len(self.__tables["elements"]) - 1, np.int32)
-        else:
-            if "element" not in system.table.columns:
-                raise MissingProperty("EAM needs the element column")
-            numbers = system.table["element"].to_physical().to_numpy()
-            species = self.__species[numbers]
-            if (species < 0).any():
-                missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
-                raise InvalidParameter(
-                    f"the potential has no parameters for {missing}; it has {list(self.elements or ())}"
-                )
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if self.__gpu is not None:  # with a neighbor list of its own on the GPU
+            return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_eam(
@@ -542,8 +583,33 @@ class EAM(Calculator):
             volume=system.box.volume,
         )
 
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        if self.__average:
+            return np.full(len(system), len(self.__tables["elements"]) - 1, np.int32)
+        if "element" not in system.table.columns:
+            raise MissingProperty("EAM needs the element column")
+        numbers = system.table["element"].to_physical().to_numpy()
+        species = self.__species[numbers]
+        if (species < 0).any():
+            missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
+            raise InvalidParameter(
+                f"the potential has no parameters for {missing}; it has {list(self.elements or ())}"
+            )
+        return species
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
+
     def __repr__(self) -> str:
         source = f"{self.path!r}, " if self.path is not None else ""
+        where = (
+            f", device='cuda', precision={self.precision!r}"
+            if self.device == "cuda"
+            else ""
+        )
         if self.__average:
-            return f"EAM({source}average atom, cutoff={self.cutoff})"
-        return f"EAM({source}elements={self.elements}, cutoff={self.cutoff})"
+            return f"EAM({source}average atom, cutoff={self.cutoff}{where})"
+        return f"EAM({source}elements={self.elements}, cutoff={self.cutoff}{where})"

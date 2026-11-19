@@ -6,10 +6,36 @@
 #include "calculators/adp.h"
 
 #include <cmath>
+#include <stdexcept>
 
 #include "neighbor/frame.h"
 
 namespace mdapy::calculators {
+
+AdpPotential make_adp_potential(const double* embedding, int elements, int nrho,
+                                const double* density, const double* pair, const double* dipole,
+                                const double* quadrupole, int nr, double drho, double dr,
+                                double cutoff) {
+    if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
+        throw std::invalid_argument("ADP table spacings and cutoff must be positive");
+    }
+    AdpPotential potential;
+    potential.elements = elements;
+    potential.cutoff = cutoff;
+    const auto row = static_cast<std::size_t>(nr);
+    for (int e = 0; e < elements; ++e) {
+        potential.embedding.emplace_back(embedding + static_cast<std::size_t>(e) * nrho, nrho,
+                                         drho);
+        potential.density.emplace_back(density + e * row, nr, dr);
+    }
+    const auto pairs = static_cast<std::size_t>(elements * (elements + 1) / 2);
+    for (std::size_t k = 0; k < pairs; ++k) {
+        potential.pair.emplace_back(pair + k * row, nr, dr);
+        potential.dipole.emplace_back(dipole + k * row, nr, dr);
+        potential.quadrupole.emplace_back(quadrupole + k * row, nr, dr);
+    }
+    return potential;
+}
 
 void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32_t* species,
                  const double* positions, const double* matrix, const std::int64_t* offsets,

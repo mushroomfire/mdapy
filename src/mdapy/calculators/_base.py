@@ -97,11 +97,18 @@ class Calculator(ABC):
         The properties ``compute`` can return, a subset of
         ``energy``, ``atomic_energies``, ``forces``, ``virial`` and
         ``atomic_virials``.
+    device : str
+        Where ``compute`` runs: ``"cpu"``, or ``"cuda"`` on an NVIDIA GPU.
+    precision : str
+        ``"double"``, or ``"mixed"``: single precision for the terms of each
+        pair, double for the positions and the sums.
     """
 
     cutoff: float
     elements: tuple[str, ...] | None = None
     implemented: frozenset[str] = PROPERTIES
+    device: str = "cpu"
+    precision: str = "double"
 
     @abstractmethod
     def compute(

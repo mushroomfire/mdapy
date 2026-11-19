@@ -5,7 +5,9 @@
 
 #include "calculators/pair.h"
 
+#include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 #include "neighbor/frame.h"
 
@@ -84,6 +86,24 @@ void compute(const PairPotential& potential, std::int64_t n, const std::int32_t*
 }
 
 }  // namespace
+
+PairPotential make_pair_potential(PairStyle style, int species, const double* cutsq,
+                                  const double* offset, const double* coefficients) {
+    PairPotential potential;
+    potential.style = style;
+    potential.species = species;
+    const auto t = static_cast<std::size_t>(species);
+    potential.cutsq.assign(cutsq, cutsq + t * t);
+    potential.offset.assign(offset, offset + t * t);
+    potential.coefficients.assign(coefficients, coefficients + 4 * t * t);
+    for (const double c2 : potential.cutsq) {
+        if (!(c2 >= 0.0)) {
+            throw std::invalid_argument("cutoffs must not be negative");
+        }
+        potential.cutoff = std::max(potential.cutoff, std::sqrt(c2));
+    }
+    return potential;
+}
 
 void compute_pair(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,

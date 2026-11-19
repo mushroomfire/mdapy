@@ -89,8 +89,10 @@ keeps its shape. The masses are those of the `mass` column, or of the
 elements; LAMMPS takes those of some potential files, such as EAM's.
 
 It is made for small systems, from a few atoms to some thousands, such as
-those of the training sets of machine-learned potentials. Large systems, long
-runs and anything beyond these ensembles are for LAMMPS.
+those of the training sets of machine-learned potentials; large systems and
+long runs on the processor, and anything beyond these ensembles, are for
+LAMMPS. With a potential on an NVIDIA GPU, the same dynamics runs there, for
+millions of atoms: see [On the GPU](gpu.md).
 
 A `movable` column, (N, 3) bool as VASP's selective dynamics, keeps atoms
 still along the directions where it is False, in MDAPY's dynamics only; the

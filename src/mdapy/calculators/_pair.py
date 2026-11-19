@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from mdapy import _core
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -109,12 +110,31 @@ class _PairCalculator(Calculator):
         self.elements = elements
         self.cutoffs = cutoffs
         self.cutoff = float(cutoffs.max())
-        self.__potential = _native.make_pair(
-            self._style,
+        tables = (
             np.ascontiguousarray((cutoffs**2).ravel()),
             np.ascontiguousarray(offset.ravel()),
             np.ascontiguousarray(coefficients.ravel()),
         )
+        self.__potential = _native.make_pair(self._style, *tables)
+        self.__gpu: _gpu.OnDevice | None = None
+        if self.device == "cuda":
+            self.__gpu = _gpu.OnDevice(
+                _gpu.cuda().make_pair(
+                    self._style, len(cutoffs), *tables, self.precision
+                ),
+                self.cutoff,
+            )
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        if self._any_atom:  # one kind of atom, whatever its element
+            return np.zeros(len(system), dtype=np.int32)
+        return _element_indices(system, self.elements, self._name)
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
 
     def compute(
         self,
@@ -125,11 +145,10 @@ class _PairCalculator(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        if self._any_atom:  # one kind of atom, whatever its element
-            species = np.zeros(len(system), dtype=np.int32)
-        else:
-            species = _element_indices(system, self.elements, self._name)
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if self.__gpu is not None:  # with a neighbor list of its own on the GPU
+            return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_pair(
@@ -175,6 +194,13 @@ class LennardJones(_PairCalculator):
     shift : bool, optional
         Take off each pair the energy at its cutoff, so that it goes to zero
         there, as ``pair_modify shift yes``. Default False.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -197,7 +223,10 @@ class LennardJones(_PairCalculator):
         *,
         mixing: str = "geometric",
         shift: bool = False,
+        device: str = "cpu",
+        precision: str | None = None,
     ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         if mixing not in _MIXING:
             raise InvalidParameter(
                 f"mixing must be one of {list(_MIXING)}, not {mixing!r}"
@@ -271,8 +300,15 @@ class LennardJones(_PairCalculator):
     def __repr__(self) -> str:
         return (
             f"LennardJones(elements={self.elements}, cutoff={self.cutoff}, "
-            f"mixing={self.mixing!r}, shift={self.shift})"
+            f"mixing={self.mixing!r}, shift={self.shift}{_where(self)})"
         )
+
+
+def _where(calculator: Calculator) -> str:
+    """The device and the precision of a calculator on the GPU, for repr."""
+    if calculator.device == "cpu":
+        return ""
+    return f", device={calculator.device!r}, precision={calculator.precision!r}"
 
 
 def _mix(
@@ -309,6 +345,13 @@ class Morse(_PairCalculator):
     shift : bool, optional
         Take off each pair the energy at its cutoff, so that it goes to zero
         there, as ``pair_modify shift yes``. Default False.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -329,7 +372,10 @@ class Morse(_PairCalculator):
         cutoff: float,
         *,
         shift: bool = False,
+        device: str = "cpu",
+        precision: str | None = None,
     ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         default = _cutoff(cutoff)
         _, pairs = _entries(parameters, (3, 4), pairs_only=True)
         elements = _elements((), pairs)
@@ -362,5 +408,6 @@ class Morse(_PairCalculator):
 
     def __repr__(self) -> str:
         return (
-            f"Morse(elements={self.elements}, cutoff={self.cutoff}, shift={self.shift})"
+            f"Morse(elements={self.elements}, cutoff={self.cutoff}, "
+            f"shift={self.shift}{_where(self)})"
         )

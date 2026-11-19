@@ -27,6 +27,10 @@ public:
     // The value and the derivative at x. Beyond the table the spline of the
     // last interval continues up to its end, as in LAMMPS.
     void evaluate(double x, double& value, double& derivative) const;
+    // The table for the GPU: n + 1 rows of 7 coefficients, row 0 unused.
+    int size() const { return n_; }
+    double inverse_delta() const { return inverse_delta_; }
+    const std::array<double, 7>* coefficients() const { return coefficients_.data(); }
 
 private:
     int n_;
@@ -67,6 +71,16 @@ struct EamPotential {
 // full neighbor list in CSR form whose pair vectors are those of
 // neighbor::pair_vector. The virial of each pair is shared equally by its
 // two atoms.
+// The potential of tables: embedding (elements, nrho); density (densities,
+// nr), one per element or per element and element of the neighbour; pair
+// (elements * (elements + 1) / 2, nr), the lower triangle by rows. rho_max:
+// where the embedding energy goes on linearly. Throws std::invalid_argument
+// for tables that do not fit.
+EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
+                                const double* density, int densities, const double* pair,
+                                int pairs, int nr, double drho, double dr, double cutoff,
+                                double rho_max);
+
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,

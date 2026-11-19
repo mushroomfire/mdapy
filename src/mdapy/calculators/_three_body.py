@@ -13,6 +13,7 @@ from typing import Any
 import numpy as np
 
 from mdapy import _core
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -116,6 +117,16 @@ class _ThreeBody(Calculator):
 
     _name: str
     _compute: Any
+    _gpu_potential: Any = None  # on the GPU
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        return _element_indices(system, self.elements, self._name)
+
+    @property
+    def _on_device(self) -> Any:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self._gpu_potential
 
     def compute(
         self,
@@ -126,8 +137,12 @@ class _ThreeBody(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        species = _element_indices(system, self.elements, self._name)
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if (
+            self._gpu_potential is not None
+        ):  # with a neighbor list of its own on the GPU
+            return self._gpu_potential.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = type(self)._compute(
@@ -151,7 +166,12 @@ class _ThreeBody(Calculator):
         )
 
     def __repr__(self) -> str:
-        return f"{self._name}({self.path!r}, elements={self.elements}, cutoff={self.cutoff})"
+        where = (
+            f", device='cuda', precision={self.precision!r}"
+            if self.device == "cuda"
+            else ""
+        )
+        return f"{self._name}({self.path!r}, elements={self.elements}, cutoff={self.cutoff}{where})"
 
 
 class Tersoff(_ThreeBody):
@@ -168,6 +188,13 @@ class Tersoff(_ThreeBody):
         LAMMPS; every triplet of them needs an entry. A mapping takes the
         element of the atoms to a label of the file, as {"Si": "Si(D)"}.
         Default every element of the file.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms and double for the
+        positions and the sums, or double throughout. Default "mixed" on the
+        GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -186,7 +213,11 @@ class Tersoff(_ThreeBody):
         self,
         path: str | os.PathLike,
         elements: Sequence[str] | Mapping[str, str] | None = None,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
     ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         name = os.fspath(path)
         entries = _entries(path, 17, "Tersoff")
         chosen, rows = _triplets(entries, elements, 14, name)
@@ -210,6 +241,13 @@ class Tersoff(_ThreeBody):
             len(chosen), np.ascontiguousarray(rows.ravel())
         )
         self.cutoff = float(self._potential.cutoff)
+        if self.device == "cuda":
+            self._gpu_potential = _gpu.OnDevice(
+                _gpu.cuda().make_tersoff(
+                    len(chosen), np.ascontiguousarray(rows.ravel()), self.precision
+                ),
+                self.cutoff,
+            )
 
 
 class StillingerWeber(_ThreeBody):
@@ -226,6 +264,13 @@ class StillingerWeber(_ThreeBody):
         LAMMPS; every triplet of them needs an entry. A mapping takes the
         element of the atoms to a label of the file. Default every element of
         the file.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms and double for the
+        positions and the sums, or double throughout. Default "mixed" on the
+        GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -244,7 +289,11 @@ class StillingerWeber(_ThreeBody):
         self,
         path: str | os.PathLike,
         elements: Sequence[str] | Mapping[str, str] | None = None,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
     ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         name = os.fspath(path)
         entries = _entries(path, 14, "Stillinger–Weber")
         chosen, rows = _triplets(entries, elements, 11, name)
@@ -260,3 +309,10 @@ class StillingerWeber(_ThreeBody):
             len(chosen), np.ascontiguousarray(rows.ravel())
         )
         self.cutoff = float(self._potential.cutoff)
+        if self.device == "cuda":
+            self._gpu_potential = _gpu.OnDevice(
+                _gpu.cuda().make_stillinger_weber(
+                    len(chosen), np.ascontiguousarray(rows.ravel()), self.precision
+                ),
+                self.cutoff,
+            )

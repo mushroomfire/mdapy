@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 
 from mdapy import _core
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator, CalculatorResult
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -682,6 +683,14 @@ class MEAM(Calculator):
     parameters : str or os.PathLike, optional
         The parameter file of the alloy and the options; None for none, as
         NULL in LAMMPS.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions, the densities of each atom and the sums, or double
+        throughout. Default "mixed" on the GPU, "double" on the processor,
+        which has no other.
 
     Attributes
     ----------
@@ -705,7 +714,11 @@ class MEAM(Calculator):
         library: str | os.PathLike,
         elements: Sequence[str] | Mapping[str, str],
         parameters: str | os.PathLike | None = None,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
     ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         if isinstance(elements, Mapping):
             symbols, names = tuple(elements), tuple(elements.values())
         else:
@@ -766,7 +779,7 @@ class MEAM(Calculator):
         self.__species = np.full(len(SYMBOLS), -1, dtype=np.int32)
         for k, symbol in reversed(list(enumerate(symbols))):
             self.__species[SYMBOLS.index(symbol)] = k
-        self.__potential = _native.make_meam(
+        tables = (
             np.ascontiguousarray(per_element),
             np.ascontiguousarray(setup.ebound),
             np.ascontiguousarray(setup.Cmin),
@@ -775,6 +788,30 @@ class MEAM(Calculator):
             [setup.ialloy, setup.mix_ref_t, setup.emb_lin_neg, setup.bkgd_dyn],
             [setup.rc, setup.delr, setup.gsmooth_factor, setup.dr, self.cutoff],
         )
+        self.__potential = _native.make_meam(*tables)
+        self.__gpu: _gpu.OnDevice | None = None
+        if self.device == "cuda":
+            self.__gpu = _gpu.OnDevice(
+                _gpu.cuda().make_meam(*tables, self.precision), self.cutoff
+            )
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        if "element" not in system.table.columns:
+            raise MissingProperty("MEAM needs the element column")
+        numbers = system.table["element"].to_physical().to_numpy()
+        species = self.__species[numbers]
+        if (species < 0).any():
+            missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
+            raise InvalidParameter(
+                f"the potential has no parameters for {missing}; it has {list(self.elements)}"
+            )
+        return species
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
 
     def compute(
         self,
@@ -785,16 +822,10 @@ class MEAM(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        if "element" not in system.table.columns:
-            raise MissingProperty("MEAM needs the element column")
-        numbers = system.table["element"].to_physical().to_numpy()
-        species = self.__species[numbers]
-        if (species < 0).any():
-            missing = sorted({SYMBOLS[z] for z in numbers[species < 0]})
-            raise InvalidParameter(
-                f"the potential has no parameters for {missing}; it has {list(self.elements)}"
-            )
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if self.__gpu is not None:  # with a neighbor list of its own on the GPU
+            return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_meam(
@@ -820,5 +851,10 @@ class MEAM(Calculator):
     def __repr__(self) -> str:
         return (
             f"MEAM({self.library!r}, elements={self.elements}, parameters={self.parameters!r}, "
-            f"rc={self.rc})"
+            f"rc={self.rc}"
+            + (
+                f", device='cuda', precision={self.precision!r})"
+                if self.device == "cuda"
+                else ")"
+            )
         )

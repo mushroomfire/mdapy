@@ -87,6 +87,20 @@ Vulkan loader, `libvulkan.so.1`, only for a picture on the GPU; the loader
 and the driver come with the graphics drivers. Without the headers, or
 without a GPU, pictures are traced on the processor.
 
+## Potentials and dynamics on an NVIDIA GPU
+
+[Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
+need MDAPY built from its source with the CUDA toolkit (tested with CUDA 13.5), which the
+wheels of PyPI are not:
+
+```bash
+pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
+```
+
+The build compiles for the GPU of the machine, or for those of
+`-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`, and links the CUDA runtime
+into MDAPY, so that running it needs only the driver of the GPU.
+
 ## 64-bit atom indices
 
 Atom indices in results such as neighbor lists are 32-bit integers, enough

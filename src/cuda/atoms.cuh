@@ -1,0 +1,56 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+
+#pragma once
+
+#include <vector>
+
+#include "cuda/device.cuh"
+
+namespace mdapy::cuda {
+
+struct Atoms::Impl {
+    std::int64_t n = 0;
+    // positions in double precision, the species of each atom as w
+    Buffer<double4a> x;
+    // the same in single precision for mixed precision, made from x when
+    // read after x changed
+    Buffer<float4> x_single;
+    std::uint64_t version = 0;         // of x
+    std::uint64_t single_version = 0;  // of x_single, 0 for none
+    Buffer<std::int32_t> species;
+    Buffer<double> forces;    // (n, 3)
+    Buffer<double> energies;  // (n,)
+    Buffer<double> virials;   // 9 columns of n, xx xy xz yx yy yz zx zy zz
+    bool has_energies = false;
+    bool has_virials = false;
+    Buffer<double> velocities;  // (n, 3)
+    Buffer<double> masses;      // (n,)
+    Buffer<double> scratch;     // 6 columns of n, for the kinetic tensor
+    Buffer<int3> images;        // (n,), the boxes the wrapping moved each atom by
+    // The atoms are sorted by the cells of the neighbor list when it is built,
+    // so that neighbors are near in memory: original holds the atom of the
+    // caller at each place; what comes in and goes out is in the caller's
+    // order. Empty while the order is the caller's.
+    Buffer<std::int32_t> original;
+    mutable std::vector<std::int32_t> host_original;  // its copy, when not stale
+    mutable bool stale = false;
+
+    // The places of the caller's atoms, empty for the caller's own order.
+    const std::vector<std::int32_t>& order() const;
+    // out[p] = in[original[p]] and out[original[p]] = in[p], width values each.
+    template <class T>
+    void to_places(const T* in, T* out, int width) const;
+    template <class T>
+    void to_caller(const T* in, T* out, int width) const;
+    // The atoms at their new places: the one at place order[p] goes to p.
+    void permute(const std::int32_t* order);
+
+    // The positions in a precision, the species as w.
+    template <class Real>
+    const Real4<Real>* positions();
+};
+
+}  // namespace mdapy::cuda

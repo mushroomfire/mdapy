@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import calculators as _native
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
@@ -21,7 +22,7 @@ from mdapy.core._frames import Frames
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
-from mdapy.errors import FileFormatError
+from mdapy.errors import FileFormatError, InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.neighbor._neighbor_list import _given_or_built, _run
 
@@ -263,6 +264,15 @@ class NEP(Calculator):
     ----------
     path : str or os.PathLike
         The potential file.
+    device : {"cpu", "cuda"}, optional
+        Where energies, forces and virials are computed: on the processor, or
+        on an NVIDIA GPU with a neighbor list of its own. The descriptors and
+        many frames at once are computed on the processor. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the descriptors, the network and the
+        terms of each pair, and double for the positions and for the sums of
+        energies, forces and virials, or double throughout. Default "mixed"
+        on the GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -272,12 +282,19 @@ class NEP(Calculator):
         The largest cutoff radius in Å.
     """
 
-    def __init__(self, path: str | os.PathLike):
+    def __init__(
+        self,
+        path: str | os.PathLike,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
+    ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         model = _read_nep(path)
         self.path = os.fspath(path)
         self.elements = model["elements"]
         self.cutoff = float(max(model["rc_radial"].max(), model["rc_angular"].max()))
-        self.__model = _native.make_nep(
+        arguments = (
             [
                 len(self.elements),
                 model["n_radial"],
@@ -300,6 +317,23 @@ class NEP(Calculator):
             model["q_scaler"],
             _zbl_table(model).ravel(),
         )
+        self.__model = _native.make_nep(*arguments)
+        self.__gpu: _gpu.OnDevice | None = None
+        if self.device == "cuda":
+            try:
+                made = _gpu.cuda().make_nep(*arguments, self.precision)
+            except ValueError as error:  # too large for the GPU
+                raise InvalidParameter(str(error)) from None
+            self.__gpu = _gpu.OnDevice(made, self.cutoff)
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the potential, (N,) int32."""
+        return _element_indices(system, self.elements, "NEP")
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
 
     def compute(
         self,
@@ -310,8 +344,10 @@ class NEP(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        species = _element_indices(system, self.elements, "NEP")
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if self.__gpu is not None:  # with a neighbor list of its own on the GPU
+            return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_nep(
@@ -398,4 +434,8 @@ class NEP(Calculator):
         )
 
     def __repr__(self) -> str:
-        return f"NEP({self.path!r}, elements={self.elements}, cutoff={self.cutoff})"
+        return f"NEP({self.path!r}, elements={self.elements}, cutoff={self.cutoff}" + (
+            f", device='cuda', precision={self.precision!r})"
+            if self.device == "cuda"
+            else ")"
+        )

@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <stdexcept>
 
 #include "calculators/many_body.h"
 #include "neighbor/frame.h"
@@ -151,6 +152,33 @@ struct Atoms {
 };
 
 }  // namespace
+
+MeamPotential make_meam_potential(int elements, const double* element, const double* ebound,
+                                  const double* cmin, const double* cmax, const double* tables,
+                                  int nr, const int* options, const double* numbers) {
+    MeamPotential m;
+    const auto e = static_cast<std::size_t>(elements);
+    m.elements = elements;
+    m.ialloy = options[0];
+    m.mix_ref_t = options[1];
+    m.emb_lin_neg = options[2];
+    m.bkgd_dyn = options[3];
+    m.rc = numbers[0];
+    m.delr = numbers[1];
+    m.gsmooth_factor = numbers[2];
+    m.dr = numbers[3];
+    m.cutoff = numbers[4];
+    m.nr = nr;
+    if (!(m.rc > 0.0) || !(m.delr > 0.0) || !(m.dr > 0.0) || !(m.cutoff >= m.rc)) {
+        throw std::invalid_argument("MEAM cutoffs and spacings must be positive");
+    }
+    m.element.assign(element, element + 17 * e);
+    m.ebound.assign(ebound, ebound + e * e);
+    m.cmin.assign(cmin, cmin + e * e * e);
+    m.cmax.assign(cmax, cmax + e * e * e);
+    m.table.assign(tables, tables + e * (e + 1) / 2 * 7 * static_cast<std::size_t>(nr));
+    return m;
+}
 
 void compute_meam(const MeamPotential& m, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,

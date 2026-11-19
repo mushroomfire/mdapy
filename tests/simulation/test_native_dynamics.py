@@ -298,3 +298,115 @@ def test_invalid(eam):
     with MolecularDynamics(system, NotFinite()) as md:
         with pytest.raises(CalculationFailed, match="not finite"):
             md.run(1)
+
+
+def same_frames(a, b):
+    assert [f.info for f in a] == [f.info for f in b]
+    for x, y in zip(a, b, strict=True):
+        np.testing.assert_array_equal(x["positions"], y["positions"])
+        np.testing.assert_array_equal(x["velocities"], y["velocities"])
+        np.testing.assert_array_equal(x.box.matrix, y.box.matrix)
+
+
+def test_iterate_gives_the_frames_of_run(eam, tmp_path):
+    system = alloy()
+    with MolecularDynamics(system, eam, timestep=0.002) as kept:
+        kept.velocities(300, seed=1)
+        kept.run(100, ensemble="nvt", temperature=300, thermo=30, save_every=25)
+        kept.run(50, thermo=30, save_every=25)
+        frames, thermo = kept.frames, kept.thermo
+    with MolecularDynamics(system, eam, timestep=0.002) as md:
+        md.velocities(300, seed=1)
+        first = md.iterate(
+            100, save_every=25, ensemble="nvt", temperature=300, thermo=30
+        )
+        assert md.step == 0  # nothing runs until the frames are read
+        given = list(first)
+        assert [f.info["timestep"] for f in given] == [0, 25, 50, 75, 100]
+        # the next run does not give the frame at 100 again
+        given += list(md.iterate(50, save_every=25, thermo=30))
+        same_frames(given, frames)
+        assert md.thermo.equals(thermo) and md.frames == ()
+        # written as the run goes, one frame at a time
+        mdapy.io.write(tmp_path / "run.xyz", md.iterate(40, save_every=20))
+        final = md.system
+    with mdapy.io.read_trajectory(tmp_path / "run.xyz") as written:
+        assert len(written) == 2  # at 170 and 190: 150 was given before
+        np.testing.assert_allclose(
+            written[-1]["positions"], final["positions"], atol=1e-6
+        )
+        np.testing.assert_allclose(
+            written[-1]["velocities"], final["velocities"], atol=1e-6
+        )
+
+
+def test_iterate_stops_where_the_reading_ends(eam):
+    system = alloy()
+    with MolecularDynamics(system, eam, timestep=0.002) as whole:
+        whole.velocities(300, seed=1)
+        whole.run(40, ensemble="nvt", temperature=300)
+        whole.run(20, ensemble="nvt", temperature=300)
+        expected = whole.system
+    with MolecularDynamics(system, eam, timestep=0.002) as md:
+        md.velocities(300, seed=1)
+        for frame in md.iterate(100, save_every=10, ensemble="nvt", temperature=300):
+            if frame.info["timestep"] == 40:
+                break
+        assert md.step == 40
+        # the thermostat of the broken run is gone: the next run is the same
+        md.run(20, ensemble="nvt", temperature=300)
+        same_frames([md.system], [expected])
+
+
+def test_nothing_else_runs_while_frames_are_read(eam):
+    token = mdapy.CancelToken()
+    with MolecularDynamics(alloy(), eam) as md:
+        md.velocities(300, seed=1)
+        frames = md.iterate(50, save_every=10)
+        next(frames)
+        for change in (
+            lambda: md.run(1),
+            lambda: md.velocities(300, seed=1),
+            lambda: next(md.iterate(10, save_every=5)),
+        ):
+            with pytest.raises(InvalidParameter, match="being read"):
+                change()
+        assert md.system.info["timestep"] == 0  # reading the state is fine
+        frames.close()
+        md.run(10)
+        assert md.step == 10
+        # cancelled between frames, with the progress of the steps run
+        seen = []
+        with pytest.raises(Cancelled):
+            for _ in md.iterate(100, save_every=10, thermo=10, cancel=token,
+                                progress=lambda d, t: seen.append(d) or (d >= 30 and token.cancel())):  # fmt: skip
+                pass
+        assert md.step == 40 and seen == [10, 20, 30]
+        md.run(5)
+        # closing the dynamics ends the frames being read
+        frames = md.iterate(50, save_every=10)
+        next(frames)
+    with pytest.raises(StopIteration):
+        next(frames)
+    with pytest.raises(InvalidParameter, match="closed"):
+        md.step
+
+
+def test_invalid_iterate(eam):
+    with MolecularDynamics(alloy(), eam) as md:
+        # checked at once, before any frame is read
+        with pytest.raises(InvalidParameter, match="iterate needs save_every"):
+            md.iterate(10, save_every=None)
+        with pytest.raises(InvalidParameter, match="save_every must be positive"):
+            md.iterate(10, save_every=0)
+        with pytest.raises(InvalidParameter, match="steps must not be negative"):
+            md.iterate(-1, save_every=1)
+        with pytest.raises(InvalidParameter, match="nvt needs a temperature"):
+            md.iterate(10, save_every=1, ensemble="nvt")
+        assert [f.info["timestep"] for f in md.iterate(0, save_every=5)] == [0]
+        assert list(md.iterate(3, save_every=5)) == []  # step 0 was given
+    # a run of no steps records the start once
+    with MolecularDynamics(alloy(), eam) as md:
+        md.run(0, save_every=1)
+        assert md.thermo["step"].to_list() == [0]
+        assert [f.info["timestep"] for f in md.frames] == [0]

@@ -162,6 +162,38 @@ def test_thermo_and_frames(potential):
     )
 
 
+def test_iterate_in_lammps(potential):
+    """The frames of run, read one at a time; a run broken off is a run of
+    the steps it ran, whose fix goes away, so that the next run is the same
+    (each fix nvt starts its thermostat anew)."""
+    system = crystal()
+    with MolecularDynamics(system, potential) as kept:
+        kept.velocities(300, seed=1)
+        kept.run(100, ensemble="nvt", temperature=300, save_every=50)
+        kept.run(20, ensemble="nvt", temperature=300)
+        kept.run(20, ensemble="nvt", temperature=300)
+        frames, final = kept.frames, kept.system
+    with MolecularDynamics(system, potential) as md:
+        md.velocities(300, seed=1)
+        given = list(md.iterate(100, save_every=50, ensemble="nvt", temperature=300))
+        assert [f.info for f in given] == [f.info for f in frames]
+        for a, b in zip(given, frames, strict=True):
+            np.testing.assert_array_equal(a["positions"], b["positions"])
+            np.testing.assert_array_equal(a["velocities"], b["velocities"])
+        for frame in md.iterate(100, save_every=20, ensemble="nvt", temperature=300):
+            if frame.info["timestep"] == 120:
+                break
+        assert md.step == 120
+        md.run(20, ensemble="nvt", temperature=300)
+        np.testing.assert_allclose(
+            md.system["positions"], final["positions"], atol=1e-9
+        )
+        frames = md.iterate(10, save_every=5)
+        next(frames)
+        with pytest.raises(InvalidParameter, match="being read"):
+            md.command("run 1")
+
+
 def test_the_time_when_the_time_step_changes(potential):
     """The time LAMMPS has run, also after the timestep command and with a
     time step that fix dt/reset adapts, as for cascades."""

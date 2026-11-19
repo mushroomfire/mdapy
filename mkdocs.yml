@@ -144,6 +144,7 @@ nav:
           - Gamma surfaces of copper and tungsten: examples/gamma-surface.md
           - Elastic anisotropy of copper and titanium: examples/elastic-anisotropy.md
           - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
+          - A copper cluster melting in MDAPY: examples/cluster-melting.md
           - A collision cascade in tungsten: examples/radiation-cascade.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
           - Generated training sets for aluminium: examples/aluminium-training.md

@@ -8,7 +8,9 @@ calculator of MDAPY, such as [NEP](nep.md), [EAM](eam.md) or an
 [ASE calculator](../interop/ase-calculators.md), it runs in MDAPY itself. The
 two take the same calls and give the same results.
 [Molecular dynamics through LAMMPS](../../examples/molecular-dynamics.md) shows it at
-work, says what it is not made for, and how to run it on several threads or a GPU.
+work, says what it is not made for, and how to run it on several threads or a GPU;
+[A copper cluster melting in MDAPY](../../examples/cluster-melting.md) runs it in MDAPY
+itself, writing the atoms to a file as the run goes.
 
 <!-- skip-test -->
 ```python
@@ -106,6 +108,7 @@ temperature then counts the directions in which the atoms move.
 |---|---|
 | `velocities(temperature, *, seed)` | random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions |
 | `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, progress=None, cancel=None)` | runs `steps` steps |
+| `iterate(steps, *, save_every, ...)`, the other parameters those of `run` | runs as `run` does, giving the atoms every `save_every` steps as the run reaches them and keeping none: see [Frames in files](#frames-in-files) |
 | `command(commands)` | runs any LAMMPS commands, one or several lines (LAMMPS only) |
 | `lammps` | the LAMMPS instance itself (LAMMPS only) |
 | `close()` | closes the instance; leaving a `with` block closes it too |
@@ -121,7 +124,7 @@ temperature then counts the directions in which the atoms move.
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
-| `save_every` | int32 | `None` | | keeps the atoms every this many steps |
+| `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 
@@ -146,15 +149,53 @@ starts.
 
 The frames that `save_every` keeps stay in memory as long as the
 `MolecularDynamics` or its `frames` do, about 60 bytes per atom each: a
-hundred frames of a million atoms take 6 GB. For many frames or many atoms,
-LAMMPS writes them as it runs with a `dump`, keeping none, and
+hundred frames of a million atoms take 6 GB. `iterate` runs as `run` does
+but gives each frame as the run reaches it and keeps none, so that
+[`mdapy.io.write`](../../basics/io.md) writes them to a file one at a
+time while the run goes on, and
 [`read_trajectory`](../../basics/trajectory.md) reads them back one at a time:
 
 <!-- skip-test -->
 ```python
+import mdapy
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.io import read_trajectory
 
+with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+    md.velocities(600, seed=1)
+    frames = md.iterate(5000, save_every=500, ensemble="nvt", temperature=300)
+    mdapy.io.write("frames.xyz", frames)  # one frame in memory at a time
+
+cna = CommonNeighborAnalysis()
+with read_trajectory("frames.xyz") as trajectory:
+    for frame in trajectory:
+        print(frame.info["time"], cna.compute(frame).counts()["fcc"])
+```
+
+or analyzes them as they come, without a file:
+
+<!-- skip-test -->
+```python
+with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+    md.velocities(600, seed=1)
+    for frame in md.iterate(5000, save_every=500, ensemble="nvt", temperature=300):
+        print(frame.info["time"], cna.compute(frame).counts()["fcc"])
+```
+
+Each frame is a `System` as `system` gives it: the atoms in the order of
+`system`, with their velocities, images and other columns, in full
+precision, the box, and the step and the time in `info`, in LAMMPS and in
+MDAPY alike. The run goes on as the frames are read, from the first, and
+stops where their reading stops, such as at a `break` out of the loop, with
+the steps run so far kept; while they are being read, the dynamics takes no
+other `run`, `iterate`, `velocities` or `command`. As `save_every` does, it
+gives the atoms at the start unless the run before gave them there, so that
+the frames of runs one after the other follow each other once each.
+
+With LAMMPS, a `dump` writes the frames too, from LAMMPS itself:
+
+<!-- skip-test -->
+```python
 with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     md.velocities(600, seed=1)
     md.command(
@@ -163,11 +204,6 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     )
     md.run(5000, ensemble="nvt", temperature=300)
     md.command("undump frames")
-
-cna = CommonNeighborAnalysis()
-with read_trajectory("frames.*.lammpstrj") as trajectory:
-    for frame in trajectory:  # one frame in memory at a time
-        print(frame.info["time"], cna.compute(frame).counts()["fcc"])
 ```
 
 LAMMPS writes the atoms in the order it holds them, which changes as it runs,
@@ -178,7 +214,11 @@ it, and `frame.sort("id")` puts them in the order of `system`. Their positions
 are those of LAMMPS, which are those of `system` for a box at the origin with
 its first vector along x and its second in the xy plane, as `build_crystal`
 makes them, to the six digits a dump writes by default (`format float %.10g`
-writes more).
+writes more). `iterate` is the better choice: it writes any format of
+several frames, in the order and the orientation of `system`, in LAMMPS and
+in MDAPY. A dump suits a run over several processes with
+[MPI](../../examples/mpi.md), where each process would receive every atom
+of every frame of `iterate`.
 
 ## Results
 
@@ -186,7 +226,7 @@ writes more).
 |---|---|---|
 | `system` | `System` | the atoms now, with `velocities` and `image` columns, the box, and `timestep` and `time` in `info`; the other columns of `system`, except forces and energies, which would be out of date |
 | `thermo` | polars `DataFrame` | the thermodynamic state of all the runs so far, one row per record |
-| `frames` | tuple of `System` | the atoms kept in all the runs so far, as `system` gives them |
+| `frames` | tuple of `System` | the atoms that `save_every` of `run` kept in all the runs so far, as `system` gives them |
 | `step` | int64 | the time step number |
 
 | Column of `thermo` | Type | Unit | Meaning |
@@ -216,7 +256,11 @@ in MDAPY with a calculator without virials or, for `"nph"`, atoms without a
 temperature, and a thermostat with no atom free to move; in MDAPY, it raises
 `CalculationFailed` when the energy or the forces stop being finite. `command`
 and `lammps` raise `InvalidParameter` in MDAPY, `command` for commands LAMMPS
-rejects, and `lammps` after `close`.
+rejects, and `lammps` after `close`. `iterate` raises what `run` raises, for
+its options at once and for the rest as its frames are read, and
+`InvalidParameter` without `save_every`; `run`, `iterate`, `velocities` and
+`command` raise `InvalidParameter` while the frames of an `iterate` are
+being read.
 
 !!! quote "Please cite"
     For MDAPY's own dynamics:

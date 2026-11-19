@@ -167,7 +167,7 @@ deformation, which `run` cannot give (see below).
 | Hold a temperature, a pressure, or both | `run(steps, ensemble="nvt", temperature=300)`, `"npt"` with `pressure=0.0`, `"nph"`, or `"nve"` |
 | Heat, cool, compress | a pair, `temperature=(300, 2200)` or `pressure=(0, 10)`, changes from the first value to the second along the run |
 | Let the box change shape | `barostat="aniso"` along each axis, `"tri"` in any way, `"xy"` in the plane of a [sheet](../user-guide/simulation/sheets.md) |
-| Keep the atoms for analysis | `save_every=` gives `frames`, each a `System` for any analysis of MDAPY |
+| Keep the atoms for analysis | `save_every=` gives `frames`, each a `System` for any analysis of MDAPY; `md.iterate(steps, save_every=...)` gives them one at a time as the run goes, for a file or an analysis, keeping none |
 | Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/simulation/minimize.md), an analysis or a file |
 | Add a fix or a compute of LAMMPS | `md.command(...)` before `run`, and `unfix` after: `deform`, `setforce` to hold some atoms, `langevin` with `ensemble="nve"`, `velocity` to push atoms |
 | Read what LAMMPS holds | `md.lammps`, the LAMMPS instance, such as `md.lammps.get_thermo("pe")` or `extract_compute` |
@@ -188,7 +188,7 @@ Several functions of MDAPY run their molecular dynamics this way:
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
 | An integrator of one's own, such as a barostat on y and z while x is stretched | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
-| Many frames of a large system | `frames` stay in memory | `md.command("dump ...")`, read with `mdapy.io.read_trajectory` |
+| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/simulation/dynamics.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
 
 ## Several threads and GPUs with Kokkos
 

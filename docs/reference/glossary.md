@@ -212,6 +212,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | ensemble | `"nve"`, `"nvt"`, `"npt"` or `"nph"` |
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
 | MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
+| `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 

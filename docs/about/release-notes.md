@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `md_elastic_constants` takes any calculator: its molecular dynamics run in
+  MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
+  `run` in either; the Born term of the fluctuations in MDAPY is that of
+  LAMMPS's `compute born/matrix numdiff`. The kinetic term counts all N atoms,
+  as the thermostat no longer holds the momentum of the center of mass. See
+  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

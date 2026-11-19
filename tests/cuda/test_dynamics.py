@@ -67,6 +67,54 @@ def test_the_runs_of_the_processor_in_double_precision(options):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8)
 
 
+def test_stillinger_weber_runs_as_on_the_processor(tmp_path):
+    """The terms of each atom kept with it, which leaves the totals."""
+    from mdapy.calculators import StillingerWeber
+
+    from calculators.potential_files import write_sw
+
+    path = write_sw(tmp_path / "SiGe.sw", ("Si", "Ge"))
+    system = build_crystal("diamond", 5.43, elements="Si", repeat=(4, 4, 4))
+    rng = np.random.default_rng(0)
+    system = system.with_columns(element=list(rng.choice(["Si", "Ge"], len(system))))
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    a, ta = run(
+        system, StillingerWeber(path, device="cuda", precision="double"), 200, **options
+    )
+    b, tb = run(system, StillingerWeber(path), 200, **options)
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, atol=1e-8)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(b.box.matrix)) @ b.box.matrix
+    assert np.abs(d).max() < 1e-7
+    for column in ("temperature", "potential_energy", "pressure"):
+        np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8)
+
+
+def test_tersoff_runs_as_on_the_processor(tmp_path):
+    """The terms of each atom kept with it, which leaves the totals."""
+    from mdapy.calculators import Tersoff
+
+    from calculators.potential_files import write_tersoff
+
+    path = write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C"))
+    system = build_crystal("diamond", 5.43, elements="Si", repeat=(4, 4, 4))
+    rng = np.random.default_rng(0)
+    system = system.with_columns(
+        element=list(rng.choice(["Si", "C"], len(system), p=[0.8, 0.2]))
+    )
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    a, ta = run(
+        system, Tersoff(path, device="cuda", precision="double"), 100, **options
+    )
+    b, tb = run(system, Tersoff(path), 100, **options)
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, atol=1e-8)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(b.box.matrix)) @ b.box.matrix
+    assert np.abs(d).max() < 1e-7
+    for column in ("temperature", "potential_energy", "pressure"):
+        np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8)
+
+
 def test_mixed_precision_keeps_the_energy():
     system = crystal(repeat=8)
     gpu = EAM.zhou(["Cu", "Ni"], device="cuda")
@@ -117,7 +165,9 @@ def test_frames_of_iterate_and_a_cluster():
         md.velocities(300, seed=1)
         frames = list(md.iterate(100, save_every=50, ensemble="nvt", temperature=300))
     assert [f.info["timestep"] for f in frames] == [0, 50, 100]
-    cluster = crystal(repeat=4).with_box(mdapy.Box(40.0, origin=(-12.0, -12.0, -12.0), pbc=False))
+    cluster = crystal(repeat=4).with_box(
+        mdapy.Box(40.0, origin=(-12.0, -12.0, -12.0), pbc=False)
+    )
     a, _ = run(cluster, gpu, 100, ensemble="nvt", temperature=300)
     b, _ = run(cluster, EAM.zhou(["Cu", "Ni"]), 100, ensemble="nvt", temperature=300)
     assert np.abs(a["positions"] - b["positions"]).max() < 1e-7

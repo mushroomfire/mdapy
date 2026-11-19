@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 
 from mdapy import _core
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
 from mdapy.calculators._eam import _Numbers
 from mdapy.core.system import System
@@ -104,6 +105,13 @@ class ADP(Calculator):
         The potential file, as an ``eam/alloy`` file followed by the dipole
         function u(r) and the quadrupole function w(r) of each pair of
         elements.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
 
     Attributes
     ----------
@@ -117,7 +125,14 @@ class ADP(Calculator):
         Cutoff radius in Å.
     """
 
-    def __init__(self, path: str | os.PathLike):
+    def __init__(
+        self,
+        path: str | os.PathLike,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
+    ):
+        self.device, self.precision = _gpu.resolve(device, precision)
         tables = _read_adp(path)
         for name in tables["elements"]:
             if name not in SYMBOLS:
@@ -138,6 +153,31 @@ class ADP(Calculator):
             tables["dr"],
             tables["cutoff"],
         )
+        self.__gpu: _gpu.OnDevice | None = None
+        if self.device == "cuda":
+            self.__gpu = _gpu.OnDevice(
+                _gpu.cuda().make_adp(
+                    tables["embedding"],
+                    tables["density"],
+                    tables["pair"],
+                    tables["dipole"],
+                    tables["quadrupole"],
+                    tables["drho"],
+                    tables["dr"],
+                    tables["cutoff"],
+                    self.precision,
+                ),
+                self.cutoff,
+            )
+
+    def _species(self, system: System) -> np.ndarray:
+        """The index of each atom in the tables, (N,) int32."""
+        return _element_indices(system, self.elements, "ADP")
+
+    @property
+    def _on_device(self) -> _gpu.OnDevice | None:
+        """The potential on the GPU, for its molecular dynamics there."""
+        return self.__gpu
 
     def compute(
         self,
@@ -148,8 +188,10 @@ class ADP(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
-        self._check_properties(properties)
-        species = _element_indices(system, self.elements, "ADP")
+        wanted = self._check_properties(properties)
+        species = self._species(system)
+        if self.__gpu is not None:  # with a neighbor list of its own on the GPU
+            return self.__gpu.compute(system, species, wanted)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_adp(
@@ -173,4 +215,11 @@ class ADP(Calculator):
         )
 
     def __repr__(self) -> str:
-        return f"ADP({self.path!r}, elements={self.elements}, cutoff={self.cutoff})"
+        where = (
+            f", device='cuda', precision={self.precision!r}"
+            if self.device == "cuda"
+            else ""
+        )
+        return (
+            f"ADP({self.path!r}, elements={self.elements}, cutoff={self.cutoff}{where})"
+        )

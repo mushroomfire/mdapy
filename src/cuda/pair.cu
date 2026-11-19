@@ -111,13 +111,13 @@ public:
     int species() const override { return species_; }
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
-                 bool virial, bool atomic_virials) override {
+                 bool virial, bool atomic) override {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
-        virial = virial || atomic_virials;
+        virial = virial || atomic;
         const std::int64_t n = a.n;
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         if (style_ == PairStyle::LennardJones) {

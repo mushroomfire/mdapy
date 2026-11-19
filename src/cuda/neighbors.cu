@@ -269,7 +269,51 @@ __global__ void moved(std::int64_t n, const double4a* x, const double4a* x0, dou
     out[i] = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
 }
 
+// The place of (j, i) in the list of j for each pair (i, j): the code of the
+// reverse pair is 26 minus that of the pair, the cell around and the image
+// of the box both reversed; -1 where it is missing, which a list built from
+// the same distances both ways never has.
+__global__ void find_reverse(std::int64_t n, const std::int32_t* indices,
+                             const std::int32_t* counts, std::int32_t* reverse, int* missing) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const int count = counts[i];
+    for (int k = 0; k < count; ++k) {
+        const auto packed = static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
+        const std::int64_t j = packed & kIndexMask;
+        const std::uint32_t wanted =
+            static_cast<std::uint32_t>(i) | ((26u - (packed >> kIndexBits)) << kIndexBits);
+        int found = -1;
+        const int others = counts[j];
+        for (int m = 0; m < others; ++m) {
+            if (static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(m) * n + j]) == wanted) {
+                found = m;
+                break;
+            }
+        }
+        reverse[static_cast<std::int64_t>(k) * n + i] = found;
+        if (found < 0) atomicExch(missing, 1);
+    }
+}
+
 }  // namespace
+
+const std::int32_t* Neighbors::Impl::reversed() {
+    if (reverse_build != builds) {
+        reverse.resize(static_cast<std::size_t>(most) * static_cast<std::size_t>(n));
+        found.zero();
+        find_reverse<<<blocks(n), kBlock>>>(n, indices.data(), counts.data(), reverse.data(),
+                                            found.data());
+        MDAPY_LAUNCHED();
+        int missing = 0;
+        found.download(&missing, 1);
+        if (missing) {
+            throw std::logic_error("the neighbor list is not symmetric");
+        }
+        reverse_build = builds;
+    }
+    return reverse.data();
+}
 
 template <class Real>
 const Real4<Real>* Neighbors::Impl::local(const Atoms::Impl& atoms, const Box& box) {

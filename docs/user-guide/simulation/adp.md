@@ -72,6 +72,8 @@ the embedding energy stays at its last value, as in LAMMPS, unlike that of
 | Parameter | Type | Meaning |
 |---|---|---|
 | `path` | str or path-like | the potential file |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](gpu.md) |
+| `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |
 |---|---|---|

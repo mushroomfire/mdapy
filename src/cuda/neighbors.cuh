@@ -42,6 +42,12 @@ struct Neighbors::Impl {
     std::uint64_t local_version[2] = {0, 0};  // of the atoms they were made from
     Box local_box[2]{};
 
+    // For each pair (i, j) of the list, the place of (j, i) in the list of j,
+    // for many-body potentials, found once for each build.
+    Buffer<std::int32_t> reverse;
+    std::int64_t reverse_build = -1;
+    const std::int32_t* reversed();
+
     // The positions l of the atoms for the potentials, in a precision.
     template <class Real>
     const Real4<Real>* local(const Atoms::Impl& atoms, const Box& box);

@@ -211,13 +211,13 @@ NB_MODULE(_cuda, m) {
         .def(
             "compute",
             [](Potential& p, Atoms& a, Neighbors& l, Matrix h, Vector lo,
-               std::array<bool, 3> pbc, bool energy, bool virial, bool atomic_virials) {
+               std::array<bool, 3> pbc, bool energy, bool virial, bool atomic) {
                 const Box box = make_box(h, lo, pbc);
                 nb::gil_scoped_release release;
-                p.compute(a, l, box, energy, virial, atomic_virials);
+                p.compute(a, l, box, energy, virial, atomic);
             },
             nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"),
-            nb::arg("energy"), nb::arg("virial"), nb::arg("atomic_virials"));
+            nb::arg("energy"), nb::arg("virial"), nb::arg("atomic"));
 
     m.def(
         "make_eam",
@@ -236,6 +236,50 @@ NB_MODULE(_cuda, m) {
         },
         nb::arg("embedding"), nb::arg("density"), nb::arg("pair"), nb::arg("drho"),
         nb::arg("dr"), nb::arg("cutoff"), nb::arg("rho_max"), nb::arg("precision"));
+    m.def(
+        "make_adp",
+        [](Table embedding, Table density, Table pair, Table dipole, Table quadrupole,
+           double drho, double dr, double cutoff, const std::string& precision) {
+            const auto elements = static_cast<std::size_t>(embedding.shape(0));
+            const std::size_t pairs = elements * (elements + 1) / 2;
+            if (density.shape(0) != elements || pair.shape(0) != pairs ||
+                dipole.shape(0) != pairs || quadrupole.shape(0) != pairs ||
+                pair.shape(1) != density.shape(1) || dipole.shape(1) != density.shape(1) ||
+                quadrupole.shape(1) != density.shape(1)) {
+                throw std::invalid_argument("inconsistent ADP tables");
+            }
+            const auto potential = mdapy::calculators::make_adp_potential(
+                embedding.data(), static_cast<int>(elements), static_cast<int>(embedding.shape(1)),
+                density.data(), pair.data(), dipole.data(), quadrupole.data(),
+                static_cast<int>(density.shape(1)), drho, dr, cutoff);
+            return mdapy::cuda::make_adp(potential, precision_of(precision));
+        },
+        nb::arg("embedding"), nb::arg("density"), nb::arg("pair"), nb::arg("dipole"),
+        nb::arg("quadrupole"), nb::arg("drho"), nb::arg("dr"), nb::arg("cutoff"),
+        nb::arg("precision"));
+    m.def(
+        "make_stillinger_weber",
+        [](int elements, Flat rows, const std::string& precision) {
+            const auto e = static_cast<std::size_t>(elements);
+            if (elements < 1 || rows.shape(0) != 11 * e * e * e) {
+                throw std::invalid_argument("inconsistent Stillinger-Weber tables");
+            }
+            const auto potential =
+                mdapy::calculators::make_stillinger_weber(elements, rows.data());
+            return mdapy::cuda::make_stillinger_weber(potential, precision_of(precision));
+        },
+        nb::arg("elements"), nb::arg("rows"), nb::arg("precision"));
+    m.def(
+        "make_tersoff",
+        [](int elements, Flat rows, const std::string& precision) {
+            const auto e = static_cast<std::size_t>(elements);
+            if (elements < 1 || rows.shape(0) != 14 * e * e * e) {
+                throw std::invalid_argument("inconsistent Tersoff tables");
+            }
+            const auto potential = mdapy::calculators::make_tersoff(elements, rows.data());
+            return mdapy::cuda::make_tersoff(potential, precision_of(precision));
+        },
+        nb::arg("elements"), nb::arg("rows"), nb::arg("precision"));
     m.def(
         "make_pair",
         [](const std::string& style, int species, Flat cutsq, Flat offset, Flat coefficients,

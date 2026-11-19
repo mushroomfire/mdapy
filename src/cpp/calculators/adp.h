@@ -41,6 +41,14 @@ struct AdpPotential {
 // neighbor list in CSR form whose pair vectors are those of
 // neighbor::pair_vector; the energy and the virial of each pair shared
 // equally by its two atoms, as LAMMPS.
+// The potential of tables: embedding and density (elements, nrho or nr);
+// pair, dipole and quadrupole (elements * (elements + 1) / 2, nr), the lower
+// triangle by rows. Throws std::invalid_argument for tables that do not fit.
+AdpPotential make_adp_potential(const double* embedding, int elements, int nrho,
+                                const double* density, const double* pair, const double* dipole,
+                                const double* quadrupole, int nr, double drho, double dr,
+                                double cutoff);
+
 void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32_t* species,
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,

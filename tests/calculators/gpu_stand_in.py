@@ -128,6 +128,22 @@ def stand_in(found=True):
         )
         return Potential(made, native.compute_eam)
 
+    def make_adp(
+        embedding, density, pair, dipole, quadrupole, drho, dr, cutoff, precision
+    ):
+        made = native.make_adp(
+            embedding, density, pair, dipole, quadrupole, drho, dr, cutoff
+        )
+        return Potential(made, native.compute_adp)
+
+    def make_stillinger_weber(elements, rows, precision):
+        made = native.make_stillinger_weber(elements, rows)
+        return Potential(made, native.compute_stillinger_weber)
+
+    def make_tersoff(elements, rows, precision):
+        made = native.make_tersoff(elements, rows)
+        return Potential(made, native.compute_tersoff)
+
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)
         return Potential(made, native.compute_pair)
@@ -139,5 +155,7 @@ def stand_in(found=True):
 
     return types.SimpleNamespace(
         Atoms=Atoms, Neighbors=Neighbors, make_eam=make_eam, make_pair=make_pair,
+        make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
+        make_tersoff=make_tersoff,
         device_name=device_name, NotFinite=NotFinite,
     )  # fmt: skip

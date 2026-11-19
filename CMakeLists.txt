@@ -147,6 +147,10 @@ if(MDAPY_CUDA)
   add_library(mdapy_cuda_kernels STATIC ${MDAPY_CUDA_KERNELS}
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/eam.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/pair.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/adp.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/stillinger_weber.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/many_body.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/tersoff.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/parallel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/hardware.cpp")
   set_target_properties(mdapy_cuda_kernels PROPERTIES POSITION_INDEPENDENT_CODE ON

@@ -14,8 +14,11 @@
 #include <stdexcept>
 #include <string>
 
+#include "calculators/adp.h"
 #include "calculators/eam.h"
 #include "calculators/pair.h"
+#include "calculators/stillinger_weber.h"
+#include "calculators/tersoff.h"
 
 namespace mdapy::cuda {
 
@@ -129,15 +132,23 @@ public:
     virtual ~Potential() = default;
     virtual double cutoff() const = 0;
     virtual int species() const = 0;
-    // The forces on the atoms, and their energies, their total virial and
-    // the virial of each atom when asked. The list must be up to date.
+    // The forces on the atoms, and their energies and virials when asked:
+    // their totals, and with atomic those of each atom as the processor
+    // shares them out; without, a many-body potential may leave the shares of
+    // each term with its centre. The list must be up to date.
     virtual void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
-                         bool virial, bool atomic_virials) = 0;
+                         bool virial, bool atomic) = 0;
 };
 
 std::unique_ptr<Potential> make_eam(const calculators::EamPotential& potential,
                                     Precision precision);
 std::unique_ptr<Potential> make_pair(const calculators::PairPotential& potential,
                                      Precision precision);
+std::unique_ptr<Potential> make_adp(const calculators::AdpPotential& potential,
+                                    Precision precision);
+std::unique_ptr<Potential> make_stillinger_weber(
+    const calculators::StillingerWeberPotential& potential, Precision precision);
+std::unique_ptr<Potential> make_tersoff(const calculators::TersoffPotential& potential,
+                                        Precision precision);
 
 }  // namespace mdapy::cuda

@@ -95,11 +95,9 @@ class OnDevice:
             except ValueError as error:
                 raise InvalidParameter(str(error)) from None
             energy = bool({"energy", "atomic_energies"} & wanted)
-            atomic_virials = "atomic_virials" in wanted
-            virial = "virial" in wanted or atomic_virials
-            self.potential.compute(
-                atoms, neighbors, h, lo, pbc, energy, virial, atomic_virials
-            )
+            atomic = bool({"atomic_energies", "atomic_virials"} & wanted)
+            virial = bool({"virial", "atomic_virials"} & wanted)
+            self.potential.compute(atoms, neighbors, h, lo, pbc, energy, virial, atomic)
             return CalculatorResult(
                 energy=atoms.total_energy() if "energy" in wanted else None,
                 atomic_energies=atoms.energies()
@@ -107,6 +105,6 @@ class OnDevice:
                 else None,
                 forces=atoms.forces() if "forces" in wanted else None,
                 virial=atoms.total_virial() if "virial" in wanted else None,
-                atomic_virials=atoms.virials() if atomic_virials else None,
+                atomic_virials=atoms.virials() if "atomic_virials" in wanted else None,
                 volume=system.box.volume,
             )

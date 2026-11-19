@@ -7,6 +7,7 @@ import sys
 import numpy as np
 import pytest
 
+import mdapy
 from mdapy.calculators import EAM, LennardJones, Morse, _gpu
 from mdapy.errors import InvalidParameter
 
@@ -67,6 +68,44 @@ def test_a_calculator_on_the_gpu(monkeypatch):
     assert "device='cuda', precision='mixed'" in repr(lj)
     assert "device='cuda', precision='mixed'" in repr(gpu)
     assert "average atom" in repr(gpu.average({"Cu": 0.5, "Ni": 0.5}))
+
+
+def test_adp_on_the_gpu(monkeypatch, tmp_path):
+    from mdapy.calculators import ADP
+
+    from .potential_files import write_adp
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    path = write_adp(tmp_path / "CuNi.adp")
+    system = alloy(repeat=4, a=3.6)
+    gpu, cpu = ADP(path, device="cuda", precision="double"), ADP(path)
+    np.testing.assert_allclose(
+        gpu.compute(system).forces, cpu.compute(system).forces, rtol=1e-12
+    )
+    assert gpu._on_device is not None and cpu._on_device is None
+    assert "precision='double'" in repr(gpu) and "device" not in repr(cpu)
+
+
+def test_three_body_on_the_gpu(monkeypatch, tmp_path):
+    from mdapy.calculators import StillingerWeber, Tersoff
+
+    from .potential_files import write_sw, write_tersoff
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    path = write_sw(tmp_path / "Si.sw", ("Si",))
+    system = mdapy.build.build_crystal("diamond", 5.43, elements="Si", repeat=(3, 3, 3))
+    gpu, cpu = StillingerWeber(path, device="cuda"), StillingerWeber(path)
+    np.testing.assert_allclose(
+        gpu.compute(system).forces, cpu.compute(system).forces, atol=1e-12
+    )
+    assert gpu._on_device is not None and cpu._on_device is None
+    assert "device='cuda'" in repr(gpu) and "device" not in repr(cpu)
+    tersoff = write_tersoff(tmp_path / "Si.tersoff", ("Si",))
+    np.testing.assert_allclose(
+        Tersoff(tersoff, device="cuda").compute(system).forces,
+        Tersoff(tersoff).compute(system).forces,
+        atol=1e-12,
+    )
 
 
 def test_no_device(monkeypatch):

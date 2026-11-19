@@ -79,6 +79,8 @@ the module, so running it needs only the driver of the GPU.
 |---|---|
 | [`EAM`](eam.md), `EAM.zhou` and their average atoms | `eam/alloy`, `eam/fs` and funcfl files of `eam` |
 | [`LennardJones`](pair-potentials.md), [`Morse`](pair-potentials.md) | every pair of elements, with `shift` and the mixing rules |
+| [`ADP`](adp.md) | the dipole and the quadrupole of the neighbors of each atom |
+| [`Tersoff`](tersoff.md), [`StillingerWeber`](stillinger-weber.md) | every triplet of elements; the energy and the virial of each three-body term shared among its atoms as on the processor when the atoms' own are asked for |
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|

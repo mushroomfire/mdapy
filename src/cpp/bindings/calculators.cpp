@@ -253,25 +253,10 @@ calculators::AdpPotential make_adp(Table embedding, Table density, Table pair, T
         quadrupole.shape(1) != density.shape(1)) {
         throw std::invalid_argument("inconsistent ADP tables");
     }
-    if (!(drho > 0.0) || !(dr > 0.0) || !(cutoff > 0.0)) {
-        throw std::invalid_argument("ADP table spacings and cutoff must be positive");
-    }
-    calculators::AdpPotential potential;
-    potential.elements = elements;
-    potential.cutoff = cutoff;
-    const auto nrho = static_cast<int>(embedding.shape(1));
-    const auto nr = static_cast<int>(density.shape(1));
-    for (int e = 0; e < elements; ++e) {
-        potential.embedding.emplace_back(embedding.data() + e * nrho, nrho, drho);
-        potential.density.emplace_back(density.data() + e * nr, nr, dr);
-    }
-    for (std::size_t k = 0; k < pairs; ++k) {
-        potential.pair.emplace_back(pair.data() + k * static_cast<std::size_t>(nr), nr, dr);
-        potential.dipole.emplace_back(dipole.data() + k * static_cast<std::size_t>(nr), nr, dr);
-        potential.quadrupole.emplace_back(quadrupole.data() + k * static_cast<std::size_t>(nr), nr,
-                                          dr);
-    }
-    return potential;
+    return calculators::make_adp_potential(
+        embedding.data(), elements, static_cast<int>(embedding.shape(1)), density.data(),
+        pair.data(), dipole.data(), quadrupole.data(), static_cast<int>(density.shape(1)), drho,
+        dr, cutoff);
 }
 
 nb::tuple compute_adp(const calculators::AdpPotential& potential, Species species,

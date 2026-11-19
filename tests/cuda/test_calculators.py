@@ -8,11 +8,19 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LennardJones, Morse
+from mdapy.calculators import (
+    ADP,
+    EAM,
+    LennardJones,
+    Morse,
+    StillingerWeber,
+    Tersoff,
+)
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 
 from calculators.eam_files import write_funcfl, write_setfl
+from calculators.potential_files import write_adp, write_sw, write_tersoff
 
 cuda = pytest.importorskip("mdapy._cuda")
 try:
@@ -80,6 +88,57 @@ def test_eam(tmp_path, precision, tilt):
     average = gpu.average({"Cu": 0.3, "Ni": 0.7})
     assert (average.device, average.precision) == ("cuda", precision)
     compare(average, zhou.average({"Cu": 0.3, "Ni": 0.7}), crystal, precision)
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+@pytest.mark.parametrize("tilt", [0.0, 0.3])
+def test_adp(tmp_path, precision, tilt):
+    path = write_adp(tmp_path / "CuNi.adp")
+    system = shaken(3.6, ("Cu", "Ni"), 5, tilt=tilt)
+    compare(ADP(path, device="cuda", precision=precision), ADP(path), system, precision)
+
+
+def diamond(elements, a=5.43, repeat=3, tilt=0.0, seed=0, jitter=0.1):
+    """A shaken diamond crystal of random elements, its box tilted."""
+    system = build_crystal("diamond", a, elements="Si", repeat=(repeat,) * 3)
+    matrix = system.box.matrix.copy()
+    matrix[1, 0] += tilt * matrix[0, 0]
+    system = system.with_box(mdapy.Box(matrix, pbc=True), scale_positions=True)
+    rng = np.random.default_rng(seed)
+    return system.with_columns(
+        positions=system["positions"] + rng.normal(0, jitter, (len(system), 3)),
+        element=list(rng.choice(list(elements), len(system))),
+    )
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+@pytest.mark.parametrize("tilt", [0.0, 0.3])
+def test_stillinger_weber(tmp_path, precision, tilt):
+    """Three elements whose entries disagree, so that the means of the
+    processor are taken; the atoms' own energies and virials shared out."""
+    path = write_sw(tmp_path / "SiGeC.sw", ("Si", "Ge", "C"))
+    system = diamond(("Si", "Ge", "C"), repeat=4, tilt=tilt)
+    compare(
+        StillingerWeber(path, device="cuda", precision=precision),
+        StillingerWeber(path),
+        system,
+        precision,
+    )
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+@pytest.mark.parametrize("tilt", [0.0, 0.3])
+def test_tersoff(tmp_path, precision, tilt):
+    """Three elements whose repulsions disagree, so that the means of the
+    processor are taken; the atoms' own energies and virials shared out."""
+    path = write_tersoff(tmp_path / "SiCGe.tersoff", ("Si", "C", "Ge"))
+    system = diamond(("Si", "C", "Ge"), repeat=4, tilt=tilt)
+    compare(
+        Tersoff(path, device="cuda", precision=precision),
+        Tersoff(path),
+        system,
+        precision,
+    )
 
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])

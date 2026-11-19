@@ -37,7 +37,12 @@ class DeviceAtoms:
         v: np.ndarray,
         masses: np.ndarray,
         skin: float,
+        movable: np.ndarray | None = None,
+        rotation: np.ndarray | None = None,
     ):
+        """movable, (N, 3) bool in the axes of the system, holds atoms along
+        the directions where it is False; the vectors of the system are those
+        of x and v times rotation transposed."""
         on = getattr(calculator, "_on_device", None)
         if on is None:
             raise InvalidParameter(
@@ -50,6 +55,12 @@ class DeviceAtoms:
         self.__atoms.set_masses(np.ascontiguousarray(masses, dtype=np.float64))
         self.__atoms.set_positions(np.ascontiguousarray(x, dtype=np.float64))
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
+        self.__held = movable is not None
+        if self.__held:
+            self.__atoms.set_movable(
+                np.ascontiguousarray(movable, dtype=bool),
+                np.ascontiguousarray(rotation, dtype=np.float64),
+            )
         self.__neighbors = module.Neighbors(on.cutoff, skin)
         self.__potential = on.potential
         self.__h = np.zeros((3, 3))  # the box, for the images of the wrapped atoms
@@ -92,6 +103,8 @@ class DeviceAtoms:
         self.__potential.compute(
             self.__atoms, self.__neighbors, h, lo, pbc, energy, virial, False
         )
+        if self.__held:
+            self.__atoms.restrict_forces()
         e = math.nan
         if energy:
             e = self.__atoms.total_energy()
@@ -113,6 +126,9 @@ class DeviceAtoms:
     def shear(self, half: float, w: np.ndarray) -> None:
         self.__atoms.shear(half, float(w[3]), float(w[4]), float(w[5]))
 
+    def restrict(self) -> None:
+        self.__atoms.restrict_velocities()
+
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
     ) -> None:
@@ -129,6 +145,9 @@ class DeviceAtoms:
         self.__counter = 0
 
     def langevin(self, c1: float, c2: float, kt: float) -> None:
-        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian of the seed and a counter."""
+        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian of the seed and a counter,
+        with the noise of held directions removed."""
         self.__atoms.langevin(c1, c2, kt, self.__seed, self.__counter)
         self.__counter += 1
+        if self.__held:
+            self.__atoms.restrict_velocities()

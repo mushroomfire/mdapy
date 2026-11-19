@@ -218,13 +218,67 @@ def test_frames_of_iterate_and_a_cluster():
     assert np.abs(a["positions"] - b["positions"]).max() < 1e-7
 
 
+def held(system):
+    """The crystal turned, so that the frame of the dynamics is not the
+    system's, with atoms held along all, one or two of its axes."""
+    c, s = np.cos(0.3), np.sin(0.3)
+    q = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]]) @ np.array(
+        [[1, 0, 0], [0, c, -s], [0, s, c]]
+    )
+    turned = system.with_box(
+        mdapy.Box(system.box.matrix @ q.T, pbc=True), scale_positions=True
+    )
+    movable = np.ones((len(system), 3), dtype=bool)
+    movable[:100] = False
+    movable[100:300, 0] = False
+    movable[300:400, 1:] = False
+    return turned.with_columns(movable=movable)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"ensemble": "nvt", "temperature": 300},
+        {"ensemble": "npt", "temperature": 300, "pressure": 1.0, "barostat": "tri"},
+    ],
+)
+def test_held_atoms_as_on_the_processor(options):
+    system = held(crystal(tilt=0.2))
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    a, ta = run(system, gpu, 200, **options)
+    b, tb = run(system, EAM.zhou(["Cu", "Ni"]), 200, **options)
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-8)
+    # held atoms on a face of the turned box may wrap to either face
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    assert np.abs(a["velocities"][~system["movable"]]).max() < 1e-12
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_held_atoms_stay(precision):
+    """Held atoms keep still along their held directions, also under a
+    Langevin thermostat, whose noise the GPU draws."""
+    system = held(crystal())
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
+    options = {"ensemble": "nvt", "temperature": 300, "thermostat": "langevin"}
+    with MolecularDynamics(system, gpu, timestep=0.002) as md:
+        md.velocities(600, seed=1)
+        md.run(500, seed=2, **options)
+        a = md.system
+    still = ~system["movable"]
+    assert np.abs(a["velocities"][still]).max() < 1e-12
+    unwrapped = a["positions"] + a["image"] @ a.box.matrix
+    np.testing.assert_allclose(unwrapped[still], system["positions"][still], atol=1e-9)
+    assert np.abs(a["velocities"][~still]).max() > 1.0
+
+
 def test_errors():
     gpu = EAM.zhou(["Cu", "Ni"], device="cuda")
     with pytest.raises(InvalidParameter, match="thicker than twice the cutoff"):
         run(crystal(repeat=3), gpu, 10)
-    held = crystal().with_columns(movable=np.zeros((864, 3), dtype=bool))
-    with pytest.raises(InvalidParameter, match="movable column"):
-        MolecularDynamics(held, gpu)
     # two atoms on one site
     lj = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0, device="cuda")
     system = crystal()

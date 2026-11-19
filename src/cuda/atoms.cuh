@@ -30,6 +30,11 @@ struct Atoms::Impl {
     Buffer<double> masses;      // (n,)
     Buffer<double> scratch;     // 6 columns of n, for the kinetic tensor
     Buffer<int3> images;        // (n,), the boxes the wrapping moved each atom by
+    // The directions in which each atom may move, bit a for axis a of the
+    // system, whose vectors are rotation times those of the atoms; empty when
+    // every atom moves freely.
+    Buffer<std::int32_t> movable;
+    double rotation[9] = {};
     // The atoms are sorted by the cells of the neighbor list when it is built,
     // so that neighbors are near in memory: original holds the atom of the
     // caller at each place; what comes in and goes out is in the caller's

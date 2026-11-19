@@ -284,13 +284,8 @@ class _Native:
                 f"{type(calculator).__name__} does not compute energies and forces"
             )
         if getattr(calculator, "device", "cpu") == "cuda":
-            if self.__movable is not None:
-                raise InvalidParameter(
-                    "the dynamics on the GPU moves every atom: a movable column "
-                    "holds atoms on the processor only"
-                )
             self.__atoms: Any = _device.DeviceAtoms(
-                calculator, system, x, v, masses, _SKIN
+                calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation
             )
         else:
             self.__atoms = _HostAtoms(calculator, x, v, masses, self.__restrict)

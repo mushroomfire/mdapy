@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -5566,6 +5566,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../indentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../hugoniostat/" class="md-nav__link">
         
   
@@ -8991,6 +9019,10 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 <td><code>Wall(axis="z", *, side="low", position=None, velocity=0.0)</code></td>
 <td>a flat wall that reflects the atoms, still or moving as a piston: see <a href="../walls/">Walls</a></td>
 </tr>
+<tr>
+<td><code>Indenter(shape="sphere", *, center=None, radius=None, axis=None, position=None, side=None, stiffness=10.0, velocity=None, name=None)</code></td>
+<td>a virtual indenter that pushes the atoms out of a sphere, a cylinder or the region beyond a plane, the force on it recorded: see <a href="../indentation/">Indentation</a></td>
+</tr>
 </tbody>
 </table>
 <table>
@@ -9100,7 +9132,7 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 </ul>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>run</code> and <code>iterate</code> raise <code>InvalidParameter</code> for a control that is not a
-<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code>, <code>Switch</code> or <code>Wall</code>, a group of another number of atoms,
+<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code>, <code>Switch</code>, <code>Wall</code> or <code>Indenter</code>, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat or a <code>Deform</code>,
 a bath with the thermostat of <code>"nvt"</code> or <code>"npt"</code>, on the GPU more than 31

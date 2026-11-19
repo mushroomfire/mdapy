@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -5466,6 +5466,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/indentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Indentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/hugoniostat/" class="md-nav__link">
         
   
@@ -8186,6 +8214,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Indenter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Indenter
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9494,6 +9533,17 @@
     <span class="md-ellipsis">
       
         Wall
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Indenter" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Indenter
       
     </span>
   </a>
@@ -12673,6 +12723,224 @@ the low side of z only, up z.</p>
             </td>
             <td>
                   <code>0.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Indenter" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Indenter</span>
+
+
+<a href="#mdapy.simulation.Indenter" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Indenter</span><span class="p">(</span><span class="n">shape</span><span class="o">=</span><span class="s1">'sphere'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">center</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">stiffness</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A virtual indenter that pushes the atoms out of it, as LAMMPS's fix
+indent: an atom at a distance r inside a sphere or a cylinder of radius R
+feels K (R - r)^2 away from it, and one past a plane K d^2 back across
+it, d how far past. Still or moving at a constant velocity; with a name,
+<code>thermo</code> records the force of the atoms on it and its energy.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>shape</code>
+            </td>
+            <td>
+                  <code>(sphere, cylinder, plane)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A sphere, a cylinder along <code>axis</code>, or the region beyond a plane
+across <code>axis</code>. Default "sphere".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;sphere&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>center</code>
+            </td>
+            <td>
+                  <code>(3,) float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The center of the sphere, or a point on the axis of the cylinder, at
+the start of the run in Å; for a sphere and a cylinder.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>radius</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The radius of the sphere or of the cylinder in Å, not negative; for
+a sphere and a cylinder.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis</code>
+            </td>
+            <td>
+                  <code>(x, y, z)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axis of the cylinder, or that across the plane.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;x&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>position</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coordinate of the plane along its axis at the start of the run in
+Å; for a plane.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>side</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a sphere or a cylinder "out", pushing the atoms out of it, or
+"in", keeping them inside (default "out"); for a plane the side it
+fills, "low" or "high".</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>stiffness</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>K in eV/Å³, not negative. Default 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>velocity</code>
+            </td>
+            <td>
+                  <code>(3,) float64 or float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The velocity of the center in Å/ps, or of the plane along its axis.
+Default None, still.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Records <code>&lt;name&gt;_force</code>, (3,) the force of the atoms on the
+indenter in eV/Å, and <code>&lt;name&gt;_energy</code> in eV.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>

@@ -278,6 +278,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | system whose atoms the frames of a trajectory move | `topology=` | `topology_file`, `data` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
+| a log of a run or a minimization, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo` | `logfile`, `log_file`, `verbose` |
 | convergence of a minimization | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
 | external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |

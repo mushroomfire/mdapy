@@ -103,6 +103,7 @@ temperature then counts the directions in which the atoms move.
 | `system` | `System` | | | the atoms, with an `element` column (or, in MDAPY, a `mass` column), `velocities` in Å/ps when it has them, and a `movable` column (MDAPY only) |
 | `potential` | calculator | | | the interaction: a `LAMMPS` calculator, run in LAMMPS, or any other calculator, run in MDAPY, which needs energies and forces, and the virial for a barostat |
 | `timestep` | float64 | 0.001 | ps | the time step |
+| `log` | str, path or stream | `None` | | writes the runs to this file, which it overwrites, or to this stream, such as `sys.stdout`: see [Log](#log) |
 
 ## Running
 
@@ -146,6 +147,50 @@ smaller than the box of `system`, and everything comes back in the
 orientation of `system`. MDAPY's own dynamics works in the same form of the
 box. The velocities of `system`, if it has them, are where the dynamics
 starts.
+
+### Log
+
+With `log`, the dynamics writes what it does as it goes, so that a long run
+shows its progress, `tail -f md.log` in a terminal:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import MolecularDynamics
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(5, 5, 5))
+copper = EAM.zhou(["Cu"])
+with MolecularDynamics(crystal, copper, timestep=0.002, log="md.log") as md:
+    md.velocities(600, seed=1)
+    md.run(200, thermo=50)
+```
+
+```text
+# MDAPY 2.2.0, molecular dynamics, 2026-11-19 13:29:02
+# 500 atoms; box vectors 18.0750 18.0750 18.0750 Å long, periodic along a b c
+# engine: MDAPY on the processor, 10 threads
+# potential: EAM(elements=('Cu',), cutoff=5.715751993501819)
+# time step: 0.002 ps
+#
+# run 1: 200 steps, nve; thermo every 50
+#     step        time   temperature    potential_energy    kinetic_energy        total_energy      pressure            volume      wall
+         0      0.0000       600.000        -1769.991294         38.700444        -1731.290850      0.697585         5905.2042      0.00
+        50      0.1000       256.824        -1747.829401         16.565321        -1731.264079      3.565728         5905.2042      0.02
+       100      0.2000       324.699        -1752.217267         20.943354        -1731.273913      3.078099         5905.2042      0.03
+       150      0.3000       307.193        -1751.084251         19.814151        -1731.270099      3.109218         5905.2042      0.04
+       200      0.4000       301.119        -1750.691224         19.422382        -1731.268842      3.167338         5905.2042      0.06
+# run 1: 200 steps in 0.06 s; 3340.2 steps/s, 1.67 million atom-steps/s, 577.2 ns/day
+```
+
+Each run writes its settings, a row every `thermo` steps, the row
+`thermo` records, with `wall`, the seconds since the run began, and its
+speed; a run that stops early, cancelled or failed, says where it stopped.
+The engine is MDAPY on the processor with its threads, MDAPY on a GPU with
+its precision, or LAMMPS with its processes and command-line arguments.
+Lines that are not rows of numbers start with `#`, so that
+`numpy.loadtxt("md.log")` reads the rows of every run as one table. Under
+MPI the main process alone writes. Every run and `iterate` of the
+`MolecularDynamics` writes to the same log, which `close` closes.
 
 ### Frames in files
 
@@ -245,8 +290,9 @@ of every frame of `iterate`.
 
 `MolecularDynamics` raises `InvalidParameter` for a potential that is not a
 calculator, a time step that is not positive, elements without an atom type
-in LAMMPS, a `movable` column that holds atoms in LAMMPS, and commands that
-LAMMPS rejects; `MissingProperty` for a system without elements (or, in
+in LAMMPS, a `movable` column that holds atoms in LAMMPS, commands that
+LAMMPS rejects, and a `log` that is neither a path nor a stream, or that
+cannot be written; `MissingProperty` for a system without elements (or, in
 MDAPY, without masses); `ImportError` without the LAMMPS Python module, for a
 LAMMPS calculator. `velocities` raises `InvalidParameter` for a negative
 temperature or a seed that is not positive; `run` for a negative number of

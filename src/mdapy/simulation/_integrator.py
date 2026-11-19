@@ -23,9 +23,11 @@ import numpy as np
 import polars as pl
 
 from mdapy import units
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
+from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -294,6 +296,16 @@ class _Native:
         self.__energy = math.nan
         self.__virial = np.full((3, 3), np.nan)
         self.__run: dict[str, Any] = {}
+
+    def describe(self) -> str:
+        """What runs the dynamics, for the log."""
+        calculator = self.__calculator
+        if getattr(calculator, "device", "cpu") == "cuda":
+            name = _gpu.cuda().device_name()
+            return f"MDAPY on the GPU, {name}, {calculator.precision} precision"
+        return f"MDAPY on the processor, {get_num_threads()} threads"
+
+    writes = True  # one process
 
     # -- frames ------------------------------------------------------------
 

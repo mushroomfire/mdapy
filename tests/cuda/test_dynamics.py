@@ -357,3 +357,44 @@ def test_heat_baths(precision):
     assert np.abs(energy - energy[0] - heat).max() < 0.05
     np.testing.assert_array_equal(runs[1][1]["velocities"], end["velocities"])
     assert np.abs(end["velocities"][middle, 2]).max() < 1e-12
+
+
+def test_deformation_as_on_the_processor():
+    """A box stretched, compressed and sheared on the GPU, then with a
+    barostat on the lengths left: the runs of the processor."""
+    from mdapy.simulation import Deform
+
+    system, *_ = walls()
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                200,
+                ensemble="nvt",
+                temperature=300,
+                thermo=50,
+                controls=Deform(xx=0.2, zz=-0.1, xy=0.3),
+            )
+            md.run(
+                100,
+                ensemble="npt",
+                temperature=300,
+                pressure=0.0,
+                barostat="aniso",
+                controls=Deform(yy=0.2, kind="true"),
+            )
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-9)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    np.testing.assert_allclose(
+        np.stack(ta["stress"]), np.stack(tb["stress"]), rtol=0, atol=1e-6
+    )

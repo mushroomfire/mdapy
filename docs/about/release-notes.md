@@ -9,6 +9,11 @@
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   [Groups and controls](../user-guide/simulation/controls.md).
+- `mdapy.simulation.Deform`, a control that stretches, compresses or shears the
+  box at constant strain rates, engineering or true, the atoms carried with it,
+  with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
+  GPU and in LAMMPS (`fix deform`) alike. See
+  [Deformation](../user-guide/simulation/deformation.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

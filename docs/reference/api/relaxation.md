@@ -18,6 +18,8 @@
 
 ::: mdapy.simulation.Langevin
 
+::: mdapy.simulation.Deform
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

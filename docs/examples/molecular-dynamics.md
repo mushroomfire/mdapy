@@ -96,12 +96,14 @@ holds both.
 
 ## Stretching at constant temperature
 
-`command` runs any LAMMPS command. A fix added before `run` takes part in it, beside
-the thermostat of `run`: here `fix deform` stretches the box along x by 0.1 % per ps,
-to 10 %, at 1 K and at 300 K, after the box has relaxed at zero pressure:
+A [`Deform`](../user-guide/simulation/deformation.md) among the `controls` of `run`
+stretches the box along x by 0.1 % per ps, to 10 %, at 1 K and at 300 K, after the box
+has relaxed at zero pressure; in LAMMPS it is `fix deform`:
 
 <!-- skip-test -->
 ```python
+from mdapy.simulation import Deform
+
 curves = {}
 for temperature in (1.0, 300.0):
     with MolecularDynamics(crystal, potential, timestep=0.002) as md:
@@ -114,9 +116,13 @@ for temperature in (1.0, 300.0):
             barostat="aniso",
         )
         start = len(md.thermo)
-        md.command("fix pull all deform 1 x erate 0.001 remap x")
-        md.run(50000, ensemble="nvt", temperature=temperature, thermo=250)
-        md.command("unfix pull")
+        md.run(
+            50000,
+            ensemble="nvt",
+            temperature=temperature,
+            thermo=250,
+            controls=Deform(xx=0.001),
+        )
         stretched = md.thermo[start:]
     volume = stretched["volume"].to_numpy()
     stress = np.stack(stretched["stress"].to_numpy())
@@ -156,9 +162,9 @@ goes on. At 300 K the crystal is softer. The curves bend from the start: the
 stiffness of copper, 168.5 GPa at zero strain for this potential, falls as it is
 stretched.*
 
-The box keeps its size along y and z, so this is uniaxial strain. A uniaxial stress,
-with y and z free under zero pressure, needs a barostat on y and z beside the
-deformation, which `run` cannot give (see below).
+The box keeps its size along y and z, so this is uniaxial strain. For a uniaxial
+stress, with y and z free under zero pressure, `ensemble="npt"` with `pressure=0.0` and
+`barostat="aniso"` beside the `Deform` holds them at zero stress.
 
 ## What it does
 
@@ -169,7 +175,8 @@ deformation, which `run` cannot give (see below).
 | Let the box change shape | `barostat="aniso"` along each axis, `"tri"` in any way, `"xy"` in the plane of a [sheet](../user-guide/simulation/sheets.md) |
 | Keep the atoms for analysis | `save_every=` gives `frames`, each a `System` for any analysis of MDAPY; `md.iterate(steps, save_every=...)` gives them one at a time as the run goes, for a file or an analysis, keeping none |
 | Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/simulation/minimize.md), an analysis or a file |
-| Add a fix or a compute of LAMMPS | `md.command(...)` before `run`, and `unfix` after: `deform`, `setforce` to hold some atoms, `langevin` with `ensemble="nve"`, `velocity` to push atoms |
+| Hold, move, push or heat groups of atoms, deform the box | `controls=` of `run`: `Hold`, `Move`, `AddForce`, `Langevin` and `Deform`, which become the fixes of LAMMPS ([Groups and controls](../user-guide/simulation/controls.md)) |
+| Add a fix or a compute of LAMMPS | `md.command(...)` before `run`, and `unfix` after |
 | Read what LAMMPS holds | `md.lammps`, the LAMMPS instance, such as `md.lammps.get_thermo("pe")` or `extract_compute` |
 
 Several functions of MDAPY run their molecular dynamics this way:
@@ -187,7 +194,7 @@ Several functions of MDAPY run their molecular dynamics this way:
 | Charges, bonds and molecules: ReaxFF with charge equilibration, water, polymers | LAMMPS holds the atoms as `atom_style atomic`: positions, velocities and types | an input script of LAMMPS; read its dump files with [`mdapy.io.read_trajectory`](../basics/trajectory.md) |
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
-| An integrator of one's own, such as a barostat on y and z while x is stretched | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
+| An integrator of one's own, such as `fix nvt/sllod` for a shear flow | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
 | Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/simulation/dynamics.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
 
 ## Several threads and GPUs with Kokkos

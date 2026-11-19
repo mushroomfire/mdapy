@@ -320,7 +320,28 @@ create_box {len(potential.elements)} box
             other = "z" if self.__swapped else "y"
             barostat = run["barostat"]
             sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
-            if barostat == "xy" or (sheet and barostat == "iso"):
+            deform = next(
+                (c for c in run["controls"] if isinstance(c, _controls.Deform)), None
+            )
+            if deform is not None:
+                if barostat not in ("iso", "aniso") or deform.rates[3:].any():
+                    raise InvalidParameter(
+                        'a barostat with a deformation needs "iso" or "aniso" and no '
+                        "shear"
+                    )
+                if sheet:
+                    raise InvalidParameter(
+                        "a deformed sheet with a barostat is not supported"
+                    )
+                left = [d for k, d in enumerate("xyz") if deform.rates[k] == 0.0]
+                if not left:
+                    raise InvalidParameter(
+                        "the deformation leaves the barostat no length"
+                    )
+                fix += "".join(f" {d} {span}" for d in left)
+                if barostat == "iso" and len(left) > 1:
+                    fix += f" couple {''.join(left)}"
+            elif barostat == "xy" or (sheet and barostat == "iso"):
                 fix += f" x {span} {other} {span} couple x{other}"
             elif sheet:  # in the plane only
                 fix += f" x {span} {other} {span}"
@@ -440,6 +461,25 @@ create_box {len(potential.elements)} box
                     self.command(f"compute {name}_force {group} reduce sum fx fy fz")
                     self.__computes.append(f"{name}_force")
                     moves.append((control.name, f"{name}_force"))
+            elif isinstance(control, _controls.Deform):
+                if not (aligned and not self.__swapped):
+                    raise InvalidParameter(
+                        "a deformation needs a box whose first vector is along x and "
+                        "second in the xy plane"
+                    )
+                if control.kind == "true" and control.rates[3:].any():
+                    raise InvalidParameter("tilts deform at engineering rates only")
+                control._periodic(self.__pbc)
+                style = "trate" if control.kind == "true" else "erate"
+                words = []
+                for k, part in enumerate(("x", "y", "z", "yz", "xz", "xy")):
+                    rate = float(control.rates[k])
+                    if rate != 0.0:
+                        words.append(f"{part} {'erate' if k > 2 else style} {rate!r}")
+                self.command(
+                    f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
+                )
+                self.__fixes.append(name)
             elif isinstance(control, _controls.Langevin):
                 group = self.__group(name, control.mask)
                 t0, t1 = control.temperature
@@ -764,13 +804,14 @@ class MolecularDynamics:
         save_every : int32, optional
             Keeps the atoms every this many steps, in ``frames``. Default
             None, keeping none.
-        controls : sequence of Hold, Move, AddForce or Langevin, optional
-            What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, pushed, or kept at a temperature. Held and
+        controls : sequence of Hold, Move, AddForce, Langevin or Deform, optional
+            What is done to groups of atoms or to the box during the run:
+            atoms held, moved at a velocity, pushed, or kept at a
+            temperature, and the box deformed at constant rates. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
-            with a barostat, baths not with the thermostat of "nvt" or
-            "npt". Default none.
+            with a barostat or a deformation, baths not with the thermostat
+            of "nvt" or "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -862,13 +903,14 @@ class MolecularDynamics:
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        controls : sequence of Hold, Move, AddForce or Langevin, optional
-            What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, pushed, or kept at a temperature. Held and
+        controls : sequence of Hold, Move, AddForce, Langevin or Deform, optional
+            What is done to groups of atoms or to the box during the run:
+            atoms held, moved at a velocity, pushed, or kept at a
+            temperature, and the box deformed at constant rates. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
-            with a barostat, baths not with the thermostat of "nvt" or
-            "npt". Default none.
+            with a barostat or a deformation, baths not with the thermostat
+            of "nvt" or "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional

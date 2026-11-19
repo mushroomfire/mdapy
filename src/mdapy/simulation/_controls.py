@@ -185,7 +185,65 @@ class Langevin:
         )
 
 
-CONTROLS = (Hold, Move, AddForce, Langevin)
+class Deform:
+    """The box deformed at constant rates for a run: stretched, compressed or
+    sheared, the atoms carried with it, as LAMMPS's fix deform with erate
+    or trate, remap x. With a barostat, the barostat holds the pressure of
+    the lengths the deformation leaves: a crystal stretched along x at zero
+    pressure along y and z.
+
+    Parameters
+    ----------
+    xx, yy, zz : float64, optional
+        Strain rates of the lengths of the box along x, y and z, in 1/ps;
+        positive stretches. Default 0, the length left.
+    yz, xz, xy : float64, optional
+        Shear strain rates in 1/ps: the tilt yz grows by the rate times the
+        length along z at the start, every ps, xz the same, and xy by the
+        rate times the length along y. Default 0.
+    kind : {"engineering", "true"}, optional
+        Of the lengths: growing by the rate times their length at the start
+        every ps (LAMMPS erate), or by the rate times their length now (trate,
+        exponentially). Default "engineering".
+    """
+
+    def __init__(
+        self,
+        *,
+        xx: float = 0.0,
+        yy: float = 0.0,
+        zz: float = 0.0,
+        yz: float = 0.0,
+        xz: float = 0.0,
+        xy: float = 0.0,
+        kind: str = "engineering",
+    ):
+        rates = np.array([xx, yy, zz, yz, xz, xy], dtype=float)
+        if not np.isfinite(rates).all():
+            raise InvalidParameter("the strain rates must be finite")
+        if not rates.any():
+            raise InvalidParameter("a deformation needs a strain rate that is not zero")
+        if kind not in ("engineering", "true"):
+            raise InvalidParameter(f"kind must be engineering or true, not {kind!r}")
+        self.rates = rates
+        self.kind = kind
+
+    def _periodic(self, pbc: np.ndarray) -> None:
+        """Refuses rates on lengths that are not periodic, and tilts across
+        them (yz and xz across z, xy across y)."""
+        needs = np.array([pbc[0], pbc[1], pbc[2], pbc[2], pbc[2], pbc[1]])
+        if (self.rates[~needs] != 0.0).any():
+            raise InvalidParameter(
+                "a deformation changes periodic lengths only, and tilts across them"
+            )
+
+    def __repr__(self) -> str:
+        names = ("xx", "yy", "zz", "yz", "xz", "xy")
+        rates = ", ".join(f"{n}={r!r}" for n, r in zip(names, self.rates.tolist()) if r)
+        return f"Deform({rates}, kind={self.kind!r})"
+
+
+CONTROLS = (Hold, Move, AddForce, Langevin, Deform)
 
 
 def checked(controls: Any, n: int) -> tuple:
@@ -200,12 +258,19 @@ def checked(controls: Any, n: int) -> tuple:
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
+    deforms = 0
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
-                f"a control must be one of Hold, Move, AddForce or Langevin, not {control!r}"
+                "a control must be one of Hold, Move, AddForce, Langevin or Deform, not "
+                f"{control!r}"
             )
-        if control.mask.shape != (n,):
+        if isinstance(control, Deform):
+            if deforms:
+                raise InvalidParameter("a run takes one Deform")
+            deforms += 1
+            continue
+        if not isinstance(control, Deform) and control.mask.shape != (n,):
             raise InvalidParameter(
                 f"the group of {control!r} has {control.mask.size} values, not one "
                 f"for each of the {n} atoms"
@@ -233,4 +298,8 @@ def checked(controls: Any, n: int) -> tuple:
             names.add(name)
     if (moved & bathed).any():
         raise InvalidParameter("an atom moved by a control is in a Langevin bath")
+    if deforms and (moved.any() or held.any()):
+        raise InvalidParameter(
+            "a deformed box with held or moved atoms is not supported"
+        )
     return out

@@ -137,12 +137,16 @@ part, the others still: a flyer of copper at 300 K that strikes the rest
 at 1 km/s, 10 Å/ps,
 
 ```python
-from mdapy.simulation import thermal_velocities
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import MolecularDynamics, thermal_velocities
 
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 4, 4))
 flyer = crystal["positions"][:, 0] < 20.0
 v = thermal_velocities(crystal, 300.0, seed=1, mask=flyer)
 v[flyer, 0] += 10.0
-md = MolecularDynamics(crystal.with_columns(velocities=v), potential)
+with MolecularDynamics(crystal.with_columns(velocities=v), EAM.zhou(["Cu"])) as md:
+    md.run(10)
 ```
 
 | Parameter of `thermal_velocities` | Type | Default | Unit | Meaning |

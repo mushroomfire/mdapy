@@ -5400,6 +5400,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -5720,6 +5748,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8675,7 +8759,8 @@
 <h1 id="melting-point">Melting point<a class="headerlink" href="#melting-point" title="Permanent link">&para;</a></h1>
 <p><code>mdapy.simulation.melting_point(crystal, potential, temperature)</code> gives the melting
 point of a crystal from a first guess, by the two-phase method in
-<a href="../lammps/">LAMMPS</a>: a solid and a liquid share a box at constant enthalpy and
+<a href="../dynamics/">molecular dynamics</a>, in MDAPY or in LAMMPS for a
+<a href="../lammps/">LAMMPS calculator</a>: a solid and a liquid share a box at constant enthalpy and
 pressure, where the interface between them moves until they reach their common
 temperature. A run in which one phase takes over gives a new guess, until both last.</p>
 <!-- skip-test -->
@@ -8717,8 +8802,9 @@ Here is its last stretch.</em></p>
 third vector as along the others; the interface lies across that vector. Each run:</p>
 <ol>
 <li>brings the crystal to the temperature and the pressure and takes its mean box;</li>
-<li>holds one half still and melts the other at constant volume, at twice the
-   temperature, hotter until its atoms have moved by about the distance between them;</li>
+<li>holds one half still, a <a href="../controls/"><code>Hold</code></a>, and melts the other at constant
+   volume with a Nosé–Hoover thermostat, at twice the temperature, hotter until its
+   atoms have moved by about the distance between them;</li>
 <li>cools the melted half to the temperature and lets it settle;</li>
 <li>releases the crystal, relaxes the pressure of the box for a moment at this
    temperature, and runs both at constant enthalpy, in stretches of <code>coexistence</code>, two
@@ -8752,10 +8838,10 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.</p>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction</td>
+<td>the interaction: any calculator of energies, forces and virials; the dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator</td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -8972,7 +9058,7 @@ energies of the two phases cross.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>melting_point</code> raises <code>InvalidParameter</code> for invalid options, a box not periodic in
 every direction, half a crystal that does not melt, no run with two phases within
-<code>max_runs</code>, or if LAMMPS fails; <code>MissingProperty</code> for a crystal without an <code>element</code>
+<code>max_runs</code>, a <code>potential</code> that is not a calculator, or if the dynamics fail; <code>MissingProperty</code> for a crystal without an <code>element</code>
 column; <code>Cancelled</code> when cancelled.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>

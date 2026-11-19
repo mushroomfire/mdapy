@@ -5482,6 +5482,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -5802,6 +5830,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8787,6 +8871,10 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 <td><code>AdaptiveTimestep(max_distance, *, min_timestep=None, max_timestep=None, every=1)</code></td>
 <td>the time step of the fastest atom, in which no atom moves more than <code>max_distance</code>: see <a href="../adaptive-timestep/">Adaptive time step</a></td>
 </tr>
+<tr>
+<td><code>Switch(target, *, start=0.0, stop=1.0, name=None)</code></td>
+<td>the potential turned into another along the run, for thermodynamic integration: see <a href="../switching/">Switching between potentials</a></td>
+</tr>
 </tbody>
 </table>
 <table>
@@ -8896,7 +8984,7 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 </ul>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>run</code> and <code>iterate</code> raise <code>InvalidParameter</code> for a control that is not a
-<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code> or <code>AdaptiveTimestep</code>, a group of another number of atoms,
+<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code> or <code>Switch</code>, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat or a <code>Deform</code>,
 a bath with the thermostat of <code>"nvt"</code> or <code>"npt"</code>, on the GPU more than 31

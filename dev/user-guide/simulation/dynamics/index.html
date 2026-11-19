@@ -5521,6 +5521,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -5841,6 +5869,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8911,7 +8995,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions</td>
 </tr>
 <tr>
-<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)</code></td>
+<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, thermo=100, save_every=None, controls=None, progress=None, cancel=None)</code></td>
 <td>runs <code>steps</code> steps</td>
 </tr>
 <tr>
@@ -9000,6 +9084,13 @@ temperature then counts the directions in which the atoms move.</p>
 <td>seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when <code>None</code></td>
 </tr>
 <tr>
+<td><code>keep_momentum</code></td>
+<td>bool</td>
+<td><code>False</code></td>
+<td></td>
+<td>with Langevin dynamics, random forces that sum to zero, so that the total momentum is kept, as LAMMPS's <code>fix langevin ... zero yes</code>: each atom's noise less an equal share of their total momentum; with no atoms held or moved. In mixed precision on the GPU the forces, of single precision, move the momentum a little themselves</td>
+</tr>
+<tr>
 <td><code>thermo</code></td>
 <td>int32</td>
 <td>100</td>
@@ -9018,7 +9109,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>sequence</td>
 <td><code>None</code></td>
 <td></td>
-<td><code>Hold</code>, <code>Move</code>, <code>AddForce</code> or <code>Langevin</code>: what is done to groups of atoms during the run; see <a href="../controls/">Groups and controls</a></td>
+<td><code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code> or <code>Switch</code>: what is done to groups of atoms, the box, the time step or the potential during the run; see <a href="../controls/">Groups and controls</a></td>
 </tr>
 <tr>
 <td><code>progress</code></td>

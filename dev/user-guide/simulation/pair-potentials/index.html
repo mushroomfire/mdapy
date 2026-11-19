@@ -5161,6 +5161,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-uhlenbeckford-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Uhlenbeck–Ford model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5451,6 +5462,34 @@
     
   
     Adaptive time step
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
   
 
     
@@ -5791,6 +5830,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8642,6 +8737,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-uhlenbeckford-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Uhlenbeck–Ford model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#errors" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8812,6 +8918,21 @@ alone and as its own pair must have the same numbers in both.</p>
 atoms. The long-range corrections of LAMMPS (<code>pair_modify tail</code>) and the
 weights of bonded neighbors (<code>special_bonds</code>) are not part of these
 calculators.</p>
+<h2 id="the-uhlenbeckford-model">The Uhlenbeck–Ford model<a class="headerlink" href="#the-uhlenbeckford-model" title="Permanent link">&para;</a></h2>
+<p><code>UhlenbeckFord(parameters, cutoff, *, mixing="geometric", shift=False)</code> is the
+Uhlenbeck–Ford model of LAMMPS's <code>pair_style ufm</code>, a soft repulsion of finite reach,</p>
+<div class="arithmatex">\[
+E_{UF}(r) = -\varepsilon \ln\left(1 - e^{-r^2/\sigma^2}\right),
+\]</div>
+<p>with ε in eV and σ in Å, the reference liquid of
+<a href="../free-energy/#definition">free energies</a>, whose own free energy is known
+(<a href="../../../reference/references/#paulaleite2016">Paula Leite et al. (2016)</a>).
+Its parameters, mixing and shift are those of <code>LennardJones</code>: (ε, σ) or
+(ε, σ, cutoff) for an element or a pair, or numbers alone for any atom.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">UhlenbeckFord</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">model</span> <span class="o">=</span> <span class="n">UhlenbeckFord</span><span class="p">((</span><span class="mf">1.29</span><span class="p">,</span> <span class="mf">1.5</span><span class="p">),</span> <span class="mf">6.0</span><span class="p">)</span>  <span class="c1"># ε = 50 kT at 300 K, σ = 1.5 Å</span>
+</code></pre></div>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>The calculators raise <code>InvalidParameter</code> for parameters that are not a
 mapping with an entry, a key that is not an element or a pair of elements,

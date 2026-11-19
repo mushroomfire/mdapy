@@ -5382,6 +5382,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5702,6 +5730,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -9629,6 +9713,30 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>strain rate</td>
 <td>of <code>Deform</code>: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (<code>"engineering"</code>) or of its length now (<code>"true"</code>); of a tilt, as a part of the length it grows across</td>
+</tr>
+<tr>
+<td>NEMD</td>
+<td>nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, <code>nemd</code></td>
+</tr>
+<tr>
+<td>HNEMD</td>
+<td>homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, <code>hnemd</code></td>
+</tr>
+<tr>
+<td>switching, λ</td>
+<td>of <code>Switch</code>: the potential of a run turned into another, the forces of (1 − λ) times the one and λ times the other, λ going from <code>start</code> to <code>stop</code> along the run; the integral over λ of the difference of their energies is the difference of their free energies</td>
+</tr>
+<tr>
+<td>Einstein crystal</td>
+<td>atoms tied each to its own site by a harmonic spring, <code>Springs</code>, whose free energy is known: the reference of the free energy of a solid</td>
+</tr>
+<tr>
+<td>Uhlenbeck–Ford model</td>
+<td><code>UhlenbeckFord</code>, the soft repulsion −ε ln(1 − exp(−r²/σ²)) of finite reach, whose free energy is known: the reference of the free energy of a liquid</td>
+</tr>
+<tr>
+<td><code>keep_momentum</code></td>
+<td>of Langevin dynamics: random forces that sum to zero, which keep the total momentum, as LAMMPS's <code>fix langevin ... zero yes</code></td>
 </tr>
 <tr>
 <td>adaptive time step</td>

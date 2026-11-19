@@ -5400,6 +5400,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -5720,6 +5748,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8825,10 +8909,10 @@ gives something lower than the energy at rest.</p>
 </tr>
 <tr>
 <td><code>potential</code></td>
-<td><code>LAMMPS</code></td>
+<td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction</td>
+<td>the interaction: any calculator of energies, forces and virials, on the processor or the GPU; the dynamics run in MDAPY, or in LAMMPS for a <a href="../lammps/">LAMMPS calculator</a></td>
 </tr>
 <tr>
 <td><code>direction</code></td>
@@ -8992,7 +9076,8 @@ as in molecular dynamics. With the phonons of the two cells, the
 gets worse with the temperature.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>stacking_fault_free_energy</code> raises <code>InvalidParameter</code> for invalid options, a plane not
-normal to the axis, a box not periodic in every direction, or if LAMMPS fails;
+normal to the axis, a box not periodic in every direction, a <code>potential</code> that is not a
+calculator, or if the dynamics fail;
 <code>MissingProperty</code> for a crystal without an <code>element</code> column; <code>Cancelled</code> when
 cancelled.</p>
 <div class="admonition quote">

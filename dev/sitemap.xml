@@ -689,6 +689,10 @@
          <lastmod>2026-11-19</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/hnemd/</loc>
+         <lastmod>2026-11-19</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/lammps/</loc>
          <lastmod>2026-11-19</lastmod>
     </url>
@@ -706,6 +710,10 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/minimize/</loc>
+         <lastmod>2026-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/nemd/</loc>
          <lastmod>2026-11-19</lastmod>
     </url>
     <url>
@@ -742,6 +750,10 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/stillinger-weber/</loc>
+         <lastmod>2026-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/switching/</loc>
          <lastmod>2026-11-19</lastmod>
     </url>
     <url>

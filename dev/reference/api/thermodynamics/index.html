@@ -5382,6 +5382,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5702,6 +5730,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -9212,7 +9296,8 @@
     <div class="doc doc-contents first">
 
         <p>The free energy of a solid or a liquid, per atom, from molecular
-dynamics in LAMMPS, with classical atoms.</p>
+dynamics with classical atoms, in MDAPY, or in LAMMPS for a LAMMPS
+calculator.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9249,11 +9334,13 @@ first), for a liquid anywhere, as it is melted first.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction. A liquid needs one pair style, not a hybrid.</p>
+                <p>The interaction: any calculator of energies, forces and virials, on
+the processor or the GPU; a LAMMPS one for a liquid needs one pair
+style, not a hybrid.</p>
               </div>
             </td>
             <td>
@@ -9544,7 +9631,7 @@ warning.</p>
               <div class="doc-md-description">
                 <p>For invalid options, a box not periodic in every direction, a hybrid
 pair style for a liquid, a liquid that does not move as one, a phase
-that changes in every scan, or if LAMMPS fails.</p>
+that changes in every scan, or if the dynamics fail.</p>
               </div>
             </td>
           </tr>
@@ -10042,11 +10129,12 @@ vector.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction.</p>
+                <p>The interaction: any calculator of energies, forces and virials; the
+dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator.</p>
               </div>
             </td>
             <td>
@@ -10321,7 +10409,7 @@ and fraction of solid atoms along the last run.</p>
               <div class="doc-md-description">
                 <p>For invalid options, a box not periodic in every direction, if half of
 the crystal does not melt, if no run ends with two phases within
-<code>max_runs</code>, or if LAMMPS fails.</p>
+<code>max_runs</code>, or if the dynamics fail.</p>
               </div>
             </td>
           </tr>
@@ -10714,11 +10802,13 @@ the area does.</p>
                 <code>potential</code>
             </td>
             <td>
-                  <code><a class="autorefs autorefs-internal" title="LAMMPS (mdapy.calculators._lammps.LAMMPS)" href="../calculators/#mdapy.calculators.LAMMPS">LAMMPS</a></code>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>The interaction.</p>
+                <p>The interaction: any calculator of energies, forces and virials, on
+the processor or the GPU; the dynamics run in MDAPY, or in LAMMPS for
+a LAMMPS calculator.</p>
               </div>
             </td>
             <td>
@@ -11000,7 +11090,8 @@ Default 1e-4.</p>
             <td>
               <div class="doc-md-description">
                 <p>For invalid options, a plane not normal to the axis, a box not periodic in
-every direction, or if LAMMPS fails.</p>
+every direction, a potential that is not a calculator, or if the
+dynamics fail.</p>
               </div>
             </td>
           </tr>

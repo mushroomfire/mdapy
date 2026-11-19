@@ -5382,6 +5382,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5702,6 +5730,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -7886,6 +7970,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.calculators.UhlenbeckFord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UhlenbeckFord
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.calculators.Springs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Springs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.calculators.NEP" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9173,6 +9279,28 @@
     <span class="md-ellipsis">
       
         Morse
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.calculators.UhlenbeckFord" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        UhlenbeckFord
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.calculators.Springs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Springs
       
     </span>
   </a>
@@ -11595,6 +11723,361 @@ for the positions and the sums, or double throughout. Default
             <td>
               <div class="doc-md-description">
                 <p>The largest cutoff in Å.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.calculators.UhlenbeckFord" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">UhlenbeckFord</span>
+
+
+<a href="#mdapy.calculators.UhlenbeckFord" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">UhlenbeckFord</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mixing</span><span class="o">=</span><span class="s1">'geometric'</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="mdapy.calculators._pair._PairCalculator">_PairCalculator</span></code></p>
+
+
+
+        <p>Uhlenbeck-Ford model, E = −ε ln(1 − exp(−r²/σ²)) below a cutoff, as
+LAMMPS <code>pair_style ufm</code> computes it: a soft repulsion of finite range
+whose free energy is known, the reference liquid of free energies.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>parameters</code>
+            </td>
+            <td>
+                  <code>mapping or sequence of float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For an element, (ε, σ) or (ε, σ, cutoff) of its pairs with itself, in
+eV and Å; the pairs of two such elements are mixed. For a pair of
+elements, a tuple such as ("Cu", "Ni"), the same numbers of that pair,
+taken as they are. Numbers alone, (ε, σ) or (ε, σ, cutoff): any atom,
+whatever its element.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cutoff</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Cutoff in Å of the pairs given none.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>mixing</code>
+            </td>
+            <td>
+                  <code>(geometric, arithmetic, sixthpower)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How ε, σ and the cutoffs of two elements mix, as <code>pair_modify mix</code>
+of LAMMPS. Default "geometric".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;geometric&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shift</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Take off each pair the energy at its cutoff, as <code>pair_modify shift
+yes</code>. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions and the sums, or double throughout. Default
+"mixed" on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.UhlenbeckFord.elements">elements</span></code></td>
+            <td>
+                  <code>tuple of str or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The elements, in the order of the parameters; None for any atom.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.UhlenbeckFord.cutoffs">cutoffs</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(E, E) float64 cutoff of each pair of elements in Å.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.UhlenbeckFord.cutoff">cutoff</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The largest cutoff in Å.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.calculators.Springs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Springs</span>
+
+
+<a href="#mdapy.calculators.Springs" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Springs</span><span class="p">(</span><span class="n">sites</span><span class="p">,</span> <span class="n">constants</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="#mdapy.calculators.Calculator">Calculator</a></code></p>
+
+
+
+        <p>Each atom tied to its own site by a harmonic spring, E = k |x − x0|²
+/ 2, the displacement taken to the nearest image of the site across the
+periodic directions: an Einstein crystal, whose free energy is known, as
+LAMMPS's fix spring/self and fix ti/spring tie atoms.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>sites</code>
+            </td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N, 3) float64, the site of each atom in Å, in the order of the
+atoms of the systems computed.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>constants</code>
+            </td>
+            <td>
+                  <code>float64 or ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The spring constant in eV/Å², of every atom or (N,) float64 of each,
+positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.Springs.sites">sites</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N, 3) float64, the sites in Å.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.Springs.constants">constants</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) float64, the spring constants in eV/Å².</p>
               </div>
             </td>
           </tr>

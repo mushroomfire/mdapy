@@ -5382,6 +5382,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5702,6 +5730,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -8274,6 +8358,67 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.hnemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hnemd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.HNEMD" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNEMD
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HNEMD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.HNEMD.along" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        along
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.nemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nemd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.NEMD" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEMD
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.lattice_dynamics.GreenKubo" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -9847,6 +9992,67 @@
     <span class="md-ellipsis">
       
         green_kubo_from_flux
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.hnemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        hnemd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.HNEMD" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        HNEMD
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HNEMD">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.HNEMD.along" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        along
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.nemd" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        nemd
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.lattice_dynamics.NEMD" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEMD
       
     </span>
   </a>
@@ -15738,6 +15944,1071 @@ or a block is shorter than the correlation.</p>
       </tbody>
     </table>
 
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.hnemd" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hnemd</span>
+
+
+<a href="#mdapy.lattice_dynamics.hnemd" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hnemd</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The thermal conductivity of a crystal at a temperature by homogeneous
+nonequilibrium molecular dynamics (HNEMD) in MDAPY: each atom pushed by
+a small driving field through its virial, the heat that flows along it
+measured, at the temperature of a Nosé-Hoover thermostat.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The atoms in a box periodic in every direction, of its size at the
+temperature, with an <code>element</code> column.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>potential</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The interaction, whose virials of each atom give the heat flux: EAM,
+a pair potential or NEP, on the processor or the GPU.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Temperature in K, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>field</code>
+            </td>
+            <td>
+                  <code>array_like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3,) float64 the driving field in 1/Å: large enough for the flux to
+stand out of its noise, small enough for the linear response; check
+that half of it gives the same conductivity.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timestep</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time step in ps. Default 0.001.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.001</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>equilibration</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps at the temperature without the field first. Default 10000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>production</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps with the field, whose heat flux is averaged. Default 1000000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1000000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps between the samples of the flux. Default 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Blocks of the run for the standard error, at least 2. Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>thermostat_damping</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Damping time of the thermostat in ps. Default 100 time steps.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the starting velocities, positive. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>progress</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called as <code>progress(done, total)</code> with the steps run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cancel</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CancelToken (mdapy.core.threads.CancelToken)" href="../utilities/#mdapy.CancelToken">CancelToken</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Stops the calculation, which raises <code>mdapy.errors.Cancelled</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="HNEMD
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._hnemd.HNEMD)" href="#mdapy.lattice_dynamics.HNEMD">HNEMD</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity of the mean heat flux, and its running value and
+error.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a box that is not periodic, a temperature, field or numbers of
+steps that are not valid, a potential whose virials of each atom do
+not give the heat flux, a LAMMPS one, or the errors of
+<code>MolecularDynamics</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code>Cancelled</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If cancelled.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.HNEMD" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">HNEMD</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.HNEMD" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">HNEMD</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">volume</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">running</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">errors</span><span class="p">,</span> <span class="n">flux</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The thermal conductivity of homogeneous nonequilibrium molecular
+dynamics.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.temperature">temperature</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The mean temperature of the driven run in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.volume">volume</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The volume in Å³.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.field">field</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3,) float64 the driving field in 1/Å.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.times">times</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S,) float64 the time of each sample in ps, from the start of the
+driven run.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.running">running</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S, 3) float64 the conductivity in W/(m K) of the mean heat flux up to
+each time: the components of the conductivity tensor times the unit
+vector of the field.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.kappa">kappa</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3,) float64 that of the whole run in W/(m K); along the field, the
+conductivity in its direction.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.errors">errors</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3,) float64 the standard error of kappa in W/(m K), from blocks of
+the run.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.HNEMD.flux">flux</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S, 3) float64 the potential part of the heat flux times the volume in
+eV Å/ps, at the samples.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h4 id="mdapy.lattice_dynamics.HNEMD.along" class="doc doc-heading">
+            <span class="doc doc-object-name doc-attribute-name">along</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.HNEMD.along" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">along</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The conductivity along the field in W/(m K).</p>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.lattice_dynamics.nemd" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">nemd</span>
+
+
+<a href="#mdapy.lattice_dynamics.nemd" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">nemd</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">difference</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">bins</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">relaxation</span><span class="o">=</span><span class="mi">50000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">200000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The thermal conductivity of a crystal along a box vector by
+nonequilibrium molecular dynamics (NEMD): the box cut into slabs across
+the vector, Langevin baths in the slab at its start, cold, and in the
+middle one, hot, the rest at constant energy; the heat the baths drive
+through each half over the gradient of temperature there.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>system</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The crystal, with an <code>element</code> column, in a box periodic along
+<code>axis</code>, of its size at the temperature, long along the axis.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>potential</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="Calculator (mdapy.calculators._base.Calculator)" href="../calculators/#mdapy.calculators.Calculator">Calculator</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The interaction: any calculator of energies and forces; the dynamics
+run in MDAPY, on the processor or the GPU, or in LAMMPS for a LAMMPS
+calculator.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>temperature</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The mean temperature in K, positive.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>difference</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The difference of the temperatures of the baths in K, positive and
+less than twice the temperature. Default a fifth of the temperature.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The box vector along which heat flows, 0, 1 or 2. Default 2.</p>
+              </div>
+            </td>
+            <td>
+                  <code>2</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bins</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The slabs across it, even and at least 10, so that each half has
+two slabs that are not next to a bath. Default 20.</p>
+              </div>
+            </td>
+            <td>
+                  <code>20</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>damping</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The damping time of the baths in ps. Default 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timestep</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Time step in ps. Default 0.001.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.001</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>equilibration</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps at the temperature with a Nosé-Hoover thermostat first.
+Default 10000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>relaxation</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps with the baths before the measurement, for the steady state.
+Default 50000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>50000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>production</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps of the measurement. Default 200000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>200000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Steps between the samples of the temperatures of the slabs and of
+the heat of the baths. Default 100.</p>
+              </div>
+            </td>
+            <td>
+                  <code>100</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>blocks</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Blocks of the measurement for the standard error, at least 2.
+Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>seed</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Seed of the starting velocities and of the baths, positive. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>progress</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called as <code>progress(done, total)</code> with the steps run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>cancel</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CancelToken (mdapy.core.threads.CancelToken)" href="../utilities/#mdapy.CancelToken">CancelToken</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Stops the calculation, which raises <code>mdapy.errors.Cancelled</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="NEMD
+
+
+  
+      dataclass
+   (mdapy.lattice_dynamics._nemd.NEMD)" href="#mdapy.lattice_dynamics.NEMD">NEMD</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity, the flux, the gradient and the profile of the
+temperature.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For a box not periodic along the axis, a temperature, difference,
+axis, number of slabs or of steps that are not valid, slabs without
+atoms, or the errors of <code>MolecularDynamics</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code>Cancelled</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If cancelled.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.lattice_dynamics.NEMD" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">NEMD</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.lattice_dynamics.NEMD" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NEMD</span><span class="p">(</span><span class="n">temperature</span><span class="p">,</span> <span class="n">kappa</span><span class="p">,</span> <span class="n">error</span><span class="p">,</span> <span class="n">flux</span><span class="p">,</span> <span class="n">gradient</span><span class="p">,</span> <span class="n">positions</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">times</span><span class="p">,</span> <span class="n">hot</span><span class="p">,</span> <span class="n">cold</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="n">area</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The thermal conductivity of nonequilibrium molecular dynamics.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.temperature">temperature</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The mean temperature of the atoms during the measurement in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.kappa">kappa</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The conductivity along the axis in W/(m K).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.error">error</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its standard error in W/(m K), from blocks of the measurement.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.flux">flux</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The heat flux through each half of the box in eV/(ps Å²).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.gradient">gradient</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The gradient of temperature in K/Å, the mean of the two halves.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.positions">positions</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(B,) float64 the middle of each slab along the axis in Å, from the
+middle of the cold bath.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.temperatures">temperatures</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(B,) float64 the mean temperature of each slab in K.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.times">times</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S,) float64 the time in ps of each record of the measurement.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.hot">hot</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S,) float64 the heat in eV the hot bath gave since the baths began.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.cold">cold</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(S,) float64 the heat in eV the cold bath gave, negative.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.length">length</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The length of the box along the axis, normal to the slabs, in Å.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.lattice_dynamics.NEMD.area">area</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The area of the slabs in Å².</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
 
     </div>
 

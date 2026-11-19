@@ -5380,6 +5380,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5700,6 +5728,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -9242,6 +9326,20 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>mdapy.lattice_dynamics.nemd(system, potential, temperature)</code>: the thermal
+  conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
+  two slabs of the box, the heat they drive over the gradient of temperature between
+  them; in MDAPY, on the GPU and in LAMMPS. See
+  <a href="../../user-guide/simulation/nemd/">NEMD conductivity</a>.</li>
+<li><code>mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)</code>: the
+  thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
+  small field pushing each atom through its virial, as GPUMD does, with EAM, the
+  pair potentials and NEP. See <a href="../../user-guide/simulation/hnemd/">HNEMD conductivity</a>.</li>
+<li><code>melting_point</code> takes any calculator: its molecular dynamics run in MDAPY, or in
+  LAMMPS for a LAMMPS calculator; the solid half is held by a <code>Hold</code> while the
+  other melts with a thermostat of its own, and the crystal gets its velocities
+  from <code>thermal_velocities</code>, in either engine. See
+  <a href="../../user-guide/simulation/melting-point/">Melting point</a>.</li>
 <li><code>md_elastic_constants</code> takes any calculator: its molecular dynamics run in
   MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
   <code>run</code> in either; the Born term of the fluctuations in MDAPY is that of
@@ -9280,11 +9378,23 @@
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (<code>fix deform</code>) alike. See
   <a href="../../user-guide/simulation/deformation/">Deformation</a>.</li>
-<li>
-<p><code>mdapy.simulation.AdaptiveTimestep</code>, a control that sets the time step by the
+<li><code>mdapy.simulation.AdaptiveTimestep</code>, a control that sets the time step by the
   fastest atom, so that no atom moves more than a distance in a step, within
   bounds, as LAMMPS's <code>fix dt/reset</code>: for collision cascades; in MDAPY, on the GPU
-  and in LAMMPS alike. See <a href="../../user-guide/simulation/adaptive-timestep/">Adaptive time step</a>.</p>
+  and in LAMMPS alike. See <a href="../../user-guide/simulation/adaptive-timestep/">Adaptive time step</a>.</li>
+<li>
+<p><code>free_energy</code> takes MDAPY's own potentials: the solid is switched to an Einstein
+  crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
+  processor or on the GPU, through
+  three new parts: <code>mdapy.simulation.Switch</code>, a control that turns the potential of a
+  run into another, recording λ and the difference of their energies, as LAMMPS's
+  <code>fix ti/spring</code> and <code>pair_style hybrid/scaled</code>; <code>mdapy.calculators.Springs</code>, the
+  springs of an Einstein crystal; and <code>mdapy.calculators.UhlenbeckFord</code>, LAMMPS's
+  <code>pair_style ufm</code>, also on the GPU. <code>run(..., keep_momentum=True)</code> gives Langevin
+  dynamics whose random forces keep the total momentum (<code>fix langevin ... zero yes</code>).
+  <code>stacking_fault_free_energy</code> runs in MDAPY likewise. See
+  <a href="../../user-guide/simulation/switching/">Switching between potentials</a> and
+  <a href="../../user-guide/simulation/free-energy/">Free energy</a>.</p>
 </li>
 <li>
 <p><code>MolecularDynamics(log=...)</code> and <code>minimize(log=..., log_every=10)</code> write what

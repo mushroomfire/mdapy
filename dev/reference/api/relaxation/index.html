@@ -5382,6 +5382,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/switching/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Switching between potentials
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -5702,6 +5730,62 @@
     
   
     Green–Kubo conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/hnemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    HNEMD conductivity
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/nemd/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NEMD conductivity
   
 
     
@@ -7951,6 +8035,34 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switch
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Switch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Switch.weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        weight
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9226,6 +9338,34 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Switch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Switch
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Switch">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Switch.weight" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        weight
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -10344,7 +10484,7 @@ while the frames of an <code>iterate</code> are being read.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10519,6 +10659,24 @@ unpredictable when None.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>keep_momentum</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With Langevin dynamics, random forces that sum to zero, which keep
+the total momentum, as LAMMPS's fix langevin zero yes; with no
+atoms held or moved. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>thermo</code>
             </td>
             <td>
@@ -10667,7 +10825,7 @@ of "nvt" or "npt". Default none.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.iterate" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10858,6 +11016,24 @@ unpredictable when None.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>keep_momentum</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With Langevin dynamics, random forces that sum to zero, which keep
+the total momentum, as LAMMPS's fix langevin zero yes; with no
+atoms held or moved. Default False.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -11971,6 +12147,162 @@ of <code>MolecularDynamics</code>.</p>
 
 
 
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Switch" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Switch</span>
+
+
+<a href="#mdapy.simulation.Switch" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Switch</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">stop</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>The potential of a run turned into another along the run, for
+thermodynamic integration: the forces and the energy of (1 − λ) times
+the potential plus λ times the target, λ going from <code>start</code> to
+<code>stop</code> by the switching function of LAMMPS's fix ti/spring, whose
+slope is zero at both ends, or staying at <code>start</code> when the two are
+equal. With a name, <code>thermo</code> records <code>&lt;name&gt;_lambda</code> and
+<code>&lt;name&gt;_difference</code>, the energy of the target minus that of the
+potential, whose integral over λ is the difference of their free
+energies.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>target</code>
+            </td>
+            <td>
+                  <code>Calculator or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The other interaction, such as <code>Springs</code> or <code>UhlenbeckFord</code>;
+None for none, the ideal gas.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>λ at the start of the run, from 0 to 1. Default 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>stop</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>λ at the end of the run, from 0 to 1. Default 1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>name</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>With a name, <code>thermo</code> records λ and the difference of the
+energies. Default None, recording none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.simulation.Switch.weight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">weight</span>
+
+
+<a href="#mdapy.simulation.Switch.weight" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">weight</span><span class="p">(</span><span class="n">fraction</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>λ when this fraction of the run is done.</p>
+
+
+    </div>
+
+</div>
 
 
 

@@ -2043,6 +2043,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/aluminium-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated training sets for aluminium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/argon/" class="md-nav__link">
         
   
@@ -6074,6 +6102,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/mlip/coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage of descriptor space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/mlip/checks/" class="md-nav__link">
         
   
@@ -6110,6 +6166,34 @@
     
   
     Perturbed structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/mlip/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated structures
   
 
     
@@ -8865,6 +8949,26 @@ one name everywhere.</p>
 <tr>
 <td>novelty</td>
 <td>The distance of a frame from the nearest frame of a training set in the space of descriptors.</td>
+</tr>
+<tr>
+<td>QUESTS</td>
+<td>A descriptor of the neighborhood of an atom from the distances to its nearest neighbors and between them, whatever their elements, and the measures of a set of descriptors made for it: entropy and information gain.</td>
+</tr>
+<tr>
+<td>entropy of a set</td>
+<td>How much of descriptor space a set of points covers, such as the descriptors of the atoms of a training set: zero when all are the same, the logarithm of their number when no two are close.</td>
+</tr>
+<tr>
+<td>information gain</td>
+<td>What a point adds to a set of reference points in descriptor space, the differential entropy of QUESTS: negative among them, positive away from them, where a model trained on them extrapolates.</td>
+</tr>
+<tr>
+<td>generated structure</td>
+<td>A small periodic cell of a training set made without a model, or a slab or cluster in vacuum: a random cell whose atoms, box and elements were moved while they raised the entropy of the descriptors of the set.</td>
+</tr>
+<tr>
+<td>entropy of a generated set</td>
+<td>Half the logarithm of the determinant of the covariance of the scaled descriptors of its atoms, the entropy in nats of a Gaussian of them, which <code>generate_structures</code> raises with each structure it keeps and gives in <code>GeneratedStructures.entropy</code>.</td>
 </tr>
 <tr>
 <td>net force</td>

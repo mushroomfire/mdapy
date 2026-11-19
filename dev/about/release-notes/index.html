@@ -2041,6 +2041,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../examples/aluminium-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated training sets for aluminium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../examples/argon/" class="md-nav__link">
         
   
@@ -6072,6 +6100,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/mlip/coverage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coverage of descriptor space
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/mlip/checks/" class="md-nav__link">
         
   
@@ -6108,6 +6164,34 @@
     
   
     Perturbed structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/mlip/generation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated structures
   
 
     
@@ -9057,6 +9141,23 @@
 <li><code>mdapy.io.read</code>, <code>read_trajectory</code> and <code>detect_format</code> name
   <code>mdapy.analysis.read_dislocations</code> in their error for a CA file (<code>.ca</code>), which holds
   dislocations rather than atoms; they only said that the format was unknown.</li>
+<li><code>mlip.entropy</code> measures how much of descriptor space a training set covers, and
+  <code>mlip.information_gain</code> what new structures add to it, without labels and whatever the
+  model: the methods of QUESTS, with its descriptor of the nearest neighbors of each atom,
+  <code>mlip.QUESTS(cutoff, num_neighbors)</code>, whose <code>descriptors</code> have <code>dimension</code> values per
+  atom. The information gain stays finite far from all reference points. See
+  <a href="../../user-guide/mlip/coverage/">Coverage of descriptor space</a>.</li>
+<li><code>mlip.generate_structures</code> makes the structures of a training set without a model or a
+  calculation: periodic cells of 2 to 32 atoms, many small and few large, of random shape
+  and composition, a fifth of them slabs or clusters in vacuum, whose atoms, box and
+  elements are moved while they raise the entropy of the descriptors of the set, after
+  Subramanyam and Perez (2025) and Bochkarev et al. (2026). The volume per atom and the
+  shortest distances bound them, a calculator and <code>max_energy</code> their energy, a
+  <code>reference</code> training set is complemented. It makes <code>count</code> structures, 1000 for each
+  element by default, and gives them in the order they were kept with the entropy of the
+  set as they were, in a <code>GeneratedStructures</code>, whose <code>extend</code> adds more where the
+  generation ended; the <code>config_type</code> of each, bulk, slab or cluster, groups them. See
+  <a href="../../user-guide/mlip/generation/">Generated structures</a>.</li>
 </ul>
 <h2 id="210">2.1.0<a class="headerlink" href="#210" title="Permanent link">&para;</a></h2>
 <p>MDAPY 2.1: lattice dynamics beyond the harmonic phonons, from force constants of any

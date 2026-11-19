@@ -9296,13 +9296,13 @@ perfect crystal counts the vacancies of each frame, as many as the interstitials
 <a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">bottom</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Frenkel pairs"</span><span class="p">)</span>
 <a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">bottom</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Time (ps)"</span><span class="p">)</span>
 <a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/radiation-cascade"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">pairs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">pairs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># 23 at the peak of the cascade, 4 at the end</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">pairs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">pairs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># 23 at the peak of the cascade, 3 at the end</span>
 </code></pre></div>
 <p><img alt="The temperature and the Frenkel pairs of a cascade of 2 keV in tungsten" src="../images/radiation-cascade.png" /></p>
 <p><em>A cascade of 2 keV in 54000 atoms of tungsten, under three minutes on one V100 GPU.
 The temperature of the box starts near 580 K, as the 2 keV of the PKA count in the
 kinetic energy of all the atoms, and falls back to 300 K as the border takes the heat
-away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps: most of the atoms
+away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps and 3 after 8 ps: most of the atoms
 knocked out of their places fall back into vacancies as the cascade cools. The dynamics
 are chaotic, so another run, or another GPU, leaves a few more or fewer.</em></p>
 <p>The vacancies and the interstitials at the end:</p>
@@ -9321,8 +9321,8 @@ are chaotic, so another run, or another GPU, leaves a few more or fewer.</em></p
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
 </code></pre></div>
 <p><img alt="The vacancies and interstitials left by the cascade" src="../images/radiation-cascade-defects.png" /></p>
-<p><em>The four vacancies in blue, at the center of the box where the cascade began, and the
-four interstitials around them in red, each two atoms sharing one site.</em></p>
+<p><em>The three vacancies in blue, at the center of the box where the cascade began, and the
+three interstitials around them in red, each two atoms sharing one site.</em></p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a>.</li>

@@ -6,6 +6,7 @@
 """Energy minimization of the positions, and optionally the box, with FIRE 2.0
 as LAMMPS min_style fire."""
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,11 +20,19 @@ from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.simulation._log import _Log
 
 # Neighbors are searched this much farther than the cutoff of the calculator,
 # in Å, so that one search serves the steps until an atom has moved half as far.
 _SKIN = 1.0
 
+# the columns of the log: name, format, width
+_LOG_COLUMNS = (
+    ("step", "{:d}", 10),
+    ("energy", "{:.8f}", 22),
+    ("max_force", "{:.6e}", 14),
+    ("max_stress", "{:.6f}", 14),
+)
 # The default settings of LAMMPS min_style fire (min_modify), FIRE 2.0 of
 # Guénolé et al. (2020): steps after a reset before the time step grows, its
 # growth and shrink factors, the mixing parameter and its decay, and the
@@ -130,6 +139,8 @@ def minimize(
     max_stress: float = 1e-2,
     save_every: int | None = None,
     callback: Any = None,
+    log: Any = None,
+    log_every: int = 10,
 ) -> MinimizeResult:
     """Minimizes the energy over the positions, and optionally the box, with
     FIRE 2.0.
@@ -167,6 +178,16 @@ def minimize(
     callback : callable, optional
         Called after every step as ``callback(step, system, energy,
         max_force)``; returning True stops the minimization.
+    log : str, os.PathLike or stream, optional
+        Writes the minimization to this file, which it overwrites, or to
+        this stream, such as ``sys.stdout``: a heading, the energy, the
+        largest force and, when the box relaxes, the largest deviation of
+        the stress from its target every ``log_every`` steps and at the
+        last, with the seconds since the start, and how it ended. Lines that
+        are not rows of numbers start with #, so that ``numpy.loadtxt``
+        reads the rows. Default None, writing none.
+    log_every : int32, optional
+        Writes a row to the log every this many steps. Default 10.
 
     Returns
     -------
@@ -176,7 +197,8 @@ def minimize(
     Raises
     ------
     InvalidParameter
-        For invalid options, or a calculator without the properties needed.
+        For invalid options, a calculator without the properties needed,
+        or a log that cannot be written.
     MissingProperty
         If the system has neither masses nor elements.
     """
@@ -188,6 +210,10 @@ def minimize(
         )
     if cell not in CELL_MODES:
         raise InvalidParameter(f"cell must be one of {CELL_MODES}, not {cell!r}")
+    if isinstance(log_every, bool) or not isinstance(log_every, int) or log_every < 1:
+        raise InvalidParameter(
+            f"log_every must be a positive integer, not {log_every!r}"
+        )
     if cell is not None and not max_stress > 0:
         raise InvalidParameter("max_stress must be positive")
     if save_every is not None and (
@@ -298,47 +324,86 @@ def minimize(
 
     if save_every is not None:
         save()
-    while not done() and step < max_steps:
-        step += 1
-        power = _dot(velocities, forces)
-        if power > 0.0:
-            # mix the velocities toward the forces
-            keep = 1.0 - alpha
-            ff = _dot(forces, forces)
-            vv = _dot(velocities, velocities)
-            turn = alpha * np.sqrt(vv / ff) if ff > 1e-20 else 0.0
-            if step - last_negative > _DELAY:
-                dt = min(dt * _GROW, dt_max)
-                alpha *= _ALPHA_SHRINK
-        else:
-            # uphill: shrink the time step after the first steps, go back
-            # half a step and stop
-            last_negative = step
-            if step >= _DELAY:
-                alpha = _ALPHA0
-                if dt * _SHRINK >= dt_min:
-                    dt *= _SHRINK
-            if velocities.any():
-                variables = variables - 0.5 * dt * velocities
-                current, result, largest, stress, forces, deviation = evaluate(
-                    variables
+    writer = _Log(log)
+    if writer.on:
+        lengths = " ".join(f"{v:.4f}" for v in np.linalg.norm(box0.matrix, axis=1))
+        relax = (
+            f"the box relaxes ({cell}) at {pressure!r} GPa, max_stress {max_stress!r} GPa"
+            if cell
+            else "the box is kept"
+        )
+        writer.title("energy minimization (FIRE 2.0)")
+        writer.comment(
+            f"{n} atoms; box vectors {lengths} Å long",
+            f"potential: {calculator!r}",
+            f"max_force {max_force!r} eV/Å, max_steps {max_steps}, {relax}",
+            "",
+        )
+        writer.columns(_LOG_COLUMNS)
+
+    def write() -> None:
+        writer.row(step, float(result.energy), largest, deviation if cell else math.nan)
+
+    try:
+        write()
+        while not done() and step < max_steps:
+            step += 1
+            power = _dot(velocities, forces)
+            if power > 0.0:
+                # mix the velocities toward the forces
+                keep = 1.0 - alpha
+                ff = _dot(forces, forces)
+                vv = _dot(velocities, velocities)
+                turn = alpha * np.sqrt(vv / ff) if ff > 1e-20 else 0.0
+                if step - last_negative > _DELAY:
+                    dt = min(dt * _GROW, dt_max)
+                    alpha *= _ALPHA_SHRINK
+            else:
+                # uphill: shrink the time step after the first steps, go back
+                # half a step and stop
+                last_negative = step
+                if step >= _DELAY:
+                    alpha = _ALPHA0
+                    if dt * _SHRINK >= dt_min:
+                        dt *= _SHRINK
+                if velocities.any():
+                    variables = variables - 0.5 * dt * velocities
+                    current, result, largest, stress, forces, deviation = evaluate(
+                        variables
+                    )
+                velocities[:] = 0.0
+                reset = True
+            # no variable moves more than max_step in one step
+            estimate = dt * inverse_mass * forces if reset else velocities
+            fastest = float(np.abs(estimate).max(initial=0.0))
+            dtv = max_step / fastest if dt * fastest > max_step else dt
+            velocities += dtv * inverse_mass * forces
+            if power > 0.0:
+                velocities = keep * velocities + turn * forces
+            variables = variables + dtv * velocities
+            current, result, largest, stress, forces, deviation = evaluate(variables)
+            reset = False
+            if save_every is not None and step % save_every == 0:
+                save()
+            if step % log_every == 0:
+                write()
+            if callback is not None and callback(step, current, result.energy, largest):
+                break
+        if step % log_every != 0:
+            write()
+        if writer.on:
+            how = (
+                "converged"
+                if done()
+                else (
+                    "stopped by the callback"
+                    if step < max_steps
+                    else "reached max_steps"
                 )
-            velocities[:] = 0.0
-            reset = True
-        # no variable moves more than max_step in one step
-        estimate = dt * inverse_mass * forces if reset else velocities
-        fastest = float(np.abs(estimate).max(initial=0.0))
-        dtv = max_step / fastest if dt * fastest > max_step else dt
-        velocities += dtv * inverse_mass * forces
-        if power > 0.0:
-            velocities = keep * velocities + turn * forces
-        variables = variables + dtv * velocities
-        current, result, largest, stress, forces, deviation = evaluate(variables)
-        reset = False
-        if save_every is not None and step % save_every == 0:
-            save()
-        if callback is not None and callback(step, current, result.energy, largest):
-            break
+            )
+            writer.comment(f"{how} after {step} steps, {writer.wall:.2f} s")
+    finally:
+        writer.close()
     if save_every is not None and frames[-1].info["timestep"] != step:
         save()
     return MinimizeResult(

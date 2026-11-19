@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
+  they do to a file or a stream as they go: a heading with the engine and the
+  potential, the settings of each run, the thermodynamic state with the wall
+  time, and the speed of each run or where it stopped; rows of numbers between
+  lines that start with `#`, which `numpy.loadtxt` reads back. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md#log).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,

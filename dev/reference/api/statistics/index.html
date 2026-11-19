@@ -8987,7 +8987,10 @@
 
 
         <p>A property of the atoms in bins of equal size along one, two or three
-box vectors: its mean, sum, sum per volume, minimum or maximum in each.</p>
+box vectors: its mean, sum, sum per volume, minimum or maximum in each;
+or, of moving atoms such as those of a shock, the mean weighted by mass,
+and the temperature and the stress about the center of mass of each
+bin, so that the motion of the bin as a whole is not counted.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -9060,7 +9063,12 @@ the columns.</p>
             <td>
               <div class="doc-md-description">
                 <p>One of <code>REDUCTIONS</code>: "mean", "sum", "density" (the sum per Å³ of
-the bin), "min" or "max". Default mean.</p>
+the bin), "min", "max", "mass_mean" (the mean weighted by the mass
+of the atoms), "temperature" (of a column of velocities, in K,
+about the velocity of the center of mass of the bin) or "stress" (of
+a column of the virials of each atom in eV, as calculators give
+them, with the velocities about the center of mass of the bin, in
+GPa, positive under tension). Default mean.</p>
               </div>
             </td>
             <td>
@@ -9227,8 +9235,9 @@ box; along the others those outside it are left out.</p>
             <td>
               <div class="doc-md-description">
                 <p>The float64 property reduced over the atoms of each bin: (n1[, n2[, n3]])
-for one value per atom, with a last axis for its components; NaN
-for the mean, minimum and maximum of an empty bin.</p>
+for one value per atom, with a last axis for its components, and
+(..., 3, 3) of a stress; NaN for the mean, minimum and maximum of an
+empty bin, and for the temperature of a bin of fewer than two atoms.</p>
               </div>
             </td>
           </tr>

@@ -9326,6 +9326,11 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>SpatialBinning</code> reduces moving atoms: <code>reduction="mass_mean"</code>, the mean weighted by
+  mass, the velocity of the center of mass of a bin for a column of velocities;
+  <code>"temperature"</code> of the velocities and <code>"stress"</code> of the virials of each atom, both
+  about the center of mass of each bin, for the profiles of shocks and flows. See
+  <a href="../../user-guide/analysis/spatial-binning/#moving-atoms">Spatial binning</a>.</li>
 <li><code>mdapy.lattice_dynamics.nemd(system, potential, temperature)</code>: the thermal
   conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
   two slabs of the box, the heat they drive over the gradient of temperature between

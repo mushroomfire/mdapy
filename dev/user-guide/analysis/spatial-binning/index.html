@@ -4747,6 +4747,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#moving-atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Moving atoms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8748,6 +8759,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#moving-atoms" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Moving atoms
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8878,6 +8900,68 @@ surfaces, and maps over a plane, are made this way.</p>
 interface at 22 Å, and rises again at the top, where the crystal below
 the periodic boundary orders the first layer. Right: the mean number of
 solid-like bonds over x and z.</em></p>
+<h2 id="moving-atoms">Moving atoms<a class="headerlink" href="#moving-atoms" title="Permanent link">&para;</a></h2>
+<p>The atoms of a shock, a flyer or a flow move with their slab as a whole, and the
+temperature of their velocities as they are counts that motion as heat. The reduction
+<code>"temperature"</code> of a column of velocities takes the velocity of the center of mass of
+each bin off first, <code>"stress"</code> of a column of the virials of each atom does the same for
+its kinetic part, and <code>"mass_mean"</code> gives that velocity itself. Copper at 300 K whose
+upper half moves down at 1 km/s:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">SpatialBinning</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">copper</span> <span class="o">=</span> <span class="n">EAM</span><span class="o">.</span><span class="n">zhou</span><span class="p">([</span><span class="s2">"Cu"</span><span class="p">])</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">6</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">24</span><span class="p">))</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># velocities of 300 K, and the upper half moving down at 10 Å/ps, 1 km/s</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">mass</span> <span class="o">=</span> <span class="mf">63.546</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">AMU_A2_PER_PS2_TO_EV</span>  <span class="c1"># eV ps²/Å²</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">units</span><span class="o">.</span><span class="n">BOLTZMANN</span> <span class="o">*</span> <span class="mf">300.0</span> <span class="o">/</span> <span class="n">mass</span><span class="p">)</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">v</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">crystal</span><span class="p">),</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="n">upper</span> <span class="o">=</span> <span class="n">crystal</span><span class="p">[</span><span class="s2">"positions.z"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">crystal</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">/</span> <span class="mi">2</span> <span class="o">-</span> <span class="mf">0.5</span>  <span class="c1"># 12 slabs of 24</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="n">v</span><span class="p">[</span><span class="n">upper</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span> <span class="o">-=</span> <span class="mf">10.0</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a><span class="n">moving</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">velocities</span><span class="o">=</span><span class="n">v</span><span class="p">)</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a><span class="n">moving</span> <span class="o">=</span> <span class="n">copper</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">moving</span><span class="p">,</span> <span class="p">(</span><span class="s2">"atomic_virials"</span><span class="p">,))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">moving</span><span class="p">)</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a><span class="n">velocity</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span><span class="s2">"velocities"</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"mass_mean"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">moving</span><span class="p">)</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a><span class="n">temperature</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span><span class="s2">"velocities"</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"temperature"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">moving</span><span class="p">)</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a><span class="n">stress</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span><span class="s2">"atomic_virials"</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"stress"</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">moving</span><span class="p">)</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a><span class="c1"># the kinetic energy of each slab with the motion, as a temperature</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a><span class="n">hot</span> <span class="o">=</span> <span class="n">moving</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">kinetic</span><span class="o">=</span><span class="n">mass</span> <span class="o">*</span> <span class="p">(</span><span class="n">v</span> <span class="o">*</span> <span class="n">v</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">3</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">BOLTZMANN</span><span class="p">))</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a><span class="n">naive</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span><span class="s2">"kinetic"</span><span class="p">,</span> <span class="mi">24</span><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">hot</span><span class="p">)</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a><span class="n">temperature</span><span class="o">.</span><span class="n">values</span>  <span class="c1"># about 300 K in every slab</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a><span class="n">stress</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span>  <span class="c1"># GPa, about -0.35 in both halves: the motion is no stress</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">z</span> <span class="o">=</span> <span class="n">temperature</span><span class="o">.</span><span class="n">centers</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="mi">10</span>  <span class="c1"># nm</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="k">with</span> <span class="n">plot</span><span class="o">.</span><span class="n">style</span><span class="p">():</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">)</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s2">"double"</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">a</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">velocity</span><span class="o">.</span><span class="n">values</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">a</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">"z (nm)"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Velocity of the slab along z (Å/ps)"</span><span class="p">)</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">b</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">naive</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">markersize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"with the motion"</span><span class="p">)</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">b</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>        <span class="n">z</span><span class="p">,</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>        <span class="n">temperature</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>        <span class="n">marker</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>        <span class="n">markersize</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"about the center of mass"</span><span class="p">,</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="p">)</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">b</span><span class="o">.</span><span class="n">set</span><span class="p">(</span><span class="n">xlabel</span><span class="o">=</span><span class="s2">"z (nm)"</span><span class="p">,</span> <span class="n">ylabel</span><span class="o">=</span><span class="s2">"Temperature (K)"</span><span class="p">,</span> <span class="n">yscale</span><span class="o">=</span><span class="s2">"log"</span><span class="p">)</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>    <span class="n">b</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>    <span class="k">for</span> <span class="n">ax</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">((</span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">),</span> <span class="s2">"ab"</span><span class="p">):</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>        <span class="n">plot</span><span class="o">.</span><span class="n">panel_label</span><span class="p">(</span><span class="n">ax</span><span class="p">,</span> <span class="n">label</span><span class="p">)</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/spatial-binning-moving"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
+</code></pre></div>
+<p><img alt="The velocity and the temperature of the slabs of copper whose upper half moves" src="../images/spatial-binning-moving.png" /></p>
+<p><em>a: the velocity of the center of mass of each slab, zero below and 10 Å/ps down
+above. b: the kinetic energy of the slabs as it is gives the moving half some 2900 K;
+about the center of mass of each slab both halves are at 300 K.</em></p>
+<p>The virials of each atom come from a calculator, <code>potential.compute(system,
+("atomic_virials",)).attach(system)</code>, and the velocities from the system; a slab of
+atoms of several velocities, such as one across a shock front, keeps their spread in
+its temperature.</p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -8916,7 +9000,7 @@ solid-like bonds over x and z.</em></p>
 <td>str</td>
 <td><code>"mean"</code></td>
 <td></td>
-<td>one of <code>REDUCTIONS</code>: <code>"mean"</code>, <code>"sum"</code>, <code>"density"</code> (the sum per Å³), <code>"min"</code>, <code>"max"</code></td>
+<td>one of <code>REDUCTIONS</code>: <code>"mean"</code>, <code>"sum"</code>, <code>"density"</code> (the sum per Å³), <code>"min"</code>, <code>"max"</code>, <code>"mass_mean"</code> (weighted by the masses), <code>"temperature"</code> (of the velocities, about the center of mass of each bin) or <code>"stress"</code> (of the virials of each atom with the velocities about the center of mass, in GPa, positive under tension)</td>
 </tr>
 </tbody>
 </table>
@@ -8937,7 +9021,7 @@ left out.</p>
 <tr>
 <td><code>values</code></td>
 <td>(n1[, n2[, n3]]) float64</td>
-<td>the reduced property in each bin, with a last axis for its components when it has several; NaN for the mean, minimum or maximum of an empty bin</td>
+<td>the reduced property in each bin, with a last axis for its components when it has several, and two, (3, 3), of a stress; NaN for the mean, minimum or maximum of an empty bin, and for the temperature of a bin of fewer than two atoms</td>
 </tr>
 <tr>
 <td><code>counts</code></td>
@@ -8957,7 +9041,10 @@ along the first axis and <code>j</code> along the second.</p>
 <p>The constructor raises <code>InvalidParameter</code> for no axis or more than three,
 an unknown or repeated axis, a number of bins that is not a positive
 integer or not one per axis, and an unknown reduction; <code>compute</code> raises it
-for a property the system does not have.</p>
+for a property the system does not have, a temperature of a column that is not (N, 3)
+and a stress of one that is not (N, 3, 3), and <code>MissingProperty</code> for the moving
+reductions of a system without masses, a <code>mass</code> or an <code>element</code> column, and a stress
+without velocities.</p>
 <h2 id="definition">Definition<a class="headerlink" href="#definition" title="Permanent link">&para;</a></h2>
 <p>The bin of an atom along a box vector is <span class="arithmatex">\(\lfloor n s \rfloor\)</span>, with <span class="arithmatex">\(s\)</span>
 its fractional coordinate along that vector, from 0 to below 1, and <span class="arithmatex">\(n\)</span>
@@ -8965,6 +9052,16 @@ the number of bins along it. The density is the sum divided by the volume of
 a bin, <span class="arithmatex">\(V / (n_1 n_2 n_3)\)</span>, with <span class="arithmatex">\(V\)</span> the volume of the box and <span class="arithmatex">\(n_1\)</span>, <span class="arithmatex">\(n_2\)</span> and
 <span class="arithmatex">\(n_3\)</span> the numbers of bins along its three vectors, 1 along a vector not
 binned.</p>
+<p>About the center of mass of a bin of <span class="arithmatex">\(N\)</span> atoms of masses <span class="arithmatex">\(m_i\)</span> and velocities
+<span class="arithmatex">\(\mathbf v_i\)</span>, whose velocity is <span class="arithmatex">\(\bar{\mathbf v} = \sum_i m_i \mathbf v_i / \sum_i m_i\)</span>,</p>
+<div class="arithmatex">\[
+T = \frac{\sum_i m_i |\mathbf v_i - \bar{\mathbf v}|^2}{3 (N - 1) k_B}, \qquad
+\boldsymbol\sigma = -\frac{1}{V_\mathrm{bin}} \sum_i \left[ \mathsf W_i + m_i
+(\mathbf v_i - \bar{\mathbf v}) \otimes (\mathbf v_i - \bar{\mathbf v}) \right],
+\]</div>
+<p>with <span class="arithmatex">\(k_B\)</span> the Boltzmann constant, <span class="arithmatex">\(\mathsf W_i\)</span> the virial of atom <span class="arithmatex">\(i\)</span>, positive under
+compression, and <span class="arithmatex">\(V_\mathrm{bin}\)</span> the volume of the bin; <span class="arithmatex">\(N - 1\)</span>, as the velocity of the
+center of mass takes three of the <span class="arithmatex">\(3N\)</span> directions.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
 <li>OVITO <a href="https://docs.ovito.org/reference/pipelines/modifiers/spatial_binning.html">Spatial binning</a>,

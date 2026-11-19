@@ -154,7 +154,13 @@ With `log`, the dynamics writes what it does as it goes, so that a long run
 shows its progress, `tail -f md.log` in a terminal:
 
 ```python
-with MolecularDynamics(crystal, potential, timestep=0.002, log="md.log") as md:
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import MolecularDynamics
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(5, 5, 5))
+copper = EAM.zhou(["Cu"])
+with MolecularDynamics(crystal, copper, timestep=0.002, log="md.log") as md:
     md.velocities(600, seed=1)
     md.run(200, thermo=50)
 ```

@@ -46,7 +46,8 @@
   bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
   and in LAMMPS alike. See [Adaptive time step](../user-guide/simulation/adaptive-timestep.md).
 - `free_energy` takes MDAPY's own potentials: the solid is switched to an Einstein
-  crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, through
+  crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
+  processor or on the GPU, through
   three new parts: `mdapy.simulation.Switch`, a control that turns the potential of a
   run into another, recording λ and the difference of their energies, as LAMMPS's
   `fix ti/spring` and `pair_style hybrid/scaled`; `mdapy.calculators.Springs`, the

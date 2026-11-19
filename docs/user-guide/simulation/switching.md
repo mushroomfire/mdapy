@@ -106,8 +106,10 @@ switching is slow enough for the atoms to follow.*
 - `<name>_lambda` is λ, and `<name>_difference` the energy of the target less that of
   the potential in eV, both unscaled, at each record: their integral over λ along a
   slow run is the difference of the free energies of the two.
-- A `Switch` runs in MDAPY, on the processor. The runs are those of LAMMPS step by
-  step: with an Uhlenbeck–Ford target, `pair_style hybrid/scaled` with λ a variable of
+- A `Switch` runs in MDAPY, on the processor or on the [GPU](gpu.md). On the GPU the
+  target computes there too: a calculator with `device="cuda"`, `Springs` or `None`;
+  one neighbor list, of the longer of the two cutoffs, serves both. The runs are those
+  of LAMMPS step by step: with an Uhlenbeck–Ford target, `pair_style hybrid/scaled` with λ a variable of
   the step; with `Springs`, `fix ti/spring` with `function 2`.
 
 ## Springs
@@ -129,7 +131,8 @@ It computes `energy`, `atomic_energies` and `forces`, and no virial.
 `Switch` raises `InvalidParameter` for a target that is neither a calculator nor
 `None`, and a `start` or `stop` outside 0 to 1; `run` and `iterate` raise it for two
 `Switch` in one run, a barostat with a target that computes no virial, a `Switch` in
-LAMMPS or on the GPU, and two controls of one name. `Springs` raises it for sites that
+LAMMPS, a target that does not compute on the GPU when the potential does, and two
+controls of one name. `Springs` raises it for sites that
 are not (N, 3) finite numbers, constants that are not positive, and a system of
 another number of atoms.
 

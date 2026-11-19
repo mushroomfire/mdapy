@@ -82,8 +82,11 @@ public:
     // x = lo + (x - old_lo) old_inverse h: the atoms carried with the box
     void remap(const double* old_lo, const double* old_inverse, const double* lo,
                const double* h);
-    // v = c1 v + c2 sqrt(kt / m) g, g Gaussian of a seed and a counter
-    void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter);
+    // v = c1 v + c2 sqrt(kt / m) g, g Gaussian of a seed and a counter; with
+    // keep, the noise of each atom less an equal share of the momentum of
+    // all the noise, as fix langevin zero yes, so that the momentum is kept
+    void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter,
+                  bool keep = false);
     void kinetic(double* tensor) const;  // (3, 3), the sum of m v v
     // The directions in which each atom may move, (n, 3) in the axes of the
     // system, whose vectors are those of the atoms times rotation (3, 3)
@@ -112,6 +115,24 @@ public:
     // change of the sum of m |v|^2 / 2 of its atoms.
     double bath(int bit, double c1, double c2, double kt, std::uint64_t seed,
                 std::uint64_t counter);
+
+    // A Switch (simulation/_controls.py): the forces kept, then those of
+    // another interaction computed, then f = (1 - weight) kept + weight f;
+    // with other false, f = (1 - weight) f, the other none.
+    void stash_forces();
+    void mix_forces(double weight, bool other);
+    // Springs to sites, (n, 3) in the frame of the atoms, and their
+    // constants, (n,); null clears them. springs gives their forces and
+    // energies in place of those of the atoms, the positions unwrapped by
+    // their images in the box h, and their total energy.
+    void set_springs(const double* sites, const double* constants);
+    double springs(const double* h);
+    // The field of HNEMD, (3,) in the frame of the atoms: each atom pushed by
+    // W_i^T field, W_i its virial, less the mean of the pushes; after a
+    // computation of the virials of each atom.
+    void drive(const double* field);
+    // (3,) the potential part of the heat flux times the volume, sum_i W_i v_i.
+    void heat_flux(double* flux) const;
 
     struct Impl;
     Impl& impl() { return *impl_; }

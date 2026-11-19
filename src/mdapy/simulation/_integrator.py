@@ -620,10 +620,6 @@ class _Native:
         self.__switch = None
         if switch is None:
             return
-        if not isinstance(self.__atoms, _HostAtoms):
-            raise InvalidParameter(
-                'a Switch runs on the processor: a calculator with device="cpu"'
-            )
         target = switch.target
         if barostat and target is not None and "virial" not in target.implemented:
             raise InvalidParameter(
@@ -707,11 +703,6 @@ class _Native:
         )
         self.__keep = bool(run.get("keep_momentum", False))
         if self.__keep:
-            if not isinstance(self.__atoms, _HostAtoms):
-                raise InvalidParameter(
-                    "keep_momentum runs on the processor: a calculator with "
-                    'device="cpu"'
-                )
             if self.__free is not None:
                 raise InvalidParameter(
                     "keep_momentum with atoms held or moved: there is no momentum "

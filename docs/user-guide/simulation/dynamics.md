@@ -126,7 +126,7 @@ temperature then counts the directions in which the atoms move.
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
-| `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that sum to zero, so that the total momentum is kept, as LAMMPS's `fix langevin ... zero yes`: each atom's noise less an equal share of their total momentum; on the processor, with no atoms held or moved |
+| `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that sum to zero, so that the total momentum is kept, as LAMMPS's `fix langevin ... zero yes`: each atom's noise less an equal share of their total momentum; with no atoms held or moved. In mixed precision on the GPU the forces, of single precision, move the momentum a little themselves |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
 | `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep` or `Switch`: what is done to groups of atoms, the box, the time step or the potential during the run; see [Groups and controls](controls.md) |

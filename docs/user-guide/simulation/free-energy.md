@@ -98,13 +98,13 @@ a little on the number of atoms, and so does where the phases meet: the same cop
 The atoms are classical, as in molecular dynamics: the free energy has no
 zero-point energy, and well below the Debye temperature the
 [quasi-harmonic approximation](quasi-harmonic.md) is better. In MDAPY the potential
-computes on the processor; LAMMPS needs its packages `EXTRA-FIX`, for solids, and
-`EXTRA-PAIR`, for liquids.
+computes on the processor or on the [GPU](gpu.md); LAMMPS needs its packages
+`EXTRA-FIX`, for solids, and `EXTRA-PAIR`, for liquids.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms, with an `element` column, in a box periodic in every direction: for a solid at their places in the crystal (relax them first), for a liquid anywhere, as it is melted first |
-| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials on the processor; in LAMMPS, a liquid needs one pair style, not a hybrid |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials, on the processor or the GPU; in LAMMPS, a liquid needs one pair style, not a hybrid |
 | `temperatures` | float64 or (T,) float64 | | K | the free energy is calculated at the first and followed from there to the others, which lie on one side of it, in order |
 | `phase` | str | `"solid"` | | `"solid"` or `"liquid"` |
 | `pressure` | float64 or `None` | 0 | GPa | the pressure, for the Gibbs energy; `None` for the Helmholtz energy in the box of `system` |
@@ -225,7 +225,7 @@ first temperature and $P$.
 `free_energy` raises `InvalidParameter` for invalid options, a box not periodic in
 every direction, a hybrid pair style for a liquid, a liquid whose atoms do not move
 from their neighbors, a phase that changes in every scan, a `potential` that is not a
-calculator or that computes on the GPU in MDAPY, or if the dynamics fail;
+calculator, or if the dynamics fail;
 `MissingProperty` for a system without an `element` column; `Cancelled` when
 cancelled. `crossing` raises `InvalidParameter` for other pressures, temperatures
 that do not overlap, or free energies that do not cross between them.

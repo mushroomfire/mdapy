@@ -424,3 +424,85 @@ def test_adaptive_timestep_as_on_the_processor():
     d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
     assert np.abs(d).max() < 1e-7
     np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+
+
+@pytest.mark.parametrize("target", ["ufm", "springs", "gas"])
+def test_a_switch_as_on_the_processor(target):
+    """A Switch on the GPU to the Uhlenbeck-Ford model (one kind of atom, its
+    cutoff the longer), to springs and to nothing: the runs and the
+    differences of the energies of the processor."""
+    from mdapy.calculators import Springs, UhlenbeckFord
+    from mdapy.simulation import Switch
+
+    system = crystal()
+    out = []
+    for device in ("cuda", "cpu"):
+        if target == "ufm":
+            other = UhlenbeckFord(
+                (0.5, 1.5),
+                7.0,
+                device=device,
+                **({"precision": "double"} if device == "cuda" else {}),
+            )
+        elif target == "springs":
+            other = Springs(system["positions"], 1.5)
+        else:
+            other = None
+        options = {"precision": "double"} if device == "cuda" else {}
+        potential = EAM.zhou(["Cu", "Ni"], device=device, **options)
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(200, thermo=50, controls=Switch(other, name="s"))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["s_difference"], tb["s_difference"], rtol=1e-8)
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_the_kept_momentum(precision):
+    """The noise keeps the momentum: to the rounding in double precision; in
+    mixed precision the forces of single precision move it a little, far less
+    than the noise does without it."""
+    system = crystal()
+    potential = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
+    momenta = []
+    for keep in (True, False):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(
+                500,
+                ensemble="nvt",
+                temperature=300.0,
+                thermostat="langevin",
+                keep_momentum=keep,
+                seed=3,
+            )
+            end = md.system
+        masses = mdapy.elements.atomic_masses(list(end["element"]))
+        momenta.append(np.abs(masses @ end["velocities"]).max())
+    kept, free = momenta
+    assert kept < (1e-8 if precision == "double" else 1e-3 * free)
+
+
+def test_the_free_energy_of_a_solid():
+    """Frenkel-Ladd on the GPU: the solid of the processor, within the noise
+    of short switchings."""
+    from mdapy.simulation import free_energy
+
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(6, 6, 6))
+    options = dict(
+        pressure=None, timestep=0.002, equilibration=2.0, switching=10.0, seed=2
+    )
+    gpu = free_energy(
+        system, EAM.zhou(["Cu"], device="cuda", precision="double"), 300.0, **options
+    )
+    cpu = free_energy(system, EAM.zhou(["Cu"]), 300.0, **options)
+    assert gpu.free_energy[0] == pytest.approx(cpu.free_energy[0], abs=1e-3)
+    assert abs(gpu.dissipation[0]) < 2e-3

@@ -15,7 +15,7 @@ from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS, LennardJones, _gpu
 from mdapy.core.threads import CancelToken
-from mdapy.errors import Cancelled, InvalidParameter
+from mdapy.errors import Cancelled
 from mdapy.lattice_dynamics import phonons, primitive_cell
 from mdapy.simulation import _free_energy as module
 from mdapy.simulation import free_energy, minimize
@@ -138,7 +138,41 @@ def test_progress_cancel_and_errors(argon, monkeypatch):
             progress=lambda done, total: token.cancel(),
             **options,
         )
+
+
+def test_on_the_gpu(monkeypatch):
+    """The whole path of a liquid and of a solid on the GPU, its module stood
+    in for on the processor: the dilute liquid its gas, the solid near that
+    of the processor."""
     monkeypatch.setattr(_gpu, "cuda", stand_in)
-    gpu = LennardJones({"Ar": (EPSILON, SIGMA)}, CUT, device="cuda")
-    with pytest.raises(InvalidParameter, match="on the processor"):
-        free_energy(argon, gpu, 20.0)
+    gpu = LennardJones({"Ar": (EPSILON, SIGMA)}, CUT, shift=True, device="cuda")
+    temperature, density = 300.0, 1.2e-3
+    dilute = build_crystal("sc", density ** (-1 / 3), elements="Ar", repeat=[5] * 3)
+    liquid = free_energy(
+        dilute,
+        gpu,
+        temperature,
+        phase="liquid",
+        pressure=None,
+        melt_temperature=temperature,
+        timestep=0.002,
+        equilibration=4.0,
+        switching=8.0,
+        seed=4,
+    )
+    kt = units.BOLTZMANN * temperature
+
+    def interaction(r):
+        s6, c6 = (SIGMA / r) ** 6, (SIGMA / CUT) ** 6
+        return np.where(
+            r < CUT, 4 * EPSILON * ((s6 * s6 - s6) - (c6 * c6 - c6)) / kt, 0.0
+        )
+
+    expected = module._ideal_gas(dilute, temperature) + (
+        second_virial(interaction, CUT) * density * kt
+    )
+    assert liquid.free_energy[0] == pytest.approx(expected, abs=1e-3)
+    crystal = build_crystal("fcc", A, elements="Ar", repeat=(4, 4, 4))
+    cpu = free_energy(crystal, lennard_jones(), 30.0, pressure=None, **FAST)
+    on = free_energy(crystal, gpu, 30.0, pressure=None, **FAST)
+    assert on.free_energy[0] == pytest.approx(cpu.free_energy[0], abs=2e-3)

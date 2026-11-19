@@ -28,6 +28,8 @@
 
 ::: mdapy.simulation.Wall
 
+::: mdapy.simulation.Indenter
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

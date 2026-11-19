@@ -132,7 +132,7 @@ temperature then counts the directions in which the atoms move.
 | `msst` | dict | `None` | | for `"msst"`, its settings `"q"`, `"mu"` and `"tscale"`: see [Multiscale shock technique](msst.md#parameters) |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
-| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch` or `Wall`: what is done to groups of atoms, the box, the time step or the potential during the run, or the walls that reflect the atoms; see [Groups and controls](controls.md) |
+| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch`, `Wall` or `Indenter`: what is done to groups of atoms, the box, the time step or the potential during the run, or the walls and indenters that push the atoms; see [Groups and controls](controls.md) |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 

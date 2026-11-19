@@ -154,6 +154,12 @@ calculations, *Phys. Rev. B* **92**, 094301 (2015).
 [doi:10.1103/PhysRevB.92.094301](https://doi.org/10.1103/PhysRevB.92.094301)
 { #fan2015 }
 
+**Fan et al. (2019).** Z. Fan, H. Dong, A. Harju and T. Ala-Nissila, Homogeneous
+nonequilibrium molecular dynamics method for heat transport and spectral
+decomposition with many-body potentials, *Phys. Rev. B* **99**, 064308 (2019).
+[doi:10.1103/PhysRevB.99.064308](https://doi.org/10.1103/PhysRevB.99.064308)
+{ #fan2019 }
+
 **Fan et al. (2022).** Z. Fan et al., GPUMD: A package for constructing
 accurate machine-learned potentials and performing highly efficient
 atomistic simulations, *J. Chem. Phys.* **157**, 114801 (2022).

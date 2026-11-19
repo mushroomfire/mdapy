@@ -48,6 +48,10 @@
 
 ::: mdapy.lattice_dynamics.green_kubo_from_flux
 
+::: mdapy.lattice_dynamics.hnemd
+
+::: mdapy.lattice_dynamics.HNEMD
+
 ::: mdapy.lattice_dynamics.GreenKubo
 
 ::: mdapy.lattice_dynamics.PhononDOS

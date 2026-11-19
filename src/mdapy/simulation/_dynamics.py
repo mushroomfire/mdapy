@@ -487,6 +487,11 @@ create_box {len(potential.elements)} box
                     f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
                 )
                 self.__fixes.append(name)
+            elif isinstance(control, _controls._HeatField):
+                raise InvalidParameter(
+                    "HNEMD needs MDAPY's own dynamics, with a calculator other than "
+                    "LAMMPS"
+                )
             elif isinstance(control, _controls.Switch):
                 raise InvalidParameter(
                     "a Switch needs MDAPY's own dynamics, with a calculator other "

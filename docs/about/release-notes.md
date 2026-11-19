@@ -3,7 +3,7 @@
 ## 2.2.0 (not released)
 
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
-  `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber` and `MEAM` take `device="cuda"`
+  `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,
   single precision for the terms of each pair and double for the positions and the
   sums, as the GPU package of LAMMPS in mixed precision) or `"double"`, and compute on

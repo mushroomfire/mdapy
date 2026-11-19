@@ -148,6 +148,12 @@ def stand_in(found=True):
         made = native.make_meam(element, ebound, cmin, cmax, tables, options, numbers)
         return Potential(made, native.compute_meam)
 
+    def make_nep(*arguments):
+        if max(arguments[0][1:5]) + 1 > 20:  # functions of each kind
+            raise ValueError("on the GPU, NEP takes at most 20 functions of each kind")
+        made = native.make_nep(*arguments[:-1])
+        return Potential(made, native.compute_nep)
+
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)
         return Potential(made, native.compute_pair)
@@ -160,6 +166,6 @@ def stand_in(found=True):
     return types.SimpleNamespace(
         Atoms=Atoms, Neighbors=Neighbors, make_eam=make_eam, make_pair=make_pair,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
-        make_tersoff=make_tersoff, make_meam=make_meam,
+        make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
         device_name=device_name, NotFinite=NotFinite,
     )  # fmt: skip

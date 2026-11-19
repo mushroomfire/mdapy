@@ -152,6 +152,7 @@ if(MDAPY_CUDA)
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/many_body.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/tersoff.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/meam.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/nep_model.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/parallel.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/hardware.cpp")
   set_target_properties(mdapy_cuda_kernels PROPERTIES POSITION_INDEPENDENT_CODE ON

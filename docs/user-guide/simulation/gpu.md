@@ -84,6 +84,7 @@ the module, so running it needs only the driver of the GPU.
 | [`ADP`](adp.md) | the dipole and the quadrupole of the neighbors of each atom |
 | [`Tersoff`](tersoff.md), [`StillingerWeber`](stillinger-weber.md) | every triplet of elements; the energy and the virial of each three-body term shared among its atoms as on the processor when the atoms' own are asked for |
 | [`MEAM`](meam.md) | every reference structure and option of the processor, screening within and beyond rc; the densities of each atom held in double precision |
+| [`NEP`](nep.md) | NEP4 with and without ZBL, harmonics up to l = 8 and the four- and five-body terms, at most 20 functions of each kind; the descriptors and the network in single precision in mixed precision. `descriptors` stays on the processor |
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|

@@ -12,6 +12,7 @@ from mdapy.calculators import (
     ADP,
     EAM,
     MEAM,
+    NEP,
     LennardJones,
     Morse,
     StillingerWeber,
@@ -23,6 +24,7 @@ from mdapy.neighbor import NeighborList
 from calculators.eam_files import write_funcfl, write_setfl
 from calculators.meam_files import CASES as MEAM_CASES
 from calculators.meam_files import write_library, write_parameters
+from calculators.nep_files import write_nep
 from calculators.potential_files import write_adp, write_sw, write_tersoff
 from calculators.test_meam import crystal as meam_crystal
 
@@ -160,6 +162,34 @@ def test_meam(tmp_path, precision, case):
         structure, a, cpu.elements, repeat=repeat, jitter=0.15, seed=3
     )
     compare(gpu, cpu, system, precision)
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"zbl": "universal", "cutoffs": ((5.0, 4.0), (4.4, 3.2))},
+        {"zbl": "typewise"},
+        {"zbl": "flexible"},
+        {"l_max": (4, 0, 0)},
+        {"l_max": (8, 2, 1), "n_max": (6, 5), "basis": (8, 7)},
+        {"l_max": (1, 0, 0), "n_max": (0, 0), "basis": (0, 0)},
+        {"n_max": (19, 19), "basis": (19, 19), "neurons": 30},
+    ],
+)
+def test_nep(tmp_path, precision, options):
+    """Every ZBL, cutoffs of each element, the harmonics up to l = 8, the
+    fewest and the most functions the GPU takes."""
+    path = write_nep(tmp_path / "nep.txt", **options)
+    system = shaken(3.0, ("Cu", "Ni"), 5, tilt=0.2, jitter=0.2)
+    compare(NEP(path, device="cuda", precision=precision), NEP(path), system, precision)
+
+
+def test_nep_with_too_many_functions(tmp_path):
+    path = write_nep(tmp_path / "nep.txt", n_max=(20, 3))
+    NEP(path)
+    with pytest.raises(InvalidParameter, match="at most 20 functions"):
+        NEP(path, device="cuda")
 
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])

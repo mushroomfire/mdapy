@@ -13,6 +13,12 @@ result = potential.compute(system, ("energy", "forces", "virial"))
 descriptors = potential.descriptors(system)  # (N, dim)
 ```
 
+| Parameter | Type | Meaning |
+|---|---|---|
+| `path` | str or path-like | the potential file |
+| `device` | str | `"cpu"`, or `"cuda"` to compute energies, forces and virials on an NVIDIA GPU: see [On the GPU](gpu.md); `descriptors` and many frames at once are computed on the processor |
+| `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
+
 | Attribute | Type | Meaning |
 |---|---|---|
 | `path` | str | the potential file |
@@ -28,6 +34,8 @@ The atoms need an `element` column; elements the potential does not have
 raise `InvalidParameter`. Other models of GPUMD (NEP3, NEP5, charge, dipole
 and polarizability models) and malformed files raise
 [`FileFormatError`](../../reference/api/utilities.md#mdapy.errors.FileFormatError).
+On the GPU, a model takes at most 20 radial and 20 angular functions and as many
+Chebyshev polynomials of each kind, as GPUMD; a larger one raises `InvalidParameter`.
 
 The model is that of GPUMD ([Fan et al. (2022)](../../reference/references.md#fan2022)), version 4
 ([Song et al. (2024)](../../reference/references.md#song2024)): radial descriptors from Chebyshev functions of

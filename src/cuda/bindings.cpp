@@ -302,6 +302,43 @@ NB_MODULE(_cuda, m) {
         nb::arg("element"), nb::arg("ebound"), nb::arg("cmin"), nb::arg("cmax"),
         nb::arg("tables"), nb::arg("options"), nb::arg("numbers"), nb::arg("precision"));
     m.def(
+        "make_nep",
+        [](const std::vector<int>& sizes, Flat rc_radial, Flat rc_angular, Flat w0, Flat b0,
+           Flat w1, double b1, Flat c_radial, Flat c_angular, Flat q_scaler, Flat zbl,
+           const std::string& precision) {
+            if (sizes.size() != 9) {
+                throw std::invalid_argument("make_nep needs 9 sizes");
+            }
+            const auto flat = [](Flat values) {
+                return std::vector<double>(values.data(), values.data() + values.shape(0));
+            };
+            mdapy::calculators::NepModel model;
+            model.types = sizes[0];
+            model.n_radial = sizes[1];
+            model.n_angular = sizes[2];
+            model.k_radial = sizes[3];
+            model.k_angular = sizes[4];
+            model.l_max = sizes[5];
+            model.four_body = sizes[6] != 0;
+            model.five_body = sizes[7] != 0;
+            model.neurons = sizes[8];
+            model.rc_radial = flat(rc_radial);
+            model.rc_angular = flat(rc_angular);
+            model.w0 = flat(w0);
+            model.b0 = flat(b0);
+            model.w1 = flat(w1);
+            model.b1 = b1;
+            model.c_radial = flat(c_radial);
+            model.c_angular = flat(c_angular);
+            model.q_scaler = flat(q_scaler);
+            model.zbl = flat(zbl);
+            model.prepare();
+            return mdapy::cuda::make_nep(model, precision_of(precision));
+        },
+        nb::arg("sizes"), nb::arg("rc_radial"), nb::arg("rc_angular"), nb::arg("w0"),
+        nb::arg("b0"), nb::arg("w1"), nb::arg("b1"), nb::arg("c_radial"), nb::arg("c_angular"),
+        nb::arg("q_scaler"), nb::arg("zbl"), nb::arg("precision"));
+    m.def(
         "make_pair",
         [](const std::string& style, int species, Flat cutsq, Flat offset, Flat coefficients,
            const std::string& precision) {

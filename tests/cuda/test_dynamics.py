@@ -142,6 +142,24 @@ def test_meam_runs_as_on_the_processor(tmp_path):
         np.testing.assert_allclose(tx[column], ty[column], rtol=1e-8, atol=1e-8)
 
 
+def test_nep_runs_as_on_the_processor(tmp_path):
+    """The derivatives of each atom's energy, its virial from its neighbors'."""
+    from mdapy.calculators import NEP
+
+    from calculators.nep_files import write_nep
+
+    path = write_nep(tmp_path / "nep.txt", zbl="universal")
+    system = crystal(repeat=4)
+    options = {"ensemble": "nvt", "temperature": 600}
+    x, tx = run(system, NEP(path, device="cuda", precision="double"), 100, **options)
+    y, ty = run(system, NEP(path), 100, **options)
+    d = x["positions"] - y["positions"]
+    d -= np.round(d @ np.linalg.inv(y.box.matrix)) @ y.box.matrix
+    assert np.abs(d).max() < 1e-7
+    for column in ("temperature", "potential_energy", "pressure"):
+        np.testing.assert_allclose(tx[column], ty[column], rtol=1e-8, atol=1e-8)
+
+
 def test_mixed_precision_keeps_the_energy():
     system = crystal(repeat=8)
     gpu = EAM.zhou(["Cu", "Ni"], device="cuda")

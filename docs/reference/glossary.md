@@ -96,6 +96,11 @@ one name everywhere.
 | committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
 | model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
 | novelty | The distance of a frame from the nearest frame of a training set in the space of descriptors. |
+| QUESTS | A descriptor of the neighborhood of an atom from the distances to its nearest neighbors and between them, whatever their elements, and the measures of a set of descriptors made for it: entropy and information gain. |
+| entropy of a set | How much of descriptor space a set of points covers, such as the descriptors of the atoms of a training set: zero when all are the same, the logarithm of their number when no two are close. |
+| information gain | What a point adds to a set of reference points in descriptor space, the differential entropy of QUESTS: negative among them, positive away from them, where a model trained on them extrapolates. |
+| generated structure | A small periodic cell of a training set made without a model, or a slab or cluster in vacuum: a random cell whose atoms, box and elements were moved while they raised the entropy of the descriptors of the set. |
+| entropy of a generated set | Half the logarithm of the determinant of the covariance of the scaled descriptors of its atoms, the entropy in nats of a Gaussian of them, which `generate_structures` raises with each structure it keeps and gives in `GeneratedStructures.entropy`. |
 | net force | The sum of the forces on all atoms of a frame: zero for a crystal or a cluster in vacuum. |
 | crystal cluster | Neighboring atoms of one structure whose neighbors map onto each other by rotations of the lattice: one region with one lattice frame, as the dislocation analysis joins them. |
 | ideal vector | The vector between two atoms in the perfect, unstrained crystal, in the lattice frame of a crystal cluster. |

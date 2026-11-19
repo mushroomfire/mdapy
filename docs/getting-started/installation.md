@@ -90,7 +90,7 @@ without a GPU, pictures are traced on the processor.
 ## Potentials and dynamics on an NVIDIA GPU
 
 [Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
-need MDAPY built from its source with the CUDA toolkit, 12 or newer, which the
+need MDAPY built from its source with the CUDA toolkit (tested with CUDA 13.5), which the
 wheels of PyPI are not:
 
 ```bash

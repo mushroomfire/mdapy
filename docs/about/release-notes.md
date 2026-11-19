@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `SpatialBinning` reduces moving atoms: `reduction="mass_mean"`, the mean weighted by
+  mass, the velocity of the center of mass of a bin for a column of velocities;
+  `"temperature"` of the velocities and `"stress"` of the virials of each atom, both
+  about the center of mass of each bin, for the profiles of shocks and flows. See
+  [Spatial binning](../user-guide/analysis/spatial-binning.md#moving-atoms).
 - `mdapy.lattice_dynamics.nemd(system, potential, temperature)`: the thermal
   conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
   two slabs of the box, the heat they drive over the gradient of temperature between

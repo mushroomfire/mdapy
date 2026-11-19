@@ -723,3 +723,35 @@ def test_indenters(precision):
             rtol=0,
             atol=1e-6,
         )
+
+
+def test_the_noise_of_successive_steps_is_independent():
+    """The random kicks of the Langevin thermostat, of its form that keeps
+    the momentum and of a bath, at two successive steps: unit Gaussians, no
+    component of one correlated with one of the other, as the canonical
+    ensemble needs. A stream that moves on by fewer numbers than a step draws
+    repeats a component of the step before in the next."""
+    n = 50000
+    atoms = cuda.Atoms(n)
+    atoms.set_species(np.zeros(n, dtype=np.int32))
+    atoms.set_positions(np.zeros((n, 3)))
+    atoms.set_masses(np.ones(n))
+    atoms.set_groups(np.ones(n, dtype=np.int32))
+
+    def kicks(draw):
+        out = []
+        for counter in (0, 1):
+            atoms.set_velocities(np.zeros((n, 3)))
+            draw(counter)
+            out.append(atoms.velocities())
+        return out
+
+    for draw in (
+        lambda counter: atoms.langevin(0.0, 1.0, 1.0, 7, counter),
+        lambda counter: atoms.langevin(0.0, 1.0, 1.0, 7, counter, True),
+        lambda counter: atoms.bath(0, 0.0, 1.0, 1.0, 7, counter),
+    ):
+        first, second = kicks(draw)
+        assert first.std() == pytest.approx(1.0, abs=0.01)
+        correlations = np.corrcoef(first.T, second.T)[:3, 3:]
+        assert np.abs(correlations).max() < 0.02

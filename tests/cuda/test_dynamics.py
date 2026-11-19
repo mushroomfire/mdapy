@@ -506,3 +506,36 @@ def test_the_free_energy_of_a_solid():
     cpu = free_energy(system, EAM.zhou(["Cu"]), 300.0, **options)
     assert gpu.free_energy[0] == pytest.approx(cpu.free_energy[0], abs=1e-3)
     assert abs(gpu.dissipation[0]) < 2e-3
+
+
+def test_hnemd_as_on_the_processor():
+    """The field of HNEMD on the GPU: the driven run and the heat flux of the
+    processor in double precision; in mixed precision the work of the field
+    is still the change of the energy."""
+    from mdapy.simulation._controls import _HeatField
+
+    system = crystal()
+    field = np.array([0.01, -0.004, 0.002])
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(200, thermo=20, controls=_HeatField(field))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-7, atol=1e-9
+    )
+    mixed = EAM.zhou(["Cu", "Ni"], device="cuda", precision="mixed")
+    with MolecularDynamics(system, mixed, timestep=0.001) as md:
+        md.velocities(300.0, seed=1)
+        md.run(400, thermo=1, controls=_HeatField(field * 3))
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    power = np.stack(thermo["heat_flux"].to_numpy()) @ (field * 3)
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.001)])
+    assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])

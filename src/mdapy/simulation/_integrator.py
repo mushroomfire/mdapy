@@ -635,10 +635,6 @@ class _Native:
         """The driving field of HNEMD in the frame of the dynamics."""
         if control is None:
             return
-        if not isinstance(self.__atoms, _HostAtoms):
-            raise InvalidParameter(
-                'HNEMD runs on the processor: a calculator with device="cpu"'
-            )
         calculator = self.__calculator
         if not getattr(calculator, "_heat_flux", False):
             raise InvalidParameter(

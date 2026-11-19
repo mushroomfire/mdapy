@@ -181,16 +181,24 @@ def test_errors(tmp_path, monkeypatch):
         with MolecularDynamics(system, lmp) as md:
             with pytest.raises(InvalidParameter, match="MDAPY's own dynamics"):
                 md.run(1, controls=_HeatField((1e-3, 0, 0)))
+
+
+def test_on_the_gpu(monkeypatch):
+    """The field on the GPU, its module stood in for on the processor: the
+    driven run and the heat flux of the processor."""
     monkeypatch.setattr(_gpu, "cuda", stand_in)
-    gpu = LennardJones({"Ar": (0.0104, 3.405)}, 8.5, device="cuda")
-    with pytest.raises(InvalidParameter, match="on the processor"):
-        thick = build_crystal("fcc", 5.28, elements="Ar", repeat=4)
-        hnemd(
-            thick,
-            gpu,
-            40.0,
-            field=(3e-3, 0, 0),
-            equilibration=10,
-            production=100,
-            every=10,
+    system = warm(repeat=4)
+    field = np.array([0.01, -0.005, 0.002])
+    out = []
+    for device in ("cuda", "cpu"):
+        potential = LennardJones(
+            {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device=device
         )
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(100, thermo=10, controls=_HeatField(field))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["velocities"], b["velocities"], atol=1e-9)
+    np.testing.assert_allclose(
+        np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-9, atol=1e-12
+    )

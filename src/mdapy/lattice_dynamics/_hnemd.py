@@ -116,7 +116,7 @@ def hnemd(
         temperature, with an ``element`` column.
     potential : Calculator
         The interaction, whose virials of each atom give the heat flux: EAM,
-        a pair potential or NEP, on the processor.
+        a pair potential or NEP, on the processor or the GPU.
     temperature : float64
         Temperature in K, positive.
     field : array_like
@@ -153,7 +153,7 @@ def hnemd(
     InvalidParameter
         For a box that is not periodic, a temperature, field or numbers of
         steps that are not valid, a potential whose virials of each atom do
-        not give the heat flux, one on the GPU or in LAMMPS, or the errors of
+        not give the heat flux, a LAMMPS one, or the errors of
         ``MolecularDynamics``.
     Cancelled
         If cancelled.

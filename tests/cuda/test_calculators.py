@@ -132,6 +132,39 @@ def test_stillinger_weber(tmp_path, precision, tilt):
     )
 
 
+# Stillinger and Weber's silicon, as in the potentials of LAMMPS
+SILICON = "Si Si Si 2.1683 2.0951 1.80 21.0 1.20 -0.333333333333 7.049556277 0.6022245584 4.0 0.0 0.0\n"
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+def test_stillinger_weber_at_its_cutoff(tmp_path, precision):
+    """Pairs within the rounding of single precision of the cutoff, where
+    1 / (r - a sigma) is infinite for an r^2 just below the square of the
+    cutoff whose square root rounds to the cutoff itself: their terms are
+    zero, as on the processor."""
+    path = tmp_path / "Si.sw"
+    path.write_text(SILICON)
+    cutoff = 1.80 * 2.0951
+    rng = np.random.default_rng(1)
+    grid = np.stack(np.meshgrid(*[np.arange(10)] * 3, indexing="ij"), -1)
+    centres = 8.0 * grid.reshape(-1, 3) + 4.0
+    directions = rng.normal(size=centres.shape)
+    directions /= np.linalg.norm(directions, axis=1)[:, None]
+    half = 0.5 * (cutoff + rng.uniform(-1e-5, 1e-5, len(centres)))[:, None]
+    positions = np.concatenate(
+        [centres - half * directions, centres + half * directions]
+    )
+    system = mdapy.System(positions, mdapy.Box(80.0, pbc=False)).with_columns(
+        element=["Si"] * len(positions)
+    )
+    gpu = StillingerWeber(path, device="cuda", precision=precision)
+    a = gpu.compute(system, ("energy", "forces", "virial"))
+    b = StillingerWeber(path).compute(system, ("energy", "forces", "virial"))
+    assert np.isfinite(a.forces).all()
+    assert abs(a.energy - b.energy) < 1e-9
+    np.testing.assert_allclose(a.forces, b.forces, rtol=0, atol=1e-6)
+
+
 @pytest.mark.parametrize("precision", ["double", "mixed"])
 @pytest.mark.parametrize("tilt", [0.0, 0.3])
 def test_tersoff(tmp_path, precision, tilt):

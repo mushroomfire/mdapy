@@ -39,6 +39,14 @@ struct SwTables {
     int elements;
 };
 
+// Whether a pair at r^2 is within the cutoff of an entry: by r^2, and by r,
+// whose square root may round to the cutoff itself in single precision for
+// an r^2 just below its square, where 1 / (r - cut) would be infinite.
+template <class Real>
+__device__ inline bool inside(const SwEntry<Real>& e, Real rsq) {
+    return rsq < e.cutsq && sqrt(rsq) < e.cut;
+}
+
 // The pair term of an entry at r^2: its energy and fpair.
 template <class Real>
 __device__ inline void sw_two(const SwEntry<Real>& e, Real rsq, Real& energy, Real& fpair) {
@@ -92,14 +100,14 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
             const Real weight = same ? Real(1) : Real(0.5);
             Real energy = 0, fpair = 0;
             bool any = false;
-            if (rsq1 < pij.cutsq) {
+            if (inside(pij, rsq1)) {
                 any = true;
                 Real ee, ff;
                 sw_two(pij, rsq1, ee, ff);
                 energy += weight * ee;
                 fpair += weight * ff;
             }
-            if (!same && rsq1 < pji.cutsq) {
+            if (!same && inside(pji, rsq1)) {
                 any = true;
                 Real ee, ff;
                 sw_two(pji, rsq1, ee, ff);
@@ -122,7 +130,7 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
         }
         // the three-body terms of this pair with every other, a third of each
         // to each of the three atoms; each term is met from both its pairs
-        if (rsq1 < pij.cutsq) {
+        if (inside(pij, rsq1)) {
             const Real r1 = sqrt(rsq1), rinvsq1 = Real(1) / rsq1;
             const Real rainv1 = Real(1) / (r1 - pij.cut);
             const Real gsrainv1 = pij.sigma_gamma * rainv1;
@@ -137,7 +145,7 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
                 const Real rsq2 = rk[0] * rk[0] + rk[1] * rk[1] + rk[2] * rk[2];
                 const int sk = static_cast<int>(xk.w);
                 const SwEntry<Real> pik = t.entries[(si * e + sk) * e + sk];
-                if (!(rsq2 < pik.cutsq)) continue;
+                if (!inside(pik, rsq2)) continue;
                 const Real r2 = sqrt(rsq2), rinvsq2 = Real(1) / rsq2;
                 const Real rainv2 = Real(1) / (r2 - pik.cut);
                 const Real gsrainv2 = pik.sigma_gamma * rainv2;

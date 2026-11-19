@@ -409,6 +409,8 @@ NB_MODULE(_cuda, m) {
                 kind = mdapy::calculators::PairStyle::LennardJones;
             } else if (style == "morse") {
                 kind = mdapy::calculators::PairStyle::Morse;
+            } else if (style == "ufm") {
+                kind = mdapy::calculators::PairStyle::UhlenbeckFord;
             } else {
                 throw std::invalid_argument("unknown pair style");
             }

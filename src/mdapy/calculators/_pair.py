@@ -227,57 +227,9 @@ class LennardJones(_PairCalculator):
         precision: str | None = None,
     ):
         self.device, self.precision = _gpu.resolve(device, precision)
-        if mixing not in _MIXING:
-            raise InvalidParameter(
-                f"mixing must be one of {list(_MIXING)}, not {mixing!r}"
-            )
-        default = _cutoff(cutoff)
-        any_atom = not isinstance(parameters, Mapping)
-        if any_atom:  # one kind of atom, of any element
-            parameters = {"X": parameters}
-        singles, pairs = _entries(parameters, (2, 3), pairs_only=False)
-        elements = _elements(singles, pairs)
-        e = len(elements)
-        epsilon, sigma, cut = np.zeros((e, e)), np.zeros((e, e)), np.zeros((e, e))
-        own = {}
-        for name, numbers in singles.items():
-            if (name, name) in pairs and pairs[name, name] != numbers:
-                raise InvalidParameter(
-                    f"{name} is given alone and as {name}–{name} with other parameters"
-                )
-            own[name] = (
-                numbers[0],
-                numbers[1],
-                numbers[2] if len(numbers) == 3 else default,
-            )
-        for a, b in pairs:
-            if a == b and a not in own:
-                numbers = pairs[a, b]
-                own[a] = (
-                    numbers[0],
-                    numbers[1],
-                    numbers[2] if len(numbers) == 3 else default,
-                )
-        for i, a in enumerate(elements):
-            for j, b in enumerate(elements):
-                if (a, b) in pairs:
-                    numbers = pairs[a, b]
-                    eps, sig = numbers[0], numbers[1]
-                    rc = numbers[2] if len(numbers) == 3 else default
-                elif a == b and a in own:  # as given, not mixed with itself
-                    eps, sig, rc = own[a]
-                elif a in own and b in own:
-                    eps, sig, rc = _mix(own[a], own[b], mixing)
-                else:
-                    missing = b if a in own else a
-                    raise InvalidParameter(
-                        f"{a}–{b} has no parameters: give {missing} its own, or the pair"
-                    )
-                if not eps >= 0 or not sig > 0:
-                    raise InvalidParameter(
-                        f"{a}–{b}: epsilon must not be negative and sigma must be positive"
-                    )
-                epsilon[i, j], sigma[i, j], cut[i, j] = eps, sig, _cutoff(rc)
+        elements, any_atom, epsilon, sigma, cut = _mixed_tables(
+            parameters, cutoff, mixing
+        )
         coefficients = np.stack(
             [
                 48.0 * epsilon * sigma**12.0,
@@ -289,7 +241,9 @@ class LennardJones(_PairCalculator):
         )
         ratio = sigma / cut
         offset = (
-            4.0 * epsilon * (ratio**12.0 - ratio**6.0) if shift else np.zeros((e, e))
+            4.0 * epsilon * (ratio**12.0 - ratio**6.0)
+            if shift
+            else np.zeros_like(epsilon)
         )
         self.mixing = mixing
         self.shift = bool(shift)
@@ -300,6 +254,91 @@ class LennardJones(_PairCalculator):
     def __repr__(self) -> str:
         return (
             f"LennardJones(elements={self.elements}, cutoff={self.cutoff}, "
+            f"mixing={self.mixing!r}, shift={self.shift}{_where(self)})"
+        )
+
+
+class UhlenbeckFord(_PairCalculator):
+    """Uhlenbeck-Ford model, E = −ε ln(1 − exp(−r²/σ²)) below a cutoff, as
+    LAMMPS ``pair_style ufm`` computes it: a soft repulsion of finite range
+    whose free energy is known, the reference liquid of free energies.
+
+    Parameters
+    ----------
+    parameters : mapping or sequence of float64
+        For an element, (ε, σ) or (ε, σ, cutoff) of its pairs with itself, in
+        eV and Å; the pairs of two such elements are mixed. For a pair of
+        elements, a tuple such as ("Cu", "Ni"), the same numbers of that pair,
+        taken as they are. Numbers alone, (ε, σ) or (ε, σ, cutoff): any atom,
+        whatever its element.
+    cutoff : float64
+        Cutoff in Å of the pairs given none.
+    mixing : {"geometric", "arithmetic", "sixthpower"}, optional
+        How ε, σ and the cutoffs of two elements mix, as ``pair_modify mix``
+        of LAMMPS. Default "geometric".
+    shift : bool, optional
+        Take off each pair the energy at its cutoff, as ``pair_modify shift
+        yes``. Default False.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
+
+    Attributes
+    ----------
+    elements : tuple of str or None
+        The elements, in the order of the parameters; None for any atom.
+    cutoffs : numpy.ndarray
+        (E, E) float64 cutoff of each pair of elements in Å.
+    cutoff : float64
+        The largest cutoff in Å.
+    """
+
+    _style = "ufm"
+    _name = "UhlenbeckFord"
+    # its forces are pairwise, and their virials split in halves
+    _heat_flux = True
+
+    def __init__(
+        self,
+        parameters: Mapping[Any, Sequence[float]] | Sequence[float],
+        cutoff: float,
+        *,
+        mixing: str = "geometric",
+        shift: bool = False,
+        device: str = "cpu",
+        precision: str | None = None,
+    ):
+        self.device, self.precision = _gpu.resolve(device, precision)
+        elements, any_atom, epsilon, sigma, cut = _mixed_tables(
+            parameters, cutoff, mixing
+        )
+        coefficients = np.stack(
+            [
+                2.0 * epsilon / sigma**2,
+                1.0 / sigma**2,
+                epsilon,
+                np.zeros_like(epsilon),
+            ],
+            axis=-1,
+        )
+        offset = (
+            -epsilon * np.log(1.0 - np.exp(-((cut / sigma) ** 2)))
+            if shift
+            else np.zeros_like(epsilon)
+        )
+        self.mixing = mixing
+        self.shift = bool(shift)
+        self.epsilon = epsilon
+        self.sigma = sigma
+        self._build(None if any_atom else elements, cut, offset, coefficients)
+
+    def __repr__(self) -> str:
+        return (
+            f"UhlenbeckFord(elements={self.elements}, cutoff={self.cutoff}, "
             f"mixing={self.mixing!r}, shift={self.shift}{_where(self)})"
         )
 
@@ -327,6 +366,64 @@ def _mix(
         (0.5 * (s1**6 + s2**6)) ** (1.0 / 6.0),
         (0.5 * (c1**6 + c2**6)) ** (1.0 / 6.0),
     )
+
+
+def _mixed_tables(
+    parameters: Any, cutoff: float, mixing: str
+) -> tuple[tuple[str, ...], bool, np.ndarray, np.ndarray, np.ndarray]:
+    """The elements, whether one kind of atom stands for any, and the (E, E)
+    energies, lengths and cutoffs of the pairs, mixed by the rules of LAMMPS,
+    of parameters of (energy, length) or (energy, length, cutoff)."""
+    if mixing not in _MIXING:
+        raise InvalidParameter(f"mixing must be one of {list(_MIXING)}, not {mixing!r}")
+    default = _cutoff(cutoff)
+    any_atom = not isinstance(parameters, Mapping)
+    if any_atom:  # one kind of atom, of any element
+        parameters = {"X": parameters}
+    singles, pairs = _entries(parameters, (2, 3), pairs_only=False)
+    elements = _elements(singles, pairs)
+    e = len(elements)
+    epsilon, sigma, cut = np.zeros((e, e)), np.zeros((e, e)), np.zeros((e, e))
+    own = {}
+    for name, numbers in singles.items():
+        if (name, name) in pairs and pairs[name, name] != numbers:
+            raise InvalidParameter(
+                f"{name} is given alone and as {name}–{name} with other parameters"
+            )
+        own[name] = (
+            numbers[0],
+            numbers[1],
+            numbers[2] if len(numbers) == 3 else default,
+        )
+    for a, b in pairs:
+        if a == b and a not in own:
+            numbers = pairs[a, b]
+            own[a] = (
+                numbers[0],
+                numbers[1],
+                numbers[2] if len(numbers) == 3 else default,
+            )
+    for i, a in enumerate(elements):
+        for j, b in enumerate(elements):
+            if (a, b) in pairs:
+                numbers = pairs[a, b]
+                eps, sig = numbers[0], numbers[1]
+                rc = numbers[2] if len(numbers) == 3 else default
+            elif a == b and a in own:  # as given, not mixed with itself
+                eps, sig, rc = own[a]
+            elif a in own and b in own:
+                eps, sig, rc = _mix(own[a], own[b], mixing)
+            else:
+                missing = b if a in own else a
+                raise InvalidParameter(
+                    f"{a}–{b} has no parameters: give {missing} its own, or the pair"
+                )
+            if not eps >= 0 or not sig > 0:
+                raise InvalidParameter(
+                    f"{a}–{b}: epsilon must not be negative and sigma must be positive"
+                )
+            epsilon[i, j], sigma[i, j], cut[i, j] = eps, sig, _cutoff(rc)
+    return elements, any_atom, epsilon, sigma, cut
 
 
 class Morse(_PairCalculator):

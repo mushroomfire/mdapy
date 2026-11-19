@@ -4,7 +4,7 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Free energies of solids and liquids by nonequilibrium thermodynamic
-integration in LAMMPS."""
+integration, in MDAPY's own dynamics or in LAMMPS."""
 
 import math
 import tempfile
@@ -17,13 +17,17 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy import units
+from mdapy.calculators._base import Calculator
 from mdapy.calculators._lammps import LAMMPS
+from mdapy.calculators._pair import UhlenbeckFord
+from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.simulation._controls import Switch
 from mdapy.simulation._dynamics import MolecularDynamics, _read_written
 
 _PHASES = ("solid", "liquid")
@@ -325,17 +329,14 @@ def _spring_constants(
     displacement it has in the crystal at this temperature."""
     with MolecularDynamics(crystal, potential, timestep=timestep) as md:
         md.velocities(2 * temperature, seed=seed)
-        md.command(
-            f"fix mdapy_thermostat all langevin {temperature!r} {temperature!r} "
-            f"{_DAMPING} {seed} zero yes"
-        )
         before = md.step
         md.run(
             steps,
-            ensemble="nve",
             thermo=steps,
             save_every=max(steps // 50, 1),
             cancel=counter.cancel,
+            seed=seed,
+            **_langevin(temperature, keep_momentum=True),
         )
         counter.add(md.step - before)
         frames = md.frames[len(md.frames) // 2 :]
@@ -407,6 +408,220 @@ def _frenkel_ladd(
         back = _integral(md, backward) / n  # the same, from 1 to 0
     einstein, fixed = _einstein(crystal, temperature, springs)
     return einstein + fixed + 0.5 * (there - back), -0.5 * (there + back)
+
+
+def _langevin(temperature: float, keep_momentum: bool = False) -> dict:
+    """The options of a run with the Langevin thermostat of the switchings."""
+    return {
+        "ensemble": "nvt",
+        "temperature": float(temperature),
+        "thermostat": "langevin",
+        "thermostat_damping": _DAMPING,
+        "keep_momentum": keep_momentum,
+    }
+
+
+def _switched(
+    md: MolecularDynamics,
+    steps: int,
+    switch: Switch,
+    temperature: float,
+    keep_momentum: bool,
+    seed: int,
+    counter: _Progress,
+) -> tuple[np.ndarray, np.ndarray]:
+    """λ and the energy of the target minus that of the potential, every
+    _EVERY steps of a run of a Switch in MDAPY's own dynamics."""
+    done = counter.done
+
+    def progress(steps_done: int, _: int) -> None:
+        if counter.progress is not None:
+            counter.progress(done + steps_done, counter.total)
+
+    start = len(md.thermo)
+    md.run(
+        steps,
+        thermo=_EVERY,
+        controls=switch,
+        seed=seed,
+        progress=progress,
+        cancel=counter.cancel,
+        **_langevin(temperature, keep_momentum),
+    )
+    counter.done = done + steps
+    rows = md.thermo[start:]
+    if switch.name is None:
+        return np.zeros(0), np.zeros(0)
+    return (
+        rows[f"{switch.name}_lambda"].to_numpy(),
+        rows[f"{switch.name}_difference"].to_numpy(),
+    )
+
+
+def _frenkel_ladd_in_mdapy(
+    crystal: System,
+    potential: Calculator,
+    temperature: float,
+    springs: np.ndarray,
+    timestep: float,
+    equilibration: int,
+    switching: int,
+    seed: int,
+    counter: _Progress,
+) -> tuple[float, float]:
+    """As _frenkel_ladd, in MDAPY's own dynamics: the crystal switched into
+    springs to the places of its atoms and back, the thermostat keeping the
+    momentum, as LAMMPS's fix ti/spring with fix langevin zero yes."""
+    n = len(crystal)
+    tied = Springs(crystal["positions"], springs)
+    seeds = [seed + 100_000 * k for k in range(4)]
+    with MolecularDynamics(crystal, potential, timestep=timestep) as md:
+        md.velocities(2 * temperature, seed=seed)
+        _switched(
+            md,
+            equilibration,
+            Switch(tied, stop=0.0),
+            temperature,
+            True,
+            seeds[0],
+            counter,
+        )
+        lam, forward = _switched(
+            md,
+            switching,
+            Switch(tied, name="mdapy"),
+            temperature,
+            True,
+            seeds[1],
+            counter,
+        )
+        there = -float(np.trapezoid(forward, lam)) / n  # solid minus springs
+        _switched(
+            md,
+            equilibration,
+            Switch(tied, start=1.0),
+            temperature,
+            True,
+            seeds[2],
+            counter,
+        )
+        lam, backward = _switched(
+            md,
+            switching,
+            Switch(tied, start=1.0, stop=0.0, name="mdapy"),
+            temperature,
+            True,
+            seeds[3],
+            counter,
+        )
+        back = -float(np.trapezoid(backward, lam)) / n
+    einstein, fixed = _einstein(crystal, temperature, springs)
+    return einstein + fixed + 0.5 * (there - back), -0.5 * (there + back)
+
+
+def _liquid_reference_in_mdapy(
+    liquid: System,
+    potential: Calculator,
+    temperature: float,
+    timestep: float,
+    equilibration: int,
+    switching: int,
+    seed: int,
+    counter: _Progress,
+) -> tuple[float, float]:
+    """As _liquid_reference, in MDAPY's own dynamics: the liquid switched into
+    the Uhlenbeck-Ford model and back, and the model into the ideal gas."""
+    n = len(liquid)
+    kt = units.BOLTZMANN * temperature
+    model = UhlenbeckFord((_UF_STRENGTH * kt, _UF_LENGTH), _UF_CUTOFF)
+    seeds = [seed + 100_000 * k for k in range(8)]
+    with MolecularDynamics(liquid, potential, timestep=timestep) as md:
+        md.velocities(temperature, seed=seed)
+        _switched(
+            md,
+            equilibration,
+            Switch(model, stop=0.0),
+            temperature,
+            False,
+            seeds[0],
+            counter,
+        )
+        lam, forward = _switched(
+            md,
+            switching,
+            Switch(model, name="mdapy"),
+            temperature,
+            False,
+            seeds[1],
+            counter,
+        )
+        there = -float(np.trapezoid(forward, lam)) / n  # the liquid minus the model
+        _switched(
+            md,
+            equilibration,
+            Switch(model, start=1.0),
+            temperature,
+            False,
+            seeds[2],
+            counter,
+        )
+        lam, backward = _switched(
+            md,
+            switching,
+            Switch(model, start=1.0, stop=0.0, name="mdapy"),
+            temperature,
+            False,
+            seeds[3],
+            counter,
+        )
+        back = -float(np.trapezoid(backward, lam)) / n
+    # the model from the ideal gas: its weight 1 - λ, four times as long
+    longer = _MODEL_SWITCHING * switching
+    with MolecularDynamics(liquid, model, timestep=timestep) as md:
+        md.velocities(temperature, seed=seed + 1)
+        _switched(
+            md,
+            equilibration,
+            Switch(None, stop=0.0),
+            temperature,
+            False,
+            seeds[4],
+            counter,
+        )
+        lam, down = _switched(
+            md,
+            longer,
+            Switch(None, name="mdapy"),
+            temperature,
+            False,
+            seeds[5],
+            counter,
+        )
+        fall = float(np.trapezoid(-down, 1.0 - lam)) / n
+        _switched(
+            md,
+            equilibration,
+            Switch(None, start=1.0),
+            temperature,
+            False,
+            seeds[6],
+            counter,
+        )
+        lam, up = _switched(
+            md,
+            longer,
+            Switch(None, start=1.0, stop=0.0, name="mdapy"),
+            temperature,
+            False,
+            seeds[7],
+            counter,
+        )
+        rise = float(np.trapezoid(-up, 1.0 - lam)) / n
+    excess, spread = 0.5 * (rise - fall), 0.5 * (rise + fall)
+    return (
+        _ideal_gas(liquid, temperature) + excess + 0.5 * (there - back),
+        -0.5 * (there + back) + spread,
+    )
 
 
 def _scaled_pair(potential: LAMMPS, cutoff: float, epsilon: float) -> tuple[str, str]:
@@ -731,7 +946,7 @@ def _smooth(x: np.ndarray, y: np.ndarray, degree: int = 5) -> np.ndarray:
 
 def free_energy(
     system: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperatures: float | ArrayLike,
     *,
     phase: str = "solid",
@@ -749,7 +964,8 @@ def free_energy(
     cancel: CancelToken | None = None,
 ) -> FreeEnergyResult:
     """The free energy of a solid or a liquid, per atom, from molecular
-    dynamics in LAMMPS, with classical atoms.
+    dynamics with classical atoms, in MDAPY, or in LAMMPS for a LAMMPS
+    calculator.
 
     Parameters
     ----------
@@ -757,8 +973,10 @@ def free_energy(
         The atoms, with an ``element`` column, in a box periodic in every
         direction: for a solid at their places in the crystal (relax them
         first), for a liquid anywhere, as it is melted first.
-    potential : LAMMPS
-        The interaction. A liquid needs one pair style, not a hybrid.
+    potential : Calculator
+        The interaction: any calculator of energies, forces and virials on
+        the processor; a LAMMPS one for a liquid needs one pair style, not a
+        hybrid.
     temperatures : float64 or array_like
         Temperatures in K, positive. The free energy is calculated at the
         first, and followed from there to the others, which must lie on one
@@ -809,7 +1027,7 @@ def free_energy(
     InvalidParameter
         For invalid options, a box not periodic in every direction, a hybrid
         pair style for a liquid, a liquid that does not move as one, a phase
-        that changes in every scan, or if LAMMPS fails.
+        that changes in every scan, or if the dynamics fail.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
@@ -817,8 +1035,13 @@ def free_energy(
     """
     if phase not in _PHASES:
         raise InvalidParameter(f"phase must be one of {_PHASES}, not {phase!r}")
-    if not isinstance(potential, LAMMPS):
-        raise InvalidParameter("potential must be a mdapy.calculators.LAMMPS")
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
+    in_lammps = isinstance(potential, LAMMPS)
+    if not in_lammps and potential.device != "cpu":
+        raise InvalidParameter(
+            'the free energy runs on the processor: a calculator with device="cpu"'
+        )
     if "element" not in system.table.columns:
         raise MissingProperty("the free energy needs the element column")
     if not system.box.pbc.all():
@@ -843,7 +1066,7 @@ def free_energy(
         raise InvalidParameter("melt_temperature must be positive")
     if barostat is None:
         barostat = "aniso" if phase == "solid" else "iso"
-    if phase == "liquid":
+    if phase == "liquid" and in_lammps:
         _scaled_pair(potential, _UF_CUTOFF, 1.0)  # refuses a hybrid at once
     n = len(system)
     first, repeats, seed = float(wanted[0]), int(repeats), int(seed)
@@ -877,8 +1100,9 @@ def free_energy(
         springs = _spring_constants(
             crystal, potential, first, timestep, equilibrium, seed, counter
         )
+        solid = _frenkel_ladd if in_lammps else _frenkel_ladd_in_mdapy
         outcomes = [
-            _frenkel_ladd(
+            solid(
                 crystal,
                 potential,
                 first,
@@ -903,8 +1127,9 @@ def free_energy(
             seed,
             counter,
         )
+        liquid = _liquid_reference if in_lammps else _liquid_reference_in_mdapy
         outcomes = [
-            _liquid_reference(
+            liquid(
                 crystal,
                 potential,
                 first,

@@ -26,6 +26,7 @@ import polars as pl
 from mdapy import units
 from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator
+from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
@@ -185,6 +186,11 @@ class _HostAtoms:
         self.__forces: np.ndarray | None = None
         self.__wide: NeighborList | None = None
         self.__rng: np.random.Generator | None = None
+        # a Switch: the other interaction, its neighbor list, and λ
+        self.__target: Any = False  # False: no switch; None: the ideal gas
+        self.__target_wide: NeighborList | None = None
+        self.weight = 0.0
+        self.parts = (math.nan, math.nan)  # the energies of the two
         self.__properties = tuple(
             p for p in ("energy", "forces", "virial") if p in calculator.implemented
         )
@@ -243,7 +249,15 @@ class _HostAtoms:
             current, self.__properties, neighbors=neighbors
         )
         forces = np.asarray(result.forces, dtype=float)
-        if not (np.isfinite(result.energy) and np.isfinite(forces).all()):
+        energy = float(result.energy)
+        work = (
+            np.asarray(result.virial, dtype=float)
+            if "virial" in self.__properties
+            else np.full((3, 3), np.nan)
+        )
+        if self.__target is not False:
+            energy, forces, work = self.__switched(current, energy, forces, work)
+        if not (np.isfinite(energy) and np.isfinite(forces).all()):
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
             )
@@ -252,9 +266,44 @@ class _HostAtoms:
         if self.added is not None:
             forces = forces + self.added
         self.__forces = self.__restrict(forces)
-        if "virial" in self.__properties:
-            return float(result.energy), np.asarray(result.virial, dtype=float)
-        return float(result.energy), np.full((3, 3), np.nan)
+        return energy, work
+
+    def __switched(
+        self, current: System, energy: float, forces: np.ndarray, work: np.ndarray
+    ) -> tuple[float, np.ndarray, np.ndarray]:
+        """(1 - λ) times the potential plus λ times the target of a Switch:
+        the energy, the forces and the virial, the target giving none where
+        it computes none; the energies of the two kept."""
+        target, weight = self.__target, self.weight
+        if target is None:  # the ideal gas
+            other, pulls, push = 0.0, np.zeros_like(forces), np.zeros((3, 3))
+        else:
+            cutoff = float(target.cutoff)
+            neighbors = None
+            if 0.0 < cutoff < np.inf:
+                wide = self.__target_wide
+                neighbors = wide._follow(current, cutoff) if wide is not None else None
+                if neighbors is None:
+                    self.__target_wide = NeighborList.build(current, cutoff + _SKIN)
+                    neighbors = self.__target_wide._follow(current, cutoff)
+            wanted = ("energy", "forces") + (
+                ("virial",) if "virial" in target.implemented else ()
+            )
+            result = target.compute(current, wanted, neighbors=neighbors)
+            other = float(result.energy)
+            pulls = np.asarray(result.forces, dtype=float)
+            push = (
+                np.asarray(result.virial, dtype=float)
+                if result.virial is not None
+                else np.zeros((3, 3))
+            )
+        self.parts = (energy, other)
+        mixed = (1.0 - weight) * energy + weight * other
+        return (
+            mixed,
+            (1.0 - weight) * forces + weight * pulls,
+            (1.0 - weight) * work + weight * push,
+        )
 
     def kick(self, c: float) -> None:
         self.__v += c * self.__forces / self.__masses[:, None]
@@ -331,11 +380,22 @@ class _HostAtoms:
         return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
                            - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
 
-    def langevin(self, c1: float, c2: float, kt: float) -> None:
-        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian."""
+    def set_switch(self, target: Any) -> None:
+        """The other interaction of a Switch, None for none, or False for no
+        switch."""
+        self.__target = target
+        self.__target_wide = None
+        self.weight = 0.0
+
+    def langevin(self, c1: float, c2: float, kt: float, keep: bool = False) -> None:
+        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian; with keep, the noise of
+        each atom less an equal share of its total momentum, as the random
+        forces of LAMMPS's fix langevin zero yes."""
         sigma = np.sqrt(kt / self.__masses)[:, None]
-        noise = self.__rng.normal(size=self.__v.shape)
-        self.__v = c1 * self.__v + c2 * sigma * self.__restrict(noise)
+        noise = c2 * sigma * self.__restrict(self.__rng.normal(size=self.__v.shape))
+        if keep:
+            noise -= (self.__masses @ noise) / len(noise) / self.__masses[:, None]
+        self.__v = c1 * self.__v + noise
         if self.prescribed is not None:
             self.restrict()
 
@@ -399,6 +459,8 @@ class _Native:
         self.__controlled = False  # whether the run has controls
         self.__deform: Any = None  # the Deform of the run
         self.__adaptive: Any = None  # the AdaptiveTimestep of the run
+        self.__switch: Any = None  # the Switch of the run
+        self.__keep = False  # whether the Langevin noise keeps the momentum
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
         self.__prescribed = False  # whether controls set velocities
         self.__heat: list = []  # the heat each gave since the run began, eV
@@ -538,7 +600,44 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        }  # fmt: skip
+        } | self.__switch_record()  # fmt: skip
+
+    def __switch_record(self) -> dict[str, float]:
+        """λ of a named Switch and the energy of its target minus that of the
+        potential, both unscaled."""
+        switch = self.__switch
+        if switch is None or switch.name is None:
+            return {}
+        potential, target = self.__atoms.parts
+        return {
+            f"{switch.name}_lambda": float(self.__atoms.weight),
+            f"{switch.name}_difference": float(target - potential),
+        }
+
+    def __set_switch(self, switch: Any, barostat: bool) -> None:
+        """The other interaction of a Switch in the frame of the dynamics,
+        and λ at the start of the run."""
+        self.__switch = None
+        if switch is None:
+            return
+        if not isinstance(self.__atoms, _HostAtoms):
+            raise InvalidParameter(
+                'a Switch runs on the processor: a calculator with device="cpu"'
+            )
+        target = switch.target
+        if barostat and target is not None and "virial" not in target.implemented:
+            raise InvalidParameter(
+                f"a barostat needs the virial, which {type(target).__name__} does "
+                "not compute"
+            )
+        if isinstance(target, Springs) and not np.array_equal(
+            self.__rotation, np.eye(3)
+        ):
+            # the sites in the frame of the dynamics, as the atoms
+            target = Springs(self.__to_frame(target.sites), target.constants)
+        self.__atoms.set_switch(target)
+        self.__atoms.weight = switch.weight(0.0)
+        self.__switch = switch
 
     # -- velocities -------------------------------------------------------------
 
@@ -602,6 +701,22 @@ class _Native:
         # the time of a step, from the step where the time step last changed
         self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
+        self.__set_switch(
+            next((c for c in controls if isinstance(c, _controls.Switch)), None),
+            barostat,
+        )
+        self.__keep = bool(run.get("keep_momentum", False))
+        if self.__keep:
+            if not isinstance(self.__atoms, _HostAtoms):
+                raise InvalidParameter(
+                    "keep_momentum runs on the processor: a calculator with "
+                    'device="cpu"'
+                )
+            if self.__free is not None:
+                raise InvalidParameter(
+                    "keep_momentum with atoms held or moved: there is no momentum "
+                    "to keep"
+                )
         self.__compute()
         self.__adaptive = next(
             (c for c in controls if isinstance(c, _controls.AdaptiveTimestep)), None
@@ -785,7 +900,10 @@ class _Native:
                     control.seed if control.seed is not None else secrets.randbits(63)
                 )
                 baths.append((control, seed, damping))
-            elif isinstance(control, (_controls.Deform, _controls.AdaptiveTimestep)):
+            elif isinstance(
+                control,
+                (_controls.Deform, _controls.AdaptiveTimestep, _controls.Switch),
+            ):
                 continue
             elif isinstance(control, _controls.Move):
                 free[control.mask] = False
@@ -837,6 +955,9 @@ class _Native:
         self.__run = {}
         self.__deform = None
         self.__adaptive = None
+        if self.__switch is not None:
+            self.__atoms.set_switch(False)
+            self.__switch = None
         if self.__controlled:
             self.__reset_controls()
 
@@ -859,6 +980,10 @@ class _Native:
         self.__step += 1
         step = self.__step
         dt = self.__dt
+        if self.__switch is not None:  # at the start of the step, as fix ti/spring
+            self.__atoms.weight = self.__switch.weight(
+                (step - self.__first) / self.__steps
+            )
         if self.__langevin:
             self.__ornstein_uhlenbeck(step)
         if self.__baths:
@@ -920,7 +1045,11 @@ class _Native:
         """Friction and noise for half a step."""
         target = self.__t_target(step)
         c1 = math.exp(-0.5 * self.__gamma * self.__dt)
-        self.__atoms.langevin(c1, math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V)
+        c2, kt = math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V
+        if self.__keep:
+            self.__atoms.langevin(c1, c2, kt, True)
+        else:
+            self.__atoms.langevin(c1, c2, kt)
 
     def __bathe(self, step: int) -> None:
         """Friction and noise of each bath for half a step, the heat it

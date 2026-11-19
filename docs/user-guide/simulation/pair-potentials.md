@@ -97,6 +97,27 @@ atoms. The long-range corrections of LAMMPS (`pair_modify tail`) and the
 weights of bonded neighbors (`special_bonds`) are not part of these
 calculators.
 
+## The Uhlenbeck–Ford model
+
+`UhlenbeckFord(parameters, cutoff, *, mixing="geometric", shift=False)` is the
+Uhlenbeck–Ford model of LAMMPS's `pair_style ufm`, a soft repulsion of finite reach,
+
+$$
+E_{UF}(r) = -\varepsilon \ln\left(1 - e^{-r^2/\sigma^2}\right),
+$$
+
+with ε in eV and σ in Å, the reference liquid of
+[free energies](free-energy.md#definition), whose own free energy is known
+([Paula Leite et al. (2016)](../../reference/references.md#paulaleite2016)).
+Its parameters, mixing and shift are those of `LennardJones`: (ε, σ) or
+(ε, σ, cutoff) for an element or a pair, or numbers alone for any atom.
+
+```python
+from mdapy.calculators import UhlenbeckFord
+
+model = UhlenbeckFord((1.29, 1.5), 6.0)  # ε = 50 kT at 300 K, σ = 1.5 Å
+```
+
 ## Errors
 
 The calculators raise `InvalidParameter` for parameters that are not a

@@ -17,6 +17,7 @@ from mdapy.calculators import (
     Morse,
     StillingerWeber,
     Tersoff,
+    UhlenbeckFord,
 )
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
@@ -247,6 +248,15 @@ def test_pair_potentials(precision):
         Morse(morse, 8.0, device="cuda", precision=precision, shift=True),
         Morse(morse, 8.0, shift=True),
         system,
+        precision,
+    )
+    # the Uhlenbeck-Ford model, of atoms closer together
+    close = shaken(2.6, ("Ar", "Kr"), 6, tilt=0.2, jitter=0.2)
+    uf = {"Ar": (0.25, 1.5), "Kr": (0.4, 1.7, 6.5)}
+    compare(
+        UhlenbeckFord(uf, 6.0, device="cuda", precision=precision, shift=True),
+        UhlenbeckFord(uf, 6.0, shift=True),
+        close,
         precision,
     )
 

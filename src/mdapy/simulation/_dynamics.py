@@ -370,6 +370,7 @@ create_box {len(potential.elements)} box
             self.command(
                 f"fix mdapy_langevin {group} langevin {t0!r} {t1!r} "
                 f"{float(run['thermostat_damping'])!r} {int(seed)}"
+                + (" zero yes" if run.get("keep_momentum") else "")
             )
             self.__fixes.append("mdapy_langevin")
         self.__start, self.__steps = self.step, run["steps"]
@@ -486,6 +487,11 @@ create_box {len(potential.elements)} box
                     f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
                 )
                 self.__fixes.append(name)
+            elif isinstance(control, _controls.Switch):
+                raise InvalidParameter(
+                    "a Switch needs MDAPY's own dynamics, with a calculator other "
+                    "than LAMMPS"
+                )
             elif isinstance(control, _controls.AdaptiveTimestep):
                 low = (
                     "NULL"
@@ -783,6 +789,7 @@ class MolecularDynamics:
         thermostat_damping: float | None = None,
         barostat_damping: float | None = None,
         seed: int | None = None,
+        keep_momentum: bool = False,
         thermo: int = 100,
         save_every: int | None = None,
         controls: Any = None,
@@ -821,6 +828,10 @@ class MolecularDynamics:
         seed : int32, optional
             Seed of the random forces of Langevin dynamics, positive;
             unpredictable when None.
+        keep_momentum : bool, optional
+            With Langevin dynamics, random forces that sum to zero, which keep
+            the total momentum, as LAMMPS's fix langevin zero yes; on the
+            processor, with no atoms held or moved. Default False.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -865,6 +876,7 @@ class MolecularDynamics:
             thermo,
             save_every,
             controls,
+            keep_momentum,
         )
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
@@ -882,6 +894,7 @@ class MolecularDynamics:
         thermostat_damping: float | None = None,
         barostat_damping: float | None = None,
         seed: int | None = None,
+        keep_momentum: bool = False,
         thermo: int = 100,
         controls: Any = None,
         progress: Any = None,
@@ -925,6 +938,10 @@ class MolecularDynamics:
         seed : int32, optional
             Seed of the random forces of Langevin dynamics, positive;
             unpredictable when None.
+        keep_momentum : bool, optional
+            With Langevin dynamics, random forces that sum to zero, which keep
+            the total momentum, as LAMMPS's fix langevin zero yes; on the
+            processor, with no atoms held or moved. Default False.
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
@@ -976,6 +993,7 @@ class MolecularDynamics:
             thermo,
             save_every,
             controls,
+            keep_momentum,
         )
         return self.__read(spec, progress, cancel)
 
@@ -1013,6 +1031,7 @@ class MolecularDynamics:
         thermo: int,
         save_every: int | None,
         controls: Any = None,
+        keep_momentum: bool = False,
     ) -> dict[str, Any]:
         """The checked options of a run."""
         checked = _controls.checked(controls, self.__n)
@@ -1037,6 +1056,22 @@ class MolecularDynamics:
         if thermostat not in _THERMOSTATS:
             raise InvalidParameter(
                 f"thermostat must be one of {_THERMOSTATS}, not {thermostat!r}"
+            )
+        if not isinstance(keep_momentum, bool):
+            raise InvalidParameter(
+                f"keep_momentum must be a bool, not {keep_momentum!r}"
+            )
+        if keep_momentum and not (
+            thermostat == "langevin" and ensemble in ("nvt", "npt")
+        ):
+            raise InvalidParameter(
+                'keep_momentum is for the "langevin" thermostat of "nvt" or "npt"'
+            )
+        if keep_momentum and any(
+            isinstance(c, (_controls.Hold, _controls.Move)) for c in checked
+        ):
+            raise InvalidParameter(
+                "keep_momentum with atoms held or moved: there is no momentum to keep"
             )
         if int(thermo) < 1 or (save_every is not None and int(save_every) < 1):
             raise InvalidParameter("thermo and save_every must be positive")
@@ -1080,6 +1115,7 @@ class MolecularDynamics:
             if barostat_damping is None
             else float(barostat_damping),
             "seed": None if seed is None else int(seed),
+            "keep_momentum": bool(keep_momentum),
             "thermo": int(thermo),
             "save_every": None if save_every is None else int(save_every),
             "controls": checked,

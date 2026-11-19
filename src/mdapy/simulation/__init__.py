@@ -6,7 +6,14 @@
 """Simulations: energy minimization and the energies of defects with a
 calculator, and molecular dynamics in LAMMPS."""
 
-from mdapy.simulation._controls import AddForce, Deform, Hold, Langevin, Move
+from mdapy.simulation._controls import (
+    AdaptiveTimestep,
+    AddForce,
+    Deform,
+    Hold,
+    Langevin,
+    Move,
+)
 from mdapy.simulation._defect_energies import (
     StackingFaultResult,
     SurfaceResult,
@@ -41,6 +48,7 @@ from mdapy.simulation._phase_diagram import (
 )
 
 __all__ = [
+    "AdaptiveTimestep",
     "AddForce",
     "BinaryPhaseDiagram",
     "Deform",

@@ -84,6 +84,10 @@ class DeviceAtoms:
     def velocities(self, v: np.ndarray) -> None:
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
 
+    @property
+    def forces(self) -> np.ndarray:
+        return self.__atoms.forces()
+
     def twice_kinetic(self) -> float:
         return float(np.trace(self.__atoms.kinetic())) * _MVV2E
 

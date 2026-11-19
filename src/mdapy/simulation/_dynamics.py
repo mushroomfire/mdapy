@@ -97,6 +97,8 @@ class _Lammps:
     """The state of the dynamics in LAMMPS and its steps."""
 
     def __init__(self, system: System, potential: LAMMPS, timestep: float):
+        self.__timestep = float(timestep)
+        self.__adaptive = False  # whether a run changes the time step
         if "element" not in system.table.columns:
             raise MissingProperty("molecular dynamics needs the element column")
         if (
@@ -393,6 +395,10 @@ create_box {len(potential.elements)} box
             for group in self.__groups:
                 self.command(f"group {group} delete")
         self.__fixes, self.__computes, self.__groups = [], [], []
+        if self.__holder and self.__adaptive:
+            # fix dt/reset leaves its last time step
+            self.command(f"timestep {self.__timestep!r}")
+        self.__adaptive = False
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
@@ -480,6 +486,23 @@ create_box {len(potential.elements)} box
                     f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
                 )
                 self.__fixes.append(name)
+            elif isinstance(control, _controls.AdaptiveTimestep):
+                low = (
+                    "NULL"
+                    if control.min_timestep is None
+                    else repr(control.min_timestep)
+                )
+                high = (
+                    self.__timestep
+                    if control.max_timestep is None
+                    else control.max_timestep
+                )
+                self.command(
+                    f"fix {name} all dt/reset {control.every} {low} {high!r} "
+                    f"{control.max_distance!r} units box"
+                )
+                self.__fixes.append(name)
+                self.__adaptive = True
             elif isinstance(control, _controls.Langevin):
                 group = self.__group(name, control.mask)
                 t0, t1 = control.temperature
@@ -804,10 +827,12 @@ class MolecularDynamics:
         save_every : int32, optional
             Keeps the atoms every this many steps, in ``frames``. Default
             None, keeping none.
-        controls : sequence of Hold, Move, AddForce, Langevin or Deform, optional
-            What is done to groups of atoms or to the box during the run:
-            atoms held, moved at a velocity, pushed, or kept at a
-            temperature, and the box deformed at constant rates. Held and
+        controls : sequence of controls, optional
+            Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+            is done to groups of atoms, the box or the time step during the
+            run: atoms held, moved at a velocity, pushed, or kept at a
+            temperature, the box deformed at constant rates, the time step
+            set by the fastest atom. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
             with a barostat or a deformation, baths not with the thermostat
@@ -903,10 +928,12 @@ class MolecularDynamics:
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        controls : sequence of Hold, Move, AddForce, Langevin or Deform, optional
-            What is done to groups of atoms or to the box during the run:
-            atoms held, moved at a velocity, pushed, or kept at a
-            temperature, and the box deformed at constant rates. Held and
+        controls : sequence of controls, optional
+            Hold, Move, AddForce, Langevin, Deform or AdaptiveTimestep: what
+            is done to groups of atoms, the box or the time step during the
+            run: atoms held, moved at a velocity, pushed, or kept at a
+            temperature, the box deformed at constant rates, the time step
+            set by the fastest atom. Held and
             moved atoms take no part in the thermostat, and the temperature
             counts the directions that move freely; held or moved atoms not
             with a barostat or a deformation, baths not with the thermostat

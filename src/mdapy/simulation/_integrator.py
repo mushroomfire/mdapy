@@ -119,6 +119,36 @@ def _barostat(
     return _Barostat(flags, "xyz" if name == "iso" else "none", name, False, scale)
 
 
+# the time step of an atom that neither moves nor feels a force, as LAMMPS's
+_BIG = 1.0e20
+
+
+def _step_limit(
+    v: np.ndarray, f: np.ndarray, masses: np.ndarray, distance: float
+) -> float:
+    """The largest time step in which no atom moves more than distance by
+    its velocity and its force, as LAMMPS's fix dt/reset finds it: the
+    smaller of distance / |v| and sqrt(2 distance m / |f|), scaled down if
+    the move of v dt + f dt^2 / 2m is still longer."""
+    inverse = (1.0 / masses)[:, None]
+    vsq = np.einsum("ij,ij->i", v, v)
+    fsq = np.einsum("ij,ij->i", f, f)
+    with np.errstate(divide="ignore"):
+        dtv = np.where(vsq > 0.0, distance / np.sqrt(vsq), _BIG)
+        dtf = np.where(
+            fsq > 0.0,
+            np.sqrt(2.0 * distance / (_FTM2V * np.sqrt(fsq) * inverse[:, 0])),
+            _BIG,
+        )
+    dt = np.minimum(dtv, dtf)[:, None]
+    move = dt * v + 0.5 * dt * dt * inverse * f * _FTM2V
+    length = np.sqrt(np.einsum("ij,ij->i", move, move))
+    dt = dt[:, 0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dt = np.where(length > distance, dt * distance / length, dt)
+    return float(dt.min()) if len(dt) else _BIG
+
+
 def _upper(h: np.ndarray) -> np.ndarray:
     """The box (rows a, b, c, lower triangular) as the upper triangular
     matrix of LAMMPS, columns a, b, c."""
@@ -178,6 +208,11 @@ class _HostAtoms:
     @velocities.setter
     def velocities(self, v: np.ndarray) -> None:
         self.__v = v
+
+    @property
+    def forces(self) -> np.ndarray:
+        """Those of the last computation, as the steps use them."""
+        return self.__forces
 
     def twice_kinetic(self) -> float:
         return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
@@ -363,6 +398,7 @@ class _Native:
         self.__moves: tuple = ()  # the names of the moved groups recorded
         self.__controlled = False  # whether the run has controls
         self.__deform: Any = None  # the Deform of the run
+        self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
         self.__prescribed = False  # whether controls set velocities
         self.__heat: list = []  # the heat each gave since the run began, eV
@@ -563,9 +599,15 @@ class _Native:
         dt = self.timestep
         self.__dt = dt
         self.__first = self.__step
-        self.__time0 = self.__time
+        # the time of a step, from the step where the time step last changed
+        self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
         self.__compute()
+        self.__adaptive = next(
+            (c for c in controls if isinstance(c, _controls.AdaptiveTimestep)), None
+        )
+        if self.__adaptive is not None:
+            self.__reset_dt()  # at the start of the run, as fix dt/reset
         self.__nh = thermostat
         self.__langevin = langevin
         self.__pstat = barostat
@@ -743,7 +785,7 @@ class _Native:
                     control.seed if control.seed is not None else secrets.randbits(63)
                 )
                 baths.append((control, seed, damping))
-            elif isinstance(control, _controls.Deform):
+            elif isinstance(control, (_controls.Deform, _controls.AdaptiveTimestep)):
                 continue
             elif isinstance(control, _controls.Move):
                 free[control.mask] = False
@@ -794,6 +836,7 @@ class _Native:
     def finish(self) -> None:
         self.__run = {}
         self.__deform = None
+        self.__adaptive = None
         if self.__controlled:
             self.__reset_controls()
 
@@ -855,7 +898,23 @@ class _Native:
             self.__bathe(step)
         if self.__deform is not None:
             self.__apply_deform(step)  # at the end of the step, as fix deform 1
-        self.__time = self.__time0 + (step - self.__first) * dt
+        self.__time = self.__atime + (step - self.__atimestep) * dt
+        if self.__adaptive is not None and step % self.__adaptive.every == 0:
+            self.__reset_dt()
+
+    def __reset_dt(self) -> None:
+        """The time step of the fastest atom within the bounds, as fix
+        dt/reset at the end of a step; the time goes on from this step."""
+        a = self.__adaptive
+        dt = _step_limit(
+            self.__atoms.velocities, self.__atoms.forces, self.__masses, a.max_distance
+        )
+        if a.min_timestep is not None:
+            dt = max(dt, a.min_timestep)
+        dt = min(dt, self.timestep if a.max_timestep is None else a.max_timestep)
+        if dt != self.__dt:
+            self.__atime, self.__atimestep = self.__time, self.__step
+            self.__dt = dt
 
     def __ornstein_uhlenbeck(self, step: int) -> None:
         """Friction and noise for half a step."""

@@ -5466,6 +5466,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/msst/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale shock technique
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -10562,7 +10590,7 @@ while the frames of an <code>iterate</code> are being read.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shock_velocity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">msst</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10602,14 +10630,15 @@ while the frames of an <code>iterate</code> are being read.</p>
                 <code>ensemble</code>
             </td>
             <td>
-                  <code>(nve, nvt, npt, nph, nphug)</code>
+                  <code>(nve, nvt, npt, nph, nphug, msst)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Constant energy, or a thermostat, and barostat, or a barostat
 alone, or a barostat and a thermostat that keeps the atoms on the
-Hugoniot of a reference state, as LAMMPS's fix nphug. Default
-"nve".</p>
+Hugoniot of a reference state, as LAMMPS's fix nphug, or the box
+compressed along an axis as by a steady shock of shock_velocity,
+as fix msst. Default "nve".</p>
               </div>
             </td>
             <td>
@@ -10669,7 +10698,7 @@ any way in the plane for "tri". Along one axis the box needs its
 first vector along x and its second in the xy plane, periodic
 along that axis. "nphug" takes "iso", "aniso" and "tri" under
 the same pressure along every axis, or one axis for a uniaxial
-compression. Default "iso".</p>
+compression; "msst" the axis of the shock. Default "iso".</p>
               </div>
             </td>
             <td>
@@ -10769,10 +10798,45 @@ atoms held or moved. Default False.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For "nphug", the reference state of the Hugoniot: its total
-energy in eV, volume in Å³ and pressure in GPa, along the axis
-of a barostat along one axis. Default None, the state at the
-start of the run.</p>
+                <p>For "nphug" and "msst", the reference state of the Hugoniot: its
+total energy in eV, volume in Å³ and pressure in GPa, along the
+axis of a barostat along one axis or of the shock. Default None,
+the state at the start of the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shock_velocity</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "msst", the velocity of the shock in Å/ps, not negative.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>msst</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "msst", its settings: "q", the mass of the box in amu²/Å⁴
+(default 10), "mu", an artificial viscosity in amu/(Å ps)
+(default 0), and "tscale", the share of the kinetic energy given
+to the compression at the start (default 0.01), as in fix msst.</p>
               </div>
             </td>
             <td>
@@ -10929,7 +10993,7 @@ of "nvt" or "npt". Default none.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.iterate" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">shock_velocity</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">msst</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10989,14 +11053,15 @@ the run before gave them there.</p>
                 <code>ensemble</code>
             </td>
             <td>
-                  <code>(nve, nvt, npt, nph, nphug)</code>
+                  <code>(nve, nvt, npt, nph, nphug, msst)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Constant energy, or a thermostat, and barostat, or a barostat
 alone, or a barostat and a thermostat that keeps the atoms on the
-Hugoniot of a reference state, as LAMMPS's fix nphug. Default
-"nve".</p>
+Hugoniot of a reference state, as LAMMPS's fix nphug, or the box
+compressed along an axis as by a steady shock of shock_velocity,
+as fix msst. Default "nve".</p>
               </div>
             </td>
             <td>
@@ -11056,7 +11121,7 @@ any way in the plane for "tri". Along one axis the box needs its
 first vector along x and its second in the xy plane, periodic
 along that axis. "nphug" takes "iso", "aniso" and "tri" under
 the same pressure along every axis, or one axis for a uniaxial
-compression. Default "iso".</p>
+compression; "msst" the axis of the shock. Default "iso".</p>
               </div>
             </td>
             <td>
@@ -11156,10 +11221,45 @@ atoms held or moved. Default False.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For "nphug", the reference state of the Hugoniot: its total
-energy in eV, volume in Å³ and pressure in GPa, along the axis
-of a barostat along one axis. Default None, the state at the
-start of the run.</p>
+                <p>For "nphug" and "msst", the reference state of the Hugoniot: its
+total energy in eV, volume in Å³ and pressure in GPa, along the
+axis of a barostat along one axis or of the shock. Default None,
+the state at the start of the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>shock_velocity</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "msst", the velocity of the shock in Å/ps, not negative.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>msst</code>
+            </td>
+            <td>
+                  <code><span title="dict">dict</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "msst", its settings: "q", the mass of the box in amu²/Å⁴
+(default 10), "mu", an artificial viscosity in amu/(Å ps)
+(default 0), and "tscale", the share of the kinetic energy given
+to the compression at the start (default 0.01), as in fix msst.</p>
               </div>
             </td>
             <td>

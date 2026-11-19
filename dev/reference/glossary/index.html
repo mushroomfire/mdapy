@@ -5466,6 +5466,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/msst/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale shock technique
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9785,6 +9813,18 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>Hugoniostat, <code>"nphug"</code></td>
 <td>molecular dynamics at a pressure, along one axis or alike along every axis, whose thermostat drives the energy to the Hugoniot, as LAMMPS's <code>fix nphug</code>: a point of the Hugoniot without a shock wave</td>
+</tr>
+<tr>
+<td>MSST, <code>"msst"</code></td>
+<td>the multiscale shock technique: the box compressed along one axis by an equation of motion of its length that drives the stress to the Rayleigh line of a shock velocity, as LAMMPS's <code>fix msst</code>; the matter behind a steady shock, without the front</td>
+</tr>
+<tr>
+<td>Rayleigh line</td>
+<td>the states a steady shock of velocity U_s reaches from a reference: P − P₀ = ρ₀U_s²(1 − V/V₀)</td>
+</tr>
+<tr>
+<td>Lagrangian position</td>
+<td>of MSST: where the box is in the matter at rest, from where the shock reached it</td>
 </tr>
 <tr>
 <td>shock velocity, particle velocity</td>

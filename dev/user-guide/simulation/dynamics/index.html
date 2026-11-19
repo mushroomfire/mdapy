@@ -5605,6 +5605,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../msst/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale shock technique
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8979,7 +9007,7 @@ installed:</p>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">5000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
 </code></pre></div>
 <p>MDAPY integrates the equations of motion that LAMMPS's fixes <code>nve</code>, <code>nvt</code>,
-<code>npt</code>, <code>nph</code> and <code>nphug</code> integrate, in the same steps: velocity Verlet, a chain of
+<code>npt</code>, <code>nph</code>, <code>nphug</code> and <code>msst</code> integrate, in the same steps: velocity Verlet, a chain of
 three Nosé–Hoover thermostats, and the barostat of Martyna, Tobias and Klein
 on the lengths and tilts of the box. Its constants of nature are those of
 MDAPY (CODATA 2018), which differ from those of LAMMPS's metal units by about
@@ -9051,7 +9079,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions</td>
 </tr>
 <tr>
-<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, hugoniot=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)</code></td>
+<td><code>run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, hugoniot=None, shock_velocity=None, msst=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)</code></td>
 <td>runs <code>steps</code> steps</td>
 </tr>
 <tr>
@@ -9088,7 +9116,7 @@ temperature then counts the directions in which the atoms move.</p>
 <td>str</td>
 <td><code>"nve"</code></td>
 <td></td>
-<td><code>"nve"</code>, or <code>"nvt"</code> with a thermostat, or <code>"npt"</code> with a thermostat and a barostat, or <code>"nph"</code> with a barostat alone (LAMMPS <code>fix nve</code>, <code>nvt</code>, <code>npt</code>, <code>nph</code>), or <code>"nphug"</code>, a barostat and a thermostat that holds the atoms on the Hugoniot of a reference state (<code>fix nphug</code>): see <a href="../hugoniostat/">Hugoniostat</a></td>
+<td><code>"nve"</code>, or <code>"nvt"</code> with a thermostat, or <code>"npt"</code> with a thermostat and a barostat, or <code>"nph"</code> with a barostat alone (LAMMPS <code>fix nve</code>, <code>nvt</code>, <code>npt</code>, <code>nph</code>), or <code>"nphug"</code>, a barostat and a thermostat that holds the atoms on the Hugoniot of a reference state (<code>fix nphug</code>): see <a href="../hugoniostat/">Hugoniostat</a>, or <code>"msst"</code>, the box compressed along an axis as by a steady shock (<code>fix msst</code>): see <a href="../msst/">Multiscale shock technique</a></td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -9151,7 +9179,21 @@ temperature then counts the directions in which the atoms move.</p>
 <td>(float64, float64, float64)</td>
 <td><code>None</code></td>
 <td>eV, Å³, GPa</td>
-<td>for <code>"nphug"</code>, the reference state of the Hugoniot: its total energy, volume and pressure, along the axis of a barostat along one axis; <code>None</code>, the state at the start of the run</td>
+<td>for <code>"nphug"</code> and <code>"msst"</code>, the reference state of the Hugoniot: its total energy, volume and pressure, along the axis of a barostat along one axis or of the shock; <code>None</code>, the state at the start of the run</td>
+</tr>
+<tr>
+<td><code>shock_velocity</code></td>
+<td>float64</td>
+<td><code>None</code></td>
+<td>Å/ps</td>
+<td>for <code>"msst"</code>, the velocity of the shock, along the axis <code>barostat</code> names</td>
+</tr>
+<tr>
+<td><code>msst</code></td>
+<td>dict</td>
+<td><code>None</code></td>
+<td></td>
+<td>for <code>"msst"</code>, its settings <code>"q"</code>, <code>"mu"</code> and <code>"tscale"</code>: see <a href="../msst/#parameters">Multiscale shock technique</a></td>
 </tr>
 <tr>
 <td><code>thermo</code></td>
@@ -9458,7 +9500,13 @@ of every frame of <code>iterate</code>.</p>
 <td><code>shock_velocity</code>, <code>particle_velocity</code></td>
 <td>float64</td>
 <td>Å/ps</td>
-<td>with <code>"nphug"</code>: the velocities of a steady shock to this state and of the matter behind it</td>
+<td>with <code>"nphug"</code>: the velocities of a steady shock to this state and of the matter behind it; with <code>"msst"</code>, the second</td>
+</tr>
+<tr>
+<td><code>rayleigh</code>, <code>lagrangian_position</code>, <code>msst_energy</code></td>
+<td>float64</td>
+<td>GPa, Å, eV</td>
+<td>with <code>"msst"</code>: see <a href="../msst/#parameters">Multiscale shock technique</a></td>
 </tr>
 </tbody>
 </table>
@@ -9480,7 +9528,8 @@ vectors, <code>"x"</code>, <code>"y"</code> or <code>"z"</code> in a box not per
 in the form of LAMMPS, <code>"nphug"</code> with two pressures, a temperature, Langevin
 dynamics or controls, <code>"xy"</code> or a box that is not periodic, a <code>hugoniot</code>
 that is not three numbers with a positive volume or that is given to another
-ensemble, <code>thermo</code>, <code>save_every</code> or <code>seed</code> that are not positive, a barostat
+ensemble, the errors of <code>"msst"</code> (see <a href="../msst/#errors">Multiscale shock technique</a>),
+<code>thermo</code>, <code>save_every</code> or <code>seed</code> that are not positive, a barostat
 in MDAPY with a calculator without virials or, for <code>"nph"</code> and <code>"nphug"</code>,
 atoms without a temperature, and a thermostat with no atom free to move; in MDAPY, it raises
 <code>CalculationFailed</code> when the energy or the forces stop being finite. <code>command</code>

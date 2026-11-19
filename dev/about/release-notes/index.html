@@ -5464,6 +5464,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/msst/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multiscale shock technique
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9382,6 +9410,13 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>run(..., ensemble="msst", barostat="z", shock_velocity=...)</code>, the multiscale
+  shock technique of LAMMPS's <code>fix msst</code>: the box compressed along an axis as by a
+  steady shock of that velocity, its settings <code>q</code>, <code>mu</code> and <code>tscale</code> in <code>msst</code>, the
+  reference in <code>hugoniot</code>; <code>thermo</code> records the distances from the Hugoniot and the
+  Rayleigh line, the particle velocity, the Lagrangian position and the energy of
+  the box. In MDAPY, on the GPU and in LAMMPS alike. See
+  <a href="../../user-guide/simulation/msst/">Multiscale shock technique</a>.</li>
 <li><code>run(..., ensemble="nphug")</code>, the Hugoniostat of LAMMPS's <code>fix nphug</code>: a barostat
   at one pressure, along one axis or alike along every axis, and a thermostat that
   drives the energy to the Hugoniot of the state at the start, or of <code>hugoniot</code>;

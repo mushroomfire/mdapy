@@ -84,6 +84,13 @@ public:
     // v = c1 v + c2 sqrt(kt / m) g, g Gaussian of a seed and a counter
     void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter);
     void kinetic(double* tensor) const;  // (3, 3), the sum of m v v
+    // The directions in which each atom may move, (n, 3) in the axes of the
+    // system, whose vectors are those of the atoms times rotation (3, 3)
+    // transposed; then restrict_* removes the other components of the forces
+    // or the velocities, as simulation/_integrator.py does on the processor.
+    void set_movable(const bool* movable, const double* rotation);
+    void restrict_forces();
+    void restrict_velocities();
 
     struct Impl;
     Impl& impl() { return *impl_; }

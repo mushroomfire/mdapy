@@ -123,15 +123,15 @@ that seed.
 [MDAPY's own dynamics](dynamics.md#in-mdapy-with-any-calculator) does on the
 processor. Along every periodic direction the box must be thicker than twice the
 cutoff of the potential and the skin, 1 Å, at every step, also as a barostat changes
-it; smaller boxes, small systems and a `movable` column are for the processor.
+it; smaller boxes and small systems are for the processor. A `movable` column holds
+atoms along the directions where it is False, as on the processor.
 
 ## Errors
 
 A potential with `device="cuda"` raises `InvalidParameter` when MDAPY was built
 without its GPU part, when there is no GPU, for a `device` or a `precision` not in
 the tables above, and for `"mixed"` on the processor; `compute` and
-`MolecularDynamics` raise it for a box too thin along a periodic direction, and
-`MolecularDynamics` for a `movable` column. The dynamics raises `CalculationFailed`
+`MolecularDynamics` raise it for a box too thin along a periodic direction. The dynamics raises `CalculationFailed`
 when the positions, the energy or the forces stop being finite.
 
 See also: [Molecular dynamics on the GPU](../../performance/gpu.md), how fast it is.

@@ -85,6 +85,20 @@ class Atoms:
     def kinetic(self):
         return np.einsum("i,ij,ik->jk", self.masses, self.v, self.v)
 
+    def set_movable(self, movable, rotation):
+        self.movable, self.rotation = np.array(movable), np.array(rotation)
+
+    def __restricted(self, vectors):
+        r = self.rotation
+        return ((vectors @ r.T) * self.movable) @ r
+
+    def restrict_forces(self):
+        e, f, w = self.result
+        self.result = (e, self.__restricted(f), w)
+
+    def restrict_velocities(self):
+        self.v = self.__restricted(self.v)
+
 
 class Neighbors:
     def __init__(self, cutoff, skin):

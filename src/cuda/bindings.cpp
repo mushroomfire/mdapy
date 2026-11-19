@@ -38,6 +38,7 @@ using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::c
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
+using Movable = nb::ndarray<const bool, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
 nb::object new_array(std::initializer_list<std::size_t> dims, T*& data) {
@@ -158,6 +159,17 @@ NB_MODULE(_cuda, m) {
             nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
         .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
              nb::arg("seed"), nb::arg("counter"))
+        .def(
+            "set_movable",
+            [](Atoms& a, Movable movable, Matrix rotation) {
+                if (static_cast<std::int64_t>(movable.shape(0)) != a.size()) {
+                    throw std::invalid_argument("three directions per atom");
+                }
+                a.set_movable(movable.data(), rotation.data());
+            },
+            nb::arg("movable"), nb::arg("rotation"))
+        .def("restrict_forces", &Atoms::restrict_forces)
+        .def("restrict_velocities", &Atoms::restrict_velocities)
         .def("kinetic",
              [](const Atoms& a) {
                  double* data;

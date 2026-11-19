@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
+  LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
+  other melts with a thermostat of its own, and the crystal gets its velocities
+  from `thermal_velocities`, in either engine. See
+  [Melting point](../user-guide/simulation/melting-point.md).
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
   hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
   velocity and record the force on them (`Move`), push them (`AddForce`), or

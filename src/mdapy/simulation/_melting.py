@@ -12,15 +12,17 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy.analysis._steinhardt import SteinhardtParameters
-from mdapy.calculators._lammps import LAMMPS
+from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+from mdapy.simulation._controls import Hold
 from mdapy.simulation._dynamics import MolecularDynamics
-from mdapy.simulation._free_energy import _mean_box, _Progress, _run
+from mdapy.simulation._free_energy import _mean_box, _Progress
+from mdapy.simulation._velocities import thermal_velocities
 from mdapy.transform import replicate
 
 # outcomes of a run
@@ -188,9 +190,39 @@ def _supercell(crystal: System, atoms: int) -> System:
     return replicate(crystal, repeats)
 
 
+def _heated(
+    md: MolecularDynamics,
+    steps: int,
+    temperature,
+    solid: np.ndarray,
+    timestep: float,
+    counter: _Progress,
+) -> None:
+    """The liquid half at a temperature, or from one to another, with a
+    Nosé-Hoover thermostat of its own at the density of the crystal, so that
+    it cannot fly apart, while the solid half is held where it is."""
+    done = counter.done
+
+    def progress(steps_done: int, _: int) -> None:
+        if counter.progress is not None:
+            counter.progress(done + steps_done, counter.total)
+
+    md.run(
+        steps,
+        ensemble="nvt",
+        temperature=temperature,
+        thermostat_damping=100 * timestep,
+        thermo=steps,
+        controls=[Hold(solid)],
+        progress=progress,
+        cancel=counter.cancel,
+    )
+    counter.done = done + steps
+
+
 def _one_run(
     start: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     pressure: float,
     barostat_damping: float | None,
@@ -227,58 +259,37 @@ def _one_run(
     crystal = crystal.gather(np.argsort(third, kind="stable"))
     half = len(crystal) // 2
     hot = _HOT * temperature
-
-    def heating(first: float, last: float) -> str:
-        # at the density of the crystal, so that the half cannot fly apart; the
-        # barostat of the run that follows lets it expand
-        return (
-            f"fix mdapy_heat mdapy_liquid nvt temp {first!r} {last!r} "
-            f"{100 * timestep!r}"
-        )
-
-    with MolecularDynamics(crystal, potential, timestep=timestep) as md:
-        md.command(
-            "\n".join(
-                [
-                    f"group mdapy_solid id 1:{half}",
-                    "group mdapy_liquid subtract all mdapy_solid",
-                    "velocity mdapy_solid set 0 0 0",
-                    f"velocity mdapy_liquid create {hot!r} {seed + 1} mom yes rot no",
-                    "fix mdapy_hold mdapy_solid setforce 0 0 0",
-                    heating(hot, hot),
-                ]
-            )
-        )
+    # the first half of the atoms along the third vector stays solid
+    solid = np.zeros(len(crystal), dtype=bool)
+    solid[:half] = True
+    liquid = crystal.with_columns(
+        velocities=thermal_velocities(crystal, hot, seed=seed + 1, mask=~solid)
+    )
+    with MolecularDynamics(liquid, potential, timestep=timestep) as md:
         # hot until the atoms have left their places, by about the distance
         # between them, hotter and longer as long as they have not
         before = md.system
         distance = (crystal.box.volume / len(crystal)) ** (2 / 3)
         for _ in range(_MELT_TRIES):
-            _run(md, equilibrium, counter)
+            _heated(md, equilibrium, hot, solid, timestep, counter)
             if _travel(before, md.system, half) > distance:
                 break
             hot *= _HOTTER
-            md.command(f"unfix mdapy_heat\n{heating(hot, hot)}")
         else:
             raise InvalidParameter(
                 f"one half of the crystal does not melt, even at {hot:g} K"
             )
-        md.command(f"unfix mdapy_heat\n{heating(hot, temperature)}")
-        _run(md, equilibrium, counter)
+        _heated(md, equilibrium, (hot, temperature), solid, timestep, counter)
         # the liquid settles at the temperature: cooled fast, it holds extra energy
-        md.command(f"unfix mdapy_heat\n{heating(temperature, temperature)}")
-        _run(md, equilibrium, counter)
-        # the crystal starts at rest in its places: half of this goes into them
-        md.command(
-            "\n".join(
-                [
-                    "unfix mdapy_heat",
-                    "unfix mdapy_hold",
-                    f"velocity mdapy_solid create {2 * temperature!r} {seed + 2} "
-                    "mom yes rot no",
-                ]
-            )
-        )
+        _heated(md, equilibrium, temperature, solid, timestep, counter)
+        prepared = md.system
+    # the crystal starts at rest in its places: half of this goes into them
+    velocities = prepared["velocities"].copy()
+    velocities[solid] = thermal_velocities(
+        prepared, 2 * temperature, seed=seed + 2, mask=solid
+    )[solid]
+    joined_start = prepared.with_columns(velocities=velocities)
+    with MolecularDynamics(joined_start, potential, timestep=timestep) as md:
         joined = equilibrium // 2
         done = md.step
         md.run(
@@ -405,7 +416,7 @@ def _next_temperature(attempts: list[MeltingAttempt]) -> float:
 
 def melting_point(
     crystal: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     *,
     pressure: float = 0.0,
@@ -432,8 +443,9 @@ def melting_point(
         The crystal, relaxed, with an ``element`` column, in a box periodic in
         every direction; the interface between the phases is across its third
         vector.
-    potential : LAMMPS
-        The interaction.
+    potential : Calculator
+        The interaction: any calculator of energies, forces and virials; the
+        dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator.
     temperature : float64
         The first guess in K, positive.
     pressure : float64, optional
@@ -482,14 +494,14 @@ def melting_point(
     InvalidParameter
         For invalid options, a box not periodic in every direction, if half of
         the crystal does not melt, if no run ends with two phases within
-        ``max_runs``, or if LAMMPS fails.
+        ``max_runs``, or if the dynamics fail.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
         If cancelled.
     """
-    if not isinstance(potential, LAMMPS):
-        raise InvalidParameter("potential must be a mdapy.calculators.LAMMPS")
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
     if "element" not in crystal.table.columns:
         raise MissingProperty("the melting point needs the element column")
     if not crystal.box.pbc.all():

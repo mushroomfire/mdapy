@@ -298,27 +298,10 @@ calculators::MeamPotential make_meam(Table element, Table ebound, Array cmin, Ar
         options.size() != 4 || numbers.size() != 5) {
         throw std::invalid_argument("inconsistent MEAM tables");
     }
-    calculators::MeamPotential m;
-    m.elements = static_cast<int>(e);
-    m.ialloy = options[0];
-    m.mix_ref_t = options[1];
-    m.emb_lin_neg = options[2];
-    m.bkgd_dyn = options[3];
-    m.rc = numbers[0];
-    m.delr = numbers[1];
-    m.gsmooth_factor = numbers[2];
-    m.dr = numbers[3];
-    m.cutoff = numbers[4];
-    m.nr = static_cast<int>(tables.shape(2));
-    if (!(m.rc > 0.0) || !(m.delr > 0.0) || !(m.dr > 0.0) || !(m.cutoff >= m.rc)) {
-        throw std::invalid_argument("MEAM cutoffs and spacings must be positive");
-    }
-    m.element.assign(element.data(), element.data() + element.size());
-    m.ebound.assign(ebound.data(), ebound.data() + ebound.size());
-    m.cmin.assign(cmin.data(), cmin.data() + cmin.size());
-    m.cmax.assign(cmax.data(), cmax.data() + cmax.size());
-    m.table.assign(tables.data(), tables.data() + tables.size());
-    return m;
+    return calculators::make_meam_potential(static_cast<int>(e), element.data(), ebound.data(),
+                                            cmin.data(), cmax.data(), tables.data(),
+                                            static_cast<int>(tables.shape(2)), options.data(),
+                                            numbers.data());
 }
 
 nb::tuple compute_meam(const calculators::MeamPotential& potential, Species species,

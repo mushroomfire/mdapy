@@ -57,6 +57,15 @@ struct MeamPotential {
 // neighbor list of at least potential.cutoff in CSR form whose pair vectors
 // are those of neighbor::pair_vector; the energies and virials shared among
 // the atoms as LAMMPS tallies them, the virials symmetric.
+// The potential of its tables: element (17, elements), ebound (elements,
+// elements), cmin and cmax (elements^3), tables (pairs, 7, nr); options
+// ialloy, mix_ref_t, emb_lin_neg, bkgd_dyn; numbers rc, delr,
+// gsmooth_factor, dr, cutoff. Throws std::invalid_argument for cutoffs and
+// spacings that are not positive.
+MeamPotential make_meam_potential(int elements, const double* element, const double* ebound,
+                                  const double* cmin, const double* cmax, const double* tables,
+                                  int nr, const int* options, const double* numbers);
+
 void compute_meam(const MeamPotential& potential, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,

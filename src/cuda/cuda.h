@@ -16,6 +16,7 @@
 
 #include "calculators/adp.h"
 #include "calculators/eam.h"
+#include "calculators/meam.h"
 #include "calculators/pair.h"
 #include "calculators/stillinger_weber.h"
 #include "calculators/tersoff.h"
@@ -150,5 +151,7 @@ std::unique_ptr<Potential> make_stillinger_weber(
     const calculators::StillingerWeberPotential& potential, Precision precision);
 std::unique_ptr<Potential> make_tersoff(const calculators::TersoffPotential& potential,
                                         Precision precision);
+std::unique_ptr<Potential> make_meam(const calculators::MeamPotential& potential,
+                                     Precision precision);
 
 }  // namespace mdapy::cuda

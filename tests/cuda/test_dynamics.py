@@ -115,6 +115,33 @@ def test_tersoff_runs_as_on_the_processor(tmp_path):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8)
 
 
+def test_meam_runs_as_on_the_processor(tmp_path):
+    """Screening beyond rc, the shares of each centre kept with it."""
+    from mdapy.calculators import MEAM
+
+    from calculators.meam_files import CASES, write_library, write_parameters
+    from calculators.test_meam import crystal as meam_crystal
+
+    names, lines, structure, a = CASES["silicon and carbon, dia, screening beyond rc"]
+    library = write_library(tmp_path / "library.meam")
+    parameters = write_parameters(tmp_path / "x.meam", lines)
+    cpu = MEAM(library, names, parameters)
+    gpu = MEAM(library, names, parameters, device="cuda", precision="double")
+    repeat = int(np.ceil((2 * (cpu.cutoff + 1.0) + 1.0) / a)) + 1
+    system = meam_crystal(
+        structure, a, cpu.elements, repeat=repeat, jitter=0.05, seed=3
+    )
+    options = {"ensemble": "npt", "temperature": 300, "pressure": 0.0}
+    x, tx = run(system, gpu, 100, **options)
+    y, ty = run(system, cpu, 100, **options)
+    np.testing.assert_allclose(x.box.matrix, y.box.matrix, atol=1e-8)
+    d = x["positions"] - y["positions"]
+    d -= np.round(d @ np.linalg.inv(y.box.matrix)) @ y.box.matrix
+    assert np.abs(d).max() < 1e-7
+    for column in ("temperature", "potential_energy", "pressure"):
+        np.testing.assert_allclose(tx[column], ty[column], rtol=1e-8, atol=1e-8)
+
+
 def test_mixed_precision_keeps_the_energy():
     system = crystal(repeat=8)
     gpu = EAM.zhou(["Cu", "Ni"], device="cuda")

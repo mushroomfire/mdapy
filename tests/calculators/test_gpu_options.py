@@ -108,6 +108,22 @@ def test_three_body_on_the_gpu(monkeypatch, tmp_path):
     )
 
 
+def test_meam_on_the_gpu(monkeypatch, tmp_path):
+    from mdapy.calculators import MEAM
+
+    from .meam_files import write_library
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    library = write_library(tmp_path / "library.meam")
+    system = mdapy.build.build_crystal("fcc", 3.62, elements="Cu", repeat=(3, 3, 3))
+    gpu, cpu = MEAM(library, ["Cu"], device="cuda"), MEAM(library, ["Cu"])
+    np.testing.assert_allclose(
+        gpu.compute(system).forces, cpu.compute(system).forces, atol=1e-12
+    )
+    assert gpu._on_device is not None and cpu._on_device is None
+    assert "device='cuda'" in repr(gpu) and "device" not in repr(cpu)
+
+
 def test_no_device(monkeypatch):
     fake = stand_in(found=False)
     monkeypatch.setitem(sys.modules, "mdapy._cuda", fake)

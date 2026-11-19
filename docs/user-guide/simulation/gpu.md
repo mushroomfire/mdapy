@@ -83,6 +83,7 @@ the module, so running it needs only the driver of the GPU.
 | [`LennardJones`](pair-potentials.md), [`Morse`](pair-potentials.md) | every pair of elements, with `shift` and the mixing rules |
 | [`ADP`](adp.md) | the dipole and the quadrupole of the neighbors of each atom |
 | [`Tersoff`](tersoff.md), [`StillingerWeber`](stillinger-weber.md) | every triplet of elements; the energy and the virial of each three-body term shared among its atoms as on the processor when the atoms' own are asked for |
+| [`MEAM`](meam.md) | every reference structure and option of the processor, screening within and beyond rc; the densities of each atom held in double precision |
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
@@ -98,9 +99,9 @@ a neighbor list given to it is not used. Every calculator has `device` and `prec
 
 | | Mixed | Double |
 |---|---|---|
-| Forces, atom by atom | within about 1e-6 of the largest force, 4e-6 for Tersoff | those of the processor to rounding, 1e-14 |
-| Energies | of each atom within about 1e-6 of the largest, the total within 1e-6 | to rounding |
-| Total virial | within about 1e-6 of its largest component | to rounding |
+| Forces, atom by atom | within about 1e-6 of the largest force, up to 6e-6 for Tersoff and MEAM | those of the processor to rounding, 1e-14 |
+| Energies | of each atom within about 2e-6 of the largest, the total within 1e-6 | to rounding |
+| Total virial | within about 1e-5 of its largest component, more near zero pressure, where its terms cancel | to rounding |
 | Molecular dynamics | the same runs as long as rounding allows | the runs of the processor, step by step, in every ensemble |
 
 Single precision holds the position of each atom from the corner of its cell of the

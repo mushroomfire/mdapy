@@ -16,16 +16,20 @@ namespace mdapy::cuda {
 
 // derivative: 3 planes of plane values, c plane + k n + i for the pair k of
 // atom i; share_energy 1 plane, share_virial 9. The energies and virials of
-// the centres are in energies and virials already.
+// the centres are in energies and virials already; own_force, (n, 3) or
+// null, the forces atoms found on themselves.
 template <class Real, bool Energy, bool Virial, bool Atomic>
 __global__ void gather_shares(std::int64_t n, std::int64_t plane, const std::int32_t* indices,
                               const std::int32_t* counts, const std::int32_t* reverse,
                               const Real* derivative, const double* share_energy,
-                              const double* share_virial, double* forces, double* energies,
-                              double* virials) {
+                              const double* share_virial, const double* own_force,
+                              double* forces, double* energies, double* virials) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     double force[3] = {0.0, 0.0, 0.0};
+    if (own_force != nullptr) {
+        for (int c = 0; c < 3; ++c) force[c] = own_force[3 * i + c];
+    }
     double energy = 0.0;
     double w[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     const int count = counts[i];

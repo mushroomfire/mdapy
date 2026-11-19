@@ -11,6 +11,7 @@
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/unique_ptr.h>
+#include <nanobind/stl/vector.h>
 
 #include <array>
 #include <cstdint>
@@ -35,6 +36,7 @@ using Matrix = nb::ndarray<const double, nb::shape<3, 3>, nb::c_contig, nb::devi
 using Vector = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
 
 template <class T>
@@ -280,6 +282,25 @@ NB_MODULE(_cuda, m) {
             return mdapy::cuda::make_tersoff(potential, precision_of(precision));
         },
         nb::arg("elements"), nb::arg("rows"), nb::arg("precision"));
+    m.def(
+        "make_meam",
+        [](Table element, Table ebound, Array cmin, Array cmax, Array tables,
+           const std::vector<int>& options, const std::vector<double>& numbers,
+           const std::string& precision) {
+            const auto e = static_cast<std::size_t>(element.shape(1));
+            if (element.shape(0) != 17 || ebound.shape(0) != e || ebound.shape(1) != e ||
+                cmin.size() != e * e * e || cmax.size() != e * e * e || tables.ndim() != 3 ||
+                tables.shape(0) != e * (e + 1) / 2 || tables.shape(1) != 7 ||
+                tables.shape(2) < 3 || options.size() != 4 || numbers.size() != 5) {
+                throw std::invalid_argument("inconsistent MEAM tables");
+            }
+            const auto potential = mdapy::calculators::make_meam_potential(
+                static_cast<int>(e), element.data(), ebound.data(), cmin.data(), cmax.data(),
+                tables.data(), static_cast<int>(tables.shape(2)), options.data(), numbers.data());
+            return mdapy::cuda::make_meam(potential, precision_of(precision));
+        },
+        nb::arg("element"), nb::arg("ebound"), nb::arg("cmin"), nb::arg("cmax"),
+        nb::arg("tables"), nb::arg("options"), nb::arg("numbers"), nb::arg("precision"));
     m.def(
         "make_pair",
         [](const std::string& style, int species, Flat cutsq, Flat offset, Flat coefficients,

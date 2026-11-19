@@ -438,7 +438,7 @@ public:
         const auto gather = [&](auto kernel) {
             kernel<<<g, kBlock>>>(n, plane, l.indices.data(), l.counts.data(), reverse,
                                   derivative_.data(), share_energy_.data(), share_virial_.data(),
-                                  a.forces.data(), a.energies.data(), a.virials.data());
+                                  nullptr, a.forces.data(), a.energies.data(), a.virials.data());
         };
         if (atomic && energy && virial) gather(gather_shares<Real, true, true, true>);
         else if (atomic && energy) gather(gather_shares<Real, true, false, true>);

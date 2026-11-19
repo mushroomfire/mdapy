@@ -11,6 +11,7 @@ from mdapy.build import build_crystal
 from mdapy.calculators import (
     ADP,
     EAM,
+    MEAM,
     LennardJones,
     Morse,
     StillingerWeber,
@@ -20,7 +21,10 @@ from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 
 from calculators.eam_files import write_funcfl, write_setfl
+from calculators.meam_files import CASES as MEAM_CASES
+from calculators.meam_files import write_library, write_parameters
 from calculators.potential_files import write_adp, write_sw, write_tersoff
+from calculators.test_meam import crystal as meam_crystal
 
 cuda = pytest.importorskip("mdapy._cuda")
 try:
@@ -139,6 +143,23 @@ def test_tersoff(tmp_path, precision, tilt):
         system,
         precision,
     )
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+@pytest.mark.parametrize("case", sorted(MEAM_CASES))
+def test_meam(tmp_path, precision, case):
+    """Every case of the CPU's tests: the reference structures, the alloys of
+    each ialloy, screening within and beyond rc."""
+    names, lines, structure, a = MEAM_CASES[case]
+    library = write_library(tmp_path / "library.meam")
+    parameters = None if lines is None else write_parameters(tmp_path / "x.meam", lines)
+    cpu = MEAM(library, names, parameters)
+    gpu = MEAM(library, names, parameters, device="cuda", precision=precision)
+    repeat = int(np.ceil((2 * (cpu.cutoff + 1.0) + 1.0) / a)) + 1
+    system = meam_crystal(
+        structure, a, cpu.elements, repeat=repeat, jitter=0.15, seed=3
+    )
+    compare(gpu, cpu, system, precision)
 
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])

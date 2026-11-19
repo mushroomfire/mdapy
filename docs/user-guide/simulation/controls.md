@@ -4,8 +4,13 @@ A run of [molecular dynamics](dynamics.md) can hold some atoms still, move
 others at a velocity, push others and keep others at a temperature: the
 controls of the run. Each acts on
 a group, an (N,) bool mask over the atoms of the system, and lasts for the
-run it is given to, through `controls` of `run` or `iterate`; a
-[`Deform`](deformation.md) among them deforms the box.
+run it is given to, through `controls` of `run` or `iterate`. Others act on the
+whole run: a [`Deform`](deformation.md) deforms the box, an
+[`AdaptiveTimestep`](adaptive-timestep.md) sets the time step, a
+[`Switch`](switching.md) turns the potential into another, and a [`Wall`](walls.md) or
+an [`Indenter`](indentation.md) pushes the atoms that reach it. All of them act in
+MDAPY, on the processor and on the [GPU](gpu.md); all but the `Switch` act in LAMMPS
+too.
 
 Copper sheared between two walls at 300 K: the bottom wall held, the top
 one moved along x at 0.2 Å/ps, 20 m/s, the force of the crystal on it

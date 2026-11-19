@@ -19,6 +19,9 @@
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
   [Deformation](../user-guide/simulation/deformation.md).
+- `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
+  or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
+  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

@@ -9095,8 +9095,9 @@ pages that tell more.</p>
 </tbody>
 </table>
 <h2 id="simulate">Simulate<a class="headerlink" href="#simulate" title="Permanent link">&para;</a></h2>
-<p>Molecular dynamics, and the methods that run it, need a <code>LAMMPS</code> calculator, written
-<code>lammps</code> below; the others take any calculator. See
+<p>Molecular dynamics runs with any calculator, in MDAPY itself, or in LAMMPS with a
+<code>LAMMPS</code> calculator; the methods written with <code>lammps</code> below still need a <code>LAMMPS</code>
+calculator. See
 <a href="../../../user-guide/simulation/dynamics/">Molecular dynamics</a>,
 <a href="../../../user-guide/simulation/defect-energies/">Defect energies</a>,
 <a href="../../../user-guide/simulation/melting-point/">Melting point</a> and
@@ -9111,7 +9112,7 @@ pages that tell more.</p>
 <tbody>
 <tr>
 <td>molecular dynamics</td>
-<td><code>with MolecularDynamics(system, lammps, timestep=0.002) as md:</code></td>
+<td><code>with MolecularDynamics(system, potential, timestep=0.002) as md:</code></td>
 </tr>
 <tr>
 <td>to start it at a temperature</td>

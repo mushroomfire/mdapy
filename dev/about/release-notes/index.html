@@ -5408,6 +5408,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/walls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9326,6 +9354,11 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>mdapy.simulation.Wall</code>, a control of a flat wall across an axis that reflects
+  the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
+  piston that drives a shock wave), as LAMMPS's <code>fix wall/reflect</code> and
+  <code>fix wall/piston</code>; in MDAPY, on the GPU and in LAMMPS alike. See
+  <a href="../../user-guide/simulation/walls/">Walls</a>.</li>
 <li><code>SpatialBinning</code> reduces moving atoms: <code>reduction="mass_mean"</code>, the mean weighted by
   mass, the velocity of the center of mass of a bin for a column of velocities;
   <code>"temperature"</code> of the velocities and <code>"stress"</code> of the virials of each atom, both

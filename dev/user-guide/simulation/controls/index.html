@@ -5510,6 +5510,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../walls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../gpu/" class="md-nav__link">
         
   
@@ -8875,6 +8903,10 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 <td><code>Switch(target, *, start=0.0, stop=1.0, name=None)</code></td>
 <td>the potential turned into another along the run, for thermodynamic integration: see <a href="../switching/">Switching between potentials</a></td>
 </tr>
+<tr>
+<td><code>Wall(axis="z", *, side="low", position=None, velocity=0.0)</code></td>
+<td>a flat wall that reflects the atoms, still or moving as a piston: see <a href="../walls/">Walls</a></td>
+</tr>
 </tbody>
 </table>
 <table>
@@ -8984,7 +9016,7 @@ the force at one step, which the vibrations of the atoms shake.</em></p>
 </ul>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>run</code> and <code>iterate</code> raise <code>InvalidParameter</code> for a control that is not a
-<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code> or <code>Switch</code>, a group of another number of atoms,
+<code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>, <code>Deform</code>, <code>AdaptiveTimestep</code>, <code>Switch</code> or <code>Wall</code>, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat or a <code>Deform</code>,
 a bath with the thermostat of <code>"nvt"</code> or <code>"npt"</code>, on the GPU more than 31

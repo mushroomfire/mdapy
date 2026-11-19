@@ -5410,6 +5410,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/walls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -8063,6 +8091,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Wall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wall
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -9363,6 +9402,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.Wall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Wall
+      
+    </span>
+  </a>
   
 </li>
         
@@ -12303,6 +12353,143 @@ energies. Default None, recording none.</p>
     </div>
 
 </div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.Wall" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">Wall</span>
+
+
+<a href="#mdapy.simulation.Wall" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Wall</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="s1">'z'</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">side</span><span class="o">=</span><span class="s1">'low'</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">velocity</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+
+
+        <p>A flat wall across an axis that reflects the atoms that pass it, still
+or moving at a constant velocity: a momentum mirror that a crystal hits,
+or a piston that drives a shock into it, as LAMMPS's fix wall/reflect
+and fix wall/piston. After the atoms move in a step, an atom past the
+wall is put back by as much and its velocity across the wall becomes
+2 u - v, u that of the wall.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>axis</code>
+            </td>
+            <td>
+                  <code>(x, y, z)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The axis of the system the wall is across; the periodic vectors of
+the box must be normal to it. Default "z".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;x&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>side</code>
+            </td>
+            <td>
+                  <code>(low, high)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The atoms are kept above the wall ("low") or below it ("high").
+Default "low".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;low&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>position</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The coordinate of the wall along the axis at the start of the run in
+Å. Default None, the face of the box on that side at the start of
+the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>velocity</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The velocity of the wall along the axis in Å/ps; positive moves it
+along the axis. Default 0, a still wall. In LAMMPS a wall moves on
+the low side of z only, up z.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.0</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
 
 
 

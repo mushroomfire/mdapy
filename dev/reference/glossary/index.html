@@ -5410,6 +5410,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/walls/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Walls
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9712,7 +9740,15 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 </tr>
 <tr>
 <td>controls</td>
-<td>of a run of molecular dynamics: <code>Hold</code>, <code>Move</code>, <code>AddForce</code> and <code>Langevin</code>, what is done to groups of atoms during the run, <code>Deform</code>, what is done to the box, and <code>AdaptiveTimestep</code>, how long the steps are, given by <code>controls</code> of <code>run</code> or <code>iterate</code></td>
+<td>of a run of molecular dynamics: <code>Hold</code>, <code>Move</code>, <code>AddForce</code> and <code>Langevin</code>, what is done to groups of atoms during the run, <code>Deform</code>, what is done to the box, <code>AdaptiveTimestep</code>, how long the steps are, <code>Switch</code>, the potential turned into another, and <code>Wall</code>, flat walls that reflect the atoms, given by <code>controls</code> of <code>run</code> or <code>iterate</code></td>
+</tr>
+<tr>
+<td>wall</td>
+<td>of <code>Wall</code>: a plane across an axis that reflects the atoms that pass it, each put back by as far as it passed with its velocity across the plane turned to 2u − v, u that of the wall; a still wall is a momentum mirror, a moving one a piston</td>
+</tr>
+<tr>
+<td>piston, momentum mirror</td>
+<td>a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston</td>
 </tr>
 <tr>
 <td>strain rate</td>

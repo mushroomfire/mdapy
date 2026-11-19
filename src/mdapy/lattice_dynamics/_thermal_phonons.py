@@ -12,7 +12,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy.analysis._symmetry import _keeping, _Operations, _symmetry
-from mdapy.calculators._lammps import LAMMPS
+from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
@@ -196,7 +196,7 @@ def phonons_from_frames(
 
 def thermal_phonons(
     cell: System,
-    potential: LAMMPS,
+    potential: Calculator,
     temperature: float,
     *,
     supercell: int | ArrayLike | None = None,
@@ -210,18 +210,18 @@ def thermal_phonons(
     progress: Callable[[int, int], None] | None = None,
     cancel: CancelToken | None = None,
 ) -> Phonons:
-    """Phonons of a crystal at a temperature, from molecular dynamics in LAMMPS:
-    the force constants that best give the forces on the moving atoms, which
-    change with the temperature as the vibrations feel the crystal further from
-    its minimum.
+    """Phonons of a crystal at a temperature, from molecular dynamics: the force
+    constants that best give the forces on the moving atoms, which change with
+    the temperature as the vibrations feel the crystal further from its
+    minimum. The dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator.
 
     Parameters
     ----------
     cell : System
         The cell of the crystal, relaxed, with an ``element`` column, periodic
         in every direction; best its primitive cell.
-    potential : LAMMPS
-        The interaction.
+    potential : Calculator
+        The interaction: any calculator of energies and forces.
     temperature : float64
         Temperature in K, positive.
     supercell : int32 or array_like, optional
@@ -259,14 +259,14 @@ def thermal_phonons(
     ------
     InvalidParameter
         For invalid options, a box not periodic in every direction, too few
-        frames, or if LAMMPS fails.
+        frames, or if the dynamics fail.
     MissingProperty
         If the system has no ``element`` column.
     Cancelled
         If cancelled.
     """
-    if not isinstance(potential, LAMMPS):
-        raise InvalidParameter("potential must be a mdapy.calculators.LAMMPS")
+    if not isinstance(potential, Calculator):
+        raise InvalidParameter("potential must be a mdapy calculator")
     if "element" not in cell.table.columns:
         raise MissingProperty("molecular dynamics needs the element column")
     if not cell.box.pbc.all() or len(cell) == 0:
@@ -323,18 +323,25 @@ def thermal_phonons(
         big = _supercell(cell, matrix)
     check(settle)
     samples = []
+    langevin = {
+        "ensemble": "nvt",
+        "temperature": float(temperature),
+        "thermostat": "langevin",
+        "thermostat_damping": _DAMPING,
+        "cancel": cancel,
+    }
     with MolecularDynamics(big, potential, timestep=timestep) as md:
         md.velocities(2 * temperature, seed=int(seed) + 1)
-        md.command(
-            f"fix mdapy_thermostat all langevin {float(temperature)!r} "
-            f"{float(temperature)!r} {_DAMPING} {int(seed) + 2} zero yes"
-        )
-        md.run(settle, ensemble="nve", thermo=settle, cancel=cancel)
+        md.run(settle, thermo=settle, seed=int(seed) + 2, **langevin)
         check(2 * settle)
-        for k in range(int(num_frames)):
-            md.run(every, ensemble="nve", thermo=every, cancel=cancel)
+        steps = every * int(num_frames)
+        frames = md.iterate(
+            steps, save_every=every, thermo=steps, seed=int(seed) + 3, **langevin
+        )
+        next(frames)  # the atoms at the start, where the equilibration ended
+        for k, frame in enumerate(frames):
+            samples.append(frame)
             check(2 * settle + (k + 1) * every)
-            samples.append(md.system)
     with_forces = (
         frame.with_columns(forces=potential.compute(frame, ("forces",)).forces)
         for frame in samples

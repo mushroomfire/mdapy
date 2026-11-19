@@ -8793,19 +8793,21 @@ pressure, where the interface between them moves until they reach their common
 temperature. A run in which one phase takes over gives a new guess, until both last.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">EAM</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">melting_point</span><span class="p">,</span> <span class="n">minimize</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="s2">"pair_style eam/alloy</span><span class="se">\n</span><span class="s2">pair_coeff * * Cu_mishin1.eam.alloy Cu"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"Cu"</span><span class="p">]</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">result</span> <span class="o">=</span> <span class="n">melting_point</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">result</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span>  <span class="c1"># 1323 K, 0.7 K</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span><span class="o">.</span><span class="n">attempts</span>  <span class="c1"># how the search went</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">EAM</span><span class="p">(</span><span class="s2">"Cu_mishin1.eam.alloy"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">)</span>  <span class="c1"># the file of LAMMPS</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1"># the cell of four atoms on the processor: it is too small for the lists of the GPU</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">3.615</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Cu"</span><span class="p">),</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">EAM</span><span class="p">(</span><span class="s2">"Cu_mishin1.eam.alloy"</span><span class="p">),</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">result</span> <span class="o">=</span> <span class="n">melting_point</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">1000.0</span><span class="p">)</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">result</span><span class="o">.</span><span class="n">temperature</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">error</span>  <span class="c1"># 1324 K, 1.2 K</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="n">result</span><span class="o">.</span><span class="n">attempts</span>  <span class="c1"># how the search went</span>
 </code></pre></div>
 <p>The last run, whose temperature and fraction of solid atoms no longer drift:</p>
 <!-- skip-test -->
@@ -8822,10 +8824,11 @@ temperature. A run in which one phase takes over gives a new guess, until both l
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/melting-point"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
 </code></pre></div>
 <p><img alt="The two phases reaching their common temperature" src="../images/melting-point.png" /></p>
-<p><em>Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K. The
-runs from 1000 and 1150 K froze, and the one from 1322 K kept both phases; its fifth stretch
-agreed with the fourth and gave 1323 K.
-Here is its last stretch.</em></p>
+<p><em>Copper with the EAM potential of Mishin et al., 16456 atoms, from a guess of 1000 K, in
+51 minutes on one V100 GPU. The runs from 1000 and 1150 K froze; the one from 1322 K kept
+both phases, but its temperature still moved by more than 3 K between its stretches
+after five of them, and the next, from 1326 K, gave 1324 K in two that agreed. Here is
+its last stretch.</em></p>
 <p>The crystal is repeated to about <code>num_atoms</code> atoms in a box three times as long along its
 third vector as along the others; the interface lies across that vector. Each run:</p>
 <ol>

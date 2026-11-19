@@ -107,6 +107,8 @@ void Atoms::Impl::permute(const std::int32_t* order) {
     gathered(n, order, movable, h2);
     Buffer<std::int32_t> g2;
     gathered(n, order, groups, g2);
+    Buffer<double> k2;
+    gathered(n, order, spring_constants, k2);
     // three doubles of each atom
     const auto triples = [&](Buffer<double>& buffer) {
         if (buffer.size() != static_cast<std::size_t>(3 * n)) return;
@@ -120,6 +122,7 @@ void Atoms::Impl::permute(const std::int32_t* order) {
     triples(velocities);
     triples(prescribed);
     triples(added);
+    triples(sites);
     ++version;
     stale = true;
 }

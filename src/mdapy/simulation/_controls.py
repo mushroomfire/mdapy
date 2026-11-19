@@ -301,7 +301,76 @@ class AdaptiveTimestep:
         )
 
 
-CONTROLS = (Hold, Move, AddForce, Langevin, Deform, AdaptiveTimestep)
+def smoothstep(t: float) -> float:
+    """The switching function of LAMMPS's fix ti/spring with function 2,
+    from 0 at t = 0 to 1 at t = 1 with zero slopes at both ends."""
+    t2 = t * t
+    return (
+        (70.0 * t2 * t2 - 315.0 * t2 * t + 540.0 * t2 - 420.0 * t + 126.0) * t2 * t2 * t
+    )
+
+
+class Switch:
+    """The potential of a run turned into another along the run, for
+    thermodynamic integration: the forces and the energy of (1 − λ) times
+    the potential plus λ times the target, λ going from ``start`` to
+    ``stop`` by the switching function of LAMMPS's fix ti/spring, whose
+    slope is zero at both ends, or staying at ``start`` when the two are
+    equal. With a name, ``thermo`` records ``<name>_lambda`` and
+    ``<name>_difference``, the energy of the target minus that of the
+    potential, whose integral over λ is the difference of their free
+    energies.
+
+    Parameters
+    ----------
+    target : Calculator or None
+        The other interaction, such as ``Springs`` or ``UhlenbeckFord``;
+        None for none, the ideal gas.
+    start : float64, optional
+        λ at the start of the run, from 0 to 1. Default 0.
+    stop : float64, optional
+        λ at the end of the run, from 0 to 1. Default 1.
+    name : str, optional
+        With a name, ``thermo`` records λ and the difference of the
+        energies. Default None, recording none.
+    """
+
+    def __init__(
+        self,
+        target: Any,
+        *,
+        start: float = 0.0,
+        stop: float = 1.0,
+        name: str | None = None,
+    ):
+        from mdapy.calculators._base import Calculator
+
+        if target is not None and not isinstance(target, Calculator):
+            raise InvalidParameter(
+                f"target must be a calculator or None, not {target!r}"
+            )
+        for value, what in ((start, "start"), (stop, "stop")):
+            if isinstance(value, bool) or not (0.0 <= float(value) <= 1.0):
+                raise InvalidParameter(f"{what} must be from 0 to 1, not {value!r}")
+        self.target = target
+        self.start = float(start)
+        self.stop = float(stop)
+        self.name = _name(name)
+
+    def weight(self, fraction: float) -> float:
+        """λ when this fraction of the run is done."""
+        if self.start == self.stop:
+            return self.start
+        return self.start + (self.stop - self.start) * smoothstep(fraction)
+
+    def __repr__(self) -> str:
+        return (
+            f"Switch({self.target!r}, start={self.start!r}, stop={self.stop!r}, "
+            f"name={self.name!r})"
+        )
+
+
+CONTROLS = (Hold, Move, AddForce, Langevin, Deform, AdaptiveTimestep, Switch)
 
 
 def checked(controls: Any, n: int) -> tuple:
@@ -316,12 +385,12 @@ def checked(controls: Any, n: int) -> tuple:
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
-    deforms = adaptive = 0
+    deforms = adaptive = switches = 0
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
-                "a control must be one of Hold, Move, AddForce, Langevin, Deform or "
-                f"AdaptiveTimestep, not {control!r}"
+                "a control must be one of Hold, Move, AddForce, Langevin, Deform, "
+                f"AdaptiveTimestep or Switch, not {control!r}"
             )
         if isinstance(control, Deform):
             if deforms:
@@ -332,6 +401,15 @@ def checked(controls: Any, n: int) -> tuple:
             if adaptive:
                 raise InvalidParameter("a run takes one AdaptiveTimestep")
             adaptive += 1
+            continue
+        if isinstance(control, Switch):
+            if switches:
+                raise InvalidParameter("a run takes one Switch")
+            switches += 1
+            if control.name is not None:
+                if control.name in names:
+                    raise InvalidParameter(f"two controls are named {control.name!r}")
+                names.add(control.name)
             continue
         if not isinstance(control, Deform) and control.mask.shape != (n,):
             raise InvalidParameter(

@@ -4,7 +4,8 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Pair potentials of one formula and coefficients for each pair of species:
-// Lennard-Jones and Morse, as LAMMPS pair_style lj/cut and morse compute them.
+// Lennard-Jones, Morse and Uhlenbeck-Ford, as LAMMPS pair_style lj/cut, morse and
+// ufm compute them.
 
 #pragma once
 
@@ -16,7 +17,7 @@
 
 namespace mdapy::calculators {
 
-enum class PairStyle { LennardJones, Morse };
+enum class PairStyle { LennardJones, Morse, UhlenbeckFord };
 
 struct PairPotential {
     PairStyle style = PairStyle::LennardJones;
@@ -25,7 +26,8 @@ struct PairPotential {
     std::vector<double> cutsq;    // species x species, squared cutoffs
     std::vector<double> offset;   // species x species, energies taken off
     // species x species x 4: Lennard-Jones 48 e s^12, 24 e s^6, 4 e s^12,
-    // 4 e s^6; Morse D0, alpha, r0, 2 D0 alpha
+    // 4 e s^6; Morse D0, alpha, r0, 2 D0 alpha; Uhlenbeck-Ford 2 e / s^2,
+    // 1 / s^2, e, 0
     std::vector<double> coefficients;
 };
 

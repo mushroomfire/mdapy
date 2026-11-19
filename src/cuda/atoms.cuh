@@ -42,6 +42,11 @@ struct Atoms::Impl {
     Buffer<double> prescribed;
     Buffer<double> added;
     Buffer<std::int32_t> groups;
+    // Of a Switch: the forces of the potential while the other computes, and
+    // the sites (n, 3) and constants (n,) of springs, empty for none.
+    Buffer<double> stash;
+    Buffer<double> sites;
+    Buffer<double> spring_constants;
     // The atoms are sorted by the cells of the neighbor list when it is built,
     // so that neighbors are near in memory: original holds the atom of the
     // caller at each place; what comes in and goes out is in the caller's

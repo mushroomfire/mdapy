@@ -246,6 +246,7 @@ nav:
               - Groups and controls: user-guide/simulation/controls.md
               - Deformation: user-guide/simulation/deformation.md
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md
+              - Switching between potentials: user-guide/simulation/switching.md
               - On the GPU: user-guide/simulation/gpu.md
               - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:

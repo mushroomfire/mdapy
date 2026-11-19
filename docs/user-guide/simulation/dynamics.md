@@ -110,7 +110,7 @@ temperature then counts the directions in which the atoms move.
 | Method or attribute | Meaning |
 |---|---|
 | `velocities(temperature, *, seed)` | random velocities of a temperature in K, Gaussian, with no total momentum; the same for the same seed and atoms, whatever their positions |
-| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, thermo=100, save_every=None, controls=None, progress=None, cancel=None)` | runs `steps` steps |
+| `run(steps, *, ensemble="nve", temperature=None, pressure=None, barostat="iso", thermostat="nose-hoover", thermostat_damping=None, barostat_damping=None, seed=None, keep_momentum=False, thermo=100, save_every=None, controls=None, progress=None, cancel=None)` | runs `steps` steps |
 | `iterate(steps, *, save_every, ...)`, the other parameters those of `run` | runs as `run` does, giving the atoms every `save_every` steps as the run reaches them and keeping none: see [Frames in files](#frames-in-files) |
 | `command(commands)` | runs any LAMMPS commands, one or several lines (LAMMPS only) |
 | `lammps` | the LAMMPS instance itself (LAMMPS only) |
@@ -126,9 +126,10 @@ temperature then counts the directions in which the atoms move.
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
 | `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
+| `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that sum to zero, so that the total momentum is kept, as LAMMPS's `fix langevin ... zero yes`: each atom's noise less an equal share of their total momentum; with no atoms held or moved. In mixed precision on the GPU the forces, of single precision, move the momentum a little themselves |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
-| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce` or `Langevin`: what is done to groups of atoms during the run; see [Groups and controls](controls.md) |
+| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep` or `Switch`: what is done to groups of atoms, the box, the time step or the potential during the run; see [Groups and controls](controls.md) |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 

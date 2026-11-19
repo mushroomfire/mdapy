@@ -4,8 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The free energy of a stacking fault against its energy at rest, its harmonic
-vibrations and a slip that leaves the crystal as it is. Skipped where LAMMPS or
-its package EXTRA-FIX is missing."""
+vibrations and a slip that leaves the crystal as it is, in MDAPY's own dynamics
+and in LAMMPS where it is installed."""
 
 import numpy as np
 import pytest
@@ -13,22 +13,23 @@ import pytest
 import mdapy
 from mdapy import units
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import LAMMPS, LennardJones
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.lattice_dynamics import phonons
 from mdapy.simulation import minimize, stacking_fault_energy, stacking_fault_free_energy
 from mdapy.simulation._fault_free_energy import _between_layers
 
-pytest.importorskip("lammps")
-
 A = 5.26  # about the lattice constant of the model of argon
 ORIENTATION = [(1, 1, -2), (-1, 1, 0), (1, 1, 1)]
 FAST = dict(timestep=0.004, equilibration=2.0, switching=8.0, repeats=3, seed=2)
 
 
-@pytest.fixture(scope="module")
-def potential():
+@pytest.fixture(scope="module", params=["mdapy", "lammps"])
+def potential(request):
+    if request.param == "mdapy":
+        return LennardJones({"Ar": (0.0104, 3.4)}, 8.5, shift=True)
+    pytest.importorskip("lammps")
     return LAMMPS(
         "pair_style lj/cut 8.5\npair_coeff * * 0.0104 3.4\npair_modify shift yes",
         ["Ar"],
@@ -177,7 +178,7 @@ def test_invalid_input(potential, layers):
         stacking_fault_free_energy(layers, potential, direction, 0.0)
     with pytest.raises(InvalidParameter, match="three"):
         stacking_fault_free_energy(layers, potential, [1.0, 0.0], 20.0)
-    with pytest.raises(InvalidParameter, match="LAMMPS"):
+    with pytest.raises(InvalidParameter, match="calculator"):
         stacking_fault_free_energy(layers, object(), direction, 20.0)
     with pytest.raises(MissingProperty, match="element"):
         stacking_fault_free_energy(layers.drop("element"), potential, direction, 20.0)

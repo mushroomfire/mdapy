@@ -416,7 +416,7 @@ def test_invalid_input(argon, tmp_path):
     for temperatures in (0.0, -1.0, [20.0, 40.0, 30.0], [[20.0]]):
         with pytest.raises(InvalidParameter, match="temperatures"):
             free_energy(argon, potential, temperatures)
-    with pytest.raises(InvalidParameter, match="LAMMPS"):
+    with pytest.raises(InvalidParameter, match="calculator"):
         free_energy(argon, object(), 20.0)
     with pytest.raises(MissingProperty, match="element"):
         free_energy(argon.drop("element"), potential, 20.0)

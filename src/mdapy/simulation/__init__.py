@@ -13,6 +13,7 @@ from mdapy.simulation._controls import (
     Hold,
     Langevin,
     Move,
+    Switch,
 )
 from mdapy.simulation._defect_energies import (
     StackingFaultResult,
@@ -67,6 +68,7 @@ __all__ = [
     "PressureTemperatureDiagram",
     "StackingFaultResult",
     "SurfaceResult",
+    "Switch",
     "TieLine",
     "VacancyResult",
     "binary_phase_diagram",

@@ -1,9 +1,37 @@
 # Free energy
 
 `mdapy.simulation.free_energy(system, potential, temperatures)` gives the free
-energy of a solid or a liquid per atom from molecular dynamics in
-[LAMMPS](lammps.md): at one temperature by switching to a system whose free energy
-is known, and from there to other temperatures by the enthalpy along a run.
+energy of a solid or a liquid per atom from [molecular dynamics](dynamics.md), in
+MDAPY, or in LAMMPS for a [LAMMPS calculator](lammps.md): at one temperature by
+switching to a system whose free energy is known, and from there to other
+temperatures by the enthalpy along a run.
+
+Solid argon at 40 K and zero pressure, with MDAPY's
+[Lennard-Jones](pair-potentials.md) potential:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import LennardJones
+from mdapy.simulation import free_energy, minimize
+
+argon = LennardJones({"Ar": (0.0104, 3.4)}, 8.5, shift=True)
+crystal = minimize(
+    build_crystal("fcc", 5.26, elements="Ar", repeat=3),
+    argon,
+    cell="full",
+    max_stress=1e-4,
+).system
+solid = free_energy(
+    crystal, argon, 40.0, timestep=0.002, equilibration=4.0, switching=20.0
+)
+solid.free_energy, solid.dissipation  # about -0.0743 eV and 6e-5 eV per atom
+```
+
+LAMMPS gives the same crystal −0.07428 eV per atom, and MDAPY −0.07430, the means
+of three seeds each, with standard errors of 1e-5 eV.
+
+The melting point of copper from the crossing of the free energies of its solid and
+its liquid, of 5324 atoms each, with the EAM potential of Mishin et al. in LAMMPS:
 
 <!-- skip-test -->
 ```python
@@ -69,13 +97,14 @@ a little on the number of atoms, and so does where the phases meet: the same cop
 
 The atoms are classical, as in molecular dynamics: the free energy has no
 zero-point energy, and well below the Debye temperature the
-[quasi-harmonic approximation](quasi-harmonic.md) is better. LAMMPS needs its
-packages `EXTRA-FIX`, for solids, and `EXTRA-PAIR`, for liquids.
+[quasi-harmonic approximation](quasi-harmonic.md) is better. In MDAPY the potential
+computes on the processor or on the [GPU](gpu.md); LAMMPS needs its packages
+`EXTRA-FIX`, for solids, and `EXTRA-PAIR`, for liquids.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms, with an `element` column, in a box periodic in every direction: for a solid at their places in the crystal (relax them first), for a liquid anywhere, as it is melted first |
-| `potential` | `LAMMPS` | | | the interaction; a liquid needs one pair style, not a hybrid |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials, on the processor or the GPU; in LAMMPS, a liquid needs one pair style, not a hybrid |
 | `temperatures` | float64 or (T,) float64 | | K | the free energy is calculated at the first and followed from there to the others, which lie on one side of it, in order |
 | `phase` | str | `"solid"` | | `"solid"` or `"liquid"` |
 | `pressure` | float64 or `None` | 0 | GPa | the pressure, for the Gibbs energy; `None` for the Helmholtz energy in the box of `system` |
@@ -157,6 +186,12 @@ reduced Planck constant, $\omega_i = \sqrt{k_i/m_i}$ the angular frequency of th
 spring of atom $i$, $m_i$ its mass and $M$ the mass of all the atoms. Half the
 difference of the two ways removes the heat lost on the way.
 
+In MDAPY the switchings are runs with a [`Switch`](switching.md) to
+[`Springs`](switching.md#springs) or to [`UhlenbeckFord`](pair-potentials.md#the-uhlenbeckford-model),
+and for a solid the Langevin thermostat keeps the momentum, `keep_momentum`; in LAMMPS
+they are `fix ti/spring` and `pair_style hybrid/scaled` with `ufm`, and `fix langevin`
+with `zero yes`.
+
 **A liquid** at volume $V$ is switched in the same way to the Uhlenbeck-Ford model
 of pairs of atoms at the distance $r$, $U_\mathrm{UF} = -p\,k_B T \ln(1 - e^{-r^2/\sigma^2})$
 summed over the pairs, with the strength $p = 50$ and the length $\sigma = 1.5$ Å ([Paula Leite et al. (2016)](../../reference/references.md#paulaleite2016)),
@@ -189,7 +224,8 @@ first temperature and $P$.
 
 `free_energy` raises `InvalidParameter` for invalid options, a box not periodic in
 every direction, a hybrid pair style for a liquid, a liquid whose atoms do not move
-from their neighbors, a phase that changes in every scan, or if LAMMPS fails;
+from their neighbors, a phase that changes in every scan, a `potential` that is not a
+calculator, or if the dynamics fail;
 `MissingProperty` for a system without an `element` column; `Cancelled` when
 cancelled. `crossing` raises `InvalidParameter` for other pressures, temperatures
 that do not overlap, or free energies that do not cross between them.

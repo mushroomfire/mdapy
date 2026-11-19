@@ -10,11 +10,24 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from mdapy import units
 from mdapy.core.result import Result
 from mdapy.core.system import System
-from mdapy.errors import InvalidParameter
+from mdapy.elements import atomic_masses
+from mdapy.errors import InvalidParameter, MissingProperty
 
-REDUCTIONS = ("mean", "sum", "density", "min", "max")
+REDUCTIONS = (
+    "mean",
+    "sum",
+    "density",
+    "min",
+    "max",
+    "mass_mean",
+    "temperature",
+    "stress",
+)
+# the reductions about the center of mass of each bin, which need the masses
+_MOVING = ("mass_mean", "temperature", "stress")
 
 
 @dataclass(frozen=True)
@@ -25,8 +38,9 @@ class SpatialBinningResult(Result):
     ----------
     values : numpy.ndarray
         The float64 property reduced over the atoms of each bin: (n1[, n2[, n3]])
-        for one value per atom, with a last axis for its components; NaN
-        for the mean, minimum and maximum of an empty bin.
+        for one value per atom, with a last axis for its components, and
+        (..., 3, 3) of a stress; NaN for the mean, minimum and maximum of an
+        empty bin, and for the temperature of a bin of fewer than two atoms.
     counts : numpy.ndarray
         (n1[, n2[, n3]]) int64 the number of atoms in each bin.
     centers : tuple of numpy.ndarray
@@ -41,7 +55,10 @@ class SpatialBinningResult(Result):
 
 class SpatialBinning:
     """A property of the atoms in bins of equal size along one, two or three
-    box vectors: its mean, sum, sum per volume, minimum or maximum in each.
+    box vectors: its mean, sum, sum per volume, minimum or maximum in each;
+    or, of moving atoms such as those of a shock, the mean weighted by mass,
+    and the temperature and the stress about the center of mass of each
+    bin, so that the motion of the bin as a whole is not counted.
 
     Parameters
     ----------
@@ -54,7 +71,12 @@ class SpatialBinning:
         The box vectors binned along: 0, 1, 2 or x, y, z. Default z.
     reduction : str, optional
         One of ``REDUCTIONS``: "mean", "sum", "density" (the sum per Å³ of
-        the bin), "min" or "max". Default mean.
+        the bin), "min", "max", "mass_mean" (the mean weighted by the mass
+        of the atoms), "temperature" (of a column of velocities, in K,
+        about the velocity of the center of mass of the bin) or "stress" (of
+        a column of the virials of each atom in eV, as calculators give
+        them, with the velocities about the center of mass of the bin, in
+        GPa, positive under tension). Default mean.
     """
 
     def __init__(
@@ -110,6 +132,10 @@ class SpatialBinning:
             The values, the counts and the centers of the bins.
         """
         raw = np.asarray(system[self.column], dtype=float)
+        if self.reduction == "temperature" and raw.shape[1:] != (3,):
+            raise InvalidParameter("a temperature needs a column of (N, 3) velocities")
+        if self.reduction == "stress" and raw.shape[1:] != (3, 3):
+            raise InvalidParameter("a stress needs a column of (N, 3, 3) virials")
         values = raw.reshape(len(system), int(np.prod(raw.shape[1:])))
         box = system.box
         fractional = box.to_fractional(system["positions"])[:, self.axes]
@@ -123,7 +149,9 @@ class SpatialBinning:
         total = int(np.prod(sizes))
         counts = np.bincount(flat, minlength=total)
         k = values.shape[1]
-        if self.reduction in ("mean", "sum", "density"):
+        if self.reduction in _MOVING:
+            out = self.__moving(system, inside, flat, values, total, counts)
+        elif self.reduction in ("mean", "sum", "density"):
             out = np.stack(
                 [np.bincount(flat, values[:, c], minlength=total) for c in range(k)], 1
             )
@@ -140,7 +168,12 @@ class SpatialBinning:
                 starts = np.concatenate([[0], np.cumsum(counts[filled])[:-1]])
                 reduce = np.minimum if self.reduction == "min" else np.maximum
                 out[filled] = reduce.reduceat(values[order], starts, axis=0)
-        shape = self.bins + ((k,) if raw.ndim > 1 else ())
+        if self.reduction == "stress":
+            shape = self.bins + (3, 3)
+        elif self.reduction == "temperature":
+            shape = self.bins
+        else:
+            shape = self.bins + ((k,) if raw.ndim > 1 else ())
         lengths = np.linalg.norm(box.matrix[list(self.axes)], axis=1)
         centers = tuple(
             (np.arange(n) + 0.5) / n * length for n, length in zip(self.bins, lengths)
@@ -150,6 +183,72 @@ class SpatialBinning:
             counts=counts.reshape(self.bins),
             centers=centers,
         )
+
+    def __moving(
+        self,
+        system: System,
+        inside: np.ndarray,
+        flat: np.ndarray,
+        values: np.ndarray,
+        total: int,
+        counts: np.ndarray,
+    ) -> np.ndarray:
+        """The mean weighted by mass, or the temperature or the stress about
+        the center of mass of each bin, (bins, components)."""
+        table = system.table
+        if "mass" in table.columns:
+            masses = table["mass"].to_numpy().astype(float)
+        elif "element" in table.columns:
+            masses = atomic_masses(table["element"].to_physical().to_numpy())
+        else:
+            raise MissingProperty(
+                f"the {self.reduction} needs the masses: a mass or an element column"
+            )
+        masses = masses[inside]
+        mass = np.bincount(flat, masses, minlength=total)
+
+        def weighted(data: np.ndarray) -> np.ndarray:
+            """The mean of data weighted by mass in each bin."""
+            sums = np.stack(
+                [
+                    np.bincount(flat, masses * data[:, c], minlength=total)
+                    for c in range(data.shape[1])
+                ],
+                1,
+            )
+            with np.errstate(invalid="ignore", divide="ignore"):
+                return sums / mass[:, None]
+
+        if self.reduction == "mass_mean":
+            return weighted(values)
+        if self.reduction == "temperature":
+            velocities = values
+        else:
+            if "velocities" not in table.columns:
+                raise MissingProperty("the stress of moving atoms needs the velocities")
+            velocities = np.asarray(system["velocities"], dtype=float)[inside]
+        # the velocities about the center of mass of their bin
+        relative = velocities - weighted(velocities)[flat]
+        if self.reduction == "temperature":
+            twice = np.bincount(
+                flat,
+                masses * np.einsum("ij,ij->i", relative, relative),
+                minlength=total,
+            )
+            # the directions of the atoms of a bin less those of its center of mass
+            with np.errstate(invalid="ignore", divide="ignore"):
+                kelvin = (
+                    twice
+                    * units.AMU_A2_PER_PS2_TO_EV
+                    / (3 * (counts - 1) * units.BOLTZMANN)
+                )
+            return np.where(counts > 1, kelvin, np.nan)[:, None]
+        kinetic = np.einsum("i,ij,ik->ijk", masses, relative, relative).reshape(-1, 9)
+        work = values + kinetic * units.AMU_A2_PER_PS2_TO_EV
+        sums = np.stack(
+            [np.bincount(flat, work[:, c], minlength=total) for c in range(9)], 1
+        )
+        return -sums / (system.box.volume / total) * units.EV_PER_A3_TO_GPA
 
     def __repr__(self) -> str:
         return (

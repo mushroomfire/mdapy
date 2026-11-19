@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `SpatialBinning` reduces moving atoms: `reduction="mass_mean"`, the mean weighted by
+  mass, the velocity of the center of mass of a bin for a column of velocities;
+  `"temperature"` of the velocities and `"stress"` of the virials of each atom, both
+  about the center of mass of each bin, for the profiles of shocks and flows. See
+  [Spatial binning](../user-guide/analysis/spatial-binning.md#moving-atoms).
 - `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
   or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
   in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).

@@ -124,7 +124,8 @@ that seed.
 processor. Along every periodic direction the box must be thicker than twice the
 cutoff of the potential and the skin, 1 Å, at every step, also as a barostat changes
 it; smaller boxes and small systems are for the processor. A `movable` column holds
-atoms along the directions where it is False, as on the processor.
+atoms along the directions where it is False, and the [controls](controls.md) of a run
+hold, move, push and bathe groups of atoms, as on the processor.
 
 ## Errors
 

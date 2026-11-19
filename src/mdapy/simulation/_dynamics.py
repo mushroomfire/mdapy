@@ -22,6 +22,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.simulation import _controls
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log
 
@@ -144,6 +145,11 @@ class _Lammps:
         self.__pbc = box.pbc
         self.__holder: list = []
         self.__fixes: list[str] = []
+        self.__computes: list[str] = []
+        self.__groups: list[str] = []
+        self.__moves: tuple = ()
+        self.__baths: tuple = ()
+        self.__temperature: str | None = None
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
         self.__holder.append(lmp)
@@ -275,6 +281,18 @@ create_box {len(potential.elements)} box
         row["stress"] = [
             stress[a, b] for a, b in ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))
         ]
+        if self.__temperature is not None:
+            row["temperature"] = float(lmp.extract_compute(self.__temperature, 0, 0))
+        for name, compute in self.__moves:
+            total = np.ctypeslib.as_array(
+                lmp.extract_compute(compute, 0, 1), shape=(3,)
+            )
+            row[f"{name}_force"] = (
+                self.__rotation @ np.array(total, dtype=float)
+            ).tolist()
+        for name, fix in self.__baths:
+            # the tally of LAMMPS is the energy the bath took away
+            row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
         return row
 
     # -- running ----------------------------------------------------------
@@ -313,8 +331,13 @@ create_box {len(potential.elements)} box
             if langevin:
                 # the barostat's mass from the temperature of the thermostat
                 fix += f" ptemp {run['temperatures'][0]!r}"
-        self.command(f"fix mdapy_integrate all {fix}")
-        self.__fixes = ["mdapy_integrate"]
+        self.__fixes, self.__computes, self.__groups = [], [], []
+        group, extra = self.__set_controls(run["controls"], ensemble in ("npt", "nph"))
+        self.command(f"fix mdapy_integrate {group} {fix}")
+        self.__fixes.insert(0, "mdapy_integrate")
+        if extra is not None and ensemble in ("nvt", "npt") and not langevin:
+            # the thermostat counts the directions that move freely
+            self.command(f"compute_modify mdapy_integrate_temp extra/dof {extra}")
         if langevin:
             t0, t1 = run["temperatures"]
             seed = run["seed"]
@@ -322,7 +345,7 @@ create_box {len(potential.elements)} box
                 # the largest seed of LAMMPS's random numbers is 900000000
                 seed = int(np.random.default_rng().integers(1, 900_000_000))
             self.command(
-                f"fix mdapy_langevin all langevin {t0!r} {t1!r} "
+                f"fix mdapy_langevin {group} langevin {t0!r} {t1!r} "
                 f"{float(run['thermostat_damping'])!r} {int(seed)}"
             )
             self.__fixes.append("mdapy_langevin")
@@ -344,7 +367,116 @@ create_box {len(potential.elements)} box
         if self.__holder:
             for fix in self.__fixes:
                 self.command(f"unfix {fix}")
-        self.__fixes = []
+            for compute in self.__computes:
+                self.command(f"uncompute {compute}")
+            for group in self.__groups:
+                self.command(f"group {group} delete")
+        self.__fixes, self.__computes, self.__groups = [], [], []
+        self.__moves = ()
+        self.__baths = ()
+        self.__temperature = None
+
+    def __group(self, name: str, mask: np.ndarray) -> str:
+        """A group of LAMMPS of the atoms of a mask, by their ids."""
+        ids = np.flatnonzero(mask) + 1
+        self.__groups.append(name)
+        if ids.size == 0:
+            self.command(f"group {name} empty")
+            return name
+        # runs of consecutive ids as first:last
+        breaks = np.flatnonzero(np.diff(ids) != 1)
+        firsts = np.concatenate([ids[:1], ids[breaks + 1]])
+        lasts = np.concatenate([ids[breaks], ids[-1:]])
+        words = [f"{a}" if a == b else f"{a}:{b}" for a, b in zip(firsts, lasts)]
+        for k in range(0, len(words), 2000):
+            self.command(f"group {name} id {' '.join(words[k : k + 2000])}")
+        return name
+
+    def __set_controls(self, controls: tuple, barostat: bool) -> tuple[str, int | None]:
+        """The groups, fixes and computes of the controls of a run: the group
+        the ensemble moves, and the directions its thermostat leaves out
+        beyond those of the atoms held or moved whole, or None."""
+        self.__moves = ()
+        self.__baths = ()
+        self.__temperature = None
+        if not controls:
+            return "all", None
+        if len(controls) > 24:
+            raise InvalidParameter("LAMMPS takes at most 24 controls in a run")
+        n = self.__n
+        r = self.__rotation
+        aligned = np.allclose(r, np.eye(3), rtol=0, atol=1e-12)
+        held = np.zeros((n, 3), dtype=bool)
+        moved = np.zeros(n, dtype=bool)
+        moves, baths = [], []
+        constrained = False
+        for k, control in enumerate(controls):
+            name = f"mdapy_c{k}"
+            if isinstance(control, _controls.Hold):
+                if not aligned and control.directions != "xyz":
+                    raise InvalidParameter(
+                        "atoms held along some directions need, in LAMMPS, a box whose "
+                        "first vector is along x and second in the xy plane"
+                    )
+                axes = control.axes  # the axes of LAMMPS, the box aligned
+                held[control.mask] |= control.axes
+                constrained = constrained or bool(control.mask.any())
+                group = self.__group(name, control.mask)
+                values = " ".join("0.0" if a else "NULL" for a in axes)
+                self.command(f"velocity {group} set {values}")
+                self.command(f"fix {name} {group} setforce {values}")
+                self.__fixes.append(name)
+            elif isinstance(control, _controls.Move):
+                moved |= control.mask
+                constrained = constrained or bool(control.mask.any())
+                group = self.__group(name, control.mask)
+                vx, vy, vz = (float(c) for c in control.velocity @ r)
+                # their velocities from the start, as fix move sets them at the
+                # first step only
+                self.command(f"velocity {group} set {vx!r} {vy!r} {vz!r}")
+                self.command(f"fix {name} {group} move linear {vx!r} {vy!r} {vz!r}")
+                self.__fixes.append(name)
+                if control.name is not None:
+                    self.command(f"compute {name}_force {group} reduce sum fx fy fz")
+                    self.__computes.append(f"{name}_force")
+                    moves.append((control.name, f"{name}_force"))
+            elif isinstance(control, _controls.Langevin):
+                group = self.__group(name, control.mask)
+                t0, t1 = control.temperature
+                dt = float(self.lammps.extract_global("dt"))
+                damping = control.damping if control.damping is not None else 100 * dt
+                seed = control.seed
+                if seed is None:
+                    seed = int(np.random.default_rng().integers(1, 900_000_000))
+                self.command(
+                    f"fix {name} {group} langevin {t0!r} {t1!r} {damping!r} {seed} tally yes"
+                )
+                self.__fixes.append(name)
+                if control.name is not None:
+                    baths.append((control.name, name))
+            else:
+                group = self.__group(name, control.mask)
+                fx, fy, fz = (float(c) for c in control.force @ r)
+                self.command(f"fix {name} {group} addforce {fx!r} {fy!r} {fz!r}")
+                self.__fixes.append(name)
+        if barostat and constrained:
+            raise InvalidParameter(
+                "a barostat with held or moved atoms is not supported"
+            )
+        self.__moves = tuple(moves)
+        self.__baths = tuple(baths)
+        if not constrained:
+            return "all", None
+        free = ~(held.all(axis=1) | moved)
+        group = self.__group("mdapy_free", free)
+        # LAMMPS counts 3 directions of each atom of the group, less 3: the
+        # directions held of the atoms it still moves are left out instead
+        extra = int(held[free].sum())
+        self.command(f"compute mdapy_temp {group} temp")
+        self.command(f"compute_modify mdapy_temp extra/dof {extra}")
+        self.__computes.append("mdapy_temp")
+        self.__temperature = "mdapy_temp"
+        return group, extra
 
 
 class MolecularDynamics:
@@ -506,15 +638,28 @@ class MolecularDynamics:
     def thermo(self) -> pl.DataFrame:
         """The thermodynamic state every ``thermo`` steps of the runs: step,
         time (ps), temperature (K), potential, kinetic and total energy
-        (eV), pressure (GPa), volume (Å³) and stress (GPa, Voigt order,
-        positive under tension)."""
+        (eV), pressure (GPa), volume (Å³), stress (GPa, Voigt order,
+        positive under tension), ``<name>_force``, (3,) eV/Å, for each named
+        group a ``Move`` moved, and ``<name>_energy`` (eV), the heat each
+        named ``Langevin`` bath gave since its run began, null in the other
+        runs."""
         schema = {
             "step": pl.Int64,
             "time": pl.Float64,
             **{name: pl.Float64 for _, name in _THERMO},
             "stress": pl.Array(pl.Float64, 6),
         }
-        return pl.DataFrame(self.__rows, schema=schema)
+        # the forces on the groups the controls of some runs move
+        for row in self.__rows:
+            for key, value in row.items():
+                if key not in schema:
+                    schema[key] = (
+                        pl.Array(pl.Float64, 3)
+                        if isinstance(value, list)
+                        else pl.Float64
+                    )
+        rows = [{key: row.get(key) for key in schema} for row in self.__rows]
+        return pl.DataFrame(rows, schema=schema)
 
     @property
     def frames(self) -> tuple[System, ...]:
@@ -577,6 +722,7 @@ class MolecularDynamics:
         seed: int | None = None,
         thermo: int = 100,
         save_every: int | None = None,
+        controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
     ) -> None:
@@ -618,6 +764,13 @@ class MolecularDynamics:
         save_every : int32, optional
             Keeps the atoms every this many steps, in ``frames``. Default
             None, keeping none.
+        controls : sequence of Hold, Move, AddForce or Langevin, optional
+            What is done to groups of atoms during the run: atoms held,
+            moved at a velocity, pushed, or kept at a temperature. Held and
+            moved atoms take no part in the thermostat, and the temperature
+            counts the directions that move freely; held or moved atoms not
+            with a barostat, baths not with the thermostat of "nvt" or
+            "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -645,6 +798,7 @@ class MolecularDynamics:
             seed,
             thermo,
             save_every,
+            controls,
         )
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
@@ -663,6 +817,7 @@ class MolecularDynamics:
         barostat_damping: float | None = None,
         seed: int | None = None,
         thermo: int = 100,
+        controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
     ) -> Iterator[System]:
@@ -707,6 +862,13 @@ class MolecularDynamics:
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
+        controls : sequence of Hold, Move, AddForce or Langevin, optional
+            What is done to groups of atoms during the run: atoms held,
+            moved at a velocity, pushed, or kept at a temperature. Held and
+            moved atoms take no part in the thermostat, and the temperature
+            counts the directions that move freely; held or moved atoms not
+            with a barostat, baths not with the thermostat of "nvt" or
+            "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -744,6 +906,7 @@ class MolecularDynamics:
             seed,
             thermo,
             save_every,
+            controls,
         )
         return self.__read(spec, progress, cancel)
 
@@ -780,8 +943,17 @@ class MolecularDynamics:
         seed: int | None,
         thermo: int,
         save_every: int | None,
+        controls: Any = None,
     ) -> dict[str, Any]:
         """The checked options of a run."""
+        checked = _controls.checked(controls, self.__n)
+        if ensemble in ("nvt", "npt") and any(
+            isinstance(c, _controls.Langevin) for c in checked
+        ):
+            raise InvalidParameter(
+                "Langevin controls take the place of the thermostat: use them with "
+                "nve or nph"
+            )
         steps = int(steps)
         if steps < 0:
             raise InvalidParameter(f"steps must not be negative, not {steps!r}")
@@ -841,6 +1013,7 @@ class MolecularDynamics:
             "seed": None if seed is None else int(seed),
             "thermo": int(thermo),
             "save_every": None if save_every is None else int(save_every),
+            "controls": checked,
         }
         return spec
 
@@ -935,6 +1108,7 @@ class MolecularDynamics:
                 f"{span(spec['pressures'], 'GPa')}, barostat {spec['barostat']} with "
                 f"damping {spec['barostat_damping']!r} ps"
             )
+        parts.extend(repr(control) for control in spec["controls"])
         parts.append(f"thermo every {spec['thermo']}")
         if spec["save_every"] is not None:
             parts.append(f"atoms every {spec['save_every']}")

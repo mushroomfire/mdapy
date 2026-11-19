@@ -2,6 +2,9 @@
 
 ## 2.2.0 (not released)
 
+- The example [A shock wave in copper](../examples/shock.md): a piston at 1 km/s
+  through 102400 atoms on a GPU, the profiles of velocity, pressure and temperature
+  behind the front, and the stacking faults it leaves.
 - `run(..., ensemble="msst", barostat="z", shock_velocity=...)`, the multiscale
   shock technique of LAMMPS's `fix msst`: the box compressed along an axis as by a
   steady shock of that velocity, its settings `q`, `mu` and `tscale` in `msst`, the

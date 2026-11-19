@@ -146,6 +146,7 @@ nav:
           - Molecular dynamics through LAMMPS: examples/molecular-dynamics.md
           - A copper cluster melting in MDAPY: examples/cluster-melting.md
           - A collision cascade in tungsten: examples/radiation-cascade.md
+          - A shock wave in copper: examples/shock.md
           - A machine-learned potential for CrCoNi: examples/crconi.md
           - Generated training sets for aluminium: examples/aluminium-training.md
           - Lattice dynamics of solid argon: examples/argon.md

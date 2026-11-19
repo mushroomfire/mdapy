@@ -31,18 +31,17 @@ LAMMPS gives the same crystal −0.07428 eV per atom, and MDAPY −0.07430, the 
 of three seeds each, with standard errors of 1e-5 eV.
 
 The melting point of copper from the crossing of the free energies of its solid and
-its liquid, of 5324 atoms each, with the EAM potential of Mishin et al. in LAMMPS:
+its liquid, of 5324 atoms each, with the EAM potential of Mishin et al. on a
+[GPU](gpu.md):
 
 <!-- skip-test -->
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import EAM
 from mdapy.simulation import free_energy, minimize
 
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM("Cu_mishin1.eam.alloy", device="cuda")  # the file of LAMMPS
 crystal = minimize(
     build_crystal("fcc", 3.615, elements="Cu", repeat=(11, 11, 11)),
     potential,
@@ -58,7 +57,7 @@ liquid = free_energy(
 )
 solid.free_energy  # eV per atom at each temperature
 melting = solid.crossing(liquid)
-melting.temperature, melting.latent_heat  # 1328 K, 0.124 eV per atom
+melting.temperature, melting.latent_heat  # 1327 K, 0.124 eV per atom
 ```
 
 The two phases of copper meet at its melting point:
@@ -80,8 +79,9 @@ with plot.style():
 
 ![Free energy of solid and liquid copper](images/free-energy.png)
 
-*Copper with the EAM potential of Mishin et al., 5324 atoms: the liquid has the lower
-free energy above 1328 K. A millielectronvolt per atom is 11 K here.*
+*Copper with the EAM potential of Mishin et al., 5324 atoms, in 29 minutes on one V100:
+the liquid has the lower free energy above 1327 K, as in LAMMPS, 1328 K. A
+millielectronvolt per atom is 11 K here.*
 
 These are the free energies of exactly these atoms in their periodic box, so they depend
 a little on the number of atoms, and so does where the phases meet: the same copper gives

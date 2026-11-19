@@ -84,12 +84,12 @@ on one GPU gave
 
 | Length | κ (W/(m K)) |
 |---|---|
-| 4.2 nm | 0.44 ± 0.02 |
-| 8.4 nm | 0.66 ± 0.05 |
-| 16.9 nm | 0.68 ± 0.05 |
-| 33.8 nm | 0.79 ± 0.03 |
+| 4.2 nm | 0.40 ± 0.03 |
+| 8.4 nm | 0.61 ± 0.02 |
+| 16.9 nm | 0.69 ± 0.04 |
+| 33.8 nm | 0.83 ± 0.08 |
 
-and a line of 1/κ against 1/L reaches 0.88 ± 0.05 W/(m K) at an infinite length.
+and a line of 1/κ against 1/L reaches 0.96 ± 0.09 W/(m K) at an infinite length.
 Compare boxes of growing length. The [Green–Kubo relation](green-kubo.md)
 and [HNEMD](hnemd.md) need no such length.
 

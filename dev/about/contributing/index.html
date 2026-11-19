@@ -5434,6 +5434,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/hugoniostat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugoniostat
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9206,7 +9234,7 @@ its Python module installed from the wheel that the build leaves:</p>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>cmake<span class="w"> </span>-S<span class="w"> </span>lammps/cmake<span class="w"> </span>-B<span class="w"> </span>lammps-build<span class="w"> </span>-D<span class="w"> </span><span class="nv">CMAKE_BUILD_TYPE</span><span class="o">=</span>Release<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">BUILD_SHARED_LIBS</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">BUILD_MPI</span><span class="o">=</span>no<span class="w"> </span>-D<span class="w"> </span><span class="nv">BUILD_OMP</span><span class="o">=</span>no<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_MANYBODY</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_MEAM</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_MOLECULE</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-COMPUTE<span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>-D<span class="w"> </span>PKG_EXTRA-FIX<span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-PAIR<span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span>-D<span class="w"> </span>PKG_EXTRA-FIX<span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span>PKG_EXTRA-PAIR<span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_SHOCK</span><span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_VORONOI</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">DOWNLOAD_VORO</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">PKG_PHONON</span><span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">PKG_KOKKOS</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">Kokkos_ENABLE_SERIAL</span><span class="o">=</span>on<span class="w"> </span>-D<span class="w"> </span><span class="nv">Kokkos_ENABLE_THREADS</span><span class="o">=</span>on<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span>-D<span class="w"> </span><span class="nv">Python_EXECUTABLE</span><span class="o">=</span><span class="s2">"</span><span class="k">$(</span>which<span class="w"> </span>python<span class="k">)</span><span class="s2">"</span>
@@ -9241,6 +9269,10 @@ its Python module installed from the wheel that the build leaves:</p>
 <tr>
 <td><code>EXTRA-FIX</code>, <code>EXTRA-PAIR</code></td>
 <td>free energies of solids and liquids</td>
+</tr>
+<tr>
+<td><code>SHOCK</code></td>
+<td>walls that move as pistons, and the Hugoniostat</td>
 </tr>
 <tr>
 <td><code>VORONOI</code></td>

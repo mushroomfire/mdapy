@@ -5438,6 +5438,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/hugoniostat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugoniostat
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -10534,7 +10562,7 @@ while the frames of an <code>iterate</code> are being read.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.run" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10574,12 +10602,14 @@ while the frames of an <code>iterate</code> are being read.</p>
                 <code>ensemble</code>
             </td>
             <td>
-                  <code>(nve, nvt, npt, nph)</code>
+                  <code>(nve, nvt, npt, nph, nphug)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Constant energy, or a thermostat, and barostat, or a barostat
-alone. Default "nve".</p>
+alone, or a barostat and a thermostat that keeps the atoms on the
+Hugoniot of a reference state, as LAMMPS's fix nphug. Default
+"nve".</p>
               </div>
             </td>
             <td>
@@ -10613,7 +10643,8 @@ and the end of the run; needed for "nvt" and "npt".</p>
             <td>
               <div class="doc-md-description">
                 <p>Pressure in GPa of the barostat, or its values at the start and
-the end; needed for "npt" and "nph".</p>
+the end; needed for "npt", "nph" and "nphug", one value for
+"nphug".</p>
               </div>
             </td>
             <td>
@@ -10625,16 +10656,20 @@ the end; needed for "npt" and "nph".</p>
                 <code>barostat</code>
             </td>
             <td>
-                  <code>(iso, aniso, tri, xy)</code>
+                  <code>(iso, aniso, tri, xy, x, y, z)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>The box changes alike in every direction, along each axis, in
-any way, or alike along its first two vectors with the third
-kept. A sheet, periodic along its first two vectors only, changes
-in its plane only: alike along them for "iso" and "xy", along
-each for "aniso", and in any way in the plane for "tri". Default
-"iso".</p>
+any way, alike along its first two vectors with the third kept,
+or along one axis alone, the others kept. A sheet, periodic along
+its first two vectors only, changes in its plane only: alike
+along them for "iso" and "xy", along each for "aniso", and in
+any way in the plane for "tri". Along one axis the box needs its
+first vector along x and its second in the xy plane, periodic
+along that axis. "nphug" takes "iso", "aniso" and "tri" under
+the same pressure along every axis, or one axis for a uniaxial
+compression. Default "iso".</p>
               </div>
             </td>
             <td>
@@ -10723,6 +10758,25 @@ atoms held or moved. Default False.</p>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hugoniot</code>
+            </td>
+            <td>
+                  <code>(float64, float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "nphug", the reference state of the Hugoniot: its total
+energy in eV, volume in Å³ and pressure in GPa, along the axis
+of a barostat along one axis. Default None, the state at the
+start of the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">
@@ -10875,7 +10929,7 @@ of "nvt" or "npt". Default none.</p>
 
 
 <a href="#mdapy.simulation.MolecularDynamics.iterate" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">iterate</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">save_every</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s1">'nve'</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s1">'iso'</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s1">'nose-hoover'</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">barostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">keep_momentum</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">hugoniot</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10935,12 +10989,14 @@ the run before gave them there.</p>
                 <code>ensemble</code>
             </td>
             <td>
-                  <code>(nve, nvt, npt, nph)</code>
+                  <code>(nve, nvt, npt, nph, nphug)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>Constant energy, or a thermostat, and barostat, or a barostat
-alone. Default "nve".</p>
+alone, or a barostat and a thermostat that keeps the atoms on the
+Hugoniot of a reference state, as LAMMPS's fix nphug. Default
+"nve".</p>
               </div>
             </td>
             <td>
@@ -10974,7 +11030,8 @@ and the end of the run; needed for "nvt" and "npt".</p>
             <td>
               <div class="doc-md-description">
                 <p>Pressure in GPa of the barostat, or its values at the start and
-the end; needed for "npt" and "nph".</p>
+the end; needed for "npt", "nph" and "nphug", one value for
+"nphug".</p>
               </div>
             </td>
             <td>
@@ -10986,16 +11043,20 @@ the end; needed for "npt" and "nph".</p>
                 <code>barostat</code>
             </td>
             <td>
-                  <code>(iso, aniso, tri, xy)</code>
+                  <code>(iso, aniso, tri, xy, x, y, z)</code>
             </td>
             <td>
               <div class="doc-md-description">
                 <p>The box changes alike in every direction, along each axis, in
-any way, or alike along its first two vectors with the third
-kept. A sheet, periodic along its first two vectors only, changes
-in its plane only: alike along them for "iso" and "xy", along
-each for "aniso", and in any way in the plane for "tri". Default
-"iso".</p>
+any way, alike along its first two vectors with the third kept,
+or along one axis alone, the others kept. A sheet, periodic along
+its first two vectors only, changes in its plane only: alike
+along them for "iso" and "xy", along each for "aniso", and in
+any way in the plane for "tri". Along one axis the box needs its
+first vector along x and its second in the xy plane, periodic
+along that axis. "nphug" takes "iso", "aniso" and "tri" under
+the same pressure along every axis, or one axis for a uniaxial
+compression. Default "iso".</p>
               </div>
             </td>
             <td>
@@ -11084,6 +11145,25 @@ atoms held or moved. Default False.</p>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>hugoniot</code>
+            </td>
+            <td>
+                  <code>(float64, float64, float64)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For "nphug", the reference state of the Hugoniot: its total
+energy in eV, volume in Å³ and pressure in GPa, along the axis
+of a barostat along one axis. Default None, the state at the
+start of the run.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
           <tr class="doc-section-item">

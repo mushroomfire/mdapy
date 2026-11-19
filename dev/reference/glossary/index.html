@@ -5438,6 +5438,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/hugoniostat/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hugoniostat
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
         
   
@@ -9749,6 +9777,18 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>piston, momentum mirror</td>
 <td>a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston</td>
+</tr>
+<tr>
+<td>Hugoniot</td>
+<td>the states a steady shock wave can leave behind it from a reference state of energy E₀, volume V₀ and pressure P₀: those with E − E₀ = ½(P + P₀)(V₀ − V)</td>
+</tr>
+<tr>
+<td>Hugoniostat, <code>"nphug"</code></td>
+<td>molecular dynamics at a pressure, along one axis or alike along every axis, whose thermostat drives the energy to the Hugoniot, as LAMMPS's <code>fix nphug</code>: a point of the Hugoniot without a shock wave</td>
+</tr>
+<tr>
+<td>shock velocity, particle velocity</td>
+<td>of a steady shock to a state of strain ε = 1 − V/V₀: the speed of its front, √((P − P₀)/(ρ₀ε)), and that of the matter behind it, ε times the first</td>
 </tr>
 <tr>
 <td>strain rate</td>

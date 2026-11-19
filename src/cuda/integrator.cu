@@ -90,6 +90,29 @@ __global__ void langevin_kernel(std::int64_t n, double c1, double c2, double kt,
     v[3 * i + 2] = c1 * v[3 * i + 2] + c2 * sigma * g23.x;
 }
 
+struct Rotation {
+    double r[9];
+};
+
+// The vector of each atom in the axes of the system, w = v R^T, its
+// components along which the atom may not move set to zero, and back, w R.
+__global__ void restrict_kernel(std::int64_t n, Rotation t, const std::int32_t* movable,
+                                double* v) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const std::int32_t m = movable[i];
+    if (m == 7) return;
+    double* u = v + 3 * i;
+    double w[3];
+    for (int b = 0; b < 3; ++b) {
+        w[b] = ((m >> b) & 1) ? u[0] * t.r[3 * b] + u[1] * t.r[3 * b + 1] + u[2] * t.r[3 * b + 2]
+                              : 0.0;
+    }
+    for (int c = 0; c < 3; ++c) {
+        u[c] = w[0] * t.r[c] + w[1] * t.r[3 + c] + w[2] * t.r[6 + c];
+    }
+}
+
 // m v_a v_b of each atom in 6 columns, xx yy zz yz xz xy.
 __global__ void kinetic_kernel(std::int64_t n, const double* m, const double* v, double* out) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -177,6 +200,35 @@ void Atoms::langevin(double c1, double c2, double kt, std::uint64_t seed,
                                              a.velocities.data());
     MDAPY_LAUNCHED();
 }
+
+void Atoms::set_movable(const bool* movable, const double* rotation) {
+    Impl& a = *impl_;
+    std::vector<std::int32_t> bits(static_cast<std::size_t>(a.n));
+    for (std::int64_t i = 0; i < a.n; ++i) {
+        bits[i] = (movable[3 * i] ? 1 : 0) | (movable[3 * i + 1] ? 2 : 0) |
+                  (movable[3 * i + 2] ? 4 : 0);
+    }
+    std::vector<std::int32_t> placed(bits.size());
+    a.to_places(bits.data(), placed.data(), 1);
+    a.movable.upload(placed.data(), placed.size());
+    for (int k = 0; k < 9; ++k) a.rotation[k] = rotation[k];
+}
+
+namespace {
+
+void restricted(Atoms::Impl& a, double* vectors) {
+    if (a.movable.size() != static_cast<std::size_t>(a.n)) return;  // every atom moves
+    Rotation t{};
+    for (int k = 0; k < 9; ++k) t.r[k] = a.rotation[k];
+    restrict_kernel<<<blocks(a.n), kBlock>>>(a.n, t, a.movable.data(), vectors);
+    MDAPY_LAUNCHED();
+}
+
+}  // namespace
+
+void Atoms::restrict_forces() { restricted(*impl_, impl_->forces.data()); }
+
+void Atoms::restrict_velocities() { restricted(*impl_, impl_->velocities.data()); }
 
 void Atoms::kinetic(double* tensor) const {
     Impl& a = *impl_;

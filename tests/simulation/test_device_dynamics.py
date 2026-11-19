@@ -53,6 +53,49 @@ def test_the_runs_of_the_processor(gpu, options):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-9, atol=1e-9)
 
 
+def held(system):
+    """The crystal turned, so that the frame of the dynamics is not the
+    system's, with atoms held along all, one or two of its axes."""
+    c, s = np.cos(0.3), np.sin(0.3)
+    q = np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]]) @ np.array(
+        [[1, 0, 0], [0, c, -s], [0, s, c]]
+    )
+    turned = system.with_box(
+        mdapy.Box(system.box.matrix @ q.T, pbc=True), scale_positions=True
+    )
+    movable = np.ones((len(system), 3), dtype=bool)
+    movable[:16] = False
+    movable[16:48, 0] = False
+    movable[48:64, 1:] = False
+    return turned.with_columns(movable=movable)
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"ensemble": "nvt", "temperature": 300},
+        {"ensemble": "npt", "temperature": 300, "pressure": 1.0, "barostat": "tri"},
+    ],
+)
+def test_held_atoms_as_on_the_processor(gpu, options):
+    system = held(crystal(tilt=0.2))
+    a, ta = run(system, EAM.zhou(["Cu", "Ni"], device="cuda"), 40, **options)
+    b, tb = run(system, EAM.zhou(["Cu", "Ni"]), 40, **options)
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, atol=1e-10)
+    np.testing.assert_allclose(a["positions"], b["positions"], atol=1e-9)
+    np.testing.assert_allclose(a["velocities"], b["velocities"], atol=1e-8)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-9)
+    assert np.abs(a["velocities"][~system["movable"]]).max() < 1e-12
+
+
+def test_held_atoms_in_langevin_dynamics(gpu):
+    system = held(crystal())
+    options = {"ensemble": "nvt", "temperature": 300, "thermostat": "langevin"}
+    a, _ = run(system, EAM.zhou(["Cu", "Ni"], device="cuda"), 20, seed=2, **options)
+    assert np.abs(a["velocities"][~system["movable"]]).max() < 1e-12
+    assert np.abs(a["velocities"][system["movable"]]).max() > 1.0
+
+
 def test_langevin_dynamics_repeats_with_its_seed(gpu):
     lj = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0, device="cuda")
     options = {"ensemble": "nvt", "temperature": 300, "thermostat": "langevin"}
@@ -80,10 +123,6 @@ def test_errors(gpu, monkeypatch):
     potential = EAM.zhou(["Cu", "Ni"], device="cuda")
     with pytest.raises(InvalidParameter, match="thicker than twice the cutoff"):
         run(crystal(repeat=3), potential, 2)
-    with pytest.raises(InvalidParameter, match="movable column"):
-        MolecularDynamics(
-            crystal().with_columns(movable=np.zeros((256, 3), dtype=bool)), potential
-        )
     with pytest.raises(InvalidParameter, match="has no molecular dynamics on the GPU"):
         MolecularDynamics(crystal(), _Elsewhere())
     # forces that are not finite move the atoms to positions that are not

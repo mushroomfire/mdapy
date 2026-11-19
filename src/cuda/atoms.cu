@@ -103,6 +103,8 @@ void Atoms::Impl::permute(const std::int32_t* order) {
     gathered(n, order, original, o2);
     Buffer<double> w2;
     gathered(n, order, masses, w2);
+    Buffer<std::int32_t> h2;
+    gathered(n, order, movable, h2);
     if (velocities.size() == static_cast<std::size_t>(3 * n)) {
         Buffer<Triple> v2(static_cast<std::size_t>(n));
         gather<<<blocks(n), kBlock>>>(n, order, reinterpret_cast<const Triple*>(velocities.data()),

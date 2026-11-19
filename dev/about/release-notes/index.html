@@ -9165,7 +9165,8 @@
   sums, as the GPU package of LAMMPS in mixed precision) or <code>"double"</code>, and compute on
   the device with a neighbor list of their own; every calculator has <code>device</code> and
   <code>precision</code>. <code>MolecularDynamics</code> with such a potential runs on the GPU whole, in
-  every ensemble, its atoms copied back only for records and frames. The GPU part, the
+  every ensemble and with atoms held by a <code>movable</code> column; the atoms are copied back
+  only for records and frames. The GPU part, the
   module <code>mdapy._cuda</code>, is built from source with the CUDA toolkit,
   <code>-Ccmake.define.MDAPY_CUDA=ON</code>. See <a href="../../user-guide/simulation/gpu/">On the GPU</a>.</li>
 <li>Native calculators of the classic potentials of LAMMPS, which read its files and compute

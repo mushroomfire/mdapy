@@ -5298,6 +5298,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/defect-energies/" class="md-nav__link">
         
   
@@ -6973,6 +7001,34 @@
     
   
     Building structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
   
 
     
@@ -9465,6 +9521,14 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>MDAPY's own dynamics</td>
 <td>molecular dynamics that <code>MolecularDynamics</code> runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes <code>nve</code>, <code>nvt</code>, <code>npt</code> and <code>nph</code>, for small systems</td>
+</tr>
+<tr>
+<td>device</td>
+<td>where a calculator computes: <code>"cpu"</code>, or <code>"cuda"</code> on an NVIDIA GPU</td>
+</tr>
+<tr>
+<td>mixed precision</td>
+<td>on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double</td>
 </tr>
 <tr>
 <td><code>iterate</code></td>

@@ -16,7 +16,7 @@
         <link rel="prev" href="../minimize/">
       
       
-        <link rel="next" href="../defect-energies/">
+        <link rel="next" href="../gpu/">
       
       
         
@@ -5426,6 +5426,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../defect-energies/" class="md-nav__link">
         
   
@@ -7126,6 +7154,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8687,8 +8743,10 @@ once; a neighbor list with a skin of 1 Å serves several steps while the box
 keeps its shape. The masses are those of the <code>mass</code> column, or of the
 elements; LAMMPS takes those of some potential files, such as EAM's.</p>
 <p>It is made for small systems, from a few atoms to some thousands, such as
-those of the training sets of machine-learned potentials. Large systems, long
-runs and anything beyond these ensembles are for LAMMPS.</p>
+those of the training sets of machine-learned potentials; large systems and
+long runs on the processor, and anything beyond these ensembles, are for
+LAMMPS. With a potential on an NVIDIA GPU, the same dynamics runs there, for
+millions of atoms: see <a href="../gpu/">On the GPU</a>.</p>
 <p>A <code>movable</code> column, (N, 3) bool as VASP's selective dynamics, keeps atoms
 still along the directions where it is False, in MDAPY's dynamics only; the
 temperature then counts the directions in which the atoms move.</p>
@@ -9105,13 +9163,13 @@ Langevin dynamics.</p>
         
         
           
-          <a href="../defect-energies/" class="md-footer__link md-footer__link--next" aria-label="Next: Defect energies">
+          <a href="../gpu/" class="md-footer__link md-footer__link--next" aria-label="Next: On the GPU">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                Defect energies
+                On the GPU
               </div>
             </div>
             <div class="md-footer__button md-icon">

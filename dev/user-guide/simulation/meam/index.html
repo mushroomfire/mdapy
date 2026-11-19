@@ -5387,6 +5387,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../defect-energies/" class="md-nav__link">
         
   
@@ -7087,6 +7115,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8614,6 +8670,16 @@ E_i = F(\bar\rho_i) + \frac{1}{2} \sum_{j} S_{ij} \phi(r_{ij}),
 <td><code>parameters</code></td>
 <td>str, path-like or <code>None</code></td>
 <td>the parameter file, lines of <code>keyword(indices) = value</code>; <code>None</code> for none, as <code>NULL</code> in LAMMPS</td>
+</tr>
+<tr>
+<td><code>device</code></td>
+<td>str</td>
+<td><code>"cpu"</code>, or <code>"cuda"</code> to compute on an NVIDIA GPU: see <a href="../gpu/">On the GPU</a></td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>str or <code>None</code></td>
+<td>on the GPU <code>"mixed"</code> (by default) or <code>"double"</code>; the processor computes in double precision only</td>
 </tr>
 </tbody>
 </table>

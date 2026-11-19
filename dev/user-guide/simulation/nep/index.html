@@ -5328,6 +5328,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../defect-energies/" class="md-nav__link">
         
   
@@ -7028,6 +7056,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8457,6 +8513,32 @@ computes every property.</p>
 <table>
 <thead>
 <tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>path</code></td>
+<td>str or path-like</td>
+<td>the potential file</td>
+</tr>
+<tr>
+<td><code>device</code></td>
+<td>str</td>
+<td><code>"cpu"</code>, or <code>"cuda"</code> to compute energies, forces and virials on an NVIDIA GPU: see <a href="../gpu/">On the GPU</a>; <code>descriptors</code> and many frames at once are computed on the processor</td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>str or <code>None</code></td>
+<td>on the GPU <code>"mixed"</code> (by default) or <code>"double"</code>; the processor computes in double precision only</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
 <th>Attribute</th>
 <th>Type</th>
 <th>Meaning</th>
@@ -8501,7 +8583,9 @@ computes every property.</p>
 <p>The atoms need an <code>element</code> column; elements the potential does not have
 raise <code>InvalidParameter</code>. Other models of GPUMD (NEP3, NEP5, charge, dipole
 and polarizability models) and malformed files raise
-<a href="../../../reference/api/utilities/#mdapy.errors.FileFormatError"><code>FileFormatError</code></a>.</p>
+<a href="../../../reference/api/utilities/#mdapy.errors.FileFormatError"><code>FileFormatError</code></a>.
+On the GPU, a model takes at most 20 radial and 20 angular functions and as many
+Chebyshev polynomials of each kind, as GPUMD; a larger one raises <code>InvalidParameter</code>.</p>
 <p>The model is that of GPUMD (<a href="../../../reference/references/#fan2022">Fan et al. (2022)</a>), version 4
 (<a href="../../../reference/references/#song2024">Song et al. (2024)</a>): radial descriptors from Chebyshev functions of
 the distance, angular ones from real spherical harmonics up to the degree

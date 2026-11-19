@@ -5409,6 +5409,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../defect-energies/" class="md-nav__link">
         
   
@@ -7109,6 +7137,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8612,7 +8668,9 @@ files of <code>pair_style eam</code>, and computes every property. The two setfl
 formats have the same lines, but an <code>eam/fs</code> file holds more values, which
 tells them apart: see <a href="#finnissinclair-potentials">Finnis–Sinclair potentials</a>.
 A funcfl file holds numbers where a setfl file names its elements: see
-<a href="#funcfl-files">Funcfl files</a>.</p>
+<a href="#funcfl-files">Funcfl files</a>. <code>EAM(path, *, device="cpu", precision=None)</code>
+computes on the processor, or with <code>device="cuda"</code> on an NVIDIA GPU, in
+mixed or double precision: see <a href="../gpu/">On the GPU</a>.</p>
 <table>
 <thead>
 <tr>
@@ -8642,6 +8700,11 @@ A funcfl file holds numbers where a setfl file names its elements: see
 <td>float64</td>
 <td>cutoff radius in Å</td>
 </tr>
+<tr>
+<td><code>device</code>, <code>precision</code></td>
+<td>str</td>
+<td>where it computes and in what precision, <code>"cpu"</code> and <code>"double"</code> or <code>"cuda"</code> and <code>"mixed"</code> or <code>"double"</code></td>
+</tr>
 </tbody>
 </table>
 <table>
@@ -8661,12 +8724,12 @@ A funcfl file holds numbers where a setfl file names its elements: see
 <td>writes the potential as an <code>eam/alloy</code> file, or an <code>eam/fs</code> file for a Finnis–Sinclair potential, which LAMMPS reads and which reads back to the same tables</td>
 </tr>
 <tr>
-<td><code>EAM.zhou(elements, *, nr=2000, nrho=2000)</code></td>
+<td><code>EAM.zhou(elements, *, nr=2000, nrho=2000, device="cpu", precision=None)</code></td>
 <td>the potential of Zhou, Johnson and Wadley for the elements</td>
 </tr>
 <tr>
 <td><code>average(fractions)</code></td>
-<td>the average-atom potential of an alloy of the elements, for a potential of the <code>eam/alloy</code> form; see <a href="#average-atom">Average atom</a></td>
+<td>the average-atom potential of an alloy of the elements, for a potential of the <code>eam/alloy</code> form, on the device of this one; see <a href="#average-atom">Average atom</a></td>
 </tr>
 </tbody>
 </table>
@@ -8737,6 +8800,13 @@ potential between two elements,</p>
 <td>2000</td>
 <td></td>
 <td>points of the embedding tables in density</td>
+</tr>
+<tr>
+<td><code>device</code>, <code>precision</code></td>
+<td>str</td>
+<td><code>"cpu"</code>, <code>None</code></td>
+<td></td>
+<td>as for <code>EAM</code></td>
 </tr>
 </tbody>
 </table>

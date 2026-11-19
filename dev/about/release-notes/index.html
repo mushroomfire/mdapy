@@ -5296,6 +5296,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/defect-energies/" class="md-nav__link">
         
   
@@ -6971,6 +6999,34 @@
     
   
     Building structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
   
 
     
@@ -9102,6 +9158,16 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The potentials of MDAPY run on an NVIDIA GPU with CUDA: <code>EAM</code>, <code>EAM.zhou</code>,
+  <code>LennardJones</code>, <code>Morse</code>, <code>ADP</code>, <code>Tersoff</code>, <code>StillingerWeber</code>, <code>MEAM</code> and <code>NEP</code> take <code>device="cuda"</code>
+  and <code>precision</code>, <code>"mixed"</code> (by default,
+  single precision for the terms of each pair and double for the positions and the
+  sums, as the GPU package of LAMMPS in mixed precision) or <code>"double"</code>, and compute on
+  the device with a neighbor list of their own; every calculator has <code>device</code> and
+  <code>precision</code>. <code>MolecularDynamics</code> with such a potential runs on the GPU whole, in
+  every ensemble, its atoms copied back only for records and frames. The GPU part, the
+  module <code>mdapy._cuda</code>, is built from source with the CUDA toolkit,
+  <code>-Ccmake.define.MDAPY_CUDA=ON</code>. See <a href="../../user-guide/simulation/gpu/">On the GPU</a>.</li>
 <li>Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:

@@ -5387,6 +5387,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../defect-energies/" class="md-nav__link">
         
   
@@ -7087,6 +7115,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8603,6 +8659,16 @@ and the cutoff <span class="arithmatex">\(f_C\)</span> falling from 1 to 0 betwe
 <td><code>elements</code></td>
 <td>sequence of str, or mapping</td>
 <td>the elements to use, as the names after the file in <code>pair_coeff</code> of LAMMPS; every triplet of them needs an entry. A mapping takes the element of the atoms to a label of the file, as <code>{"Si": "Si(D)", "C": "C"}</code> for the labels of <code>SiCGe.tersoff</code>. Default every element of the file</td>
+</tr>
+<tr>
+<td><code>device</code></td>
+<td>str</td>
+<td><code>"cpu"</code>, or <code>"cuda"</code> to compute on an NVIDIA GPU: see <a href="../gpu/">On the GPU</a></td>
+</tr>
+<tr>
+<td><code>precision</code></td>
+<td>str or <code>None</code></td>
+<td>on the GPU <code>"mixed"</code> (by default) or <code>"double"</code>; the processor computes in double precision only</td>
 </tr>
 </tbody>
 </table>

@@ -5298,6 +5298,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../../user-guide/simulation/defect-energies/" class="md-nav__link">
         
   
@@ -6973,6 +7001,34 @@
     
   
     Building structures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
   
 
     
@@ -9249,6 +9305,29 @@ at least this cutoff.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.Calculator.device">device</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where <code>compute</code> runs: <code>"cpu"</code>, or <code>"cuda"</code> on an NVIDIA GPU.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.Calculator.precision">precision</span></code></td>
+            <td>
+                  <code><span title="str">str</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"double"</code>, or <code>"mixed"</code>: single precision for the terms of each
+pair, double for the positions and the sums.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -9824,7 +9903,7 @@ each quantity.</p>
 
 
 <a href="#mdapy.calculators.EAM" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EAM</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">EAM</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9865,6 +9944,41 @@ element gives each element; or one or several funcfl files of
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions and the sums, or double throughout. Default
+"mixed" on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -9964,7 +10078,7 @@ average-atom potential.</p>
   </span>
 
 <a href="#mdapy.calculators.EAM.zhou" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">zhou</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">nr</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">nrho</span><span class="o">=</span><span class="mi">2000</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">zhou</span><span class="p">(</span><span class="n">elements</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">nr</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">nrho</span><span class="o">=</span><span class="mi">2000</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -10033,6 +10147,38 @@ Default 2000.</p>
             </td>
             <td>
                   <code>2000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes, as for <code>EAM</code>. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Its precision, as for <code>EAM</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -10212,7 +10358,7 @@ an <code>eam/fs</code> file for a potential read from one.</p>
 
 
 <a href="#mdapy.calculators.MEAM" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MEAM</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">elements</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MEAM</span><span class="p">(</span><span class="n">library</span><span class="p">,</span> <span class="n">elements</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10287,6 +10433,42 @@ NULL in LAMMPS.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions, the densities of each atom and the sums, or double
+throughout. Default "mixed" on the GPU, "double" on the processor,
+which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -10411,7 +10593,7 @@ farther away screen a pair.</p>
 
 
 <a href="#mdapy.calculators.ADP" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ADP</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ADP</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10452,6 +10634,41 @@ elements.</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions and the sums, or double throughout. Default
+"mixed" on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -10553,7 +10770,7 @@ elements.</p>
 
 
 <a href="#mdapy.calculators.Tersoff" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Tersoff</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Tersoff</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10611,6 +10828,41 @@ Default every element of the file.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms and double for the
+positions and the sums, or double throughout. Default "mixed" on the
+GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -10701,7 +10953,7 @@ Default every element of the file.</p>
 
 
 <a href="#mdapy.calculators.StillingerWeber" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">StillingerWeber</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">StillingerWeber</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10759,6 +11011,41 @@ the file.</p>
             </td>
             <td>
                   <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms and double for the
+positions and the sums, or double throughout. Default "mixed" on the
+GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -10849,7 +11136,7 @@ the file.</p>
 
 
 <a href="#mdapy.calculators.LennardJones" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LennardJones</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mixing</span><span class="o">=</span><span class="s1">'geometric'</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LennardJones</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">mixing</span><span class="o">=</span><span class="s1">'geometric'</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10945,6 +11232,41 @@ there, as <code>pair_modify shift yes</code>. Default False.</p>
                   <code>False</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions and the sums, or double throughout. Default
+"mixed" on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -11034,7 +11356,7 @@ atom of any element.</p>
 
 
 <a href="#mdapy.calculators.Morse" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Morse</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Morse</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">cutoff</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">shift</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11108,6 +11430,41 @@ there, as <code>pair_modify shift yes</code>. Default False.</p>
             </td>
             <td>
                   <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where it computes: on the processor, or on an NVIDIA GPU with a
+neighbor list of its own. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the terms of each pair and double
+for the positions and the sums, or double throughout. Default
+"mixed" on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>
@@ -11198,7 +11555,7 @@ there, as <code>pair_modify shift yes</code>. Default False.</p>
 
 
 <a href="#mdapy.calculators.NEP" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NEP</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NEP</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s1">'cpu'</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11235,6 +11592,43 @@ there, as <code>pair_modify shift yes</code>. Default False.</p>
             </td>
             <td>
                 <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>device</code>
+            </td>
+            <td>
+                  <code>(cpu, cuda)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where energies, forces and virials are computed: on the processor, or
+on an NVIDIA GPU with a neighbor list of its own. The descriptors and
+many frames at once are computed on the processor. Default "cpu".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;cpu&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>precision</code>
+            </td>
+            <td>
+                  <code>(mixed, double)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>On the GPU: single precision for the descriptors, the network and the
+terms of each pair, and double for the positions and for the sums of
+energies, forces and virials, or double throughout. Default "mixed"
+on the GPU, "double" on the processor, which has no other.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;mixed&#34;</code>
             </td>
           </tr>
       </tbody>

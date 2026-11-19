@@ -201,6 +201,10 @@
          <lastmod>2026-11-19</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/performance/gpu/</loc>
+         <lastmod>2026-11-19</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/elements/</loc>
          <lastmod>2026-11-19</lastmod>
     </url>
@@ -662,6 +666,10 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/free-energy/</loc>
+         <lastmod>2026-11-19</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/gpu/</loc>
          <lastmod>2026-11-19</lastmod>
     </url>
     <url>

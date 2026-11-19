@@ -777,6 +777,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#potentials-and-dynamics-on-an-nvidia-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Potentials and dynamics on an NVIDIA GPU
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#64-bit-atom-indices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -5468,6 +5479,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/simulation/defect-energies/" class="md-nav__link">
         
   
@@ -7156,6 +7195,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../performance/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics on the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -8626,6 +8693,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#potentials-and-dynamics-on-an-nvidia-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Potentials and dynamics on an NVIDIA GPU
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#64-bit-atom-indices" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -8771,20 +8849,29 @@ on Linux when the build finds Vulkan's headers: install them before MDAPY, as
 Vulkan loader, <code>libvulkan.so.1</code>, only for a picture on the GPU; the loader
 and the driver come with the graphics drivers. Without the headers, or
 without a GPU, pictures are traced on the processor.</p>
+<h2 id="potentials-and-dynamics-on-an-nvidia-gpu">Potentials and dynamics on an NVIDIA GPU<a class="headerlink" href="#potentials-and-dynamics-on-an-nvidia-gpu" title="Permanent link">&para;</a></h2>
+<p><a href="../../user-guide/simulation/gpu/">Potentials and molecular dynamics on the GPU</a>
+need MDAPY built from its source with the CUDA toolkit (tested with CUDA 13.5), which the
+wheels of PyPI are not:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
+</code></pre></div>
+<p>The build compiles for the GPU of the machine, or for those of
+<code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>, and links the CUDA runtime
+into MDAPY, so that running it needs only the driver of the GPU.</p>
 <h2 id="64-bit-atom-indices">64-bit atom indices<a class="headerlink" href="#64-bit-atom-indices" title="Permanent link">&para;</a></h2>
 <p>Atom indices in results such as neighbor lists are 32-bit integers, enough
 for 2,147,483,647 atoms and half the memory of 64-bit ones. For larger
 systems, build MDAPY with 64-bit indices:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>-Ccmake.define.MDAPY_INDEX64<span class="o">=</span>ON
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>-Ccmake.define.MDAPY_INDEX64<span class="o">=</span>ON
 </code></pre></div>
 <p><code>mdapy.index_dtype</code> tells which build is installed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import mdapy; print(mdapy.index_dtype)"</span><span class="w">   </span><span class="c1"># int64</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import mdapy; print(mdapy.index_dtype)"</span><span class="w">   </span><span class="c1"># int64</span>
 </code></pre></div>
 <p>The table of a <code>System</code> holds a row per atom, and the default runtime of
 polars at most 4,294,967,295 rows. Beyond that, install the 64-bit runtime
 of polars too, which polars then takes by itself:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"polars[rt64]"</span>
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import polars; print(polars.get_index_type())"</span><span class="w">   </span><span class="c1"># UInt64</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"polars[rt64]"</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import polars; print(polars.get_index_type())"</span><span class="w">   </span><span class="c1"># UInt64</span>
 </code></pre></div>
 <h2 id="optional-dependencies">Optional dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
 <p>MDAPY needs only NumPy and polars. Other packages, when installed, switch on
@@ -8909,11 +8996,11 @@ all:</p>
 <h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
 <p>An editable install rebuilds nothing on import; rerun the install after
 changing C++ code.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,docs]"</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>pytest<span class="w">                      </span><span class="c1"># run the test suite</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>pytest<span class="w"> </span>--cov<span class="w">                </span><span class="c1"># with coverage (fails below 90 % in total)</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>ruff<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>.
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>mkdocs<span class="w"> </span>serve<span class="w">                </span><span class="c1"># preview the documentation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,docs]"</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>pytest<span class="w">                      </span><span class="c1"># run the test suite</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>pytest<span class="w"> </span>--cov<span class="w">                </span><span class="c1"># with coverage (fails below 90 % in total)</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>ruff<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>.
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>mkdocs<span class="w"> </span>serve<span class="w">                </span><span class="c1"># preview the documentation</span>
 </code></pre></div>
 <p>The test suite and the coverage rules are described in
 <a href="../../about/contributing/">Contributing</a>.</p>

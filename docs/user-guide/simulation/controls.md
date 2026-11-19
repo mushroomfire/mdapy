@@ -79,6 +79,7 @@ the force at one step, which the vibrations of the atoms shake.*
 | `Deform(*, xx=0.0, yy=0.0, zz=0.0, yz=0.0, xz=0.0, xy=0.0, kind="engineering")` | the box stretched, compressed or sheared at constant strain rates, the atoms carried with it: see [Deformation](deformation.md) |
 | `AdaptiveTimestep(max_distance, *, min_timestep=None, max_timestep=None, every=1)` | the time step of the fastest atom, in which no atom moves more than `max_distance`: see [Adaptive time step](adaptive-timestep.md) |
 | `Switch(target, *, start=0.0, stop=1.0, name=None)` | the potential turned into another along the run, for thermodynamic integration: see [Switching between potentials](switching.md) |
+| `Wall(axis="z", *, side="low", position=None, velocity=0.0)` | a flat wall that reflects the atoms, still or moving as a piston: see [Walls](walls.md) |
 
 | Parameter | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -130,7 +131,7 @@ the force at one step, which the vibrations of the atoms shake.*
 ## Errors
 
 `run` and `iterate` raise `InvalidParameter` for a control that is not a
-`Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep` or `Switch`, a group of another number of atoms,
+`Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch` or `Wall`, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat or a `Deform`,
 a bath with the thermostat of `"nvt"` or `"npt"`, on the GPU more than 31

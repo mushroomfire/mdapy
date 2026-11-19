@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `mdapy.simulation.Wall`, a control of a flat wall across an axis that reflects
+  the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
+  piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and
+  `fix wall/piston`; in MDAPY, on the GPU and in LAMMPS alike. See
+  [Walls](../user-guide/simulation/walls.md).
 - `mdapy.lattice_dynamics.nemd(system, potential, temperature)`: the thermal
   conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
   two slabs of the box, the heat they drive over the gradient of temperature between

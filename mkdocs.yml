@@ -247,6 +247,7 @@ nav:
               - Deformation: user-guide/simulation/deformation.md
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md
               - Switching between potentials: user-guide/simulation/switching.md
+              - Walls: user-guide/simulation/walls.md
               - On the GPU: user-guide/simulation/gpu.md
               - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:

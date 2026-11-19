@@ -216,7 +216,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
-| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, and `AdaptiveTimestep`, how long the steps are, given by `controls` of `run` or `iterate` |
+| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, `AdaptiveTimestep`, how long the steps are, `Switch`, the potential turned into another, and `Wall`, flat walls that reflect the atoms, given by `controls` of `run` or `iterate` |
+| wall | of `Wall`: a plane across an axis that reflects the atoms that pass it, each put back by as far as it passed with its velocity across the plane turned to 2u − v, u that of the wall; a still wall is a momentum mirror, a moving one a piston |
+| piston, momentum mirror | a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
 | NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |
 | HNEMD | homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, `hnemd` |

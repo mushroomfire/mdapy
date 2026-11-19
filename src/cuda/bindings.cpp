@@ -175,6 +175,12 @@ NB_MODULE(_cuda, m) {
         .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
         .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
         .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def(
+            "reflect",
+            [](Atoms& a, Vector normal, double offset, double speed) {
+                a.reflect(normal.data(), offset, speed);
+            },
+            nb::arg("normal"), nb::arg("offset"), nb::arg("speed"))
         .def("heat_flux",
              [](const Atoms& a) {
                  double* data;

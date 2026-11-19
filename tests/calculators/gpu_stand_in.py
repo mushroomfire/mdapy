@@ -69,6 +69,12 @@ class Atoms:
         self.kick(c)
         self.drift(dt)
 
+    def reflect(self, normal, offset, speed):
+        depth = self.x @ normal - offset
+        past = depth < 0.0
+        self.x[past] -= 2.0 * depth[past, None] * normal
+        self.v[past] += 2.0 * (speed - self.v[past] @ normal)[:, None] * normal
+
     def scale(self, fx, fy, fz):
         self.v *= np.array([fx, fy, fz])
 

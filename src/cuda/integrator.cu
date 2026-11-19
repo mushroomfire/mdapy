@@ -54,6 +54,24 @@ __global__ void drift_kernel(std::int64_t n, double dt, const double* v, double4
     x[i] = p;
 }
 
+__global__ void reflect_kernel(std::int64_t n, double3 normal, double offset, double speed,
+                               double4a* x, double* v) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    double4a p = x[i];
+    const double depth = p.x * normal.x + p.y * normal.y + p.z * normal.z - offset;
+    if (!(depth < 0.0)) return;
+    p.x -= 2.0 * depth * normal.x;
+    p.y -= 2.0 * depth * normal.y;
+    p.z -= 2.0 * depth * normal.z;
+    x[i] = p;
+    double* u = v + 3 * i;
+    const double change = 2.0 * (speed - (u[0] * normal.x + u[1] * normal.y + u[2] * normal.z));
+    u[0] += change * normal.x;
+    u[1] += change * normal.y;
+    u[2] += change * normal.z;
+}
+
 __global__ void scale_kernel(std::int64_t n, double3 factor, double* v) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -338,6 +356,14 @@ void Atoms::kick_drift(double c, double dt) {
 void Atoms::drift(double dt) {
     Impl& a = *impl_;
     drift_kernel<<<blocks(a.n), kBlock>>>(a.n, dt, a.velocities.data(), a.x.data());
+    MDAPY_LAUNCHED();
+    ++a.version;
+}
+
+void Atoms::reflect(const double* normal, double offset, double speed) {
+    Impl& a = *impl_;
+    reflect_kernel<<<blocks(a.n), kBlock>>>(a.n, make_double3(normal[0], normal[1], normal[2]),
+                                            offset, speed, a.x.data(), a.velocities.data());
     MDAPY_LAUNCHED();
     ++a.version;
 }

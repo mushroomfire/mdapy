@@ -564,3 +564,42 @@ def test_nemd(precision):
     )
     assert 0.2 < result.kappa < 2.0
     assert result.temperatures[10] > result.temperatures[0] + 5.0
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_walls(precision):
+    """A crystal open along z thrown against a still wall, then pushed by a
+    piston, on the GPU: the runs of the processor in double precision, the
+    atoms kept on their side of the walls in both."""
+    from mdapy.simulation import Wall
+
+    system = crystal()
+    system = system.with_box(mdapy.Box(system.box.matrix, pbc=(True, True, False)))
+    rng = np.random.default_rng(1)
+    system = system.with_columns(
+        velocities=rng.normal(0, 2.0, (len(system), 3)) + np.array([0.0, 0.0, -5.0])
+    )
+    top = float(system["positions"][:, 2].max())
+    mirrors = [Wall(position=-0.5), Wall(side="high", position=top + 0.5)]
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(200, thermo=50, controls=mirrors)
+            z = md.system["positions"][:, 2]
+            assert z.min() > -0.5 and z.max() < top + 0.5
+            md.run(200, thermo=50, controls=Wall(position=-1.0, velocity=10.0))
+            assert md.system["positions"][:, 2].min() > 3.0
+            out.append((md.system, md.thermo))
+    if precision == "mixed":
+        return
+    (a, ta), (b, tb) = out
+    d = a["positions"] - b["positions"]
+    d[:, :2] -= (
+        np.round(d[:, :2] / np.diag(a.box.matrix)[:2]) * np.diag(a.box.matrix)[:2]
+    )
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)

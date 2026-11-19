@@ -324,6 +324,16 @@ class _HostAtoms:
         self.kick(c)
         self.drift(dt)
 
+    def reflect(self, normal: np.ndarray, offset: float, speed: float) -> None:
+        """A flat wall: each atom with x . normal < offset put back by as
+        much, its velocity along the normal made 2 speed - v . normal."""
+        depth = self.__x @ normal - offset
+        past = depth < 0.0
+        if past.any():
+            self.__x[past] -= 2.0 * depth[past, None] * normal
+            change = 2.0 * (speed - self.__v[past] @ normal)
+            self.__v[past] += change[:, None] * normal
+
     def scale(self, factor: Any) -> None:
         self.__v *= factor
 
@@ -480,6 +490,7 @@ class _Native:
         self.__deform: Any = None  # the Deform of the run
         self.__adaptive: Any = None  # the AdaptiveTimestep of the run
         self.__switch: Any = None  # the Switch of the run
+        self.__walls: tuple = ()  # (normal, offset, speed) of each wall
         self.__heating = False  # whether a heat field drives the run
         self.__keep = False  # whether the Langevin noise keeps the momentum
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
@@ -645,6 +656,23 @@ class _Native:
         self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
         self.__heating = True
 
+    def __set_walls(self, walls: tuple) -> None:
+        """The plane of each wall in the frame of the dynamics at the start of
+        the run, its normal into the atoms, and its speed along the normal."""
+        self.__walls = ()
+        if not walls:
+            return
+        r = self.__rotation
+        matrix, origin = self.__h @ r.T, self.__lo @ r.T  # in the axes of the system
+        self.__walls = tuple(
+            (
+                self.__to_frame(wall._normal[None, :])[0],
+                wall._sign * wall._start(matrix, origin, self.__frame_pbc),
+                wall._sign * wall.velocity,
+            )
+            for wall in walls
+        )
+
     def __switch_record(self) -> dict[str, float]:
         """λ of a named Switch and the energy of its target minus that of the
         potential, both unscaled."""
@@ -740,6 +768,7 @@ class _Native:
         # the time of a step, from the step where the time step last changed
         self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
+        self.__set_walls(tuple(c for c in controls if isinstance(c, _controls.Wall)))
         self.__set_switch(
             next((c for c in controls if isinstance(c, _controls.Switch)), None),
             barostat,
@@ -943,6 +972,7 @@ class _Native:
                     _controls.Deform,
                     _controls.AdaptiveTimestep,
                     _controls.Switch,
+                    _controls.Wall,
                     _controls._HeatField,
                 ),
             ):
@@ -997,6 +1027,7 @@ class _Native:
         self.__run = {}
         self.__deform = None
         self.__adaptive = None
+        self.__walls = ()
         if self.__switch is not None:
             self.__atoms.set_switch(False)
             self.__switch = None
@@ -1051,6 +1082,10 @@ class _Native:
             self.__remap()
         else:
             self.__atoms.kick_drift(0.5 * dt * _FTM2V, dt)
+        if self.__walls:  # after the atoms moved, as fix wall/reflect
+            elapsed = (step - self.__first) * dt
+            for normal, offset, speed in self.__walls:
+                self.__atoms.reflect(normal, offset + speed * elapsed, speed)
         self.__compute(full)
         self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:

@@ -152,6 +152,7 @@ class _Lammps:
         self.__moves: tuple = ()
         self.__baths: tuple = ()
         self.__temperature: str | None = None
+        self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
         self.__holder.append(lmp)
@@ -396,6 +397,10 @@ create_box {len(potential.elements)} box
             for group in self.__groups:
                 self.command(f"group {group} delete")
         self.__fixes, self.__computes, self.__groups = [], [], []
+        if self.__holder and self.__piston:
+            flags = " ".join("p" if p else "m" for p in self.__pbc)
+            self.command(f"change_box all boundary {flags}")
+        self.__piston = False
         if self.__holder and self.__adaptive:
             # fix dt/reset leaves its last time step
             self.command(f"timestep {self.__timestep!r}")
@@ -403,6 +408,41 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+
+    def __wall(self, name: str, wall: Any, aligned: bool) -> None:
+        """A still wall as fix wall/reflect, a moving one as fix wall/piston,
+        which LAMMPS has on the low side of z, moving up, only."""
+        if not (aligned and not self.__swapped):
+            raise InvalidParameter(
+                "a wall needs, in LAMMPS, a box whose first vector is along x and "
+                "second in the xy plane"
+            )
+        low, _, xy, yz, xz, _, _ = self.lammps.extract_box()
+        lx, ly, lz = (self.lammps.get_thermo(k) for k in ("lx", "ly", "lz"))
+        matrix = np.array([[lx, 0, 0], [xy, ly, 0], [xz, yz, lz]])
+        k = "xyz".index(wall.axis)
+        # in the coordinates of LAMMPS, which start at the corner of the box
+        at = float(
+            wall._start(matrix, np.asarray(low) + self.__lo, self.__pbc) - self.__lo[k]
+        )
+        if wall.velocity == 0.0:
+            face = wall.axis + ("lo" if wall.side == "low" else "hi")
+            self.command(f"fix {name} all wall/reflect {face} {at!r} units box")
+        elif wall.axis == "z" and wall.side == "low" and wall.velocity > 0.0:
+            # the piston needs the low side of z shrink-wrapped
+            flags = ["p" if p else "m" for p in self.__pbc]
+            self.command(f"change_box all boundary {flags[0]} {flags[1]} sm")
+            self.__piston = True
+            self.command(
+                f"fix {name} all wall/piston zlo pos {at!r} vel {wall.velocity!r} "
+                "units box"
+            )
+        else:
+            raise InvalidParameter(
+                "a moving wall needs, in LAMMPS, the low side of z and a velocity "
+                "up z, as fix wall/piston; MDAPY's own dynamics move any wall"
+            )
+        self.__fixes.append(name)
 
     def __group(self, name: str, mask: np.ndarray) -> str:
         """A group of LAMMPS of the atoms of a mask, by their ids."""
@@ -487,6 +527,8 @@ create_box {len(potential.elements)} box
                     f"fix {name} all deform 1 {' '.join(words)} remap x flip no"
                 )
                 self.__fixes.append(name)
+            elif isinstance(control, _controls.Wall):
+                self.__wall(name, control, aligned)
             elif isinstance(control, _controls._HeatField):
                 raise InvalidParameter(
                     "HNEMD needs MDAPY's own dynamics, with a calculator other than "

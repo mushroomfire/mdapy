@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
+  LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
+  other melts with a thermostat of its own, and the crystal gets its velocities
+  from `thermal_velocities`, in either engine. See
+  [Melting point](../user-guide/simulation/melting-point.md).
 - `md_elastic_constants` takes any calculator: its molecular dynamics run in
   MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
   `run` in either; the Born term of the fluctuations in MDAPY is that of

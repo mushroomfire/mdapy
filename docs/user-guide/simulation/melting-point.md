@@ -2,7 +2,8 @@
 
 `mdapy.simulation.melting_point(crystal, potential, temperature)` gives the melting
 point of a crystal from a first guess, by the two-phase method in
-[LAMMPS](lammps.md): a solid and a liquid share a box at constant enthalpy and
+[molecular dynamics](dynamics.md), in MDAPY or in LAMMPS for a
+[LAMMPS calculator](lammps.md): a solid and a liquid share a box at constant enthalpy and
 pressure, where the interface between them moves until they reach their common
 temperature. A run in which one phase takes over gives a new guess, until both last.
 
@@ -52,8 +53,9 @@ The crystal is repeated to about `num_atoms` atoms in a box three times as long 
 third vector as along the others; the interface lies across that vector. Each run:
 
 1. brings the crystal to the temperature and the pressure and takes its mean box;
-2. holds one half still and melts the other at constant volume, at twice the
-   temperature, hotter until its atoms have moved by about the distance between them;
+2. holds one half still, a [`Hold`](controls.md), and melts the other at constant
+   volume with a Nosé–Hoover thermostat, at twice the temperature, hotter until its
+   atoms have moved by about the distance between them;
 3. cools the melted half to the temperature and lets it settle;
 4. releases the crystal, relaxes the pressure of the box for a moment at this
    temperature, and runs both at constant enthalpy, in stretches of `coexistence`, two
@@ -72,7 +74,7 @@ crystal has: 12 in fcc and hcp, 14 in bcc, 4 in diamond.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `crystal` | `System` | | | the crystal, relaxed, with an `element` column, periodic in every direction; the interface is across its third vector |
-| `potential` | `LAMMPS` | | | the interaction |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials; the dynamics run in MDAPY, or in LAMMPS for a LAMMPS calculator |
 | `temperature` | float64 | | K | the first guess |
 | `pressure` | float64 | 0 | GPa | the pressure |
 | `num_atoms` | int32 | 16000 | | about how many atoms the box holds; fewer for a slow potential |
@@ -133,7 +135,7 @@ energies of the two phases cross.
 
 `melting_point` raises `InvalidParameter` for invalid options, a box not periodic in
 every direction, half a crystal that does not melt, no run with two phases within
-`max_runs`, or if LAMMPS fails; `MissingProperty` for a crystal without an `element`
+`max_runs`, a `potential` that is not a calculator, or if the dynamics fail; `MissingProperty` for a crystal without an `element`
 column; `Cancelled` when cancelled.
 
 !!! quote "Please cite"

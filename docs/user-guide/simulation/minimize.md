@@ -31,6 +31,8 @@ result = minimize(system, potential, cell="isotropic", pressure=10.0)
 | `max_stress` | float64 | 1e-2 | GPa | when the box relaxes, converged when every relaxed component of the stress is this close to $-p$ (−`pressure` on the diagonal, 0 off it) |
 | `save_every` | int32 | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
+| `log` | str, path or stream | `None` | | writes the minimization to this file, which it overwrites, or to this stream, such as `sys.stdout`, as the [log of molecular dynamics](dynamics.md#log) does: a heading, then `step`, `energy` (eV), `max_force` (eV/Å), `max_stress` (GPa, the largest deviation of a relaxed stress component from its target; NaN when the box is kept) and `wall` (s) every `log_every` steps and at the last, and how it ended |
+| `log_every` | int32 | 10 | | writes a row to the log every this many steps |
 
 `cell` chooses how the box changes along its periodic directions; the atoms
 move with it, and the lattice vectors along directions that are not periodic
@@ -119,9 +121,10 @@ Each kink is an uphill step: FIRE steps half a step back, stops the atoms
 and starts again with a shorter time step.*
 
 `minimize` raises `InvalidParameter` for a non-positive `max_force`,
-`max_step`, `timestep`, `max_stress` or `save_every`, a negative
-`max_steps`, an unknown `cell`, or a calculator that does not compute
-energies and forces, and the virial when the box relaxes, and
+`max_step`, `timestep`, `max_stress`, `save_every` or `log_every`, a negative
+`max_steps`, an unknown `cell`, a calculator that does not compute energies
+and forces, and the virial when the box relaxes, or a `log` that is neither
+a path nor a stream, or that cannot be written, and
 [`MissingProperty`](../../reference/api/utilities.md#mdapy.errors.MissingProperty) for a
 system with neither masses nor elements.
 

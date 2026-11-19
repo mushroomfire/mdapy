@@ -120,6 +120,12 @@ metals, *Phys. Rev. B* **29**, 6443 (1984).
 [doi:10.1103/PhysRevB.29.6443](https://doi.org/10.1103/PhysRevB.29.6443)
 { #daw1984 }
 
+**Deringer and Csányi (2017).** V. L. Deringer and G. Csányi, Machine learning
+based interatomic potential for amorphous carbon, *Phys. Rev. B* **95**, 094203
+(2017).
+[doi:10.1103/PhysRevB.95.094203](https://doi.org/10.1103/PhysRevB.95.094203)
+{ #deringer2017 }
+
 **Edelsbrunner and Mücke (1994).** H. Edelsbrunner and E. P. Mücke,
 Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
 [doi:10.1145/174462.156635](https://doi.org/10.1145/174462.156635)

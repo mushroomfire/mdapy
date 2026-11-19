@@ -7,6 +7,7 @@
 with any other calculator."""
 
 import os
+import time
 import weakref
 from collections.abc import Iterator
 from typing import Any
@@ -22,11 +23,23 @@ from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.simulation._integrator import _Native
+from mdapy.simulation._log import _Log
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph")
 _BAROSTATS = ("iso", "aniso", "tri", "xy")
 _THERMOSTATS = ("nose-hoover", "langevin")
 # thermo keywords of LAMMPS and the columns they become
+# the columns of the log: name in thermo, format, width
+_LOG_COLUMNS = (
+    ("step", "{:d}", 10),
+    ("time", "{:.4f}", 12),
+    ("temperature", "{:.3f}", 14),
+    ("potential_energy", "{:.6f}", 20),
+    ("kinetic_energy", "{:.6f}", 18),
+    ("total_energy", "{:.6f}", 20),
+    ("pressure", "{:.6f}", 14),
+    ("volume", "{:.4f}", 18),
+)
 _THERMO = (
     ("temp", "temperature"),
     ("pe", "potential_energy"),
@@ -105,6 +118,7 @@ class _Lammps:
                 f"{list(potential.elements)}"
             )
         self.__n = len(system)
+        self.__cmdargs = tuple(potential.cmdargs or ())
         # what the dynamics changes, or leaves out of date, is left out
         moving = (
             "positions",
@@ -198,6 +212,18 @@ create_box {len(potential.elements)} box
             self.lammps.commands_string(commands)
         except Exception as error:
             raise InvalidParameter(f"LAMMPS: {error}") from None
+
+    def describe(self) -> str:
+        """What runs the dynamics, for the log."""
+        lmp = self.lammps
+        size = int(lmp.extract_setting("world_size"))
+        text = f"LAMMPS {lmp.version()}, {size} process{'' if size == 1 else 'es'}"
+        return text + (f", {' '.join(self.__cmdargs)}" if self.__cmdargs else "")
+
+    @property
+    def writes(self) -> bool:
+        """Whether this process writes the log: the main one under MPI."""
+        return int(self.lammps.extract_setting("world_rank")) == 0
 
     # -- reading the state ----------------------------------------------
 
@@ -338,6 +364,14 @@ class MolecularDynamics:
         and, for a barostat or the pressure, its virials.
     timestep : float64, optional
         Time step in ps. Default 0.001.
+    log : str, os.PathLike or stream, optional
+        Writes the runs to this file, which it overwrites, or to this
+        stream, such as ``sys.stdout``: a heading, the settings of each run,
+        the thermodynamic state every ``thermo`` steps with the seconds
+        since the run began, and the speed of each run. Lines that are not
+        rows of numbers start with #, so that ``numpy.loadtxt`` reads the
+        rows of every run as one table. Under MPI the main process writes.
+        Default None, writing none.
 
     Attributes
     ----------
@@ -348,8 +382,8 @@ class MolecularDynamics:
     ------
     InvalidParameter
         If the potential is not a calculator, the time step is not
-        positive, an element has no atom type, or LAMMPS rejects the
-        commands.
+        positive, an element has no atom type, LAMMPS rejects the
+        commands, or the log cannot be written.
     MissingProperty
         If the system has no ``element`` column (with LAMMPS), or neither
         a ``mass`` nor an ``element`` column.
@@ -358,7 +392,14 @@ class MolecularDynamics:
         calculator.
     """
 
-    def __init__(self, system: System, potential: Any, *, timestep: float = 0.001):
+    def __init__(
+        self,
+        system: System,
+        potential: Any,
+        *,
+        timestep: float = 0.001,
+        log: Any = None,
+    ):
         if not timestep > 0:
             raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
         self.timestep = float(timestep)
@@ -368,10 +409,18 @@ class MolecularDynamics:
         self.__frames: list[System] = []
         self.__saved: int | None = None  # the step of the last frame kept or given
         self.__reading: Any = None  # the frames of an iterate not read to the end
+        self.__runs = 0
         if isinstance(potential, LAMMPS):
             self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
         else:
             self.__engine = _Native(system, potential, timestep)
+        try:
+            self.__log = _Log(log, active=self.__engine.writes)
+        except InvalidParameter:
+            self.__engine.close()
+            raise
+        if self.__log.on:
+            self.__heading(system, potential)
 
     # -- the LAMMPS instance --------------------------------------------
 
@@ -390,12 +439,25 @@ class MolecularDynamics:
         return self.__lammps_engine().lammps
 
     def close(self) -> None:
-        """Closes the LAMMPS instance; the dynamics stops, and the frames of
-        an ``iterate`` end."""
+        """Closes the LAMMPS instance and the log; the dynamics stops, and
+        the frames of an ``iterate`` end."""
         reading = self.__reading() if self.__reading is not None else None
         if reading is not None:
             reading.close()
         self.__engine.close()
+        self.__log.close()
+
+    def __heading(self, system: System, potential: Any) -> None:
+        box = system.box
+        lengths = " ".join(f"{v:.4f}" for v in np.linalg.norm(box.matrix, axis=1))
+        periodic = " ".join("abc"[k] for k in range(3) if box.pbc[k]) or "none"
+        self.__log.title("molecular dynamics")
+        self.__log.comment(
+            f"{self.__n} atoms; box vectors {lengths} Å long, periodic along {periodic}",
+            f"engine: {self.__engine.describe()}",
+            f"potential: {potential!r}",
+            f"time step: {self.timestep!r} ps",
+        )
 
     def __enter__(self) -> "MolecularDynamics":
         return self
@@ -790,11 +852,19 @@ class MolecularDynamics:
         engine = self.__engine
         steps, thermo, every = spec["steps"], spec["thermo"], spec["save_every"]
         done = 0
+        finished = False
+        log = self.__log
+        self.__runs += 1
+        if log.on:
+            log.comment("", self.__settings(self.__runs, spec))
+            log.columns(_LOG_COLUMNS)
+        began = time.perf_counter()
         try:
             engine.start(spec)
             start = engine.step
             if not self.__rows or self.__rows[-1]["step"] != start:
-                self.__rows.append(engine.record())
+                self.__record()
+            time0 = self.__rows[-1]["time"]
             if every is not None and self.__saved != start:
                 self.__saved = start
                 yield engine.system
@@ -808,12 +878,64 @@ class MolecularDynamics:
                 engine.advance(stop - done)
                 done = stop
                 if done % thermo == 0 or done == steps:
-                    self.__rows.append(engine.record())
+                    self.__record()
                 if progress is not None:
                     progress(done, steps)
                 if every is not None and done % every == 0:
                     self.__saved = engine.step
                     yield engine.system
+            finished = True
         finally:
             if not engine.closed:
                 engine.finish()
+            if log.on:
+                seconds = time.perf_counter() - began
+                if not finished:
+                    log.comment(
+                        f"run {self.__runs} stopped after {done} of {steps} steps, "
+                        f"{seconds:.2f} s"
+                    )
+                elif done == 0 or seconds <= 0.0:
+                    log.comment(f"run {self.__runs}: {done} steps")
+                else:
+                    simulated = self.__rows[-1]["time"] - time0  # ps
+                    log.comment(
+                        f"run {self.__runs}: {done} steps in {seconds:.2f} s; "
+                        f"{done / seconds:.1f} steps/s, "
+                        f"{self.__n * done / seconds / 1e6:.4g} million atom-steps/s, "
+                        f"{simulated * 86.4 / seconds:.4g} ns/day"
+                    )
+
+    def __record(self) -> None:
+        row = self.__engine.record()
+        self.__rows.append(row)
+        self.__log.row(*(row[name] for name, _, _ in _LOG_COLUMNS))
+
+    def __settings(self, run: int, spec: dict[str, Any]) -> str:
+        """The settings of a run, for the log."""
+
+        def span(values: tuple, unit: str) -> str:
+            first, last = values
+            return (
+                f"{first!r} {unit}"
+                if first == last
+                else f"{first!r} to {last!r} {unit}"
+            )
+
+        ensemble = spec["ensemble"]
+        parts = [f"run {run}: {spec['steps']} steps, {ensemble}"]
+        if ensemble in ("nvt", "npt"):
+            text = f"{span(spec['temperatures'], 'K')}, {spec['thermostat']}"
+            text += f" with damping {spec['thermostat_damping']!r} ps"
+            if spec["thermostat"] == "langevin" and spec["seed"] is not None:
+                text += f", seed {spec['seed']}"
+            parts.append(text)
+        if ensemble in ("npt", "nph"):
+            parts.append(
+                f"{span(spec['pressures'], 'GPa')}, barostat {spec['barostat']} with "
+                f"damping {spec['barostat_damping']!r} ps"
+            )
+        parts.append(f"thermo every {spec['thermo']}")
+        if spec["save_every"] is not None:
+            parts.append(f"atoms every {spec['save_every']}")
+        return "; ".join(parts)

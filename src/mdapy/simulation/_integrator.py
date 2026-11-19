@@ -23,9 +23,11 @@ import numpy as np
 import polars as pl
 
 from mdapy import units
+from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator
 from mdapy.core.box import Box
 from mdapy.core.system import System
+from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -192,6 +194,10 @@ class _HostAtoms:
     def drift(self, dt: float) -> None:
         self.__x += dt * self.__v
 
+    def kick_drift(self, c: float, dt: float) -> None:
+        self.kick(c)
+        self.drift(dt)
+
     def scale(self, factor: Any) -> None:
         self.__v *= factor
 
@@ -294,6 +300,16 @@ class _Native:
         self.__energy = math.nan
         self.__virial = np.full((3, 3), np.nan)
         self.__run: dict[str, Any] = {}
+
+    def describe(self) -> str:
+        """What runs the dynamics, for the log."""
+        calculator = self.__calculator
+        if getattr(calculator, "device", "cpu") == "cuda":
+            name = _gpu.cuda().device_name()
+            return f"MDAPY on the GPU, {name}, {calculator.precision} precision"
+        return f"MDAPY on the processor, {get_num_threads()} threads"
+
+    writes = True  # one process
 
     # -- frames ------------------------------------------------------------
 
@@ -542,12 +558,13 @@ class _Native:
             self.__press_target(step)
             self.__omega_dot_update()
             self.__v_press()
-        self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:
+            self.__atoms.kick(0.5 * dt * _FTM2V)
             self.__remap()
-        self.__atoms.drift(dt)
-        if self.__pstat:
+            self.__atoms.drift(dt)
             self.__remap()
+        else:
+            self.__atoms.kick_drift(0.5 * dt * _FTM2V, dt)
         self.__compute(full)
         self.__atoms.kick(0.5 * dt * _FTM2V)
         if self.__pstat:

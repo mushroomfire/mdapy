@@ -13,6 +13,7 @@
 // its atoms as the processor shares them when the atoms' own are asked for;
 // otherwise each centre keeps those of its terms, which leaves the totals.
 
+#include <cmath>
 #include <stdexcept>
 #include <vector>
 
@@ -25,10 +26,13 @@ namespace mdapy::cuda {
 
 namespace {
 
+// whole: the exponents p and q when they are whole numbers from 0 to 16,
+// for r^-p and r^-q by multiplication, else -1 and pow.
 template <class Real>
 struct SwEntry {
     Real cut, cutsq, sigma, p, q, c1, c2, c3, c4, c5, c6, sigma_gamma, lambda_epsilon,
         lambda_epsilon2, costheta, pad;
+    int whole_p, whole_q, pad2[2];
 };
 
 template <class Real>
@@ -47,11 +51,25 @@ __device__ inline bool inside(const SwEntry<Real>& e, Real rsq) {
     return rsq < e.cutsq && sqrt(rsq) < e.cut;
 }
 
+// r^-k, k a whole number from 0 to 16, by squaring: a few roundings, where
+// pow costs some hundred operations in double precision.
+template <class Real>
+__device__ inline Real inverse_power(Real r, int k) {
+    Real base = Real(1) / r, out = Real(1);
+    while (k > 0) {
+        if (k & 1) out *= base;
+        base *= base;
+        k >>= 1;
+    }
+    return out;
+}
+
 // The pair term of an entry at r^2: its energy and fpair.
 template <class Real>
 __device__ inline void sw_two(const SwEntry<Real>& e, Real rsq, Real& energy, Real& fpair) {
     const Real r = sqrt(rsq), rinvsq = Real(1) / rsq;
-    const Real rp = pow(r, -e.p), rq = pow(r, -e.q);
+    const Real rp = e.whole_p >= 0 ? inverse_power(r, e.whole_p) : pow(r, -e.p);
+    const Real rq = e.whole_q >= 0 ? inverse_power(r, e.whole_q) : pow(r, -e.q);
     const Real rainv = Real(1) / (r - e.cut);
     const Real rainvsq = rainv * rainv * r;
     const Real expsrainv = exp(e.sigma * rainv);
@@ -59,16 +77,16 @@ __device__ inline void sw_two(const SwEntry<Real>& e, Real rsq, Real& energy, Re
     energy = (e.c5 * rp - e.c6 * rq) * expsrainv;
 }
 
-// The derivative of each pair, its 3 components in planes of plane = most n
-// values, at c plane + k n + i for pair k of atom i. Atomic: the energy (1
-// plane) and the virial (9 planes) of each pair's share, by pair; else the
+// The derivative of each pair, its 3 components in a Real4 at k n + i for
+// pair k of atom i. Atomic: the energy (1 plane of plane values) and the
+// virial (9 planes) of each pair's share, by pair; else the
 // shares stay with the centre.
 template <class Real, bool Energy, bool Virial, bool Atomic>
 __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
                          Images<Real> images, const std::int32_t* indices,
-                         const std::int32_t* counts, SwTables<Real> t, Real* derivative,
-                         double* share_energy, double* share_virial, double* energies,
-                         double* virials) {
+                         const std::int32_t* counts, SwTables<Real> t, Real4<Real>* derivative,
+                         double* own_force, double* share_energy, double* share_virial,
+                         double* energies, double* virials) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -79,6 +97,7 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
     const int e = t.elements;
     double own_energy = 0.0;
     double own_virial[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    double own[3] = {0.0, 0.0, 0.0};  // the sum of the derivatives of its pairs
     const int count = counts[i];
     for (int a = 0; a < count; ++a) {
         const std::int64_t pa = static_cast<std::int64_t>(a) * n + i;
@@ -195,7 +214,8 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
                 }
             }
         }
-        for (int c = 0; c < 3; ++c) derivative[c * plane + pa] = static_cast<Real>(deriv[c]);
+        derivative[pa] = four<Real>(deriv[0], deriv[1], deriv[2]);
+        for (int c = 0; c < 3; ++c) own[c] += deriv[c];
         if (Atomic) {
             if (Energy) share_energy[pa] = share_e;
             if (Virial) {
@@ -208,6 +228,7 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
             }
         }
     }
+    for (int c = 0; c < 3; ++c) own_force[3 * i + c] = own[c];
     if (Energy) energies[i] = own_energy;
     if (Virial) {
         for (int c = 0; c < 9; ++c) virials[static_cast<std::int64_t>(c) * n + i] = own_virial[c];
@@ -240,6 +261,12 @@ public:
             t.lambda_epsilon2 = static_cast<Real>(q.lambda_epsilon2);
             t.costheta = static_cast<Real>(q.costheta);
             t.pad = Real(0);
+            const auto whole = [](double v) {
+                return v >= 0.0 && v <= 16.0 && v == std::floor(v) ? static_cast<int>(v) : -1;
+            };
+            t.whole_p = whole(q.p);
+            t.whole_q = whole(q.q);
+            t.pad2[0] = t.pad2[1] = 0;
         }
         // where the entries of a pair or of an angle agree, as the processor
         // compares them
@@ -277,33 +304,29 @@ public:
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
         const std::int64_t n = a.n;
-        const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        const std::int32_t* reverse = l.reversed();
-        derivative_.resize(static_cast<std::size_t>(3 * plane));
-        if (atomic && energy) share_energy_.resize(static_cast<std::size_t>(plane));
-        if (atomic && virial) share_virial_.resize(static_cast<std::size_t>(9 * plane));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
+        // the pairs within the largest cutoff of the entries, every pair an
+        // entry counts
+        pairs_.build(l, x, b, static_cast<Real>(cutoff_ * cutoff_));
+        const std::int64_t plane = pairs_.plane(n);
+        at_least(derivative_, static_cast<std::size_t>(plane));
+        if (atomic && energy) at_least(share_energy_, static_cast<std::size_t>(plane));
+        if (atomic && virial) at_least(share_virial_, static_cast<std::size_t>(9 * plane));
         const SwTables<Real> t{entries_.data(), same2_.data(), same3_.data(), elements_};
-        Args args{n, plane, x, b, l.indices.data(), l.counts.data(), t, derivative_.data(),
-                  share_energy_.data(), share_virial_.data(), a.energies.data(), a.virials.data()};
+        own_force_.resize(static_cast<std::size_t>(3 * n));
+        Args args{n, plane, x, b, pairs_.indices(), pairs_.counts(), t, derivative_.data(),
+                  own_force_.data(), share_energy_.data(), share_virial_.data(),
+                  a.energies.data(), a.virials.data()};
         if (atomic) {
             run<true>(args, energy, virial);
         } else {
             run<false>(args, energy, virial);
         }
-        const unsigned g = blocks(n);
-        const auto gather_args = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, l.indices.data(), l.counts.data(), reverse,
-                                  derivative_.data(), share_energy_.data(), share_virial_.data(),
-                                  nullptr, a.forces.data(), a.energies.data(), a.virials.data());
-        };
-        if (atomic && energy && virial) gather_args(gather_shares<Real, true, true, true>);
-        else if (atomic && energy) gather_args(gather_shares<Real, true, false, true>);
-        else if (atomic && virial) gather_args(gather_shares<Real, false, true, true>);
-        else gather_args(gather_shares<Real, false, false, false>);
-        MDAPY_LAUNCHED();
+        gather<Real>(n, plane, pairs_, derivative_.data(), share_energy_.data(),
+                     share_virial_.data(), own_force_.data(), false, energy, virial, atomic,
+                     a.forces.data(), a.energies.data(), a.virials.data());
         a.has_energies = energy;
         a.has_virials = virial;
     }
@@ -316,7 +339,8 @@ private:
         const std::int32_t* indices;
         const std::int32_t* counts;
         SwTables<Real> t;
-        Real* derivative;
+        Real4<Real>* derivative;
+        double* own_force;
         double* share_energy;
         double* share_virial;
         double* energies;
@@ -326,8 +350,8 @@ private:
     template <bool Energy, bool Virial, bool Atomic>
     static void terms(const Args& r) {
         sw_terms<Real, Energy, Virial, Atomic><<<blocks(r.n), kBlock>>>(
-            r.n, r.plane, r.x, r.images, r.indices, r.counts, r.t, r.derivative, r.share_energy,
-            r.share_virial, r.energies, r.virials);
+            r.n, r.plane, r.x, r.images, r.indices, r.counts, r.t, r.derivative, r.own_force,
+            r.share_energy, r.share_virial, r.energies, r.virials);
         MDAPY_LAUNCHED();
     }
 
@@ -343,8 +367,9 @@ private:
     int elements_;
     Buffer<SwEntry<Real>> entries_;
     Buffer<unsigned char> same2_, same3_;
-    Buffer<Real> derivative_;
-    Buffer<double> share_energy_, share_virial_;
+    Buffer<Real4<Real>> derivative_;
+    Buffer<double> share_energy_, share_virial_, own_force_;
+    ShortPairs pairs_;
 };
 
 }  // namespace

@@ -519,3 +519,24 @@ def test_a_file_written_by_lammps_is_read_on_the_main_process_and_sent(tmp_path)
         _read_written(_Lammps(4, _Comm(1, sent=FileNotFoundError("missing"))), path)
     with pytest.raises(InvalidParameter, match="needs mpi4py"):
         _read_written(_Lammps(4, None), path)
+
+
+def test_a_log_of_lammps(setfl, tmp_path):
+    """The log of the LAMMPS engine names LAMMPS, its processes and switches;
+    its rows read back as the thermodynamic state."""
+    potential = LAMMPS(
+        f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni",
+        ["Cu", "Ni"],
+        cmdargs=["-nocite"],
+    )
+    path = tmp_path / "md.log"
+    with MolecularDynamics(crystal(), potential, timestep=0.002, log=path) as md:
+        md.velocities(300, seed=1)
+        md.run(40, ensemble="nvt", temperature=300, thermo=20)
+        thermo = md.thermo
+    text = path.read_text(encoding="utf-8")
+    assert "# engine: LAMMPS " in text and "1 process, -nocite" in text
+    rows = np.loadtxt(path)
+    np.testing.assert_allclose(
+        rows[:, 2], thermo["temperature"].to_numpy(), rtol=0, atol=5.0001e-4
+    )

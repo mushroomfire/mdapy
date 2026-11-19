@@ -1,5 +1,3 @@
-<!-- needs: lammps -->
-
 # Frozen values
 
 `freeze` gives the atoms of one frame the values a column has in another,
@@ -8,23 +6,21 @@ property. It keeps a property of the start, such as where each atom was or
 its structure, at hand in every later frame, to compare with what the atom is
 now.
 
-Copper melts at 2500 K, here in [LAMMPS](../simulation/lammps.md) for 10 ps.
+Copper melts at 2500 K, here in [molecular dynamics](../simulation/dynamics.md) for
+10 ps.
 Where did each atom of the liquid start?
 
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LAMMPS
+from mdapy.calculators import EAM
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.simulation import MolecularDynamics
 from mdapy.transform import freeze
 
 copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(12, 6, 6))
 copper = copper.with_columns(id=np.arange(1, len(copper) + 1))
-EAM.zhou(["Cu"]).write("Cu.eam.alloy")
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM.zhou(["Cu"])
 with MolecularDynamics(copper, potential, timestep=0.002) as md:
     md.velocities(5000, seed=1)
     md.run(5000, ensemble="npt", temperature=2500.0, pressure=0.0)

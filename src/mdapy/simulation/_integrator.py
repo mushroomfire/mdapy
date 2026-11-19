@@ -31,7 +31,7 @@ from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.simulation import _device
+from mdapy.simulation import _controls, _device
 
 _KB = units.BOLTZMANN
 _MVV2E = units.AMU_A2_PER_PS2_TO_EV
@@ -137,6 +137,13 @@ class _HostAtoms:
         self.__properties = tuple(
             p for p in ("energy", "forces", "virial") if p in calculator.implemented
         )
+        # what the controls of a run set, in the frame of LAMMPS: forces added
+        # to the atoms, the velocities of the components that do not move
+        # freely (zero where they do), and groups whose forces are summed
+        self.added: np.ndarray | None = None
+        self.prescribed: np.ndarray | None = None
+        self.watched: tuple = ()
+        self.sums: list = []
 
     @property
     def positions(self) -> np.ndarray:
@@ -183,6 +190,10 @@ class _HostAtoms:
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
             )
+        # the forces of the potential on the watched groups
+        self.sums = [forces[mask].sum(axis=0) for mask in self.watched]
+        if self.added is not None:
+            forces = forces + self.added
         self.__forces = self.__restrict(forces)
         if "virial" in self.__properties:
             return float(result.energy), np.asarray(result.virial, dtype=float)
@@ -203,7 +214,11 @@ class _HostAtoms:
         v[:, 1] -= half * v[:, 2] * w[3]
 
     def restrict(self) -> None:
+        """The velocities of the components that do not move freely set:
+        zero, or those of their control."""
         self.__v = self.__restrict(self.__v)
+        if self.prescribed is not None:
+            self.__v = self.__v + self.prescribed
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
@@ -220,6 +235,8 @@ class _HostAtoms:
         sigma = np.sqrt(kt / self.__masses)[:, None]
         noise = self.__rng.normal(size=self.__v.shape)
         self.__v = c1 * self.__v + c2 * sigma * self.__restrict(noise)
+        if self.prescribed is not None:
+            self.restrict()
 
 
 class _Native:
@@ -272,8 +289,13 @@ class _Native:
             else None
         )
         self.__movable = None if movable is None or movable.all() else movable
+        # the components that move freely in the run, in the axes of the
+        # system: those of the movable column, less those its controls set
+        self.__free = self.__movable
         v = self.__restrict(v)
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
+        self.__moves: tuple = ()  # the names of the moved groups recorded
+        self.__controlled = False  # whether the run has controls
         self.timestep = float(timestep)
         self.__step = 0
         self.__time = 0.0
@@ -318,9 +340,9 @@ class _Native:
     def __restrict(self, vectors: np.ndarray) -> np.ndarray:
         """Vectors of the atoms with the components along which they may not
         move removed, in the axes of the system."""
-        if self.__movable is None:
+        if self.__free is None:
             return vectors
-        return self.__to_frame(self.__from_frame(vectors) * self.__movable)
+        return self.__to_frame(self.__from_frame(vectors) * self.__free)
 
     def __box(self) -> Box:
         return Box(self.__h, origin=self.__lo, pbc=self.__frame_pbc)
@@ -359,9 +381,16 @@ class _Native:
         return System(table=table, box=box, info=info)
 
     def temperature(self) -> float:
+        """Of the components that move freely."""
         if self.__dof < 1:
             return math.nan
-        return self.__twice_kinetic() / (self.__dof * _KB)
+        if getattr(self.__atoms, "prescribed", None) is None:
+            # the others are still
+            twice = self.__twice_kinetic()
+        else:
+            v = self.__from_frame(self.__atoms.velocities) * self.__free
+            twice = float(np.einsum("i,ij,ij->", self.__masses, v, v)) * _MVV2E
+        return twice / (self.__dof * _KB)
 
     def __twice_kinetic(self) -> float:
         return self.__atoms.twice_kinetic()
@@ -395,6 +424,10 @@ class _Native:
             "volume": self.__volume(),
             "stress": [float(stress[a, b]) for a, b in
                        ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))],
+        } | {
+            f"{name}_force": self.__from_frame(total[None, :])[0].tolist()
+            for name, total in zip(self.__moves, getattr(self.__atoms, "sums", ()))
+            if name is not None
         }  # fmt: skip
 
     # -- velocities -------------------------------------------------------------
@@ -444,6 +477,7 @@ class _Native:
                 f"a barostat needs the virial, which "
                 f"{type(self.__calculator).__name__} does not compute"
             )
+        self.__set_controls(run.get("controls", ()), barostat)
         if (thermostat or langevin) and self.__dof < 1:
             raise InvalidParameter("a thermostat needs atoms that move")
         dt = self.timestep
@@ -519,8 +553,72 @@ class _Native:
         self.__press_target(0)
         self.__p_current = self.__couple()
 
+    def __set_controls(self, controls: tuple, barostat: bool) -> None:
+        """The free components, prescribed velocities, added forces and
+        watched groups of the controls of a run; the velocities of the
+        components they set, set now."""
+        n = self.__n
+        if not controls:
+            self.__reset_controls()
+            return
+        if isinstance(self.__atoms, _device.DeviceAtoms):
+            raise InvalidParameter("controls run on the processor for now")
+        free = (
+            np.ones((n, 3), dtype=bool)
+            if self.__movable is None
+            else self.__movable.copy()
+        )
+        prescribed = np.zeros((n, 3))
+        added = np.zeros((n, 3))
+        moves, watched = [], []
+        constrained = adds = False
+        for control in controls:
+            if isinstance(control, _controls.Hold):
+                free[control.mask] &= ~control.axes
+                constrained = constrained or bool(control.mask.any())
+            elif isinstance(control, _controls.Move):
+                free[control.mask] = False
+                prescribed[control.mask] = control.velocity
+                constrained = constrained or bool(control.mask.any())
+                moves.append(control.name)
+                watched.append(control.mask)
+            else:
+                added[control.mask] += control.force
+                adds = True
+        if barostat and constrained:
+            raise InvalidParameter(
+                "a barostat with held or moved atoms is not supported"
+            )
+        self.__free = None if free.all() else free
+        self.__dof = (
+            3 * n - 3
+            if self.__free is None and self.__movable is None
+            else int(free.sum())
+        )
+        atoms = self.__atoms
+        atoms.prescribed = self.__to_frame(prescribed) if prescribed.any() else None
+        atoms.added = self.__to_frame(added) if adds else None
+        atoms.watched = tuple(watched)
+        self.__moves = tuple(moves)
+        atoms.restrict()
+        self.__computed = False
+        self.__controlled = True
+
+    def __reset_controls(self) -> None:
+        self.__controlled = False
+        self.__free = self.__movable
+        n = self.__n
+        self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
+        self.__moves = ()
+        atoms = self.__atoms
+        if isinstance(atoms, _HostAtoms):
+            atoms.prescribed = atoms.added = None
+            atoms.watched = ()
+
     def finish(self) -> None:
         self.__run = {}
+        if self.__controlled:
+            self.__reset_controls()
 
     def advance(self, count: int) -> None:
         # the energy and the virial at the last step, for a record after it
@@ -599,6 +697,8 @@ class _Native:
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
         factor = math.exp(-0.5 * dt * eta_dot[0])
         self.__atoms.scale(factor)
+        if getattr(self.__atoms, "prescribed", None) is not None:
+            self.__atoms.restrict()  # the moved atoms keep their velocities
         self.__t_current *= factor * factor
         eta_dotdot[0] = (self.__dof * _KB * self.__t_current - ke_target) / mass[0]
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac

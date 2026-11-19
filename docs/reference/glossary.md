@@ -215,6 +215,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | device | where a calculator computes: `"cpu"`, or `"cuda"` on an NVIDIA GPU |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
+| group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
+| controls | of a run of molecular dynamics: `Hold`, `Move` and `AddForce`, what is done to groups of atoms during the run, given by `controls` of `run` or `iterate` |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 

@@ -1,0 +1,119 @@
+# Groups and controls
+
+A run of [molecular dynamics](dynamics.md) can hold some atoms still, move
+others at a velocity and push others: the controls of the run. Each acts on
+a group, an (N,) bool mask over the atoms of the system, and lasts for the
+run it is given to, through `controls` of `run` or `iterate`.
+
+Copper sheared between two walls at 300 K: the bottom wall held, the top
+one moved along x at 0.2 Å/ps, 20 m/s, the force of the crystal on it
+recorded.
+
+```python
+import numpy as np
+
+import mdapy
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import Hold, MolecularDynamics, Move
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 8))
+crystal = crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False)))
+z = crystal["positions"][:, 2]
+bottom, top = z < 5.0, z > z.max() - 5.0  # the walls, two layers of cells each
+copper = EAM.zhou(["Cu"])
+
+with MolecularDynamics(crystal, copper, timestep=0.002) as md:
+    md.velocities(300, seed=1)
+    md.run(2000, ensemble="nvt", temperature=300, controls=[Hold(bottom), Hold(top)])
+    md.run(
+        15000,
+        ensemble="nvt",
+        temperature=300,
+        thermo=250,
+        controls=[Hold(bottom), Move(top, (0.2, 0.0, 0.0), name="top")],
+    )
+    thermo = md.thermo
+```
+
+`thermo` records `top_force`, the force of the potential on the atoms of the
+top wall; the stress of the crystal is the opposite force per area of the
+walls, and its strain the distance the top wall went over the distance
+between the walls:
+
+```python
+from mdapy.visualization import plot
+
+shear = thermo.filter(thermo["top_force"].is_not_null())
+time = shear["time"].to_numpy() - shear["time"][0]
+area = crystal.box.matrix[0, 0] * crystal.box.matrix[1, 1]
+gap = crystal["positions"][top, 2].mean() - crystal["positions"][bottom, 2].mean()
+strain = 0.2 * time / gap
+stress = -np.stack(shear["top_force"])[:, 0] / area * 160.21766  # eV/Å³ to GPa
+
+with plot.style():
+    fig, ax = plot.figure("single")
+    ax.plot(strain, stress, marker="o", markersize=3)
+    ax.set(xlabel="Shear strain", ylabel="Shear stress (GPa)")
+    plot.save(fig, "images/controls-shear", formats=("png",))
+```
+
+![Shear stress against shear strain of copper between two walls](images/controls-shear.png)
+
+*The shear stress of copper sheared along [100] on (001) at 300 K. It rises
+at first by 68 GPa per unit strain, near the elastic constant C44 = 75 GPa
+of this potential at 0 K, softer at 300 K; at about 11 GPa the crystal
+yields and the stress falls, to rise again as the walls go on. Each point is
+the force at one step, which the vibrations of the atoms shake.*
+
+## Controls
+
+| Control | Meaning |
+|---|---|
+| `Hold(mask, *, directions="xyz")` | the atoms keep still along the axes `directions` of the system, any of `"x"`, `"y"` and `"z"`: their velocities there are zero and their forces do nothing, as a `movable` column that is False there |
+| `Move(mask, velocity, *, name=None)` | the atoms move together at `velocity`, (3,) float64 in Å/ps in the axes of the system, whatever the forces on them; with a `name`, `thermo` records `<name>_force`, the force of the potential on them |
+| `AddForce(mask, force)` | adds `force`, (3,) float64 in eV/Å in the axes of the system, to each atom (LAMMPS `fix addforce`) |
+
+| Parameter | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `mask` | (N,) bool | | | the atoms of the group |
+| `directions` | str | `"xyz"` | | the axes along which `Hold` holds them |
+| `velocity` | (3,) float64 | | Å/ps | the velocity of the atoms `Move` moves |
+| `force` | (3,) float64 | | eV/Å | the force `AddForce` adds to each atom |
+| `name` | str | `None` | | a word: the column `<name>_force` of `thermo` |
+
+## How they act
+
+- The velocities of held and moved atoms are set at the start of the run,
+  and stay: the steps of the integrator and the thermostat leave them, and
+  their forces do nothing.
+- The temperature, that of `thermo` and that the thermostat holds, counts
+  the directions that move freely, those no control or `movable` column
+  holds or moves; with atoms held or moved, the total momentum is not kept,
+  and no direction is taken away for it. The kinetic and total energies are
+  those of all the atoms.
+- `<name>_force` is the force of the potential, without the forces controls
+  add, in eV/Å in the axes of the system; it is null in the rows of the runs
+  without that control.
+- An added force does work on the atoms but has no part in the virial: the
+  pressure and stress are those of the potential and the velocities.
+- Atoms held or moved by a control and a barostat do not go together: the
+  box would carry the walls.
+- In LAMMPS the controls are its fixes: `setforce` with `velocity set` for
+  `Hold`, `move linear` for `Move`, `addforce` for `AddForce`, and the
+  ensemble on the atoms that move freely, whose temperature counts the
+  same directions; the runs are those of MDAPY, step by step. Atoms held
+  along some directions only need there a box whose first vector is along x
+  and second in the xy plane, the axes of LAMMPS.
+- On the GPU the controls are not yet supported.
+
+## Errors
+
+`run` and `iterate` raise `InvalidParameter` for a control that is not a
+`Hold`, `Move` or `AddForce`, a group of another number of atoms, an atom
+both held and moved or moved by two controls, two controls of one name, held
+or moved atoms with a barostat, controls on the GPU, and, in LAMMPS, more
+than 24 controls or atoms held along some directions in a box not in the
+form of LAMMPS. `Hold`, `Move` and `AddForce` raise it for a mask that is not
+(N,) bool, `directions` other than some of x, y and z, a velocity or force
+that is not three finite numbers, and a name that is not a word.

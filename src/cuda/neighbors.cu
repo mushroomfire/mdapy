@@ -137,11 +137,13 @@ struct Around {
 // With shifts the pairs are found in single precision, x and the box h in
 // float, within the reach and a margin larger than their rounding: a list
 // with a few pairs more, never fewer. Without, in double precision.
+// Each atom writes its pairs in a row of its own, rows[i * most + m], so that
+// its stores fill whole sectors; columns() makes the columns of the list.
 template <bool Shifts>
 __global__ void list(std::int64_t n, const double4a* x, const float4* xf, DeviceBox<double> box,
                      DeviceBox<float> boxf, int3 cells, Around around, const std::int32_t* keys,
                      const std::int32_t* begin, const std::int32_t* end, double reach2,
-                     float reach2f, int most, std::int32_t* indices, std::int32_t* counts,
+                     float reach2f, int most, std::int32_t* rows, std::int32_t* counts,
                      int* found) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -208,7 +210,7 @@ __global__ void list(std::int64_t n, const double4a* x, const float4* xf, Device
                     }
                     if (near) {
                         if (m < most) {
-                            indices[static_cast<std::int64_t>(m) * n + i] = static_cast<std::int32_t>(
+                            rows[i * most + m] = static_cast<std::int32_t>(
                                 static_cast<std::uint32_t>(j) | (static_cast<std::uint32_t>(code) << kIndexBits));
                         }
                         ++m;
@@ -219,6 +221,27 @@ __global__ void list(std::int64_t n, const double4a* x, const float4* xf, Device
     }
     counts[i] = m < most ? m : most;
     atomicMax(found, m);
+}
+
+// The columns of the list from its rows, out[k * n + i] = rows[i * most + k]
+// for k < width, through tiles of 32 atoms by 32 pairs in shared memory, so
+// that both the reads and the writes are coalesced.
+__global__ void columns(std::int64_t n, int most, int width, const std::int32_t* rows,
+                        std::int32_t* out) {
+    __shared__ std::int32_t tile[32][33];
+    const std::int64_t i0 = static_cast<std::int64_t>(blockIdx.x) * 32;
+    const int k0 = static_cast<int>(blockIdx.y) * 32;
+    for (int r = static_cast<int>(threadIdx.y); r < 32; r += static_cast<int>(blockDim.y)) {
+        const std::int64_t i = i0 + r;
+        const int k = k0 + static_cast<int>(threadIdx.x);
+        if (i < n && k < width) tile[r][threadIdx.x] = rows[i * most + k];
+    }
+    __syncthreads();
+    for (int r = static_cast<int>(threadIdx.y); r < 32; r += static_cast<int>(blockDim.y)) {
+        const int k = k0 + r;
+        const std::int64_t i = i0 + static_cast<std::int64_t>(threadIdx.x);
+        if (i < n && k < width) out[static_cast<std::int64_t>(k) * n + i] = tile[threadIdx.x][r];
+    }
 }
 
 struct Matrix {
@@ -488,6 +511,7 @@ bool Neighbors::update(Atoms& atoms, const Box& box) {
     }
     for (;;) {
         l.indices.resize(static_cast<std::size_t>(l.most) * size);
+        l.rows.resize(static_cast<std::size_t>(l.most) * size);
         l.found.zero();
         bool shifts = true;
         for (int k = 0; k < 3; ++k) shifts = shifts && (!box.pbc[k] || cells[k] >= 3);
@@ -504,17 +528,26 @@ bool Neighbors::update(Atoms& atoms, const Box& box) {
             list<true><<<blocks(n), kBlock>>>(n, a.x.data(), xf, dbox, fbox, grid, around,
                                               l.keys_sorted.data(), l.cell_begin.data(),
                                               l.cell_end.data(), reach * reach, reach2f, l.most,
-                                              l.indices.data(), l.counts.data(), l.found.data());
+                                              l.rows.data(), l.counts.data(), l.found.data());
         } else {
             list<false><<<blocks(n), kBlock>>>(n, a.x.data(), xf, dbox, fbox, grid, around,
                                                l.keys_sorted.data(), l.cell_begin.data(),
                                                l.cell_end.data(), reach * reach, reach2f, l.most,
-                                               l.indices.data(), l.counts.data(), l.found.data());
+                                               l.rows.data(), l.counts.data(), l.found.data());
         }
         MDAPY_LAUNCHED();
         int found = 0;
         l.found.download(&found, 1);
-        if (found <= l.most) break;
+        if (found <= l.most) {
+            if (found > 0) {
+                const dim3 tiles(static_cast<unsigned>((n + 31) / 32),
+                                 static_cast<unsigned>((found + 31) / 32));
+                columns<<<tiles, dim3(32, 8)>>>(n, l.most, found, l.rows.data(),
+                                                l.indices.data());
+                MDAPY_LAUNCHED();
+            }
+            break;
+        }
         l.most = found + found / 8 + 4;  // more columns, and once more
     }
     l.x_built.resize(size);

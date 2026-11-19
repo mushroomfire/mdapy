@@ -119,6 +119,9 @@ class DeviceAtoms:
     def drift(self, dt: float) -> None:
         self.__atoms.drift(dt)
 
+    def kick_drift(self, c: float, dt: float) -> None:
+        self.__atoms.kick_drift(c, dt)
+
     def scale(self, factor: Any) -> None:
         f = np.broadcast_to(np.asarray(factor, dtype=np.float64), (3,))
         self.__atoms.scale(float(f[0]), float(f[1]), float(f[2]))

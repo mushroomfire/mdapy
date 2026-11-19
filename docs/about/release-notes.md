@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `md_elastic_constants` takes any calculator: its molecular dynamics run in
+  MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
+  `run` in either; the Born term of the fluctuations in MDAPY is that of
+  LAMMPS's `compute born/matrix numdiff`. The kinetic term counts all N atoms,
+  as the thermostat no longer holds the momentum of the center of mass. See
+  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
 - `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
   run in MDAPY, with the heat flux of the atomic energies and virials of the
   potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in

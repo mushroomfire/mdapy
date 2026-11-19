@@ -18,7 +18,8 @@ steps and times the next 300. LAMMPS reports the time of its loop; MDAPY
 that of MolecularDynamics.run, which records the state at its start and end.
 KOKKOS runs with full neighbor lists and Newton's third law off, its
 default on GPUs, and with half lists and the law on; both are kept. A LAMMPS
-not given by its variable is left out.
+not given by its variable is left out. --rest waits that many seconds before
+each run, for a GPU that slows down as it warms to cool first.
 """
 
 import argparse
@@ -112,7 +113,7 @@ def run_mdapy(case: dict, repeat: int, precision: str) -> float:
         return (time.perf_counter() - start) / STEPS
 
 
-def run(output: Path) -> None:
+def run(output: Path, rest: float) -> None:
     from mdapy.calculators import EAM
 
     programs = {
@@ -174,6 +175,7 @@ def run(output: Path) -> None:
                         )
                     )
                 for program, setting, measure in runs:
+                    time.sleep(rest)
                     seconds = measure()
                     records.append({"case": name, "program": program, "setting": setting,
                                     "atoms": atoms, "seconds_per_step": seconds})  # fmt: skip
@@ -269,6 +271,7 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
     r = sub.add_parser("run")
     r.add_argument("--output", type=Path, default=Path("gpu.json"))
+    r.add_argument("--rest", type=float, default=0.0)
     t = sub.add_parser("table")
     t.add_argument("path", type=Path)
     p = sub.add_parser("plot")
@@ -276,7 +279,7 @@ def main() -> int:
     p.add_argument("image", type=Path)
     args = parser.parse_args()
     if args.command == "run":
-        run(args.output)
+        run(args.output, args.rest)
     elif args.command == "table":
         table(args.path)
     else:

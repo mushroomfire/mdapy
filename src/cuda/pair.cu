@@ -31,6 +31,8 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> im
                            const std::int32_t* indices, const std::int32_t* counts,
                            PairTables<Real> t, double* forces, double* energies,
                            double* virials) {
+    __shared__ Real steps[81];
+    fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const Real4<Real> xi = x[i];
@@ -43,7 +45,7 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> im
         const auto packed = static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
         const Real4<Real> xj = x[packed & kIndexMask];
         Real d[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
-        add_image(images, packed >> kIndexBits, d[0], d[1], d[2]);
+        add_step(steps, packed >> kIndexBits, d[0], d[1], d[2]);
         const Real del[3] = {-d[0], -d[1], -d[2]};  // x_i - x_j
         const Real r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
         const int pair = si * t.species + static_cast<int>(xj.w);

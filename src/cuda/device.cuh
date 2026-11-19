@@ -139,20 +139,29 @@ struct Images {
     Real h[9];
 };
 
-// x_j - x_i of a pair from l_j - l_i: plus d . steps, d of -1, 0 or 1 along
-// each vector by its code (Neighbors::Impl). Most pairs have one of a few
-// codes; an array of the 27 vectors indexed at run time would be read from
-// local memory.
+// The 27 vectors d . steps of the codes of pairs, d of -1, 0 or 1 along each
+// vector, in the shared memory of a block: each pair adds that of its code,
+// three additions. Called by every thread of the block, before any returns.
 template <class Real>
-__device__ inline void add_image(const Images<Real>& b, std::uint32_t code, Real& x, Real& y,
-                                 Real& z) {
-    if (code == 13u) return;
-    const int s0 = static_cast<int>(code % 3u) - 1;
-    const int s1 = static_cast<int>((code / 3u) % 3u) - 1;
-    const int s2 = static_cast<int>(code / 9u) - 1;
-    x += s0 * b.h[0] + s1 * b.h[3] + s2 * b.h[6];
-    y += s0 * b.h[1] + s1 * b.h[4] + s2 * b.h[7];
-    z += s0 * b.h[2] + s1 * b.h[5] + s2 * b.h[8];
+__device__ inline void fill_steps(const Images<Real>& b, Real* table) {
+    if (threadIdx.x < 27) {
+        const int code = static_cast<int>(threadIdx.x);
+        const int d0 = code % 3 - 1, d1 = (code / 3) % 3 - 1, d2 = code / 9 - 1;
+        for (int c = 0; c < 3; ++c) {
+            table[3 * code + c] = d0 * b.h[c] + d1 * b.h[3 + c] + d2 * b.h[6 + c];
+        }
+    }
+    __syncthreads();
+}
+
+// x_j - x_i of a pair from l_j - l_i.
+template <class Real>
+__device__ inline void add_step(const Real* table, std::uint32_t code, Real& x, Real& y,
+                                Real& z) {
+    const Real* t = table + 3 * code;
+    x += t[0];
+    y += t[1];
+    z += t[2];
 }
 
 // Sums of columns: out[k] = sum over i of data[k * n + i] for k < columns,

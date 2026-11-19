@@ -98,6 +98,7 @@ class _PairCalculator(Calculator):
 
     _style: str
     _name: str
+    _heat_flux = True
 
     def _build(
         self,

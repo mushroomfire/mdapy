@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
+  run in MDAPY, with the heat flux of the atomic energies and virials of the
+  potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in
+  LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
+  MEAM, whose virials of each atom do not give the heat flux, are refused. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

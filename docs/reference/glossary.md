@@ -216,6 +216,17 @@ column of fixed-size arrays of length 3 and use the plural name.
 | device | where a calculator computes: `"cpu"`, or `"cuda"` on an NVIDIA GPU |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
+| group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
+| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, and `AdaptiveTimestep`, how long the steps are, given by `controls` of `run` or `iterate` |
+| strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
+| NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |
+| HNEMD | homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, `hnemd` |
+| switching, λ | of `Switch`: the potential of a run turned into another, the forces of (1 − λ) times the one and λ times the other, λ going from `start` to `stop` along the run; the integral over λ of the difference of their energies is the difference of their free energies |
+| Einstein crystal | atoms tied each to its own site by a harmonic spring, `Springs`, whose free energy is known: the reference of the free energy of a solid |
+| Uhlenbeck–Ford model | `UhlenbeckFord`, the soft repulsion −ε ln(1 − exp(−r²/σ²)) of finite reach, whose free energy is known: the reference of the free energy of a liquid |
+| `keep_momentum` | of Langevin dynamics: random forces that sum to zero, which keep the total momentum, as LAMMPS's `fix langevin ... zero yes` |
+| adaptive time step | of `AdaptiveTimestep`: the time step of the fastest atom, in which no atom moves more than `max_distance`, within the bounds `min_timestep` and `max_timestep`, set every `every` steps |
+| uniaxial strain, uniaxial stress | a crystal stretched along one axis with its lengths across held, and with them free under zero stress, a barostat on them |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |
 

@@ -159,7 +159,29 @@ NB_MODULE(_cuda, m) {
             },
             nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
         .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
-             nb::arg("seed"), nb::arg("counter"))
+             nb::arg("seed"), nb::arg("counter"), nb::arg("keep") = false)
+        .def("stash_forces", &Atoms::stash_forces)
+        .def("mix_forces", &Atoms::mix_forces, nb::arg("weight"), nb::arg("other"))
+        .def(
+            "set_springs",
+            [](Atoms& a, Positions sites, Flat constants) {
+                if (static_cast<std::int64_t>(sites.shape(0)) != a.size() ||
+                    static_cast<std::int64_t>(constants.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one site and one constant per atom");
+                }
+                a.set_springs(sites.data(), constants.data());
+            },
+            nb::arg("sites"), nb::arg("constants"))
+        .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
+        .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
+        .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def("heat_flux",
+             [](const Atoms& a) {
+                 double* data;
+                 nb::object out = new_array({3}, data);
+                 a.heat_flux(data);
+                 return out;
+             })
         .def(
             "set_movable",
             [](Atoms& a, Movable movable, Matrix rotation) {
@@ -171,6 +193,50 @@ NB_MODULE(_cuda, m) {
             nb::arg("movable"), nb::arg("rotation"))
         .def("restrict_forces", &Atoms::restrict_forces)
         .def("restrict_velocities", &Atoms::restrict_velocities)
+        .def("clear_movable", &Atoms::clear_movable)
+        .def(
+            "set_prescribed",
+            [](Atoms& a, Positions velocities) {
+                if (static_cast<std::int64_t>(velocities.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one velocity per atom");
+                }
+                a.set_prescribed(velocities.data());
+            },
+            nb::arg("velocities"))
+        .def("clear_prescribed", [](Atoms& a) { a.set_prescribed(nullptr); })
+        .def(
+            "set_added",
+            [](Atoms& a, Positions forces) {
+                if (static_cast<std::int64_t>(forces.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one force per atom");
+                }
+                a.set_added(forces.data());
+            },
+            nb::arg("forces"))
+        .def("clear_added", [](Atoms& a) { a.set_added(nullptr); })
+        .def("add_forces", &Atoms::add_forces)
+        .def(
+            "set_groups",
+            [](Atoms& a, Species bits) {
+                if (static_cast<std::int64_t>(bits.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one group word per atom");
+                }
+                a.set_groups(bits.data());
+            },
+            nb::arg("bits"))
+        .def("clear_groups", [](Atoms& a) { a.set_groups(nullptr); })
+        .def(
+            "group_forces",
+            [](const Atoms& a, int count) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(count), 3}, data);
+                a.group_forces(count, data);
+                return out;
+            },
+            nb::arg("count"))
+        .def("kinetic_free", &Atoms::kinetic_free)
+        .def("bath", &Atoms::bath, nb::arg("bit"), nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
+             nb::arg("seed"), nb::arg("counter"))
         .def("kinetic",
              [](const Atoms& a) {
                  double* data;
@@ -365,6 +431,8 @@ NB_MODULE(_cuda, m) {
                 kind = mdapy::calculators::PairStyle::LennardJones;
             } else if (style == "morse") {
                 kind = mdapy::calculators::PairStyle::Morse;
+            } else if (style == "ufm") {
+                kind = mdapy::calculators::PairStyle::UhlenbeckFord;
             } else {
                 throw std::invalid_argument("unknown pair style");
             }

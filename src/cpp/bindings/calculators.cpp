@@ -131,7 +131,7 @@ void check_input(std::int64_t count, Species species, Positions positions, Offse
     }
 }
 
-// style: "lj/cut" or "morse"; cutsq and offset: (species, species);
+// style: "lj/cut", "morse" or "ufm"; cutsq and offset: (species, species);
 // coefficients: (species, species, 4), see PairPotential.
 calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat offset,
                                      Flat coefficients) {
@@ -140,6 +140,8 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
         kind = calculators::PairStyle::LennardJones;
     } else if (style == "morse") {
         kind = calculators::PairStyle::Morse;
+    } else if (style == "ufm") {
+        kind = calculators::PairStyle::UhlenbeckFord;
     } else {
         throw std::invalid_argument("unknown pair style");
     }

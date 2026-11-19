@@ -35,6 +35,18 @@ struct Atoms::Impl {
     // every atom moves freely.
     Buffer<std::int32_t> movable;
     double rotation[9] = {};
+    // Of the controls of a run, empty for none: the velocities the movable
+    // mask sets (zero where atoms move freely) and the forces added to the
+    // atoms, (n, 3) in the frame of the atoms; the groups of each atom, bit k
+    // for group k.
+    Buffer<double> prescribed;
+    Buffer<double> added;
+    Buffer<std::int32_t> groups;
+    // Of a Switch: the forces of the potential while the other computes, and
+    // the sites (n, 3) and constants (n,) of springs, empty for none.
+    Buffer<double> stash;
+    Buffer<double> sites;
+    Buffer<double> spring_constants;
     // The atoms are sorted by the cells of the neighbor list when it is built,
     // so that neighbors are near in memory: original holds the atom of the
     // caller at each place; what comes in and goes out is in the caller's

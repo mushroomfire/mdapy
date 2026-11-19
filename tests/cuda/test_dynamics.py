@@ -286,3 +286,281 @@ def test_errors():
     positions[1] = positions[0]
     with pytest.raises(CalculationFailed, match="not finite"):
         run(system.with_columns(positions=positions), lj, 20)
+
+
+def walls(seed=0):
+    """A shaken crystal with its bottom, top and middle layers."""
+    system = crystal(seed=seed)
+    rng = np.random.default_rng(seed)
+    system = system.with_columns(
+        positions=system["positions"] + rng.normal(0, 0.03, (len(system), 3))
+    )
+    z = system.box.to_fractional(system["positions"])[:, 2]
+    return system, z < 0.2, z > 0.8, (z > 0.45) & (z < 0.55)
+
+
+def test_controls_as_on_the_processor():
+    from mdapy.simulation import AddForce, Hold, Move
+
+    system, bottom, top, middle = walls()
+    controls = [
+        Hold(bottom, directions="xz"),
+        Move(top, (0.4, -0.2, 0.1), name="top"),
+        AddForce(middle, (0.0, 0.05, 0.02)),
+    ]
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(200, ensemble="nvt", temperature=300, thermo=50, controls=controls)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    np.testing.assert_allclose(
+        np.stack(ta["top_force"]), np.stack(tb["top_force"]), rtol=0, atol=1e-6
+    )
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_heat_baths(precision):
+    """A hot and a cold bath: the energy changes by the heat they gave, and a
+    seed gives the same run."""
+    from mdapy.simulation import Hold, Langevin
+
+    system, bottom, top, middle = walls()
+    potential = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
+    runs = []
+    for _ in range(2):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                2000,
+                thermo=100,
+                controls=[
+                    Langevin(bottom, 600.0, damping=0.1, seed=3, name="hot"),
+                    Langevin(top, 100.0, damping=0.1, seed=4, name="cold"),
+                    Hold(middle, directions="z"),
+                ],
+            )
+            runs.append((md.thermo, md.system))
+    thermo, end = runs[0]
+    energy = thermo["total_energy"].to_numpy()
+    heat = thermo["hot_energy"].to_numpy() + thermo["cold_energy"].to_numpy()
+    assert thermo["hot_energy"][-1] > 5.0 and thermo["cold_energy"][-1] < -5.0
+    assert np.abs(energy - energy[0] - heat).max() < 0.05
+    np.testing.assert_array_equal(runs[1][1]["velocities"], end["velocities"])
+    assert np.abs(end["velocities"][middle, 2]).max() < 1e-12
+
+
+def test_deformation_as_on_the_processor():
+    """A box stretched, compressed and sheared on the GPU, then with a
+    barostat on the lengths left: the runs of the processor."""
+    from mdapy.simulation import Deform
+
+    system, *_ = walls()
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300, seed=1)
+            md.run(
+                200,
+                ensemble="nvt",
+                temperature=300,
+                thermo=50,
+                controls=Deform(xx=0.2, zz=-0.1, xy=0.3),
+            )
+            md.run(
+                100,
+                ensemble="npt",
+                temperature=300,
+                pressure=0.0,
+                barostat="aniso",
+                controls=Deform(yy=0.2, kind="true"),
+            )
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-9)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["temperature"], tb["temperature"], rtol=1e-8)
+    np.testing.assert_allclose(
+        np.stack(ta["stress"]), np.stack(tb["stress"]), rtol=0, atol=1e-6
+    )
+
+
+def test_adaptive_timestep_as_on_the_processor():
+    """The time step of a fast atom on the GPU: the steps and the runs of
+    the processor."""
+    from mdapy.simulation import AdaptiveTimestep
+
+    system = crystal()
+    velocities = np.zeros((len(system), 3))
+    velocities[7] = (300.0, -150.0, 80.0)
+    system = system.with_columns(velocities=velocities)
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(200, thermo=20, controls=AdaptiveTimestep(0.04, every=2))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(ta["time"], tb["time"], rtol=1e-9)
+    assert ta["time"][-1] < 0.3  # shorter steps than 0.002 ps
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+
+
+@pytest.mark.parametrize("target", ["ufm", "springs", "gas"])
+def test_a_switch_as_on_the_processor(target):
+    """A Switch on the GPU to the Uhlenbeck-Ford model (one kind of atom, its
+    cutoff the longer), to springs and to nothing: the runs and the
+    differences of the energies of the processor."""
+    from mdapy.calculators import Springs, UhlenbeckFord
+    from mdapy.simulation import Switch
+
+    system = crystal()
+    out = []
+    for device in ("cuda", "cpu"):
+        if target == "ufm":
+            other = UhlenbeckFord(
+                (0.5, 1.5),
+                7.0,
+                device=device,
+                **({"precision": "double"} if device == "cuda" else {}),
+            )
+        elif target == "springs":
+            other = Springs(system["positions"], 1.5)
+        else:
+            other = None
+        options = {"precision": "double"} if device == "cuda" else {}
+        potential = EAM.zhou(["Cu", "Ni"], device=device, **options)
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(200, thermo=50, controls=Switch(other, name="s"))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(ta["s_difference"], tb["s_difference"], rtol=1e-8)
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_the_kept_momentum(precision):
+    """The noise keeps the momentum: to the rounding in double precision; in
+    mixed precision the forces of single precision move it a little, far less
+    than the noise does without it."""
+    system = crystal()
+    potential = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
+    momenta = []
+    for keep in (True, False):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(
+                500,
+                ensemble="nvt",
+                temperature=300.0,
+                thermostat="langevin",
+                keep_momentum=keep,
+                seed=3,
+            )
+            end = md.system
+        masses = mdapy.elements.atomic_masses(list(end["element"]))
+        momenta.append(np.abs(masses @ end["velocities"]).max())
+    kept, free = momenta
+    assert kept < (1e-8 if precision == "double" else 1e-3 * free)
+
+
+def test_the_free_energy_of_a_solid():
+    """Frenkel-Ladd on the GPU: the solid of the processor, within the noise
+    of short switchings."""
+    from mdapy.simulation import free_energy
+
+    system = build_crystal("fcc", 3.6, elements="Cu", repeat=(6, 6, 6))
+    options = dict(
+        pressure=None, timestep=0.002, equilibration=2.0, switching=10.0, seed=2
+    )
+    gpu = free_energy(
+        system, EAM.zhou(["Cu"], device="cuda", precision="double"), 300.0, **options
+    )
+    cpu = free_energy(system, EAM.zhou(["Cu"]), 300.0, **options)
+    assert gpu.free_energy[0] == pytest.approx(cpu.free_energy[0], abs=1e-3)
+    assert abs(gpu.dissipation[0]) < 2e-3
+
+
+def test_hnemd_as_on_the_processor():
+    """The field of HNEMD on the GPU: the driven run and the heat flux of the
+    processor in double precision; in mixed precision the work of the field
+    is still the change of the energy."""
+    from mdapy.simulation._controls import _HeatField
+
+    system = crystal()
+    field = np.array([0.01, -0.004, 0.002])
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(300.0, seed=1)
+            md.run(200, thermo=20, controls=_HeatField(field))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-7, atol=1e-9
+    )
+    mixed = EAM.zhou(["Cu", "Ni"], device="cuda", precision="mixed")
+    with MolecularDynamics(system, mixed, timestep=0.001) as md:
+        md.velocities(300.0, seed=1)
+        md.run(400, thermo=1, controls=_HeatField(field * 3))
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    power = np.stack(thermo["heat_flux"].to_numpy()) @ (field * 3)
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.001)])
+    assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_nemd(precision):
+    """Two baths on the GPU drive heat through solid argon: its conductivity
+    of the order of that of argon, the gradient set by the baths."""
+    from mdapy.calculators import LennardJones
+    from mdapy.lattice_dynamics import nemd
+
+    argon = LennardJones(
+        {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device="cuda", precision=precision
+    )
+    result = nemd(
+        build_crystal("fcc", 5.28, elements="Ar", repeat=(4, 4, 16)),
+        argon,
+        40.0,
+        difference=10.0,
+        timestep=0.004,
+        equilibration=2000,
+        relaxation=10000,
+        production=40000,
+        every=50,
+    )
+    assert 0.2 < result.kappa < 2.0
+    assert result.temperatures[10] > result.temperatures[0] + 5.0

@@ -3,30 +3,32 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The two-phase melting point: the search in closed form, and argon. Skipped
-where LAMMPS is not installed."""
+"""The two-phase melting point: the search in closed form, and argon, in
+MDAPY's own dynamics and in LAMMPS where it is installed."""
 
 import numpy as np
 import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import LAMMPS, LennardJones
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.simulation import MolecularDynamics, minimize
 from mdapy.simulation import _melting as module
 from mdapy.simulation._melting import MeltingAttempt, melting_point
 
-pytest.importorskip("lammps")
-
 EPSILON, SIGMA, CUT = 0.0104, 3.4, 8.5
 BOLTZMANN = 8.617333262e-5
 FAST = dict(timestep=0.005, equilibration=4.0, coexistence=50.0, seed=2)
 
 
-@pytest.fixture(scope="module")
-def potential():
+@pytest.fixture(scope="module", params=["mdapy", "lammps"])
+def potential(request):
+    """The truncated and shifted Lennard-Jones argon, in MDAPY or in LAMMPS."""
+    if request.param == "mdapy":
+        return LennardJones({"Ar": (EPSILON, SIGMA)}, CUT, shift=True)
+    pytest.importorskip("lammps")
     return LAMMPS(
         f"pair_style lj/cut {CUT}\npair_coeff * * {EPSILON} {SIGMA}\n"
         "pair_modify shift yes",
@@ -173,7 +175,8 @@ def run_at(potential, argon, temperature, **options):
         barostat_damping=None,
         timestep=0.005,
         equilibrium=800,
-        coexistence=4000,
+        # shorter in MDAPY's own dynamics, for time
+        coexistence=4000 if isinstance(potential, LAMMPS) else 1500,
         neighbors=12,
         tolerance=2.0,
         seed=1,
@@ -206,18 +209,25 @@ def test_a_run_far_too_hot_melts_at_once(potential, argon):
 
 
 def test_a_run_too_cold_freezes(potential, argon):
+    if not isinstance(potential, LAMMPS):
+        pytest.skip("a long run, in LAMMPS only")
     run = run_at(potential, argon, 30.0, coexistence=20000)
     assert run.attempts[-1].outcome == "frozen"
 
 
 def test_a_run_too_hot_melts(potential, argon):
+    if not isinstance(potential, LAMMPS):
+        pytest.skip("a long run, in LAMMPS only")
     run = run_at(potential, argon, 95.0, coexistence=20000)
     assert run.attempts[-1].outcome == "melted"
 
 
 def test_from_guesses_on_both_sides(potential, argon):
     """Guesses far from the melting point end in one place, within the noise
-    of a small box and short runs."""
+    of a small box and short runs; in LAMMPS, for time, as the search is the
+    same in either engine."""
+    if not isinstance(potential, LAMMPS):
+        pytest.skip("a search of many runs, in LAMMPS only")
     found = [
         melting_point(
             argon,
@@ -256,6 +266,23 @@ def test_progress_and_cancel(potential, argon, monkeypatch):
             cancel=token,
         )
     assert seen and seen[0][0] <= seen[0][1]
+    # without cancelling, the steps counted grow through the stages of a run
+    seen.clear()
+    try:
+        melting_point(
+            argon,
+            potential,
+            70.0,
+            repeat=(2, 2, 2),
+            timestep=0.005,
+            equilibration=0.5,
+            coexistence=1.0,
+            max_runs=1,
+            progress=lambda done, total: seen.append(done),
+        )
+    except InvalidParameter:
+        pass  # no two phases in so short a run
+    assert len(seen) > 5 and seen == sorted(seen)
 
 
 def test_a_half_that_does_not_melt_is_refused(monkeypatch, potential, argon):
@@ -289,7 +316,7 @@ def test_invalid_input(potential, argon):
             melting_point(argon, potential, 80.0, **wrong)
     with pytest.raises(InvalidParameter, match="temperature"):
         melting_point(argon, potential, 0.0)
-    with pytest.raises(InvalidParameter, match="LAMMPS"):
+    with pytest.raises(InvalidParameter, match="calculator"):
         melting_point(argon, object(), 80.0)
     with pytest.raises(MissingProperty, match="element"):
         melting_point(argon.drop("element"), potential, 80.0)

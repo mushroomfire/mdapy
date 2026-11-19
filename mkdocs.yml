@@ -243,6 +243,10 @@ nav:
           - Relaxation and dynamics:
               - Energy minimization: user-guide/simulation/minimize.md
               - Molecular dynamics: user-guide/simulation/dynamics.md
+              - Groups and controls: user-guide/simulation/controls.md
+              - Deformation: user-guide/simulation/deformation.md
+              - Adaptive time step: user-guide/simulation/adaptive-timestep.md
+              - Switching between potentials: user-guide/simulation/switching.md
               - On the GPU: user-guide/simulation/gpu.md
               - Defect energies: user-guide/simulation/defect-energies.md
           - Lattice dynamics:
@@ -254,6 +258,8 @@ nav:
               - Bond stiffness: user-guide/simulation/bond-stiffness.md
               - Thermal conductivity: user-guide/simulation/thermal-conductivity.md
               - Green–Kubo conductivity: user-guide/simulation/green-kubo.md
+              - HNEMD conductivity: user-guide/simulation/hnemd.md
+              - NEMD conductivity: user-guide/simulation/nemd.md
               - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
               - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
               - Sheets: user-guide/simulation/sheets.md

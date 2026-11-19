@@ -4,8 +4,8 @@
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
 production=20000, every=10, blocks=5, barostat="tri", seed=1,
 method=None)` gives the isothermal elastic constants of a crystal at a
-temperature from [molecular dynamics](dynamics.md) in LAMMPS, with their
-standard errors: from the mean stress under small strains, at the cost of
+temperature from [molecular dynamics](dynamics.md), in MDAPY or in LAMMPS for a
+[LAMMPS calculator](lammps.md), with their standard errors: from the mean stress under small strains, at the cost of
 thirteen runs, or, with `method="fluctuation"`, from the fluctuations of the
 stress in one run, [below](#from-the-fluctuations-of-the-stress). Both take
 in the anharmonic vibrations that the [quasi-harmonic
@@ -13,27 +13,25 @@ approximation](thermal-elastic.md) leaves out.
 
 <!-- skip-test -->
 ```python
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import EAM
 from mdapy.lattice_dynamics import md_elastic_constants
 from mdapy.transform import replicate
 
-potential = LAMMPS(
-    "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
-)
+potential = EAM("Cu_mishin1.eam.alloy")
 crystal = replicate(cell, (6, 6, 6))  # large enough for small fluctuations
 result = md_elastic_constants(crystal, potential, 600.0, timestep=0.002)
 result.constants[0, 0], result.errors[0, 0]  # C11 and its standard error, GPa
 result.bulk_modulus(), result.shear_modulus()
 ```
 
-The crystal first runs at the temperature and pressure (Nosé–Hoover,
-`fix npt`): `equilibration` steps, then `production` steps over which its box
+The crystal first runs at the temperature and pressure (Nosé–Hoover):
+`equilibration` steps, then `production` steps over which its box
 is averaged, at 50 times evenly spread. Its last atoms, put in the mean box, are the
 reference. For each of the six components of the strain in Voigt order,
 strains of $+\delta$ and $-\delta$ of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
 moved with the box) each run `equilibration` steps at constant volume and
-temperature, with a Langevin thermostat (`fix langevin` and `fix nve`), then
+temperature, with the Langevin thermostat of [`run`](dynamics.md), then
 `production` steps over which the stress is averaged. The two runs of a
 component share the noise of the thermostat, which their difference cancels
 in part. A Nosé–Hoover thermostat, being deterministic, does not bring all
@@ -61,7 +59,7 @@ gives that limit.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the crystal, periodic in every direction, or a [sheet](sheets.md#elastic-constants-from-molecular-dynamics), with an `element` column |
-| `potential` | `LAMMPS` | | | the interaction, as a [LAMMPS calculator](lammps.md) |
+| `potential` | `Calculator` | | | the interaction: any calculator of energies, forces and virials; the dynamics run in MDAPY, or in LAMMPS for a [LAMMPS calculator](lammps.md) |
 | `temperature` | float64 | | K | the temperature, positive |
 | `pressure` | float64 | 0 | GPa | the pressure |
 | `strain` | float64 | 0.01 | | the magnitude $\delta$ of the strains |
@@ -84,18 +82,19 @@ $$
 C_{ijkl} = \langle C^{\mathrm B}_{ijkl} \rangle
 - \frac{V}{k_B T} \left( \langle \sigma_{ij} \sigma_{kl} \rangle
 - \langle \sigma_{ij} \rangle \langle \sigma_{kl} \rangle \right)
-+ \frac{(N - 1) k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
++ \frac{N k_B T}{V} \left( \delta_{ik} \delta_{jl} + \delta_{il} \delta_{jk} \right),
 $$
 
 where $i$, $j$, $k$ and $l$ are the Cartesian directions x, y and z, $\langle \cdot \rangle$
 the mean over the production run, $V$ the volume of the box, $T$ the temperature, $N$
 the number of atoms, $k_B$ the Boltzmann constant and $\delta_{ik}$ the Kronecker delta,
 1 for $i = k$ and 0 otherwise. The three terms are the Born term $C^{\mathrm B}$, the
-second derivatives of the energy with the strain at fixed fractional positions (LAMMPS
-`compute born/matrix numdiff`, strains of $10^{-5}$, every ten records); the
+second derivatives of the energy with the strain at fixed fractional positions, every
+ten records, as LAMMPS's `compute born/matrix numdiff` gives them: central differences
+of the virial under strains of $10^{-5}$, and terms of the virial itself; the
 fluctuations of the virial stress $\sigma$ (every `every` steps), which give back the
-relaxation of the atoms; and the momenta of the atoms, counted as $N - 1$ as the thermostat
-keeps the momentum of the center of mass at zero. Under a mean stress
+relaxation of the atoms; and the momenta of all the atoms, the center of mass among
+them, which the Langevin thermostat brings to the temperature as the others. Under a mean stress
 they are made stress-strain coefficients, as the strains give them (Wallace):
 under a pressure $P$, $C_{11} - P$, $C_{12} + P$ and $C_{44} - P$. The errors
 come from `blocks` blocks of the run; `strain` is unused.
@@ -124,7 +123,7 @@ differs:
 | constants of strong internal relaxation, as C44 of silicon (92 GPa unrelaxed, 10 relaxed) | ±0.1 GPa | ±1.5 GPa: the fluctuations must cancel most of the Born term |
 | at low temperature | 1 % strain beyond the linear response (+0.2 % on C11 of copper at 20 K) | exact in the limit of small strains |
 | liquids and glasses | the box cannot keep a liquid | the bulk modulus, and no shear |
-| cost of one record | a step | a step, and some 15 steps for the Born term every ten records |
+| cost of one record | a step | a step, and the Born term, 13 evaluations of the forces, every ten records; in MDAPY also an evaluation for the virial stress of each record |
 
 Take the fluctuations for metals and other crystals whose atoms do not relax
 much within their cell, for small cells, at low temperatures, and for
@@ -144,5 +143,5 @@ An `ElasticResult`, as of [`elastic_constants`](elastic-constants.md), with
 periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
 fewer than two blocks or fewer samples than blocks, a `method` other than
 `"strain"` and `"fluctuation"`, and the errors of
-[`MolecularDynamics`](dynamics.md). The fluctuations need a LAMMPS with the
-package EXTRA-COMPUTE, for `compute born/matrix`.
+[`MolecularDynamics`](dynamics.md), and for a `potential` that is not a calculator.
+In LAMMPS the fluctuations need the package EXTRA-COMPUTE, for `compute born/matrix`.

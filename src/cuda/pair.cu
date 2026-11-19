@@ -57,11 +57,15 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> im
             const Real r6inv = r2inv * r2inv * r2inv;
             fpair = r6inv * (c.x * r6inv - c.y) * r2inv;
             e = r6inv * (c.z * r6inv - c.w) - t.offset[pair];
-        } else {
+        } else if (Style == PairStyle::Morse) {
             const Real r = sqrt(r2);
             const Real dexp = exp(-c.y * (r - c.z));
             fpair = c.w * (dexp * dexp - dexp) / r;
             e = c.x * (dexp * dexp - Real(2) * dexp) - t.offset[pair];
+        } else {
+            const Real expuf = exp(-r2 * c.y);
+            fpair = c.x * expuf / (Real(1) - expuf);
+            e = -c.z * log(Real(1) - expuf) - t.offset[pair];
         }
         for (int a = 0; a < 3; ++a) {
             f[a] += static_cast<double>(del[a] * fpair);
@@ -122,8 +126,10 @@ public:
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         if (style_ == PairStyle::LennardJones) {
             launch<PairStyle::LennardJones>(a, l, box, energy, virial);
-        } else {
+        } else if (style_ == PairStyle::Morse) {
             launch<PairStyle::Morse>(a, l, box, energy, virial);
+        } else {
+            launch<PairStyle::UhlenbeckFord>(a, l, box, energy, virial);
         }
         a.has_energies = energy;
         a.has_virials = virial;

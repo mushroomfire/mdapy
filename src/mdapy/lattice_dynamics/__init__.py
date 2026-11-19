@@ -28,7 +28,9 @@ from mdapy.lattice_dynamics._green_kubo import (
     green_kubo,
     green_kubo_from_flux,
 )
+from mdapy.lattice_dynamics._hnemd import HNEMD, hnemd
 from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
+from mdapy.lattice_dynamics._nemd import NEMD, nemd
 from mdapy.lattice_dynamics._phonons import (
     BandStructure,
     PhononDOS,
@@ -58,6 +60,8 @@ __all__ = [
     "ElasticResult",
     "ForceConstants",
     "GreenKubo",
+    "HNEMD",
+    "NEMD",
     "PhononDOS",
     "Phonons",
     "QuasiHarmonicResult",
@@ -72,6 +76,8 @@ __all__ = [
     "force_constants",
     "green_kubo",
     "green_kubo_from_flux",
+    "hnemd",
+    "nemd",
     "md_elastic_constants",
     "phonons",
     "phonons_from_frames",

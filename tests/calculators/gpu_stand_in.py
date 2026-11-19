@@ -82,17 +82,61 @@ class Atoms:
             "ij,jk->ik", np.einsum("ij,jk->ik", self.x - old_lo, old_inverse), h
         )
 
-    def langevin(self, c1, c2, kt, seed, counter):
+    def langevin(self, c1, c2, kt, seed, counter, keep=False):
         g = np.random.default_rng([seed, counter]).normal(size=self.v.shape)
-        self.v = c1 * self.v + c2 * np.sqrt(kt / self.masses)[:, None] * g
+        noise = c2 * np.sqrt(kt / self.masses)[:, None] * g
+        if keep:  # less an equal share of the momentum of the noise
+            noise -= (self.masses @ noise) / len(noise) / self.masses[:, None]
+        self.v = c1 * self.v + noise
+
+    stash = sites = constants = None
+
+    def stash_forces(self):
+        self.stash = self.result[1].copy()
+
+    def mix_forces(self, weight, other):
+        energies, forces, virials = self.result
+        mixed = (
+            (1 - weight) * self.stash + weight * forces
+            if other
+            else (1 - weight) * forces
+        )
+        self.result = (energies, mixed, virials)
+
+    def set_springs(self, sites, constants):
+        self.sites, self.constants = np.array(sites), np.array(constants)
+
+    def clear_springs(self):
+        self.sites = self.constants = None
+
+    def springs(self, h):
+        d = self.x - self.sites  # the stand-in never wraps
+        energies = 0.5 * self.constants * (d * d).sum(axis=1)
+        self.result = (energies, -self.constants[:, None] * d, self.result[2])
+        return float(energies.sum())
+
+    def drive(self, field):
+        push = np.einsum("a,iab->ib", field, self.result[2])
+        energies, forces, virials = self.result
+        self.result = (energies, forces + push - push.mean(axis=0), virials)
+
+    def heat_flux(self):
+        return np.einsum("iab,ib->a", self.result[2], self.v)
 
     def kinetic(self):
         return np.einsum("i,ij,ik->jk", self.masses, self.v, self.v)
 
+    movable = rotation = prescribed = added = groups = None
+
     def set_movable(self, movable, rotation):
         self.movable, self.rotation = np.array(movable), np.array(rotation)
 
+    def clear_movable(self):
+        self.movable = None
+
     def __restricted(self, vectors):
+        if self.movable is None:
+            return vectors
         r = self.rotation
         return ((vectors @ r.T) * self.movable) @ r
 
@@ -102,6 +146,55 @@ class Atoms:
 
     def restrict_velocities(self):
         self.v = self.__restricted(self.v)
+        if self.prescribed is not None:
+            self.v = self.v + self.prescribed
+
+    def set_prescribed(self, velocities):
+        self.prescribed = np.array(velocities)
+
+    def clear_prescribed(self):
+        self.prescribed = None
+
+    def set_added(self, forces):
+        self.added = np.array(forces)
+
+    def clear_added(self):
+        self.added = None
+
+    def add_forces(self):
+        if self.added is not None:
+            e, f, w = self.result
+            self.result = (e, f + self.added, w)
+
+    def set_groups(self, bits):
+        self.groups = np.array(bits)
+
+    def clear_groups(self):
+        self.groups = None
+
+    def group_forces(self, count):
+        f = self.result[1]
+        return np.array(
+            [f[(self.groups >> g) & 1 == 1].sum(axis=0) for g in range(count)]
+        )
+
+    def kinetic_free(self):
+        v = self.__restricted(self.v)
+        return float(np.einsum("i,ij,ij->", self.masses, v, v))
+
+    def bath(self, bit, c1, c2, kt, seed, counter):
+        mask = (self.groups >> bit) & 1 == 1
+        g = np.zeros_like(self.v)
+        g[mask] = np.random.default_rng([seed, counter]).normal(
+            size=(int(mask.sum()), 3)
+        )
+        g = self.__restricted(g)
+        m = self.masses[mask]
+        before = np.einsum("i,ij,ij->", m, self.v[mask], self.v[mask])
+        self.v[mask] = c1 * self.v[mask] + c2 * np.sqrt(kt / m)[:, None] * g[mask]
+        return 0.5 * float(
+            np.einsum("i,ij,ij->", m, self.v[mask], self.v[mask]) - before
+        )
 
 
 class Neighbors:

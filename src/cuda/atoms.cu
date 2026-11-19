@@ -105,14 +105,24 @@ void Atoms::Impl::permute(const std::int32_t* order) {
     gathered(n, order, masses, w2);
     Buffer<std::int32_t> h2;
     gathered(n, order, movable, h2);
-    if (velocities.size() == static_cast<std::size_t>(3 * n)) {
-        Buffer<Triple> v2(static_cast<std::size_t>(n));
-        gather<<<blocks(n), kBlock>>>(n, order, reinterpret_cast<const Triple*>(velocities.data()),
-                                      v2.data());
+    Buffer<std::int32_t> g2;
+    gathered(n, order, groups, g2);
+    Buffer<double> k2;
+    gathered(n, order, spring_constants, k2);
+    // three doubles of each atom
+    const auto triples = [&](Buffer<double>& buffer) {
+        if (buffer.size() != static_cast<std::size_t>(3 * n)) return;
+        Buffer<Triple> moved(static_cast<std::size_t>(n));
+        gather<<<blocks(n), kBlock>>>(n, order, reinterpret_cast<const Triple*>(buffer.data()),
+                                      moved.data());
         MDAPY_LAUNCHED();
-        MDAPY_CUDA(cudaMemcpy(velocities.data(), v2.data(), static_cast<std::size_t>(n) * sizeof(Triple),
+        MDAPY_CUDA(cudaMemcpy(buffer.data(), moved.data(), static_cast<std::size_t>(n) * sizeof(Triple),
                               cudaMemcpyDeviceToDevice));
-    }
+    };
+    triples(velocities);
+    triples(prescribed);
+    triples(added);
+    triples(sites);
     ++version;
     stale = true;
 }

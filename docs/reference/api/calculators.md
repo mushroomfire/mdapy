@@ -24,6 +24,10 @@
 
 ::: mdapy.calculators.Morse
 
+::: mdapy.calculators.UhlenbeckFord
+
+::: mdapy.calculators.Springs
+
 ::: mdapy.calculators.NEP
 
 ## Interfaces

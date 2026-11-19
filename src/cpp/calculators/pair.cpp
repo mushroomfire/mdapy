@@ -32,6 +32,13 @@ inline void morse(const double* c, double offset, double r2, double& energy, dou
     energy = c[0] * (dexp * dexp - 2.0 * dexp) - offset;
 }
 
+inline void uhlenbeck_ford(const double* c, double offset, double r2, double& energy,
+                           double& fpair) {
+    const double expuf = std::exp(-r2 * c[1]);
+    fpair = c[0] * expuf / (1.0 - expuf);
+    energy = -c[2] * std::log(1.0 - expuf) - offset;
+}
+
 template <PairStyle Style>
 void compute(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
              const double* positions, const double* matrix, const std::int64_t* offsets,
@@ -62,8 +69,10 @@ void compute(const PairPotential& potential, std::int64_t n, const std::int32_t*
                     double e, fpair;
                     if constexpr (Style == PairStyle::LennardJones) {
                         lennard_jones(c, offset, r2, e, fpair);
-                    } else {
+                    } else if constexpr (Style == PairStyle::Morse) {
                         morse(c, offset, r2, e, fpair);
+                    } else {
+                        uhlenbeck_ford(c, offset, r2, e, fpair);
                     }
                     for (int a = 0; a < 3; ++a) {
                         f[a] += del[a] * fpair;
@@ -112,9 +121,13 @@ void compute_pair(const PairPotential& potential, std::int64_t n, const std::int
     if (potential.style == PairStyle::LennardJones) {
         compute<PairStyle::LennardJones>(potential, n, species, positions, matrix, offsets,
                                          neighbors, shifts, energies, forces, virials, control);
-    } else {
+    } else if (potential.style == PairStyle::Morse) {
         compute<PairStyle::Morse>(potential, n, species, positions, matrix, offsets, neighbors,
                                   shifts, energies, forces, virials, control);
+    } else {
+        compute<PairStyle::UhlenbeckFord>(potential, n, species, positions, matrix, offsets,
+                                          neighbors, shifts, energies, forces, virials,
+                                          control);
     }
 }
 

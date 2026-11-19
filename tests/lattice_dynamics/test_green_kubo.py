@@ -195,3 +195,147 @@ def test_errors_of_the_run(tmp_path):
     crystal = build_crystal("diamond", 5.431, elements="Si", repeat=2)
     with pytest.raises(InvalidParameter, match="centroid stress"):
         green_kubo(crystal, silicon, 300.0, equilibration=10, production=20, every=2)
+
+
+def shaken(structure, a, elements, repeat, seed=0):
+    """A crystal with its atoms shaken and moving, in a tilted box in the
+    form of LAMMPS."""
+    import mdapy
+
+    crystal = build_crystal(structure, a, elements=elements[0], repeat=repeat)
+    matrix = crystal.box.matrix.copy()
+    matrix[1, 0], matrix[2, 0], matrix[2, 1] = 0.4, -0.3, 0.2
+    crystal = crystal.with_box(mdapy.Box(matrix), scale_positions=True)
+    rng = np.random.default_rng(seed)
+    n = len(crystal)
+    return crystal.with_columns(
+        positions=crystal["positions"] + rng.normal(0, 0.05, (n, 3)),
+        velocities=rng.normal(0, 3.0, (n, 3)),
+        element=list(rng.choice(elements, n)),
+    )
+
+
+@pytest.mark.parametrize("kind", ["eam", "lj"])
+def test_the_flux_of_lammps(kind, tmp_path, monkeypatch):
+    """MDAPY's heat flux of a configuration, the one LAMMPS's compute
+    heat/flux gives with the centroid stress of each atom, with the kinetic
+    energies of LAMMPS's constant of metal units."""
+    pytest.importorskip("lammps")
+    import mdapy
+    from mdapy.calculators import EAM, LAMMPS, LennardJones
+    from mdapy.lattice_dynamics._green_kubo import _flux
+    from mdapy.simulation import MolecularDynamics
+
+    from calculators.eam_files import write_setfl
+
+    if kind == "eam":
+        setfl = write_setfl(tmp_path / "CuNi.eam.alloy")
+        ours = EAM(setfl)
+        theirs = LAMMPS(
+            f"pair_style eam/alloy\npair_coeff * * {setfl} Cu Ni", ["Cu", "Ni"]
+        )
+        system = shaken("fcc", 3.6, ["Cu", "Ni"], 3)
+    else:
+        ours = LennardJones({"Ar": (0.0104, 3.405)}, 8.5)
+        theirs = LAMMPS(ARGON, elements=["Ar"])
+        system = shaken("fcc", 5.3, ["Ar"], 4)
+    system = system.with_columns(
+        mass=mdapy.elements.atomic_masses(list(system["element"]))
+    )
+    with MolecularDynamics(system, theirs) as md:
+        md.command(
+            "compute ke all ke/atom\n"
+            "compute pe all pe/atom\n"
+            "compute stress all centroid/stress/atom NULL virial\n"
+            "compute flux all heat/flux ke pe stress\n"
+            "run 0"
+        )
+        expected = np.array(md.lammps.numpy.extract_compute("flux", 0, 1)[:3])
+    monkeypatch.setattr(units, "AMU_A2_PER_PS2_TO_EV", 1.0364269e-4)
+    found = _flux(system, ours)
+    np.testing.assert_allclose(
+        found, expected, rtol=1e-11, atol=1e-11 * np.abs(expected).max()
+    )
+
+
+@pytest.mark.parametrize("kind", ["nep", "lj"])
+def test_the_flux_is_the_change_of_the_energy_moment(kind, tmp_path):
+    """The heat flux of a cluster times its volume, sum_i E_i v_i + sum_i W_i
+    v_i, is the time derivative of sum_i r_i E_i along the dynamics, by
+    central differences: the virial of each atom of NEP from the energies of
+    the others (Fan et al. 2015), and of a pair potential split in halves."""
+    import mdapy
+    from mdapy.calculators import NEP, LennardJones
+    from mdapy.lattice_dynamics._green_kubo import _flux
+    from mdapy.lattice_dynamics._phonons import _masses
+
+    from calculators.nep_files import write_nep
+
+    if kind == "nep":
+        potential, step = NEP(write_nep(tmp_path / "nep.txt")), 1e-5
+    else:
+        potential, step = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0), 1e-6
+    crystal = shaken("fcc", 3.6, ["Cu", "Ni"], 3, seed=1)
+    cluster = crystal.with_box(mdapy.Box(np.eye(3) * 60.0, pbc=False)).with_columns(
+        positions=crystal["positions"] + 20.0
+    )
+    m = _masses(cluster)
+    mvv2e = units.AMU_A2_PER_PS2_TO_EV
+    x, v = cluster["positions"], cluster["velocities"]
+    forces = potential.compute(cluster, ("forces",)).forces
+    a = forces / m[:, None] / mvv2e
+    moments = []
+    for sign in (1.0, -1.0):
+        moved = cluster.with_columns(
+            positions=x + sign * step * v + 0.5 * step**2 * a,
+            velocities=v + sign * step * a,
+        )
+        energies = potential.compute(moved, ("atomic_energies",)).atomic_energies
+        vs = moved["velocities"]
+        energies = energies + 0.5 * m * (vs * vs).sum(axis=1) * mvv2e
+        moments.append(energies @ moved["positions"])
+    expected = (moments[0] - moments[1]) / (2 * step)
+    found = _flux(cluster, potential)
+    np.testing.assert_allclose(
+        found, expected, rtol=0, atol=1e-6 * np.abs(expected).max()
+    )
+
+
+def test_solid_argon_in_mdapy():
+    """The whole run in MDAPY's own dynamics with its Lennard-Jones: a
+    conductivity of the order of that of argon."""
+    from mdapy.calculators import LennardJones
+
+    potential = LennardJones({"Ar": (0.0104, 3.405)}, 8.5)
+    system = build_crystal("fcc", 5.3, elements="Ar", repeat=4)
+    result = green_kubo(
+        system,
+        potential,
+        40.0,
+        timestep=0.002,
+        equilibration=1000,
+        production=16000,
+        every=4,
+        correlation=4.0,
+        blocks=4,
+    )
+    mean = np.trace(result.kappa) / 3
+    assert 0.2 < mean < 3.0
+    assert result.temperature == pytest.approx(40.0, rel=0.1)
+    assert result.volume == pytest.approx(system.box.volume)
+    assert len(result.flux) == 4000
+
+
+def test_errors_in_mdapy(tmp_path):
+    from mdapy.calculators import StillingerWeber
+
+    path = tmp_path / "Si.sw"
+    path.write_text(
+        "Si Si Si 2.1683 2.0951 1.80 21.0 1.20 -0.333333333333 7.049556277 "
+        "0.6022245584 4.0 0.0 0.0\n"
+    )
+    crystal = build_crystal("diamond", 5.431, elements="Si", repeat=2)
+    with pytest.raises(InvalidParameter, match="centroid stress"):
+        green_kubo(crystal, StillingerWeber(path), 300.0)
+    with pytest.raises(InvalidParameter, match="calculator"):
+        green_kubo(crystal, "Si.sw", 300.0)

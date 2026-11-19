@@ -17,6 +17,7 @@ The work runs in the frame of the LAMMPS box (a along x, b in the xy plane),
 where the barostat acts on the lengths and tilts of the box."""
 
 import math
+import secrets
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -25,13 +26,14 @@ import polars as pl
 from mdapy import units
 from mdapy.calculators import _gpu
 from mdapy.calculators._base import Calculator
+from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.simulation import _device
+from mdapy.simulation import _controls, _device
 
 _KB = units.BOLTZMANN
 _MVV2E = units.AMU_A2_PER_PS2_TO_EV
@@ -64,10 +66,30 @@ class _Barostat(NamedTuple):
     scale: np.ndarray
 
 
-def _barostat(name: str, pbc: np.ndarray, swapped: bool, h: np.ndarray) -> _Barostat:
+def _barostat(
+    name: str,
+    pbc: np.ndarray,
+    swapped: bool,
+    h: np.ndarray,
+    deformed: np.ndarray | None = None,
+) -> _Barostat:
     """The barostat of a name, for a box with these periodic directions in
-    the frame of LAMMPS, as the fix of the LAMMPS dynamics sets it."""
+    the frame of LAMMPS, as the fix of the LAMMPS dynamics sets it; with
+    deformed, (3,) bool, the lengths a deformation changes, on the others
+    alone, coupled for "iso", as fix npt y ... z ... couple yz."""
     flags = np.zeros(6, dtype=bool)
+    if deformed is not None:
+        flags[:3] = ~deformed
+        left = "".join("xyz"[k] for k in range(3) if flags[k])
+        couple = left if name == "iso" and len(left) > 1 else "none"
+        scale = np.array(
+            [
+                bool(flags[2] and pbc[2] and h[2, 1] != 0.0),
+                bool(flags[2] and pbc[2] and h[2, 0] != 0.0),
+                bool(flags[1] and pbc[1] and h[1, 0] != 0.0),
+            ]
+        )
+        return _Barostat(flags, couple, "aniso", True, scale)
     # tilts that scale with the lengths: yz and xz with z, xy with y
     scale = np.array(
         [
@@ -96,6 +118,36 @@ def _barostat(name: str, pbc: np.ndarray, swapped: bool, h: np.ndarray) -> _Baro
         return _Barostat(flags, "none", "tri", False, np.zeros(3, dtype=bool))
     flags[:3] = True
     return _Barostat(flags, "xyz" if name == "iso" else "none", name, False, scale)
+
+
+# the time step of an atom that neither moves nor feels a force, as LAMMPS's
+_BIG = 1.0e20
+
+
+def _step_limit(
+    v: np.ndarray, f: np.ndarray, masses: np.ndarray, distance: float
+) -> float:
+    """The largest time step in which no atom moves more than distance by
+    its velocity and its force, as LAMMPS's fix dt/reset finds it: the
+    smaller of distance / |v| and sqrt(2 distance m / |f|), scaled down if
+    the move of v dt + f dt^2 / 2m is still longer."""
+    inverse = (1.0 / masses)[:, None]
+    vsq = np.einsum("ij,ij->i", v, v)
+    fsq = np.einsum("ij,ij->i", f, f)
+    with np.errstate(divide="ignore"):
+        dtv = np.where(vsq > 0.0, distance / np.sqrt(vsq), _BIG)
+        dtf = np.where(
+            fsq > 0.0,
+            np.sqrt(2.0 * distance / (_FTM2V * np.sqrt(fsq) * inverse[:, 0])),
+            _BIG,
+        )
+    dt = np.minimum(dtv, dtf)[:, None]
+    move = dt * v + 0.5 * dt * dt * inverse * f * _FTM2V
+    length = np.sqrt(np.einsum("ij,ij->i", move, move))
+    dt = dt[:, 0]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        dt = np.where(length > distance, dt * distance / length, dt)
+    return float(dt.min()) if len(dt) else _BIG
 
 
 def _upper(h: np.ndarray) -> np.ndarray:
@@ -134,9 +186,24 @@ class _HostAtoms:
         self.__forces: np.ndarray | None = None
         self.__wide: NeighborList | None = None
         self.__rng: np.random.Generator | None = None
+        # a Switch: the other interaction, its neighbor list, and λ
+        self.__field: np.ndarray | None = None  # of HNEMD, in the frame
+        self.__virials: np.ndarray | None = None  # of each atom, for the field
+        self.__target: Any = False  # False: no switch; None: the ideal gas
+        self.__target_wide: NeighborList | None = None
+        self.weight = 0.0
+        self.parts = (math.nan, math.nan)  # the energies of the two
         self.__properties = tuple(
             p for p in ("energy", "forces", "virial") if p in calculator.implemented
         )
+        # what the controls of a run set, in the frame of LAMMPS: forces added
+        # to the atoms, the velocities of the components that do not move
+        # freely (zero where they do), and groups whose forces are summed
+        self.added: np.ndarray | None = None
+        self.prescribed: np.ndarray | None = None
+        self.watched: tuple = ()
+        self.sums: list = []
+        self.__baths: list = []
 
     @property
     def positions(self) -> np.ndarray:
@@ -149,6 +216,11 @@ class _HostAtoms:
     @velocities.setter
     def velocities(self, v: np.ndarray) -> None:
         self.__v = v
+
+    @property
+    def forces(self) -> np.ndarray:
+        """Those of the last computation, as the steps use them."""
+        return self.__forces
 
     def twice_kinetic(self) -> float:
         return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
@@ -175,18 +247,72 @@ class _HostAtoms:
             if neighbors is None:
                 self.__wide = NeighborList.build(current, cutoff + _SKIN)
                 neighbors = self.__wide._follow(current, cutoff)
-        result = self.__calculator.compute(
-            current, self.__properties, neighbors=neighbors
-        )
+        wanted = self.__properties
+        if self.__field is not None:
+            wanted = wanted + ("atomic_virials",)
+        result = self.__calculator.compute(current, wanted, neighbors=neighbors)
         forces = np.asarray(result.forces, dtype=float)
-        if not (np.isfinite(result.energy) and np.isfinite(forces).all()):
+        energy = float(result.energy)
+        if self.__field is not None:
+            # each atom pushed by the field through its virial, W^T F, the
+            # pushes less their mean, as GPUMD's HNEMD
+            self.__virials = np.asarray(result.atomic_virials, dtype=float)
+            push = np.einsum("a,iab->ib", self.__field, self.__virials)
+            forces = forces + (push - push.mean(axis=0))
+        work = (
+            np.asarray(result.virial, dtype=float)
+            if "virial" in self.__properties
+            else np.full((3, 3), np.nan)
+        )
+        if self.__target is not False:
+            energy, forces, work = self.__switched(current, energy, forces, work)
+        if not (np.isfinite(energy) and np.isfinite(forces).all()):
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
             )
+        # the forces of the potential on the watched groups
+        self.sums = [forces[mask].sum(axis=0) for mask in self.watched]
+        if self.added is not None:
+            forces = forces + self.added
         self.__forces = self.__restrict(forces)
-        if "virial" in self.__properties:
-            return float(result.energy), np.asarray(result.virial, dtype=float)
-        return float(result.energy), np.full((3, 3), np.nan)
+        return energy, work
+
+    def __switched(
+        self, current: System, energy: float, forces: np.ndarray, work: np.ndarray
+    ) -> tuple[float, np.ndarray, np.ndarray]:
+        """(1 - λ) times the potential plus λ times the target of a Switch:
+        the energy, the forces and the virial, the target giving none where
+        it computes none; the energies of the two kept."""
+        target, weight = self.__target, self.weight
+        if target is None:  # the ideal gas
+            other, pulls, push = 0.0, np.zeros_like(forces), np.zeros((3, 3))
+        else:
+            cutoff = float(target.cutoff)
+            neighbors = None
+            if 0.0 < cutoff < np.inf:
+                wide = self.__target_wide
+                neighbors = wide._follow(current, cutoff) if wide is not None else None
+                if neighbors is None:
+                    self.__target_wide = NeighborList.build(current, cutoff + _SKIN)
+                    neighbors = self.__target_wide._follow(current, cutoff)
+            wanted = ("energy", "forces") + (
+                ("virial",) if "virial" in target.implemented else ()
+            )
+            result = target.compute(current, wanted, neighbors=neighbors)
+            other = float(result.energy)
+            pulls = np.asarray(result.forces, dtype=float)
+            push = (
+                np.asarray(result.virial, dtype=float)
+                if result.virial is not None
+                else np.zeros((3, 3))
+            )
+        self.parts = (energy, other)
+        mixed = (1.0 - weight) * energy + weight * other
+        return (
+            mixed,
+            (1.0 - weight) * forces + weight * pulls,
+            (1.0 - weight) * work + weight * push,
+        )
 
     def kick(self, c: float) -> None:
         self.__v += c * self.__forces / self.__masses[:, None]
@@ -207,7 +333,11 @@ class _HostAtoms:
         v[:, 1] -= half * v[:, 2] * w[3]
 
     def restrict(self) -> None:
+        """The velocities of the components that do not move freely set:
+        zero, or those of their control."""
         self.__v = self.__restrict(self.__v)
+        if self.prescribed is not None:
+            self.__v = self.__v + self.prescribed
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
@@ -219,11 +349,75 @@ class _HostAtoms:
     def seed(self, seed: int | None) -> None:
         self.__rng = np.random.default_rng(seed)
 
-    def langevin(self, c1: float, c2: float, kt: float) -> None:
-        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian."""
+    def set_controls(
+        self,
+        free: np.ndarray | None,
+        prescribed: np.ndarray | None,
+        added: np.ndarray | None,
+        watched: tuple,
+        baths: tuple,
+    ) -> None:
+        """The controls of a run: the free components (in the axes of the
+        system; the restriction given at the start follows them), the
+        velocities of the others and the forces added (frame of LAMMPS), the
+        groups whose forces are summed, and (mask, seed) of each bath."""
+        self.prescribed, self.added, self.watched = prescribed, added, watched
+        self.__baths = [(mask, np.random.default_rng(seed)) for mask, seed in baths]
+
+    def clear_controls(self) -> None:
+        self.prescribed = self.added = None
+        self.watched = ()
+        self.__baths = []
+
+    def twice_kinetic_free(self) -> float:
+        """Of the components that move freely."""
+        v = self.__restrict(self.__v)
+        return float(np.einsum("i,ij,ij->", self.__masses, v, v)) * _MVV2E
+
+    def bath(self, k: int, c1: float, c2: float, kt: float) -> float:
+        """v = c1 v + c2 sqrt(kt / m) g on the atoms of bath k, g Gaussian of
+        its random numbers in the directions they move freely; the kinetic
+        energy it added, in eV."""
+        mask, rng = self.__baths[k]
+        masses = self.__masses[mask]
+        before = self.__v[mask]
+        noise = np.zeros_like(self.__v)
+        noise[mask] = rng.normal(size=before.shape)
+        noise = self.__restrict(noise)[mask]
+        after = c1 * before + c2 * np.sqrt(kt / masses)[:, None] * noise
+        self.__v[mask] = after
+        return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
+                           - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
+
+    def set_field(self, field: np.ndarray | None) -> None:
+        """The driving field of HNEMD in the frame, or None for none."""
+        self.__field = field
+        self.__virials = None
+
+    def heat_flux(self) -> np.ndarray:
+        """(3,) the potential part of the heat flux times the volume in the
+        frame, sum_i W_i v_i, of the virials of the last computation and the
+        velocities now."""
+        return np.einsum("iab,ib->a", self.__virials, self.__v)
+
+    def set_switch(self, target: Any) -> None:
+        """The other interaction of a Switch, None for none, or False for no
+        switch."""
+        self.__target = target
+        self.__target_wide = None
+        self.weight = 0.0
+
+    def langevin(self, c1: float, c2: float, kt: float, keep: bool = False) -> None:
+        """v = c1 v + c2 sqrt(kt / m) g, g Gaussian; with keep, the noise of
+        each atom less an equal share of its total momentum, as the random
+        forces of LAMMPS's fix langevin zero yes."""
         sigma = np.sqrt(kt / self.__masses)[:, None]
-        noise = self.__rng.normal(size=self.__v.shape)
-        self.__v = c1 * self.__v + c2 * sigma * self.__restrict(noise)
+        noise = c2 * sigma * self.__restrict(self.__rng.normal(size=self.__v.shape))
+        if keep:
+            noise -= (self.__masses @ noise) / len(noise) / self.__masses[:, None]
+        self.__v = c1 * self.__v + noise
+        if self.prescribed is not None:
+            self.restrict()
 
 
 class _Native:
@@ -276,8 +470,21 @@ class _Native:
             else None
         )
         self.__movable = None if movable is None or movable.all() else movable
+        # the components that move freely in the run, in the axes of the
+        # system: those of the movable column, less those its controls set
+        self.__free = self.__movable
         v = self.__restrict(v)
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
+        self.__moves: tuple = ()  # the names of the moved groups recorded
+        self.__controlled = False  # whether the run has controls
+        self.__deform: Any = None  # the Deform of the run
+        self.__adaptive: Any = None  # the AdaptiveTimestep of the run
+        self.__switch: Any = None  # the Switch of the run
+        self.__heating = False  # whether a heat field drives the run
+        self.__keep = False  # whether the Langevin noise keeps the momentum
+        self.__baths: tuple = ()  # (control, seed, damping) of each bath
+        self.__prescribed = False  # whether controls set velocities
+        self.__heat: list = []  # the heat each gave since the run began, eV
         self.timestep = float(timestep)
         self.__step = 0
         self.__time = 0.0
@@ -322,9 +529,9 @@ class _Native:
     def __restrict(self, vectors: np.ndarray) -> np.ndarray:
         """Vectors of the atoms with the components along which they may not
         move removed, in the axes of the system."""
-        if self.__movable is None:
+        if self.__free is None:
             return vectors
-        return self.__to_frame(self.__from_frame(vectors) * self.__movable)
+        return self.__to_frame(self.__from_frame(vectors) * self.__free)
 
     def __box(self) -> Box:
         return Box(self.__h, origin=self.__lo, pbc=self.__frame_pbc)
@@ -363,9 +570,16 @@ class _Native:
         return System(table=table, box=box, info=info)
 
     def temperature(self) -> float:
+        """Of the components that move freely."""
         if self.__dof < 1:
             return math.nan
-        return self.__twice_kinetic() / (self.__dof * _KB)
+        # without velocities set by controls the components held are still
+        twice = (
+            self.__atoms.twice_kinetic_free()
+            if self.__prescribed
+            else self.__twice_kinetic()
+        )
+        return twice / (self.__dof * _KB)
 
     def __twice_kinetic(self) -> float:
         return self.__atoms.twice_kinetic()
@@ -399,7 +613,70 @@ class _Native:
             "volume": self.__volume(),
             "stress": [float(stress[a, b]) for a, b in
                        ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))],
-        }  # fmt: skip
+        } | {
+            f"{name}_force": self.__from_frame(total[None, :])[0].tolist()
+            for name, total in zip(self.__moves, getattr(self.__atoms, "sums", ()))
+            if name is not None
+        } | {
+            f"{bath.name}_energy": heat
+            for (bath, _, _), heat in zip(self.__baths, self.__heat)
+            if bath.name is not None
+        } | self.__switch_record() | self.__field_record()  # fmt: skip
+
+    def __field_record(self) -> dict[str, Any]:
+        """The potential part of the heat flux times the volume of a run of
+        HNEMD, in the axes of the system."""
+        if not self.__heating:
+            return {}
+        flux = self.__from_frame(self.__atoms.heat_flux()[None, :])[0]
+        return {"heat_flux": [float(x) for x in flux]}
+
+    def __set_field(self, control: Any) -> None:
+        """The driving field of HNEMD in the frame of the dynamics."""
+        if control is None:
+            return
+        calculator = self.__calculator
+        if not getattr(calculator, "_heat_flux", False):
+            raise InvalidParameter(
+                "the heat flux needs the centroid stress of each atom, which "
+                f"{type(calculator).__name__} does not give; EAM, the pair "
+                "potentials and NEP give it"
+            )
+        self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
+        self.__heating = True
+
+    def __switch_record(self) -> dict[str, float]:
+        """λ of a named Switch and the energy of its target minus that of the
+        potential, both unscaled."""
+        switch = self.__switch
+        if switch is None or switch.name is None:
+            return {}
+        potential, target = self.__atoms.parts
+        return {
+            f"{switch.name}_lambda": float(self.__atoms.weight),
+            f"{switch.name}_difference": float(target - potential),
+        }
+
+    def __set_switch(self, switch: Any, barostat: bool) -> None:
+        """The other interaction of a Switch in the frame of the dynamics,
+        and λ at the start of the run."""
+        self.__switch = None
+        if switch is None:
+            return
+        target = switch.target
+        if barostat and target is not None and "virial" not in target.implemented:
+            raise InvalidParameter(
+                f"a barostat needs the virial, which {type(target).__name__} does "
+                "not compute"
+            )
+        if isinstance(target, Springs) and not np.array_equal(
+            self.__rotation, np.eye(3)
+        ):
+            # the sites in the frame of the dynamics, as the atoms
+            target = Springs(self.__to_frame(target.sites), target.constants)
+        self.__atoms.set_switch(target)
+        self.__atoms.weight = switch.weight(0.0)
+        self.__switch = switch
 
     # -- velocities -------------------------------------------------------------
 
@@ -448,14 +725,41 @@ class _Native:
                 f"a barostat needs the virial, which "
                 f"{type(self.__calculator).__name__} does not compute"
             )
+        controls = run.get("controls", ())
+        self.__set_deform(
+            next((c for c in controls if isinstance(c, _controls.Deform)), None),
+            barostat,
+            run["barostat"],
+        )
+        self.__set_controls(controls, barostat)
         if (thermostat or langevin) and self.__dof < 1:
             raise InvalidParameter("a thermostat needs atoms that move")
         dt = self.timestep
         self.__dt = dt
         self.__first = self.__step
-        self.__time0 = self.__time
+        # the time of a step, from the step where the time step last changed
+        self.__atime, self.__atimestep = self.__time, self.__step
         self.__steps = run["steps"]
+        self.__set_switch(
+            next((c for c in controls if isinstance(c, _controls.Switch)), None),
+            barostat,
+        )
+        self.__set_field(
+            next((c for c in controls if isinstance(c, _controls._HeatField)), None)
+        )
+        self.__keep = bool(run.get("keep_momentum", False))
+        if self.__keep:
+            if self.__free is not None:
+                raise InvalidParameter(
+                    "keep_momentum with atoms held or moved: there is no momentum "
+                    "to keep"
+                )
         self.__compute()
+        self.__adaptive = next(
+            (c for c in controls if isinstance(c, _controls.AdaptiveTimestep)), None
+        )
+        if self.__adaptive is not None:
+            self.__reset_dt()  # at the start of the run, as fix dt/reset
         self.__nh = thermostat
         self.__langevin = langevin
         self.__pstat = barostat
@@ -494,7 +798,13 @@ class _Native:
 
     def __setup_barostat(self, run: dict[str, Any]) -> None:
         h = self.__h
-        b = _barostat(run["barostat"], self.__frame_pbc, self.__swapped, h)
+        b = _barostat(
+            run["barostat"],
+            self.__frame_pbc,
+            self.__swapped,
+            h,
+            None if self.__deform is None else self.__deform.rates[:3] != 0.0,
+        )
         self.__b = b
         p0, p1 = (p * _GPA_TO_EV_PER_A3 for p in run["pressures"])
         self.__p_start = np.where(b.flags, p0, 0.0)
@@ -523,8 +833,178 @@ class _Native:
         self.__press_target(0)
         self.__p_current = self.__couple()
 
+    def __set_deform(self, deform: Any, barostat: bool, style: str) -> None:
+        """The box at the start of a deformation, as fix deform takes it."""
+        self.__deform = deform
+        if deform is None:
+            return
+        if not (np.array_equal(self.__rotation, np.eye(3)) and not self.__swapped):
+            raise InvalidParameter(
+                "a deformation needs a box whose first vector is along x and second "
+                "in the xy plane"
+            )
+        if deform.kind == "true" and deform.rates[3:].any():
+            raise InvalidParameter("tilts deform at engineering rates only")
+        deform._periodic(self.__pbc)
+        if barostat:
+            if style not in ("iso", "aniso") or deform.rates[3:].any():
+                raise InvalidParameter(
+                    'a barostat with a deformation needs "iso" or "aniso" and no shear'
+                )
+            if (deform.rates[:3] != 0.0).all():
+                raise InvalidParameter("the deformation leaves the barostat no length")
+            sheet = bool(self.__pbc[:2].all() and not self.__pbc[2])
+            if sheet:
+                raise InvalidParameter(
+                    "a deformed sheet with a barostat is not supported"
+                )
+        h = self.__h
+        self.__deform_lo = self.__lo.copy()
+        self.__deform_hi = self.__lo + np.diag(h)
+        self.__deform_tilt = np.array([h[2, 1], h[2, 0], h[1, 0]])
+
+    def __apply_deform(self, step: int) -> None:
+        """The box of the deformation at the end of a step, and the atoms
+        carried with it: the targets of fix deform, linear in the steps of
+        the run for its rates of length and of tilt, exponential for true
+        rates of length."""
+        d = self.__deform
+        done = step - self.__first
+        delta = done / self.__steps if done else 0.0
+        span = self.__steps * self.__dt  # the time of the whole run
+        old, old_lo = self.__h.copy(), self.__lo.copy()
+        lo, hi = old_lo.copy(), old_lo + np.diag(old)
+        lo0, hi0 = self.__deform_lo, self.__deform_hi
+        for i in range(3):
+            rate = d.rates[i]
+            if rate == 0.0:
+                continue
+            if d.kind == "true":
+                shift = 0.5 * ((hi0[i] - lo0[i]) * math.exp(rate * done * self.__dt))
+                lo[i] = 0.5 * (lo0[i] + hi0[i]) - shift
+                hi[i] = 0.5 * (lo0[i] + hi0[i]) + shift
+            else:
+                shift = 0.5 * span * rate * (hi0[i] - lo0[i])
+                lo[i] = lo0[i] + delta * ((lo0[i] - shift) - lo0[i])
+                hi[i] = hi0[i] + delta * ((hi0[i] + shift) - hi0[i])
+        # the tilts yz, xz and xy; the lengths across which they grow
+        tilt = np.array([old[2, 1], old[2, 0], old[1, 0]])
+        across = np.array([hi0[2] - lo0[2], hi0[2] - lo0[2], hi0[1] - lo0[1]])
+        for k in range(3):
+            rate = d.rates[3 + k]
+            if rate != 0.0:
+                start = self.__deform_tilt[k]
+                tilt[k] = start + delta * ((start + span * rate * across[k]) - start)
+        lengths = hi - lo
+        new = np.array(
+            [
+                [lengths[0], 0.0, 0.0],
+                [tilt[2], lengths[1], 0.0],
+                [tilt[1], tilt[0], lengths[2]],
+            ]
+        )
+        self.__atoms.remap(old_lo, old, lo, new)
+        self.__h, self.__lo = new, lo
+
+    def __set_controls(self, controls: tuple, barostat: bool) -> None:
+        """The free components, prescribed velocities, added forces and
+        watched groups of the controls of a run; the velocities of the
+        components they set, set now."""
+        n = self.__n
+        if not controls:
+            self.__reset_controls()
+            return
+        free = (
+            np.ones((n, 3), dtype=bool)
+            if self.__movable is None
+            else self.__movable.copy()
+        )
+        prescribed = np.zeros((n, 3))
+        added = np.zeros((n, 3))
+        moves, watched, baths = [], [], []
+        constrained = adds = False
+        for control in controls:
+            if isinstance(control, _controls.Hold):
+                free[control.mask] &= ~control.axes
+                constrained = constrained or bool(control.mask.any())
+            elif isinstance(control, _controls.Langevin):
+                damping = (
+                    control.damping
+                    if control.damping is not None
+                    else 100 * self.timestep
+                )
+                seed = (
+                    control.seed if control.seed is not None else secrets.randbits(63)
+                )
+                baths.append((control, seed, damping))
+            elif isinstance(
+                control,
+                (
+                    _controls.Deform,
+                    _controls.AdaptiveTimestep,
+                    _controls.Switch,
+                    _controls._HeatField,
+                ),
+            ):
+                continue
+            elif isinstance(control, _controls.Move):
+                free[control.mask] = False
+                prescribed[control.mask] = control.velocity
+                constrained = constrained or bool(control.mask.any())
+                moves.append(control.name)
+                watched.append(control.mask)
+            else:
+                added[control.mask] += control.force
+                adds = True
+        if barostat and constrained:
+            raise InvalidParameter(
+                "a barostat with held or moved atoms is not supported"
+            )
+        self.__free = None if free.all() else free
+        self.__dof = (
+            3 * n - 3
+            if self.__free is None and self.__movable is None
+            else int(free.sum())
+        )
+        atoms = self.__atoms
+        atoms.set_controls(
+            self.__free,
+            self.__to_frame(prescribed) if prescribed.any() else None,
+            self.__to_frame(added) if adds else None,
+            tuple(watched),
+            tuple((control.mask, seed) for control, seed, _ in baths),
+        )
+        self.__prescribed = bool(prescribed.any())
+        self.__moves = tuple(moves)
+        self.__baths = tuple(baths)
+        self.__heat = [0.0] * len(baths)
+        atoms.restrict()
+        self.__computed = False
+        self.__controlled = True
+
+    def __reset_controls(self) -> None:
+        self.__controlled = False
+        self.__free = self.__movable
+        n = self.__n
+        self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
+        self.__moves = ()
+        self.__baths = ()
+        self.__heat = []
+        self.__prescribed = False
+        self.__atoms.clear_controls()
+
     def finish(self) -> None:
         self.__run = {}
+        self.__deform = None
+        self.__adaptive = None
+        if self.__switch is not None:
+            self.__atoms.set_switch(False)
+            self.__switch = None
+        if self.__heating:
+            self.__atoms.set_field(None)
+            self.__heating = False
+        if self.__controlled:
+            self.__reset_controls()
 
     def advance(self, count: int) -> None:
         # the energy and the virial at the last step, for a record after it
@@ -545,8 +1025,14 @@ class _Native:
         self.__step += 1
         step = self.__step
         dt = self.__dt
+        if self.__switch is not None:  # at the start of the step, as fix ti/spring
+            self.__atoms.weight = self.__switch.weight(
+                (step - self.__first) / self.__steps
+            )
         if self.__langevin:
             self.__ornstein_uhlenbeck(step)
+        if self.__baths:
+            self.__bathe(step)
         if self.__pstat:
             self.__nhc_press()
         if self.__nh:
@@ -578,13 +1064,47 @@ class _Native:
             self.__nhc_press()
         if self.__langevin:
             self.__ornstein_uhlenbeck(step)
-        self.__time = self.__time0 + (step - self.__first) * dt
+        if self.__baths:
+            self.__bathe(step)
+        if self.__deform is not None:
+            self.__apply_deform(step)  # at the end of the step, as fix deform 1
+        self.__time = self.__atime + (step - self.__atimestep) * dt
+        if self.__adaptive is not None and step % self.__adaptive.every == 0:
+            self.__reset_dt()
+
+    def __reset_dt(self) -> None:
+        """The time step of the fastest atom within the bounds, as fix
+        dt/reset at the end of a step; the time goes on from this step."""
+        a = self.__adaptive
+        dt = _step_limit(
+            self.__atoms.velocities, self.__atoms.forces, self.__masses, a.max_distance
+        )
+        if a.min_timestep is not None:
+            dt = max(dt, a.min_timestep)
+        dt = min(dt, self.timestep if a.max_timestep is None else a.max_timestep)
+        if dt != self.__dt:
+            self.__atime, self.__atimestep = self.__time, self.__step
+            self.__dt = dt
 
     def __ornstein_uhlenbeck(self, step: int) -> None:
         """Friction and noise for half a step."""
         target = self.__t_target(step)
         c1 = math.exp(-0.5 * self.__gamma * self.__dt)
-        self.__atoms.langevin(c1, math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V)
+        c2, kt = math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V
+        if self.__keep:
+            self.__atoms.langevin(c1, c2, kt, True)
+        else:
+            self.__atoms.langevin(c1, c2, kt)
+
+    def __bathe(self, step: int) -> None:
+        """Friction and noise of each bath for half a step, the heat it
+        gives counted."""
+        fraction = self.__fraction(step)
+        for k, (control, _, damping) in enumerate(self.__baths):
+            t0, t1 = control.temperature
+            kt = _KB * (t0 + fraction * (t1 - t0)) * _FTM2V
+            c1 = math.exp(-0.5 * self.__dt / damping)
+            self.__heat[k] += self.__atoms.bath(k, c1, math.sqrt(1.0 - c1 * c1), kt)
 
     def __nhc_temp(self) -> None:
         """Half a step of the chain of thermostats on the atoms."""
@@ -604,6 +1124,8 @@ class _Native:
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
         factor = math.exp(-0.5 * dt * eta_dot[0])
         self.__atoms.scale(factor)
+        if self.__prescribed:
+            self.__atoms.restrict()  # the moved atoms keep their velocities
         self.__t_current *= factor * factor
         eta_dotdot[0] = (self.__dof * _KB * self.__t_current - ke_target) / mass[0]
         eta_dot[0] = (eta_dot[0] * expfac + eta_dotdot[0] * dt4) * expfac
@@ -654,6 +1176,8 @@ class _Native:
             diagonal[:2] = diagonal[:2].mean()
         elif b.couple == "xz":
             diagonal[[0, 2]] = diagonal[[0, 2]].mean()
+        elif b.couple == "yz":
+            diagonal[1:] = diagonal[1:].mean()
         out = np.zeros(6)
         out[:3] = diagonal
         out[3:] = [tensor[1, 2], tensor[0, 2], tensor[0, 1]]

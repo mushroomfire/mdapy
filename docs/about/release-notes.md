@@ -7,9 +7,71 @@
   `"temperature"` of the velocities and `"stress"` of the virials of each atom, both
   about the center of mass of each bin, for the profiles of shocks and flows. See
   [Spatial binning](../user-guide/analysis/spatial-binning.md#moving-atoms).
+- `mdapy.lattice_dynamics.nemd(system, potential, temperature)`: the thermal
+  conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
+  two slabs of the box, the heat they drive over the gradient of temperature between
+  them; in MDAPY, on the GPU and in LAMMPS. See
+  [NEMD conductivity](../user-guide/simulation/nemd.md).
+- `mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)`: the
+  thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
+  small field pushing each atom through its virial, as GPUMD does, with EAM, the
+  pair potentials and NEP. See [HNEMD conductivity](../user-guide/simulation/hnemd.md).
+- `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
+  LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
+  other melts with a thermostat of its own, and the crystal gets its velocities
+  from `thermal_velocities`, in either engine. See
+  [Melting point](../user-guide/simulation/melting-point.md).
+- `md_elastic_constants` takes any calculator: its molecular dynamics run in
+  MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
+  `run` in either; the Born term of the fluctuations in MDAPY is that of
+  LAMMPS's `compute born/matrix numdiff`. The kinetic term counts all N atoms,
+  as the thermostat no longer holds the momentum of the center of mass. See
+  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
+- `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
+  run in MDAPY, with the heat flux of the atomic energies and virials of the
+  potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in
+  LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
+  MEAM, whose virials of each atom do not give the heat flux, are refused. See
+  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+
 - `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
   or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
   in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+
+- `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
+  velocities of a temperature for the atoms of a system, or of a part of
+  them, with no total momentum, those `MolecularDynamics.velocities` gives in
+  MDAPY with the same seed; a system's velocities are where a run starts. See
+  [Molecular dynamics](../user-guide/simulation/dynamics.md#running).
+- Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
+  hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
+  velocity and record the force on them (`Move`), push them (`AddForce`), or
+  keep them at a temperature and record the heat this takes (`Langevin`), for
+  that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
+  count the directions that move freely. See
+  [Groups and controls](../user-guide/simulation/controls.md).
+- `mdapy.simulation.Deform`, a control that stretches, compresses or shears the
+  box at constant strain rates, engineering or true, the atoms carried with it,
+  with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
+  GPU and in LAMMPS (`fix deform`) alike. See
+  [Deformation](../user-guide/simulation/deformation.md).
+- `mdapy.simulation.AdaptiveTimestep`, a control that sets the time step by the
+  fastest atom, so that no atom moves more than a distance in a step, within
+  bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
+  and in LAMMPS alike. See [Adaptive time step](../user-guide/simulation/adaptive-timestep.md).
+- `free_energy` takes MDAPY's own potentials: the solid is switched to an Einstein
+  crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
+  processor or on the GPU, through
+  three new parts: `mdapy.simulation.Switch`, a control that turns the potential of a
+  run into another, recording λ and the difference of their energies, as LAMMPS's
+  `fix ti/spring` and `pair_style hybrid/scaled`; `mdapy.calculators.Springs`, the
+  springs of an Einstein crystal; and `mdapy.calculators.UhlenbeckFord`, LAMMPS's
+  `pair_style ufm`, also on the GPU. `run(..., keep_momentum=True)` gives Langevin
+  dynamics whose random forces keep the total momentum (`fix langevin ... zero yes`).
+  `stacking_fault_free_energy` runs in MDAPY likewise. See
+  [Switching between potentials](../user-guide/simulation/switching.md) and
+  [Free energy](../user-guide/simulation/free-energy.md).
+
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

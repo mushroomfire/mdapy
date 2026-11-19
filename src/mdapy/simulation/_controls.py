@@ -120,7 +120,72 @@ class AddForce:
         return f"AddForce({int(self.mask.sum())} atoms, force={self.force.tolist()!r})"
 
 
-CONTROLS = (Hold, Move, AddForce)
+class Langevin:
+    """A Langevin thermostat on a group of atoms for a run, friction and
+    random forces on them alone: a heat bath, such as the source and the
+    sink of heat that flows through a crystal, or the borders that take up
+    the heat of a cascade. With a name, ``thermo`` records the heat it gave
+    the group since the run began.
+
+    Parameters
+    ----------
+    mask : numpy.ndarray
+        (N,) bool, the atoms of the bath.
+    temperature : float64 or (float64, float64)
+        Its temperature in K, positive, or its values at the start and the
+        end of the run.
+    damping : float64, optional
+        Its damping time in ps, positive. Default 100 time steps.
+    seed : int32, optional
+        Seed of its random forces, positive; unpredictable when None.
+    name : str, optional
+        With a name, ``thermo`` records ``<name>_energy``, the heat in eV
+        the bath gave the group since the run began, negative when it took
+        heat away. Default None, recording none.
+    """
+
+    def __init__(
+        self,
+        mask: Any,
+        temperature: Any,
+        *,
+        damping: float | None = None,
+        seed: int | None = None,
+        name: str | None = None,
+    ):
+        self.mask = _mask(mask)
+        values = np.atleast_1d(np.asarray(temperature, dtype=float))
+        if values.size == 1:
+            values = np.repeat(values, 2)
+        if (
+            values.shape != (2,)
+            or not (values > 0).all()
+            or not np.isfinite(values).all()
+        ):
+            raise InvalidParameter(
+                f"temperature must be positive, or (start, stop), not {temperature!r}"
+            )
+        self.temperature = (float(values[0]), float(values[1]))
+        if damping is not None and not (np.isfinite(damping) and damping > 0):
+            raise InvalidParameter(f"damping must be positive, not {damping!r}")
+        self.damping = None if damping is None else float(damping)
+        if seed is not None and (
+            isinstance(seed, bool) or int(seed) != seed or seed < 1
+        ):
+            raise InvalidParameter(f"seed must be a positive integer, not {seed!r}")
+        self.seed = None if seed is None else int(seed)
+        self.name = _name(name)
+
+    def __repr__(self) -> str:
+        first, last = self.temperature
+        heat = f"{first!r} K" if first == last else f"{first!r} to {last!r} K"
+        return (
+            f"Langevin({int(self.mask.sum())} atoms, {heat}, damping={self.damping!r}, "
+            f"seed={self.seed!r}, name={self.name!r})"
+        )
+
+
+CONTROLS = (Hold, Move, AddForce, Langevin)
 
 
 def checked(controls: Any, n: int) -> tuple:
@@ -134,10 +199,11 @@ def checked(controls: Any, n: int) -> tuple:
     names = set()
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
+    bathed = np.zeros(n, dtype=bool)
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
-                f"a control must be one of Hold, Move or AddForce, not {control!r}"
+                f"a control must be one of Hold, Move, AddForce or Langevin, not {control!r}"
             )
         if control.mask.shape != (n,):
             raise InvalidParameter(
@@ -156,9 +222,15 @@ def checked(controls: Any, n: int) -> tuple:
                     "an atom moved by one control is held or moved by another"
                 )
             held |= control.mask
+        if isinstance(control, Langevin):
+            if (bathed & control.mask).any():
+                raise InvalidParameter("an atom is in two Langevin baths")
+            bathed |= control.mask
         name = getattr(control, "name", None)
         if name is not None:
             if name in names:
                 raise InvalidParameter(f"two controls are named {name!r}")
             names.add(name)
+    if (moved & bathed).any():
+        raise InvalidParameter("an atom moved by a control is in a Langevin bath")
     return out

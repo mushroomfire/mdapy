@@ -128,7 +128,7 @@ temperature then counts the directions in which the atoms move.
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `thermo` | int32 | 100 | | records the thermodynamic state every this many steps, and at the start and the end |
 | `save_every` | int32 | `None` | | keeps the atoms every this many steps, in `frames`; `iterate` gives them instead, and needs it |
-| `controls` | sequence | `None` | | `Hold`, `Move` or `AddForce`: what is done to groups of atoms during the run; see [Groups and controls](controls.md) |
+| `controls` | sequence | `None` | | `Hold`, `Move`, `AddForce` or `Langevin`: what is done to groups of atoms during the run; see [Groups and controls](controls.md) |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the run, which raises `Cancelled` |
 

@@ -4,9 +4,10 @@
 
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
   hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
-  velocity and record the force on them (`Move`), or push them (`AddForce`),
-  for that run, in MDAPY and in LAMMPS alike; the temperature and the
-  thermostat count the directions that move freely. See
+  velocity and record the force on them (`Move`), push them (`AddForce`), or
+  keep them at a temperature and record the heat this takes (`Langevin`), for
+  that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
+  count the directions that move freely. See
   [Groups and controls](../user-guide/simulation/controls.md).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the

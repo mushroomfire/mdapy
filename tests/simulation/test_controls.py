@@ -189,7 +189,7 @@ def test_errors(potentials):
     system, bottom, top, _ = slab()
     n = len(system)
     with MolecularDynamics(system, eam) as md:
-        with pytest.raises(InvalidParameter, match="Hold, Move or AddForce"):
+        with pytest.raises(InvalidParameter, match="Hold, Move, AddForce or Langevin"):
             md.run(1, controls=["hold"])
         with pytest.raises(InvalidParameter, match="values, not one"):
             md.run(1, controls=Hold(np.ones(3, dtype=bool)))
@@ -288,3 +288,84 @@ def test_not_on_the_gpu_yet(potentials, monkeypatch):
     with MolecularDynamics(system, EAM.zhou(["Cu"], device="cuda")) as md:
         with pytest.raises(InvalidParameter, match="processor for now"):
             md.run(1, controls=Hold(held))
+
+
+def baths(system, bottom, top):
+    from mdapy.simulation import Langevin
+
+    return [
+        Langevin(bottom, 600.0, damping=0.1, seed=3, name="hot"),
+        Langevin(top, 100.0, damping=0.1, name="cold"),  # an unpredictable seed
+    ]
+
+
+@pytest.mark.parametrize("engine", ["mdapy", "lammps"])
+def test_heat_baths_balance_the_energy(potentials, engine):
+    """A hot and a cold bath at the two ends: heat flows in at one and out
+    at the other, and the energy of the atoms changes by the heat the two
+    gave, to the error of the integrator."""
+    eam, lmp = potentials
+    potential = eam if engine == "mdapy" else lmp
+    if potential is None:
+        pytest.skip("LAMMPS is not installed")
+    system, bottom, top, _ = slab()
+    with MolecularDynamics(system, potential, timestep=0.002) as md:
+        md.run(4000, thermo=200, controls=baths(system, bottom, top))
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    heat = thermo["hot_energy"].to_numpy() + thermo["cold_energy"].to_numpy()
+    assert thermo["hot_energy"][-1] > 20.0 and thermo["cold_energy"][-1] < -20.0
+    assert np.abs(energy - energy[0] - heat).max() < 0.03
+
+
+def test_a_bath_holds_its_temperature(potentials):
+    from mdapy.simulation import Langevin
+
+    eam, _ = potentials
+    system, bottom, _, _ = slab()
+    every = np.ones(len(system), dtype=bool)
+    with MolecularDynamics(system, eam, timestep=0.002) as md:
+        md.run(1000, controls=Langevin(every, (300.0, 500.0), damping=0.1, seed=1))
+        md.run(4000, thermo=20, controls=Langevin(every, 500.0, damping=0.1, seed=2))
+        assert md.thermo["temperature"][-200:].mean() == pytest.approx(500.0, rel=0.05)
+        # a seed repeats, and the held directions keep still
+        first = md.system
+    for _ in range(2):
+        with MolecularDynamics(system, eam, timestep=0.002) as md:
+            md.run(
+                50,
+                controls=[
+                    Langevin(every, 500.0, seed=9),
+                    Hold(bottom, directions="z"),
+                ],
+            )
+            again = md.system
+        if _ == 0:
+            reference = again
+    np.testing.assert_array_equal(again["velocities"], reference["velocities"])
+    assert np.abs(again["velocities"][bottom, 2]).max() == 0.0
+    assert not np.array_equal(first["velocities"], again["velocities"])
+
+
+def test_bath_errors(potentials):
+    from mdapy.simulation import Langevin
+
+    eam, _ = potentials
+    system, bottom, top, _ = slab()
+    with MolecularDynamics(system, eam) as md:
+        with pytest.raises(InvalidParameter, match="take the place of the thermostat"):
+            md.run(1, ensemble="nvt", temperature=300, controls=Langevin(top, 300.0))
+        with pytest.raises(InvalidParameter, match="two Langevin baths"):
+            md.run(1, controls=[Langevin(top, 300.0), Langevin(top, 400.0)])
+        with pytest.raises(InvalidParameter, match="moved by a control is in"):
+            md.run(1, controls=[Langevin(top, 300.0), Move(top, (1, 0, 0))])
+    with pytest.raises(InvalidParameter, match="temperature"):
+        Langevin(top, -1.0)
+    with pytest.raises(InvalidParameter, match="temperature"):
+        Langevin(top, (1.0, 2.0, 3.0))
+    with pytest.raises(InvalidParameter, match="damping"):
+        Langevin(top, 300.0, damping=0.0)
+    with pytest.raises(InvalidParameter, match="seed"):
+        Langevin(top, 300.0, seed=0)
+    assert "300.0 K" in repr(Langevin(top, 300.0))
+    assert "300.0 to 400.0 K" in repr(Langevin(top, (300.0, 400.0)))

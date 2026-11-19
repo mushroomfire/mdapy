@@ -1,7 +1,8 @@
 # Groups and controls
 
 A run of [molecular dynamics](dynamics.md) can hold some atoms still, move
-others at a velocity and push others: the controls of the run. Each acts on
+others at a velocity, push others and keep others at a temperature: the
+controls of the run. Each acts on
 a group, an (N,) bool mask over the atoms of the system, and lasts for the
 run it is given to, through `controls` of `run` or `iterate`.
 
@@ -73,6 +74,7 @@ the force at one step, which the vibrations of the atoms shake.*
 | `Hold(mask, *, directions="xyz")` | the atoms keep still along the axes `directions` of the system, any of `"x"`, `"y"` and `"z"`: their velocities there are zero and their forces do nothing, as a `movable` column that is False there |
 | `Move(mask, velocity, *, name=None)` | the atoms move together at `velocity`, (3,) float64 in Å/ps in the axes of the system, whatever the forces on them; with a `name`, `thermo` records `<name>_force`, the force of the potential on them |
 | `AddForce(mask, force)` | adds `force`, (3,) float64 in eV/Å in the axes of the system, to each atom (LAMMPS `fix addforce`) |
+| `Langevin(mask, temperature, *, damping=None, seed=None, name=None)` | a heat bath: friction and random forces on the atoms of the group alone, as the `"langevin"` thermostat of `run` gives every atom; with a `name`, `thermo` records `<name>_energy`, the heat in eV it gave the group since the run began, negative when it took heat away |
 
 | Parameter | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -80,7 +82,10 @@ the force at one step, which the vibrations of the atoms shake.*
 | `directions` | str | `"xyz"` | | the axes along which `Hold` holds them |
 | `velocity` | (3,) float64 | | Å/ps | the velocity of the atoms `Move` moves |
 | `force` | (3,) float64 | | eV/Å | the force `AddForce` adds to each atom |
-| `name` | str | `None` | | a word: the column `<name>_force` of `thermo` |
+| `temperature` | float64 or (float64, float64) | | K | the temperature of a `Langevin` bath, or its values at the start and the end of the run |
+| `damping` | float64 | 100 time steps | ps | the damping time of a `Langevin` bath |
+| `seed` | int32 | `None` | | seed of the random forces of a `Langevin` bath, positive; unpredictable when `None` |
+| `name` | str | `None` | | a word: the column `<name>_force` or `<name>_energy` of `thermo` |
 
 ## How they act
 
@@ -97,6 +102,14 @@ the force at one step, which the vibrations of the atoms shake.*
   without that control.
 - An added force does work on the atoms but has no part in the virial: the
   pressure and stress are those of the potential and the velocities.
+- A `Langevin` bath takes the place of the thermostat of the run, with
+  `"nve"` or `"nph"`: a hot bath at one end of a crystal and a cold one at the
+  other drive heat through it, and borders that take up the heat of a
+  collision cascade keep the rest at its temperature. The energy of the atoms
+  changes by the heat the baths give, to the error of the integrator. Each
+  bath draws its random forces in MDAPY as the `"langevin"` thermostat does,
+  over half steps; in LAMMPS it is a `fix langevin`, whose random forces
+  differ, so the runs agree in their averages.
 - Atoms held or moved by a control and a barostat do not go together: the
   box would carry the walls.
 - In LAMMPS the controls are its fixes: `setforce` with `velocity set` for
@@ -110,10 +123,13 @@ the force at one step, which the vibrations of the atoms shake.*
 ## Errors
 
 `run` and `iterate` raise `InvalidParameter` for a control that is not a
-`Hold`, `Move` or `AddForce`, a group of another number of atoms, an atom
-both held and moved or moved by two controls, two controls of one name, held
-or moved atoms with a barostat, controls on the GPU, and, in LAMMPS, more
-than 24 controls or atoms held along some directions in a box not in the
-form of LAMMPS. `Hold`, `Move` and `AddForce` raise it for a mask that is not
+`Hold`, `Move`, `AddForce` or `Langevin`, a group of another number of atoms,
+an atom both held and moved, moved by two controls, moved and in a bath, or
+in two baths, two controls of one name, held or moved atoms with a barostat,
+a bath with the thermostat of `"nvt"` or `"npt"`, controls on the GPU, and,
+in LAMMPS, more than 24 controls or atoms held along some directions in a
+box not in the form of LAMMPS. The controls raise it for a mask that is not
 (N,) bool, `directions` other than some of x, y and z, a velocity or force
-that is not three finite numbers, and a name that is not a word.
+that is not three finite numbers, a temperature that is not positive, a
+damping that is not positive, a seed that is not a positive integer, and a
+name that is not a word.

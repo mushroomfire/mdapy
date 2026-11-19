@@ -148,6 +148,7 @@ class _Lammps:
         self.__computes: list[str] = []
         self.__groups: list[str] = []
         self.__moves: tuple = ()
+        self.__baths: tuple = ()
         self.__temperature: str | None = None
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         lmp = _lammps(potential.cmdargs)
@@ -289,6 +290,9 @@ create_box {len(potential.elements)} box
             row[f"{name}_force"] = (
                 self.__rotation @ np.array(total, dtype=float)
             ).tolist()
+        for name, fix in self.__baths:
+            # the tally of LAMMPS is the energy the bath took away
+            row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
         return row
 
     # -- running ----------------------------------------------------------
@@ -369,6 +373,7 @@ create_box {len(potential.elements)} box
                 self.command(f"group {group} delete")
         self.__fixes, self.__computes, self.__groups = [], [], []
         self.__moves = ()
+        self.__baths = ()
         self.__temperature = None
 
     def __group(self, name: str, mask: np.ndarray) -> str:
@@ -392,6 +397,7 @@ create_box {len(potential.elements)} box
         the ensemble moves, and the directions its thermostat leaves out
         beyond those of the atoms held or moved whole, or None."""
         self.__moves = ()
+        self.__baths = ()
         self.__temperature = None
         if not controls:
             return "all", None
@@ -402,7 +408,7 @@ create_box {len(potential.elements)} box
         aligned = np.allclose(r, np.eye(3), rtol=0, atol=1e-12)
         held = np.zeros((n, 3), dtype=bool)
         moved = np.zeros(n, dtype=bool)
-        moves = []
+        moves, baths = [], []
         constrained = False
         for k, control in enumerate(controls):
             name = f"mdapy_c{k}"
@@ -434,6 +440,20 @@ create_box {len(potential.elements)} box
                     self.command(f"compute {name}_force {group} reduce sum fx fy fz")
                     self.__computes.append(f"{name}_force")
                     moves.append((control.name, f"{name}_force"))
+            elif isinstance(control, _controls.Langevin):
+                group = self.__group(name, control.mask)
+                t0, t1 = control.temperature
+                dt = float(self.lammps.extract_global("dt"))
+                damping = control.damping if control.damping is not None else 100 * dt
+                seed = control.seed
+                if seed is None:
+                    seed = int(np.random.default_rng().integers(1, 900_000_000))
+                self.command(
+                    f"fix {name} {group} langevin {t0!r} {t1!r} {damping!r} {seed} tally yes"
+                )
+                self.__fixes.append(name)
+                if control.name is not None:
+                    baths.append((control.name, name))
             else:
                 group = self.__group(name, control.mask)
                 fx, fy, fz = (float(c) for c in control.force @ r)
@@ -444,6 +464,7 @@ create_box {len(potential.elements)} box
                 "a barostat with held or moved atoms is not supported"
             )
         self.__moves = tuple(moves)
+        self.__baths = tuple(baths)
         if not constrained:
             return "all", None
         free = ~(held.all(axis=1) | moved)
@@ -618,8 +639,10 @@ class MolecularDynamics:
         """The thermodynamic state every ``thermo`` steps of the runs: step,
         time (ps), temperature (K), potential, kinetic and total energy
         (eV), pressure (GPa), volume (Å³), stress (GPa, Voigt order,
-        positive under tension), and ``<name>_force``, (3,) eV/Å, for each
-        named group a ``Move`` moved, null in the other runs."""
+        positive under tension), ``<name>_force``, (3,) eV/Å, for each named
+        group a ``Move`` moved, and ``<name>_energy`` (eV), the heat each
+        named ``Langevin`` bath gave since its run began, null in the other
+        runs."""
         schema = {
             "step": pl.Int64,
             "time": pl.Float64,
@@ -628,9 +651,13 @@ class MolecularDynamics:
         }
         # the forces on the groups the controls of some runs move
         for row in self.__rows:
-            for key in row:
+            for key, value in row.items():
                 if key not in schema:
-                    schema[key] = pl.Array(pl.Float64, 3)
+                    schema[key] = (
+                        pl.Array(pl.Float64, 3)
+                        if isinstance(value, list)
+                        else pl.Float64
+                    )
         rows = [{key: row.get(key) for key in schema} for row in self.__rows]
         return pl.DataFrame(rows, schema=schema)
 
@@ -737,11 +764,13 @@ class MolecularDynamics:
         save_every : int32, optional
             Keeps the atoms every this many steps, in ``frames``. Default
             None, keeping none.
-        controls : sequence of Hold, Move or AddForce, optional
+        controls : sequence of Hold, Move, AddForce or Langevin, optional
             What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, or pushed. Held and moved atoms take no
-            part in the thermostat, and the temperature counts the
-            directions that move freely; not with a barostat. Default none.
+            moved at a velocity, pushed, or kept at a temperature. Held and
+            moved atoms take no part in the thermostat, and the temperature
+            counts the directions that move freely; held or moved atoms not
+            with a barostat, baths not with the thermostat of "nvt" or
+            "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -833,11 +862,13 @@ class MolecularDynamics:
         thermo : int32, optional
             Records the thermodynamic state every this many steps, and at
             the start and the end. Default 100.
-        controls : sequence of Hold, Move or AddForce, optional
+        controls : sequence of Hold, Move, AddForce or Langevin, optional
             What is done to groups of atoms during the run: atoms held,
-            moved at a velocity, or pushed. Held and moved atoms take no
-            part in the thermostat, and the temperature counts the
-            directions that move freely; not with a barostat. Default none.
+            moved at a velocity, pushed, or kept at a temperature. Held and
+            moved atoms take no part in the thermostat, and the temperature
+            counts the directions that move freely; held or moved atoms not
+            with a barostat, baths not with the thermostat of "nvt" or
+            "npt". Default none.
         progress : callable, optional
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
@@ -916,6 +947,13 @@ class MolecularDynamics:
     ) -> dict[str, Any]:
         """The checked options of a run."""
         checked = _controls.checked(controls, self.__n)
+        if ensemble in ("nvt", "npt") and any(
+            isinstance(c, _controls.Langevin) for c in checked
+        ):
+            raise InvalidParameter(
+                "Langevin controls take the place of the thermostat: use them with "
+                "nve or nph"
+            )
         steps = int(steps)
         if steps < 0:
             raise InvalidParameter(f"steps must not be negative, not {steps!r}")

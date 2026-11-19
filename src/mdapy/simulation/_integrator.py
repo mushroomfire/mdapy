@@ -230,6 +230,22 @@ class _HostAtoms:
     def seed(self, seed: int | None) -> None:
         self.__rng = np.random.default_rng(seed)
 
+    def bath(
+        self, mask: np.ndarray, c1: float, c2: float, kt: float, rng: Any
+    ) -> float:
+        """v = c1 v + c2 sqrt(kt / m) g on the atoms of a mask, g Gaussian
+        of rng in the directions they move freely; the kinetic energy it
+        added, in eV."""
+        masses = self.__masses[mask]
+        before = self.__v[mask]
+        noise = np.zeros_like(self.__v)
+        noise[mask] = rng.normal(size=before.shape)
+        noise = self.__restrict(noise)[mask]
+        after = c1 * before + c2 * np.sqrt(kt / masses)[:, None] * noise
+        self.__v[mask] = after
+        return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
+                           - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
+
     def langevin(self, c1: float, c2: float, kt: float) -> None:
         """v = c1 v + c2 sqrt(kt / m) g, g Gaussian."""
         sigma = np.sqrt(kt / self.__masses)[:, None]
@@ -296,6 +312,8 @@ class _Native:
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
         self.__moves: tuple = ()  # the names of the moved groups recorded
         self.__controlled = False  # whether the run has controls
+        self.__baths: tuple = ()  # (control, random numbers, damping) of each bath
+        self.__heat: list = []  # the heat each gave since the run began, eV
         self.timestep = float(timestep)
         self.__step = 0
         self.__time = 0.0
@@ -428,6 +446,10 @@ class _Native:
             f"{name}_force": self.__from_frame(total[None, :])[0].tolist()
             for name, total in zip(self.__moves, getattr(self.__atoms, "sums", ()))
             if name is not None
+        } | {
+            f"{bath.name}_energy": heat
+            for (bath, _, _), heat in zip(self.__baths, self.__heat)
+            if bath.name is not None
         }  # fmt: skip
 
     # -- velocities -------------------------------------------------------------
@@ -570,12 +592,19 @@ class _Native:
         )
         prescribed = np.zeros((n, 3))
         added = np.zeros((n, 3))
-        moves, watched = [], []
+        moves, watched, baths = [], [], []
         constrained = adds = False
         for control in controls:
             if isinstance(control, _controls.Hold):
                 free[control.mask] &= ~control.axes
                 constrained = constrained or bool(control.mask.any())
+            elif isinstance(control, _controls.Langevin):
+                damping = (
+                    control.damping
+                    if control.damping is not None
+                    else 100 * self.timestep
+                )
+                baths.append((control, np.random.default_rng(control.seed), damping))
             elif isinstance(control, _controls.Move):
                 free[control.mask] = False
                 prescribed[control.mask] = control.velocity
@@ -600,6 +629,8 @@ class _Native:
         atoms.added = self.__to_frame(added) if adds else None
         atoms.watched = tuple(watched)
         self.__moves = tuple(moves)
+        self.__baths = tuple(baths)
+        self.__heat = [0.0] * len(baths)
         atoms.restrict()
         self.__computed = False
         self.__controlled = True
@@ -610,6 +641,8 @@ class _Native:
         n = self.__n
         self.__dof = 3 * n - 3 if self.__movable is None else int(self.__movable.sum())
         self.__moves = ()
+        self.__baths = ()
+        self.__heat = []
         atoms = self.__atoms
         if isinstance(atoms, _HostAtoms):
             atoms.prescribed = atoms.added = None
@@ -641,6 +674,8 @@ class _Native:
         dt = self.__dt
         if self.__langevin:
             self.__ornstein_uhlenbeck(step)
+        if self.__baths:
+            self.__bathe(step)
         if self.__pstat:
             self.__nhc_press()
         if self.__nh:
@@ -671,6 +706,8 @@ class _Native:
             self.__nhc_press()
         if self.__langevin:
             self.__ornstein_uhlenbeck(step)
+        if self.__baths:
+            self.__bathe(step)
         self.__time = self.__time0 + (step - self.__first) * dt
 
     def __ornstein_uhlenbeck(self, step: int) -> None:
@@ -678,6 +715,18 @@ class _Native:
         target = self.__t_target(step)
         c1 = math.exp(-0.5 * self.__gamma * self.__dt)
         self.__atoms.langevin(c1, math.sqrt(1.0 - c1 * c1), _KB * target * _FTM2V)
+
+    def __bathe(self, step: int) -> None:
+        """Friction and noise of each bath for half a step, the heat it
+        gives counted."""
+        fraction = self.__fraction(step)
+        for k, (control, rng, damping) in enumerate(self.__baths):
+            t0, t1 = control.temperature
+            kt = _KB * (t0 + fraction * (t1 - t0)) * _FTM2V
+            c1 = math.exp(-0.5 * self.__dt / damping)
+            self.__heat[k] += self.__atoms.bath(
+                control.mask, c1, math.sqrt(1.0 - c1 * c1), kt, rng
+            )
 
     def __nhc_temp(self) -> None:
         """Half a step of the chain of thermostats on the atoms."""

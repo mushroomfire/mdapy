@@ -184,7 +184,9 @@ def test_errors(potentials):  # noqa: F811
         ):
             with pytest.raises(InvalidParameter, match=match):
                 md.run(1, ensemble="nphug", **options)
-        with pytest.raises(InvalidParameter, match='for the ensemble "nphug"'):
+        with pytest.raises(
+            InvalidParameter, match='for the ensembles "nphug" and "msst"'
+        ):
             md.run(1, ensemble="npt", temperature=300, pressure=0.0, hugoniot=(1, 2, 3))
         md.velocities(0.0, seed=1)
         with pytest.raises(InvalidParameter, match="temperature, for the masses"):

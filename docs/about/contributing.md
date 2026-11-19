@@ -229,7 +229,7 @@ pip install lammps-build/lammps-*.whl
 | `MOLECULE` | molecular files |
 | `EXTRA-COMPUTE` | bond angles, the entropy fingerprint and Ackland-Jones |
 | `EXTRA-FIX`, `EXTRA-PAIR` | free energies of solids and liquids |
-| `SHOCK` | walls that move as pistons, and the Hugoniostat |
+| `SHOCK` | walls that move as pistons, the Hugoniostat and the multiscale shock technique |
 | `VORONOI` | the Voronoi analysis |
 | `PHONON` | dynamical matrices |
 | `KOKKOS` on the CPU | the shutdown of Kokkos at exit; a build of it for GPUs skips this test |

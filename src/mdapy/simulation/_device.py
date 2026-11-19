@@ -226,6 +226,27 @@ class DeviceAtoms:
     def kick_drift(self, c: float, dt: float) -> None:
         self.__atoms.kick_drift(c, dt)
 
+    def speed_squares(self) -> float:
+        """The sum of the squares of the velocities."""
+        return float(self.__atoms.speed_squares())
+
+    def msst_kick(
+        self,
+        half: float,
+        base: float,
+        axial: float,
+        axis: int,
+        trial: bool,
+        ftm2v: float,
+    ) -> float:
+        """The velocities of fix msst half a step on, kept unless trial; the
+        sum of their squares."""
+        return float(
+            self.__atoms.msst_kick(
+                float(half), float(base), float(axial), int(axis), bool(trial), ftm2v
+            )
+        )
+
     def reflect(self, normal: np.ndarray, offset: float, speed: float) -> None:
         """A flat wall: each atom with x . normal < offset put back by as
         much, its velocity along the normal made 2 speed - v . normal."""

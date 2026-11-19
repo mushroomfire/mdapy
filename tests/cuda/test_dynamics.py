@@ -640,3 +640,39 @@ def test_nphug(precision):
     np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
     for column in ("hugoniot", "shock_velocity", "particle_velocity"):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-7, atol=1e-6)
+
+
+@pytest.mark.parametrize("precision", ["mixed", "double"])
+def test_msst(precision):
+    """The multiscale shock technique on the GPU: the run of the processor
+    in double precision; in mixed precision the length of the box along the
+    shock that of the processor's run, its chaos aside."""
+    system = crystal()
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.001) as md:
+            md.velocities(600, seed=1)
+            md.run(
+                1000,
+                ensemble="msst",
+                barostat="z",
+                shock_velocity=50.0,
+                msst={"mu": 1.0},
+                thermo=50,
+            )
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    assert abs(b.box.matrix[2, 2] - system.box.matrix[2, 2]) > 0.05  # it moves
+    assert a.box.matrix[2, 2] == pytest.approx(b.box.matrix[2, 2], rel=0.02)
+    if precision == "mixed":
+        return
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-9)
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    for column in ("hugoniot", "rayleigh", "particle_velocity", "msst_energy"):
+        np.testing.assert_allclose(ta[column], tb[column], rtol=1e-7, atol=1e-6)

@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- `run(..., ensemble="msst", barostat="z", shock_velocity=...)`, the multiscale
+  shock technique of LAMMPS's `fix msst`: the box compressed along an axis as by a
+  steady shock of that velocity, its settings `q`, `mu` and `tscale` in `msst`, the
+  reference in `hugoniot`; `thermo` records the distances from the Hugoniot and the
+  Rayleigh line, the particle velocity, the Lagrangian position and the energy of
+  the box. In MDAPY, on the GPU and in LAMMPS alike. See
+  [Multiscale shock technique](../user-guide/simulation/msst.md).
 - `run(..., ensemble="nphug")`, the Hugoniostat of LAMMPS's `fix nphug`: a barostat
   at one pressure, along one axis or alike along every axis, and a thermostat that
   drives the energy to the Hugoniot of the state at the start, or of `hugoniot`;

@@ -410,6 +410,12 @@ matter, *Phys. Rev. B* **70**, 014103 (2004).
 [doi:10.1103/PhysRevB.70.014103](https://doi.org/10.1103/PhysRevB.70.014103)
 { #ravelo2004 }
 
+**Reed, Fried and Joannopoulos (2003).** E. J. Reed, L. E. Fried and J. D. Joannopoulos,
+A method for tractable dynamical studies of single and double shock compression,
+*Phys. Rev. Lett.* **90**, 235503 (2003).
+[doi:10.1103/PhysRevLett.90.235503](https://doi.org/10.1103/PhysRevLett.90.235503)
+{ #reed2003 }
+
 **Schelling et al. (2002).** P. K. Schelling, S. R. Phillpot and P. Keblinski,
 Comparison of atomic-level simulation methods for computing thermal conductivity,
 *Phys. Rev. B* **65**, 144306 (2002).

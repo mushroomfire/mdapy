@@ -69,6 +69,24 @@ class Atoms:
         self.kick(c)
         self.drift(dt)
 
+    def speed_squares(self):
+        return float((self.v * self.v).sum())
+
+    def msst_kick(self, half, base, axial, axis, trial, ftm2v):
+        m = self.masses[:, None]
+        c = self.result[1] * ftm2v / m
+        d = np.repeat(base / m, 3, axis=1)
+        d[:, axis] -= axial
+        v = self.v
+        with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+            e = np.exp(d * half)
+            exact = e * (c + d * v - c / e) / d
+        small = v + (c + d * v) * half + 0.5 * (d * d * v + c * d) * half * half
+        new = np.where(np.abs(half * d) > 1.0e-06, exact, small)
+        if not trial:
+            self.v = new
+        return float((new * new).sum())
+
     def reflect(self, normal, offset, speed):
         depth = self.x @ normal - offset
         past = depth < 0.0

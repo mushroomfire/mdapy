@@ -31,6 +31,8 @@
 #include "analysis/distribution.h"
 #include "analysis/dislocations.h"
 #include "analysis/geometry.h"
+#include "analysis/quests.h"
+#include "analysis/scaled_basis.h"
 #include "analysis/steinhardt.h"
 #include "analysis/strain.h"
 #include "analysis/surface_mesh.h"
@@ -1693,6 +1695,69 @@ void crystals() {
     }
 }
 
+void coverage() {
+    // a jittered fcc crystal; the descriptor of QUESTS and the Gaussian sums
+    // of its rows must not depend on the number of threads
+    const int cells = 5;
+    const double a = 4.05;
+    const double matrix[9] = {cells * a, 0.0, 0.0, 0.0, cells * a, 0.0, 0.0, 0.0, cells * a};
+    const double origin[3] = {0.0, 0.0, 0.0};
+    const bool pbc[3] = {true, true, true};
+    const double basis[4][3] = {{0, 0, 0}, {0.5, 0.5, 0}, {0.5, 0, 0.5}, {0, 0.5, 0.5}};
+    std::mt19937_64 random(21);
+    std::normal_distribution<double> jitter(0.0, 0.1);
+    std::vector<double> positions;
+    for (int x = 0; x < cells; ++x) {
+        for (int y = 0; y < cells; ++y) {
+            for (int z = 0; z < cells; ++z) {
+                for (const auto& b : basis) {
+                    positions.push_back((x + b[0]) * a + jitter(random));
+                    positions.push_back((y + b[1]) * a + jitter(random));
+                    positions.push_back((z + b[2]) * a + jitter(random));
+                }
+            }
+        }
+    }
+    const auto n = static_cast<std::int64_t>(positions.size() / 3);
+    const mdapy::neighbor::NeighborPairs pairs =
+        mdapy::neighbor::build(positions.data(), n, matrix, origin, pbc, 5.0);
+    // two elements by the parity of the atoms, for the descriptor of the
+    // generation of structures
+    std::vector<std::int32_t> species(static_cast<std::size_t>(n));
+    for (std::int64_t i = 0; i < n; ++i) {
+        species[static_cast<std::size_t>(i)] = static_cast<std::int32_t>(i % 2);
+    }
+    const double radii[2] = {1.21, 1.32};
+    const mdapy::analysis::ScaledBasis scaled_basis;
+    std::vector<double> first_descriptor, first_sums, first_basis;
+    for (int threads : kThreads) {
+        mdapy::set_num_threads(threads);
+        const std::vector<double> descriptor =
+            mdapy::analysis::quests(32, 5.0, n, positions.data(), matrix, pairs.offsets.data(),
+                                    pairs.neighbors.data(), pairs.shifts.data());
+        const std::vector<double> sums =
+            mdapy::analysis::log_gaussian_sums(n, descriptor.data(), n, descriptor.data(), 63, 0.015);
+        if (first_descriptor.empty()) {
+            first_descriptor = descriptor;
+            first_sums = sums;
+            bool positive = true;
+            for (double v : sums) {
+                positive = positive && v >= 0.0;  // each row has its own kernel, one
+            }
+            check(positive, "the Gaussian sum of a point among the references is at least one");
+        }
+        const std::vector<double> scaled = mdapy::analysis::scaled_basis(
+            scaled_basis, 2, species.data(), radii, n, positions.data(), matrix, pairs.offsets.data(),
+            pairs.neighbors.data(), pairs.shifts.data());
+        if (first_basis.empty()) {
+            first_basis = scaled;
+        }
+        check(scaled == first_basis, "scaled-basis descriptors are the same for any thread count");
+        check(descriptor == first_descriptor, "QUESTS descriptors are the same for any thread count");
+        check(sums == first_sums, "Gaussian sums are the same for any thread count");
+    }
+}
+
 }  // namespace
 
 int main() {
@@ -1712,6 +1777,7 @@ int main() {
     pictures();
     polycrystals();
     crystals();
+    coverage();
     if (failures == 0) {
         std::printf("all checks passed\n");
     }

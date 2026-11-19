@@ -26,6 +26,8 @@
 #include "analysis/isosurface.h"
 #include "analysis/phonon_scattering.h"
 #include "analysis/rings.h"
+#include "analysis/quests.h"
+#include "analysis/scaled_basis.h"
 #include "analysis/soap.h"
 #include "neighbor/frames.h"
 #include "analysis/steinhardt.h"
@@ -384,6 +386,89 @@ nb::object soap(Types species, int species_count, Vectors positions, Matrix3 mat
             found = analysis::soap(basis, species_count, species.data(), n, positions.data(),
                                    matrix.data(), offsets.data(), neighbors.data(),
                                    shifts.data(), control);
+        },
+        progress, cancel);
+    auto* values = new std::vector<double>(std::move(found));
+    nb::capsule owner(values, [](void* v) noexcept { delete static_cast<std::vector<double>*>(v); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(dimension)};
+    return nb::ndarray<nb::numpy, double>(values->data(), 2, shape, owner).cast();
+}
+
+// The descriptor of QUESTS of each atom.
+nb::object quests(int k, double cutoff, Vectors positions, Matrix3 matrix, Offsets offsets,
+                  Neighbors neighbors, Shifts3 shifts, nb::handle progress,
+                  const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(offsets.shape(0)) != n + 1 ||
+        neighbors.shape(0) != shifts.shape(0)) {
+        throw std::invalid_argument("positions and neighbors do not match");
+    }
+    if (k < 1 || !(cutoff > 0)) {
+        throw std::invalid_argument("k must be positive and cutoff above zero");
+    }
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::quests(k, cutoff, n, positions.data(), matrix.data(),
+                                     offsets.data(), neighbors.data(), shifts.data(), control);
+        },
+        progress, cancel);
+    auto* values = new std::vector<double>(std::move(found));
+    nb::capsule owner(values, [](void* v) noexcept { delete static_cast<std::vector<double>*>(v); });
+    const std::size_t shape[2] = {static_cast<std::size_t>(n), static_cast<std::size_t>(2 * k - 1)};
+    return nb::ndarray<nb::numpy, double>(values->data(), 2, shape, owner).cast();
+}
+
+using Points = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+
+// log sum_j exp(-|x_i - y_j|^2 / (2 bandwidth^2)) for each point x_i.
+nb::object log_gaussian_sums(Points x, Points y, double bandwidth, nb::handle progress,
+                             const CancelToken* cancel) {
+    if (x.shape(1) != y.shape(1) || y.shape(0) == 0 || !(bandwidth > 0)) {
+        throw std::invalid_argument("points of one dimension, a reference and a bandwidth above zero");
+    }
+    const auto m = static_cast<std::int64_t>(x.shape(0));
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::log_gaussian_sums(m, x.data(), static_cast<std::int64_t>(y.shape(0)),
+                                                y.data(), static_cast<std::int64_t>(x.shape(1)),
+                                                bandwidth, control);
+        },
+        progress, cancel);
+    return as_array(std::move(found));
+}
+
+// The descriptor in a fixed basis on distances scaled by the radii of each pair.
+nb::object scaled_basis(Types species, int species_count, Values radii, Vectors positions,
+                        Matrix3 matrix, Offsets offsets, Neighbors neighbors, Shifts3 shifts,
+                        int radial, int angular, int l_max, int chemical, double cutoff,
+                        double angular_cutoff, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (static_cast<std::int64_t>(species.shape(0)) != n ||
+        static_cast<std::int64_t>(offsets.shape(0)) != n + 1 ||
+        neighbors.shape(0) != shifts.shape(0) ||
+        static_cast<std::int64_t>(radii.shape(0)) != species_count) {
+        throw std::invalid_argument("species, radii, positions and neighbors do not match");
+    }
+    if (radial < 1 || angular < 0 || l_max < 0 || chemical < 0 || !(cutoff > 0) ||
+        !(angular_cutoff > 0) || angular_cutoff > cutoff) {
+        throw std::invalid_argument("the basis needs radial functions and cutoffs above zero");
+    }
+    analysis::ScaledBasis basis;
+    basis.radial = radial;
+    basis.angular = angular;
+    basis.l_max = l_max;
+    basis.chemical = chemical;
+    basis.cutoff = cutoff;
+    basis.angular_cutoff = angular_cutoff;
+    const std::int64_t dimension = analysis::scaled_basis_dimension(basis, species_count);
+    std::vector<double> found;
+    run_released(
+        [&](const Control& control) {
+            found = analysis::scaled_basis(basis, species_count, species.data(), radii.data(), n,
+                                           positions.data(), matrix.data(), offsets.data(),
+                                           neighbors.data(), shifts.data(), control);
         },
         progress, cancel);
     auto* values = new std::vector<double>(std::move(found));
@@ -1010,6 +1095,17 @@ void bind_analysis(nb::module_& m) {
           nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"), nb::arg("alphas"), nb::arg("betas"),
           nb::arg("crossover"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
+    m.def("quests", &quests, nb::arg("k"), nb::arg("cutoff"), nb::arg("positions"),
+          nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+    m.def("log_gaussian_sums", &log_gaussian_sums, nb::arg("x"), nb::arg("y"),
+          nb::arg("bandwidth"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("scaled_basis", &scaled_basis, nb::arg("species"), nb::arg("species_count"),
+          nb::arg("radii"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("radial"), nb::arg("angular"),
+          nb::arg("l_max"), nb::arg("chemical"), nb::arg("cutoff"), nb::arg("angular_cutoff"),
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
     m.def("soap_frames", &soap_frames, nb::arg("species"), nb::arg("species_count"),
           nb::arg("starts"), nb::arg("positions"), nb::arg("matrices"), nb::arg("origins"),
           nb::arg("pbc"), nb::arg("cutoff"), nb::arg("n_max"), nb::arg("l_max"), nb::arg("eta"),

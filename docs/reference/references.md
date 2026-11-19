@@ -68,6 +68,12 @@ Improved tetrahedron method for Brillouin-zone integrations, *Phys. Rev. B*
 [doi:10.1103/PhysRevB.49.16223](https://doi.org/10.1103/PhysRevB.49.16223)
 { #blochl1994 }
 
+**Bochkarev et al. (2026).** A. Bochkarev, Y. Lysogorskiy, A. Subramanyam,
+R. Drautz and D. Perez, Exploring the extremes: atomic basis for multi-elemental
+materials science under complex thermodynamic conditions (2026).
+[arXiv:2602.23489](https://arxiv.org/abs/2602.23489)
+{ #bochkarev2026 }
+
 **Bonald et al. (2018).** T. Bonald, B. Charpentier, A. Galland and
 A. Hollocou, Hierarchical graph clustering using node pair sampling,
 *MLG 2018, 14th International Workshop on Mining and Learning with Graphs*
@@ -385,6 +391,13 @@ Comparison of atomic-level simulation methods for computing thermal conductivity
 [doi:10.1103/PhysRevB.65.144306](https://doi.org/10.1103/PhysRevB.65.144306)
 { #schelling2002 }
 
+**Schwalbe-Koda et al. (2025).** D. Schwalbe-Koda, S. Hamel, B. Sadigh, F. Zhou
+and V. Lordi, Model-free estimation of completeness, uncertainties, and outliers
+in atomistic machine learning using information theory,
+*Nat. Commun.* **16**, 4014 (2025).
+[doi:10.1038/s41467-025-59232-0](https://doi.org/10.1038/s41467-025-59232-0)
+{ #schwalbe-koda2025 }
+
 **Setyawan and Curtarolo (2010).** W. Setyawan and S. Curtarolo,
 High-throughput electronic band structure calculations: Challenges and
 tools, *Comput. Mater. Sci.* **49**, 299 (2010).
@@ -455,6 +468,12 @@ Eng.* **20**, 045021 (2012).
 atomistic modeling of crystals, *JOM* **66**, 399 (2014).
 [doi:10.1007/s11837-013-0827-5](https://doi.org/10.1007/s11837-013-0827-5)
 { #stukowski2014 }
+
+**Subramanyam and Perez (2025).** A. P. A. Subramanyam and D. Perez,
+Information-entropy-driven generation of material-agnostic datasets for
+machine-learning interatomic potentials, *npj Comput. Mater.* **11**, 218 (2025).
+[doi:10.1038/s41524-025-01602-9](https://doi.org/10.1038/s41524-025-01602-9)
+{ #subramanyam2025 }
 
 **Surblys et al. (2019).** D. Surblys, H. Matsubara, G. Kikugawa and T. Ohara,
 Application of atomic stress to compute heat flux via molecular dynamics for systems
@@ -570,6 +589,11 @@ Esfandiarpour, J.-L. Shao, T. Ala-Nissila, Z. Fan and M. Alava, TorchNEP:
 ultra-efficient and accurate training of neuroevolution potentials (2026).
 [arXiv:2606.19557](https://arxiv.org/abs/2606.19557)
 { #wu2026torchnep }
+
+**Yang et al. (2024).** H. Yang et al., MatterSim: A deep learning atomistic
+model across elements, temperatures and pressures (2024).
+[arXiv:2405.04967](https://arxiv.org/abs/2405.04967)
+{ #yang2024 }
 
 **Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
 Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs

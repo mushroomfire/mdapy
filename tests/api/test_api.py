@@ -232,7 +232,9 @@ def compare(old: dict, new: dict) -> tuple[list[str], list[str]]:
             lost, more = changes(params, new_params)
             broken += [f"{name}: {what}" for what in lost]
             added += [f"{name}({param})" for param in more]
-    added += [name for name in new if name not in old]
+    # the members of a new class come with it, which its own name stands for
+    fresh = [name for name in new if name not in old]
+    added += [name for name in fresh if name.rpartition(".")[0] not in fresh]
     return broken, added
 
 
@@ -333,6 +335,8 @@ def test_compare_and_the_notes():
         "m.C": ("function", []),
         "m.E": ("exception", ["ValueError"]),
         "m.g": ("function", []),
+        "m.N": ("result", []),
+        "m.N.columns": ("method", []),
     }
     broken, added = compare(old, new)
     assert broken == [
@@ -340,8 +344,8 @@ def test_compare_and_the_notes():
         "m.E derives from ['ValueError'], not ['MdapyError']",
         "m.R.x is gone",
     ]
-    assert added == ["m.f(seed)", "m.g"]
-    notes = "# Notes\n\n## 2.1.0\n\n- `g` is new.\n\n## 2.0.0\n\n- seed\n"
+    assert added == ["m.f(seed)", "m.g", "m.N"]  # the members of N come with it
+    notes = "# Notes\n\n## 2.1.0\n\n- `g` and `N` are new.\n\n## 2.0.0\n\n- seed\n"
     assert unnamed(added, section(notes, "2.0.0")) == ["m.f(seed)"]
     assert unnamed(added, section(notes, "2.2.0")) == ["m.f(seed)"]
     assert section("## 2.1.0\n\nnew\n", "2.0.0") == "## 2.1.0\n\nnew\n"

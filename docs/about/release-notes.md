@@ -41,6 +41,23 @@
 - `mdapy.io.read`, `read_trajectory` and `detect_format` name
   `mdapy.analysis.read_dislocations` in their error for a CA file (`.ca`), which holds
   dislocations rather than atoms; they only said that the format was unknown.
+- `mlip.entropy` measures how much of descriptor space a training set covers, and
+  `mlip.information_gain` what new structures add to it, without labels and whatever the
+  model: the methods of QUESTS, with its descriptor of the nearest neighbors of each atom,
+  `mlip.QUESTS(cutoff, num_neighbors)`, whose `descriptors` have `dimension` values per
+  atom. The information gain stays finite far from all reference points. See
+  [Coverage of descriptor space](../user-guide/mlip/coverage.md).
+- `mlip.generate_structures` makes the structures of a training set without a model or a
+  calculation: periodic cells of 2 to 32 atoms, many small and few large, of random shape
+  and composition, a fifth of them slabs or clusters in vacuum, whose atoms, box and
+  elements are moved while they raise the entropy of the descriptors of the set, after
+  Subramanyam and Perez (2025) and Bochkarev et al. (2026). The volume per atom and the
+  shortest distances bound them, a calculator and `max_energy` their energy, a
+  `reference` training set is complemented. It makes `count` structures, 1000 for each
+  element by default, and gives them in the order they were kept with the entropy of the
+  set as they were, in a `GeneratedStructures`, whose `extend` adds more where the
+  generation ended; the `config_type` of each, bulk, slab or cluster, groups them. See
+  [Generated structures](../user-guide/mlip/generation.md).
 
 ## 2.1.0
 

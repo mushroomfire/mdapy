@@ -4,9 +4,11 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Machine-learned potentials: descriptors such as SOAP, the predictions of
-models against training sets, the choice of frames and perturbed
-structures."""
+models against training sets, the coverage of descriptor space, the choice
+of frames and perturbed structures."""
 
+from mdapy.mlip._coverage import QUESTS, entropy, information_gain
+from mdapy.mlip._generation import GeneratedStructures, generate_structures
 from mdapy.mlip._selection import (
     PrincipalComponents,
     farthest_point_sampling,
@@ -26,16 +28,21 @@ from mdapy.mlip._training import (
 )
 
 __all__ = [
+    "QUESTS",
     "SOAP",
     "CommitteeResult",
     "Predictions",
     "check_frames",
     "committee",
+    "entropy",
+    "information_gain",
     "novelty",
     "predict",
     "read_gpumd",
     "PrincipalComponents",
     "farthest_point_sampling",
+    "GeneratedStructures",
+    "generate_structures",
     "perturb",
     "principal_components",
     "structure_descriptors",

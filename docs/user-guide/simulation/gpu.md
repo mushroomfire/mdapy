@@ -13,7 +13,9 @@ from mdapy.calculators import EAM
 from mdapy.simulation import MolecularDynamics
 
 potential = EAM.zhou(["Cu"], device="cuda")  # mixed precision
-crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(40, 40, 40))  # 256 000 atoms
+crystal = build_crystal(
+    "fcc", 3.615, elements="Cu", repeat=(40, 40, 40)
+)  # 256 000 atoms
 
 with MolecularDynamics(crystal, potential, timestep=0.002) as md:
     md.velocities(600, seed=1)

@@ -767,7 +767,6 @@ public:
         }
         const std::int64_t n = a.n;
         const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        const std::int32_t* reverse = l.reversed();
         const auto planes = [&](Buffer<Real>& b, int k) { b.resize(static_cast<std::size_t>(k * plane)); };
         planes(scr_, 1);
         planes(fcp_, 1);
@@ -788,8 +787,12 @@ public:
                            table_.data(), p_.elements, p_.ialloy, p_.mix_ref_t, p_.emb_lin_neg,
                            p_.bkgd_dyn, p_.nr, p_.rc, p_.delr, p_.gsmooth_factor, p_.dr};
         const unsigned g = blocks(n);
-        const auto* idx = l.indices.data();
-        const auto* cnt = l.counts.data();
+        // the pairs within the radius of the neighbors needed: those within
+        // rc, and every atom that can screen one
+        pairs_.build(l, x, b, static_cast<Real>(p_.cutoff * p_.cutoff));
+        const std::int32_t* idx = pairs_.indices();
+        const std::int32_t* cnt = pairs_.counts();
+        const std::int32_t* reverse = pairs_.reverse();
         meam_screen<Real><<<g, kBlock>>>(n, x, b, idx, cnt, reverse, t, scr_.data(), fcp_.data(),
                                          dscr_.data());
         MDAPY_LAUNCHED();
@@ -838,6 +841,7 @@ private:
     Buffer<Real> scr_, fcp_, dscr_, derivative_;
     Buffer<double> share_virial_, embed_, own_force_;
     Buffer<MeamAtom> atom_data_;
+    ShortPairs pairs_;
 };
 
 }  // namespace

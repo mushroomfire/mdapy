@@ -9158,6 +9158,12 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>MolecularDynamics(log=...)</code> and <code>minimize(log=..., log_every=10)</code> write what
+  they do to a file or a stream as they go: a heading with the engine and the
+  potential, the settings of each run, the thermodynamic state with the wall
+  time, and the speed of each run or where it stopped; rows of numbers between
+  lines that start with <code>#</code>, which <code>numpy.loadtxt</code> reads back. See
+  <a href="../../user-guide/simulation/dynamics/#log">Molecular dynamics</a>.</li>
 <li>The potentials of MDAPY run on an NVIDIA GPU with CUDA: <code>EAM</code>, <code>EAM.zhou</code>,
   <code>LennardJones</code>, <code>Morse</code>, <code>ADP</code>, <code>Tersoff</code>, <code>StillingerWeber</code>, <code>MEAM</code> and <code>NEP</code> take <code>device="cuda"</code>
   and <code>precision</code>, <code>"mixed"</code> (by default,

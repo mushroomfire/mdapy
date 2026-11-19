@@ -8603,6 +8603,20 @@ engine of <a href="../../../reference/references/#bitzek2006">Bitzek et al. (200
 <td></td>
 <td>called after each step as <code>callback(step, system, energy, max_force)</code>; returning True stops the minimization</td>
 </tr>
+<tr>
+<td><code>log</code></td>
+<td>str, path or stream</td>
+<td><code>None</code></td>
+<td></td>
+<td>writes the minimization to this file, which it overwrites, or to this stream, such as <code>sys.stdout</code>, as the <a href="../dynamics/#log">log of molecular dynamics</a> does: a heading, then <code>step</code>, <code>energy</code> (eV), <code>max_force</code> (eV/Å), <code>max_stress</code> (GPa, the largest deviation of a relaxed stress component from its target; NaN when the box is kept) and <code>wall</code> (s) every <code>log_every</code> steps and at the last, and how it ended</td>
+</tr>
+<tr>
+<td><code>log_every</code></td>
+<td>int32</td>
+<td>10</td>
+<td></td>
+<td>writes a row to the log every this many steps</td>
+</tr>
 </tbody>
 </table>
 <p><code>cell</code> chooses how the box changes along its periodic directions; the atoms
@@ -8740,9 +8754,10 @@ displaced at random by about 0.1 Å, relaxed to forces below 1e-4 eV/Å:</p>
 Each kink is an uphill step: FIRE steps half a step back, stops the atoms
 and starts again with a shorter time step.</em></p>
 <p><code>minimize</code> raises <code>InvalidParameter</code> for a non-positive <code>max_force</code>,
-<code>max_step</code>, <code>timestep</code>, <code>max_stress</code> or <code>save_every</code>, a negative
-<code>max_steps</code>, an unknown <code>cell</code>, or a calculator that does not compute
-energies and forces, and the virial when the box relaxes, and
+<code>max_step</code>, <code>timestep</code>, <code>max_stress</code>, <code>save_every</code> or <code>log_every</code>, a negative
+<code>max_steps</code>, an unknown <code>cell</code>, a calculator that does not compute energies
+and forces, and the virial when the box relaxes, or a <code>log</code> that is neither
+a path nor a stream, or that cannot be written, and
 <a href="../../../reference/api/utilities/#mdapy.errors.MissingProperty"><code>MissingProperty</code></a> for a
 system with neither masses nor elements.</p>
 <div class="admonition quote">

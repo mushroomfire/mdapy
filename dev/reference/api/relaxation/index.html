@@ -9074,7 +9074,7 @@
 
 
 <a href="#mdapy.simulation.minimize" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">minimize</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">calculator</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_force</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_step</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">minimize</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">calculator</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">max_force</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_step</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9279,6 +9279,44 @@ max_force)</code>; returning True stops the minimization.</p>
                   <code>None</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log</code>
+            </td>
+            <td>
+                  <code>(<span title="str">str</span>, PathLike or stream)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Writes the minimization to this file, which it overwrites, or to
+this stream, such as <code>sys.stdout</code>: a heading, the energy, the
+largest force and, when the box relaxes, the largest deviation of
+the stress from its target every <code>log_every</code> steps and at the
+last, with the seconds since the start, and how it ended. Lines that
+are not rows of numbers start with #, so that <code>numpy.loadtxt</code>
+reads the rows. Default None, writing none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Writes a row to the log every this many steps. Default 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -9326,7 +9364,8 @@ max_force)</code>; returning True stops the minimization.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For invalid options, or a calculator without the properties needed.</p>
+                <p>For invalid options, a calculator without the properties needed,
+or a log that cannot be written.</p>
               </div>
             </td>
           </tr>
@@ -9515,7 +9554,7 @@ information of <code>system</code> and the step number as <code>timestep</code> 
 
 
 <a href="#mdapy.simulation.MolecularDynamics" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MolecularDynamics</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MolecularDynamics</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -9590,6 +9629,28 @@ and, for a barostat or the pressure, its virials.</p>
                   <code>0.001</code>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log</code>
+            </td>
+            <td>
+                  <code>(<span title="str">str</span>, <span title="os.PathLike">PathLike</span> or stream)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Writes the runs to this file, which it overwrites, or to this
+stream, such as <code>sys.stdout</code>: a heading, the settings of each run,
+the thermodynamic state every <code>thermo</code> steps with the seconds
+since the run began, and the speed of each run. Lines that are not
+rows of numbers start with #, so that <code>numpy.loadtxt</code> reads the
+rows of every run as one table. Under MPI the main process writes.
+Default None, writing none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -9635,8 +9696,8 @@ and, for a barostat or the pressure, its virials.</p>
             <td>
               <div class="doc-md-description">
                 <p>If the potential is not a calculator, the time step is not
-positive, an element has no atom type, or LAMMPS rejects the
-commands.</p>
+positive, an element has no atom type, LAMMPS rejects the
+commands, or the log cannot be written.</p>
               </div>
             </td>
           </tr>
@@ -9824,8 +9885,8 @@ positive under tension).</p>
 
     <div class="doc doc-contents ">
 
-        <p>Closes the LAMMPS instance; the dynamics stops, and the frames of
-an <code>iterate</code> end.</p>
+        <p>Closes the LAMMPS instance and the log; the dynamics stops, and
+the frames of an <code>iterate</code> end.</p>
 
 
     </div>

@@ -398,3 +398,29 @@ def test_deformation_as_on_the_processor():
     np.testing.assert_allclose(
         np.stack(ta["stress"]), np.stack(tb["stress"]), rtol=0, atol=1e-6
     )
+
+
+def test_adaptive_timestep_as_on_the_processor():
+    """The time step of a fast atom on the GPU: the steps and the runs of
+    the processor."""
+    from mdapy.simulation import AdaptiveTimestep
+
+    system = crystal()
+    velocities = np.zeros((len(system), 3))
+    velocities[7] = (300.0, -150.0, 80.0)
+    system = system.with_columns(velocities=velocities)
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision="double"),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(200, thermo=20, controls=AdaptiveTimestep(0.04, every=2))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(ta["time"], tb["time"], rtol=1e-9)
+    assert ta["time"][-1] < 0.3  # shorter steps than 0.002 ps
+    d = a["positions"] - b["positions"]
+    d -= np.round(d @ np.linalg.inv(a.box.matrix)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)

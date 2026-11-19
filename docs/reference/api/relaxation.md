@@ -22,6 +22,8 @@
 
 ::: mdapy.simulation.Deform
 
+::: mdapy.simulation.AdaptiveTimestep
+
 ## Defect energies
 
 ::: mdapy.simulation.vacancy_formation_energy

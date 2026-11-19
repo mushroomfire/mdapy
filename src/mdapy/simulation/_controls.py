@@ -243,7 +243,65 @@ class Deform:
         return f"Deform({rates}, kind={self.kind!r})"
 
 
-CONTROLS = (Hold, Move, AddForce, Langevin, Deform)
+class AdaptiveTimestep:
+    """The time step of a run set by the fastest atom, as LAMMPS's fix
+    dt/reset: at the start of the run and every ``every`` steps, the largest
+    step in which no atom moves more than ``max_distance``, by its velocity
+    and its force, within the bounds; for the collisions of a cascade, whose
+    atoms start fast and slow down.
+
+    Parameters
+    ----------
+    max_distance : float64
+        The largest distance an atom moves in a step, in Å, positive.
+    min_timestep : float64, optional
+        The smallest time step in ps, positive. Default None, no bound.
+    max_timestep : float64, optional
+        The largest time step in ps, positive. Default None, the time step
+        of ``MolecularDynamics``.
+    every : int32, optional
+        Steps between the settings of the time step, positive. Default 1.
+    """
+
+    def __init__(
+        self,
+        max_distance: float,
+        *,
+        min_timestep: float | None = None,
+        max_timestep: float | None = None,
+        every: int = 1,
+    ):
+        def positive(value: Any, name: str) -> float:
+            if isinstance(value, bool) or not (np.isfinite(value) and float(value) > 0):
+                raise InvalidParameter(f"{name} must be positive, not {value!r}")
+            return float(value)
+
+        self.max_distance = positive(max_distance, "max_distance")
+        self.min_timestep = (
+            None if min_timestep is None else positive(min_timestep, "min_timestep")
+        )
+        self.max_timestep = (
+            None if max_timestep is None else positive(max_timestep, "max_timestep")
+        )
+        if (
+            self.min_timestep is not None
+            and self.max_timestep is not None
+            and self.min_timestep >= self.max_timestep
+        ):
+            raise InvalidParameter("min_timestep must be less than max_timestep")
+        if isinstance(every, bool) or int(every) != every or every < 1:
+            raise InvalidParameter(f"every must be a positive integer, not {every!r}")
+        self.every = int(every)
+
+    def __repr__(self) -> str:
+        return (
+            f"AdaptiveTimestep(max_distance={self.max_distance!r}, "
+            f"min_timestep={self.min_timestep!r}, "
+            f"max_timestep={self.max_timestep!r}, every={self.every!r})"
+        )
+
+
+CONTROLS = (Hold, Move, AddForce, Langevin, Deform, AdaptiveTimestep)
 
 
 def checked(controls: Any, n: int) -> tuple:
@@ -258,17 +316,22 @@ def checked(controls: Any, n: int) -> tuple:
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
-    deforms = 0
+    deforms = adaptive = 0
     for control in out:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
-                "a control must be one of Hold, Move, AddForce, Langevin or Deform, not "
-                f"{control!r}"
+                "a control must be one of Hold, Move, AddForce, Langevin, Deform or "
+                f"AdaptiveTimestep, not {control!r}"
             )
         if isinstance(control, Deform):
             if deforms:
                 raise InvalidParameter("a run takes one Deform")
             deforms += 1
+            continue
+        if isinstance(control, AdaptiveTimestep):
+            if adaptive:
+                raise InvalidParameter("a run takes one AdaptiveTimestep")
+            adaptive += 1
             continue
         if not isinstance(control, Deform) and control.mask.shape != (n,):
             raise InvalidParameter(
@@ -301,5 +364,11 @@ def checked(controls: Any, n: int) -> tuple:
     if deforms and (moved.any() or held.any()):
         raise InvalidParameter(
             "a deformed box with held or moved atoms is not supported"
+        )
+    if adaptive and deforms:
+        raise InvalidParameter("an adaptive time step with a Deform is not supported")
+    if adaptive and moved.any():
+        raise InvalidParameter(
+            "an adaptive time step with moved atoms is not supported"
         )
     return out

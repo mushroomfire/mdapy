@@ -36,6 +36,10 @@
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
   [Deformation](../user-guide/simulation/deformation.md).
+- `mdapy.simulation.AdaptiveTimestep`, a control that sets the time step by the
+  fastest atom, so that no atom moves more than a distance in a step, within
+  bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
+  and in LAMMPS alike. See [Adaptive time step](../user-guide/simulation/adaptive-timestep.md).
 
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the

@@ -216,8 +216,9 @@ column of fixed-size arrays of length 3 and use the plural name.
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
-| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, and `Deform`, what is done to the box, given by `controls` of `run` or `iterate` |
+| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, and `AdaptiveTimestep`, how long the steps are, given by `controls` of `run` or `iterate` |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
+| adaptive time step | of `AdaptiveTimestep`: the time step of the fastest atom, in which no atom moves more than `max_distance`, within the bounds `min_timestep` and `max_timestep`, set every `every` steps |
 | uniaxial strain, uniaxial stress | a crystal stretched along one axis with its lengths across held, and with them free under zero stress, a barostat on them |
 | `heat_capacity` | heat capacity per atom (eV/K): at constant volume of the vibrations, at constant pressure in the quasi-harmonic approximation |
 | descriptors | (N, dim) per-atom inputs of the network of a machine-learned potential, such as those of `NEP.descriptors` |

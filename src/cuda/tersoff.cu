@@ -7,9 +7,9 @@
 // it, in the passes of calculators/many_body.h. A first pass finds the bond
 // order of each bond i-j, from the zeta of the third atoms k; the second
 // computes, for each pair of a centre, the derivative of the terms of that
-// centre with respect to it: its repulsion, its bond, the third atoms of its
-// bond, and the bonds it is the third atom of, so that each pair is written
-// once; the third gathers the forces.
+// centre with respect to it: its repulsion, its bond, and the terms of the
+// third atoms of its bonds, once in double precision and from both pairs in
+// single (see tersoff_terms); the third gathers the forces.
 
 #include <stdexcept>
 #include <vector>
@@ -199,13 +199,34 @@ __global__ void tersoff_zeta(std::int64_t n, const Real4<Real>* x, Images<Real> 
     }
 }
 
+// The repulsion of an entry at r: adds its energy and fpair, times weight.
+template <class Real>
+__device__ inline void repulsion(const TersoffEntry<Real>& q, Real rsq, Real r, Real weight,
+                                 Real& energy, Real& fpair) {
+    if (!(rsq < q.cutsq)) return;
+    const Real fc = cutoff_function(r, q), dfc = cutoff_slope(r, q);
+    const Real ex = exp(-q.lam1 * r);
+    fpair += weight * (-q.a * ex * (dfc - fc * q.lam1) / r);
+    energy += weight * (fc * q.a * ex);
+}
+
+// The derivative of the terms of each centre with respect to each of its
+// pairs, a Real4 at k n + i for pair k of atom i: its repulsion, its bond at
+// fixed zeta, and the terms of the third atoms k in zeta_ij. In double
+// precision each term of a third atom is computed once, from its bond, and
+// added to the derivatives of both its pairs, which the thread of the centre
+// holds alone; in single precision, where that arithmetic costs less than
+// the reads and writes it would save, each pair computes the terms it is the
+// third atom of again, and its derivative is written once. Atomic: the energy
+// (1 plane of plane values) and the virial (9 planes) of each pair's share.
 template <class Real, bool Energy, bool Virial, bool Atomic>
 __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
                               Images<Real> images, const std::int32_t* indices,
                               const std::int32_t* counts, TersoffTables<Real> t,
-                              const Real* order, const Real* prefactor, Real* derivative,
-                              double* share_energy, double* share_virial, double* energies,
-                              double* virials) {
+                              const Real* order, const Real* prefactor, Real4<Real>* derivative,
+                              double* own_force, double* share_energy, double* share_virial,
+                              double* energies, double* virials) {
+    constexpr bool once = sizeof(Real) == sizeof(double);
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -216,7 +237,20 @@ __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Re
     const int e = t.elements;
     double own_energy = 0.0;
     double own_virial[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    double own[3] = {0.0, 0.0, 0.0};  // the sum of the derivatives of its pairs, written once
     const int count = counts[i];
+    if (once) {
+        for (int a = 0; a < count; ++a) {
+            const std::int64_t pa = static_cast<std::int64_t>(a) * n + i;
+            derivative[pa] = four<Real>(0.0, 0.0, 0.0);
+            if (Atomic) {
+                if (Energy) share_energy[pa] = 0.0;
+                if (Virial) {
+                    for (int c = 0; c < 9; ++c) share_virial[c * plane + pa] = 0.0;
+                }
+            }
+        }
+    }
     for (int a = 0; a < count; ++a) {
         const std::int64_t pa = static_cast<std::int64_t>(a) * n + i;
         Real rp[3];
@@ -231,18 +265,12 @@ __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Re
             const Real u[3] = {rp[0] * inverse, rp[1] * inverse, rp[2] * inverse};
             // the repulsion, half from each atom, all with the centre
             const TersoffEntry<Real> pij = t.entries[(si * e + sp) * e + sp];
-            const TersoffEntry<Real> pji = t.entries[(sp * e + si) * e + si];
-            const bool same = t.same[si * e + sp] != 0;
-            const Real weight = same ? Real(1) : Real(0.5);
             Real energy = 0, fpair = 0;
-            for (int s = 0; s < (same ? 1 : 2); ++s) {
-                const TersoffEntry<Real>& q = s == 0 ? pij : pji;
-                if (rsq < q.cutsq) {
-                    const Real fc = cutoff_function(r, q), dfc = cutoff_slope(r, q);
-                    const Real ex = exp(-q.lam1 * r);
-                    fpair += weight * (-q.a * ex * (dfc - fc * q.lam1) / r);
-                    energy += weight * (fc * q.a * ex);
-                }
+            if (t.same[si * e + sp] != 0) {
+                repulsion(pij, rsq, r, Real(1), energy, fpair);
+            } else {
+                repulsion(pij, rsq, r, Real(0.5), energy, fpair);
+                repulsion(t.entries[(sp * e + si) * e + si], rsq, r, Real(0.5), energy, fpair);
             }
             if (!(energy == Real(0) && fpair == Real(0))) {
                 if (Energy) own_energy += 0.5 * static_cast<double>(energy);
@@ -283,55 +311,79 @@ __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Re
                     Real rk[3];
                     int sk;
                     const Real rsq2 = vector_of(n, i, b, x, xi, indices, steps, rk, sk);
+                    if (!(rsq2 < t.cutmax2)) continue;
                     const TersoffEntry<Real> pijk = t.entries[(si * e + sp) * e + sk];
-                    if (!(rsq2 < t.cutmax2) || !(rsq2 < pijk.cutsq)) continue;
+                    if (!(rsq2 < pijk.cutsq)) continue;
                     const Real rik = sqrt(rsq2), kinverse = Real(1) / rik;
                     const Real v[3] = {rk[0] * kinverse, rk[1] * kinverse, rk[2] * kinverse};
                     Real fj[3], fk[3];
                     zeta_forces(pre, u, r, v, rik, pijk, fj, fk);
                     for (int c = 0; c < 3; ++c) deriv[c] -= static_cast<double>(fj[c]);
+                    const std::int64_t pb = static_cast<std::int64_t>(b) * n + i;
+                    if (once) add_to<Real>(derivative, pb, -fk[0], -fk[1], -fk[2]);
                     if (Virial) {
                         for (int c = 0; c < 3; ++c) {
                             for (int d = 0; d < 3; ++d) {
                                 const double w = static_cast<double>(third * (rp[c] * fj[d] + rk[c] * fk[d]));
                                 own_virial[3 * c + d] += w;
                                 share_w[3 * c + d] += w;
+                                if (once) {
+                                    // the share of k, met once
+                                    if (Atomic) share_virial[(3 * c + d) * plane + pb] += w;
+                                    else own_virial[3 * c + d] += w;
+                                }
                             }
                         }
                     }
                 }
             }
-            // as the third atom of each other bond of the centre
-            for (int b = 0; b < count; ++b) {
-                if (b == a) continue;
-                Real rj[3];
-                int sj;
-                const Real rsq1 = vector_of(n, i, b, x, xi, indices, steps, rj, sj);
-                const TersoffEntry<Real> pbond = t.entries[(si * e + sj) * e + sj];
-                if (!(rsq1 < t.cutmax2) || !(rsq1 < pbond.cutsq)) continue;
-                const TersoffEntry<Real> pijk = t.entries[(si * e + sj) * e + sp];
-                if (!(rsq < pijk.cutsq)) continue;
-                const Real rij = sqrt(rsq1), jinverse = Real(1) / rij;
-                const Real uj[3] = {rj[0] * jinverse, rj[1] * jinverse, rj[2] * jinverse};
-                Real fj[3], fk[3];
-                zeta_forces(prefactor[static_cast<std::int64_t>(b) * n + i], uj, rij, u, r, pijk,
-                            fj, fk);
-                for (int c = 0; c < 3; ++c) deriv[c] -= static_cast<double>(fk[c]);
-                if (Virial) {
-                    for (int c = 0; c < 3; ++c) {
-                        for (int d = 0; d < 3; ++d) {
-                            share_w[3 * c + d] +=
-                                static_cast<double>(third * (rj[c] * fj[d] + rp[c] * fk[d]));
+            // as the third atom of each other bond of the centre, again
+            if (!once) {
+                for (int b = 0; b < count; ++b) {
+                    if (b == a) continue;
+                    Real rj[3];
+                    int sj;
+                    const Real rsq1 = vector_of(n, i, b, x, xi, indices, steps, rj, sj);
+                    if (!(rsq1 < t.cutmax2)) continue;
+                    const TersoffEntry<Real> pbond = t.entries[(si * e + sj) * e + sj];
+                    if (!(rsq1 < pbond.cutsq)) continue;
+                    const TersoffEntry<Real> pijk = t.entries[(si * e + sj) * e + sp];
+                    if (!(rsq < pijk.cutsq)) continue;
+                    const Real rij = sqrt(rsq1), jinverse = Real(1) / rij;
+                    const Real uj[3] = {rj[0] * jinverse, rj[1] * jinverse, rj[2] * jinverse};
+                    Real fj[3], fk[3];
+                    zeta_forces(prefactor[static_cast<std::int64_t>(b) * n + i], uj, rij, u, r,
+                                pijk, fj, fk);
+                    for (int c = 0; c < 3; ++c) deriv[c] -= static_cast<double>(fk[c]);
+                    if (Virial) {
+                        for (int c = 0; c < 3; ++c) {
+                            for (int d = 0; d < 3; ++d) {
+                                share_w[3 * c + d] +=
+                                    static_cast<double>(third * (rj[c] * fj[d] + rp[c] * fk[d]));
+                            }
                         }
                     }
                 }
             }
         }
-        for (int c = 0; c < 3; ++c) derivative[c * plane + pa] = static_cast<Real>(deriv[c]);
+        if (once) {
+            add_to<Real>(derivative, pa, static_cast<Real>(deriv[0]), static_cast<Real>(deriv[1]),
+                         static_cast<Real>(deriv[2]));
+        } else {
+            derivative[pa] = four<Real>(deriv[0], deriv[1], deriv[2]);
+            for (int c = 0; c < 3; ++c) own[c] += deriv[c];
+        }
         if (Atomic) {
-            if (Energy) share_energy[pa] = share_e;
-            if (Virial) {
-                for (int c = 0; c < 9; ++c) share_virial[c * plane + pa] = share_w[c];
+            if (once) {
+                if (Energy) share_energy[pa] += share_e;
+                if (Virial) {
+                    for (int c = 0; c < 9; ++c) share_virial[c * plane + pa] += share_w[c];
+                }
+            } else {
+                if (Energy) share_energy[pa] = share_e;
+                if (Virial) {
+                    for (int c = 0; c < 9; ++c) share_virial[c * plane + pa] = share_w[c];
+                }
             }
         } else {
             if (Energy) own_energy += share_e;
@@ -339,6 +391,9 @@ __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Re
                 for (int c = 0; c < 9; ++c) own_virial[c] += share_w[c];
             }
         }
+    }
+    if (!once) {
+        for (int c = 0; c < 3; ++c) own_force[3 * i + c] = own[c];
     }
     if (Energy) energies[i] = own_energy;
     if (Virial) {
@@ -401,12 +456,6 @@ public:
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
         const std::int64_t n = a.n;
-        const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        derivative_.resize(static_cast<std::size_t>(3 * plane));
-        order_.resize(static_cast<std::size_t>(plane));
-        prefactor_.resize(static_cast<std::size_t>(plane));
-        if (atomic && energy) share_energy_.resize(static_cast<std::size_t>(plane));
-        if (atomic && virial) share_virial_.resize(static_cast<std::size_t>(9 * plane));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
@@ -416,14 +465,20 @@ public:
         pairs_.build(l, x, b, t.cutmax2);
         const std::int32_t* indices = pairs_.indices();
         const std::int32_t* counts = pairs_.counts();
-        const std::int32_t* reverse = pairs_.reverse();
+        const std::int64_t plane = pairs_.plane(n);
+        at_least(derivative_, static_cast<std::size_t>(plane));
+        at_least(order_, static_cast<std::size_t>(plane));
+        at_least(prefactor_, static_cast<std::size_t>(plane));
+        if (atomic && energy) at_least(share_energy_, static_cast<std::size_t>(plane));
+        if (atomic && virial) at_least(share_virial_, static_cast<std::size_t>(9 * plane));
+        own_force_.resize(static_cast<std::size_t>(3 * n));
         const unsigned g = blocks(n);
         tersoff_zeta<Real><<<g, kBlock>>>(n, x, b, indices, counts, t, order_.data(),
                                           prefactor_.data());
         MDAPY_LAUNCHED();
         const auto terms = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, x, b, indices, counts, t,
-                                  order_.data(), prefactor_.data(), derivative_.data(),
+            kernel<<<g, kBlock>>>(n, plane, x, b, indices, counts, t, order_.data(),
+                                  prefactor_.data(), derivative_.data(), own_force_.data(),
                                   share_energy_.data(), share_virial_.data(), a.energies.data(),
                                   a.virials.data());
         };
@@ -439,16 +494,12 @@ public:
             else terms(tersoff_terms<Real, false, false, false>);
         }
         MDAPY_LAUNCHED();
-        const auto gather = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, indices, counts, reverse, derivative_.data(),
-                                  share_energy_.data(), share_virial_.data(), nullptr,
-                                  a.forces.data(), a.energies.data(), a.virials.data());
-        };
-        if (atomic && energy && virial) gather(gather_shares<Real, true, true, true>);
-        else if (atomic && energy) gather(gather_shares<Real, true, false, true>);
-        else if (atomic && virial) gather(gather_shares<Real, false, true, true>);
-        else gather(gather_shares<Real, false, false, false>);
-        MDAPY_LAUNCHED();
+        // in single precision each pair's derivative was written once, and
+        // the terms summed those of each atom's own pairs
+        constexpr bool once = sizeof(Real) == sizeof(double);
+        gather<Real>(n, plane, pairs_, derivative_.data(), share_energy_.data(),
+                     share_virial_.data(), once ? nullptr : own_force_.data(), once, energy,
+                     virial, atomic, a.forces.data(), a.energies.data(), a.virials.data());
         a.has_energies = energy;
         a.has_virials = virial;
     }
@@ -458,8 +509,9 @@ private:
     int elements_;
     Buffer<TersoffEntry<Real>> entries_;
     Buffer<unsigned char> same_;
-    Buffer<Real> derivative_, order_, prefactor_;
-    Buffer<double> share_energy_, share_virial_;
+    Buffer<Real> order_, prefactor_;
+    Buffer<Real4<Real>> derivative_;
+    Buffer<double> share_energy_, share_virial_, own_force_;
     ShortPairs pairs_;
 };
 

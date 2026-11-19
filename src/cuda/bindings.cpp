@@ -148,6 +148,7 @@ NB_MODULE(_cuda, m) {
              })
         .def("kick", &Atoms::kick, nb::arg("c"))
         .def("drift", &Atoms::drift, nb::arg("dt"))
+        .def("kick_drift", &Atoms::kick_drift, nb::arg("c"), nb::arg("dt"))
         .def("scale", &Atoms::scale, nb::arg("fx"), nb::arg("fy"), nb::arg("fz"))
         .def("shear", &Atoms::shear, nb::arg("half"), nb::arg("yz"), nb::arg("xz"),
              nb::arg("xy"))

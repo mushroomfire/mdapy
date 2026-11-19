@@ -75,6 +75,7 @@ public:
     void get_velocities(double* velocities) const;
     void kick(double c);                            // v += c f / m
     void drift(double dt);                          // x += dt v
+    void kick_drift(double c, double dt);           // kick(c), then drift(dt)
     void scale(double fx, double fy, double fz);    // v *= (fx, fy, fz)
     // v_x -= half (v_y xy + v_z xz), then v_y -= half v_z yz
     void shear(double half, double yz, double xz, double xy);

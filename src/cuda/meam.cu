@@ -394,13 +394,18 @@ __global__ void meam_force(std::int64_t n, std::int64_t plane, const Real4<Real>
                            Images<Real> images, const std::int32_t* indices,
                            const std::int32_t* counts, const std::int32_t* reverse,
                            MeamTables<Real> m, const Real* scr, const Real* fcp, const Real* dscr,
-                           const MeamAtom* atoms, const double* embed, Real* derivative,
+                           const MeamAtom* atoms, const double* embed, Real4<Real>* derivative,
                            double* share_virial, double* own_force, double* energies,
                            double* virials) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
+    // the derivatives of the screening of the pairs of this centre, which it
+    // holds alone, from zero
+    for (int a = 0; a < counts[i]; ++a) {
+        derivative[static_cast<std::int64_t>(a) * n + i] = four<Real>(0.0, 0.0, 0.0);
+    }
     const Real4<Real> xi = x[i];
     const int ei = static_cast<int>(xi.w);
     const int e = m.elements;
@@ -715,10 +720,8 @@ __global__ void meam_force(std::int64_t n, std::int64_t plane, const Real4<Real>
                 f_j[u] = force2 * djk[u];
                 f_k[u] = -(f_i[u] + f_j[u]);
             }
-            for (int u = 0; u < 3; ++u) {
-                derivative[u * plane + p] -= f_j[u];
-                derivative[u * plane + pb] -= f_k[u];
-            }
+            add_to<Real>(derivative, p, -f_j[0], -f_j[1], -f_j[2]);
+            add_to<Real>(derivative, pb, -f_k[0], -f_k[1], -f_k[2]);
             if (Virial) {
                 for (int u = 0; u < 3; ++u) {
                     for (int v = 0; v < 3; ++v) {
@@ -766,17 +769,6 @@ public:
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
         const std::int64_t n = a.n;
-        const std::int64_t plane = static_cast<std::int64_t>(l.most) * n;
-        const auto planes = [&](Buffer<Real>& b, int k) { b.resize(static_cast<std::size_t>(k * plane)); };
-        planes(scr_, 1);
-        planes(fcp_, 1);
-        planes(dscr_, 1);
-        planes(derivative_, 3);
-        derivative_.zero();
-        if (atomic && virial) {
-            share_virial_.resize(static_cast<std::size_t>(9 * plane));
-            share_virial_.zero();
-        }
         atom_data_.resize(static_cast<std::size_t>(n));
         embed_.resize(static_cast<std::size_t>(n));
         own_force_.resize(static_cast<std::size_t>(3 * n));
@@ -793,6 +785,15 @@ public:
         const std::int32_t* idx = pairs_.indices();
         const std::int32_t* cnt = pairs_.counts();
         const std::int32_t* reverse = pairs_.reverse();
+        const std::int64_t plane = pairs_.plane(n);
+        at_least(scr_, static_cast<std::size_t>(plane));
+        at_least(fcp_, static_cast<std::size_t>(plane));
+        at_least(dscr_, static_cast<std::size_t>(plane));
+        at_least(derivative_, static_cast<std::size_t>(plane));
+        if (atomic && virial) {
+            at_least(share_virial_, static_cast<std::size_t>(9 * plane));
+            share_virial_.zero();
+        }
         meam_screen<Real><<<g, kBlock>>>(n, x, b, idx, cnt, reverse, t, scr_.data(), fcp_.data(),
                                          dscr_.data());
         MDAPY_LAUNCHED();
@@ -822,14 +823,9 @@ public:
             else force(meam_force<Real, false, false, false>);
         }
         MDAPY_LAUNCHED();
-        const auto gather = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, idx, cnt, reverse, derivative_.data(), nullptr,
-                                  share_virial_.data(), own_force_.data(), a.forces.data(),
-                                  a.energies.data(), a.virials.data());
-        };
-        if (atomic && virial) gather(gather_shares<Real, false, true, true>);
-        else gather(gather_shares<Real, false, false, false>);
-        MDAPY_LAUNCHED();
+        gather<Real>(n, plane, pairs_, derivative_.data(), nullptr, share_virial_.data(),
+                     own_force_.data(), true, false, virial, atomic, a.forces.data(),
+                     a.energies.data(), a.virials.data());
         a.has_energies = energy;
         a.has_virials = virial;
     }
@@ -838,7 +834,8 @@ private:
     calculators::MeamPotential p_;
     Buffer<double> element_, ebound_, cmin_, cmax_;
     Buffer<Real> table_;
-    Buffer<Real> scr_, fcp_, dscr_, derivative_;
+    Buffer<Real> scr_, fcp_, dscr_;
+    Buffer<Real4<Real>> derivative_;
     Buffer<double> share_virial_, embed_, own_force_;
     Buffer<MeamAtom> atom_data_;
     ShortPairs pairs_;

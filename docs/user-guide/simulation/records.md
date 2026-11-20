@@ -49,6 +49,7 @@ with MolecularDynamics(crystal, copper, timestep=0.002, log="md.log") as md:
 # MDAPY 2.2.0, molecular dynamics, 2026-11-19 13:29:02
 # 500 atoms; box vectors 18.0750 18.0750 18.0750 Å long, periodic along a b c
 # engine: MDAPY on the processor, 10 threads
+# machine: Apple M5, 10 logical CPUs, 10 usable, 24.0 GB of memory
 # potential: EAM(elements=('Cu',), cutoff=5.715751993501819)
 # time step: 0.002 ps
 #
@@ -66,7 +67,12 @@ Each run writes its settings, a row every `thermo` steps, the row
 `thermo` records, with `wall`, the seconds since the run began, and its
 speed; a run that stops early, cancelled or failed, says where it stopped.
 The engine is MDAPY on the processor with its threads, MDAPY on a GPU with
-its precision, or LAMMPS with its processes and command-line arguments.
+its memory, compute capability, multiprocessors and precision, or LAMMPS with
+its processes and command-line arguments; the machine is the processor, its
+logical CPUs, those this process may use, and the memory, as
+`mdapy.show_versions()` names them, of the main process under MPI. The
+[minimization](minimize.md) and the [band](neb.md) write the machine, and the
+GPU of a potential there, in their heading too.
 Lines that are not rows of numbers start with `#`, so that
 `numpy.loadtxt("md.log")` reads the rows of every run as one table. Under
 MPI the main process alone writes. Every run and `iterate` of the

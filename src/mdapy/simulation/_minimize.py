@@ -20,7 +20,7 @@ from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.simulation._log import _Log
+from mdapy.simulation._log import _Log, _machine, _on_gpu
 
 # Neighbors are searched this much farther than the cutoff of the calculator,
 # in Å, so that one search serves the steps until an atom has moved half as far.
@@ -422,6 +422,8 @@ def minimize(
         writer.comment(
             f"{n} atoms; box vectors {lengths} Å long",
             f"potential: {calculator!r}",
+            *([f"GPU: {on}"] if (on := _on_gpu(calculator)) is not None else []),
+            f"machine: {_machine()}",
             f"max_force {max_force!r} eV/Å, max_steps {max_steps}, {relax}",
             "",
         )

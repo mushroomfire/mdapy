@@ -20,7 +20,7 @@ void check(cudaError_t error, const char* call) {
     }
 }
 
-std::string device_name() {
+DeviceProperties device_properties() {
     int count = 0;
     const cudaError_t error = cudaGetDeviceCount(&count);
     if (error != cudaSuccess || count == 0) {
@@ -32,8 +32,16 @@ std::string device_name() {
     MDAPY_CUDA(cudaGetDevice(&device));
     cudaDeviceProp properties{};
     MDAPY_CUDA(cudaGetDeviceProperties(&properties, device));
-    return properties.name;
+    DeviceProperties out;
+    out.name = properties.name;
+    out.memory = static_cast<std::int64_t>(properties.totalGlobalMem);
+    out.major = properties.major;
+    out.minor = properties.minor;
+    out.multiprocessors = properties.multiProcessorCount;
+    return out;
 }
+
+std::string device_name() { return device_properties().name; }
 
 template <class Real>
 DeviceBox<Real> device_box(const Box& box) {

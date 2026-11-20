@@ -20,7 +20,7 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.simulation._log import _Log
+from mdapy.simulation._log import _Log, _machine, _on_gpu
 from mdapy.simulation._minimize import _FTM2V, _Fire, _masses, _Neighbors
 
 #: How the images between the two states start.
@@ -512,6 +512,12 @@ def neb(
                 f"{'with' if climb else 'without'} a climbing image; "
                 f"interpolation {interpolation}",
                 f"potential: {calculators[0]!r}",
+                *(
+                    [f"GPU: {on}"]
+                    if (on := _on_gpu(calculators[0])) is not None
+                    else []
+                ),
+                f"machine: {_machine()}",
                 f"spring {spring!r} eV/Å², max_force {max_force!r} eV/Å, "
                 f"max_steps {max_steps}",
                 "",

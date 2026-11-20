@@ -334,9 +334,18 @@ def stand_in(found=True):
             raise RuntimeError("no CUDA device: none was found")
         return "stand-in"
 
+    def device_properties():
+        return {
+            "name": device_name(),
+            "memory": 12 * 2**30,
+            "compute_capability": (8, 6),
+            "multiprocessors": 26,
+        }
+
     return types.SimpleNamespace(
         Atoms=Atoms, Neighbors=Neighbors, make_eam=make_eam, make_pair=make_pair,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
-        device_name=device_name, NotFinite=NotFinite,
+        device_name=device_name, device_properties=device_properties,
+        NotFinite=NotFinite,
     )  # fmt: skip

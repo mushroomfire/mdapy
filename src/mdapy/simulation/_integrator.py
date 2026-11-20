@@ -24,7 +24,6 @@ import numpy as np
 import polars as pl
 
 from mdapy import units
-from mdapy.calculators import _gpu
 from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
@@ -34,6 +33,7 @@ from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
 from mdapy.simulation import _controls, _device
+from mdapy.simulation._log import _on_gpu
 
 _KB = units.BOLTZMANN
 _MVV2E = units.AMU_A2_PER_PS2_TO_EV
@@ -697,9 +697,9 @@ class _Native:
     def describe(self) -> str:
         """What runs the dynamics, for the log."""
         calculator = self.__calculator
-        if getattr(calculator, "device", "cpu") == "cuda":
-            name = _gpu.cuda().device_name()
-            return f"MDAPY on the GPU, {name}, {calculator.precision} precision"
+        on = _on_gpu(calculator)
+        if on is not None:
+            return f"MDAPY on the GPU, {on}; {calculator.precision} precision"
         return f"MDAPY on the processor, {get_num_threads()} threads"
 
     writes = True  # one process

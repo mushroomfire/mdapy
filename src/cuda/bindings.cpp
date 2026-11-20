@@ -70,6 +70,15 @@ Precision precision_of(const std::string& name) {
 NB_MODULE(_cuda, m) {
     nb::exception<mdapy::cuda::NotFinite>(m, "NotFinite");
     m.def("device_name", &mdapy::cuda::device_name);
+    m.def("device_properties", [] {
+        const mdapy::cuda::DeviceProperties p = mdapy::cuda::device_properties();
+        nb::dict out;
+        out["name"] = p.name;
+        out["memory"] = p.memory;
+        out["compute_capability"] = nb::make_tuple(p.major, p.minor);
+        out["multiprocessors"] = p.multiprocessors;
+        return out;
+    });
 
     nb::class_<Atoms>(m, "Atoms")
         .def(nb::init<std::int64_t>(), nb::arg("n"))

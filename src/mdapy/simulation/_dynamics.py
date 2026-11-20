@@ -24,7 +24,7 @@ from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.simulation import _controls
 from mdapy.simulation._integrator import _Native
-from mdapy.simulation._log import _Log
+from mdapy.simulation._log import _Log, _machine
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
@@ -916,6 +916,7 @@ class MolecularDynamics:
         self.__log.comment(
             f"{self.__n} atoms; box vectors {lengths} Å long, periodic along {periodic}",
             f"engine: {self.__engine.describe()}",
+            f"machine: {_machine()}",
             f"potential: {potential!r}",
             f"time step: {self.timestep!r} ps",
         )

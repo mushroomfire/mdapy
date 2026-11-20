@@ -190,6 +190,10 @@
   [Switching between potentials](../user-guide/simulation/switching.md) and
   [Free energy](../user-guide/properties/free-energy.md).
 
+- The logs of molecular dynamics, `minimize` and `neb` name the hardware in their
+  heading: the processor, its logical CPUs and the memory of the machine, and a GPU's
+  memory, compute capability and multiprocessors. See
+  [Records and frames](../user-guide/simulation/records.md#log).
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall

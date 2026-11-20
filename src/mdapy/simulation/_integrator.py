@@ -354,6 +354,10 @@ class _HostAtoms:
         """What the main process has, on every process: a seed it drew."""
         return value
 
+    def _least(self, value: Any) -> Any:
+        """The smallest over the processes, of each element of an array."""
+        return value
+
     def _mean(self, values: np.ndarray) -> np.ndarray:
         """The mean over all the atoms of (n, ...) values of this process's."""
         return self._total(values.sum(axis=0)) / self._count
@@ -380,6 +384,21 @@ class _HostAtoms:
             float(self._total(np.einsum("i,ij,ij->", self._masses, self._v, self._v)))
             * _MVV2E
         )
+
+    def step_limit(self, distance: float) -> float:
+        """The longest time step in which no atom moves more than distance,
+        as _step_limit finds it."""
+        return float(
+            self._least(_step_limit(self._v, self._forces, self._masses, distance))
+        )
+
+    def extent(self, lo: np.ndarray, h: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """The smallest and the largest fractional coordinates of the atoms
+        in the box of vectors h and origin lo; inf and -inf without atoms."""
+        s = (self._x - lo) @ np.linalg.inv(h)
+        low = s.min(axis=0) if len(s) else np.full(3, np.inf)
+        high = s.max(axis=0) if len(s) else np.full(3, -np.inf)
+        return self._least(low), -self._least(-high)
 
     def mvv(self) -> np.ndarray:
         return (
@@ -837,6 +856,12 @@ class _Native:
         """Whether this process writes the log and files: the main one."""
         return self.__comm is None or self.__comm.Get_rank() == 0
 
+    def anywhere(self, flag: bool) -> bool:
+        """Whether any process has the flag."""
+        if self.__comm is None:
+            return flag
+        return bool(self.__comm.allreduce(int(flag)))
+
     def shared(self, value: Any) -> Any:
         """What the main process has, on every process."""
         return value if self.__comm is None else self.__comm.bcast(value, root=0)
@@ -868,12 +893,11 @@ class _Native:
         dynamics keeps its own box; this is the box it gives."""
         h, lo = self.__h, self.__lo
         closed = np.asarray(self.__frame_pbc, dtype=bool)
-        x = self.__atoms.positions
-        if closed.all() or len(x) == 0:
+        if closed.all() or self.__n == 0:
             return h, lo
-        s = (np.asarray(x) - lo) @ np.linalg.inv(h)
-        low = np.where(closed, 0.0, np.minimum(s.min(axis=0) - _ROOM, 0.0))
-        high = np.where(closed, 1.0, np.maximum(s.max(axis=0) + _ROOM, 1.0))
+        smallest, largest = self.__atoms.extent(lo, h)
+        low = np.where(closed, 0.0, np.minimum(smallest - _ROOM, 0.0))
+        high = np.where(closed, 1.0, np.maximum(largest + _ROOM, 1.0))
         return h * (high - low)[:, None], lo + low @ h
 
     # -- reading the state -------------------------------------------------
@@ -1674,9 +1698,7 @@ class _Native:
         """The time step of the fastest atom within the bounds, as fix
         dt/reset at the end of a step; the time goes on from this step."""
         a = self.__adaptive
-        dt = _step_limit(
-            self.__atoms.velocities, self.__atoms.forces, self.__masses, a.max_distance
-        )
+        dt = self.__atoms.step_limit(a.max_distance)
         if a.min_timestep is not None:
             dt = max(dt, a.min_timestep)
         dt = min(dt, self.timestep if a.max_timestep is None else a.max_timestep)

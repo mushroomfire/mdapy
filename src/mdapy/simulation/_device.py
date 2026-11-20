@@ -55,6 +55,7 @@ class DeviceAtoms:
         self.__system = system
         self.__species = np.ascontiguousarray(calculator._species(system))
         self.__atoms.set_species(self.__species)
+        self.__masses = np.asarray(masses, dtype=np.float64)
         self.__atoms.set_masses(np.ascontiguousarray(masses, dtype=np.float64))
         self.__atoms.set_positions(np.ascontiguousarray(x, dtype=np.float64))
         self.__atoms.set_velocities(np.ascontiguousarray(v, dtype=np.float64))
@@ -135,6 +136,17 @@ class DeviceAtoms:
 
     def twice_kinetic(self) -> float:
         return float(np.trace(self.__atoms.kinetic())) * _MVV2E
+
+    def step_limit(self, distance: float) -> float:
+        """As on the processor, from the velocities and forces copied back."""
+        from mdapy.simulation._integrator import _step_limit
+
+        return _step_limit(self.velocities, self.forces, self.__masses, distance)
+
+    def extent(self, lo: np.ndarray, h: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """As on the processor, from the positions copied back."""
+        s = (self.positions - lo) @ np.linalg.inv(h)
+        return s.min(axis=0), s.max(axis=0)
 
     def mvv(self) -> np.ndarray:
         return self.__atoms.kinetic() * _MVV2E

@@ -322,6 +322,11 @@ create_box {len(potential.elements)} box
         """Whether this process writes the log: the main one under MPI."""
         return int(self.lammps.extract_setting("world_rank")) == 0
 
+    @staticmethod
+    def anywhere(flag: bool) -> bool:
+        """Whether a process has the flag: this one's."""
+        return flag
+
     # -- reading the state ----------------------------------------------
 
     @property
@@ -1690,7 +1695,8 @@ class MolecularDynamics:
             stops = {s for s in stops if s > done} | ({0} if steps == 0 else set())
             stops.discard(0)  # a run of no steps: the start only, once
             for stop in sorted(stops):
-                if cancel is not None and cancel.cancelled:
+                # every process stops when one is cancelled
+                if engine.anywhere(cancel is not None and cancel.cancelled):
                     raise Cancelled("molecular dynamics cancelled")
                 engine.advance(stop - done)
                 done = stop

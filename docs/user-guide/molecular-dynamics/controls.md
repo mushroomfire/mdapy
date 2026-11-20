@@ -102,6 +102,13 @@ the force at one step, which the vibrations of the atoms shake.*
 
 ## How they act
 
+- The order of the controls in `controls` does not matter. In each step, after the
+  atoms move, the [walls](walls.md) put back the atoms that passed them; then come the
+  forces of the potential, the force on each named `Move` group is recorded, the
+  [indenters](indentation.md) and `AddForce` add theirs, and last `Hold` and `Move`
+  set the velocities of their atoms. The baths act at each half step, as the
+  thermostat does. In LAMMPS the indenters and the added forces are defined first,
+  as LAMMPS applies its fixes in the order they are defined.
 - The velocities of held and moved atoms are set at the start of the run,
   and stay: the steps of the integrator and the thermostat leave them, and
   their forces do nothing.

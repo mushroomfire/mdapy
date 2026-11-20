@@ -187,7 +187,7 @@ nav:
       - Molecular dynamics:
           - A copper cluster melting: examples/cluster-melting.md
           - A collision cascade in tungsten: examples/radiation-cascade.md
-          - A shock wave in copper: examples/shock.md
+          - Shock and spall in copper: examples/shock.md
           - Running LAMMPS from MDAPY: examples/molecular-dynamics.md
       - Properties:
           - Defect energies of copper: examples/defect-energies.md

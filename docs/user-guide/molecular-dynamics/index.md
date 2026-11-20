@@ -100,4 +100,4 @@ they run.
 feature. The examples run whole studies in MDAPY:
 [a copper cluster melting](../../examples/cluster-melting.md),
 [a collision cascade in tungsten](../../examples/radiation-cascade.md) and
-[a shock wave in copper](../../examples/shock.md).
+[shock and spall in copper](../../examples/shock.md).

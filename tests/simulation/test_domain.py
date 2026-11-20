@@ -399,12 +399,22 @@ def test_a_restart_file_that_cannot_be_written(monkeypatch):
 
 
 def test_the_world(monkeypatch):
-    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE"):
+    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE",
+                 "PMIX_RANK", "SLURM_STEP_NUM_TASKS"):  # fmt: skip
         monkeypatch.delenv(name, raising=False)
     monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)
     assert _domain.world() is None
     monkeypatch.setenv("PMI_SIZE", "many")
     assert _domain.world() is None
+    # srun's tasks without PMIx, whose MPI would not start, are not processes
+    # of MPI
+    monkeypatch.setenv("SLURM_STEP_NUM_TASKS", "4")
+    assert _domain.world() is None
+    monkeypatch.setitem(sys.modules, "mpi4py", None)
+    monkeypatch.setenv("PMIX_RANK", "0")  # srun --mpi=pmix
+    with pytest.raises(InvalidParameter, match="needs mpi4py"):
+        _domain.world()
+    monkeypatch.delenv("PMIX_RANK")
     monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "4")
     monkeypatch.setitem(sys.modules, "mpi4py", None)
     with pytest.raises(InvalidParameter, match="needs mpi4py"):

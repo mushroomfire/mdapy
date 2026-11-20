@@ -50,9 +50,10 @@ MDAPY_NUM_THREADS=1 srun -n 64 --mpi=pmix python heat.py
 ## What it needs
 
 [mpi4py](https://mpi4py.readthedocs.io), built with the MPI that starts the
-processes: `pip install mpi4py`. MDAPY splits its dynamics when `mpirun`,
-`mpiexec` or `srun` started more than one process; with another launcher, the
-script imports `mpi4py` before it makes the `MolecularDynamics`.
+processes: `pip install mpi4py`. MDAPY splits its dynamics when `mpirun` or
+`mpiexec` started more than one process, or `srun` with the plugin of PMIx or
+PMI-2 (`--mpi=pmix`, `--mpi=pmi2`); with another launcher, the script imports
+`mpi4py` before it makes the `MolecularDynamics`.
 
 ## Every process runs the script
 

@@ -144,7 +144,9 @@ its temperature.
 
 `compute(system)` takes the system. Along periodic vectors the atoms are
 wrapped into the box first; along the others, those outside the box are
-left out.
+left out. The atoms of a run of molecular dynamics may leave its box along a direction
+that is not periodic, as when a free surface expands: give the box room along it from
+the start, so that the bins hold every atom.
 
 ## Results
 

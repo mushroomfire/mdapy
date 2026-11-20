@@ -78,7 +78,7 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                               const double* matrix, const std::int64_t* offsets,
                               const index_t* neighbors, const std::int8_t* shifts,
                               double* energies, double* forces, double* virials,
-                              const Control& control) {
+                              const Control& control, bool heat) {
     Shares shares(n, offsets[n]);
     parallel_for(
         n, 0,
@@ -188,9 +188,13 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                             fj[x] = j.r[x] * (frad1 + csfac1) - k.r[x] * facang12;
                             fk[x] = k.r[x] * (frad2 + csfac2) - j.r[x] * facang12;
                         }
-                        own_energy += kThird * facrad;
-                        shares.energy[static_cast<std::size_t>(j.pair)] += kThird * facrad;
-                        shares.energy[static_cast<std::size_t>(k.pair)] += kThird * facrad;
+                        if (heat) {  // the term whole with its centre
+                            own_energy += facrad;
+                        } else {
+                            own_energy += kThird * facrad;
+                            shares.energy[static_cast<std::size_t>(j.pair)] += kThird * facrad;
+                            shares.energy[static_cast<std::size_t>(k.pair)] += kThird * facrad;
+                        }
                         double* tk = &shares.derivative[3 * static_cast<std::size_t>(k.pair)];
                         double* wk = &shares.virial[9 * static_cast<std::size_t>(k.pair)];
                         for (int x = 0; x < 3; ++x) {
@@ -208,7 +212,8 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
             }
         },
         stage(control, 0, 2));
-    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2));
+    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2),
+           heat, positions, matrix);
 }
 
 }  // namespace mdapy::calculators

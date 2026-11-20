@@ -86,7 +86,12 @@ j–i–k, λ and cos θ0 of the entry i j k, and γ, σ and a of i j j and i k 
 its two arms. A tol above zero ends each pair where its energy falls below
 tol, as LAMMPS does, at most 0.01. The energy and the virial of a pair are
 shared equally between its two atoms, and those of an angle among its three
-atoms.
+atoms. For the heat flux of the [Green–Kubo](../properties/green-kubo.md) and
+[HNEMD](../properties/hnemd.md) conductivities, which these shares would get wrong,
+each angle's energy stays whole with its centre atom and the virial of each atom is that
+of the derivatives of the others' energies by its position
+([Fan et al. (2015)](../../reference/references.md#fan2015)); their sums are the
+same.
 
 **Entries that disagree.** The angle j–i–k is in the entries i j k and
 i k j, and the pair i–j in i j j and j i i. LAMMPS takes one of them by the

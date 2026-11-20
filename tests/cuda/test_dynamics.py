@@ -541,6 +541,44 @@ def test_hnemd_as_on_the_processor():
     assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])
 
 
+def test_hnemd_of_stillinger_weber_as_on_the_processor(tmp_path):
+    """The field on the GPU with Stillinger-Weber, whose energies and virials
+    of the heat flux are those of compute_heat: the driven run and the heat
+    flux of the processor in double precision; in mixed precision the work of
+    the field is still the change of the energy."""
+    from mdapy.calculators import StillingerWeber
+    from mdapy.simulation._controls import _HeatField
+
+    from calculators.potential_files import write_sw
+
+    path = write_sw(tmp_path / "Si.sw", ("Si",))
+    system = build_crystal("diamond", 5.43, elements="Si", repeat=5)
+    field = np.array([0.05, -0.025, 0.0125])
+    out = []
+    for potential in (
+        StillingerWeber(path, device="cuda", precision="double"),
+        StillingerWeber(path),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.0005) as md:
+            md.velocities(600.0, seed=1)
+            md.run(400, thermo=20, controls=_HeatField(field))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-7, atol=1e-8
+    )
+    mixed = StillingerWeber(path, device="cuda", precision="mixed")
+    with MolecularDynamics(system, mixed, timestep=0.0005) as md:
+        md.velocities(600.0, seed=1)
+        md.run(600, thermo=1, controls=_HeatField(field))
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    power = np.stack(thermo["heat_flux"].to_numpy()) @ field
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.0005)])
+    assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])
+
+
 @pytest.mark.parametrize("precision", ["mixed", "double"])
 def test_nemd(precision):
     """Two baths on the GPU drive heat through solid argon: its conductivity

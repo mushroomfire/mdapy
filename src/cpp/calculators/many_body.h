@@ -69,8 +69,14 @@ struct Shares {
 };
 
 // Energies (n), forces (n x 3) and virials (n x 9) gathered from the shares.
+// heat: the virials of the heat flux instead, those of Fan et al., PRB 92,
+// 094301 (2015): for each atom i, the sum over its pairs p = (i, j) of
+// r_p (x) the derivative of the terms of j by its reverse, which needs the
+// positions and the box matrix; the shares of the virials are not read, and
+// the kernels leave the energy of each term whole with its centre.
 void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
             const index_t* neighbors, const std::int8_t* shifts, double* energies,
-            double* forces, double* virials, const Control& control);
+            double* forces, double* virials, const Control& control, bool heat = false,
+            const double* positions = nullptr, const double* matrix = nullptr);
 
 }  // namespace mdapy::calculators

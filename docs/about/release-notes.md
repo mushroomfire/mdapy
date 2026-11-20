@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- The [Green–Kubo](../user-guide/properties/green-kubo.md) and
+  [HNEMD](../user-guide/properties/hnemd.md) conductivities take Stillinger–Weber and
+  Tersoff, on the processor and the GPU: their heat flux has the energy of each
+  three-body term whole with its centre atom and the virials of each atom of Fan et al.
+  (2015). The energies and virials of each atom that `compute` gives stay LAMMPS's
+  shares, which would give a wrong flux. In a free cluster the flux is the change of the
+  moment of the energies to 3e-7.
 - In LAMMPS, atoms held along some directions by `Hold` and pushed by an `AddForce`
   given after it moved along the held directions: LAMMPS applies its fixes in the
   order they are defined, and the added force came after the `setforce`. The added

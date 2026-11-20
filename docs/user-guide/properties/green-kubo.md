@@ -59,7 +59,7 @@ time.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms in a box periodic in every direction, of its size at the temperature, with an `element` column |
-| `potential` | `Calculator` | | | the interaction: in MDAPY, [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md) or [NEP](../potentials/nep.md); in LAMMPS, a many-body one must give LAMMPS the centroid stress of each atom |
+| `potential` | `Calculator` | | | the interaction: in MDAPY, [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md), [NEP](../potentials/nep.md), [Stillinger–Weber](../potentials/stillinger-weber.md) or [Tersoff](../potentials/tersoff.md); in LAMMPS, a many-body one must give LAMMPS the centroid stress of each atom |
 | `temperature` | float64 | | K | the temperature |
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `equilibration` | int32 | 10000 | | steps at constant temperature first |
@@ -82,12 +82,13 @@ atom. The virial must be one that gives the flux of heat:
 - in MDAPY, the atomic energies and virials of the potential: for EAM and the pair
   potentials, the virials of their pairwise forces split in halves, the centroid
   stress of LAMMPS, so that the flux is that of `compute heat/flux` for the same atoms;
-  for NEP, the virial of each atom from the derivatives of the energies of the others
-  with its position, as GPUMD computes it
-  ([Fan et al. (2015)](../../reference/references.md#fan2015)). The virials of
-  Stillinger–Weber, Tersoff, ADP and MEAM split their many-body terms among their
-  atoms, which gives a wrong flux, so these are refused. In MDAPY each record costs an
-  evaluation of the forces more.
+  for NEP, Stillinger–Weber and Tersoff, the virial of each atom from the derivatives
+  of the energies of the others with its position, as GPUMD computes it
+  ([Fan et al. (2015)](../../reference/references.md#fan2015)), the energy of each
+  three-body term of the last two whole with its centre atom. The energies and virials
+  of each atom that Stillinger–Weber and Tersoff give otherwise, LAMMPS's shares of
+  their terms, would give a wrong flux; those of ADP and MEAM do, so these two are
+  refused. In MDAPY each record costs an evaluation of the forces more.
 
 The temperature of the result is the mean of the run at constant energy.
 

@@ -9,6 +9,8 @@
 #include <numeric>
 #include <stdexcept>
 
+#include "neighbor/frame.h"
+
 namespace mdapy::calculators {
 
 std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offsets,
@@ -71,7 +73,8 @@ std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offs
 
 void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
             const index_t* neighbors, const std::int8_t* shifts, double* energies,
-            double* forces, double* virials, const Control& control) {
+            double* forces, double* virials, const Control& control, bool heat,
+            const double* positions, const double* matrix) {
     // the pairs reversed are quick: cancelled, but not in the progress
     const std::vector<std::int64_t> reverse =
         reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
@@ -82,9 +85,11 @@ void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
                 const double* own = &shares.own_force[3 * static_cast<std::size_t>(i)];
                 double force[3] = {own[0], own[1], own[2]};
                 double energy = shares.own_energy[static_cast<std::size_t>(i)];
-                double w[9];
-                for (int k = 0; k < 9; ++k) {
-                    w[k] = shares.own_virial[9 * static_cast<std::size_t>(i) + static_cast<std::size_t>(k)];
+                double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+                if (!heat) {
+                    for (int k = 0; k < 9; ++k) {
+                        w[k] = shares.own_virial[9 * static_cast<std::size_t>(i) + static_cast<std::size_t>(k)];
+                    }
                 }
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
                     const auto q = static_cast<std::size_t>(reverse[static_cast<std::size_t>(p)]);
@@ -94,8 +99,22 @@ void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
                         force[a] += t_ij[a] - t_ji[a];
                     }
                     energy += shares.energy[q];
-                    for (int k = 0; k < 9; ++k) {
-                        w[k] += shares.virial[9 * q + static_cast<std::size_t>(k)];
+                    if (heat) {
+                        // r_ij (x) dU_j/dr_i, the derivative of the terms of j
+                        // by r_ji = x_i - x_j being that by x_i
+                        double r[3];
+                        neighbor::pair_vector(positions + 3 * i,
+                                              positions + 3 * static_cast<std::int64_t>(neighbors[p]),
+                                              shifts + 3 * p, matrix, r);
+                        for (int a = 0; a < 3; ++a) {
+                            for (int b = 0; b < 3; ++b) {
+                                w[3 * a + b] += r[a] * t_ji[b];
+                            }
+                        }
+                    } else {
+                        for (int k = 0; k < 9; ++k) {
+                            w[k] += shares.virial[9 * q + static_cast<std::size_t>(k)];
+                        }
                     }
                 }
                 energies[i] = energy;

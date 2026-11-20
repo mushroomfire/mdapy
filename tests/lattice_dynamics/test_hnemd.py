@@ -12,7 +12,7 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS, LennardJones, StillingerWeber, _gpu
+from mdapy.calculators import ADP, LAMMPS, LennardJones, StillingerWeber, _gpu
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.lattice_dynamics import hnemd
@@ -20,6 +20,7 @@ from mdapy.simulation import Deform, MolecularDynamics
 from mdapy.simulation._controls import _HeatField
 
 from calculators.gpu_stand_in import stand_in
+from calculators.potential_files import write_adp, write_sw
 
 ARGON = LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True)
 
@@ -146,16 +147,12 @@ def test_errors(tmp_path, monkeypatch):
         hnemd(open_box, ARGON, 40.0, field=(3e-3, 0, 0))
     with pytest.raises(InvalidParameter, match="other than LAMMPS"):
         hnemd(system, "Ar.lj", 40.0, field=(3e-3, 0, 0))
-    path = tmp_path / "Si.sw"
-    path.write_text(
-        "Si Si Si 2.1683 2.0951 1.80 21.0 1.20 -0.333333333333 7.049556277 "
-        "0.6022245584 4.0 0.0 0.0\n"
-    )
-    silicon = build_crystal("diamond", 5.431, elements="Si", repeat=3)
+    # ADP: the virials of its many-body terms split among their atoms
+    copper = build_crystal("fcc", 3.6, elements="Cu", repeat=3)
     with pytest.raises(InvalidParameter, match="centroid stress"):
         hnemd(
-            silicon,
-            StillingerWeber(path),
+            copper,
+            ADP(write_adp(tmp_path / "a.adp")),
             300.0,
             field=(3e-3, 0, 0),
             equilibration=10,
@@ -202,3 +199,30 @@ def test_on_the_gpu(monkeypatch):
     np.testing.assert_allclose(
         np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-9, atol=1e-12
     )
+
+
+def test_stillinger_weber_on_the_processor_and_the_gpu(tmp_path, monkeypatch):
+    """Silicon of Stillinger-Weber driven by the field, the energies and
+    virials of the heat flux computed at each step: on the processor and on
+    the GPU, its module stood in for, alike, and at constant energy the field
+    does the work of its flux."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    path = write_sw(tmp_path / "Si.sw", ("Si",))
+    crystal = build_crystal("diamond", 5.43, elements="Si", repeat=3)
+    field = np.array([0.05, -0.025, 0.0125])
+    out = []
+    for device in ("cuda", "cpu"):
+        potential = StillingerWeber(path, device=device)
+        with MolecularDynamics(crystal, potential, timestep=0.0005) as md:
+            md.velocities(600.0, seed=1)
+            md.run(600, thermo=1, controls=_HeatField(field))
+            out.append(md.thermo)
+    on_gpu, here = out
+    np.testing.assert_allclose(
+        np.stack(on_gpu["heat_flux"]), np.stack(here["heat_flux"]), rtol=1e-9, atol=1e-9
+    )
+    energy = here["total_energy"].to_numpy()
+    power = np.stack(here["heat_flux"].to_numpy()) @ field
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.0005)])
+    residual = np.abs(energy - energy[0] - work).max()
+    assert abs(energy[-1] - energy[0]) > 20 * residual

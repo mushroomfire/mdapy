@@ -189,7 +189,7 @@ calculators::TersoffPotential make_tersoff(int elements, Flat rows) {
 nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Species species,
                           Positions positions, Matrix matrix, Offsets offsets,
                           Neighbors neighbors, Shifts shifts, nb::handle progress,
-                          const CancelToken* cancel) {
+                          const CancelToken* cancel, bool heat) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     double *energies, *forces, *virials;
@@ -203,7 +203,8 @@ nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Specie
         [&](const Control& control) {
             calculators::compute_tersoff(potential, n, species.data(), positions.data(),
                                          matrix.data(), offsets.data(), neighbors.data(),
-                                         shifts.data(), energies, forces, virials, control);
+                                         shifts.data(), energies, forces, virials, control,
+                                         heat);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -222,7 +223,7 @@ calculators::StillingerWeberPotential make_stillinger_weber(int elements, Flat r
 nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& potential,
                                    Species species, Positions positions, Matrix matrix,
                                    Offsets offsets, Neighbors neighbors, Shifts shifts,
-                                   nb::handle progress, const CancelToken* cancel) {
+                                   nb::handle progress, const CancelToken* cancel, bool heat) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     double *energies, *forces, *virials;
@@ -237,7 +238,7 @@ nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& 
             calculators::compute_stillinger_weber(potential, n, species.data(), positions.data(),
                                                   matrix.data(), offsets.data(), neighbors.data(),
                                                   shifts.data(), energies, forces, virials,
-                                                  control);
+                                                  control, heat);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -499,7 +500,7 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_stillinger_weber", &compute_stillinger_weber, nb::arg("potential"),
           nb::arg("species"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false);
     nb::class_<calculators::TersoffPotential>(m, "TersoffPotential")
         .def_ro("elements", &calculators::TersoffPotential::elements)
         .def_ro("cutoff", &calculators::TersoffPotential::cutoff);
@@ -507,7 +508,7 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_tersoff", &compute_tersoff, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false);
     nb::class_<calculators::PairPotential>(m, "PairPotential")
         .def_ro("species", &calculators::PairPotential::species)
         .def_ro("cutoff", &calculators::PairPotential::cutoff);

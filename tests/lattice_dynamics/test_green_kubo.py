@@ -258,24 +258,37 @@ def test_the_flux_of_lammps(kind, tmp_path, monkeypatch):
     )
 
 
-@pytest.mark.parametrize("kind", ["nep", "lj"])
+@pytest.mark.parametrize("kind", ["nep", "lj", "sw", "tersoff"])
 def test_the_flux_is_the_change_of_the_energy_moment(kind, tmp_path):
     """The heat flux of a cluster times its volume, sum_i E_i v_i + sum_i W_i
     v_i, is the time derivative of sum_i r_i E_i along the dynamics, by
-    central differences: the virial of each atom of NEP from the energies of
-    the others (Fan et al. 2015), and of a pair potential split in halves."""
+    central differences: the virial of each atom of NEP, Stillinger-Weber and
+    Tersoff from the energies of the others (Fan et al. 2015), the terms of
+    these two whole with their centres, and of a pair potential split in
+    halves."""
     import mdapy
-    from mdapy.calculators import NEP, LennardJones
+    from mdapy.calculators import NEP, LennardJones, StillingerWeber, Tersoff
+    from mdapy.calculators._base import HEAT_FLUX_TERMS
     from mdapy.lattice_dynamics._green_kubo import _flux
     from mdapy.lattice_dynamics._phonons import _masses
 
     from calculators.nep_files import write_nep
+    from calculators.potential_files import write_sw, write_tersoff
 
     if kind == "nep":
         potential, step = NEP(write_nep(tmp_path / "nep.txt")), 1e-5
-    else:
+    elif kind == "lj":
         potential, step = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0), 1e-6
-    crystal = shaken("fcc", 3.6, ["Cu", "Ni"], 3, seed=1)
+    elif kind == "sw":
+        potential, step = StillingerWeber(write_sw(tmp_path / "a.sw")), 1e-6
+    else:
+        path = write_tersoff(tmp_path / "a.tersoff", ("Si", "C"))
+        potential, step = Tersoff(path), 1e-6
+    if kind in ("sw", "tersoff"):
+        elements = ["Si", "Ge"] if kind == "sw" else ["Si", "C"]
+        crystal = shaken("diamond", 5.3, elements, 2, seed=1)
+    else:
+        crystal = shaken("fcc", 3.6, ["Cu", "Ni"], 3, seed=1)
     cluster = crystal.with_box(mdapy.Box(np.eye(3) * 60.0, pbc=False)).with_columns(
         positions=crystal["positions"] + 20.0
     )
@@ -290,7 +303,9 @@ def test_the_flux_is_the_change_of_the_energy_moment(kind, tmp_path):
             positions=x + sign * step * v + 0.5 * step**2 * a,
             velocities=v + sign * step * a,
         )
-        energies = potential.compute(moved, ("atomic_energies",)).atomic_energies
+        energies = potential.compute(
+            moved, ("atomic_energies", HEAT_FLUX_TERMS)
+        ).atomic_energies
         vs = moved["velocities"]
         energies = energies + 0.5 * m * (vs * vs).sum(axis=1) * mvv2e
         moments.append(energies @ moved["positions"])
@@ -327,15 +342,13 @@ def test_solid_argon_in_mdapy():
 
 
 def test_errors_in_mdapy(tmp_path):
-    from mdapy.calculators import StillingerWeber
+    from mdapy.calculators import ADP
 
-    path = tmp_path / "Si.sw"
-    path.write_text(
-        "Si Si Si 2.1683 2.0951 1.80 21.0 1.20 -0.333333333333 7.049556277 "
-        "0.6022245584 4.0 0.0 0.0\n"
-    )
-    crystal = build_crystal("diamond", 5.431, elements="Si", repeat=2)
+    from calculators.potential_files import write_adp
+
+    # ADP: the virials of its many-body terms split among their atoms
+    crystal = build_crystal("fcc", 3.6, elements="Cu", repeat=2)
     with pytest.raises(InvalidParameter, match="centroid stress"):
-        green_kubo(crystal, StillingerWeber(path), 300.0)
+        green_kubo(crystal, ADP(write_adp(tmp_path / "a.adp")), 300.0)
     with pytest.raises(InvalidParameter, match="calculator"):
         green_kubo(crystal, "Si.sw", 300.0)

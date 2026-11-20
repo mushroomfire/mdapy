@@ -23,6 +23,13 @@ PROPERTIES = frozenset(
     {"energy", "atomic_energies", "forces", "virial", "atomic_virials"}
 )
 
+# Asked with the atomic properties by the heat flux alone, of a calculator
+# whose _heat_flux is True: the atomic energies and virials that give the
+# heat flux. Stillinger-Weber and Tersoff then give each term whole to its
+# centre atom and the virials of Fan et al., PRB 92, 094301 (2015), instead
+# of LAMMPS's shares; the others give what they give without it.
+HEAT_FLUX_TERMS = "_heat_flux_terms"
+
 
 @dataclass(frozen=True)
 class CalculatorResult(Result):
@@ -109,10 +116,11 @@ class Calculator(ABC):
     implemented: frozenset[str] = PROPERTIES
     device: str = "cpu"
     precision: str = "double"
-    # whether the atomic energies and virials give the heat flux: virials of
-    # pairwise forces split in halves, or the derivatives of the energy of
-    # each atom with the positions of the others (Fan et al., PRB 92, 094301
-    # (2015)); not the virials of many-body terms split among their atoms
+    # whether the atomic energies and virials, asked with HEAT_FLUX_TERMS,
+    # give the heat flux: virials of pairwise forces split in halves, or the
+    # derivatives of the energy of each atom with the positions of the others
+    # (Fan et al., PRB 92, 094301 (2015)); not the virials of many-body terms
+    # split among their atoms
     _heat_flux: bool = False
 
     @abstractmethod
@@ -151,7 +159,7 @@ class Calculator(ABC):
         """
 
     def _check_properties(self, properties: Iterable[str]) -> frozenset[str]:
-        wanted = frozenset(properties)
+        wanted = frozenset(properties) - {HEAT_FLUX_TERMS}
         unknown = wanted - PROPERTIES
         if unknown:
             raise InvalidParameter(f"unknown properties {sorted(unknown)}")

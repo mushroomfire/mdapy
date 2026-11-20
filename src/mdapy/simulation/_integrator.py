@@ -25,7 +25,7 @@ import polars as pl
 
 from mdapy import units
 from mdapy.calculators import _gpu
-from mdapy.calculators._base import Calculator
+from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -362,7 +362,7 @@ class _HostAtoms:
                 neighbors = self.__wide._follow(current, cutoff)
         wanted = self.__properties
         if self.__field is not None:
-            wanted = wanted + ("atomic_virials",)
+            wanted = wanted + ("atomic_virials", HEAT_FLUX_TERMS)
         result = self.__calculator.compute(current, wanted, neighbors=neighbors)
         forces = np.asarray(result.forces, dtype=float)
         energy = float(result.energy)
@@ -798,7 +798,7 @@ class _Native:
             raise InvalidParameter(
                 "the heat flux needs the centroid stress of each atom, which "
                 f"{type(calculator).__name__} does not give; EAM, the pair "
-                "potentials and NEP give it"
+                "potentials, NEP, Stillinger-Weber and Tersoff give it"
             )
         self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
         self.__heating = True

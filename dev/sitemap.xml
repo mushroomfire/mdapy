@@ -257,10 +257,6 @@
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/lattice-dynamics/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/local-order/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
@@ -269,11 +265,7 @@
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/molecular-dynamics/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/relaxation/</loc>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/simulation/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
@@ -285,19 +277,31 @@
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/thermal-conductivity/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/thermodynamics/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/utilities/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/visualization/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/defects/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/elastic/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/phonons/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/thermodynamics/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/transport/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
@@ -645,66 +649,6 @@
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/adaptive-timestep/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/controls/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/deformation/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/ensembles/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/gpu/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/hugoniostat/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/in-lammps/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/indentation/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/msst/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/records/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/running/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/shock/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/switching/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/molecular-dynamics/walls/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/potentials/adp/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
@@ -781,10 +725,6 @@
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>
-         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/properties/minimize/</loc>
-         <lastmod>2026-11-20</lastmod>
-    </url>
-    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/properties/nemd/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
@@ -822,6 +762,70 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/properties/thermal-phonons/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/adaptive-timestep/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/controls/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/deformation/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/ensembles/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/gpu/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/hugoniostat/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/in-lammps/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/indentation/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/minimize/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/msst/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/records/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/running/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/shock/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/switching/</loc>
+         <lastmod>2026-11-20</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/simulation/walls/</loc>
          <lastmod>2026-11-20</lastmod>
     </url>
     <url>

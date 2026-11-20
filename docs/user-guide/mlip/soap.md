@@ -135,7 +135,7 @@ integrals over r have a closed form, so that no integral is approximated.
 
 - [Choosing frames](selection.md), with `structure_descriptors`,
   `farthest_point_sampling` and `principal_components`.
-- [NEP](../simulation/nep.md), whose `descriptors` work the same way.
+- [NEP](../potentials/nep.md), whose `descriptors` work the same way.
 
 !!! quote "Please cite"
     [Bartók, Kondor and Csányi (2013)](../../reference/references.md#bartok2013); for these conventions, [Himanen et al. (2020)](../../reference/references.md#himanen2020).

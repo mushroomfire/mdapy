@@ -4,9 +4,9 @@
 or `NEP`, an ASE calculator, for the optimizers, filters and molecular
 dynamics of ASE; `from_ase_calculator` makes any ASE calculator, such as the
 calculator of a machine-learned potential, an MDAPY calculator, for
-[`minimize`](../simulation/minimize.md),
-[defect energies](../simulation/defect-energies.md) and
-[elastic constants](../simulation/elastic-constants.md).
+[`minimize`](../properties/minimize.md),
+[defect energies](../properties/defect-energies.md) and
+[elastic constants](../properties/elastic-constants.md).
 
 ```python
 from ase.build import bulk
@@ -81,5 +81,5 @@ one that the ASE calculator does not compute.
 
 ## See also
 
-- [The calculator interface](../simulation/calculators.md).
+- [The calculator interface](../potentials/calculators.md).
 - [ASE calculators](https://wiki.fysik.dtu.dk/ase/ase/calculators/calculators.html).

@@ -55,7 +55,7 @@ result.energy / len(system)  # eV per atom
 result.stress  # (3, 3) GPa
 ```
 
-See [Calculators](../user-guide/simulation/calculators.md) and [EAM](../user-guide/simulation/eam.md).
+See [Calculators](../user-guide/potentials/calculators.md) and [EAM](../user-guide/potentials/eam.md).
 
 ## Relaxation
 
@@ -74,7 +74,7 @@ relaxed.converged, relaxed.energy, relaxed.stress
 write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
-See [Energy minimization](../user-guide/simulation/minimize.md).
+See [Energy minimization](../user-guide/properties/minimize.md).
 
 ## Analysis and pictures
 

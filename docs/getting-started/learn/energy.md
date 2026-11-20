@@ -140,6 +140,6 @@ This is why a small particle melts below the bulk, as the next lesson shows.*
     ```
 
 Next: [a nanoparticle melts](trajectories.md). See also
-[Calculators](../../user-guide/simulation/calculators.md),
-[Energy minimization](../../user-guide/simulation/minimize.md) and
-[Defect energies](../../user-guide/simulation/defect-energies.md).
+[Calculators](../../user-guide/potentials/calculators.md),
+[Energy minimization](../../user-guide/properties/minimize.md) and
+[Defect energies](../../user-guide/properties/defect-energies.md).

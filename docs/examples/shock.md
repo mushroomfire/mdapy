@@ -4,11 +4,11 @@ A piston driven into a crystal sends a shock wave ahead of it: a front, a few
 atomic planes thick, that takes the matter from rest to the velocity of the
 piston and compresses it in one step. Strong enough, the shock makes the crystal
 flow behind it. This example drives one into copper along [001] with a moving
-[wall](../user-guide/simulation/walls.md), follows it with the
+[wall](../user-guide/molecular-dynamics/walls.md), follows it with the
 [spatial binning of moving atoms](../user-guide/analysis/spatial-binning.md#moving-atoms),
 and finds the stacking faults that it leaves with the
 [common neighbor analysis](../user-guide/analysis/cna.md). The molecular dynamics
-run in MDAPY on a [GPU](../user-guide/simulation/gpu.md): 102400 atoms, 10 ps at 300 K
+run in MDAPY on a [GPU](../user-guide/molecular-dynamics/gpu.md): 102400 atoms, 10 ps at 300 K
 and 5 ps of the shock, took 15 s on one V100.
 
 ## The crystal
@@ -103,7 +103,7 @@ with plot.style():
 with the piston at 1.0 km/s. b: Behind the front the pressure along z is 45 GPa, the
 density of the copper at rest times the shock velocity times the particle velocity;
 across, it is 40 GPa: a shear stress of 2.4 GPa, about half the 4.5 GPa that the crystal
-held, still elastic, at 30 GPa on its [Hugoniot](../user-guide/simulation/hugoniostat.md). c: The shocked copper
+held, still elastic, at 30 GPa on its [Hugoniot](../user-guide/molecular-dynamics/hugoniostat.md). c: The shocked copper
 is at about 640 K, hotter near the piston, where the shock started; at the front the
 slabs hold atoms of both sides, whose spread of velocities counts as heat.*
 
@@ -140,7 +140,7 @@ calls it.*
 
 ## See also
 
-- [Walls](../user-guide/simulation/walls.md), [Hugoniostat](../user-guide/simulation/hugoniostat.md)
-  and [Multiscale shock technique](../user-guide/simulation/msst.md).
+- [Walls](../user-guide/molecular-dynamics/walls.md), [Hugoniostat](../user-guide/molecular-dynamics/hugoniostat.md)
+  and [Multiscale shock technique](../user-guide/molecular-dynamics/msst.md).
 - [Spatial binning](../user-guide/analysis/spatial-binning.md) and
   [Common neighbor analysis](../user-guide/analysis/cna.md).

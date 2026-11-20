@@ -43,7 +43,7 @@ orthogonal cells of four.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | a crystal in a box periodic in every direction |
-| `minimal` | bool | `False` | | start from the [primitive cell](../simulation/phonons.md) of the crystal, which gives the smallest orthogonal cell; otherwise from the box, as atomsk does, so that a box of several periods gives a cell of as many |
+| `minimal` | bool | `False` | | start from the [primitive cell](../properties/phonons.md) of the crystal, which gives the smallest orthogonal cell; otherwise from the box, as atomsk does, so that a box of several periods gives a cell of as many |
 | `max_search` | int32 | 20 | | the largest multiple of each lattice vector in the combinations searched |
 | `tolerance` | float64 | 1e-6 | Å | how far a combination may lie from an axis |
 

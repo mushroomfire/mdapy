@@ -32,7 +32,7 @@ steps = read_trajectory("OUTCAR")  # every ionic step, with energies, forces, vi
 |---|---|---|
 | POSCAR, CONTCAR: selective dynamics, velocities | `mdapy.io.read`, `mdapy.io.write`; the columns `movable` and `velocities` | [VASP POSCAR](../../reference/formats/poscar.md) |
 | OUTCAR: ionic steps, free energies TOTEN, forces, virials, convergence | `mdapy.io.read`, `mdapy.io.read_trajectory` | [VASP OUTCAR](../../reference/formats/outcar.md), [Training sets from VASP](../mlip/vasp.md) |
-| single points run by a command, as in a job script | the calculator `VASP` | [VASP calculator](../simulation/vasp.md) |
+| single points run by a command, as in a job script | the calculator `VASP` | [VASP calculator](../potentials/vasp.md) |
 
 ## See also
 

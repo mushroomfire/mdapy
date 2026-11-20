@@ -116,10 +116,10 @@ system = system.with_columns(result)  # per-atom values, as columns
 Molecular dynamics runs with any calculator, in MDAPY itself, or in LAMMPS with a
 `LAMMPS` calculator; the methods written with `lammps` below still need a `LAMMPS`
 calculator. See
-[Molecular dynamics](../../user-guide/simulation/dynamics.md),
-[Defect energies](../../user-guide/simulation/defect-energies.md),
-[Melting point](../../user-guide/simulation/melting-point.md) and
-[Free energy](../../user-guide/simulation/free-energy.md).
+[Molecular dynamics](../../user-guide/molecular-dynamics/running.md),
+[Defect energies](../../user-guide/properties/defect-energies.md),
+[Melting point](../../user-guide/properties/melting-point.md) and
+[Free energy](../../user-guide/properties/free-energy.md).
 
 | I want | Write |
 |---|---|
@@ -136,11 +136,11 @@ calculator. See
 
 Of a relaxed crystal, `relaxed = minimize(crystal, potential, cell="full").system`, and its
 primitive cell, `cell = primitive_cell(relaxed)`. See
-[Elastic constants](../../user-guide/simulation/elastic-constants.md),
-[Phonons](../../user-guide/simulation/phonons.md),
-[Force constants](../../user-guide/simulation/force-constants.md),
-[Quasi-harmonic approximation](../../user-guide/simulation/quasi-harmonic.md) and
-[Thermal conductivity](../../user-guide/simulation/thermal-conductivity.md).
+[Elastic constants](../../user-guide/properties/elastic-constants.md),
+[Phonons](../../user-guide/properties/phonons.md),
+[Force constants](../../user-guide/properties/force-constants.md),
+[Quasi-harmonic approximation](../../user-guide/properties/quasi-harmonic.md) and
+[Thermal conductivity](../../user-guide/properties/thermal-conductivity.md).
 
 | I want | Write |
 |---|---|

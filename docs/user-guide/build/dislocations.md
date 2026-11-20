@@ -331,5 +331,5 @@ which leaves no mean stress in the crystal.
 - [matscipy](https://github.com/libAtoms/matscipy), whose dislocation module
   builds the same models.
 - [Surfaces and slip systems](slip-systems.md) for the slip systems of
-  these dislocations, and [Defect energies](../simulation/defect-energies.md)
+  these dislocations, and [Defect energies](../properties/defect-energies.md)
   for their stacking faults.

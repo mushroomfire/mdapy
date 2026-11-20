@@ -6,7 +6,7 @@ property. It keeps a property of the start, such as where each atom was or
 its structure, at hand in every later frame, to compare with what the atom is
 now.
 
-Copper melts at 2500 K, here in [molecular dynamics](../simulation/dynamics.md) for
+Copper melts at 2500 K, here in [molecular dynamics](../molecular-dynamics/running.md) for
 10 ps.
 Where did each atom of the liquid start?
 

@@ -39,7 +39,7 @@ potential.compute(last, ("energy", "forces", "virial"))
 |---|---|---|
 | `model.xyz`: `species`, `pos`, `mass`, `charge`, `vel` (Å/fs), `group` | `mdapy.io.write` of extended XYZ: `element`, `positions`, `mass`, `charge`, `velocities` (Å/ps), `group` | [Extended XYZ](../../reference/formats/extxyz.md) |
 | `dump_exyz`, `train.xyz`, `test.xyz` | `mdapy.io.read_trajectory` | [Extended XYZ](../../reference/formats/extxyz.md) |
-| NEP potentials, `nep.txt` | the calculator `NEP` | [NEP](../simulation/nep.md) |
+| NEP potentials, `nep.txt` | the calculator `NEP` | [NEP](../potentials/nep.md) |
 | training sets | OUTCARs to extended XYZ, choosing frames, perturbed structures | [Training sets from VASP](../mlip/vasp.md) |
 
 GPUMD needs at least two atoms and a `Lattice`, which MDAPY always writes.

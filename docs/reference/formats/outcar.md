@@ -57,4 +57,4 @@ free energy, and a line with fewer numbers than it should have.
 ## See also
 
 - [Training sets from VASP](../../user-guide/mlip/vasp.md)
-- [VASP](../../user-guide/interop/vasp.md) and the [VASP calculator](../../user-guide/simulation/vasp.md)
+- [VASP](../../user-guide/interop/vasp.md) and the [VASP calculator](../../user-guide/potentials/vasp.md)

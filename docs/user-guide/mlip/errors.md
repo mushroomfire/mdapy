@@ -4,7 +4,7 @@
 the labels of frames, such as those of a training set from DFT: the root
 mean square errors, a table of the errors of each frame and the frames
 that err most, to look at first. Any MDAPY calculator is a model, as a
-[NEP](../simulation/nep.md) or an [EAM](../simulation/eam.md), and so is
+[NEP](../potentials/nep.md) or an [EAM](../potentials/eam.md), and so is
 any ASE calculator through
 [`from_ase_calculator`](../interop/ase-calculators.md). `read_gpumd` reads
 the same from the files GPUMD writes when it trains a NEP model, and

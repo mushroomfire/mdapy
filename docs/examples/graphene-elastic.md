@@ -6,9 +6,9 @@ any temperature, and the ripples soften it in its plane. This page computes the
 elastic constants of graphene with the LCBOP potential of LAMMPS: static, from
 the quasi-harmonic approximation, and from molecular dynamics from 100 to
 1000 K. It then shows how they depend on the size of the sheet. See
-[Sheets](../user-guide/simulation/sheets.md),
-[Quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md) and
-[Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md)
+[Sheets](../user-guide/properties/sheets.md),
+[Quasi-harmonic approximation](../user-guide/properties/quasi-harmonic.md) and
+[Elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md)
 for the functions themselves.
 
 Copy the potential
@@ -52,7 +52,7 @@ $(C_{11} + C_{12})/2$ for a hexagonal sheet.
 
 ## The quasi-harmonic approximation
 
-[`quasi_harmonic`](../user-guide/simulation/quasi-harmonic.md) finds the area
+[`quasi_harmonic`](../user-guide/properties/quasi-harmonic.md) finds the area
 of the sheet at each temperature from the free energy of its vibrations, and
 the area modulus there. It takes a few seconds:
 
@@ -81,12 +81,12 @@ The vibrations at zero point stretch the sheet by 0.8 % from its static area,
 vibrations across the sheet shrink it and soften it fast. Near 400 K its area
 approaches the static one, under which these vibrations have imaginary
 frequencies, and the approximation ends there, as
-[Sheets](../user-guide/simulation/sheets.md#quasi-harmonic-approximation)
+[Sheets](../user-guide/properties/sheets.md#quasi-harmonic-approximation)
 explains.
 
 ## From molecular dynamics
 
-[`md_elastic_constants`](../user-guide/simulation/md-elastic.md) takes all the
+[`md_elastic_constants`](../user-guide/properties/md-elastic.md) takes all the
 anharmonic vibrations. For a sheet it uses by default the fluctuations of the
 stress at the mean area of the sheet. Here it runs on 16 × 16 cells, 512 atoms,
 with a time step of 0.5 fs: 500 ps at zero pressure for the mean area, then

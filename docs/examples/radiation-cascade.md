@@ -13,7 +13,7 @@ with 2 keV in tungsten and counts the defects with the
     2 Å: atoms that meet at the speeds of a cascade come much closer than in a crystal,
     where only such a repulsion describes them. A potential without one lets them
     pass through each other. The molecular dynamics run in MDAPY with the NEP on a
-    [GPU](../user-guide/simulation/gpu.md), `device="cuda"`.
+    [GPU](../user-guide/molecular-dynamics/gpu.md), `device="cuda"`.
 
 <!-- files: high-throughput -->
 
@@ -77,10 +77,10 @@ np.linalg.norm(start["velocities"][pka])  # Å/ps, 458
 ## The cascade
 
 The time step adapts to the fastest atom, an
-[`AdaptiveTimestep`](../user-guide/simulation/adaptive-timestep.md): no atom moves
+[`AdaptiveTimestep`](../user-guide/molecular-dynamics/adaptive-timestep.md): no atom moves
 more than 0.05 Å in a step, up to steps of 1 fs once the cascade has cooled. The atoms
 within 1 nm of the faces of the box keep 300 K in a
-[`Langevin`](../user-guide/simulation/controls.md) bath and carry the heat of the
+[`Langevin`](../user-guide/molecular-dynamics/controls.md) bath and carry the heat of the
 cascade away, as the crystal around it would:
 
 <!-- skip-test -->
@@ -158,7 +158,7 @@ three interstitials around them in red, each two atoms sharing one site.*
 ## See also
 
 - [Wigner–Seitz analysis](../user-guide/analysis/wigner-seitz.md).
-- [Molecular dynamics](../user-guide/simulation/dynamics.md).
-- [Adaptive time step](../user-guide/simulation/adaptive-timestep.md),
-  [Groups and controls](../user-guide/simulation/controls.md) and
-  [On the GPU](../user-guide/simulation/gpu.md).
+- [Molecular dynamics](../user-guide/molecular-dynamics/running.md).
+- [Adaptive time step](../user-guide/molecular-dynamics/adaptive-timestep.md),
+  [Groups and controls](../user-guide/molecular-dynamics/controls.md) and
+  [On the GPU](../user-guide/molecular-dynamics/gpu.md).

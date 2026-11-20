@@ -231,53 +231,53 @@ nav:
               - Reductions: user-guide/analysis/reduce.md
       - Simulation:
           - Calculators:
-              - The calculator interface: user-guide/simulation/calculators.md
-              - EAM: user-guide/simulation/eam.md
-              - MEAM: user-guide/simulation/meam.md
-              - ADP: user-guide/simulation/adp.md
-              - Tersoff: user-guide/simulation/tersoff.md
-              - Stillinger–Weber: user-guide/simulation/stillinger-weber.md
-              - Lennard-Jones and Morse: user-guide/simulation/pair-potentials.md
-              - NEP: user-guide/simulation/nep.md
-              - LAMMPS: user-guide/simulation/lammps.md
-              - VASP: user-guide/simulation/vasp.md
+              - The calculator interface: user-guide/potentials/calculators.md
+              - EAM: user-guide/potentials/eam.md
+              - MEAM: user-guide/potentials/meam.md
+              - ADP: user-guide/potentials/adp.md
+              - Tersoff: user-guide/potentials/tersoff.md
+              - Stillinger–Weber: user-guide/potentials/stillinger-weber.md
+              - Lennard-Jones and Morse: user-guide/potentials/pair-potentials.md
+              - NEP: user-guide/potentials/nep.md
+              - LAMMPS: user-guide/potentials/lammps.md
+              - VASP: user-guide/potentials/vasp.md
           - Relaxation:
-              - Energy minimization: user-guide/simulation/minimize.md
-              - Defect energies: user-guide/simulation/defect-energies.md
+              - Energy minimization: user-guide/properties/minimize.md
+              - Defect energies: user-guide/properties/defect-energies.md
           - Molecular dynamics:
-              - Molecular dynamics: user-guide/simulation/dynamics.md
-              - On the GPU: user-guide/simulation/gpu.md
-              - Groups and controls: user-guide/simulation/controls.md
-              - Adaptive time step: user-guide/simulation/adaptive-timestep.md
-              - Switching between potentials: user-guide/simulation/switching.md
+              - Molecular dynamics: user-guide/molecular-dynamics/running.md
+              - On the GPU: user-guide/molecular-dynamics/gpu.md
+              - Groups and controls: user-guide/molecular-dynamics/controls.md
+              - Adaptive time step: user-guide/molecular-dynamics/adaptive-timestep.md
+              - Switching between potentials: user-guide/molecular-dynamics/switching.md
           - Mechanical loading:
-              - Deformation: user-guide/simulation/deformation.md
-              - Indentation: user-guide/simulation/indentation.md
+              - Deformation: user-guide/molecular-dynamics/deformation.md
+              - Indentation: user-guide/molecular-dynamics/indentation.md
           - Shock compression:
-              - Walls: user-guide/simulation/walls.md
-              - Hugoniostat: user-guide/simulation/hugoniostat.md
-              - Multiscale shock technique: user-guide/simulation/msst.md
+              - Walls: user-guide/molecular-dynamics/walls.md
+              - Hugoniostat: user-guide/molecular-dynamics/hugoniostat.md
+              - Multiscale shock technique: user-guide/molecular-dynamics/msst.md
           - Lattice dynamics:
-              - Elastic constants: user-guide/simulation/elastic-constants.md
-              - Elastic constants at finite temperature: user-guide/simulation/thermal-elastic.md
-              - Elastic constants from molecular dynamics: user-guide/simulation/md-elastic.md
-              - Phonons: user-guide/simulation/phonons.md
-              - Force constants: user-guide/simulation/force-constants.md
-              - Bond stiffness: user-guide/simulation/bond-stiffness.md
-              - Phonons at finite temperature: user-guide/simulation/thermal-phonons.md
-              - Quasi-harmonic approximation: user-guide/simulation/quasi-harmonic.md
-              - Sheets: user-guide/simulation/sheets.md
+              - Elastic constants: user-guide/properties/elastic-constants.md
+              - Elastic constants at finite temperature: user-guide/properties/thermal-elastic.md
+              - Elastic constants from molecular dynamics: user-guide/properties/md-elastic.md
+              - Phonons: user-guide/properties/phonons.md
+              - Force constants: user-guide/properties/force-constants.md
+              - Bond stiffness: user-guide/properties/bond-stiffness.md
+              - Phonons at finite temperature: user-guide/properties/thermal-phonons.md
+              - Quasi-harmonic approximation: user-guide/properties/quasi-harmonic.md
+              - Sheets: user-guide/properties/sheets.md
           - Thermal conductivity:
-              - From phonons: user-guide/simulation/thermal-conductivity.md
-              - Green–Kubo: user-guide/simulation/green-kubo.md
-              - HNEMD: user-guide/simulation/hnemd.md
-              - NEMD: user-guide/simulation/nemd.md
+              - From phonons: user-guide/properties/thermal-conductivity.md
+              - Green–Kubo: user-guide/properties/green-kubo.md
+              - HNEMD: user-guide/properties/hnemd.md
+              - NEMD: user-guide/properties/nemd.md
           - Thermodynamics:
-              - Free energy: user-guide/simulation/free-energy.md
-              - Melting point: user-guide/simulation/melting-point.md
-              - Phase diagrams of two elements: user-guide/simulation/phase-diagram.md
-              - Pressure-temperature diagrams: user-guide/simulation/pressure-temperature.md
-              - Stacking faults at finite temperature: user-guide/simulation/stacking-fault-temperature.md
+              - Free energy: user-guide/properties/free-energy.md
+              - Melting point: user-guide/properties/melting-point.md
+              - Phase diagrams of two elements: user-guide/properties/phase-diagram.md
+              - Pressure-temperature diagrams: user-guide/properties/pressure-temperature.md
+              - Stacking faults at finite temperature: user-guide/properties/stacking-fault-temperature.md
       - MLIP:
           - Training sets from VASP: user-guide/mlip/vasp.md
           - SOAP descriptors: user-guide/mlip/soap.md

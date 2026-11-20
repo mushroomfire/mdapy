@@ -36,7 +36,7 @@ same way.
 ## The boundaries settle
 
 Minimizing and a short run at 300 K bond the atoms at the boundaries where they can reach
-each other, here with a [NEP](../user-guide/simulation/nep.md) model of carbon trained with
+each other, here with a [NEP](../user-guide/potentials/nep.md) model of carbon trained with
 TorchNEP on the GAP-2017 data. The box follows the sheet with `barostat="xy"`.
 
 !!! note "Cite the model and the data"
@@ -118,4 +118,4 @@ the grains stay whole. Right: the rings up to 20 atoms, those of 10 or more in o
 Pentagons, heptagons and rings of up to nine atoms form where the boundaries closed; with
 this potential they closed whole, leaving no larger ring.*
 
-The elastic constants and phonons of a perfect sheet are on [Sheets](../user-guide/simulation/sheets.md).
+The elastic constants and phonons of a perfect sheet are on [Sheets](../user-guide/properties/sheets.md).

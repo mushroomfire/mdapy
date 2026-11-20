@@ -186,9 +186,9 @@ From `mdapy.build`.
 | `potential_tool.PCA`, `fps_sample` | `principal_components`, `farthest_point_sampling`, from `mdapy.mlip` |
 | `outcar2xyz(...)` | `write("train.xyz", read_trajectory("OUTCAR", "outcar"))` |
 
-See [Calculators](../user-guide/simulation/calculators.md),
-[Minimization](../user-guide/simulation/minimize.md) and
-[Molecular dynamics](../user-guide/simulation/dynamics.md).
+See [Calculators](../user-guide/potentials/calculators.md),
+[Minimization](../user-guide/properties/minimize.md) and
+[Molecular dynamics](../user-guide/molecular-dynamics/running.md).
 
 ## Pictures and figures
 
@@ -245,7 +245,7 @@ application with fuller features is developed separately.
 and `BondStiffness(system, calculator, ...)` is `mdapy.lattice_dynamics.bond_stiffness`,
 which takes the cells and frames of any number of crystals, from any calculator or from
 DFT, and returns a `BondStiffness` that gives the force constants of any structure (see
-[Bond stiffness](../user-guide/simulation/bond-stiffness.md)).
+[Bond stiffness](../user-guide/properties/bond-stiffness.md)).
 
 **`set_pka`** is a few lines of NumPy, in the example of
 [a collision cascade](../examples/radiation-cascade.md#the-knock-on-atom) to copy.

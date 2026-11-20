@@ -73,7 +73,7 @@ opens its pages.
 
 [<b>Neighbor lists</b><span>built once, shared by analyses and calculators</span>](basics/neighbor.md){ .feature-card }
 
-[<b>Calculators</b><span>native EAM · MEAM · Tersoff · NEP and more; LAMMPS · ASE · VASP</span>](user-guide/simulation/calculators.md){ .feature-card }
+[<b>Calculators</b><span>native EAM · MEAM · Tersoff · NEP and more; LAMMPS · ASE · VASP</span>](user-guide/potentials/calculators.md){ .feature-card }
 
 </div>
 </div>
@@ -93,13 +93,13 @@ opens its pages.
 <p class="feature-label">Simulate</p>
 <div class="feature-cells feature-chain" markdown>
 
-[<b>Relaxation and dynamics</b><span>minimization · molecular dynamics · defect energies</span>](user-guide/simulation/minimize.md){ .feature-card }
+[<b>Relaxation and dynamics</b><span>minimization · molecular dynamics · defect energies</span>](user-guide/properties/minimize.md){ .feature-card }
 
 <span class="feature-arrow" aria-hidden="true">→</span>
 
-[<b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span>](user-guide/simulation/elastic-constants.md){ .feature-card }
+[<b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span>](user-guide/properties/elastic-constants.md){ .feature-card }
 
-[<b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span>](user-guide/simulation/free-energy.md){ .feature-card }
+[<b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span>](user-guide/properties/free-energy.md){ .feature-card }
 
 </div>
 </div>

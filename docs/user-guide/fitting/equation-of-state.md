@@ -115,5 +115,5 @@ squares are linear; it also gives the first guess of the other forms, which
 ## See also
 
 - [Curve fitting](curve-fitting.md).
-- [The quasi-harmonic approximation](../simulation/quasi-harmonic.md), which
+- [The quasi-harmonic approximation](../properties/quasi-harmonic.md), which
   fits the free energy at each temperature in the same way.

@@ -60,7 +60,7 @@ alone; those of other models frame by frame.
 
 | Function | Parameters |
 |---|---|
-| `structure_descriptors(frames, calculator)` | the frames, and anything with `descriptors(system)`, such as [NEP](../simulation/nep.md) or [SOAP](soap.md) |
+| `structure_descriptors(frames, calculator)` | the frames, and anything with `descriptors(system)`, such as [NEP](../potentials/nep.md) or [SOAP](soap.md) |
 | `farthest_point_sampling(points, count, *, start=0, selected=None)` | (M, D) candidates, the number chosen, the first one chosen (`None`: the farthest from `selected`), and (K, D) points chosen before |
 | `principal_components(points, count=2)` | (M, D) points, two or more, and the number of components kept, at most D |
 

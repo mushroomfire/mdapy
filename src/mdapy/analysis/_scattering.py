@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from mdapy import _core
 from mdapy.analysis._distribution import (
     METHODS,
     RadialDistributionFunction,
@@ -19,9 +20,12 @@ from mdapy.analysis._distribution import (
 )
 from mdapy.core.result import Result
 from mdapy.core.system import System
+from mdapy.core.threads import _native_token
 from mdapy.elements import neutron_scattering_lengths, xray_form_factors
 from mdapy.errors import InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
+
+_native = _core.analysis
 
 #: What scatters: X-rays, by the form factors of the atoms, or neutrons, by
 #: the coherent scattering lengths of their nuclei.
@@ -261,4 +265,189 @@ class TotalScattering:
             weights=weights,
             radiation=self.radiation,
             density=density,
+        )
+
+
+@dataclass(frozen=True)
+class PowderDiffractionResult(Result):
+    """A powder diffraction pattern.
+
+    Attributes
+    ----------
+    two_theta : numpy.ndarray
+        (bins,) float64 centers of the bins of the angle 2θ in degrees.
+    intensity : numpy.ndarray
+        (bins,) float64 intensity of each bin, the squared amplitudes of the
+        wave vectors in it per atom, in electrons² for X-rays and fm² for
+        neutrons, with the factors asked for; broadened when asked.
+    wavelength : float64
+        Wavelength in Å.
+    radiation : str
+        ``"xray"`` or ``"neutron"``.
+    """
+
+    two_theta: np.ndarray
+    intensity: np.ndarray
+    wavelength: float
+    radiation: str
+
+
+class PowderDiffraction:
+    """The powder diffraction pattern of a periodic system: the scattering of
+    the wave vectors of its box, binned by the angle 2θ.
+
+    Parameters
+    ----------
+    wavelength : float64, optional
+        Wavelength in Å. Default 1.5406, Cu Kα1.
+    two_theta : tuple of float64, optional
+        Range of 2θ in degrees, ``(low, high)``, within 0 to 180. Default
+        (10, 90).
+    bins : int32, optional
+        Number of bins of 2θ. Default 1600.
+    radiation : {"xray", "neutron"}, optional
+        X-rays, weighted by the form factors of neutral atoms, or neutrons,
+        by the coherent scattering lengths. Default "xray".
+    lorentz_polarization : bool, optional
+        Whether to multiply by the Lorentz-polarization factor of a powder in
+        an unpolarized beam, (1 + cos² 2θ) / (sin²θ cos θ), for neutrons
+        without the polarization, 1 / (sin²θ cos θ). Default True.
+    debye_waller : float64, optional
+        An isotropic displacement factor B in Å², which multiplies by
+        exp(-2B (sin θ / λ)²), for a crystal without thermal motion; the
+        atoms of molecular dynamics carry their own. Default None.
+    broadening : float64, optional
+        Full width at half maximum of a Gaussian in degrees of 2θ that each
+        bin is spread over. Default None, none.
+    weights : dict of str to float64, optional
+        Weights that replace those of the radiation for some elements.
+    """
+
+    def __init__(
+        self,
+        wavelength: float = 1.5406,
+        two_theta: tuple[float, float] = (10.0, 90.0),
+        bins: int = 1600,
+        *,
+        radiation: str = "xray",
+        lorentz_polarization: bool = True,
+        debye_waller: float | None = None,
+        broadening: float | None = None,
+        weights: Mapping[str, float] | None = None,
+    ):
+        if not wavelength > 0:
+            raise InvalidParameter(f"wavelength must be positive, not {wavelength!r}")
+        low, high = (float(v) for v in two_theta)
+        if not 0.0 <= low < high <= 180.0:
+            raise InvalidParameter(
+                "two_theta must be increasing, within 0 to 180 degrees"
+            )
+        if bins < 1:
+            raise InvalidParameter(f"bins must be at least 1, not {bins!r}")
+        if radiation not in RADIATIONS:
+            raise InvalidParameter(
+                f"radiation must be one of {RADIATIONS}, not {radiation!r}"
+            )
+        if debye_waller is not None and not debye_waller >= 0:
+            raise InvalidParameter("debye_waller must be at least 0")
+        if broadening is not None and not broadening > 0:
+            raise InvalidParameter("broadening must be positive")
+        q_max = 4 * np.pi * np.sin(np.radians(high) / 2) / wavelength
+        if radiation == "xray" and q_max > 4 * np.pi * 6:
+            raise InvalidParameter("the X-ray form factors hold up to q = 75.40 1/Å")
+        self.wavelength = float(wavelength)
+        self.two_theta = (low, high)
+        self.bins = int(bins)
+        self.radiation = radiation
+        self.lorentz_polarization = bool(lorentz_polarization)
+        self.debye_waller = None if debye_waller is None else float(debye_waller)
+        self.broadening = None if broadening is None else float(broadening)
+        self.weights = dict(weights or {})
+        self.__q_max = q_max
+
+    def compute(
+        self,
+        system: System,
+        *,
+        progress: Any = None,
+        cancel: Any = None,
+    ) -> PowderDiffractionResult:
+        """The pattern of a system.
+
+        Parameters
+        ----------
+        system : System
+            The atoms, with an ``element`` column, in a box periodic in
+            every direction.
+
+        Returns
+        -------
+        PowderDiffractionResult
+            The pattern.
+
+        Raises
+        ------
+        MissingProperty
+            Without an ``element`` column.
+        InvalidParameter
+            For an element without a weight, or a box that is not periodic.
+        """
+        if "element" not in system.table.columns:
+            raise MissingProperty("powder diffraction needs an element column")
+        box = system.box
+        if not np.all(box.pbc):
+            raise InvalidParameter(
+                "powder diffraction needs a box periodic in every direction"
+            )
+        symbols = system["element"]
+        names = sorted(set(symbols.tolist()))
+        index = np.searchsorted(np.array(names), symbols).astype(np.int32)
+        lengths, rho_re, rho_im = _native.wave_densities(
+            np.ascontiguousarray(system["positions"]),
+            np.ascontiguousarray(box.matrix),
+            index,
+            len(names),
+            self.__q_max,
+            progress,
+            _native_token(cancel),
+        )
+        # the weight of each element at the length of each vector
+        weights = np.empty((len(names), len(lengths)))
+        for t, e in enumerate(names):
+            if e in self.weights:
+                weights[t] = float(self.weights[e])
+            elif self.radiation == "xray":
+                weights[t] = xray_form_factors([e], lengths)[0]
+            else:
+                weights[t] = float(neutron_scattering_lengths([e])[0])
+        real = np.einsum("tv,vt->v", weights, rho_re)
+        imaginary = np.einsum("tv,vt->v", weights, rho_im)
+        # per atom, each vector and its opposite
+        intensity_v = 2.0 * (real * real + imaginary * imaginary) / len(system)
+        theta = np.arcsin(np.clip(lengths * self.wavelength / (4 * np.pi), 0.0, 1.0))
+        if self.lorentz_polarization:
+            factor = 1.0 / (np.sin(theta) ** 2 * np.cos(theta))
+            if self.radiation == "xray":
+                factor *= 1.0 + np.cos(2 * theta) ** 2
+            intensity_v = intensity_v * factor
+        if self.debye_waller is not None:
+            s = lengths / (4 * np.pi)
+            intensity_v = intensity_v * np.exp(-2 * self.debye_waller * s**2)
+        low, high = self.two_theta
+        edges = np.linspace(low, high, self.bins + 1)
+        centers = 0.5 * (edges[1:] + edges[:-1])
+        angle = np.degrees(2 * theta)
+        which = np.searchsorted(edges, angle, side="right") - 1
+        inside = (which >= 0) & (which < self.bins)
+        intensity = np.bincount(which[inside], intensity_v[inside], self.bins)
+        if self.broadening is not None:
+            sigma = self.broadening / (2 * np.sqrt(2 * np.log(2)))
+            kernel = np.exp(-0.5 * ((centers[:, None] - centers[None, :]) / sigma) ** 2)
+            kernel /= sigma * np.sqrt(2 * np.pi)
+            intensity = kernel @ intensity * (edges[1] - edges[0])
+        return PowderDiffractionResult(
+            two_theta=centers,
+            intensity=intensity,
+            wavelength=self.wavelength,
+            radiation=self.radiation,
         )

@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 
 from mdapy.analysis import (
+    PowderDiffraction,
     RadialDistributionFunction,
     StructureFactor,
     TotalScattering,
@@ -185,3 +186,113 @@ def test_errors():
     flat = system.with_box(Box(system.box.matrix, pbc=(True, True, False)))
     with pytest.raises(InvalidParameter):
         TotalScattering("xray", 5.0).compute(flat)
+
+
+def test_the_reflections_of_copper():
+    """In fcc copper every allowed reflection has all atoms in phase: its
+    intensity per atom is m N f(q)² Lp(θ), m the multiplicity."""
+    a, n, wavelength = 3.615, 4, 1.5406
+    copper = build_crystal("fcc", a, elements="Cu", repeat=(n, n, n))
+    result = PowderDiffraction(wavelength, (30, 100), 1400).compute(copper)
+    for hkl, multiplicity in (((1, 1, 1), 8), ((2, 0, 0), 6), ((2, 2, 0), 12),
+                              ((3, 1, 1), 24), ((2, 2, 2), 8)):  # fmt: skip
+        q = 2 * np.pi * np.sqrt(sum(h * h for h in hkl)) / a
+        theta = np.arcsin(q * wavelength / (4 * np.pi))
+        lp = (1 + np.cos(2 * theta) ** 2) / (np.sin(theta) ** 2 * np.cos(theta))
+        expected = (
+            multiplicity * len(copper) * xray_form_factors(["Cu"], q)[0] ** 2 * lp
+        )
+        k = np.searchsorted(np.linspace(30, 100, 1401), np.degrees(2 * theta)) - 1
+        assert result.intensity[k] == pytest.approx(expected, rel=1e-10)
+    # nothing between the reflections of a perfect crystal
+    assert np.sort(result.intensity)[-6] < 1e-12 * result.intensity.max()
+
+
+@pytest.mark.parametrize("radiation", ["xray", "neutron"])
+def test_every_wave_vector_at_its_angle(radiation):
+    system = alloy()
+    wavelength, low, high, bins = 1.2, 20.0, 110.0, 300
+    result = PowderDiffraction(wavelength, (low, high), bins, radiation=radiation,
+                               debye_waller=0.4).compute(system)  # fmt: skip
+    # every vector of the box in NumPy, each sign
+    reciprocal = 2 * np.pi * np.linalg.inv(system.box.matrix).T
+    q_max = 4 * np.pi * np.sin(np.radians(high) / 2) / wavelength
+    n_max = (q_max / np.linalg.norm(reciprocal, axis=1)).astype(int) + 1
+    hkl = np.stack(
+        np.meshgrid(*(np.arange(-m, m + 1) for m in n_max), indexing="ij"), -1
+    ).reshape(-1, 3)
+    vectors = hkl @ reciprocal
+    size = np.linalg.norm(vectors, axis=1)
+    keep = (size > 0) & (size <= q_max)
+    vectors, size = vectors[keep], size[keep]
+    symbols = system["element"]
+    amplitude = 0
+    for e in ("Cu", "Ni"):
+        if radiation == "xray":
+            w = xray_form_factors([e], size)[0]
+        else:
+            w = neutron_scattering_lengths([e])[0]
+        amplitude = amplitude + w * np.exp(
+            1j * vectors @ system["positions"][symbols == e].T
+        ).sum(axis=1)
+    theta = np.arcsin(size * wavelength / (4 * np.pi))
+    lp = 1 / (np.sin(theta) ** 2 * np.cos(theta))
+    if radiation == "xray":
+        lp = lp * (1 + np.cos(2 * theta) ** 2)
+    each = (
+        np.abs(amplitude) ** 2
+        / len(system)
+        * lp
+        * np.exp(-0.8 * (size / (4 * np.pi)) ** 2)
+    )
+    edges = np.linspace(low, high, bins + 1)
+    which = np.searchsorted(edges, np.degrees(2 * theta), side="right") - 1
+    inside = (which >= 0) & (which < bins)
+    expected = np.bincount(which[inside], each[inside], bins)
+    np.testing.assert_allclose(
+        result.intensity, expected, rtol=1e-10, atol=1e-9 * expected.max()
+    )
+    assert result.radiation == radiation and result.wavelength == wavelength
+    np.testing.assert_allclose(result.two_theta, 0.5 * (edges[1:] + edges[:-1]))
+
+
+def test_broadening_keeps_the_intensity():
+    copper = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
+    sharp = PowderDiffraction(two_theta=(20, 120), bins=2000).compute(copper)
+    wide = PowderDiffraction(two_theta=(20, 120), bins=2000, broadening=0.5).compute(
+        copper
+    )
+    step = sharp.two_theta[1] - sharp.two_theta[0]
+    assert wide.intensity.sum() * step == pytest.approx(
+        sharp.intensity.sum() * step, rel=1e-6
+    )
+    # each peak a Gaussian of the width asked for
+    k = np.argmax(wide.intensity)
+    half = wide.two_theta[wide.intensity > wide.intensity[k] / 2]
+    assert half[-1] - half[0] == pytest.approx(0.5, abs=2 * step)
+    assert not np.any(
+        PowderDiffraction(lorentz_polarization=False).compute(copper).intensity < 0
+    )
+
+
+def test_powder_errors():
+    system = alloy()
+    for bad in (
+        {"wavelength": 0.0},
+        {"two_theta": (90, 30)},
+        {"two_theta": (10, 190)},
+        {"bins": 0},
+        {"radiation": "electron"},
+        {"debye_waller": -1.0},
+        {"broadening": 0.0},
+        {"wavelength": 0.1, "two_theta": (10, 170)},  # beyond the form factors
+    ):
+        with pytest.raises(InvalidParameter):
+            PowderDiffraction(**bad)
+    with pytest.raises(MissingProperty, match="element"):
+        PowderDiffraction().compute(
+            System(table=system.table.drop("element"), box=system.box)
+        )
+    flat = system.with_box(Box(system.box.matrix, pbc=(True, True, False)))
+    with pytest.raises(InvalidParameter, match="periodic"):
+        PowderDiffraction().compute(flat)

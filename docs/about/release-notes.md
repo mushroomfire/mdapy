@@ -1,5 +1,15 @@
 # Release notes
 
+## 2.2.0rc2
+
+The second release candidate of MDAPY 2.2: fixes since 2.2.0rc1. The API of 2.2.0rc1
+holds. Until 2.2.0 only fixes and documentation follow.
+
+- With an `Indenter`, MDAPY's own dynamics on the processor took the energy of the last
+  indenter for the virial of the atoms, so that the pressure and the stress of `thermo`,
+  and a barostat, were wrong while an indenter was there; on the GPU and in LAMMPS they
+  were right. See [Indentation](../user-guide/simulation/indentation.md).
+
 ## 2.2.0rc1
 
 The release candidate of MDAPY 2.2: its own molecular dynamics engine, on the processor

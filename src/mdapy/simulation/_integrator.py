@@ -402,9 +402,9 @@ class _HostAtoms:
         self.sums = [forces[mask].sum(axis=0) for mask in self.watched]
         self.indented = []
         for spec, at in zip(self.indenters, self.indenter_at):
-            push, work, on = _indented(self.__x, box.matrix, box.pbc, spec, at)
+            push, pushed, on = _indented(self.__x, box.matrix, box.pbc, spec, at)
             forces = forces + push
-            self.indented.append((work, on))
+            self.indented.append((pushed, on))
         if self.added is not None:
             forces = forces + self.added
         self.__forces = self.__restrict(forces)

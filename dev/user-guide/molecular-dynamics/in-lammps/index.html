@@ -10317,9 +10317,10 @@ Python module, installed as the
 type and the command-line arguments of LAMMPS, such as those of Kokkos. The
 box may have any orientation and need not be periodic: LAMMPS gets it rotated
 into its own form, its non-periodic directions shrink-wrapped but never
-smaller than the box of <code>system</code>, and everything comes back in the
+smaller than the box of <code>system</code> (boundary <code>m</code>), and everything comes back in the
 orientation of <code>system</code>. MDAPY's own dynamics works in the same form of the
-box.</p>
+box, and gives the box grown as LAMMPS grows it; LAMMPS grows it when it builds its
+neighbor lists again, MDAPY at each record.</p>
 <h2 id="lammps-commands">LAMMPS commands<a class="headerlink" href="#lammps-commands" title="Permanent link">&para;</a></h2>
 <p><code>command(commands)</code> runs any LAMMPS commands between runs, one or several lines, and
 <code>lammps</code> is the LAMMPS instance itself, for what MDAPY does not wrap. Fixes and computes

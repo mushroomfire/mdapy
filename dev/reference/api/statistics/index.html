@@ -10381,7 +10381,7 @@
 
 
 <a href="#mdapy.analysis.SpatialBinning" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SpatialBinning</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">'mean'</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SpatialBinning</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="n">bins</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s1">'mean'</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -10475,6 +10475,26 @@ GPa, positive under tension). Default mean.</p>
             </td>
             <td>
                   <code>&#39;mean&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>bounds</code>
+            </td>
+            <td>
+                  <code>sequence of (float64, float64) or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For each axis, the range binned, (lo, hi) in Å along its box vector
+from (0, 0, 0), the coordinate itself for a box vector along x, y or
+z; or None for the box. Bins that stay where they are as the box
+changes, as that of molecular dynamics along a direction that is not
+periodic does. Default None: the box along every axis.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
             </td>
           </tr>
       </tbody>
@@ -10661,8 +10681,8 @@ empty bin, and for the temperature of a bin of fewer than two atoms.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>For each axis, (n,) float64 centers of its bins in Å along its box vector,
-from the origin of the box.</p>
+                <p>For each axis, (n,) float64 centers of its bins in Å along its box vector:
+from the origin of the box, or with bounds from (0, 0, 0).</p>
               </div>
             </td>
           </tr>

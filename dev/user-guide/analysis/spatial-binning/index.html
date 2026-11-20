@@ -5234,6 +5234,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fixed-bins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed bins
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10178,6 +10189,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#fixed-bins" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fixed bins
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#parameters" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10370,6 +10392,21 @@ about the center of mass of each slab both halves are at 300 K.</em></p>
 ("atomic_virials",)).attach(system)</code>, and the velocities from the system; a slab of
 atoms of several velocities, such as one across a shock front, keeps their spread in
 its temperature.</p>
+<h2 id="fixed-bins">Fixed bins<a class="headerlink" href="#fixed-bins" title="Permanent link">&para;</a></h2>
+<p>The bins divide the box, so they change with it: along a direction that is not
+periodic, the box of <a href="../../molecular-dynamics/running/#parameters">molecular dynamics</a>
+grows with the atoms that leave it, as when a shock reaches a free surface and the
+crystal releases or spalls, and the bins of each frame differ. <code>bounds</code> fixes the range
+of each axis instead, in Å from (0, 0, 0) along its
+box vector, the coordinate itself for a box vector along x, y or z, so that the bins of
+every frame are the same, wherever the box is; atoms outside the range are left out.
+Slabs of 4 Å from z = −20 to 120 Å, beyond the copper above, which is 87 Å high:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">fixed</span> <span class="o">=</span> <span class="n">SpatialBinning</span><span class="p">(</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="s2">"velocities"</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">"temperature"</span><span class="p">,</span> <span class="n">bounds</span><span class="o">=</span><span class="p">[(</span><span class="o">-</span><span class="mf">20.0</span><span class="p">,</span> <span class="mf">120.0</span><span class="p">)]</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">)</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">moving</span><span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">fixed</span><span class="o">.</span><span class="n">centers</span><span class="p">[</span><span class="mi">0</span><span class="p">][:</span><span class="mi">3</span><span class="p">]</span>  <span class="c1"># -18, -14, -10 Å</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">fixed</span><span class="o">.</span><span class="n">counts</span><span class="p">[:</span><span class="mi">5</span><span class="p">]</span>  <span class="c1"># no atoms below the copper</span>
+</code></pre></div>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -10410,13 +10447,20 @@ its temperature.</p>
 <td></td>
 <td>one of <code>REDUCTIONS</code>: <code>"mean"</code>, <code>"sum"</code>, <code>"density"</code> (the sum per Å³), <code>"min"</code>, <code>"max"</code>, <code>"mass_mean"</code> (weighted by the masses), <code>"temperature"</code> (of the velocities, about the center of mass of each bin) or <code>"stress"</code> (of the virials of each atom with the velocities about the center of mass, in GPa, positive under tension)</td>
 </tr>
+<tr>
+<td><code>bounds</code></td>
+<td>sequence of (float64, float64) or <code>None</code></td>
+<td><code>None</code></td>
+<td>Å</td>
+<td>for each axis, the range binned, (lo, hi) along its box vector from (0, 0, 0), or <code>None</code> for the box: see <a href="#fixed-bins">Fixed bins</a></td>
+</tr>
 </tbody>
 </table>
 <p><code>compute(system)</code> takes the system. Along periodic vectors the atoms are
 wrapped into the box first; along the others, those outside the box are
-left out. The atoms of a run of molecular dynamics may leave its box along a direction
-that is not periodic, as when a free surface expands: give the box room along it from
-the start, so that the bins hold every atom.</p>
+left out. With <code>bounds</code>, the atoms outside the range of an axis are left out, and the
+volume of a bin, for <code>"density"</code> and <code>"stress"</code>, is that of the box over the bins times
+the part of each box vector its range covers.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>SpatialBinningResult</code>:</p>
 <table>
@@ -10441,7 +10485,7 @@ the start, so that the bins hold every atom.</p>
 <tr>
 <td><code>centers</code></td>
 <td>tuple of (n,) float64</td>
-<td>for each axis, the centers of its bins in Å along its box vector, from the origin of the box</td>
+<td>for each axis, the centers of its bins in Å along its box vector, from the origin of the box, or with <code>bounds</code> from (0, 0, 0)</td>
 </tr>
 </tbody>
 </table>
@@ -10450,7 +10494,8 @@ along the first axis and <code>j</code> along the second.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p>The constructor raises <code>InvalidParameter</code> for no axis or more than three,
 an unknown or repeated axis, a number of bins that is not a positive
-integer or not one per axis, and an unknown reduction; <code>compute</code> raises it
+integer or not one per axis, an unknown reduction, and <code>bounds</code> that are not one
+pair of finite numbers, lo below hi, or <code>None</code> for each axis; <code>compute</code> raises it
 for a property the system does not have, a temperature of a column that is not (N, 3)
 and a stress of one that is not (N, 3, 3), and <code>MissingProperty</code> for the moving
 reductions of a system without masses, a <code>mass</code> or an <code>element</code> column, and a stress

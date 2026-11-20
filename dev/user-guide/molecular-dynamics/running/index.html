@@ -10299,6 +10299,13 @@ these, are for LAMMPS.</p>
 <p>A <code>movable</code> column, (N, 3) bool as VASP's selective dynamics, keeps atoms
 still along the directions where it is False, in MDAPY's dynamics only; the
 temperature then counts the directions in which the atoms move.</p>
+<p>Along a box vector that is not periodic, atoms may leave the box, as a free surface
+that expands or a cluster that evaporates; the dynamics keeps them. The box that a run
+gives, in <code>system</code> and in the frames, grows to hold them, never smaller than the box
+of <code>system</code>, with a room of 1e-4 of the vector, as LAMMPS's boundary <code>m</code> grows it; the
+<code>volume</code> and the <code>pressure</code> of <code>thermo</code> are those of that box. Bins that stay where
+they are, whatever the box, are <a href="../../analysis/spatial-binning/#fixed-bins"><code>SpatialBinning</code></a>'s
+<code>bounds</code>.</p>
 <h2 id="parameters">Parameters<a class="headerlink" href="#parameters" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

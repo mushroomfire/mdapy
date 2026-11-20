@@ -31,7 +31,7 @@ also meets its own images. Compute the formation energy in cells of 2 to 5
 cubic cells along each side, until it no longer changes:
 
 ```python
-from mdapy.simulation import vacancy_formation_energy
+from mdapy.properties.defects import vacancy_formation_energy
 
 for n in (2, 3, 4, 5):
     crystal = build_crystal("fcc", a, elements="Cu", repeat=(n, n, n))
@@ -54,7 +54,7 @@ For each face, orient the crystal with the face normal to z, about 24 Å
 thick and 8 Å wide, and open it with vacuum along z:
 
 ```python
-from mdapy.simulation import surface_energy
+from mdapy.properties.defects import surface_energy
 
 faces = {
     "(100)": [(1, 0, 0), (0, 1, 0), (0, 0, 1)],
@@ -94,7 +94,7 @@ whose energy cancels in the difference, for 9 to 36 (111) planes:
 
 ```python
 import mdapy as mp
-from mdapy.simulation import stacking_fault_energy
+from mdapy.properties.defects import stacking_fault_energy
 
 partial_period = [a * np.sqrt(6) / 2, 0, 0]  # [11-2]
 for n in (3, 6, 9, 12):

@@ -39,7 +39,7 @@ and reduce it to its primitive cell:
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import NEP
-from mdapy.lattice_dynamics import phonons, primitive_cell
+from mdapy.properties.phonons import phonons, primitive_cell
 from mdapy.simulation import minimize
 
 nep = NEP("nep.txt")
@@ -120,7 +120,7 @@ frequencies compare point by point; the DFT lines are stretched onto the
 lines of the model, whose lattice constants differ a little.
 
 ```python
-from mdapy.lattice_dynamics import read_band_structure
+from mdapy.properties.phonons import read_band_structure
 
 dft = {element: read_band_structure(f"{element}.band.dat") for element in paths}
 
@@ -204,7 +204,7 @@ three equivalent directions:
 
 ```python
 from mdapy.io import read
-from mdapy.lattice_dynamics import ElasticResult, elastic_constants
+from mdapy.properties.elastic import ElasticResult, elastic_constants
 
 start = read("SQS.xyz")
 sqs = minimize(
@@ -242,7 +242,8 @@ about 10 minutes on ten cores.
 
 <!-- skip-test -->
 ```python
-from mdapy.lattice_dynamics import quasi_harmonic, thermal_elastic_constants
+from mdapy.properties.elastic import thermal_elastic_constants
+from mdapy.properties.thermodynamics import quasi_harmonic
 
 temperatures = np.arange(0, 1001, 100.0)
 qha = quasi_harmonic(sqs, nep, temperatures, supercell=1, mesh=4)
@@ -276,7 +277,7 @@ about 10 minutes on one GPU:
 <!-- skip-test -->
 ```python
 from mdapy.calculators import LAMMPS
-from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.properties.elastic import md_elastic_constants
 from mdapy.transform import replicate
 
 gpu = LAMMPS(

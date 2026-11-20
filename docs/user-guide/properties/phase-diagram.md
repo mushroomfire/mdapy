@@ -1,6 +1,6 @@
 # Phase diagrams of two elements
 
-`mdapy.simulation.binary_phase_diagram(phases, temperatures)` gives the phase diagram
+`mdapy.properties.thermodynamics.binary_phase_diagram(phases, temperatures)` gives the phase diagram
 of two elements from the [free energies](free-energy.md) of their phases: at each
 temperature the stable phases at each composition lie on the lower convex hull of the
 free energies.
@@ -11,7 +11,8 @@ import numpy as np
 
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import LAMMPS
-from mdapy.simulation import binary_phase_diagram, free_energy, minimize
+from mdapy.simulation import minimize
+from mdapy.properties.thermodynamics import binary_phase_diagram, free_energy
 
 potential = LAMMPS("pair_style nep\npair_coeff * * nep.txt Cu Ni", ["Cu", "Ni"])
 temperatures = np.arange(900.0, 2101.0, 25.0)

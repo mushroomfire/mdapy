@@ -5,13 +5,13 @@ planes thick, that takes the matter from rest to the velocity of the piston and
 compresses it in one step. When the piston stops, a release wave follows the shock;
 when the shock reaches the free surface, it comes back as another. Where the two
 releases meet, the copper is pulled apart: it spalls. This example drives copper along
-[001] with a moving [wall](../user-guide/molecular-dynamics/walls.md) for 5 ps and
+[001] with a moving [wall](../user-guide/simulation/walls.md) for 5 ps and
 takes the wall away. It follows the waves with the
 [spatial binning of moving atoms](../user-guide/analysis/spatial-binning.md#moving-atoms)
 in [fixed slabs](../user-guide/analysis/spatial-binning.md#fixed-bins), the velocity of
 the free surface as an experiment measures it, and the voids that open with the
 [common neighbor analysis](../user-guide/analysis/cna.md). The molecular dynamics run
-in MDAPY on a [GPU](../user-guide/molecular-dynamics/gpu.md): 320000 atoms, 40 ps of
+in MDAPY on a [GPU](../user-guide/simulation/gpu.md): 320000 atoms, 40 ps of
 shock, release and spall took 4 minutes on one V100.
 
 ## The crystal
@@ -183,7 +183,7 @@ waves crossed, patches of the copper are distorted towards bcc.*
 
 ## See also
 
-- [Walls](../user-guide/molecular-dynamics/walls.md), [Hugoniostat](../user-guide/molecular-dynamics/hugoniostat.md)
-  and [Multiscale shock technique](../user-guide/molecular-dynamics/msst.md).
+- [Walls](../user-guide/simulation/walls.md), [Hugoniostat](../user-guide/simulation/hugoniostat.md)
+  and [Multiscale shock technique](../user-guide/simulation/msst.md).
 - [Spatial binning](../user-guide/analysis/spatial-binning.md) and
   [Common neighbor analysis](../user-guide/analysis/cna.md).

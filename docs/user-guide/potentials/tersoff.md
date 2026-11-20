@@ -19,7 +19,7 @@ The phonons of silicon with the potential, its crystal relaxed:
 
 ```python
 from mdapy.build import build_crystal
-from mdapy.lattice_dynamics import phonons, primitive_cell
+from mdapy.properties.phonons import phonons, primitive_cell
 from mdapy.simulation import minimize
 from mdapy.visualization import plot
 
@@ -67,7 +67,7 @@ and the cutoff $f_C$ falling from 1 to 0 between R − D and R + D.
 |---|---|---|
 | `path` | str or path-like | a `.tersoff` file: for each triplet of elements i, j, k, the 14 numbers m, γ, λ3, c, d, cos θ0, n, β, λ2, B, R, D, λ1, A, over one or more lines |
 | `elements` | sequence of str, or mapping | the elements to use, as the names after the file in `pair_coeff` of LAMMPS; every triplet of them needs an entry. A mapping takes the element of the atoms to a label of the file, as `{"Si": "Si(D)", "C": "C"}` for the labels of `SiCGe.tersoff`. Default every element of the file |
-| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../molecular-dynamics/gpu.md) |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../simulation/gpu.md) |
 | `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |

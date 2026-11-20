@@ -25,7 +25,7 @@ MDAPY's own calculators are [EAM](eam.md), [MEAM](meam.md), [ADP](adp.md),
 and compute them as LAMMPS does, and the machine-learned [NEP](nep.md). Besides,
 [LAMMPS](lammps.md) makes any interaction of LAMMPS a calculator, and
 [VASP](vasp.md) runs VASP for each calculation. Any calculator serves
-[energy minimization](../properties/minimize.md) and [elastic constants](../properties/elastic-constants.md).
+[energy minimization](../simulation/minimize.md) and [elastic constants](../properties/elastic-constants.md).
 
 ## The calculator interface
 

@@ -261,7 +261,7 @@ this process, on all its threads:
 ```python
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import NEP
-from mdapy.lattice_dynamics import elastic_constants
+from mdapy.properties.elastic import elastic_constants
 from mdapy.simulation import minimize
 
 potential = NEP("nep.txt")

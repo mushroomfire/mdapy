@@ -42,7 +42,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 - **All in one.** One package and one `System`, from the first structure through the
   simulation and the analysis to the last picture. MDAPY has its own
-  [molecular dynamics engine](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/), potentials and ray
+  [molecular dynamics engine](https://mushroomfire.github.io/mdapy/user-guide/simulation/), potentials and ray
   tracer, on the processor and on NVIDIA GPUs, so that a study needs no other program.
 - **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
   requirements. Packages such as [matplotlib](https://matplotlib.org) or
@@ -65,9 +65,10 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
   through everything.
-- **Stable.** From 2.0.0 on, code that works keeps working: the API changes only with
-  3.0, a replaced name warns long before it goes, and a result changes only to fix a bug,
-  named in the release notes. See
+- **Stable.** From 2.0.0 on, nothing is taken away: every function, parameter and result
+  stays until 3.0, a name that moves to another module warns two minor releases before
+  its old import goes, and a result changes only to fix a bug, named in the release
+  notes. See
   [Compatibility](https://mushroomfire.github.io/mdapy/about/compatibility/).
 - **Documented.** Every feature has its own page, with an example, its parameters, its
   results and its references, and [lessons](https://mushroomfire.github.io/mdapy/getting-started/learn/table/) lead
@@ -105,7 +106,7 @@ with MolecularDynamics(crystal, copper, timestep=0.002) as md:
     stress = md.thermo["stress"]  # the stress as copper is stretched along x
 ```
 
-See [Molecular dynamics](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/) for what it can do and
+See [Molecular dynamics](https://mushroomfire.github.io/mdapy/user-guide/simulation/) for what it can do and
 where each feature runs.
 
 ## 🧰 What it does
@@ -113,7 +114,7 @@ where each feature runs.
 | Area | What is in it |
 |---|---|
 | [**Build**](https://mushroomfire.github.io/mdapy/user-guide/build/crystals/) | Crystals, polycrystals, alloys, defects and dislocations |
-| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/) | Its own molecular dynamics on the processor and NVIDIA GPUs: ensembles, controls, deformation, indentation and shock |
+| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/simulation/) | Its own molecular dynamics on the processor and NVIDIA GPUs: ensembles, controls, deformation, indentation and shock |
 | [**Potentials**](https://mushroomfire.github.io/mdapy/user-guide/potentials/calculators/) | Native EAM, MEAM, ADP, Tersoff, Stillinger–Weber, Lennard-Jones, Morse and NEP; interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) |
 | [**Properties**](https://mushroomfire.github.io/mdapy/user-guide/properties/elastic-constants/) | Defect energies, elastic constants, phonons, thermal conductivity, free energies, melting points and phase diagrams |
 | [**Analyze**](https://mushroomfire.github.io/mdapy/user-guide/analysis/overview/) | More than 40 analyses of structure, local order, defects and dynamics |

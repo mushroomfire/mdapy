@@ -1,7 +1,7 @@
 # Phonons at finite temperature
 
-`mdapy.lattice_dynamics.thermal_phonons(cell, potential, temperature)` gives the
-phonons of a crystal at a temperature from [molecular dynamics](../molecular-dynamics/running.md): the
+`mdapy.properties.phonons.thermal_phonons(cell, potential, temperature)` gives the
+phonons of a crystal at a temperature from [molecular dynamics](../simulation/running.md): the
 force constants that best give the forces on the moving atoms. They hold what [harmonic phonons](phonons.md) leave out: the vibrations
 feel the crystal away from its minimum, and the box has the size it has at that
 temperature. `phonons_from_frames` does the same with frames from any dynamics,
@@ -17,7 +17,7 @@ dynamics of 256 atoms take about half a minute:
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import phonons, primitive_cell, thermal_phonons
+from mdapy.properties.phonons import phonons, primitive_cell, thermal_phonons
 from mdapy.simulation import minimize
 
 potential = EAM("Cu_mishin1.eam.alloy")
@@ -103,7 +103,7 @@ enough apart in time to differ.
 
 <!-- skip-test -->
 ```python
-from mdapy.lattice_dynamics import phonons_from_frames
+from mdapy.properties.phonons import phonons_from_frames
 
 result = phonons_from_frames(cell, frames, supercell=4)
 ```

@@ -44,7 +44,7 @@ tells them apart: see [Finnis–Sinclair potentials](#finnissinclair-potentials)
 A funcfl file holds numbers where a setfl file names its elements: see
 [Funcfl files](#funcfl-files). `EAM(path, *, device="cpu", precision=None)`
 computes on the processor, or with `device="cuda"` on an NVIDIA GPU, in
-mixed or double precision: see [On the GPU](../molecular-dynamics/gpu.md).
+mixed or double precision: see [On the GPU](../simulation/gpu.md).
 
 | Attribute | Type | Meaning |
 |---|---|---|

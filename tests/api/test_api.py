@@ -23,6 +23,7 @@ import inspect
 import pkgutil
 import re
 import sys
+import warnings
 from pathlib import Path
 
 import pytest
@@ -35,6 +36,11 @@ NOTES = HERE.parents[1] / "docs" / "about" / "release-notes.md"
 #: Public modules beyond the subpackages of mdapy.
 MORE_MODULES = (
     "mdapy.calculators.testing",
+    "mdapy.properties.defects",
+    "mdapy.properties.elastic",
+    "mdapy.properties.phonons",
+    "mdapy.properties.thermodynamics",
+    "mdapy.properties.transport",
     "mdapy.simulation.controls",
     "mdapy.visualization.plot",
 )
@@ -52,10 +58,21 @@ def modules() -> list[str]:
 
 def public(module) -> list[str]:
     """The public names of a module: its ``__all__``, else the functions and
-    classes it defines."""
+    classes it defines; and the names that moved from it, and the modules
+    whose names all moved, which it still gives, with a warning, until the
+    next major release."""
+    from mdapy._moved import MOVED
+
     names = getattr(module, "__all__", None)
     if names is not None:
-        return list(names)
+        kept = [
+            m.rpartition(".")[2]
+            for m in MOVED
+            if m.rpartition(".")[0] == module.__name__
+        ]
+        return list(
+            dict.fromkeys([*names, *sorted(MOVED.get(module.__name__, {})), *kept])
+        )
     return [
         name
         for name, value in vars(module).items()
@@ -120,7 +137,9 @@ def api() -> dict[str, tuple[str, list[str]]]:
     for module_name in modules():
         module = importlib.import_module(module_name)
         for item in public(module):
-            obj = getattr(module, item)
+            with warnings.catch_warnings():  # a name that moved warns
+                warnings.simplefilter("ignore", DeprecationWarning)
+                obj = getattr(module, item)
             name = f"{module_name}.{item}"
             if inspect.ismodule(obj):
                 found[name] = ("module", [])
@@ -219,14 +238,58 @@ def changes(old: list[str], new: list[str]) -> tuple[list[str], list[str]]:
     return broken, added
 
 
+CLASSES = ("class", "result", "exception")
+
+
+def in_module(api: dict, name: str) -> bool:
+    """Whether a name is that of a module or of an object of a module, not a
+    member of a class."""
+    return api.get(name.rpartition(".")[0], ("module",))[0] not in CLASSES
+
+
+def moves(old: dict, new: dict) -> tuple[dict[str, str], set[str]]:
+    """Where the names that left their modules went, and the modules that
+    went because all their names moved. A name moved where the new API has
+    the only object of its kind and last part in a module; the members of a
+    class go with it."""
+    places = {}
+    for name, (kind, _) in new.items():
+        if in_module(new, name):
+            places.setdefault((name.rpartition(".")[2], kind), []).append(name)
+    moved = {}
+    for name, (kind, _) in old.items():
+        if name in new or kind == "module" or not in_module(old, name):
+            continue
+        there = places.get((name.rpartition(".")[2], kind), [])
+        if len(there) == 1:
+            moved[name] = there[0]
+    for name in old:
+        owner, _, member = name.rpartition(".")
+        if owner in moved and name not in new:
+            moved[name] = f"{moved[owner]}.{member}"
+    emptied = set()
+    for name, (kind, _) in old.items():
+        inside = [n for n in old if n.startswith(name + ".")]
+        if kind == "module" and name not in new and inside:
+            if all(n in moved for n in inside):
+                emptied.add(name)
+    return moved, emptied
+
+
 def compare(old: dict, new: dict) -> tuple[list[str], list[str]]:
-    """What breaks code written for the old API, and the names added."""
+    """What breaks code written for the old API, and the names added. A name
+    that moved to another module is compared at its new place, and counts as
+    added there."""
     broken, added = [], []
+    moved, emptied = moves(old, new)
     for name, (kind, params) in old.items():
-        if name not in new:
+        if name in emptied:
+            continue
+        place = name if name in new else moved.get(name)
+        if place is None:
             broken.append(f"{name} is gone")
             continue
-        new_kind, new_params = new[name]
+        new_kind, new_params = new[place]
         if new_kind != kind:
             broken.append(f"{name} was a {kind}, is a {new_kind}")
         elif kind == "exception":
@@ -235,7 +298,8 @@ def compare(old: dict, new: dict) -> tuple[list[str], list[str]]:
         else:
             lost, more = changes(params, new_params)
             broken += [f"{name}: {what}" for what in lost]
-            added += [f"{name}({param})" for param in more]
+            if place == name:  # a new name stands for its parameters
+                added += [f"{name}({param})" for param in more]
     # the members of a new class come with it, which its own name stands for
     fresh = [name for name in new if name not in old]
     added += [name for name in fresh if name.rpartition(".")[0] not in fresh]
@@ -353,6 +417,37 @@ def test_compare_and_the_notes():
     assert unnamed(added, section(notes, "2.0.0")) == ["m.f(seed)"]
     assert unnamed(added, section(notes, "2.2.0")) == ["m.f(seed)"]
     assert section("## 2.1.0\n\nnew\n", "2.0.0") == "## 2.1.0\n\nnew\n"
+
+
+def test_a_name_that_moves_is_not_gone():
+    old = {
+        "m.f": ("function", ["a"]),
+        "m.R": ("result", []),
+        "m.R.x": ("field", []),
+        "m.old": ("module", []),
+        "m.old.g": ("function", ["a"]),
+        "m.h": ("function", []),
+        "m.k": ("function", []),
+        "m.empty": ("module", []),
+    }
+    new = {
+        "n.f": ("function", ["a", "*", "seed=None"]),
+        "n.R": ("result", []),
+        "n.R.x": ("field", []),
+        "p.g": ("function", ["b"]),
+        "n.k": ("function", []),
+        "p.k": ("function", []),
+        "q.h": ("method", []),
+    }
+    broken, added = compare(old, new)
+    assert broken == [
+        "m.old.g: positional parameter a",  # compared where it moved
+        "m.h is gone",  # no function h in a module
+        "m.k is gone",  # two of them: which?
+        "m.empty is gone",
+    ]
+    assert added == ["n.f", "n.R", "p.g", "n.k", "p.k", "q.h"]
+    assert unnamed(added, "- `f`, `R` and `g` moved to `n`; `k` is new.") == ["q.h"]
 
 
 if __name__ == "__main__":

@@ -74,7 +74,7 @@ relaxed.converged, relaxed.energy, relaxed.stress
 write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
-See [Energy minimization](../user-guide/properties/minimize.md).
+See [Energy minimization](../user-guide/simulation/minimize.md).
 
 ## Molecular dynamics
 
@@ -91,7 +91,7 @@ with MolecularDynamics(relaxed.system, potential, timestep=0.002) as md:
     warm = md.system  # the atoms at the end, with their velocities
 ```
 
-See [Molecular dynamics](../user-guide/molecular-dynamics/index.md).
+See [Molecular dynamics](../user-guide/simulation/index.md).
 
 ## Analysis and pictures
 

@@ -23,7 +23,7 @@ import numpy as np
 import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
-from mdapy.lattice_dynamics import elastic_constants
+from mdapy.properties.elastic import elastic_constants
 from mdapy.simulation import minimize
 
 potential = LAMMPS("pair_style lcbop\npair_coeff * * C.lcbop C", elements=["C"])
@@ -58,7 +58,7 @@ the area modulus there. It takes a few seconds:
 
 <!-- skip-test -->
 ```python
-from mdapy.lattice_dynamics import quasi_harmonic
+from mdapy.properties.thermodynamics import quasi_harmonic
 
 temperatures = np.arange(0, 401, 25.0)
 qha = quasi_harmonic(
@@ -94,7 +94,7 @@ with a time step of 0.5 fs: 500 ps at zero pressure for the mean area, then
 
 <!-- skip-test -->
 ```python
-from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.properties.elastic import md_elastic_constants
 from mdapy.transform import replicate
 
 big = replicate(sheet, (16, 16, 1))

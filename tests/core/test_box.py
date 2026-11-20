@@ -241,7 +241,7 @@ def test_minimum_image_in_boxes_tilted_far(rng):
     """Tilts of many edge lengths and lattice vectors in any direction, as
     LAMMPS does not allow: still the shortest image, against the shortest
     found in a basis of the lattice reduced by the LLL method of the phonons."""
-    from mdapy.lattice_dynamics._phonons import _reduced
+    from mdapy.properties._phonons import _reduced
 
     for k in range(40):
         if k % 2:

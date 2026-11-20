@@ -168,6 +168,6 @@ The melting differs a little from one computer to another, so your numbers may t
     ```
 
 Next: [your own files](your-files.md). See also
-[Molecular dynamics](../../user-guide/molecular-dynamics/running.md),
+[Molecular dynamics](../../user-guide/simulation/running.md),
 [Trajectories](../../basics/trajectory.md) and
 [Time series](../../user-guide/analysis/time-series.md).

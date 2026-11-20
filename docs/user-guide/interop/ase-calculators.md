@@ -4,7 +4,7 @@
 or `NEP`, an ASE calculator, for the optimizers, filters and molecular
 dynamics of ASE; `from_ase_calculator` makes any ASE calculator, such as the
 calculator of a machine-learned potential, an MDAPY calculator, for
-[`minimize`](../properties/minimize.md),
+[`minimize`](../simulation/minimize.md),
 [defect energies](../properties/defect-energies.md) and
 [elastic constants](../properties/elastic-constants.md).
 

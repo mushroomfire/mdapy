@@ -64,7 +64,7 @@ The tabs follow what the reader is doing, and the directories of `docs/` follow 
 | Getting started | `getting-started/` | installation, the quick tour, the lessons and the cheat sheet in `getting-started/learn/` |
 | Basics | `basics/` | what every user needs: systems, the box, selecting atoms, files, trajectories, neighbor lists, parallelism |
 | Examples | `examples/` | whole calculations from start to end, each a page of its own |
-| User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `potentials/`, `molecular-dynamics/`, `properties/`, `mlip/`, `visualization/`, `fitting/`, `interop/` |
+| User guide | `user-guide/` | one directory per area, each page one feature: `build/`, `analysis/`, `potentials/`, `simulation/`, `properties/`, `mlip/`, `visualization/`, `fitting/`, `interop/` |
 | Performance | `performance/` | timings of MDAPY and of other programs |
 | Reference | `reference/` | the Python API in `reference/api/`, units and conventions, elements, the glossary, the references, file formats |
 | About | `about/` | the release notes, compatibility, the papers citing MDAPY, reporting a problem, this page |
@@ -75,7 +75,7 @@ analysis and its result, share the page. A feature that fits no section goes
 to a section **Misc** of its tab until a section for it exists. A new page is
 added to the navigation in `mkdocs.yml`.
 
-`molecular-dynamics/` opens with an overview, `index.md`, whose table lists every
+`simulation/` opens with an overview, `index.md`, whose table lists every
 feature of the engine and where it runs; a new feature of molecular dynamics adds its
 row there, and its page starts, under the title, with the line that says where it runs:
 `<p class="runs-on" markdown>**Runs on** ...</p>`. A page that moves leaves its old

@@ -117,6 +117,6 @@ render(
 | ![Grains colored by structure](images/composite.png) | ![Grains colored by element](images/composite-elements.png) |
 
 Before a simulation, relax the composite with a potential made for both
-elements (see [Energy minimization](../user-guide/properties/minimize.md)): the
+elements (see [Energy minimization](../user-guide/simulation/minimize.md)): the
 boundaries between the phases rearrange, and how much depends strongly on
 the potential.

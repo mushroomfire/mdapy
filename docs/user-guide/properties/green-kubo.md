@@ -1,8 +1,8 @@
 # Green–Kubo conductivity
 
-`mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)` gives the
+`mdapy.properties.transport.green_kubo(system, potential, temperature, ...)` gives the
 thermal conductivity of a crystal or a liquid from the fluctuations of the heat flux in
-equilibrium [molecular dynamics](../molecular-dynamics/running.md), in MDAPY or in LAMMPS for a
+equilibrium [molecular dynamics](../simulation/running.md), in MDAPY or in LAMMPS for a
 [LAMMPS calculator](../potentials/lammps.md), by the Green–Kubo relation;
 `green_kubo_from_flux` does the same with a heat flux from any molecular dynamics. Unlike
 the [relaxation-time approximation](thermal-conductivity.md), it holds every order of
@@ -15,7 +15,7 @@ steps of 256 atoms run in MDAPY in about two minutes:
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import LennardJones
-from mdapy.lattice_dynamics import green_kubo
+from mdapy.properties.transport import green_kubo
 
 argon = LennardJones({"Ar": (0.0104, 3.405)}, 8.5)  # ε in eV, σ in Å, cutoff
 crystal = build_crystal("fcc", 5.28, elements="Ar", repeat=4)  # 256 atoms
@@ -137,7 +137,7 @@ Every array is read-only.
 `green_kubo` raises `InvalidParameter` for a box that is not periodic in every
 direction, a temperature or numbers of steps that are not positive, a `potential` that
 is not a calculator or whose virials do not give the heat flux, and the errors of `green_kubo_from_flux` and of
-[`MolecularDynamics`](../molecular-dynamics/running.md). `green_kubo_from_flux` raises it for a flux that is
+[`MolecularDynamics`](../simulation/running.md). `green_kubo_from_flux` raises it for a flux that is
 not (S, 3) and finite, an interval, volume, temperature or correlation that is not
 positive, `blocks` less than 2 or not an integer, and blocks shorter than the
 correlation.

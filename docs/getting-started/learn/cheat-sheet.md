@@ -116,7 +116,7 @@ system = system.with_columns(result)  # per-atom values, as columns
 Molecular dynamics runs with any calculator, in MDAPY itself, or in LAMMPS with a
 `LAMMPS` calculator; the methods written with `lammps` below still need a `LAMMPS`
 calculator. See
-[Molecular dynamics](../../user-guide/molecular-dynamics/running.md),
+[Molecular dynamics](../../user-guide/simulation/running.md),
 [Defect energies](../../user-guide/properties/defect-energies.md),
 [Melting point](../../user-guide/properties/melting-point.md) and
 [Free energy](../../user-guide/properties/free-energy.md).
@@ -201,8 +201,12 @@ See [Perturbed structures](../../user-guide/mlip/perturbation.md),
 | `mdapy.identify` | the structure analyses |
 | `mdapy.analysis` | every other analysis, `DislocationAnalysis` and `read_dislocations` among them |
 | `mdapy.calculators` | `EAM`, `NEP`, `LAMMPS`, `VASP` |
-| `mdapy.simulation` | `minimize`, `MolecularDynamics`, defect energies, free energies, melting points |
-| `mdapy.lattice_dynamics` | `elastic_constants`, `phonons`, `force_constants`, `thermal_conductivity`, `quasi_harmonic` and others |
+| `mdapy.simulation` | `MolecularDynamics`, `minimize`, `thermal_velocities`; the controls in `mdapy.simulation.controls` |
+| `mdapy.properties.defects` | `vacancy_formation_energy`, `surface_energy`, `stacking_fault_energy`, `stacking_fault_free_energy` |
+| `mdapy.properties.elastic` | `elastic_constants`, `thermal_elastic_constants`, `md_elastic_constants` |
+| `mdapy.properties.phonons` | `phonons`, `force_constants`, `thermal_phonons`, `bond_stiffness` and others |
+| `mdapy.properties.transport` | `thermal_conductivity`, `green_kubo`, `hnemd`, `nemd` |
+| `mdapy.properties.thermodynamics` | `quasi_harmonic`, `free_energy`, `melting_point`, phase diagrams |
 | `mdapy.fitting` | `Spline`, `GridSpline`, `fit_polynomial`, `fit_curve`, `fit_eos` and others |
 | `mdapy.mlip` | `perturb`, `check_frames`, `predict`, `farthest_point_sampling`, descriptors |
 | `mdapy.visualization` | `render`, `plot`, `write_movie` |

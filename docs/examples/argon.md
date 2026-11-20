@@ -26,14 +26,13 @@ LAMMPS; the cubic cell relaxed at zero pressure, and its primitive cell of one a
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
-from mdapy.lattice_dynamics import (
+from mdapy.properties.phonons import (
     bond_stiffness,
     displaced_supercells,
     force_constants,
-    green_kubo,
     primitive_cell,
-    thermal_conductivity,
 )
+from mdapy.properties.transport import green_kubo, thermal_conductivity
 from mdapy.simulation import minimize
 
 EPSILON, SIGMA, CUTOFF = 0.0104, 3.405, 8.5

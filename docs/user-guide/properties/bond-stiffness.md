@@ -1,6 +1,6 @@
 # Bond stiffness
 
-`mdapy.lattice_dynamics.bond_stiffness(data, *, cutoff, degree=1)` fits springs along
+`mdapy.properties.phonons.bond_stiffness(data, *, cutoff, degree=1)` fits springs along
 and across the bonds of crystals, whose stiffnesses are polynomials of the length of the
 bond for each pair of elements, to the forces on atoms displaced in supercells. The
 springs then give the force constants, and so the [phonons](phonons.md) and the
@@ -14,7 +14,7 @@ small random alloy, each at three sizes so that the bonds take several lengths:
 ```python
 from mdapy.build import build_crystal, random_alloy
 from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import bond_stiffness, displaced_supercells, phonons
+from mdapy.properties.phonons import bond_stiffness, displaced_supercells, phonons
 from mdapy.simulation import minimize
 
 potential = EAM.zhou(["Cu", "Ni"])

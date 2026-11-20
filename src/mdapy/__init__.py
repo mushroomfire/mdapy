@@ -17,9 +17,9 @@ from mdapy import (
     identify,
     interop,
     io,
-    lattice_dynamics,
     mlip,
     neighbor,
+    properties,
     simulation,
     transform,
     units,
@@ -38,6 +38,9 @@ from mdapy.core.topology import Topology
 from mdapy.core.versions import show_versions
 from mdapy.neighbor._neighbor_list import NeighborList
 
+# moved to mdapy.properties in 2.2; its names warn until they go in 2.4
+from mdapy import lattice_dynamics  # noqa: E402, F401  isort: skip
+
 __all__ = [
     "Box",
     "System",
@@ -52,9 +55,9 @@ __all__ = [
     "elements",
     "errors",
     "fitting",
-    "lattice_dynamics",
     "mlip",
     "neighbor",
+    "properties",
     "simulation",
     "transform",
     "units",

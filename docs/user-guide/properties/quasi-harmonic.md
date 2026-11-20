@@ -1,6 +1,6 @@
 # Quasi-harmonic approximation
 
-`mdapy.lattice_dynamics.quasi_harmonic(system, calculator, temperatures, *,
+`mdapy.properties.thermodynamics.quasi_harmonic(system, calculator, temperatures, *,
 volumes=None, pressures=None, pressure=0.0, supercell=None, mesh=20,
 displacement=0.01, max_force=1e-6, max_stress=1e-4, max_steps=5000, symmetry=None)` gives the thermal expansion, bulk modulus,
 heat capacity and Gibbs energy of a crystal at finite temperature from its
@@ -10,7 +10,8 @@ heat capacity and Gibbs energy of a crystal at finite temperature from its
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.lattice_dynamics import primitive_cell, quasi_harmonic
+from mdapy.properties.phonons import primitive_cell
+from mdapy.properties.thermodynamics import quasi_harmonic
 from mdapy.simulation import minimize
 
 crystal = minimize(

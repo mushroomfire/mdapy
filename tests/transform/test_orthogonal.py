@@ -10,7 +10,7 @@ from mdapy import Box, System
 from mdapy.build import build_crystal
 from mdapy.core.topology import Topology
 from mdapy.errors import InvalidParameter
-from mdapy.lattice_dynamics import primitive_cell
+from mdapy.properties.phonons import primitive_cell
 from mdapy.transform import orthogonal_cell, replicate
 
 from atomsk_reference import ATOMSK, atomsk_apply

@@ -75,7 +75,7 @@ below the cutoff of the pair, and zero beyond.
 | `cutoff` | float64 | cutoff in Å of the pairs given none |
 | `mixing` | str | of `LennardJones`, how the pairs of two elements given alone mix, as `pair_modify mix`: `"geometric"` (ε, σ and the cutoff), `"arithmetic"` (ε geometric, σ and the cutoff arithmetic, Lorentz–Berthelot) or `"sixthpower"` |
 | `shift` | bool | take off each pair its energy at its cutoff, as `pair_modify shift yes`, so that the energy goes to zero there |
-| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../molecular-dynamics/gpu.md) |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../simulation/gpu.md) |
 | `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 `LennardJones((ε, σ), cutoff)`, numbers alone, is one kind of atom of any

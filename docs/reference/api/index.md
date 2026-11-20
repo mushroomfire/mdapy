@@ -23,15 +23,19 @@ import mdapy as mp
 
 ## Simulation
 
-- [Potentials](calculators.md)
-- [Molecular dynamics](molecular-dynamics.md)
+- [Potentials](calculators.md): `mdapy.calculators`
+- [Simulation](simulation.md): `mdapy.simulation`, energy minimization and molecular
+  dynamics, and `mdapy.simulation.controls`
 
 ## Properties
 
-- [Relaxation and defect energies](relaxation.md)
-- [Lattice dynamics](lattice-dynamics.md)
-- [Thermal conductivity](thermal-conductivity.md)
-- [Thermodynamics](thermodynamics.md)
+`mdapy.properties`, a module for each family of properties, by any method:
+
+- [Defects](properties/defects.md): `mdapy.properties.defects`
+- [Elastic constants](properties/elastic.md): `mdapy.properties.elastic`
+- [Phonons](properties/phonons.md): `mdapy.properties.phonons`
+- [Transport](properties/transport.md): `mdapy.properties.transport`
+- [Thermodynamics](properties/thermodynamics.md): `mdapy.properties.thermodynamics`
 
 ## Other
 

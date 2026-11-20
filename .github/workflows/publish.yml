@@ -74,7 +74,7 @@ jobs:
           CIBW_BEFORE_ALL_LINUX: >-
             dnf install -y dnf-plugins-core &&
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/$([ "$(uname -m)" = aarch64 ] && echo sbsa || echo x86_64)/cuda-rhel8.repo &&
-            dnf install -y cuda-nvcc-12-9 cuda-cudart-devel-12-9 cuda-cccl-12-9 libcurand-devel-12-9 gcc-toolset-14-gcc-c++
+            dnf install -y cuda-nvcc-12-9 cuda-cudart-devel-12-9 cuda-cccl-12-9 gcc-toolset-14-gcc-c++
           CIBW_ENVIRONMENT_LINUX: >-
             PATH=/usr/local/cuda-12.9/bin:$PATH
             CUDACXX=/usr/local/cuda-12.9/bin/nvcc

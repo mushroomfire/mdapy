@@ -130,7 +130,7 @@ jobs:
           wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update -q
-          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9 libcurand-dev-12-9
+          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9
           echo /usr/local/cuda-12.9/bin >> "$GITHUB_PATH"
       - name: Build mdapy-cuda12 for one architecture
         run: pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86-real -Ccmake.define.MDAPY_WERROR=ON

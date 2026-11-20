@@ -833,3 +833,35 @@ def test_the_noise_of_successive_steps_is_independent():
         assert first.std() == pytest.approx(1.0, abs=0.01)
         correlations = np.corrcoef(first.T, second.T)[:3, 3:]
         assert np.abs(correlations).max() < 0.02
+
+
+@pytest.mark.parametrize("keep_momentum", [False, True])
+def test_the_noise_of_the_processor_and_the_gpu_is_the_same(keep_momentum):
+    """Both draw the noise of each atom from its index and the step with the
+    same counter-based generator (core/philox.h), whatever order the GPU keeps
+    its atoms in: Langevin dynamics and Langevin baths run alike, in double
+    precision to the rounding of their functions."""
+    from mdapy.simulation.controls import Langevin
+
+    system = crystal()
+    cpu = EAM.zhou(["Cu", "Ni"])
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    z = system["positions"][:, 2]
+    bottom, top = z < z.min() + 4.0, z > z.max() - 4.0
+    runs = []
+    for potential in (gpu, cpu):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(400, seed=1)
+            md.run(
+                200, ensemble="nvt", temperature=400, thermostat="langevin", seed=7,
+                keep_momentum=keep_momentum,
+            )  # fmt: skip
+            md.run(
+                200, ensemble="nve",
+                controls=[Langevin(bottom, 600.0, damping=0.1, seed=3),
+                          Langevin(top, 100.0, damping=0.1, seed=4)],
+            )  # fmt: skip
+            runs.append(md.system)
+    a, b = runs
+    np.testing.assert_allclose(a["positions"], b["positions"], rtol=0, atol=1e-8)
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-8)

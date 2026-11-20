@@ -14,6 +14,7 @@
 #include "core/buffer.h"
 #include "core/hardware.h"
 #include "core/parallel.h"
+#include "core/philox.h"
 #include "core/wrap.h"
 
 namespace mdapy::bindings {
@@ -46,9 +47,46 @@ nb::tuple wrap_positions(Positions positions, Matrix matrix, Matrix inverse, Vec
     return nb::make_tuple(first, second);
 }
 
+using Indices = nb::ndarray<const std::int64_t, nb::shape<-1>, nb::c_contig, nb::device::cpu>;
+
+// The four words of Philox4x64-10 for a counter and a key, for the tests.
+nb::tuple philox_block(std::uint64_t c0, std::uint64_t c1, std::uint64_t c2, std::uint64_t c3,
+                       std::uint64_t k0, std::uint64_t k1) {
+    const random::Block out = random::philox({{c0, c1, c2, c3}}, k0, k1);
+    return nb::make_tuple(out.v[0], out.v[1], out.v[2], out.v[3]);
+}
+
+// Three Gaussian numbers for each atom of indices, at a draw of a stream.
+nb::object normal_noise(Indices indices, std::uint64_t seed, std::uint64_t stream,
+                        std::uint64_t draw) {
+    const std::size_t n = indices.shape(0);
+    auto* out = new Buffer<double>(3 * n);
+    nb::object array = owned_array(out, n);
+    const std::int64_t* index = indices.data();
+    double* values = out->data();
+    run_released(
+        [&](const Control& control) {
+            parallel_for(
+                static_cast<std::int64_t>(n), 0,
+                [&](std::int64_t begin, std::int64_t end) {
+                    for (std::int64_t i = begin; i < end; ++i) {
+                        random::normal3(seed, stream, static_cast<std::uint64_t>(index[i]), draw,
+                                        values + 3 * i);
+                    }
+                },
+                control);
+        },
+        nb::none(), nullptr);
+    return array;
+}
+
 }  // namespace
 
 void bind_core(nb::module_& m) {
+    m.def("philox", &philox_block, nb::arg("c0"), nb::arg("c1"), nb::arg("c2"), nb::arg("c3"),
+          nb::arg("k0"), nb::arg("k1"));
+    m.def("normals", &normal_noise, nb::arg("indices"), nb::arg("seed"), nb::arg("stream"),
+          nb::arg("draw"));
     m.def("get_num_threads", &get_num_threads);
     m.def("set_num_threads", &set_num_threads, nb::arg("n"));
     m.def("hardware_threads", &hardware_threads);

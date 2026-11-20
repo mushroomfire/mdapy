@@ -23,7 +23,7 @@ from typing import Any, NamedTuple
 import numpy as np
 import polars as pl
 
-from mdapy import units
+from mdapy import _core, units
 from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
@@ -283,6 +283,12 @@ def _indented(
     return forces, float(-(k / 3.0 * dr[past] ** 3).sum()), -push.sum(axis=0)
 
 
+_native = _core.core
+# the streams of the counter-based noise (core/philox.h), the same on the GPU
+_THERMOSTAT_STREAM = 0
+_BATH_STREAM = 1
+
+
 class _HostAtoms:
     """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
     positions, velocities and forces in the frame of LAMMPS, and the steps
@@ -301,7 +307,11 @@ class _HostAtoms:
         self.__restrict = restrict
         self.__forces: np.ndarray | None = None
         self.__wide: NeighborList | None = None
-        self.__rng: np.random.Generator | None = None
+        # the noise of the thermostat: a seed and the number of draws, each
+        # atom's numbers from its index, as on the GPU (core/philox.h)
+        self.__ids = np.arange(len(x), dtype=np.int64)
+        self.__seed = 0
+        self.__draws = 0
         # a Switch: the other interaction, its neighbor list, and λ
         self.__field: np.ndarray | None = None  # of HNEMD, in the frame
         self.__virials: np.ndarray | None = None  # of each atom, for the field
@@ -516,7 +526,8 @@ class _HostAtoms:
         self.__x = lo + np.einsum("ij,jk->ik", fractional, new)
 
     def seed(self, seed: int | None) -> None:
-        self.__rng = np.random.default_rng(seed)
+        self.__seed = secrets.randbits(63) if seed is None else int(seed)
+        self.__draws = 0
 
     def set_controls(
         self,
@@ -531,7 +542,16 @@ class _HostAtoms:
         velocities of the others and the forces added (frame of LAMMPS), the
         groups whose forces are summed, and (mask, seed) of each bath."""
         self.prescribed, self.added, self.watched = prescribed, added, watched
-        self.__baths = [(mask, np.random.default_rng(seed)) for mask, seed in baths]
+        # (mask, indices, seed, [draws]) of each bath, as on the GPU
+        self.__baths = [
+            (
+                mask,
+                np.flatnonzero(mask).astype(np.int64),
+                secrets.randbits(63) if seed is None else int(seed) % (1 << 63),
+                [0],
+            )
+            for mask, seed in baths
+        ]
 
     def clear_controls(self) -> None:
         self.prescribed = self.added = None
@@ -547,11 +567,12 @@ class _HostAtoms:
         """v = c1 v + c2 sqrt(kt / m) g on the atoms of bath k, g Gaussian of
         its random numbers in the directions they move freely; the kinetic
         energy it added, in eV."""
-        mask, rng = self.__baths[k]
+        mask, indices, seed, draws = self.__baths[k]
         masses = self.__masses[mask]
         before = self.__v[mask]
         noise = np.zeros_like(self.__v)
-        noise[mask] = rng.normal(size=before.shape)
+        noise[mask] = _native.normals(indices, seed, _BATH_STREAM, draws[0])
+        draws[0] += 1
         noise = self.__restrict(noise)[mask]
         after = c1 * before + c2 * np.sqrt(kt / masses)[:, None] * noise
         self.__v[mask] = after
@@ -594,7 +615,9 @@ class _HostAtoms:
         each atom less an equal share of its total momentum, as the random
         forces of LAMMPS's fix langevin zero yes."""
         sigma = np.sqrt(kt / self.__masses)[:, None]
-        noise = c2 * sigma * self.__restrict(self.__rng.normal(size=self.__v.shape))
+        g = _native.normals(self.__ids, self.__seed, _THERMOSTAT_STREAM, self.__draws)
+        self.__draws += 1
+        noise = c2 * sigma * self.__restrict(g)
         if keep:
             noise -= (self.__masses @ noise) / len(noise) / self.__masses[:, None]
         self.__v = c1 * self.__v + noise

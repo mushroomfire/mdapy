@@ -7,23 +7,35 @@
 // same arithmetic as simulation/_integrator.py does with NumPy, which keeps
 // the variables of the thermostats and the barostat and calls these.
 
-#include <curand_kernel.h>
 
 #include <stdexcept>
 #include <vector>
 
+#include "core/philox.h"
 #include "cuda/atoms.cuh"
 
 namespace mdapy::cuda {
 
 namespace {
 
-// The 32-bit numbers of Philox that the noise of an atom draws at a step: two
-// curand_normal2_double, four each. The stream of each atom moves on by as many
-// at each step, so that no number is drawn twice; by fewer, the noise of one step
-// would repeat a component of the step before, and the thermostat would no longer
-// sample the canonical ensemble.
-constexpr unsigned long long kDrawn = 8;
+// The noise of an atom: three Gaussian numbers of Philox4x64 from the seed, the
+// stream, the index of the atom in the caller's order and the number of the
+// draw (core/philox.h), the numbers the processor draws. The streams of the
+// thermostat and of the baths, as in simulation/_integrator.py.
+constexpr std::uint64_t kThermostatStream = 0;
+constexpr std::uint64_t kBathStream = 1;
+
+// The index of the atom at place i in the caller's order.
+__device__ inline std::uint64_t caller_index(std::int64_t i, const std::int32_t* original) {
+    return original != nullptr ? static_cast<std::uint64_t>(original[i])
+                               : static_cast<std::uint64_t>(i);
+}
+
+// The index in the caller's order of the atom at each place, none while the
+// order is the caller's.
+const std::int32_t* original_of(const Atoms::Impl& a) {
+    return a.original.size() == static_cast<std::size_t>(a.n) ? a.original.data() : nullptr;
+}
 
 // A box, its vectors in rows.
 struct Cell {
@@ -197,34 +209,29 @@ __global__ void remap_kernel(std::int64_t n, Affine t, double4a* x) {
 
 // Gaussian numbers of a counter-based generator: atom i, call counter.
 __global__ void langevin_kernel(std::int64_t n, double c1, double c2, double kt,
-                                unsigned long long seed, unsigned long long counter,
-                                const double* m, double* v) {
+                                std::uint64_t seed, std::uint64_t counter,
+                                const std::int32_t* original, const double* m, double* v) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
-    const double2 g01 = curand_normal2_double(&state);
-    const double2 g23 = curand_normal2_double(&state);
+    double g[3];
+    random::normal3(seed, kThermostatStream, caller_index(i, original), counter, g);
     const double sigma = sqrt(kt / m[i]);
-    v[3 * i] = c1 * v[3 * i] + c2 * sigma * g01.x;
-    v[3 * i + 1] = c1 * v[3 * i + 1] + c2 * sigma * g01.y;
-    v[3 * i + 2] = c1 * v[3 * i + 2] + c2 * sigma * g23.x;
+    for (int c = 0; c < 3; ++c) {
+        v[3 * i + c] = c1 * v[3 * i + c] + c2 * sigma * g[c];
+    }
 }
 
 // The noise of the Langevin dynamics that keeps the momentum: dv = c2
 // sigma g of each atom, the same numbers as langevin_kernel, and m dv in
 // three columns for their sum.
-__global__ void noise_kernel(std::int64_t n, double c2, double kt, unsigned long long seed,
-                             unsigned long long counter, const double* m, double* dv,
-                             double* momenta) {
+__global__ void noise_kernel(std::int64_t n, double c2, double kt, std::uint64_t seed,
+                             std::uint64_t counter, const std::int32_t* original, const double* m,
+                             double* dv, double* momenta) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
-    curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
-    const double2 g01 = curand_normal2_double(&state);
-    const double2 g23 = curand_normal2_double(&state);
+    double g[3];
+    random::normal3(seed, kThermostatStream, caller_index(i, original), counter, g);
     const double sigma = c2 * sqrt(kt / m[i]);
-    const double g[3] = {g01.x, g01.y, g23.x};
     for (int c = 0; c < 3; ++c) {
         dv[3 * i + c] = sigma * g[c];
         momenta[c * n + i] = m[i] * sigma * g[c];
@@ -397,18 +404,16 @@ __global__ void free_kinetic_kernel(std::int64_t n, Rotation t, const std::int32
 // A Langevin bath on the atoms of group bit: the change of m |v|^2 / 2 of
 // each atom in out, zero for the others.
 __global__ void bath_kernel(std::int64_t n, int bit, const std::int32_t* groups, double c1,
-                            double c2, double kt, unsigned long long seed,
-                            unsigned long long counter, Rotation t, const std::int32_t* movable,
-                            const double* m, double* v, double* out) {
+                            double c2, double kt, std::uint64_t seed, std::uint64_t counter,
+                            const std::int32_t* original, Rotation t,
+                            const std::int32_t* movable, const double* m, double* v,
+                            double* out) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     out[i] = 0.0;
     if (((groups[i] >> bit) & 1) == 0) return;
-    curandStatePhilox4_32_10_t state;
-    curand_init(seed, static_cast<unsigned long long>(i), kDrawn * counter, &state);
-    const double2 g01 = curand_normal2_double(&state);
-    const double2 g23 = curand_normal2_double(&state);
-    double g[3] = {g01.x, g01.y, g23.x};
+    double g[3];
+    random::normal3(seed, kBathStream, caller_index(i, original), counter, g);
     if (movable != nullptr && movable[i] != 7) project(t, movable[i], g);
     const double mass = m[i], sigma = sqrt(kt / mass);
     double* u = v + 3 * i;
@@ -558,15 +563,15 @@ void Atoms::langevin(double c1, double c2, double kt, std::uint64_t seed,
                      std::uint64_t counter, bool keep) {
     Impl& a = *impl_;
     if (!keep) {
-        langevin_kernel<<<blocks(a.n), kBlock>>>(a.n, c1, c2, kt, seed, counter,
+        langevin_kernel<<<blocks(a.n), kBlock>>>(a.n, c1, c2, kt, seed, counter, original_of(a),
                                                  a.masses.data(), a.velocities.data());
         MDAPY_LAUNCHED();
         return;
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
     a.stash.resize(static_cast<std::size_t>(3 * a.n));  // the noise, until it is added
-    noise_kernel<<<blocks(a.n), kBlock>>>(a.n, c2, kt, seed, counter, a.masses.data(),
-                                          a.stash.data(), a.scratch.data());
+    noise_kernel<<<blocks(a.n), kBlock>>>(a.n, c2, kt, seed, counter, original_of(a),
+                                          a.masses.data(), a.stash.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     double total[3];
     sum_columns(a.scratch.data(), 3, a.n, total);
@@ -801,7 +806,7 @@ double Atoms::bath(int bit, double c1, double c2, double kt, std::uint64_t seed,
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
     bath_kernel<<<blocks(a.n), kBlock>>>(a.n, bit, a.groups.data(), c1, c2, kt, seed, counter,
-                                         rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(),
+                                         original_of(a), rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(),
                                          a.masses.data(), a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     double out = 0.0;

@@ -258,6 +258,32 @@ def test_lammps_details(potentials, lammps_constants):
         md.run(2, controls=Hold(bottom))  # usable after the refusals
 
 
+@pytest.mark.parametrize("hold_first", [True, False])
+def test_the_order_of_the_controls_does_not_matter(
+    potentials, lammps_constants, hold_first
+):
+    """Atoms held along z and pushed by a force added to them stay held,
+    whatever the order of the controls: in LAMMPS, which applies its fixes in
+    the order they are defined, the setforce comes after the addforce, as
+    MDAPY holds atoms after the forces."""
+    eam, lmp = potentials
+    if lmp is None:
+        pytest.skip("LAMMPS is not installed")
+    system, bottom, _, _ = slab()
+    controls = [Hold(bottom, directions="z"), AddForce(bottom, (0.05, 0.0, 0.2))]
+    if not hold_first:
+        controls = controls[::-1]
+    (a, _), (b, _) = (run(p, system, 100, controls) for p in (lmp, eam))
+    dx, dv = gap(a, b)
+    assert dx < 1e-10 and dv < 1e-9
+    length = system.box.matrix[2, 2]  # periodic: the minimum image
+    for result in (a, b):
+        moved = result["positions"][bottom] - system["positions"][bottom]
+        moved[:, 2] -= np.round(moved[:, 2] / length) * length
+        assert np.abs(moved[:, 2]).max() < 1e-12  # held along z
+        assert np.abs(moved[:, 0]).max() > 1e-3  # pushed along x
+
+
 def test_moved_atoms_under_langevin(potentials):
     eam, _ = potentials
     system, bottom, top, _ = slab()

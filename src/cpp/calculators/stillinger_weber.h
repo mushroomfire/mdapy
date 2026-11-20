@@ -47,6 +47,7 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                               const double* matrix, const std::int64_t* offsets,
                               const index_t* neighbors, const std::int8_t* shifts,
                               double* energies, double* forces, double* virials,
-                              const Control& control = {}, bool heat = false);
+                              const Control& control = {}, bool heat = false,
+                              std::int64_t centers = -1);
 
 }  // namespace mdapy::calculators

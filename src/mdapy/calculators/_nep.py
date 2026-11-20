@@ -17,6 +17,8 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _element_indices,
+    _Part,
+    _reversed_part,
 )
 from mdapy.core._frames import Frames
 from mdapy.core.system import System
@@ -374,6 +376,34 @@ class NEP(Calculator):
             atomic_virials=virials,
             volume=system.box.volume,
         )
+
+    def _split(
+        self,
+        system: System,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+    ) -> _Part:
+        """The part of the first owned atoms of system, a process's of MPI:
+        their energies and the derivatives of them alone, which reach the
+        ghosts within the cutoff, and the forces on the ghosts sent back to
+        their atoms."""
+        with neighbors._reading():
+            energies, forces, virials = _native.compute_nep(
+                self.__model,
+                self._species(system),
+                np.ascontiguousarray(system["positions"]),
+                np.ascontiguousarray(system.box.matrix),
+                neighbors.offsets,
+                neighbors.j,
+                neighbors.shifts,
+                None,
+                None,
+                owned,
+            )
+        return _reversed_part(energies, forces, virials, properties, reverse)
 
     def descriptors(
         self,

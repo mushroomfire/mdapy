@@ -13,7 +13,13 @@ import numpy as np
 
 from mdapy import _core
 from mdapy.calculators import _gpu
-from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
+from mdapy.calculators._base import (
+    WITHOUT_VIRIAL,
+    Calculator,
+    CalculatorResult,
+    _element_indices,
+    _Part,
+)
 from mdapy.calculators._eam import _Numbers
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -190,10 +196,13 @@ class ADP(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
+        properties = tuple(properties)
         wanted = self._check_properties(properties)
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted)
+        # the virials unless left out, as the dynamics may
+        virial = WITHOUT_VIRIAL not in properties
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_adp(
@@ -206,14 +215,53 @@ class ADP(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                virial,
             )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,
             forces=forces,
-            virial=virials.sum(axis=0),
+            virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
+        )
+
+    def _split(
+        self,
+        system: System,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+    ) -> _Part:
+        """The part of the first owned atoms of system, a process's of MPI:
+        their densities, dipoles and quadrupoles, sent with the slopes of their
+        embedding functions to their ghosts by forward, then their forces."""
+        virial = (
+            bool({"virial", "atomic_virials"} & set(properties))
+            and WITHOUT_VIRIAL not in properties
+        )
+        arrays = (
+            self._species(system),
+            np.ascontiguousarray(system["positions"]),
+            np.ascontiguousarray(system.box.matrix),
+            neighbors.offsets,
+            neighbors.j,
+            neighbors.shifts,
+        )
+        with neighbors._reading():
+            given, state = _native.adp_densities(self.__potential, *arrays, owned)
+            state = np.ascontiguousarray(forward(state))
+            energies, forces, virials = _native.adp_forces(
+                self.__potential, *arrays, state, given, virial
+            )
+        return _Part(
+            float(energies.sum()),
+            forces,
+            virials.sum(axis=0) if virials is not None else np.full((3, 3), np.nan),
+            energies,
+            virials,
         )
 
     def __repr__(self) -> str:

@@ -39,7 +39,7 @@ inline void uhlenbeck_ford(const double* c, double offset, double r2, double& en
     energy = -c[2] * std::log(1.0 - expuf) - offset;
 }
 
-template <PairStyle Style>
+template <PairStyle Style, bool kVirial>
 void compute(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
              const double* positions, const double* matrix, const std::int64_t* offsets,
              const index_t* neighbors, const std::int8_t* shifts, double* energies,
@@ -76,8 +76,10 @@ void compute(const PairPotential& potential, std::int64_t n, const std::int32_t*
                     }
                     for (int a = 0; a < 3; ++a) {
                         f[a] += del[a] * fpair;
-                        for (int b = 0; b < 3; ++b) {
-                            w[3 * a + b] += 0.5 * del[a] * del[b] * fpair;
+                        if constexpr (kVirial) {
+                            for (int b = 0; b < 3; ++b) {
+                                w[3 * a + b] += 0.5 * del[a] * del[b] * fpair;
+                            }
                         }
                     }
                     energy += 0.5 * e;
@@ -86,12 +88,28 @@ void compute(const PairPotential& potential, std::int64_t n, const std::int32_t*
                 for (int a = 0; a < 3; ++a) {
                     forces[3 * i + a] = f[a];
                 }
-                for (int k = 0; k < 9; ++k) {
-                    virials[9 * i + k] = w[k];
+                if constexpr (kVirial) {
+                    for (int k = 0; k < 9; ++k) {
+                        virials[9 * i + k] = w[k];
+                    }
                 }
             }
         },
         control);
+}
+
+template <PairStyle Style>
+void compute_style(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
+                   const double* positions, const double* matrix, const std::int64_t* offsets,
+                   const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                   double* forces, double* virials, const Control& control) {
+    if (virials != nullptr) {
+        compute<Style, true>(potential, n, species, positions, matrix, offsets, neighbors,
+                             shifts, energies, forces, virials, control);
+    } else {
+        compute<Style, false>(potential, n, species, positions, matrix, offsets, neighbors,
+                              shifts, energies, forces, virials, control);
+    }
 }
 
 }  // namespace
@@ -119,13 +137,13 @@ void compute_pair(const PairPotential& potential, std::int64_t n, const std::int
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,
                   double* forces, double* virials, const Control& control) {
     if (potential.style == PairStyle::LennardJones) {
-        compute<PairStyle::LennardJones>(potential, n, species, positions, matrix, offsets,
+        compute_style<PairStyle::LennardJones>(potential, n, species, positions, matrix, offsets,
                                          neighbors, shifts, energies, forces, virials, control);
     } else if (potential.style == PairStyle::Morse) {
-        compute<PairStyle::Morse>(potential, n, species, positions, matrix, offsets, neighbors,
+        compute_style<PairStyle::Morse>(potential, n, species, positions, matrix, offsets, neighbors,
                                   shifts, energies, forces, virials, control);
     } else {
-        compute<PairStyle::UhlenbeckFord>(potential, n, species, positions, matrix, offsets,
+        compute_style<PairStyle::UhlenbeckFord>(potential, n, species, positions, matrix, offsets,
                                           neighbors, shifts, energies, forces, virials,
                                           control);
     }

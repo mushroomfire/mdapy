@@ -78,10 +78,12 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                               const double* matrix, const std::int64_t* offsets,
                               const index_t* neighbors, const std::int8_t* shifts,
                               double* energies, double* forces, double* virials,
-                              const Control& control, bool heat) {
+                              const Control& control, bool heat, std::int64_t centers) {
+    // the terms of the first centers atoms alone, all atoms gathering them
+    const std::int64_t c = centers < 0 ? n : centers;
     Shares shares(n, offsets[n]);
     parallel_for(
-        n, 0,
+        c, 0,
         [&](std::int64_t begin, std::int64_t end) {
             std::vector<Near> near;
             for (std::int64_t i = begin; i < end; ++i) {

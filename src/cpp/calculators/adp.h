@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -53,5 +54,23 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, const Control& control = {});
+
+// What each atom has of its neighbors in ADP, F'(rho), its dipole (3) and
+// its quadrupole (xx yy zz yz xz xy): kState numbers in a row.
+inline constexpr std::size_t kState = 10;
+
+// The two passes of compute_adp for the first centers atoms, as the processes
+// of MPI split them: their embedding and angular energies and their states;
+// then, given the states of every atom of the neighbor list, the forces on
+// the centres, their pair energies added, and their virials unless null.
+void adp_densities(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, double* energies, double* state,
+                   const Control& control = {});
+void adp_forces(const AdpPotential& potential, std::int64_t centers, const std::int32_t* species,
+                const double* positions, const double* matrix, const std::int64_t* offsets,
+                const index_t* neighbors, const std::int8_t* shifts, const double* state,
+                double* energies, double* forces, double* virials, const Control& control = {});
 
 }  // namespace mdapy::calculators

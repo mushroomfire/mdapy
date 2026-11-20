@@ -19,6 +19,8 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _element_indices,
+    _Part,
+    _reversed_part,
 )
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -177,6 +179,34 @@ class _ThreeBody(Calculator):
             atomic_virials=virials,
             volume=system.box.volume,
         )
+
+    def _split(
+        self,
+        system: System,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+    ) -> _Part:
+        """The part of the first owned atoms of system, a process's of MPI:
+        the terms of those atoms alone, which reach the ghosts within the
+        cutoff, and the forces on the ghosts sent back to their atoms."""
+        with neighbors._reading():
+            energies, forces, virials = type(self)._compute(
+                self._potential,
+                self._species(system),
+                np.ascontiguousarray(system["positions"]),
+                np.ascontiguousarray(system.box.matrix),
+                neighbors.offsets,
+                neighbors.j,
+                neighbors.shifts,
+                None,
+                None,
+                HEAT_FLUX_TERMS in properties,
+                owned,
+            )
+        return _reversed_part(energies, forces, virials, properties, reverse)
 
     def __repr__(self) -> str:
         where = (

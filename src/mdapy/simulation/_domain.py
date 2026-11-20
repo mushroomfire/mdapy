@@ -28,7 +28,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from mdapy.calculators._base import Calculator
+from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -109,15 +109,20 @@ class Bricks:
         thick = 1.0 / np.linalg.norm(self.inverse, axis=0)
         # the reach in fractional coordinates along each box vector
         self.fraction = self.reach / thick
-        width = 1.0 / self.counts
-        too_thin = (self.fraction > width + 1e-12) & (self.counts > 1)
-        if too_thin.any():
-            d = int(np.flatnonzero(too_thin)[0])
+        # bricks thinner than the reach pass the ghosts on, brick to brick,
+        # as many times as it takes; a reach beyond the box would need images
+        # of images along a vector cut into bricks
+        too_far = (self.fraction >= 1.0) & (self.counts > 1)
+        if too_far.any():
+            d = int(np.flatnonzero(too_far)[0])
             raise ValueError(
-                f"the bricks of {self.counts.prod()} processes are "
-                f"{thick[d] * width[d]:.3f} Å thick along box vector {d + 1}, less "
-                f"than the reach of the ghosts, {self.reach:.3f} Å: use fewer processes"
+                f"the box is {thick[d]:.3f} Å thick along box vector {d + 1}, less "
+                f"than the reach of the ghosts, {self.reach:.3f} Å: do not cut it "
+                f"into bricks along that vector, with fewer processes"
             )
+        self.hops = np.maximum(np.ceil(self.fraction * self.counts - 1e-12), 1).astype(
+            int
+        )
 
     def fractional(self, x: np.ndarray) -> np.ndarray:
         return (x - self.lo) @ self.inverse
@@ -196,44 +201,74 @@ class Bricks:
             # along a box vector of one brick the box itself is periodic
             if self.counts[d] == 1:
                 continue
-            # the atoms before this direction: local ones and the ghosts of
-            # the directions before, which carry the corners
+            # first the atoms before this direction: local ones and the ghosts
+            # of the directions before, which carry the corners; then, when
+            # the bricks are thinner than the reach, those that came the hop
+            # before from the other side, passed on
             before = len(x)
-            s = self.fractional(x)[:, d]
-            for side in (-1, 1):
-                # those in the slab of the reach along the face on this side
-                # go to the brick there, shifted by a box vector across the
-                # boundary
-                if side < 0:
-                    near = (s >= lower[d]) & (s < lower[d] + self.fraction[d])
-                    edge = self.at[d] == 0
-                else:
-                    near = (s < upper[d]) & (s >= upper[d] - self.fraction[d])
-                    edge = self.at[d] == self.counts[d] - 1
-                chosen = np.flatnonzero(near[:before])
-                if edge and not self.pbc[d]:
-                    chosen = chosen[:0]
-                shift = np.zeros(3)
-                if edge:
-                    shift[d] = -side  # in box vectors, added to what is sent
-                destination, source = self.__neighbors(d, side)
-                sent = (x[chosen] + shift @ self.h, idx[chosen])
-                got = _exchange(comm, sent, destination, source)
-                self.__sends.append((chosen, shift, destination, source))
-                x = np.concatenate([x, got[0]])
-                idx = np.concatenate([idx, got[1]])
+            came = {-1: np.arange(before), 1: np.arange(before)}
+            for _ in range(int(self.hops[d])):
+                s = self.fractional(x)[:, d]
+                for side in (-1, 1):
+                    # those in the slab of the reach along the face on this
+                    # side go to the brick there, shifted by a box vector
+                    # across the boundary
+                    candidates = came[side]
+                    t = s[candidates]
+                    if side < 0:
+                        near = (t >= lower[d]) & (t < lower[d] + self.fraction[d])
+                        edge = self.at[d] == 0
+                    else:
+                        near = (t < upper[d]) & (t >= upper[d] - self.fraction[d])
+                        edge = self.at[d] == self.counts[d] - 1
+                    chosen = candidates[near]
+                    if edge and not self.pbc[d]:
+                        chosen = chosen[:0]
+                    shift = np.zeros(3)
+                    if edge:
+                        shift[d] = -side  # in box vectors, added to what is sent
+                    destination, source = self.__neighbors(d, side)
+                    sent = (x[chosen] + shift @ self.h, idx[chosen])
+                    got = _exchange(comm, sent, destination, source)
+                    # what went where, and where what came is among the atoms
+                    count = len(got[0])
+                    self.__sends.append(
+                        (chosen, shift, destination, source, len(x), count)
+                    )
+                    came[side] = np.arange(len(x), len(x) + count)
+                    x = np.concatenate([x, got[0]])
+                    idx = np.concatenate([idx, got[1]])
         return x, idx
 
     def follow(self, positions: np.ndarray) -> np.ndarray:
         """The positions of the ghosts again, from those of the local atoms,
         along the lists of the last ``borders``."""
-        x = np.array(positions[: self.local])
-        for chosen, shift, destination, source in self.__sends:
-            got = _exchange(
-                self.comm, (x[chosen] + shift @ self.h,), destination, source
-            )[0]
-            x = np.concatenate([x, got])
+        return self.forward(positions[: self.local], shifted=True)
+
+    def forward(self, values: np.ndarray, shifted: bool = False) -> np.ndarray:
+        """Values of the local atoms, (local, ...), and those of their ghosts
+        after them, along the lists of the last ``borders``; positions,
+        shifted, by the box vectors the ghosts crossed."""
+        x = np.array(values)
+        for chosen, shift, destination, source, _, _ in self.__sends:
+            sent = x[chosen] + shift @ self.h if shifted else x[chosen]
+            x = np.concatenate(
+                [x, _exchange(self.comm, (sent,), destination, source)[0]]
+            )
         return x
+
+    def reverse(self, values: np.ndarray) -> np.ndarray:
+        """Values of the local atoms and the ghosts, (all, ...), the values of
+        each ghost added to those of its atom: the values of the local atoms.
+        The lists of the last ``borders`` are gone through backwards, so that
+        the ghosts of ghosts come back through them."""
+        x = np.array(values)
+        for chosen, _, destination, source, start, count in reversed(self.__sends):
+            back = _exchange(
+                self.comm, (x[start : start + count],), source, destination
+            )
+            x[chosen] += back[0]
+        return x[: self.local]
 
     def set_reach(self, reach: float) -> None:
         self.reach = float(reach)
@@ -306,20 +341,23 @@ def world() -> Any:
 
 
 def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
-    """How far from an atom the atoms that its force depends on are, and
-    those whose neighbors it needs: the cutoff and none for a pair potential;
-    twice the cutoff and the cutoff for MDAPY's many-body potentials, whose
-    forces depend on what the neighbors have of their neighbors, as the
-    density of EAM. The springs of a Switch tie each atom to its site alone."""
+    """How far from the brick a process needs ghosts, and those whose
+    neighbors it needs too: the cutoff, and none, for the potentials that
+    compute the atoms of a process alone (``_split``), sending what each atom
+    has of its neighbors to the ghosts or the forces on the ghosts back, and
+    the pair potentials; for MEAM, whose screening reaches the neighbors of
+    the neighbors, twice the cutoff and the cutoff. The springs of a Switch
+    tie each atom to its site alone."""
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._pair import _PairCalculator
 
-    if isinstance(calculator, _PairCalculator) or (
-        target and isinstance(calculator, Springs)
-    ):
-        return float(calculator.cutoff), 0.0
-    if isinstance(calculator, (EAM, ADP, MEAM, NEP, StillingerWeber, Tersoff)):
+    if isinstance(calculator, MEAM):
         return 2.0 * float(calculator.cutoff), float(calculator.cutoff)
+    if (
+        isinstance(calculator, (_PairCalculator, EAM, ADP, NEP, StillingerWeber, Tersoff))
+        or (target and isinstance(calculator, Springs))
+    ):  # fmt: skip
+        return float(calculator.cutoff), 0.0
     raise InvalidParameter(
         "MDAPY's dynamics on several processes splits MDAPY's own potentials, EAM, "
         "ADP, MEAM, NEP, Tersoff, Stillinger-Weber and the pair potentials, not "
@@ -526,6 +564,17 @@ class DomainAtoms(_HostAtoms):
         self.__built = self._x.copy()
         self._lists = {}
 
+    def __forward(self, values: np.ndarray) -> np.ndarray:
+        """Values of this process's atoms, and of the ghosts after them."""
+        return self.__bricks.forward(values)[self.__order]
+
+    def __reverse(self, values: np.ndarray) -> np.ndarray:
+        """Values of the atoms and the ghosts: those of this process's atoms,
+        the ghosts' added."""
+        ordered = np.empty_like(values)
+        ordered[self.__order] = values
+        return self.__bricks.reverse(ordered)
+
     def __beyond(self, x: np.ndarray) -> np.ndarray:
         """How far atoms are from the brick, in Å across its faces; the end
         bricks along a direction that is not periodic reach out of the box."""
@@ -560,7 +609,7 @@ class DomainAtoms(_HostAtoms):
         self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
     ) -> tuple[float, np.ndarray, np.ndarray, Any]:
         n = self.__bricks.local
-        virial = "virial" in wanted
+        virial = "virial" in wanted and WITHOUT_VIRIAL not in wanted
         if isinstance(calculator, Springs):
             # each atom tied to its own site: this process's atoms alone, in
             # the periodic box, at their unwrapped places
@@ -576,12 +625,25 @@ class DomainAtoms(_HostAtoms):
                 np.full((3, 3), np.nan),
                 SimpleNamespace(atomic_energies=energies, atomic_virials=None),
             )
-        extra = ("atomic_energies",) + (("atomic_virials",) if virial else ())
-        wanted = tuple(wanted) + tuple(p for p in extra if p not in wanted)
         current = System(table=self.__part.with_columns(
             pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=self.__box)  # fmt: skip
         neighbors = self._neighbors(slot, current, calculator)
+        split = getattr(calculator, "_split", None)
+        if split is not None:
+            # the calculator computes this process's atoms alone, and sends
+            # what it needs to the ghosts or back from them
+            part = split(current, tuple(wanted), neighbors, n, self.__forward,
+                         self.__reverse)  # fmt: skip
+            return (
+                float(self._total(part.energy)),
+                np.asarray(part.forces, dtype=float),
+                self._total(part.virial) if virial else np.full((3, 3), np.nan),
+                SimpleNamespace(atomic_energies=part.atomic_energies,
+                                atomic_virials=part.atomic_virials),
+            )  # fmt: skip
+        extra = ("atomic_energies",) + (("atomic_virials",) if virial else ())
+        wanted = tuple(wanted) + tuple(p for p in extra if p not in wanted)
         result = calculator.compute(current, wanted, neighbors=neighbors)
         energies = np.asarray(result.atomic_energies, dtype=float)[:n]
         virials = (

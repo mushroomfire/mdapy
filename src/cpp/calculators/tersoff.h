@@ -51,6 +51,7 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                      const std::int32_t* species, const double* positions, const double* matrix,
                      const std::int64_t* offsets, const index_t* neighbors,
                      const std::int8_t* shifts, double* energies, double* forces,
-                     double* virials, const Control& control = {}, bool heat = false);
+                     double* virials, const Control& control = {}, bool heat = false,
+                     std::int64_t centers = -1);
 
 }  // namespace mdapy::calculators

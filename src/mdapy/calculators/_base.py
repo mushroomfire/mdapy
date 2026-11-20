@@ -8,7 +8,7 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, NamedTuple
 
 import numpy as np
 
@@ -30,6 +30,54 @@ PROPERTIES = frozenset(
 # Tersoff instead of LAMMPS's shares, each term whole to its centre atom; the
 # others give what they give without it.
 HEAT_FLUX_TERMS = "_heat_flux_terms"
+# Asked with the other properties, the virials may be left out, as MDAPY's
+# dynamics asks at the steps that need no pressure; a calculator that
+# computes them at no cost gives them.
+WITHOUT_VIRIAL = "_without_virial"
+
+
+class _Part(NamedTuple):
+    """What a calculator gives of the atoms one process of MPI owns, the first
+    of its system, with ghosts of the other processes' after them
+    (simulation/_domain.py): its part of the energy and the virial, NaN when
+    not computed, which sum over the processes to the whole; the forces,
+    energies and virials of the atoms it owns."""
+
+    energy: float
+    forces: np.ndarray
+    virial: np.ndarray
+    atomic_energies: np.ndarray | None
+    atomic_virials: np.ndarray | None
+
+
+def _reversed_part(
+    energies: np.ndarray,
+    forces: np.ndarray,
+    virials: np.ndarray,
+    properties: tuple,
+    reverse: Any,
+) -> _Part:
+    """The part of a process of the energies, forces and virials that the
+    terms of its own atoms gave every atom of its system, ghosts among them:
+    the energy and the virial summed, the forces, and the energies and
+    virials when asked, of the ghosts sent back to their atoms by reverse, in
+    one message."""
+    each = bool(
+        {"atomic_energies", "atomic_virials", HEAT_FLUX_TERMS} & set(properties)
+    )
+    if each:
+        n = len(energies)
+        back = reverse(np.hstack([forces, energies[:, None], virials.reshape(n, 9)]))
+        return _Part(
+            float(energies.sum()),
+            np.ascontiguousarray(back[:, :3]),
+            virials.sum(axis=0),
+            np.ascontiguousarray(back[:, 3]),
+            np.ascontiguousarray(back[:, 4:]).reshape(-1, 3, 3),
+        )
+    return _Part(
+        float(energies.sum()), reverse(forces), virials.sum(axis=0), None, None
+    )
 
 
 @dataclass(frozen=True)
@@ -164,7 +212,7 @@ class Calculator(ABC):
         """
 
     def _check_properties(self, properties: Iterable[str]) -> frozenset[str]:
-        wanted = frozenset(properties) - {HEAT_FLUX_TERMS}
+        wanted = frozenset(properties) - {HEAT_FLUX_TERMS, WITHOUT_VIRIAL}
         unknown = wanted - PROPERTIES
         if unknown:
             raise InvalidParameter(f"unknown properties {sorted(unknown)}")

@@ -27,6 +27,7 @@ public:
     // The value and the derivative at x. Beyond the table the spline of the
     // last interval continues up to its end, as in LAMMPS.
     void evaluate(double x, double& value, double& derivative) const;
+    double value(double x) const;
     // The table for the GPU: n + 1 rows of 7 coefficients, row 0 unused.
     int size() const { return n_; }
     double inverse_delta() const { return inverse_delta_; }
@@ -85,5 +86,22 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, const Control& control = {}, bool heat = false);
+
+// The two passes of compute_eam for the first centers atoms of n, as the
+// processes of MPI split them: the electron density of each centre, its
+// embedding energy (energies) and the slope F'(rho) of its embedding
+// function; then, given the slopes of every atom of the neighbor list, the
+// forces on the centres, their pair energies added to energies, and their
+// virials unless virials is null.
+void eam_densities(const EamPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, double* energies, double* slopes,
+                   const Control& control = {});
+void eam_forces(const EamPotential& potential, std::int64_t centers, const std::int32_t* species,
+                const double* positions, const double* matrix, const std::int64_t* offsets,
+                const index_t* neighbors, const std::int8_t* shifts, const double* slopes,
+                double* energies, double* forces, double* virials, const Control& control = {},
+                bool heat = false);
 
 }  // namespace mdapy::calculators

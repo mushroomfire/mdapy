@@ -14,9 +14,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <string>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #include "bindings/control.h"
@@ -72,43 +74,37 @@ calculators::EamPotential make_eam(Table embedding, Table density, Table pair, d
         rho_max.value_or((nrho - 1) * drho));
 }
 
-nb::tuple compute_eam(const calculators::EamPotential& potential, Species species,
-                      Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                      Shifts shifts, nb::handle progress, const CancelToken* cancel,
-                      bool heat) {
-    const auto n = static_cast<std::int64_t>(species.shape(0));
-    if (positions.shape(0) != species.shape(0) ||
-        offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
-        neighbors.shape(0) != shifts.shape(0) ||
-        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
-        throw std::invalid_argument("the neighbor list does not fit the atoms");
-    }
-    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
-        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
-            throw std::invalid_argument("a neighbor index is outside the atoms");
-        }
-    }
-    for (std::int64_t i = 0; i < n; ++i) {
-        if (species.data()[i] < 0 || species.data()[i] >= potential.elements) {
-            throw std::invalid_argument("a species index is outside the potential");
-        }
-    }
-    double *energies, *forces, *virials;
-    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
-    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
-    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
-    nb::object e = new_array(1, shape1, energies);
-    nb::object f = new_array(2, shape2, forces);
-    nb::object w = new_array(3, shape3, virials);
-    run_released(
-        [&](const Control& control) {
-            calculators::compute_eam(potential, n, species.data(), positions.data(),
-                                     matrix.data(), offsets.data(), neighbors.data(),
-                                     shifts.data(), energies, forces, virials, control,
-                                     heat);
+// Whether every index lies in [0, n): the least and the largest of them,
+// found by the threads without the GIL, as each step of a dynamics asks.
+bool within(const index_t* indices, std::int64_t count, std::int64_t n) {
+    nb::gil_scoped_release release;
+    using Range = std::pair<std::int64_t, std::int64_t>;
+    const Range none{std::numeric_limits<std::int64_t>::max(),
+                     std::numeric_limits<std::int64_t>::min()};
+    const Range range = parallel_reduce(
+        count, 0, none,
+        [&](std::int64_t begin, std::int64_t end) {
+            Range r = none;
+            for (std::int64_t p = begin; p < end; ++p) {
+                const auto j = static_cast<std::int64_t>(indices[p]);
+                r.first = std::min(r.first, j);
+                r.second = std::max(r.second, j);
+            }
+            return r;
         },
-        progress, cancel);
-    return nb::make_tuple(e, f, w);
+        [](const Range& a, const Range& b) {
+            return Range{std::min(a.first, b.first), std::max(a.second, b.second)};
+        });
+    return count == 0 || (range.first >= 0 && range.second < n);
+}
+
+// The number of centres among the atoms, the first of them.
+std::int64_t centres_of(std::int64_t centers, Species species) {
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    if (centers < 0 || centers > n) {
+        throw std::invalid_argument("the centres are not among the atoms");
+    }
+    return centers;
 }
 
 // The atoms and their neighbor list fit together and the species lie below count.
@@ -121,10 +117,8 @@ void check_input(std::int64_t count, Species species, Positions positions, Offse
         offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
         throw std::invalid_argument("the neighbor list does not fit the atoms");
     }
-    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
-        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
-            throw std::invalid_argument("a neighbor index is outside the atoms");
-        }
+    if (!within(neighbors.data(), static_cast<std::int64_t>(neighbors.shape(0)), n)) {
+        throw std::invalid_argument("a neighbor index is outside the atoms");
     }
     for (std::int64_t i = 0; i < n; ++i) {
         if (species.data()[i] < 0 || species.data()[i] >= count) {
@@ -132,6 +126,97 @@ void check_input(std::int64_t count, Species species, Positions positions, Offse
         }
     }
 }
+
+using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// The first pass of EAM for the first centers atoms: their embedding
+// energies and the slopes of their embedding functions.
+nb::tuple eam_densities(const calculators::EamPotential& potential, Species species,
+                        Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                        Shifts shifts, std::int64_t centers) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    double *energies, *slopes;
+    const std::size_t shape[1] = {static_cast<std::size_t>(c)};
+    nb::object e = new_array(1, shape, energies);
+    nb::object s = new_array(1, shape, slopes);
+    run_released(
+        [&](const Control& control) {
+            calculators::eam_densities(potential, c, species.data(), positions.data(),
+                                       matrix.data(), offsets.data(), neighbors.data(),
+                                       shifts.data(), energies, slopes, control);
+        },
+        nb::none(), nullptr);
+    return nb::make_tuple(e, s);
+}
+
+// The second: given the slopes of every atom, the energies of the centres
+// (their embedding energies given, the pair energies added), their forces
+// and, with virial, their virials (None without).
+nb::tuple eam_forces(const calculators::EamPotential& potential, Species species,
+                     Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                     Shifts shifts, Values slopes, Values embedding, bool virial, bool heat) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(static_cast<std::int64_t>(embedding.shape(0)), species);
+    if (slopes.shape(0) != species.shape(0)) {
+        throw std::invalid_argument("a slope for each atom");
+    }
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(c)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(c), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(c), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    std::copy(embedding.data(), embedding.data() + c, energies);
+    run_released(
+        [&](const Control& control) {
+            calculators::eam_forces(potential, c, species.data(), positions.data(),
+                                    matrix.data(), offsets.data(), neighbors.data(),
+                                    shifts.data(), slopes.data(), energies, forces, virials,
+                                    control, heat);
+        },
+        nb::none(), nullptr);
+    return nb::make_tuple(e, f, w);
+}
+
+nb::tuple compute_eam(const calculators::EamPotential& potential, Species species,
+                      Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                      Shifts shifts, nb::handle progress, const CancelToken* cancel,
+                      bool heat, bool virial) {
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    if (positions.shape(0) != species.shape(0) ||
+        offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
+        neighbors.shape(0) != shifts.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
+        throw std::invalid_argument("the neighbor list does not fit the atoms");
+    }
+    if (!within(neighbors.data(), static_cast<std::int64_t>(neighbors.shape(0)), n)) {
+        throw std::invalid_argument("a neighbor index is outside the atoms");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (species.data()[i] < 0 || species.data()[i] >= potential.elements) {
+            throw std::invalid_argument("a species index is outside the potential");
+        }
+    }
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_eam(potential, n, species.data(), positions.data(),
+                                     matrix.data(), offsets.data(), neighbors.data(),
+                                     shifts.data(), energies, forces, virials, control,
+                                     heat);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
 
 // style: "lj/cut", "morse" or "ufm"; cutsq and offset: (species, species);
 // coefficients: (species, species, 4), see PairPotential.
@@ -158,16 +243,16 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
 
 nb::tuple compute_pair(const calculators::PairPotential& potential, Species species,
                        Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                       Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+                       Shifts shifts, nb::handle progress, const CancelToken* cancel, bool virial) {
     check_input(potential.species, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
-    double *energies, *forces, *virials;
+    double *energies, *forces, *virials = nullptr;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
     const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
-    nb::object w = new_array(3, shape3, virials);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
     run_released(
         [&](const Control& control) {
             calculators::compute_pair(potential, n, species.data(), positions.data(),
@@ -191,9 +276,10 @@ calculators::TersoffPotential make_tersoff(int elements, Flat rows) {
 nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Species species,
                           Positions positions, Matrix matrix, Offsets offsets,
                           Neighbors neighbors, Shifts shifts, nb::handle progress,
-                          const CancelToken* cancel, bool heat) {
+                          const CancelToken* cancel, bool heat, std::int64_t centers) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
+    const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
     double *energies, *forces, *virials;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
@@ -206,7 +292,7 @@ nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Specie
             calculators::compute_tersoff(potential, n, species.data(), positions.data(),
                                          matrix.data(), offsets.data(), neighbors.data(),
                                          shifts.data(), energies, forces, virials, control,
-                                         heat);
+                                         heat, c);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -225,9 +311,11 @@ calculators::StillingerWeberPotential make_stillinger_weber(int elements, Flat r
 nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& potential,
                                    Species species, Positions positions, Matrix matrix,
                                    Offsets offsets, Neighbors neighbors, Shifts shifts,
-                                   nb::handle progress, const CancelToken* cancel, bool heat) {
+                                   nb::handle progress, const CancelToken* cancel, bool heat,
+                                   std::int64_t centers) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
+    const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
     double *energies, *forces, *virials;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
@@ -240,7 +328,7 @@ nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& 
             calculators::compute_stillinger_weber(potential, n, species.data(), positions.data(),
                                                   matrix.data(), offsets.data(), neighbors.data(),
                                                   shifts.data(), energies, forces, virials,
-                                                  control, heat);
+                                                  control, heat, c);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -264,18 +352,73 @@ calculators::AdpPotential make_adp(Table embedding, Table density, Table pair, T
         dr, cutoff);
 }
 
+// The first pass of ADP for the first centers atoms: their energies and
+// states (centers, 10): F'(rho), the dipole and the quadrupole.
+nb::tuple adp_densities(const calculators::AdpPotential& potential, Species species,
+                        Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                        Shifts shifts, std::int64_t centers) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    double *energies, *state;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(c)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(c), calculators::kState};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object s = new_array(2, shape2, state);
+    run_released(
+        [&](const Control& control) {
+            calculators::adp_densities(potential, c, species.data(), positions.data(),
+                                       matrix.data(), offsets.data(), neighbors.data(),
+                                       shifts.data(), energies, state, control);
+        },
+        nb::none(), nullptr);
+    return nb::make_tuple(e, s);
+}
+
+using States = nb::ndarray<const double, nb::shape<-1, calculators::kState>, nb::c_contig,
+                           nb::device::cpu>;
+
+// The second: given the states of every atom, the energies of the centres
+// (theirs given, the pair energies added), their forces and, with virial,
+// their virials (None without).
+nb::tuple adp_forces(const calculators::AdpPotential& potential, Species species,
+                     Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                     Shifts shifts, States state, Values given, bool virial) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(static_cast<std::int64_t>(given.shape(0)), species);
+    if (state.shape(0) != species.shape(0)) {
+        throw std::invalid_argument("a state for each atom");
+    }
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(c)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(c), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(c), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    std::copy(given.data(), given.data() + c, energies);
+    run_released(
+        [&](const Control& control) {
+            calculators::adp_forces(potential, c, species.data(), positions.data(),
+                                    matrix.data(), offsets.data(), neighbors.data(),
+                                    shifts.data(), state.data(), energies, forces, virials,
+                                    control);
+        },
+        nb::none(), nullptr);
+    return nb::make_tuple(e, f, w);
+}
+
 nb::tuple compute_adp(const calculators::AdpPotential& potential, Species species,
                       Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                      Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+                      Shifts shifts, nb::handle progress, const CancelToken* cancel, bool virial) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
-    double *energies, *forces, *virials;
+    double *energies, *forces, *virials = nullptr;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
     const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
-    nb::object w = new_array(3, shape3, virials);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
     run_released(
         [&](const Control& control) {
             calculators::compute_adp(potential, n, species.data(), positions.data(),
@@ -376,10 +519,8 @@ void check_nep_input(const calculators::NepModel& model, Species species, Positi
         offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0))) {
         throw std::invalid_argument("the neighbor list does not fit the atoms");
     }
-    for (std::size_t p = 0; p < neighbors.shape(0); ++p) {
-        if (neighbors.data()[p] < 0 || neighbors.data()[p] >= n) {
-            throw std::invalid_argument("a neighbor index is outside the atoms");
-        }
+    if (!within(neighbors.data(), static_cast<std::int64_t>(neighbors.shape(0)), n)) {
+        throw std::invalid_argument("a neighbor index is outside the atoms");
     }
     for (std::int64_t i = 0; i < n; ++i) {
         if (species.data()[i] < 0 || species.data()[i] >= model.types) {
@@ -390,9 +531,10 @@ void check_nep_input(const calculators::NepModel& model, Species species, Positi
 
 nb::tuple compute_nep(const calculators::NepModel& model, Species species, Positions positions,
                       Matrix matrix, Offsets offsets, Neighbors neighbors, Shifts shifts,
-                      nb::handle progress, const CancelToken* cancel) {
+                      nb::handle progress, const CancelToken* cancel, std::int64_t centers) {
     check_nep_input(model, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
+    const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
     double *energies, *forces, *virials;
     const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
     const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
@@ -404,7 +546,7 @@ nb::tuple compute_nep(const calculators::NepModel& model, Species species, Posit
         [&](const Control& control) {
             calculators::compute_nep(model, n, species.data(), positions.data(), matrix.data(),
                                      offsets.data(), neighbors.data(), shifts.data(), energies,
-                                     forces, virials, nullptr, control);
+                                     forces, virials, nullptr, control, c);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -494,7 +636,14 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_adp", &compute_adp, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr,
+          nb::arg("virial") = true);
+    m.def("adp_densities", &adp_densities, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("centers"));
+    m.def("adp_forces", &adp_forces, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("state"), nb::arg("given"), nb::arg("virial"));
     nb::class_<calculators::StillingerWeberPotential>(m, "StillingerWeberPotential")
         .def_ro("elements", &calculators::StillingerWeberPotential::elements)
         .def_ro("cutoff", &calculators::StillingerWeberPotential::cutoff);
@@ -502,7 +651,8 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_stillinger_weber", &compute_stillinger_weber, nb::arg("potential"),
           nb::arg("species"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false);
+          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false,
+          nb::arg("centers") = -1);
     nb::class_<calculators::TersoffPotential>(m, "TersoffPotential")
         .def_ro("elements", &calculators::TersoffPotential::elements)
         .def_ro("cutoff", &calculators::TersoffPotential::cutoff);
@@ -510,7 +660,8 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_tersoff", &compute_tersoff, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false);
+          nb::arg("cancel").none() = nullptr, nb::arg("heat") = false,
+          nb::arg("centers") = -1);
     nb::class_<calculators::PairPotential>(m, "PairPotential")
         .def_ro("species", &calculators::PairPotential::species)
         .def_ro("cutoff", &calculators::PairPotential::cutoff);
@@ -519,7 +670,8 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_pair", &compute_pair, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr,
+          nb::arg("virial") = true);
     nb::class_<calculators::EamPotential>(m, "EamPotential")
         .def_ro("elements", &calculators::EamPotential::elements)
         .def_ro("cutoff", &calculators::EamPotential::cutoff)
@@ -530,6 +682,14 @@ void bind_calculators(nb::module_& m) {
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"),
           nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr,
+          nb::arg("heat") = false,
+          nb::arg("virial") = true);
+    m.def("eam_densities", &eam_densities, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("centers"));
+    m.def("eam_forces", &eam_forces, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("slopes"), nb::arg("embedding"), nb::arg("virial"),
           nb::arg("heat") = false);
     nb::class_<calculators::NepModel>(m, "NepModel")
         .def_ro("types", &calculators::NepModel::types)
@@ -544,7 +704,7 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_nep", &compute_nep, nb::arg("model"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr, nb::arg("centers") = -1);
     m.def("nep_frames", &nep_frames, nb::arg("model"), nb::arg("species"), nb::arg("starts"),
           nb::arg("positions"), nb::arg("matrices"), nb::arg("origins"), nb::arg("pbc"),
           nb::arg("cutoff"), nb::arg("forces"), nb::arg("progress") = nb::none(),

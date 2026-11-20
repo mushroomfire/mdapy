@@ -13,7 +13,12 @@ import numpy as np
 
 from mdapy import _core
 from mdapy.calculators import _gpu
-from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
+from mdapy.calculators._base import (
+    WITHOUT_VIRIAL,
+    Calculator,
+    CalculatorResult,
+    _element_indices,
+)
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
@@ -148,10 +153,13 @@ class _PairCalculator(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
+        properties = tuple(properties)
         wanted = self._check_properties(properties)
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted)
+        # the virials unless left out, as the dynamics may
+        virial = WITHOUT_VIRIAL not in properties
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_pair(
@@ -164,12 +172,13 @@ class _PairCalculator(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                virial,
             )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,
             forces=forces,
-            virial=virials.sum(axis=0),
+            virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
         )

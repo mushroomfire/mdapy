@@ -13,7 +13,13 @@ import numpy as np
 
 from mdapy._core import calculators as _native
 from mdapy.calculators import _gpu, _zhou
-from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator, CalculatorResult
+from mdapy.calculators._base import (
+    HEAT_FLUX_TERMS,
+    WITHOUT_VIRIAL,
+    Calculator,
+    CalculatorResult,
+    _Part,
+)
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
@@ -568,6 +574,8 @@ class EAM(Calculator):
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted, heat=heat)
+        # the virials unless left out, as the dynamics may
+        virial = WITHOUT_VIRIAL not in properties or heat
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_eam(
@@ -581,14 +589,55 @@ class EAM(Calculator):
                 progress,
                 _native_token(cancel),
                 heat,
+                virial,
             )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,
             forces=forces,
-            virial=virials.sum(axis=0),
+            virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
+        )
+
+    def _split(
+        self,
+        system: System,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+    ) -> _Part:
+        """The part of the first owned atoms of system, a process's of MPI:
+        their densities, the slopes of their embedding functions sent to
+        their ghosts by forward, then their forces, whose pairs reach the
+        ghosts within the cutoff."""
+        heat = HEAT_FLUX_TERMS in properties
+        virial = (
+            bool({"virial", "atomic_virials"} & set(properties))
+            and WITHOUT_VIRIAL not in properties
+        ) or heat
+        arrays = (
+            self._species(system),
+            np.ascontiguousarray(system["positions"]),
+            np.ascontiguousarray(system.box.matrix),
+            neighbors.offsets,
+            neighbors.j,
+            neighbors.shifts,
+        )
+        with neighbors._reading():
+            embedding, slopes = _native.eam_densities(self.__potential, *arrays, owned)
+            slopes = np.ascontiguousarray(forward(slopes))
+            energies, forces, virials = _native.eam_forces(
+                self.__potential, *arrays, slopes, embedding, virial, heat
+            )
+        return _Part(
+            float(energies.sum()),
+            forces,
+            virials.sum(axis=0) if virials is not None else np.full((3, 3), np.nan),
+            energies,
+            virials,
         )
 
     def _species(self, system: System) -> np.ndarray:

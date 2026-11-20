@@ -98,6 +98,11 @@ def bricks_hold_every_atom(comm, h, pbc, reach, seed=7):
         ]
     got = [(int(i), *np.round(p, 9)) for i, p in zip(ig[local:], xg[local:])]
     assert sorted(got) == sorted(expect)
+    # values go to the ghosts of their atoms, and come back from them added
+    np.testing.assert_array_equal(bricks.forward(ig[:local].astype(float)), ig)
+    copies = np.bincount(np.concatenate(comm.allgather(ig[local:])), minlength=n)
+    back = bricks.reverse(np.ones((len(ig), 2)))
+    np.testing.assert_array_equal(back[:, 0], 1 + copies[ig[:local]])
     # the ghosts follow their atoms
     nudge = rng.normal(0, 0.01, (n, 3))
     followed = bricks.follow(
@@ -118,6 +123,11 @@ BOXES = {
                   (True, True, True), 2.5),
     "open z": (np.diag([20.0, 18.0, 30.0]), (True, True, False), 3.0),
     "open": (np.diag([24.0, 24.0, 24.0]), (False, False, False), 3.0),
+    # bricks thinner than the reach, which pass the ghosts on
+    "thin": (np.diag([12.0, 11.0, 10.0]), (True, True, True), 6.5),
+    "thin triclinic": (np.array([[12.0, 0, 0], [3.0, 11.0, 0], [-2.0, 1.5, 10.0]]),
+                       (True, True, True), 5.5),
+    "thin open z": (np.diag([12.0, 11.0, 20.0]), (True, True, False), 6.5),
 }  # fmt: skip
 
 
@@ -158,6 +168,9 @@ def cases():
     half = crystal.box.matrix[0, 0] / 2
     return {
         "nve": (crystal, eam, {}, 4),
+        # bricks thinner than the reach of the ghosts
+        "small": (copper(3), eam, {"ensemble": "npt", "temperature": 300,
+                                   "pressure": 0.0}, 8),
         # thinner across x and y than the reach of the ghosts, one brick each
         "thin": (build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 8)), eam,
                  {"ensemble": "npt", "temperature": 300, "pressure": 0.0}, 2),
@@ -450,23 +463,26 @@ def test_what_cannot_be_split(monkeypatch):
     gpu = EAM.zhou(["Cu"], device="cuda")
     refused(monkeypatch, 2, lambda: MolecularDynamics(crystal, gpu, timestep=0.002),
             "runs on one process")  # fmt: skip
-    # bricks thinner than the reach of the ghosts, at the start and on the way
+    # a box cut into bricks along a vector across which it is thinner than
+    # the reach of the ghosts, at the start and on the way
     eam = EAM.zhou(["Cu"])
-    refused(monkeypatch, 2, lambda: MolecularDynamics(copper(4), eam, timestep=0.002),
-            "use fewer processes")  # fmt: skip
+    refused(monkeypatch, 2, lambda: MolecularDynamics(copper(1), eam, timestep=0.002),
+            "fewer processes")  # fmt: skip
 
     def squeezed():
-        with MolecularDynamics(crystal, eam, timestep=0.002) as md:
-            md.run(30, controls=[Deform(zz=-0.5)])  # across the bricks
+        with MolecularDynamics(copper(2), eam, timestep=0.002) as md:
+            md.run(30, controls=[Deform(zz=-1.5)])  # across the bricks
 
-    refused(monkeypatch, 2, squeezed, "use fewer processes")
+    refused(monkeypatch, 2, squeezed, "fewer processes")
 
     def switched():
+        # 6.4 Å across: thick enough for Lennard-Jones, not for EAM
+        small = build_crystal("fcc", 3.2, elements="Cu", repeat=(2, 2, 2))
         lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
-        with MolecularDynamics(copper(4), lj, timestep=0.002) as md:
+        with MolecularDynamics(small, lj, timestep=0.002) as md:
             md.run(10, controls=[Switch(eam)])
 
-    refused(monkeypatch, 2, switched, "use fewer processes")
+    refused(monkeypatch, 2, switched, "fewer processes")
 
 
 def test_an_atom_too_fast(monkeypatch):

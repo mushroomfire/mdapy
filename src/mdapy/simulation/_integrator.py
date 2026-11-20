@@ -24,7 +24,7 @@ import numpy as np
 import polars as pl
 
 from mdapy import _core, units
-from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator
+from mdapy.calculators._base import HEAT_FLUX_TERMS, WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -461,11 +461,13 @@ class _HostAtoms:
     def compute(
         self, table: pl.DataFrame, box: Box, energy: bool, virial: bool
     ) -> tuple[float, np.ndarray]:
-        """The energy and the virial, the forces kept; on the processor
-        always all three."""
+        """The energy and the virial, the forces kept; the virial when asked
+        (NaN without, by the calculators that can leave it out)."""
         wanted = self.__properties
         if self.__field is not None:
             wanted = wanted + ("atomic_energies", "atomic_virials", HEAT_FLUX_TERMS)
+        elif not virial:
+            wanted = wanted + (WITHOUT_VIRIAL,)
         energy, forces, work, result = self._evaluate(
             "potential", self._calculator, table, box, wanted
         )

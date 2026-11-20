@@ -9,11 +9,13 @@ and holds copies, ghosts, of those within a reach of it, periodic images
 among them. Atoms move to the process of their brick, and ghosts are found
 again, when the neighbor lists are built; in between, the ghosts follow their
 atoms. Communication goes brick to brick, along x, then y, then z, each step
-carrying what the steps before brought, so that the corners come too.
+carrying what the steps before brought, so that the corners come too; along a
+box vector of one brick there are no ghosts, the box being periodic there.
 
 DomainAtoms holds the atoms of one process for MDAPY's dynamics on the
 processor, with the interface of _HostAtoms: the calculator computes the atoms
-of the brick and the ghosts as a system without periodic directions, the
+of the brick and the ghosts as a system periodic only along the box vectors of
+one brick, the
 ghosts as far as the force on an atom reaches (twice the cutoff of a many-body
 potential), so that the calculators need no change."""
 
@@ -108,7 +110,7 @@ class Bricks:
         # the reach in fractional coordinates along each box vector
         self.fraction = self.reach / thick
         width = 1.0 / self.counts
-        too_thin = (self.fraction > width + 1e-12) & ((self.counts > 1) | self.pbc)
+        too_thin = (self.fraction > width + 1e-12) & (self.counts > 1)
         if too_thin.any():
             d = int(np.flatnonzero(too_thin)[0])
             raise ValueError(
@@ -191,7 +193,8 @@ class Bricks:
         lower = self.at / self.counts
         upper = (self.at + 1) / self.counts
         for d in range(3):
-            if not self.pbc[d] and self.counts[d] == 1:
+            # along a box vector of one brick the box itself is periodic
+            if self.counts[d] == 1:
                 continue
             # the atoms before this direction: local ones and the ghosts of
             # the directions before, which carry the corners
@@ -507,7 +510,9 @@ class DomainAtoms(_HostAtoms):
         self.__far = far[order]
         self.__ghosts, ids = ghosts[self.__order], ids[self.__order]
         self.__part = table[ids]
-        self.__box = Box(box.matrix, origin=box.origin, pbc=(False, False, False))
+        self.__box = Box(
+            box.matrix, origin=box.origin, pbc=bricks.pbc & (bricks.counts == 1)
+        )
         self.__built = self._x.copy()
         self._lists = {}
 

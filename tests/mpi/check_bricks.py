@@ -84,15 +84,19 @@ for case, (h, pbc, reach) in enumerate(
     wids = comm.allgather(fields["id"])
     allx, alli = np.concatenate(wrapped), np.concatenate(wids)
     expect = []
-    ranges = [(-1, 0, 1) if p else (0,) for p in pbc]
+    # along a box vector of one brick there are no ghosts
+    one = bricks.counts == 1
+    ranges = [(-1, 0, 1) if p and not o else (0,) for p, o in zip(pbc, one)]
     for shift in itertools.product(*ranges):
         y = allx + np.array(shift) @ h
         g = bricks.fractional(y)
         open_lower = np.where(
-            ~np.asarray(pbc) & (bricks.at == 0), -np.inf, lower - frac
+            one | (~np.asarray(pbc) & (bricks.at == 0)), -np.inf, lower - frac
         )
         open_upper = np.where(
-            ~np.asarray(pbc) & (bricks.at == bricks.counts - 1), np.inf, upper + frac
+            one | (~np.asarray(pbc) & (bricks.at == bricks.counts - 1)),
+            np.inf,
+            upper + frac,
         )
         near = ((g >= open_lower) & (g < open_upper)).all(axis=1)
         # the atoms of this brick, whose own places are not ghosts; along a

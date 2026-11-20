@@ -80,11 +80,15 @@ def bricks_hold_every_atom(comm, h, pbc, reach, seed=7):
     allx = np.concatenate(comm.allgather(fields["positions"]))
     alli = np.concatenate(comm.allgather(fields["id"]))
     closed = np.asarray(pbc)
-    low = np.where(~closed & (bricks.at == 0), -np.inf, lower - bricks.fraction)
-    high = np.where(~closed & (bricks.at == bricks.counts - 1), np.inf,
+    # along a box vector of one brick there are no ghosts, and the end bricks
+    # along one that is not periodic reach out of the box
+    one = bricks.counts == 1
+    low = np.where(one | (~closed & (bricks.at == 0)), -np.inf, lower - bricks.fraction)
+    high = np.where(one | (~closed & (bricks.at == bricks.counts - 1)), np.inf,
                     upper + bricks.fraction)  # fmt: skip
+    split = [(-1, 0, 1) if p and not o else (0,) for p, o in zip(pbc, one)]
     expect = []
-    for shift in itertools.product(*[(-1, 0, 1) if p else (0,) for p in pbc]):
+    for shift in itertools.product(*split):
         y = allx + np.array(shift) @ h
         g = bricks.fractional(y)
         near = ((g >= low) & (g < high)).all(axis=1)
@@ -154,6 +158,9 @@ def cases():
     half = crystal.box.matrix[0, 0] / 2
     return {
         "nve": (crystal, eam, {}, 4),
+        # thinner across x and y than the reach of the ghosts, one brick each
+        "thin": (build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 8)), eam,
+                 {"ensemble": "npt", "temperature": 300, "pressure": 0.0}, 2),
         "lj": (copper(5), lj, {}, 8),
         "nvt": (crystal, eam, {"ensemble": "nvt", "temperature": (300, 500)}, 2),
         "npt": (crystal, eam, {"ensemble": "npt", "temperature": 300, "pressure": 1.0}, 2),

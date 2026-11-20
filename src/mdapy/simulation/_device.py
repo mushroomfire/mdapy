@@ -120,9 +120,12 @@ class DeviceAtoms:
         except self.__module.NotFinite:
             raise CalculationFailed(_NOT_FINITE) from None
         driven = self.__field is not None
-        self.__potential.compute(
-            self.__atoms, self.__neighbors, h, lo, pbc, energy, virial or driven, driven
-        )
+        if driven:  # the energies and virials of the heat flux
+            self.__potential.compute_heat(self.__atoms, self.__neighbors, h, lo, pbc)
+        else:
+            self.__potential.compute(
+                self.__atoms, self.__neighbors, h, lo, pbc, energy, virial, False
+            )
         if driven:
             self.__atoms.drive(self.__field)
         if self.__target is not False:

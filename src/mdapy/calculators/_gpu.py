@@ -77,8 +77,10 @@ class OnDevice:
         self.__lock = threading.Lock()
 
     def compute(
-        self, system: System, species: np.ndarray, wanted: Set[str]
+        self, system: System, species: np.ndarray, wanted: Set[str], heat: bool = False
     ) -> CalculatorResult:
+        """What wanted names; heat: the atomic energies and virials of the
+        heat flux, of the potential's compute_heat."""
         module = cuda()
         positions = np.ascontiguousarray(system["positions"], dtype=np.float64)
         h, lo, pbc = box_arguments(system.box)
@@ -97,7 +99,12 @@ class OnDevice:
             energy = bool({"energy", "atomic_energies"} & wanted)
             atomic = bool({"atomic_energies", "atomic_virials"} & wanted)
             virial = bool({"virial", "atomic_virials"} & wanted)
-            self.potential.compute(atoms, neighbors, h, lo, pbc, energy, virial, atomic)
+            if heat:
+                self.potential.compute_heat(atoms, neighbors, h, lo, pbc)
+            else:
+                self.potential.compute(
+                    atoms, neighbors, h, lo, pbc, energy, virial, atomic
+                )
             return CalculatorResult(
                 energy=atoms.total_energy() if "energy" in wanted else None,
                 atomic_energies=atoms.energies()

@@ -227,6 +227,18 @@ dynamics of anharmonic solids from first principles, *Phys. Rev. B* **84**, 1803
 [doi:10.1103/PhysRevB.84.180301](https://doi.org/10.1103/PhysRevB.84.180301)
 { #hellman2011 }
 
+**Henkelman et al. (2000).** G. Henkelman, B. P. Uberuaga and H. Jónsson, A
+climbing image nudged elastic band method for finding saddle points and minimum
+energy paths, *J. Chem. Phys.* **113**, 9901 (2000).
+[doi:10.1063/1.1329672](https://doi.org/10.1063/1.1329672)
+{ #henkelman2000a }
+
+**Henkelman and Jónsson (2000).** G. Henkelman and H. Jónsson, Improved tangent
+estimate in the nudged elastic band method for finding minimum energy paths and
+saddle points, *J. Chem. Phys.* **113**, 9978 (2000).
+[doi:10.1063/1.1323224](https://doi.org/10.1063/1.1323224)
+{ #henkelman2000b }
+
 **Himanen et al. (2020).** L. Himanen, M. O. J. Jäger, E. V. Morooka,
 F. Federici Canova, Y. S. Ranawat, D. Z. Gao, P. Rinke and A. S. Foster,
 DScribe: Library of descriptors for machine learning in materials science,
@@ -261,6 +273,13 @@ clusters, *J. Phys. Chem.* **91**, 4950 (1987).
 From the equation of state of a gas, *Proc. R. Soc. Lond. A* **106**, 463 (1924).
 [doi:10.1098/rspa.1924.0082](https://doi.org/10.1098/rspa.1924.0082)
 { #jones1924 }
+
+**Jónsson et al. (1998).** H. Jónsson, G. Mills and K. W. Jacobsen, Nudged
+elastic band method for finding minimum energy paths of transitions, in
+*Classical and Quantum Dynamics in Condensed Phase Simulations*, edited by B. J.
+Berne, G. Ciccotti and D. F. Coker (World Scientific, Singapore, 1998), p. 385.
+[doi:10.1142/9789812839664_0016](https://doi.org/10.1142/9789812839664_0016)
+{ #jonsson1998 }
 
 **Kelchner et al. (1998).** C. L. Kelchner, S. J. Plimpton and J. C.
 Hamilton, Dislocation nucleation and defect structure during surface
@@ -452,6 +471,12 @@ estimation of elastic constants by molecular dynamics simulation under constant
 stress, *Phys. Rev. B* **69**, 134103 (2004).
 [doi:10.1103/PhysRevB.69.134103](https://doi.org/10.1103/PhysRevB.69.134103)
 { #shinoda2004 }
+
+**Smidstrup et al. (2014).** S. Smidstrup, A. Pedersen, K. Stokbro and H.
+Jónsson, Improved initial guess for minimum energy path calculations, *J. Chem.
+Phys.* **140**, 214106 (2014).
+[doi:10.1063/1.4878664](https://doi.org/10.1063/1.4878664)
+{ #smidstrup2014 }
 
 **Song et al. (2024).** K. Song et al., General-purpose machine-learned
 potential for 16 elemental metals and their alloys, *Nat. Commun.* **15**,

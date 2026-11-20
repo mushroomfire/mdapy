@@ -8,6 +8,12 @@
 
 ::: mdapy.simulation.MinimizeResult
 
+## Minimum energy paths
+
+::: mdapy.simulation.neb
+
+::: mdapy.simulation.NEBResult
+
 ## Molecular dynamics
 
 ::: mdapy.simulation.MolecularDynamics

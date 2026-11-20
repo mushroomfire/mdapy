@@ -24,8 +24,8 @@ import mdapy as mp
 ## Simulation
 
 - [Potentials](calculators.md): `mdapy.calculators`
-- [Simulation](simulation.md): `mdapy.simulation`, energy minimization and molecular
-  dynamics, and `mdapy.simulation.controls`
+- [Simulation](simulation.md): `mdapy.simulation`, energy minimization, minimum energy
+  paths and molecular dynamics, and `mdapy.simulation.controls`
 
 ## Properties
 

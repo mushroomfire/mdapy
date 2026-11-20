@@ -114,7 +114,7 @@ where each feature runs.
 | Area | What is in it |
 |---|---|
 | [**Build**](https://mushroomfire.github.io/mdapy/user-guide/build/crystals/) | Crystals, polycrystals, alloys, defects and dislocations |
-| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/simulation/) | Its own molecular dynamics on the processor and NVIDIA GPUs: ensembles, controls, deformation, indentation and shock |
+| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/simulation/) | Its own molecular dynamics on the processor and NVIDIA GPUs: ensembles, controls, deformation, indentation and shock; energy minimization and minimum energy paths |
 | [**Potentials**](https://mushroomfire.github.io/mdapy/user-guide/potentials/calculators/) | Native EAM, MEAM, ADP, Tersoff, Stillinger–Weber, Lennard-Jones, Morse and NEP; interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) |
 | [**Properties**](https://mushroomfire.github.io/mdapy/user-guide/properties/elastic-constants/) | Defect energies, elastic constants, phonons, thermal conductivity, free energies, melting points and phase diagrams |
 | [**Analyze**](https://mushroomfire.github.io/mdapy/user-guide/analysis/overview/) | More than 40 analyses of structure, local order, defects and dynamics |

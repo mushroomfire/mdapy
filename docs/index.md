@@ -80,6 +80,8 @@ simulations:
   [free energies](user-guide/properties/free-energy.md),
   [melting points](user-guide/properties/melting-point.md) and
   [phase diagrams](user-guide/properties/phase-diagram.md).
+- **Barriers**: the barriers of diffusion and of transitions between two states, by
+  the nudged elastic band ([Minimum energy paths](user-guide/simulation/neb.md)).
 
 ```python
 from mdapy.build import build_crystal

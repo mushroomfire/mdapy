@@ -71,6 +71,15 @@
   order they are defined, and the added force came after the `setforce`. The added
   forces are now defined first, so that the order of the controls does not matter, as
   in MDAPY. See [Groups and controls](../user-guide/simulation/controls.md).
+- `mdapy.simulation.neb(initial, final, calculator, *, images=5, climb=True)`: the
+  minimum energy path between two states by the nudged elastic band, with the improved
+  tangent and the climbing image of Henkelman, Uberuaga and Jónsson (2000), which gives
+  the saddle point and the barrier: the band of LAMMPS's `neb`, to 1e-9 eV on the saddle. Any calculator,
+  on the processor or the GPU, or one for each image, which then compute at the same
+  time, as VASP in directories of their own; the images start on a straight line or
+  relaxed on the image dependent pair potential (`interpolation="idpp"`). `NEBResult`
+  holds the band, its energies, the distances along it and the barrier, and `profile`
+  the energy between the images. See [Minimum energy paths](../user-guide/simulation/neb.md).
 - The documentation gives MDAPY's own molecular dynamics a part of its own in the user
   guide, [Simulation](../user-guide/simulation/index.md): an overview of what the engine
   is for and of every feature with where it runs, then running,

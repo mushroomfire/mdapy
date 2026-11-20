@@ -3,8 +3,8 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Simulations: energy minimization and molecular dynamics, in MDAPY or in
-LAMMPS, with the controls of a run in ``mdapy.simulation.controls``. The
+"""Simulations: energy minimization, minimum energy paths and molecular
+dynamics, in MDAPY or in LAMMPS, with the controls of a run in ``mdapy.simulation.controls``. The
 properties that these give, such as elastic constants or free energies, are in
 ``mdapy.properties``."""
 
@@ -13,9 +13,17 @@ from typing import Any
 from mdapy._moved import forward
 from mdapy.simulation._dynamics import MolecularDynamics
 from mdapy.simulation._minimize import MinimizeResult, minimize
+from mdapy.simulation._neb import NEBResult, neb
 from mdapy.simulation._velocities import thermal_velocities
 
-__all__ = ["MinimizeResult", "MolecularDynamics", "minimize", "thermal_velocities"]
+__all__ = [
+    "MinimizeResult",
+    "MolecularDynamics",
+    "NEBResult",
+    "minimize",
+    "neb",
+    "thermal_velocities",
+]
 
 
 def __getattr__(name: str) -> Any:

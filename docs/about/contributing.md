@@ -250,6 +250,7 @@ The rest are programs and conditions of the machine:
 | `glslc` of the shaderc version named in `render_vulkan.comp` | the compiled shader of Linux |
 | `dxc` of the Windows SDK named in `render_d3d12.hlsl` | the compiled shader of Windows |
 | the test data of [torchnep](https://github.com/mushroomfire/torchnep), beside this repository or at `MDAPY_TORCHNEP_DATA` | NEP against its reference values |
+| a LAMMPS built with MPI and the `REPLICA` package, started by `MDAPY_LAMMPS_NEB` with `{n}` for the number of processes, such as `mpirun -np {n} /path/to/lmp` | the nudged elastic band against LAMMPS's `neb`, which runs each image in a partition of its own |
 | Python 3.14 | files compressed with zstd |
 | a German or French locale | numbers under a locale with a decimal comma |
 

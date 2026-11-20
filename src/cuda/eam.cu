@@ -63,10 +63,13 @@ __global__ void density(std::int64_t n, const Real4<Real>* x, Images<Real> image
     if (Energy) energies[i] = embedding;
 }
 
+// heat: the virials of the heat flux, r_ij (x) dU_j/dr_i of Fan et al.
+// (2015), instead of the pair forces split in halves
 template <class Real, bool Energy, bool Virial>
 __global__ void force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
                       const std::int32_t* indices, const std::int32_t* counts, Tables<Real> t,
-                      const Real* fp, double* forces, double* energies, double* virials) {
+                      const Real* fp, double* forces, double* energies, double* virials,
+                      bool heat) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -112,9 +115,11 @@ __global__ void force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
             f[a] += static_cast<double>(del[a] * fpair);
         }
         if (Virial) {
+            const Real share = heat ? -(fp[j] * rho_ip + Real(0.5) * phip) * recip
+                                    : Real(0.5) * fpair;
             for (int a = 0; a < 3; ++a) {
                 for (int b = 0; b < 3; ++b) {
-                    w[3 * a + b] += static_cast<double>(Real(0.5) * del[a] * del[b] * fpair);
+                    w[3 * a + b] += static_cast<double>(del[a] * del[b] * share);
                 }
             }
         }
@@ -161,12 +166,22 @@ public:
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                  bool virial, bool atomic) override {
+        evaluate(atoms, neighbors, box, energy, virial || atomic, false);
+    }
+
+    // the energies of each atom, and the virials of the heat flux
+    void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) override {
+        evaluate(atoms, neighbors, box, true, true, true);
+    }
+
+private:
+    void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
+                  bool virial, bool heat) {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
-        virial = virial || atomic;
         const std::int64_t n = a.n;
         fp_.resize(static_cast<std::size_t>(n));
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
@@ -189,23 +204,22 @@ public:
         const auto* cnt = l.counts.data();
         if (energy && virial) {
             force<Real, true, true><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                   a.forces.data(), e, w);
+                                                   a.forces.data(), e, w, heat);
         } else if (energy) {
             force<Real, true, false><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                    a.forces.data(), e, w);
+                                                    a.forces.data(), e, w, heat);
         } else if (virial) {
             force<Real, false, true><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                    a.forces.data(), e, w);
+                                                    a.forces.data(), e, w, heat);
         } else {
             force<Real, false, false><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                     a.forces.data(), e, w);
+                                                     a.forces.data(), e, w, heat);
         }
         MDAPY_LAUNCHED();
         a.has_energies = energy;
         a.has_virials = virial;
     }
 
-private:
     double cutoff_;
     int elements_;
     double rho_max_;

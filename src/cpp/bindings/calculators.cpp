@@ -74,7 +74,8 @@ calculators::EamPotential make_eam(Table embedding, Table density, Table pair, d
 
 nb::tuple compute_eam(const calculators::EamPotential& potential, Species species,
                       Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                      Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+                      Shifts shifts, nb::handle progress, const CancelToken* cancel,
+                      bool heat) {
     const auto n = static_cast<std::int64_t>(species.shape(0));
     if (positions.shape(0) != species.shape(0) ||
         offsets.shape(0) != static_cast<std::size_t>(n) + 1 ||
@@ -103,7 +104,8 @@ nb::tuple compute_eam(const calculators::EamPotential& potential, Species specie
         [&](const Control& control) {
             calculators::compute_eam(potential, n, species.data(), positions.data(),
                                      matrix.data(), offsets.data(), neighbors.data(),
-                                     shifts.data(), energies, forces, virials, control);
+                                     shifts.data(), energies, forces, virials, control,
+                                     heat);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -527,7 +529,8 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_eam", &compute_eam, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"),
-          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);
+          nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr,
+          nb::arg("heat") = false);
     nb::class_<calculators::NepModel>(m, "NepModel")
         .def_ro("types", &calculators::NepModel::types)
         .def_ro("dim", &calculators::NepModel::dim);

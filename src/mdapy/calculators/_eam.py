@@ -13,7 +13,7 @@ import numpy as np
 
 from mdapy._core import calculators as _native
 from mdapy.calculators import _gpu, _zhou
-from mdapy.calculators._base import Calculator, CalculatorResult
+from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator, CalculatorResult
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
@@ -560,10 +560,12 @@ class EAM(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
+        properties = tuple(properties)
+        heat = HEAT_FLUX_TERMS in properties
         wanted = self._check_properties(properties)
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
-            return self.__gpu.compute(system, species, wanted)
+            return self.__gpu.compute(system, species, wanted, heat=heat)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_eam(
@@ -576,6 +578,7 @@ class EAM(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                heat,
             )
         return CalculatorResult(
             energy=float(energies.sum()),

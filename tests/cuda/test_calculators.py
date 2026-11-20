@@ -77,7 +77,8 @@ def compare(gpu, cpu, system, precision, heat=False):
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])
 @pytest.mark.parametrize("tilt", [0.0, 0.3])
-def test_eam(tmp_path, precision, tilt):
+@pytest.mark.parametrize("heat", [False, True])
+def test_eam(tmp_path, precision, tilt, heat):
     setfl = write_setfl(tmp_path / "CuNi.eam.alloy")
     fs = write_setfl(tmp_path / "CuNi.eam.fs", fs=True)
     funcfl = [
@@ -87,12 +88,16 @@ def test_eam(tmp_path, precision, tilt):
     system = shaken(3.3, ("Cu", "Ni"), 5, tilt=tilt)
     for path in (setfl, fs, funcfl):
         compare(
-            EAM(path, device="cuda", precision=precision), EAM(path), system, precision
+            EAM(path, device="cuda", precision=precision),
+            EAM(path),
+            system,
+            precision,
+            heat,
         )
     zhou = EAM.zhou(["Cu", "Ni"])
     gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
     crystal = shaken(3.6, ("Cu", "Ni"), 5, tilt=tilt)
-    compare(gpu, zhou, crystal, precision)
+    compare(gpu, zhou, crystal, precision, heat)
     # the average atom keeps the device
     average = gpu.average({"Cu": 0.3, "Ni": 0.7})
     assert (average.device, average.precision) == ("cuda", precision)

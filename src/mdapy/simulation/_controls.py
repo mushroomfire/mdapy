@@ -599,12 +599,16 @@ class _HeatField:
     (HNEMD) for a run: each atom pushed by the field through its virial, the
     pushes less their mean, so that heat flows along the field; ``thermo``
     records ``heat_flux``, the potential part of the heat flux times the
-    volume. The field is in 1/Å, in the axes of the system."""
+    volume. The field is in 1/Å, in the axes of the system. convective: each
+    atom pushed by the field times its energy less their mean too, and the
+    energy each atom carries in the flux (Evans 1982), for atoms of one
+    mass."""
 
-    def __init__(self, field: Any):
+    def __init__(self, field: Any, convective: bool = False):
         self.field = _vector(field, "field")
         if not self.field.any():
             raise InvalidParameter("the field must not be zero")
+        self.convective = bool(convective)
 
 
 CONTROLS = (

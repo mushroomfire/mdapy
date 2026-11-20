@@ -305,6 +305,11 @@ class _HostAtoms:
         # a Switch: the other interaction, its neighbor list, and λ
         self.__field: np.ndarray | None = None  # of HNEMD, in the frame
         self.__virials: np.ndarray | None = None  # of each atom, for the field
+        # with the energies each atom carries: the energies of each atom, and
+        # the kick that takes the velocities of the forces to the end of a step
+        self.__convective = False
+        self.__kick = 0.0
+        self.__energies: np.ndarray | None = None
         self.__target: Any = False  # False: no switch; None: the ideal gas
         self.__target_wide: NeighborList | None = None
         self.weight = 0.0
@@ -365,7 +370,7 @@ class _HostAtoms:
                 neighbors = self.__wide._follow(current, cutoff)
         wanted = self.__properties
         if self.__field is not None:
-            wanted = wanted + ("atomic_virials", HEAT_FLUX_TERMS)
+            wanted = wanted + ("atomic_energies", "atomic_virials", HEAT_FLUX_TERMS)
         result = self.__calculator.compute(current, wanted, neighbors=neighbors)
         forces = np.asarray(result.forces, dtype=float)
         energy = float(result.energy)
@@ -375,6 +380,13 @@ class _HostAtoms:
             self.__virials = np.asarray(result.atomic_virials, dtype=float)
             push = np.einsum("a,iab->ib", self.__field, self.__virials)
             forces = forces + (push - push.mean(axis=0))
+            if self.__convective:
+                # and by the field times its energy less their mean, its
+                # kinetic energy at the velocity the end of the step gives
+                self.__energies = np.asarray(result.atomic_energies, dtype=float)
+                ahead = self.__v + self.__kick * forces / self.__masses[:, None]
+                e = self.__energies + self.__kinetic_energies(ahead)
+                forces = forces + np.outer(e - e.mean(), self.__field)
         work = (
             np.asarray(result.virial, dtype=float)
             if "virial" in self.__properties
@@ -546,16 +558,29 @@ class _HostAtoms:
         return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
                            - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
 
-    def set_field(self, field: np.ndarray | None) -> None:
-        """The driving field of HNEMD in the frame, or None for none."""
+    def set_field(
+        self, field: np.ndarray | None, convective: bool = False, kick: float = 0.0
+    ) -> None:
+        """The driving field of HNEMD in the frame, or None for none;
+        convective: with the energies each atom carries, at the velocities
+        kick times the force over the mass on."""
         self.__field = field
         self.__virials = None
+        self.__convective, self.__kick = bool(convective), float(kick)
+
+    def __kinetic_energies(self, v: np.ndarray) -> np.ndarray:
+        return 0.5 * self.__masses * np.einsum("ij,ij->i", v, v) * _MVV2E
 
     def heat_flux(self) -> np.ndarray:
-        """(3,) the potential part of the heat flux times the volume in the
-        frame, sum_i W_i v_i, of the virials of the last computation and the
-        velocities now."""
-        return np.einsum("iab,ib->a", self.__virials, self.__v)
+        """(3,) the heat flux times the volume in the frame: its potential
+        part sum_i W_i v_i, of the virials of the last computation and the
+        velocities now, and with the energies each atom carries the part
+        sum_i E_i v_i too."""
+        flux = np.einsum("iab,ib->a", self.__virials, self.__v)
+        if self.__convective:
+            e = self.__energies + self.__kinetic_energies(self.__v)
+            flux = flux + e @ self.__v
+        return flux
 
     def set_switch(self, target: Any) -> None:
         """The other interaction of a Switch, None for none, or False for no
@@ -823,7 +848,13 @@ class _Native:
                 f"{type(calculator).__name__} does not give; EAM, the pair "
                 "potentials, NEP, Stillinger-Weber and Tersoff give it"
             )
-        self.__atoms.set_field(self.__to_frame(control.field[None, :])[0])
+        # the energies of each atom with their velocities a half step on, as
+        # the kick that ends the step gives them (Fan et al. 2019 drop them)
+        self.__atoms.set_field(
+            self.__to_frame(control.field[None, :])[0],
+            control.convective,
+            0.5 * self.__dt * _FTM2V,
+        )
         self.__heating = True
 
     def __set_indenters(self, indenters: tuple) -> None:

@@ -158,6 +158,18 @@ class Atoms:
     def heat_flux(self):
         return np.einsum("iab,ib->a", self.result[2], self.v)
 
+    def __energies_with(self, v, mvv2e):
+        return self.result[0] + 0.5 * self.masses * (v * v).sum(axis=1) * mvv2e
+
+    def convect(self, field, kick, mvv2e):
+        energies, forces, virials = self.result
+        ahead = self.v + kick * forces / self.masses[:, None]
+        e = self.__energies_with(ahead, mvv2e)
+        self.result = (energies, forces + np.outer(e - e.mean(), field), virials)
+
+    def energy_flux(self, mvv2e):
+        return self.__energies_with(self.v, mvv2e) @ self.v
+
     def kinetic(self):
         return np.einsum("i,ij,ik->jk", self.masses, self.v, self.v)
 

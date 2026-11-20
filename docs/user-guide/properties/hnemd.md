@@ -70,6 +70,7 @@ where it goes to zero.*
 | `blocks` | int32 | 5 | | blocks of the run for the standard error, at least 2 |
 | `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the Nosé–Hoover thermostat |
 | `seed` | int32 | 1 | | the seed of the starting velocities |
+| `convective` | bool | `False` | | whether the energy each atom carries is part of the field and of the flux, for atoms of one element and one mass: see [Definition](#definition) |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
 
@@ -81,11 +82,22 @@ rose to 0.74 and 0.89 W/(m K), beyond the linear response. Check that half the f
 gives the same conductivity. Fields of 1e-5 to 1e-4 /Å serve crystals that
 conduct well, such as silicon or graphene.
 
-**The flux.** The heat flux of HNEMD is its potential part, $\sum_i \mathsf W_i
-\mathbf v_i$, as in GPUMD; the energy each atom carries, $\sum_i e_i \mathbf v_i$, is
-left out of the field and of the flux. It is small in solids: in argon at 40 K the
-Green–Kubo conductivity of the potential part alone was 0.56 ± 0.08 W/(m K), and
-0.61 ± 0.08 with the energies carried, over the same six runs, each about 8 % less.
+**The flux.** By default the heat flux of HNEMD is its potential part,
+$\sum_i \mathsf W_i \mathbf v_i$, as in GPUMD; the energy each atom carries,
+$\sum_i E_i \mathbf v_i$, is left out of the field and of the flux. It is small in
+solids: in argon at 40 K the Green–Kubo conductivity of the potential part alone was
+0.56 ± 0.08 W/(m K), and 0.61 ± 0.08 with the energies carried, over the same six runs,
+each about 8 % less. `convective=True` puts it in both, for liquids and hot solids. It
+needs atoms of one element and one mass: in a mixture the energies of each element would
+drive its atoms against the others'.
+
+In the Lennard-Jones liquid at its triple point, argon at 87 K and 2048 atoms, HNEMD gave
+0.132 ± 0.001 W/(m K) with `convective=True`, at fields of 0.006, 0.015 and 0.029 /Å
+alike, and 0.107 ± 0.001 without: the energies carried are a fifth of the conduction.
+The Green–Kubo conductivity of the same liquid was 0.130 ± 0.004 for the whole flux and
+0.104 ± 0.003 for its potential part, over four runs of 5 ns, and that of LAMMPS's
+`compute heat/flux` 0.134 ± 0.005. In liquid silicon of Stillinger and Weber at 2000 K,
+they were 1.13 and 1.07 W/(m K), against 1.13 ± 0.05 and 1.09 ± 0.05.
 
 ## Results
 
@@ -100,7 +112,7 @@ Green–Kubo conductivity of the potential part alone was 0.56 ± 0.08 W/(m K), 
 | `running` | (S, 3) float64 | W/(m K) | the conductivity of the mean flux up to each time |
 | `kappa` | (3,) float64 | W/(m K) | that of the whole run: the conductivity tensor times the unit vector of the field |
 | `errors` | (3,) float64 | W/(m K) | the standard errors of `kappa`, from blocks of the run |
-| `flux` | (S, 3) float64 | eV Å/ps | the potential part of the heat flux times the volume, at the samples |
+| `flux` | (S, 3) float64 | eV Å/ps | the heat flux times the volume at the samples: its potential part, or with `convective` the whole flux |
 | `along` | float64 | W/(m K) | the conductivity along the field, `kappa` along its direction |
 
 ## Definition
@@ -119,13 +131,23 @@ $$
 with $T$ the temperature, $V$ the volume and $\langle \cdot \rangle$ the mean over the
 run with the field.
 
+With `convective`, each atom feels the push $(E_i - \bar E)\,\mathbf F_e$ too, where
+$E_i$ is its energy, that of the potential and its kinetic energy, and $\bar E$ the mean
+of the energies, as in Evans's method
+([Evans (1982)](../../reference/references.md#evans1982)); the work of the field is then
+$\mathbf F_e \cdot \mathbf J$ with the whole flux $\mathbf J = \sum_i E_i \mathbf v_i +
+\sum_i \mathsf W_i \mathbf v_i$, and the same relation gives the conductivity. The
+kinetic energy in the push is that of the velocity the end of the step gives the atom,
+from the forces of the step.
+
 ## Errors
 
 `hnemd` raises `InvalidParameter` for a box that is not periodic in every direction, a
 temperature that is not positive, a field that is not three finite numbers or is zero,
 numbers of steps that are not positive, fewer than two blocks or fewer samples than
 blocks, a potential whose virials of each atom do not give the heat flux (such as
-ADP and MEAM), a LAMMPS calculator, and
+ADP and MEAM), a LAMMPS calculator, `convective` with atoms of several elements or
+masses, and
 the errors of [`MolecularDynamics`](../molecular-dynamics/running.md); `Cancelled` when cancelled.
 
 !!! quote "Please cite"

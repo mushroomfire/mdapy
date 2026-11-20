@@ -133,6 +133,14 @@ public:
     void drive(const double* field);
     // (3,) the potential part of the heat flux times the volume, sum_i W_i v_i.
     void heat_flux(double* flux) const;
+    // With the energies each atom carries, after drive: each atom pushed by
+    // the field times its energy E_i less the mean of the energies, E_i its
+    // own energy and its kinetic energy at the velocity v + kick f / m;
+    // mvv2e: amu Å^2/ps^2 in eV.
+    void convect(const double* field, double kick, double mvv2e);
+    // (3,) the part of the heat flux times the volume that the atoms carry,
+    // sum_i E_i v_i, of their own energies and velocities now.
+    void energy_flux(double mvv2e, double* flux) const;
     // A flat wall (simulation/_controls.py): each atom with x . normal <
     // offset put back by as much, its velocity along the normal made
     // 2 speed - v . normal; normal (3,) a unit vector in the frame of the

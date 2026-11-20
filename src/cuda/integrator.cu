@@ -301,6 +301,43 @@ __global__ void flux_kernel(std::int64_t n, const double* w, const double* v, do
     }
 }
 
+// The energy of each atom, its own and its kinetic energy at the velocity
+// v + kick f / m.
+__global__ void carried_kernel(std::int64_t n, double kick, double mvv2e, const double* own,
+                               const double* m, const double* v, const double* f,
+                               double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    double square = 0.0;
+    for (int a = 0; a < 3; ++a) {
+        const double u = v[3 * i + a] + kick * f[3 * i + a] / m[i];
+        square += u * u;
+    }
+    out[i] = own[i] + 0.5 * m[i] * square * mvv2e;
+}
+
+// f += field times the energy less its mean.
+__global__ void convected_kernel(std::int64_t n, double3 field, double mean, const double* e,
+                                 double* f) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double d = e[i] - mean;
+    f[3 * i] += d * field.x;
+    f[3 * i + 1] += d * field.y;
+    f[3 * i + 2] += d * field.z;
+}
+
+// E_i v_i of each atom in three columns, E_i its own energy and its kinetic
+// energy.
+__global__ void energy_flux_kernel(std::int64_t n, double mvv2e, const double* own,
+                                   const double* m, const double* v, double* out) {
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const double* u = v + 3 * i;
+    const double e = own[i] + 0.5 * m[i] * (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]) * mvv2e;
+    for (int a = 0; a < 3; ++a) out[a * n + i] = e * u[a];
+}
+
 struct Rotation {
     double r[9];
 };
@@ -617,6 +654,36 @@ void Atoms::heat_flux(double* flux) const {
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
     flux_kernel<<<blocks(a.n), kBlock>>>(a.n, a.virials.data(), a.velocities.data(),
                                          a.scratch.data());
+    MDAPY_LAUNCHED();
+    sum_columns(a.scratch.data(), 3, a.n, flux);
+}
+
+void Atoms::convect(const double* field, double kick, double mvv2e) {
+    Impl& a = *impl_;
+    if (!a.has_energies || a.energies.size() != static_cast<std::size_t>(a.n)) {
+        throw std::logic_error("the energies each atom carries need the energy of each atom");
+    }
+    a.scratch.resize(static_cast<std::size_t>(6 * a.n));
+    carried_kernel<<<blocks(a.n), kBlock>>>(a.n, kick, mvv2e, a.energies.data(),
+                                            a.masses.data(), a.velocities.data(),
+                                            a.forces.data(), a.scratch.data());
+    MDAPY_LAUNCHED();
+    double total = 0.0;
+    sum_columns(a.scratch.data(), 1, a.n, &total);
+    convected_kernel<<<blocks(a.n), kBlock>>>(
+        a.n, make_double3(field[0], field[1], field[2]), total / static_cast<double>(a.n),
+        a.scratch.data(), a.forces.data());
+    MDAPY_LAUNCHED();
+}
+
+void Atoms::energy_flux(double mvv2e, double* flux) const {
+    Impl& a = *impl_;
+    if (!a.has_energies || a.energies.size() != static_cast<std::size_t>(a.n)) {
+        throw std::logic_error("the energies each atom carries need the energy of each atom");
+    }
+    a.scratch.resize(static_cast<std::size_t>(6 * a.n));
+    energy_flux_kernel<<<blocks(a.n), kBlock>>>(a.n, mvv2e, a.energies.data(), a.masses.data(),
+                                                a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     sum_columns(a.scratch.data(), 3, a.n, flux);
 }

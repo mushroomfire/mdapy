@@ -620,7 +620,7 @@ class DomainAtoms(_HostAtoms):
             result = springs.compute(current, ("energy", "atomic_energies", "forces"))
             energies = np.asarray(result.atomic_energies, dtype=float)
             return (
-                float(self._total(energies.sum())),
+                float(energies.sum()),
                 np.asarray(result.forces, dtype=float),
                 np.full((3, 3), np.nan),
                 SimpleNamespace(atomic_energies=energies, atomic_virials=None),
@@ -636,9 +636,9 @@ class DomainAtoms(_HostAtoms):
             part = split(current, tuple(wanted), neighbors, n, self.__forward,
                          self.__reverse)  # fmt: skip
             return (
-                float(self._total(part.energy)),
+                float(part.energy),
                 np.asarray(part.forces, dtype=float),
-                self._total(part.virial) if virial else np.full((3, 3), np.nan),
+                part.virial if virial else np.full((3, 3), np.nan),
                 SimpleNamespace(atomic_energies=part.atomic_energies,
                                 atomic_virials=part.atomic_virials),
             )  # fmt: skip
@@ -651,9 +651,9 @@ class DomainAtoms(_HostAtoms):
             if result.atomic_virials is not None
             else None
         )
-        work = self._total(virials.sum(axis=0)) if virial else np.full((3, 3), np.nan)
+        work = virials.sum(axis=0) if virial else np.full((3, 3), np.nan)
         return (
-            float(self._total(energies.sum())),
+            float(energies.sum()),
             np.asarray(result.forces, dtype=float)[:n],
             work,
             SimpleNamespace(atomic_energies=energies, atomic_virials=virials),

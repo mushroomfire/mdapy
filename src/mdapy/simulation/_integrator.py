@@ -437,7 +437,8 @@ class _HostAtoms:
     ) -> tuple[float, np.ndarray, np.ndarray, Any]:
         """The energy, the forces on the atoms, the virial (NaN if not
         computed) and the result of a calculator, whose values of each atom
-        are those of the atoms."""
+        are those of the atoms; under MPI, of this process's atoms, and its
+        parts of the energy and the virial."""
         # a copy of the positions: the System may hold the array itself, and
         # the steps change it in place, which would move the positions the
         # kept neighbor list compares with
@@ -484,39 +485,59 @@ class _HostAtoms:
                 ahead = self._v + self.__kick * forces / self._masses[:, None]
                 e = self.__energies + self.__kinetic_energies(ahead)
                 forces = forces + np.outer(e - self._mean(e), self.__field)
+        other, push = math.nan, np.full((3, 3), np.nan)
         if self._target is not False:
-            energy, forces, work = self.__switched(table, box, energy, forces, work)
-        failed = self._total(0 if np.isfinite(forces).all() else 1)
-        if not np.isfinite(energy) or failed:
+            other, forces, push = self.__switched(table, box, forces)
+        rows = self._rows
+        # the forces of the potential on the watched groups
+        sums = [forces[mask[rows]].sum(axis=0) for mask in self.watched]
+        indented = []
+        for spec, at in zip(self.indenters, self.indenter_at):
+            pushed, energy_on, on = _indented(self._x, box.matrix, box.pbc, spec, at)
+            forces = forces + pushed
+            indented.append(np.concatenate([[energy_on], on]))
+        # what sums over the processes, in one sum: the energies, the forces
+        # that are not finite, the virials, the forces on the watched groups
+        # and the energies of the indenters and their forces
+        bad = 0.0 if np.isfinite(forces).all() else 1.0
+        parts = [np.array([energy, other, bad]), np.ravel(work), np.ravel(push)]
+        totals = self._total(np.concatenate(parts + sums + indented))
+        energy, other, bad = float(totals[0]), float(totals[1]), totals[2]
+        work, push = totals[3:12].reshape(3, 3), totals[12:21].reshape(3, 3)
+        if not np.isfinite(energy) or bad:
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
             )
-        # the forces of the potential on the watched groups
-        rows = self._rows
-        self.sums = [
-            self._total(forces[mask[rows]].sum(axis=0)) for mask in self.watched
-        ]
+        at = 21
+        self.sums = []
+        for _ in sums:
+            self.sums.append(totals[at : at + 3])
+            at += 3
         self.indented = []
-        for spec, at in zip(self.indenters, self.indenter_at):
-            push, work_on, on = _indented(self._x, box.matrix, box.pbc, spec, at)
-            forces = forces + push
-            self.indented.append((self._total(work_on), self._total(on)))
+        for _ in indented:
+            self.indented.append((float(totals[at]), totals[at + 1 : at + 4]))
+            at += 4
+        if self._target is not False:
+            # (1 - λ) times the potential plus λ times the target, the target
+            # giving no virial where it computes none; the energies of the two
+            # kept
+            weight = self.weight
+            self.parts = (energy, other)
+            energy = (1.0 - weight) * energy + weight * other
+            if not np.isfinite(push).all():
+                push = np.zeros((3, 3))
+            work = (1.0 - weight) * work + weight * push
         if self.added is not None:
             forces = forces + self.added[rows]
         self._forces = self._restrict(forces, rows)
         return energy, work
 
     def __switched(
-        self,
-        table: pl.DataFrame,
-        box: Box,
-        energy: float,
-        forces: np.ndarray,
-        work: np.ndarray,
+        self, table: pl.DataFrame, box: Box, forces: np.ndarray
     ) -> tuple[float, np.ndarray, np.ndarray]:
-        """(1 - λ) times the potential plus λ times the target of a Switch:
-        the energy, the forces and the virial, the target giving none where
-        it computes none; the energies of the two kept."""
+        """The part of this process of the energy and the virial of the target
+        of a Switch, the ideal gas 0, and the forces of (1 - λ) times the
+        potential plus λ times the target."""
         target, weight = self._target, self.weight
         if target is None:  # the ideal gas
             other, pulls, push = 0.0, np.zeros_like(forces), np.zeros((3, 3))
@@ -525,15 +546,7 @@ class _HostAtoms:
                 ("virial",) if "virial" in target.implemented else ()
             )
             other, pulls, push, _ = self._evaluate("target", target, table, box, wanted)
-            if not np.isfinite(push).all():
-                push = np.zeros((3, 3))
-        self.parts = (energy, other)
-        mixed = (1.0 - weight) * energy + weight * other
-        return (
-            mixed,
-            (1.0 - weight) * forces + weight * pulls,
-            (1.0 - weight) * work + weight * push,
-        )
+        return other, (1.0 - weight) * forces + weight * pulls, push
 
     def kick(self, c: float) -> None:
         self._v += c * self._forces / self._masses[:, None]

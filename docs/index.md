@@ -99,86 +99,95 @@ where each feature runs.
 
 ## 🧰 What it does
 
-Every step works on one `System`: structures are built or read into it, its neighbor
-lists and potentials serve the simulations and the analyses, and each step gives back a
-`System` or NumPy arrays for the next. Each box opens its pages.
+The main line goes from a structure to a picture, and each step branches out into
+the features around it. One `System` goes along the whole way: each step takes it and
+gives back a `System` or NumPy arrays for the next. Each box opens its pages.
 
-<div class="flow" markdown>
+<div class="mainline" markdown>
 
-<div class="flow-box" markdown>
-<p class="flow-label">Build</p>
-<div class="flow-row" markdown>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span>](user-guide/build/crystals.md){ .flow-card }
+[<b>Crystals and alloys</b><span>lattices · random alloys · SQS</span>](user-guide/build/crystals.md){ .ml-chip }
 
-[<b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span>](basics/io.md){ .flow-card }
+[<b>Defects</b><span>vacancies · faults · dislocations</span>](user-guide/build/defects.md){ .ml-chip }
 
-[<b>Other programs</b><span>ASE · OVITO · pymatgen · freud · VASP · GPUMD</span>](user-guide/interop/ase.md){ .flow-card }
+</div>
+
+[Build](user-guide/build/crystals.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Polycrystals</b><span>grains · twins · graphene</span>](user-guide/build/polycrystals.md){ .ml-chip }
+
+[<b>Files</b><span>XYZ · LAMMPS · POSCAR · CIF</span>](basics/io.md){ .ml-chip }
+
+[<b>Other programs</b><span>ASE · OVITO · pymatgen</span>](user-guide/interop/ase.md){ .ml-chip }
 
 </div>
 </div>
 
-<p class="flow-link" aria-hidden="true"><span>↓</span></p>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-<div class="flow-box flow-core" markdown>
-<p class="flow-label">One System</p>
-<div class="flow-row" markdown>
+[<b>Potentials</b><span>EAM · Tersoff · NEP · LAMMPS</span>](user-guide/potentials/calculators.md){ .ml-chip }
 
-[<b>System</b><span>box · topology · trajectories · any property of the atoms</span>](basics/system.md){ .flow-card }
+[<b>MLIP</b><span>training sets · errors</span>](user-guide/mlip/vasp.md){ .ml-chip }
 
-[<b>Neighbor lists</b><span>built once, shared by analyses and potentials</span>](basics/neighbor.md){ .flow-card }
+</div>
 
-[<b>Potentials</b><span>EAM · MEAM · Tersoff · NEP and more, on the processor or the GPU</span>](user-guide/potentials/calculators.md){ .flow-card }
+[Simulate](user-guide/molecular-dynamics/index.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Molecular dynamics</b><span>its own engine · GPU</span>](user-guide/molecular-dynamics/index.md){ .ml-chip }
+
+[<b>Properties</b><span>elastic · phonons · heat · melting</span>](user-guide/properties/elastic-constants.md){ .ml-chip }
 
 </div>
 </div>
 
-<p class="flow-link flow-split" aria-hidden="true"><span>↓</span><span>↓</span><span>↓</span></p>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-<div class="flow-stages" markdown>
+[<b>Structures</b><span>CNA · PTM · grains</span>](user-guide/analysis/cna.md){ .ml-chip }
 
-<div class="flow-box" markdown>
-<p class="flow-label">Simulate</p>
+[<b>Defects</b><span>dislocations · Wigner–Seitz</span>](user-guide/analysis/dislocations.md){ .ml-chip }
 
-[<b>Molecular dynamics</b><span>its own engine · ensembles · controls · loading · shock</span>](user-guide/molecular-dynamics/index.md){ .flow-card }
+</div>
 
-<p class="flow-sublabel">Properties</p>
-<div class="flow-grid" markdown>
+[Analyze](user-guide/analysis/overview.md){ .ml-node }
 
-[<b>Relaxation</b><span>minimization · defect energies</span>](user-guide/properties/minimize.md){ .flow-card }
+<div class="ml-down" markdown>
 
-[<b>Lattice dynamics</b><span>elastic constants · phonons</span>](user-guide/properties/elastic-constants.md){ .flow-card }
+[<b>Local order</b><span>RDF · bond angles · Voronoi</span>](user-guide/analysis/rdf.md){ .ml-chip }
 
-[<b>Thermal conductivity</b><span>phonons · Green–Kubo · HNEMD · NEMD</span>](user-guide/properties/thermal-conductivity.md){ .flow-card }
-
-[<b>Thermo&shy;dynamics</b><span>free energy · melting · phase diagrams</span>](user-guide/properties/free-energy.md){ .flow-card }
+[<b>Dynamics</b><span>MSD · strain · profiles</span>](user-guide/analysis/msd.md){ .ml-chip }
 
 </div>
 </div>
 
-<div class="flow-box" markdown>
-<p class="flow-label">Analyze</p>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span>](user-guide/analysis/overview.md){ .flow-card }
+[<b>Rendering</b><span>ray tracing · CPU or GPU</span>](user-guide/visualization/rendering.md){ .ml-chip }
 
-[<b>MLIP</b><span>training sets · descriptors · errors · uncertainty</span>](user-guide/mlip/vasp.md){ .flow-card }
-
-</div>
-
-<div class="flow-box" markdown>
-<p class="flow-label">Visualize</p>
-
-[<b>Rendering</b><span>ray tracing on the processor or the GPU · movies</span>](user-guide/visualization/rendering.md){ .flow-card }
-
-[<b>Plots</b><span>figures and colors</span>](user-guide/visualization/plots.md){ .flow-card }
-
-[<b>Fitting</b><span>splines · least squares · equations of state</span>](user-guide/fitting/interpolation.md){ .flow-card }
+[<b>Movies</b><span>flights through a run</span>](user-guide/visualization/movies.md){ .ml-chip }
 
 </div>
 
+[Visualize](user-guide/visualization/rendering.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Plots</b><span>figures · colors</span>](user-guide/visualization/plots.md){ .ml-chip }
+
+[<b>Fitting</b><span>splines · equations of state</span>](user-guide/fitting/interpolation.md){ .ml-chip }
+
+</div>
 </div>
 
-<p class="flow-back">↺ every step gives back a System or NumPy arrays: the next step takes them</p>
+<p class="ml-caption">↺ one System along the whole line</p>
 
 </div>
 

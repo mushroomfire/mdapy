@@ -10257,7 +10257,7 @@ time.</em></p>
 <td><code>Calculator</code></td>
 <td></td>
 <td></td>
-<td>the interaction: in MDAPY, <a href="../../potentials/eam/">EAM</a>, a <a href="../../potentials/pair-potentials/">pair potential</a> or <a href="../../potentials/nep/">NEP</a>; in LAMMPS, a many-body one must give LAMMPS the centroid stress of each atom</td>
+<td>the interaction: in MDAPY, <a href="../../potentials/eam/">EAM</a>, a <a href="../../potentials/pair-potentials/">pair potential</a>, <a href="../../potentials/nep/">NEP</a>, <a href="../../potentials/stillinger-weber/">Stillinger–Weber</a> or <a href="../../potentials/tersoff/">Tersoff</a>; in LAMMPS, a many-body one must give LAMMPS the centroid stress of each atom</td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -10330,12 +10330,13 @@ atom. The virial must be one that gives the flux of heat:</p>
 <li>in MDAPY, the atomic energies and virials of the potential: for EAM and the pair
   potentials, the virials of their pairwise forces split in halves, the centroid
   stress of LAMMPS, so that the flux is that of <code>compute heat/flux</code> for the same atoms;
-  for NEP, the virial of each atom from the derivatives of the energies of the others
-  with its position, as GPUMD computes it
-  (<a href="../../../reference/references/#fan2015">Fan et al. (2015)</a>). The virials of
-  Stillinger–Weber, Tersoff, ADP and MEAM split their many-body terms among their
-  atoms, which gives a wrong flux, so these are refused. In MDAPY each record costs an
-  evaluation of the forces more.</li>
+  for NEP, Stillinger–Weber and Tersoff, the virial of each atom from the derivatives
+  of the energies of the others with its position, as GPUMD computes it
+  (<a href="../../../reference/references/#fan2015">Fan et al. (2015)</a>), the energy of each
+  three-body term of the last two whole with its centre atom. The energies and virials
+  of each atom that Stillinger–Weber and Tersoff give otherwise, LAMMPS's shares of
+  their terms, would give a wrong flux; those of ADP and MEAM do, so these two are
+  refused. In MDAPY each record costs an evaluation of the forces more.</li>
 </ul>
 <p>The temperature of the result is the mean of the run at constant energy.</p>
 <p><code>green_kubo_from_flux(flux, *, interval, volume, temperature, correlation, blocks=5)</code>

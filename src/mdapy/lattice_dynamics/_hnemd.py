@@ -116,7 +116,8 @@ def hnemd(
         temperature, with an ``element`` column.
     potential : Calculator
         The interaction, whose virials of each atom give the heat flux: EAM,
-        a pair potential or NEP, on the processor or the GPU.
+        a pair potential, NEP, Stillinger-Weber or Tersoff, on the processor
+        or the GPU.
     temperature : float64
         Temperature in K, positive.
     field : array_like

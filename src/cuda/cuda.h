@@ -210,6 +210,14 @@ public:
     // each term with its centre. The list must be up to date.
     virtual void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                          bool virial, bool atomic) = 0;
+    // The forces, and the energies and virials of the atoms that give the
+    // heat flux: those of compute with atomic, but for the many-body
+    // potentials whose shares of a term are LAMMPS's, Stillinger-Weber and
+    // Tersoff, which leave each term whole with its centre and give the
+    // virials of Fan et al., PRB 92, 094301 (2015).
+    virtual void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) {
+        compute(atoms, neighbors, box, true, true, true);
+    }
 };
 
 std::unique_ptr<Potential> make_eam(const calculators::EamPotential& potential,

@@ -204,6 +204,47 @@ __global__ void gather_shares(std::int64_t n, std::int64_t plane, const std::int
     }
 }
 
+// The virial of each atom for the heat flux, that of Fan et al., PRB 92,
+// 094301 (2015): the sum over its pairs (i, j) of r_ij (x) the derivative of
+// the terms of j by the reverse pair, which is their derivative by x_i, as
+// the processor's gather computes it with heat.
+template <class Real>
+__global__ void heat_virials(std::int64_t n, const Real4<Real>* x, Images<Real> images,
+                             const std::int32_t* indices, const std::int32_t* counts,
+                             const std::int32_t* reverse, const Real4<Real>* derivative,
+                             double* virials) {
+    __shared__ Real steps[81];
+    fill_steps(images, steps);
+    const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    const Real4<Real> xi = x[i];
+    double w[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    const int count = counts[i];
+    for (int k = 0; k < count; ++k) {
+        const std::int64_t p = static_cast<std::int64_t>(k) * n + i;
+        const auto packed = static_cast<std::uint32_t>(indices[p]);
+        const std::int64_t j = packed & kIndexMask;
+        const Real4<Real> xj = x[j];
+        Real r[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
+        add_step(steps, packed >> kIndexBits, r[0], r[1], r[2]);
+        const Real4<Real> theirs = derivative[static_cast<std::int64_t>(reverse[p]) * n + j];
+        const double d[3] = {static_cast<double>(theirs.x), static_cast<double>(theirs.y),
+                             static_cast<double>(theirs.z)};
+        for (int a = 0; a < 3; ++a) {
+            for (int b = 0; b < 3; ++b) w[3 * a + b] += static_cast<double>(r[a]) * d[b];
+        }
+    }
+    for (int c = 0; c < 9; ++c) virials[static_cast<std::int64_t>(c) * n + i] = w[c];
+}
+
+template <class Real>
+void heat_virials(std::int64_t n, const Real4<Real>* x, const Images<Real>& images,
+                  const ShortPairs& pairs, const Real4<Real>* derivative, double* virials) {
+    heat_virials<Real><<<blocks(n), kBlock>>>(n, x, images, pairs.indices(), pairs.counts(),
+                                              pairs.reverse(), derivative, virials);
+    MDAPY_LAUNCHED();
+}
+
 // A vector as the Real4 of a precision, w zero.
 template <class Real>
 __device__ inline Real4<Real> four(double x, double y, double z) {

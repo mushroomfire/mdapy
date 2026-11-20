@@ -14,7 +14,12 @@ import numpy as np
 
 from mdapy import _core
 from mdapy.calculators import _gpu
-from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
+from mdapy.calculators._base import (
+    HEAT_FLUX_TERMS,
+    Calculator,
+    CalculatorResult,
+    _element_indices,
+)
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
@@ -118,6 +123,9 @@ class _ThreeBody(Calculator):
     _name: str
     _compute: Any
     _gpu_potential: Any = None  # on the GPU
+    # with HEAT_FLUX_TERMS, each term whole with its centre and the virials of
+    # Fan et al. (2015)
+    _heat_flux = True
 
     def _species(self, system: System) -> np.ndarray:
         """The index of each atom in the tables, (N,) int32."""
@@ -137,12 +145,14 @@ class _ThreeBody(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
+        properties = tuple(properties)
+        heat = HEAT_FLUX_TERMS in properties
         wanted = self._check_properties(properties)
         species = self._species(system)
         if (
             self._gpu_potential is not None
         ):  # with a neighbor list of its own on the GPU
-            return self._gpu_potential.compute(system, species, wanted)
+            return self._gpu_potential.compute(system, species, wanted, heat=heat)
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = type(self)._compute(
@@ -155,6 +165,7 @@ class _ThreeBody(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                heat,
             )
         return CalculatorResult(
             energy=float(energies.sum()),

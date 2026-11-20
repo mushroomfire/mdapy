@@ -19,6 +19,7 @@ from mdapy.calculators import (
     Tersoff,
     UhlenbeckFord,
 )
+from mdapy.calculators._base import HEAT_FLUX_TERMS
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 
@@ -59,8 +60,9 @@ def shaken(a, elements, repeat, seed=0, tilt=0.0, pbc=True, jitter=0.1):
     )
 
 
-def compare(gpu, cpu, system, precision):
-    a, b = gpu.compute(system, ALL), cpu.compute(system, ALL)
+def compare(gpu, cpu, system, precision, heat=False):
+    asked = ALL + ((HEAT_FLUX_TERMS,) if heat else ())
+    a, b = gpu.compute(system, asked), cpu.compute(system, asked)
     tolerance = TOLERANCE[precision]
     for name in ("forces", "atomic_energies", "virial", "atomic_virials"):
         x, y = getattr(a, name), getattr(b, name)
@@ -120,9 +122,11 @@ def diamond(elements, a=5.43, repeat=3, tilt=0.0, seed=0, jitter=0.1):
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])
 @pytest.mark.parametrize("tilt", [0.0, 0.3])
-def test_stillinger_weber(tmp_path, precision, tilt):
+@pytest.mark.parametrize("heat", [False, True])
+def test_stillinger_weber(tmp_path, precision, tilt, heat):
     """Three elements whose entries disagree, so that the means of the
-    processor are taken; the atoms' own energies and virials shared out."""
+    processor are taken; the atoms' own energies and virials shared out, or
+    those of the heat flux."""
     path = write_sw(tmp_path / "SiGeC.sw", ("Si", "Ge", "C"))
     system = diamond(("Si", "Ge", "C"), repeat=4, tilt=tilt)
     compare(
@@ -130,6 +134,7 @@ def test_stillinger_weber(tmp_path, precision, tilt):
         StillingerWeber(path),
         system,
         precision,
+        heat,
     )
 
 
@@ -168,9 +173,11 @@ def test_stillinger_weber_at_its_cutoff(tmp_path, precision):
 
 @pytest.mark.parametrize("precision", ["double", "mixed"])
 @pytest.mark.parametrize("tilt", [0.0, 0.3])
-def test_tersoff(tmp_path, precision, tilt):
+@pytest.mark.parametrize("heat", [False, True])
+def test_tersoff(tmp_path, precision, tilt, heat):
     """Three elements whose repulsions disagree, so that the means of the
-    processor are taken; the atoms' own energies and virials shared out."""
+    processor are taken; the atoms' own energies and virials shared out, or
+    those of the heat flux."""
     path = write_tersoff(tmp_path / "SiCGe.tersoff", ("Si", "C", "Ge"))
     system = diamond(("Si", "C", "Ge"), repeat=4, tilt=tilt)
     compare(
@@ -178,6 +185,7 @@ def test_tersoff(tmp_path, precision, tilt):
         Tersoff(path),
         system,
         precision,
+        heat,
     )
 
 

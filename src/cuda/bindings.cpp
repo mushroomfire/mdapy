@@ -318,7 +318,16 @@ NB_MODULE(_cuda, m) {
                 p.compute(a, l, box, energy, virial, atomic);
             },
             nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"),
-            nb::arg("energy"), nb::arg("virial"), nb::arg("atomic"));
+            nb::arg("energy"), nb::arg("virial"), nb::arg("atomic"))
+        .def(
+            "compute_heat",
+            [](Potential& p, Atoms& a, Neighbors& l, Matrix h, Vector lo,
+               std::array<bool, 3> pbc) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                p.compute_heat(a, l, box);
+            },
+            nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"));
 
     m.def(
         "make_eam",

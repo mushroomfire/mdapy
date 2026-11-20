@@ -194,7 +194,7 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                      const std::int32_t* species, const double* positions, const double* matrix,
                      const std::int64_t* offsets, const index_t* neighbors,
                      const std::int8_t* shifts, double* energies, double* forces,
-                     double* virials, const Control& control) {
+                     double* virials, const Control& control, bool heat) {
     Shares shares(n, offsets[n]);
     const double cutmax2 = potential.cutoff * potential.cutoff;
     parallel_for(
@@ -276,9 +276,14 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                     const double energy = 0.5 * bij * fa;
                     const double fpair = 0.5 * bij * dfa * rij_inverse;
                     const double prefactor = -0.5 * fa * bond_order_slope(zeta, pij);
-                    // the bond at fixed zeta: half to each atom
-                    own_energy += 0.5 * energy;
-                    shares.energy[static_cast<std::size_t>(j.pair)] += 0.5 * energy;
+                    // the bond at fixed zeta: half to each atom, or for the
+                    // heat flux whole to its centre
+                    if (heat) {
+                        own_energy += energy;
+                    } else {
+                        own_energy += 0.5 * energy;
+                        shares.energy[static_cast<std::size_t>(j.pair)] += 0.5 * energy;
+                    }
                     const double f[3] = {-fpair * j.r[0], -fpair * j.r[1], -fpair * j.r[2]};
                     shares.pair_force(i, j.pair, j.r, f, 0.5);
                     // zeta through each k: its virial a third to each atom
@@ -312,7 +317,8 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
             }
         },
         stage(control, 0, 2));
-    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2));
+    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2),
+           heat, positions, matrix);
 }
 
 }  // namespace mdapy::calculators

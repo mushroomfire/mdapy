@@ -254,14 +254,25 @@ class Potential:
         self.native, self.compute_native = made, compute
         self.asked = []
 
-    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic):
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
         self.asked.append((energy, virial, atomic))
         system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
         nl = NeighborList.build(system, neighbors.cutoff)
+        # the kernels of three-body terms take heat, the others need none
+        extra = (heat,) if heat else ()
         atoms.result = self.compute_native(
             self.native, atoms.species, np.ascontiguousarray(atoms.x), h,
-            nl.offsets, nl.j, nl.shifts, None, None,
+            nl.offsets, nl.j, nl.shifts, None, None, *extra,
         )  # fmt: skip
+
+    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+        """The energies and virials of the heat flux: those of the kernels
+        with heat for the three-body terms, as the device's compute_heat."""
+        three_body = self.compute_native in (
+            _core.calculators.compute_stillinger_weber,
+            _core.calculators.compute_tersoff,
+        )
+        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, three_body)
 
 
 def stand_in(found=True):

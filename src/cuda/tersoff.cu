@@ -450,13 +450,25 @@ public:
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
                  bool atomic) override {
+        evaluate(atoms, neighbors, box, energy, virial, atomic, false);
+    }
+
+    // without atomic each term stays whole with its centre, and the
+    // derivatives give the virials of the heat flux
+    void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) override {
+        evaluate(atoms, neighbors, box, true, false, false, true);
+    }
+
+private:
+    void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
+                  bool atomic, bool heat) {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
         const std::int64_t n = a.n;
-        if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
+        if (virial || heat) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
         const TersoffTables<Real> t{entries_.data(), same_.data(), elements_,
@@ -500,11 +512,11 @@ public:
         gather<Real>(n, plane, pairs_, derivative_.data(), share_energy_.data(),
                      share_virial_.data(), once ? nullptr : own_force_.data(), once, energy,
                      virial, atomic, a.forces.data(), a.energies.data(), a.virials.data());
+        if (heat) heat_virials<Real>(n, x, b, pairs_, derivative_.data(), a.virials.data());
         a.has_energies = energy;
-        a.has_virials = virial;
+        a.has_virials = virial || heat;
     }
 
-private:
     double cutoff_;
     int elements_;
     Buffer<TersoffEntry<Real>> entries_;

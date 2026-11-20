@@ -60,7 +60,7 @@ where it goes to zero.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms in a box periodic in every direction, of its size at the temperature, with an `element` column |
-| `potential` | `Calculator` | | | the interaction, whose virials of each atom give the heat flux: [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md) or [NEP](../potentials/nep.md), on the processor or the [GPU](../molecular-dynamics/gpu.md) |
+| `potential` | `Calculator` | | | the interaction, whose virials of each atom give the heat flux: [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md), [NEP](../potentials/nep.md), [Stillinger–Weber](../potentials/stillinger-weber.md) or [Tersoff](../potentials/tersoff.md), on the processor or the [GPU](../molecular-dynamics/gpu.md) |
 | `temperature` | float64 | | K | the temperature of the thermostat |
 | `field` | (3,) float64 | | 1/Å | the driving field |
 | `timestep` | float64 | 0.001 | ps | the time step |
@@ -125,7 +125,7 @@ run with the field.
 temperature that is not positive, a field that is not three finite numbers or is zero,
 numbers of steps that are not positive, fewer than two blocks or fewer samples than
 blocks, a potential whose virials of each atom do not give the heat flux (such as
-Stillinger–Weber, Tersoff, ADP and MEAM), a LAMMPS calculator, and
+ADP and MEAM), a LAMMPS calculator, and
 the errors of [`MolecularDynamics`](../molecular-dynamics/running.md); `Cancelled` when cancelled.
 
 !!! quote "Please cite"

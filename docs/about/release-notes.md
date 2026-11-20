@@ -2,6 +2,13 @@
 
 ## 2.2.0 (not released)
 
+- The [Green–Kubo](../user-guide/properties/green-kubo.md) and
+  [HNEMD](../user-guide/properties/hnemd.md) conductivities take Stillinger–Weber and
+  Tersoff, on the processor and the GPU: their heat flux has the energy of each
+  three-body term whole with its centre atom and the virials of each atom of Fan et al.
+  (2015). The energies and virials of each atom that `compute` gives stay LAMMPS's
+  shares, which would give a wrong flux. In a free cluster the flux is the change of the
+  moment of the energies to 3e-7.
 - The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
   guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
   what the engine is for and of every feature with where it runs, then running,

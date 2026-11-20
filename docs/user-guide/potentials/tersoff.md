@@ -81,7 +81,12 @@ of the entry i j j; the three-body ones of k in ζ<sub>ij</sub>, m, γ, λ3,
 c, d, cos θ0, R and D, those of the entry i j k. The energy and the virial of
 the repulsion and of the attraction at a fixed bond order are shared equally
 between the two atoms of the bond, and the virial of each angle among its
-three atoms, as LAMMPS shares them.
+three atoms, as LAMMPS shares them. For the heat flux of the
+[Green–Kubo](../properties/green-kubo.md) and [HNEMD](../properties/hnemd.md)
+conductivities, which these shares would get wrong, each bond's energy stays whole with
+its centre atom and the virial of each atom is that of the derivatives of the others'
+energies by its position ([Fan et al. (2015)](../../reference/references.md#fan2015));
+their sums are the same.
 
 **Entries that disagree.** The repulsion of a pair i–j is in the entries
 i j j and j i i. LAMMPS takes one of them by the numbering of the atoms, so

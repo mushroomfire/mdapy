@@ -14,7 +14,7 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from mdapy import units
-from mdapy.calculators._base import Calculator
+from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
@@ -174,7 +174,9 @@ def _flux(frame: System, potential: Calculator) -> np.ndarray:
     """(3,) the heat flux of the atoms times the volume in eV Å/ps: their
     energies carried with them and the work of their virials, as LAMMPS's
     compute heat/flux gives it."""
-    result = potential.compute(frame, ("atomic_energies", "atomic_virials"))
+    result = potential.compute(
+        frame, ("atomic_energies", "atomic_virials", HEAT_FLUX_TERMS)
+    )
     v = frame["velocities"]
     kinetic = 0.5 * _masses(frame) * (v * v).sum(axis=1) * units.AMU_A2_PER_PS2_TO_EV
     energies = result.atomic_energies + kinetic
@@ -242,9 +244,10 @@ def green_kubo(
         The atoms in a box periodic in every direction, of its size at the
         temperature, with an ``element`` column.
     potential : Calculator
-        The interaction: in MDAPY, EAM, a pair potential or NEP, whose
-        virials of each atom give the heat flux; in LAMMPS, a many-body one
-        must give LAMMPS the centroid stress of each atom.
+        The interaction: in MDAPY, EAM, a pair potential, NEP,
+        Stillinger-Weber or Tersoff, whose energies and virials of each atom
+        give the heat flux; in LAMMPS, a many-body one must give LAMMPS the
+        centroid stress of each atom.
     temperature : float64
         Temperature in K, positive.
     timestep : float64, optional
@@ -281,8 +284,8 @@ def green_kubo(
     if not (isinstance(potential, LAMMPS) or potential._heat_flux):
         raise InvalidParameter(
             "the heat flux needs the centroid stress of each atom, which "
-            f"{type(potential).__name__} does not give; EAM, the pair potentials "
-            "and NEP give it"
+            f"{type(potential).__name__} does not give; EAM, the pair potentials, "
+            "NEP, Stillinger-Weber and Tersoff give it"
         )
     if not system.box.pbc.all():
         raise InvalidParameter(

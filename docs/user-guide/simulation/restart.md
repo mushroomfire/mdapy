@@ -15,8 +15,14 @@ from mdapy.simulation import MolecularDynamics
 
 with MolecularDynamics(crystal, potential, timestep=0.002, log="md.log") as md:
     md.velocities(300, seed=1)
-    md.run(500_000, ensemble="npt", temperature=(300, 1500), pressure=0.0,
-           restart="md.restart", restart_every=10_000)
+    md.run(
+        500_000,
+        ensemble="npt",
+        temperature=(300, 1500),
+        pressure=0.0,
+        restart="md.restart",
+        restart_every=10_000,
+    )
 ```
 
 After a crash:
@@ -24,8 +30,8 @@ After a crash:
 <!-- skip-test -->
 ```python
 md = MolecularDynamics.load("md.restart", potential, log="md.log")
-md.step     # where the file was written
-md.resume() # the rest of the run, as if it had not stopped
+md.step  # where the file was written
+md.resume()  # the rest of the run, as if it had not stopped
 md.close()
 ```
 

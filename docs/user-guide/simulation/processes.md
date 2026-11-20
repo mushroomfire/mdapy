@@ -86,15 +86,24 @@ processes: a run stopped on 16 processes goes on from its file on 32, or on one.
 
 The box is cut into a grid of bricks, one for each process, with the least
 surface between them, as LAMMPS's `processors * * *` cuts it: 16 processes cut
-a cube 2 × 2 × 4. Each process computes the forces on the atoms of its brick from
-them and from the ghosts, copies of the atoms within a reach of the brick: the
-cutoff of the potential and a skin of 1 Å for a pair potential, twice the cutoff
-and the skin for the others, whose forces reach to the neighbors of the
-neighbors. Each brick must be at least as thick as that reach: 12.4 Å for copper
-with `EAM.zhou`, whose cutoff is 5.7 Å, so that the box of 181 Å above takes at
-most 14 bricks along each axis. The atoms go to the processes of their bricks,
-and the ghosts are found again, when the box changes or an atom has moved half
-the skin; in between, the ghosts move with their atoms.
+a cube 2 × 2 × 4. Each process computes the atoms of its brick alone, from them
+and from the ghosts, copies of the atoms within the cutoff of the potential and
+a skin of 1 Å of the brick, which come from the processes around it, periodic
+images among them; along a box vector of one brick the box stays periodic and
+has no ghosts. What an atom of a many-body potential has of its neighbors goes
+to its ghosts within each step, as the slope of the embedding function of EAM,
+or the forces of a process's atoms on the ghosts go back to the atoms, as for
+Tersoff and NEP; MEAM, whose screening reaches the neighbors of the neighbors,
+keeps ghosts within twice its cutoff. Bricks thinner than the cutoff pass the
+ghosts on, brick to brick, so that a box may be cut into as many bricks as it
+has room for, as long as it is thicker than the cutoff and the skin along each
+vector it is cut along. The atoms go to the processes of their bricks, and the
+ghosts are found again, when the box changes or an atom has moved half the
+skin; in between, the ghosts move with their atoms.
+
+Each process may run several threads: `MDAPY_NUM_THREADS` times the number of
+processes is the number of cores to use, 40 for example as 40 × 1, 10 × 4 or
+4 × 10.
 
 ## What it runs
 
@@ -112,9 +121,9 @@ splits it itself.
 ## Errors
 
 `MolecularDynamics` under MPI raises `InvalidParameter` for a calculator other
-than MDAPY's own potentials, a potential on the GPU, a box whose bricks are
-thinner than the reach of the ghosts, and when mpi4py is not installed. A run
-raises it when the box shrinks until its bricks are thinner than the reach, when
-a `Switch` turns to a potential of a longer reach than the bricks hold, and when
-an atom moves farther than a brick between two builds of the neighbor lists, a
-sign of a time step far too long.
+than MDAPY's own potentials, a potential on the GPU, a box thinner than the
+reach of the ghosts along a vector it is cut along, and when mpi4py is not
+installed. A run raises it when the box shrinks until it is that thin, when a
+`Switch` turns to a potential of a longer reach than the box holds, and when an
+atom moves farther than a brick between two builds of the neighbor lists, a sign
+of a time step far too long.

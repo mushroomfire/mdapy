@@ -13,8 +13,16 @@
   copies of those within the reach of the potential, and the run is that of one
   process, to the rounding of the forces; in every ensemble and with every control,
   with MDAPY's potentials on the processor. Restart files hold the atoms in their own
-  order, whatever the number of processes. It needs mpi4py. See
-  [On many processes](../user-guide/simulation/processes.md).
+  order, whatever the number of processes. As LAMMPS, each process computes its own
+  atoms alone, with ghosts within the cutoff and the skin, sending what the atoms of
+  a many-body potential have of their neighbors to the ghosts, or the forces on the
+  ghosts back, and bricks thinner than the cutoff pass the ghosts on. It needs
+  mpi4py. See [On many processes](../user-guide/simulation/processes.md).
+- The dynamics on the processor computes the virial only at the steps that need the
+  pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
+  EAM's densities skip their derivatives and pairs that cross no boundary their
+  shift: with the neighbor lists kept with their skin, EAM runs 1.7 times as fast on
+  one thread as in 2.2 and Lennard-Jones 2.8 times, the same runs to the last bit.
 - Restart files of molecular dynamics: `run(..., restart="md.restart",
   restart_every=1000)` and `iterate` write the state of the dynamics every so many
   steps and at the end of a run, replacing the last once the new one is whole;

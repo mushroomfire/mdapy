@@ -2,6 +2,14 @@
 
 ## 2.2.0 (not released)
 
+- The heat flux of EAM in `green_kubo` and `hnemd`: the virial of each atom of Fan et al.
+  (2015), from the derivatives of the energies of the others, instead of its pair forces
+  split in halves, LAMMPS's centroid stress of EAM, which do not give the change of the
+  moment of the energies in a free cluster. The conductivity of copper with Zhou's EAM
+  is 9 % lower at 300 K, and 12 % lower in the liquid at 1600 K, than with the flux of
+  2.1, which LAMMPS's `compute heat/flux` gives. The energies and virials of each atom
+  that `compute` gives stay LAMMPS's. See
+  [Green–Kubo conductivity](../user-guide/properties/green-kubo.md).
 - The [Green–Kubo](../user-guide/properties/green-kubo.md) and
   [HNEMD](../user-guide/properties/hnemd.md) conductivities take Stillinger–Weber and
   Tersoff, on the processor and the GPU: their heat flux has the energy of each

@@ -99,85 +99,86 @@ where each feature runs.
 
 ## 🧰 What it does
 
-Structures are read or built into a `System`; its neighbor lists and the potentials
-feed the simulations and the analyses, and the results are drawn or fitted. Each box
-opens its pages.
+Every step works on one `System`: structures are built or read into it, its neighbor
+lists and potentials serve the simulations and the analyses, and each step gives back a
+`System` or NumPy arrays for the next. Each box opens its pages.
 
-<div class="feature-map" markdown>
+<div class="flow" markdown>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Input</p>
-<div class="feature-cells" markdown>
+<div class="flow-box" markdown>
+<p class="flow-label">Build</p>
+<div class="flow-row" markdown>
 
-[<b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span>](basics/io.md){ .feature-card }
+[<b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span>](user-guide/build/crystals.md){ .flow-card }
 
-[<b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span>](user-guide/build/crystals.md){ .feature-card }
+[<b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span>](basics/io.md){ .flow-card }
 
-[<b>Interoperability</b><span>ASE · OVITO · pymatgen · freud · LAMMPS · VASP · GPUMD</span>](user-guide/interop/ase.md){ .feature-card }
-
-</div>
-</div>
-
-<div class="feature-stage feature-core" markdown>
-<p class="feature-label">Core</p>
-<div class="feature-cells" markdown>
-
-[<b>System</b><span>box · topology · trajectory · any property of the atoms</span>](basics/system.md){ .feature-card }
-
-[<b>Neighbor lists</b><span>built once, shared by analyses and calculators</span>](basics/neighbor.md){ .feature-card }
-
-[<b>Potentials</b><span>native EAM · MEAM · Tersoff · NEP and more; LAMMPS · ASE · VASP</span>](user-guide/potentials/calculators.md){ .feature-card }
+[<b>Other programs</b><span>ASE · OVITO · pymatgen · freud · VASP · GPUMD</span>](user-guide/interop/ase.md){ .flow-card }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Simulate</p>
-<div class="feature-cells" markdown>
+<p class="flow-link" aria-hidden="true"><span>↓</span></p>
 
-[<b>Molecular dynamics</b><span>its own engine · processor and GPU · ensembles · controls</span>](user-guide/molecular-dynamics/index.md){ .feature-card }
+<div class="flow-box flow-core" markdown>
+<p class="flow-label">One System</p>
+<div class="flow-row" markdown>
 
-[<b>Loading and shock</b><span>deformation · indentation · pistons · Hugoniostat · MSST</span>](user-guide/molecular-dynamics/deformation.md){ .feature-card }
+[<b>System</b><span>box · topology · trajectories · any property of the atoms</span>](basics/system.md){ .flow-card }
 
-</div>
-</div>
+[<b>Neighbor lists</b><span>built once, shared by analyses and potentials</span>](basics/neighbor.md){ .flow-card }
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Properties</p>
-<div class="feature-cells" markdown>
-
-[<b>Relaxation</b><span>minimization · defect energies</span>](user-guide/properties/minimize.md){ .feature-card }
-
-[<b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span>](user-guide/properties/elastic-constants.md){ .feature-card }
-
-[<b>Thermal conductivity</b><span>phonons · Green–Kubo · HNEMD · NEMD</span>](user-guide/properties/thermal-conductivity.md){ .feature-card }
-
-[<b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span>](user-guide/properties/free-energy.md){ .feature-card }
+[<b>Potentials</b><span>EAM · MEAM · Tersoff · NEP and more, on the processor or the GPU</span>](user-guide/potentials/calculators.md){ .flow-card }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Analyze</p>
-<div class="feature-cells" markdown>
+<p class="flow-link flow-split" aria-hidden="true"><span>↓</span><span>↓</span><span>↓</span></p>
 
-[<b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span>](user-guide/analysis/overview.md){ .feature-card }
+<div class="flow-stages" markdown>
 
-[<b>MLIP</b><span>VASP training sets · descriptors · choosing frames · errors · uncertainty</span>](user-guide/mlip/vasp.md){ .feature-card }
+<div class="flow-box" markdown>
+<p class="flow-label">Simulate</p>
+
+[<b>Molecular dynamics</b><span>its own engine · ensembles · controls · loading · shock</span>](user-guide/molecular-dynamics/index.md){ .flow-card }
+
+<p class="flow-sublabel">Properties</p>
+<div class="flow-grid" markdown>
+
+[<b>Relaxation</b><span>minimization · defect energies</span>](user-guide/properties/minimize.md){ .flow-card }
+
+[<b>Lattice dynamics</b><span>elastic constants · phonons</span>](user-guide/properties/elastic-constants.md){ .flow-card }
+
+[<b>Thermal conductivity</b><span>phonons · Green–Kubo · HNEMD · NEMD</span>](user-guide/properties/thermal-conductivity.md){ .flow-card }
+
+[<b>Thermo&shy;dynamics</b><span>free energy · melting · phase diagrams</span>](user-guide/properties/free-energy.md){ .flow-card }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Output</p>
-<div class="feature-cells" markdown>
+<div class="flow-box" markdown>
+<p class="flow-label">Analyze</p>
 
-[<b>Visualization</b><span>rendering · movies · plots · colors</span>](user-guide/visualization/rendering.md){ .feature-card }
+[<b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span>](user-guide/analysis/overview.md){ .flow-card }
 
-[<b>Fitting</b><span>splines · least squares · equations of state</span>](user-guide/fitting/interpolation.md){ .feature-card }
+[<b>MLIP</b><span>training sets · descriptors · errors · uncertainty</span>](user-guide/mlip/vasp.md){ .flow-card }
 
 </div>
+
+<div class="flow-box" markdown>
+<p class="flow-label">Visualize</p>
+
+[<b>Rendering</b><span>ray tracing on the processor or the GPU · movies</span>](user-guide/visualization/rendering.md){ .flow-card }
+
+[<b>Plots</b><span>figures and colors</span>](user-guide/visualization/plots.md){ .flow-card }
+
+[<b>Fitting</b><span>splines · least squares · equations of state</span>](user-guide/fitting/interpolation.md){ .flow-card }
+
 </div>
+
+</div>
+
+<p class="flow-back">↺ every step gives back a System or NumPy arrays: the next step takes them</p>
 
 </div>
 

@@ -239,7 +239,8 @@ def _idpp(
             forces[k - 1] = f if movable is None else f * movable
         energies[0] = energies[count] = 0.0
         full = np.concatenate([first[None], images, last[None]])
-        return _band_forces(full, energies, forces, spring, None).reshape(-1, 3)
+        out = _band_forces(full, energies, forces, spring, None)
+        return (out if movable is None else out * movable).reshape(-1, 3)
 
     moving = band[1:-1].reshape(-1, 3).copy()
     fire = _Fire(moving, evaluate(moving), np.ones((len(moving), 1)), 0.1, 0.1)

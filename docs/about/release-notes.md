@@ -73,8 +73,8 @@
   in MDAPY. See [Groups and controls](../user-guide/simulation/controls.md).
 - `mdapy.simulation.neb(initial, final, calculator, *, images=5, climb=True)`: the
   minimum energy path between two states by the nudged elastic band, with the improved
-  tangent and the climbing image of Henkelman and Jónsson, which gives the saddle point
-  and the barrier: the band of LAMMPS's `neb`, to 1e-9 eV on the saddle. Any calculator,
+  tangent and the climbing image of Henkelman, Uberuaga and Jónsson (2000), which gives
+  the saddle point and the barrier: the band of LAMMPS's `neb`, to 1e-9 eV on the saddle. Any calculator,
   on the processor or the GPU, or one for each image, which then compute at the same
   time, as VASP in directories of their own; the images start on a straight line or
   relaxed on the image dependent pair potential (`interpolation="idpp"`). `NEBResult`

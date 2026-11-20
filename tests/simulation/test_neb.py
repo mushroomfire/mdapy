@@ -334,14 +334,17 @@ def test_the_final_state_across_the_periodic_boundary():
     np.testing.assert_allclose(b.distances, a.distances, atol=1e-10)
 
 
-def test_atoms_held_still():
+@pytest.mark.parametrize("interpolation", ["linear", "idpp"])
+def test_atoms_held_still(interpolation):
     initial, final = vacancy_hop()
     eam = EAM.zhou(["Cu"])
     x = initial["positions"]
     far = np.linalg.norm(x - x.mean(axis=0), axis=1) > 3.0
     movable = np.repeat(~far[:, None], 3, axis=1)
     held = initial.with_columns(movable=movable)
-    result = neb(held, final, eam, images=3, max_force=1e-4)
+    result = neb(
+        held, final, eam, images=3, interpolation=interpolation, max_force=1e-4
+    )
     assert result.converged and far.sum() > 10
     start = neb(held, final, eam, images=3, max_steps=0)
     for before, after in zip(start.images, result.images):

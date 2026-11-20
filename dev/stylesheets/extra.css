@@ -55,89 +55,150 @@
   text-align: center;
 }
 
-/* The map of the features on the home page: a row for each stage, the
-   core in ink, each box a link to its pages. */
-.md-typeset .feature-map {
-  display: grid;
-  gap: 0.5rem;
+/* The map of the home page, a flow: the build above, one System in ink
+   under every step, the three steps below it side by side, and the way back;
+   each box a link to its pages. One column on a phone. */
+.md-typeset .flow {
   margin: 1.2em 0 1.6em;
 }
-.md-typeset .feature-stage {
-  display: grid;
-  grid-template-columns: 4.6rem minmax(0, 1fr);
-  gap: 0.6rem;
-  align-items: stretch;
+.md-typeset .flow-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
 }
-.md-typeset .feature-label {
+.md-typeset .flow-box > p,
+.md-typeset .flow-row > p,
+.md-typeset .flow-grid > p {
+  display: flex;
   margin: 0;
-  align-self: center;
+}
+.md-typeset .flow-box > p.flow-label,
+.md-typeset .flow-box > p.flow-sublabel {
+  display: block;
+}
+.md-typeset .flow-label,
+.md-typeset .flow-sublabel {
+  margin: 0;
   font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--md-default-fg-color--light);
 }
-.md-typeset .feature-cells {
+.md-typeset .flow-sublabel {
+  margin-top: 0.15rem;
+  letter-spacing: 0.06em;
+}
+.md-typeset .flow-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.md-typeset .flow-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.md-typeset .flow-stages {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0.5rem;
+  align-items: stretch;
 }
-.md-typeset .feature-cells > p {
-  display: flex;
-  margin: 0;
-}
-.md-typeset a.feature-card {
+.md-typeset a.flow-card {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding: 0.5rem 0.7rem;
+  gap: 0.12rem;
+  padding: 0.45rem 0.6rem;
   border: 1px solid var(--md-default-fg-color--lightest);
   border-radius: 0.3rem;
   background: var(--md-code-bg-color);
   color: var(--md-typeset-a-color);
   text-decoration: none;
-  line-height: 1.35;
+  line-height: 1.3;
   transition: border-color 125ms, color 125ms;
 }
-.md-typeset a.feature-card b {
-  font-size: 0.78rem;
+.md-typeset a.flow-card b {
+  font-size: 0.74rem;
   font-weight: 600;
 }
-.md-typeset a.feature-card span {
-  font-size: 0.66rem;
+.md-typeset a.flow-card span {
+  font-size: 0.62rem;
   color: var(--md-default-fg-color--light);
 }
-.md-typeset a.feature-card:hover,
-.md-typeset a.feature-card:focus-visible {
+.md-typeset a.flow-card:hover,
+.md-typeset a.flow-card:focus-visible {
   border-color: var(--md-default-fg-color--light);
 }
-.md-typeset a.feature-card:hover b,
-.md-typeset a.feature-card:focus-visible b {
+.md-typeset a.flow-card:hover b,
+.md-typeset a.flow-card:focus-visible b {
   color: var(--md-accent-fg-color);
 }
-/* the core: the system, its neighbor lists and the calculators, in ink */
-.md-typeset .feature-core a.feature-card {
+/* the System, its neighbor lists and the potentials, in ink */
+.md-typeset .flow-core {
   background: var(--md-primary-bg-color);
   border-color: var(--md-primary-bg-color);
+}
+.md-typeset .flow-core .flow-label {
+  color: var(--md-primary-fg-color);
+  opacity: 0.75;
+}
+.md-typeset .flow-core a.flow-card {
+  background: transparent;
+  border-color: var(--md-primary-fg-color--dark);
   color: var(--md-primary-fg-color);
 }
-.md-typeset .feature-core a.feature-card span {
+.md-typeset .flow-core a.flow-card span {
   color: var(--md-primary-fg-color);
   opacity: 0.7;
 }
-.md-typeset .feature-core a.feature-card:hover b,
-.md-typeset .feature-core a.feature-card:focus-visible b {
+.md-typeset .flow-core a.flow-card:hover,
+.md-typeset .flow-core a.flow-card:focus-visible {
+  border-color: var(--md-primary-fg-color);
+}
+.md-typeset .flow-core a.flow-card:hover b,
+.md-typeset .flow-core a.flow-card:focus-visible b {
   color: var(--md-primary-fg-color);
   text-decoration: underline;
 }
+/* the arrows from one row to the next: one, or one over each step */
+.md-typeset p.flow-link {
+  display: grid;
+  justify-items: center;
+  margin: 0.15rem 0;
+  color: var(--md-default-fg-color--lighter);
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
+.md-typeset p.flow-split {
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.5rem;
+}
+/* the way back: a bracket under the steps */
+.md-typeset p.flow-back {
+  margin: 0;
+  padding: 0.3rem 0.6rem 0.2rem;
+  border: 1px solid var(--md-default-fg-color--lighter);
+  border-top: 0;
+  border-radius: 0 0 0.4rem 0.4rem;
+  text-align: center;
+  font-size: 0.64rem;
+  color: var(--md-default-fg-color--light);
+}
 @media screen and (max-width: 37.5em) {
-  .md-typeset .feature-stage {
+  .md-typeset .flow-row,
+  .md-typeset .flow-stages {
     grid-template-columns: minmax(0, 1fr);
-    gap: 0.3rem;
   }
-  .md-typeset .feature-stage + .feature-stage {
-    margin-top: 0.4rem;
+  .md-typeset p.flow-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .md-typeset p.flow-split span + span {
+    display: none;
   }
 }
 

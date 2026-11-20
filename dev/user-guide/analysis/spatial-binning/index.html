@@ -10414,7 +10414,9 @@ its temperature.</p>
 </table>
 <p><code>compute(system)</code> takes the system. Along periodic vectors the atoms are
 wrapped into the box first; along the others, those outside the box are
-left out.</p>
+left out. The atoms of a run of molecular dynamics may leave its box along a direction
+that is not periodic, as when a free surface expands: give the box room along it from
+the start, so that the bins hold every atom.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>SpatialBinningResult</code>:</p>
 <table>

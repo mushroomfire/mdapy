@@ -292,7 +292,9 @@ _BATH_STREAM = 1
 class _HostAtoms:
     """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
     positions, velocities and forces in the frame of LAMMPS, and the steps
-    of the integrator on each atom."""
+    of the integrator on each atom. Under MPI a subclass holds the atoms of
+    one process (simulation/_domain.py): sums over the atoms go through
+    _total, the rows of the masks of all atoms through _rows."""
 
     def __init__(
         self,
@@ -302,17 +304,21 @@ class _HostAtoms:
         masses: np.ndarray,
         restrict: Any,
     ):
-        self.__calculator = calculator
-        self.__x, self.__v, self.__masses = x, v, masses
-        self.__restrict = restrict
-        self.__forces: np.ndarray | None = None
-        self.__wide: NeighborList | None = None
-        # the noise of the thermostat: a seed and the number of draws, each
-        # atom's numbers from its index, as on the GPU (core/philox.h)
-        self.__ids = np.arange(len(x), dtype=np.int64)
+        self._calculator = calculator
+        self._x, self._v, self._masses = x, v, masses
+        # restrict(vectors, rows): the vectors of those rows of the atoms with
+        # the components that do not move freely removed
+        self._restrict = restrict
+        self._forces: np.ndarray | None = None
+        # the neighbor lists kept between steps, of the potential and of the
+        # target of a Switch
+        self._lists: dict[str, NeighborList] = {}
+        # the index of each atom among all, by which it draws its noise from
+        # a seed and the number of draws, as on the GPU (core/philox.h)
+        self._ids = np.arange(len(x), dtype=np.int64)
+        self._count = len(x)  # of all the atoms
         self.__seed = 0
         self.__draws = 0
-        # a Switch: the other interaction, its neighbor list, and λ
         self.__field: np.ndarray | None = None  # of HNEMD, in the frame
         self.__virials: np.ndarray | None = None  # of each atom, for the field
         # with the energies each atom carries: the energies of each atom, and
@@ -320,8 +326,8 @@ class _HostAtoms:
         self.__convective = False
         self.__kick = 0.0
         self.__energies: np.ndarray | None = None
-        self.__target: Any = False  # False: no switch; None: the ideal gas
-        self.__target_wide: NeighborList | None = None
+        # a Switch: the other interaction, and λ
+        self._target: Any = False  # False: no switch; None: the ideal gas
         self.weight = 0.0
         self.parts = (math.nan, math.nan)  # the energies of the two
         self.__properties = tuple(
@@ -329,126 +335,163 @@ class _HostAtoms:
         )
         # what the controls of a run set, in the frame of LAMMPS: forces added
         # to the atoms, the velocities of the components that do not move
-        # freely (zero where they do), and groups whose forces are summed
+        # freely (zero where they do), and groups whose forces are summed; of
+        # all the atoms
         self.added: np.ndarray | None = None
         self.prescribed: np.ndarray | None = None
         self.watched: tuple = ()
         self.sums: list = []
         self.__baths: list = []
 
+    # the rows of this process's atoms in arrays of all the atoms: all of them
+    _rows: Any = slice(None)
+
+    def _total(self, value: Any) -> Any:
+        """The sum over the processes of a number or an array."""
+        return value
+
+    def _agreed(self, value: Any) -> Any:
+        """What the main process has, on every process: a seed it drew."""
+        return value
+
+    def _mean(self, values: np.ndarray) -> np.ndarray:
+        """The mean over all the atoms of (n, ...) values of this process's."""
+        return self._total(values.sum(axis=0)) / self._count
+
     @property
     def positions(self) -> np.ndarray:
-        return self.__x
+        return self._x
 
     @property
     def velocities(self) -> np.ndarray:
-        return self.__v
+        return self._v
 
     @velocities.setter
     def velocities(self, v: np.ndarray) -> None:
-        self.__v = v
+        self._v = v
 
     @property
     def forces(self) -> np.ndarray:
         """Those of the last computation, as the steps use them."""
-        return self.__forces
+        return self._forces
 
     def twice_kinetic(self) -> float:
-        return float(np.einsum("i,ij,ij->", self.__masses, self.__v, self.__v)) * _MVV2E
+        return (
+            float(self._total(np.einsum("i,ij,ij->", self._masses, self._v, self._v)))
+            * _MVV2E
+        )
 
     def mvv(self) -> np.ndarray:
-        return np.einsum("i,ij,ik->jk", self.__masses, self.__v, self.__v) * _MVV2E
+        return (
+            self._total(np.einsum("i,ij,ik->jk", self._masses, self._v, self._v))
+            * _MVV2E
+        )
+
+    def _neighbors(self, slot: str, current: System, cutoff: float) -> Any:
+        """The pairs closer than cutoff, from the list kept in slot, built
+        again with a skin when the atoms have moved too far."""
+        if not 0.0 < cutoff < np.inf:
+            return None
+        wide = self._lists.get(slot)
+        neighbors = wide._follow(current, cutoff) if wide is not None else None
+        if neighbors is None:
+            self._lists[slot] = wide = NeighborList.build(current, cutoff + _SKIN)
+            neighbors = wide._follow(current, cutoff)
+        return neighbors
+
+    def _evaluate(
+        self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
+    ) -> tuple[float, np.ndarray, np.ndarray, Any]:
+        """The energy, the forces on the atoms, the virial (NaN if not
+        computed) and the result of a calculator, whose values of each atom
+        are those of the atoms."""
+        # a copy of the positions: the System may hold the array itself, and
+        # the steps change it in place, which would move the positions the
+        # kept neighbor list compares with
+        current = System(table=table.with_columns(
+            pl.Series("positions", self._x.copy(), dtype=pl.Array(pl.Float64, 3))
+        ), box=box)  # fmt: skip
+        neighbors = self._neighbors(slot, current, float(calculator.cutoff))
+        result = calculator.compute(current, wanted, neighbors=neighbors)
+        work = (
+            np.asarray(result.virial, dtype=float)
+            if "virial" in wanted and result.virial is not None
+            else np.full((3, 3), np.nan)
+        )
+        return (
+            float(result.energy),
+            np.asarray(result.forces, dtype=float),
+            work,
+            result,
+        )
 
     def compute(
         self, table: pl.DataFrame, box: Box, energy: bool, virial: bool
     ) -> tuple[float, np.ndarray]:
         """The energy and the virial, the forces kept; on the processor
         always all three."""
-        # a copy of the positions: the System may hold the array itself, and
-        # the steps change it in place, which would move the positions the
-        # kept neighbor list compares with
-        current = System(table=table.with_columns(
-            pl.Series("positions", self.__x.copy(), dtype=pl.Array(pl.Float64, 3))
-        ), box=box)  # fmt: skip
-        cutoff = float(self.__calculator.cutoff)
-        neighbors = None
-        if 0.0 < cutoff < np.inf:
-            wide = self.__wide
-            neighbors = wide._follow(current, cutoff) if wide is not None else None
-            if neighbors is None:
-                self.__wide = NeighborList.build(current, cutoff + _SKIN)
-                neighbors = self.__wide._follow(current, cutoff)
         wanted = self.__properties
         if self.__field is not None:
             wanted = wanted + ("atomic_energies", "atomic_virials", HEAT_FLUX_TERMS)
-        result = self.__calculator.compute(current, wanted, neighbors=neighbors)
-        forces = np.asarray(result.forces, dtype=float)
-        energy = float(result.energy)
+        energy, forces, work, result = self._evaluate(
+            "potential", self._calculator, table, box, wanted
+        )
         if self.__field is not None:
             # each atom pushed by the field through its virial, W^T F, the
             # pushes less their mean, as GPUMD's HNEMD
             self.__virials = np.asarray(result.atomic_virials, dtype=float)
             push = np.einsum("a,iab->ib", self.__field, self.__virials)
-            forces = forces + (push - push.mean(axis=0))
+            forces = forces + (push - self._mean(push))
             if self.__convective:
                 # and by the field times its energy less their mean, its
                 # kinetic energy at the velocity the end of the step gives
                 self.__energies = np.asarray(result.atomic_energies, dtype=float)
-                ahead = self.__v + self.__kick * forces / self.__masses[:, None]
+                ahead = self._v + self.__kick * forces / self._masses[:, None]
                 e = self.__energies + self.__kinetic_energies(ahead)
-                forces = forces + np.outer(e - e.mean(), self.__field)
-        work = (
-            np.asarray(result.virial, dtype=float)
-            if "virial" in self.__properties
-            else np.full((3, 3), np.nan)
-        )
-        if self.__target is not False:
-            energy, forces, work = self.__switched(current, energy, forces, work)
-        if not (np.isfinite(energy) and np.isfinite(forces).all()):
+                forces = forces + np.outer(e - self._mean(e), self.__field)
+        if self._target is not False:
+            energy, forces, work = self.__switched(table, box, energy, forces, work)
+        failed = self._total(0 if np.isfinite(forces).all() else 1)
+        if not np.isfinite(energy) or failed:
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
             )
         # the forces of the potential on the watched groups
-        self.sums = [forces[mask].sum(axis=0) for mask in self.watched]
+        rows = self._rows
+        self.sums = [
+            self._total(forces[mask[rows]].sum(axis=0)) for mask in self.watched
+        ]
         self.indented = []
         for spec, at in zip(self.indenters, self.indenter_at):
-            push, work, on = _indented(self.__x, box.matrix, box.pbc, spec, at)
+            push, work_on, on = _indented(self._x, box.matrix, box.pbc, spec, at)
             forces = forces + push
-            self.indented.append((work, on))
+            self.indented.append((self._total(work_on), self._total(on)))
         if self.added is not None:
-            forces = forces + self.added
-        self.__forces = self.__restrict(forces)
+            forces = forces + self.added[rows]
+        self._forces = self._restrict(forces, rows)
         return energy, work
 
     def __switched(
-        self, current: System, energy: float, forces: np.ndarray, work: np.ndarray
+        self,
+        table: pl.DataFrame,
+        box: Box,
+        energy: float,
+        forces: np.ndarray,
+        work: np.ndarray,
     ) -> tuple[float, np.ndarray, np.ndarray]:
         """(1 - λ) times the potential plus λ times the target of a Switch:
         the energy, the forces and the virial, the target giving none where
         it computes none; the energies of the two kept."""
-        target, weight = self.__target, self.weight
+        target, weight = self._target, self.weight
         if target is None:  # the ideal gas
             other, pulls, push = 0.0, np.zeros_like(forces), np.zeros((3, 3))
         else:
-            cutoff = float(target.cutoff)
-            neighbors = None
-            if 0.0 < cutoff < np.inf:
-                wide = self.__target_wide
-                neighbors = wide._follow(current, cutoff) if wide is not None else None
-                if neighbors is None:
-                    self.__target_wide = NeighborList.build(current, cutoff + _SKIN)
-                    neighbors = self.__target_wide._follow(current, cutoff)
             wanted = ("energy", "forces") + (
                 ("virial",) if "virial" in target.implemented else ()
             )
-            result = target.compute(current, wanted, neighbors=neighbors)
-            other = float(result.energy)
-            pulls = np.asarray(result.forces, dtype=float)
-            push = (
-                np.asarray(result.virial, dtype=float)
-                if result.virial is not None
-                else np.zeros((3, 3))
-            )
+            other, pulls, push, _ = self._evaluate("target", target, table, box, wanted)
+            if not np.isfinite(push).all():
+                push = np.zeros((3, 3))
         self.parts = (energy, other)
         mixed = (1.0 - weight) * energy + weight * other
         return (
@@ -458,10 +501,10 @@ class _HostAtoms:
         )
 
     def kick(self, c: float) -> None:
-        self.__v += c * self.__forces / self.__masses[:, None]
+        self._v += c * self._forces / self._masses[:, None]
 
     def drift(self, dt: float) -> None:
-        self.__x += dt * self.__v
+        self._x += dt * self._v
 
     def kick_drift(self, c: float, dt: float) -> None:
         self.kick(c)
@@ -473,7 +516,7 @@ class _HostAtoms:
 
     def speed_squares(self) -> float:
         """The sum of the squares of the velocities."""
-        return float(np.einsum("ij,ij->", self.__v, self.__v))
+        return float(self._total(np.einsum("ij,ij->", self._v, self._v)))
 
     def msst_kick(
         self,
@@ -487,64 +530,61 @@ class _HostAtoms:
         """The velocities of fix msst half a step on, kept unless trial; the
         sum of their squares."""
         v = _msst_velocities(
-            self.__v, self.__forces, self.__masses, half, (base, axial, axis, ftm2v)
+            self._v, self._forces, self._masses, half, (base, axial, axis, ftm2v)
         )
         if not trial:
-            self.__v = v
-        return float(np.einsum("ij,ij->", v, v))
+            self._v = v
+        return float(self._total(np.einsum("ij,ij->", v, v)))
 
     def reflect(self, normal: np.ndarray, offset: float, speed: float) -> None:
         """A flat wall: each atom with x . normal < offset put back by as
         much, its velocity along the normal made 2 speed - v . normal."""
-        depth = self.__x @ normal - offset
+        depth = self._x @ normal - offset
         past = depth < 0.0
         if past.any():
-            self.__x[past] -= 2.0 * depth[past, None] * normal
-            change = 2.0 * (speed - self.__v[past] @ normal)
-            self.__v[past] += change[:, None] * normal
+            self._x[past] -= 2.0 * depth[past, None] * normal
+            change = 2.0 * (speed - self._v[past] @ normal)
+            self._v[past] += change[:, None] * normal
 
     def scale(self, factor: Any) -> None:
-        self.__v *= factor
+        self._v *= factor
 
     def shear(self, half: float, w: np.ndarray) -> None:
-        v = self.__v
+        v = self._v
         v[:, 0] -= half * (v[:, 1] * w[5] + v[:, 2] * w[4])
         v[:, 1] -= half * v[:, 2] * w[3]
 
     def restrict(self) -> None:
         """The velocities of the components that do not move freely set:
         zero, or those of their control."""
-        self.__v = self.__restrict(self.__v)
+        self._v = self._restrict(self._v, self._rows)
         if self.prescribed is not None:
-            self.__v = self.__v + self.prescribed
+            self._v = self._v + self.prescribed[self._rows]
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
     ) -> None:
         # fractional coordinates of the atoms in the old box, kept in the new
-        fractional = np.einsum("ij,jk->ik", self.__x - old_lo, np.linalg.inv(old))
-        self.__x = lo + np.einsum("ij,jk->ik", fractional, new)
+        fractional = np.einsum("ij,jk->ik", self._x - old_lo, np.linalg.inv(old))
+        self._x = lo + np.einsum("ij,jk->ik", fractional, new)
 
     def seed(self, seed: int | None) -> None:
-        self.__seed = secrets.randbits(63) if seed is None else int(seed)
+        self.__seed = self._agreed(secrets.randbits(63)) if seed is None else int(seed)
         self.__draws = 0
 
     # the calculators, the function that restricts the velocities and the
     # neighbor lists: given again or built again, not kept in a restart
-    __TRANSIENT = ("calculator", "restrict", "wide", "target_wide")
+    _TRANSIENT = ("_calculator", "_restrict", "_lists")
 
     def state(self) -> dict[str, Any]:
         """What a restart keeps of the atoms."""
-        skip = {f"_HostAtoms__{name}" for name in self.__TRANSIENT}
-        return {k: v for k, v in vars(self).items() if k not in skip}
+        return {k: v for k, v in vars(self).items() if k not in self._TRANSIENT}
 
     def restore(self, state: dict[str, Any]) -> None:
         """The atoms as a restart kept them; the neighbor lists are built
         again."""
         vars(self).update(state)
-        self.__wide = None
-        if "_HostAtoms__target_wide" in vars(self):
-            self.__target_wide = None
+        self._lists = {}
 
     def set_controls(
         self,
@@ -557,18 +597,15 @@ class _HostAtoms:
         """The controls of a run: the free components (in the axes of the
         system; the restriction given at the start follows them), the
         velocities of the others and the forces added (frame of LAMMPS), the
-        groups whose forces are summed, and (mask, seed) of each bath."""
+        groups whose forces are summed, and (mask, seed) of each bath; of
+        all the atoms."""
         self.prescribed, self.added, self.watched = prescribed, added, watched
-        # (mask, indices, seed, [draws]) of each bath, as on the GPU
-        self.__baths = [
-            (
-                mask,
-                np.flatnonzero(mask).astype(np.int64),
-                secrets.randbits(63) if seed is None else int(seed) % (1 << 63),
-                [0],
-            )
-            for mask, seed in baths
-        ]
+        # (mask, seed, [draws]) of each bath, as on the GPU
+        seeds = self._agreed(
+            [secrets.randbits(63) if seed is None else int(seed) % (1 << 63)
+             for _, seed in baths]
+        )  # fmt: skip
+        self.__baths = [(mask, seed, [0]) for (mask, _), seed in zip(baths, seeds)]
 
     def clear_controls(self) -> None:
         self.prescribed = self.added = None
@@ -577,24 +614,27 @@ class _HostAtoms:
 
     def twice_kinetic_free(self) -> float:
         """Of the components that move freely."""
-        v = self.__restrict(self.__v)
-        return float(np.einsum("i,ij,ij->", self.__masses, v, v)) * _MVV2E
+        v = self._restrict(self._v, self._rows)
+        return float(self._total(np.einsum("i,ij,ij->", self._masses, v, v))) * _MVV2E
 
     def bath(self, k: int, c1: float, c2: float, kt: float) -> float:
         """v = c1 v + c2 sqrt(kt / m) g on the atoms of bath k, g Gaussian of
         its random numbers in the directions they move freely; the kinetic
         energy it added, in eV."""
-        mask, indices, seed, draws = self.__baths[k]
-        masses = self.__masses[mask]
-        before = self.__v[mask]
-        noise = np.zeros_like(self.__v)
-        noise[mask] = _native.normals(indices, seed, _BATH_STREAM, draws[0])
+        mask, seed, draws = self.__baths[k]
+        mask = mask[self._rows]
+        masses = self._masses[mask]
+        before = self._v[mask]
+        noise = np.zeros_like(self._v)
+        noise[mask] = _native.normals(self._ids[mask], seed, _BATH_STREAM, draws[0])
         draws[0] += 1
-        noise = self.__restrict(noise)[mask]
+        noise = self._restrict(noise, self._rows)[mask]
         after = c1 * before + c2 * np.sqrt(kt / masses)[:, None] * noise
-        self.__v[mask] = after
-        return 0.5 * float(np.einsum("i,ij,ij->", masses, after, after)
-                           - np.einsum("i,ij,ij->", masses, before, before)) * _MVV2E  # fmt: skip
+        self._v[mask] = after
+        added = np.einsum("i,ij,ij->", masses, after, after) - np.einsum(
+            "i,ij,ij->", masses, before, before
+        )
+        return 0.5 * float(self._total(added)) * _MVV2E
 
     def set_field(
         self, field: np.ndarray | None, convective: bool = False, kick: float = 0.0
@@ -607,37 +647,38 @@ class _HostAtoms:
         self.__convective, self.__kick = bool(convective), float(kick)
 
     def __kinetic_energies(self, v: np.ndarray) -> np.ndarray:
-        return 0.5 * self.__masses * np.einsum("ij,ij->i", v, v) * _MVV2E
+        return 0.5 * self._masses * np.einsum("ij,ij->i", v, v) * _MVV2E
 
     def heat_flux(self) -> np.ndarray:
         """(3,) the heat flux times the volume in the frame: its potential
         part sum_i W_i v_i, of the virials of the last computation and the
         velocities now, and with the energies each atom carries the part
         sum_i E_i v_i too."""
-        flux = np.einsum("iab,ib->a", self.__virials, self.__v)
+        flux = np.einsum("iab,ib->a", self.__virials, self._v)
         if self.__convective:
-            e = self.__energies + self.__kinetic_energies(self.__v)
-            flux = flux + e @ self.__v
-        return flux
+            e = self.__energies + self.__kinetic_energies(self._v)
+            flux = flux + e @ self._v
+        return self._total(flux)
 
     def set_switch(self, target: Any) -> None:
         """The other interaction of a Switch, None for none, or False for no
         switch."""
-        self.__target = target
-        self.__target_wide = None
+        self._target = target
+        self._lists.pop("target", None)
         self.weight = 0.0
 
     def langevin(self, c1: float, c2: float, kt: float, keep: bool = False) -> None:
         """v = c1 v + c2 sqrt(kt / m) g, g Gaussian; with keep, the noise of
         each atom less an equal share of its total momentum, as the random
         forces of LAMMPS's fix langevin zero yes."""
-        sigma = np.sqrt(kt / self.__masses)[:, None]
-        g = _native.normals(self.__ids, self.__seed, _THERMOSTAT_STREAM, self.__draws)
+        sigma = np.sqrt(kt / self._masses)[:, None]
+        g = _native.normals(self._ids, self.__seed, _THERMOSTAT_STREAM, self.__draws)
         self.__draws += 1
-        noise = c2 * sigma * self.__restrict(g)
+        noise = c2 * sigma * self._restrict(g, self._rows)
         if keep:
-            noise -= (self.__masses @ noise) / len(noise) / self.__masses[:, None]
-        self.__v = c1 * self.__v + noise
+            momentum = self._total(self._masses @ noise)
+            noise -= momentum / self._count / self._masses[:, None]
+        self._v = c1 * self._v + noise
         if self.prescribed is not None:
             self.restrict()
 
@@ -766,12 +807,13 @@ class _Native:
     def __from_frame(self, vectors: np.ndarray) -> np.ndarray:
         return np.einsum("ij,kj->ik", vectors, self.__rotation)
 
-    def __restrict(self, vectors: np.ndarray) -> np.ndarray:
-        """Vectors of the atoms with the components along which they may not
-        move removed, in the axes of the system."""
+    def __restrict(self, vectors: np.ndarray, rows: Any = slice(None)) -> np.ndarray:
+        """Vectors of the atoms, or of those rows of them, with the
+        components along which they may not move removed, in the axes of the
+        system."""
         if self.__free is None:
             return vectors
-        return self.__to_frame(self.__from_frame(vectors) * self.__free)
+        return self.__to_frame(self.__from_frame(vectors) * self.__free[rows])
 
     def __box(self) -> Box:
         return Box(self.__h, origin=self.__lo, pbc=self.__frame_pbc)

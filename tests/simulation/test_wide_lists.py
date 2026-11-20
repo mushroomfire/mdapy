@@ -82,3 +82,22 @@ def test_other_calculators_get_the_pairs_within_their_cutoff():
         md.velocities(900, seed=1)
         md.run(30)
     assert len(seen) == 31 and max(seen) < eam.cutoff
+
+
+@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones", "ADP"])
+def test_the_virial_left_out(tmp_path, name):
+    """At the steps that need no pressure the dynamics asks for no virial:
+    the same forces and energy without it."""
+    from mdapy.calculators._base import WITHOUT_VIRIAL
+
+    if name == "EAM":
+        potential, system = EAM.zhou(["Cu"]), copper(4)
+    elif name == "Lennard-Jones":
+        potential, system = LennardJones({"Cu": (0.4, 2.3)}, 5.0), copper(4)
+    else:
+        potential, system = potentials(tmp_path)[name]
+    full = potential.compute(system, ("energy", "forces", "virial"))
+    bare = potential.compute(system, ("energy", "forces", "virial", WITHOUT_VIRIAL))
+    assert bare.virial is None and bare.atomic_virials is None
+    assert full.virial is not None and bare.energy == full.energy
+    np.testing.assert_array_equal(bare.forces, full.forces)

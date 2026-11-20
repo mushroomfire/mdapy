@@ -50,9 +50,11 @@
   atoms inside it out with a force K d², recording the force on it and its energy;
   in MDAPY, on the GPU and in LAMMPS alike. See
   [Indentation](../user-guide/molecular-dynamics/indentation.md).
-- The example [A shock wave in copper](../examples/shock.md): a piston at 1 km/s
-  through 102400 atoms on a GPU, the profiles of velocity, pressure and temperature
-  behind the front, and the stacking faults it leaves.
+- The example [Shock and spall in copper](../examples/shock.md): a piston at 1 km/s for
+  5 ps through 320000 atoms on a GPU, then no piston: the wave diagram of the stress
+  along z in fixed slabs, the shock, its release and the spall where the releases meet,
+  the velocity of the free surface with its pull-back signal, and slices of the copper
+  from the stacking faults behind the front to the voids that open and tear it apart.
 - `run(..., ensemble="msst", barostat="z", shock_velocity=...)`, the multiscale
   shock technique of LAMMPS's `fix msst`: the box compressed along an axis as by a
   steady shock of that velocity, its settings `q`, `mu` and `tscale` in `msst`, the

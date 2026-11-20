@@ -17,8 +17,8 @@ which answer different questions:
 - **A piston** shows what the wave does: the width of its front, and the plasticity or
   the phase change behind it. It needs a crystal many times
   longer than the front, and as many steps as the wave takes to cross it.
-  [A shock wave in copper](../../examples/shock.md) drives one into 102400 atoms on a
-  GPU.
+  [Shock and spall in copper](../../examples/shock.md) drives one into 320000 atoms on
+  a GPU, takes the piston away, and follows the release until the copper spalls.
 - **The Hugoniostat** maps the shocked states, one pressure per run, in small boxes: the Hugoniot, the temperature along it, and where the crystal
   melts or changes phase.
 - **MSST** follows one shock in time, without its front, in a small box: how the

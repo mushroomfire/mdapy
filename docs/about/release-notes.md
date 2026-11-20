@@ -14,6 +14,11 @@
   (2015). The energies and virials of each atom that `compute` gives stay LAMMPS's
   shares, which would give a wrong flux. In a free cluster the flux is the change of the
   moment of the energies to 3e-7.
+- In LAMMPS, atoms held along some directions by `Hold` and pushed by an `AddForce`
+  given after it moved along the held directions: LAMMPS applies its fixes in the
+  order they are defined, and the added force came after the `setforce`. The added
+  forces are now defined first, so that the order of the controls does not matter, as
+  in MDAPY. See [Groups and controls](../user-guide/molecular-dynamics/controls.md).
 - The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
   guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
   what the engine is for and of every feature with where it runs, then running,

@@ -24,7 +24,7 @@ SKIN = 1.0
 
 
 _NO_GPU_PART = (
-    "this MDAPY has no GPU part: on Linux on x86-64, install it with "
+    "this MDAPY has no GPU part: on Linux on x86-64 or ARM, install it with "
     'pip install "mdapy[cuda12]"; elsewhere, build MDAPY with the CUDA toolkit, '
     "pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON"
 )

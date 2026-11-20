@@ -34,6 +34,9 @@ def test_the_gpu_part_is_of_the_version_of_mdapy():
     project = tomllib.loads((root / "pyproject.toml").read_text())
     (requirement,) = project["project"]["optional-dependencies"]["cuda12"]
     assert requirement.startswith(f"mdapy-cuda12=={mdapy.__version__};")
+    assert (
+        "(platform_machine == 'x86_64' or platform_machine == 'aarch64')" in requirement
+    )
     plugin = tomllib.loads((root / "cuda12" / "pyproject.toml").read_text())
     version = plugin["tool"]["scikit-build"]["metadata"]["version"]
     assert version["input"] == "../src/mdapy/__init__.py"

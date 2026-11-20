@@ -89,7 +89,7 @@ atom. The virial must be one that gives the flux of heat:
   it is not: its pair forces split in halves, LAMMPS's centroid stress of EAM, miss the
   change of the moment of its energies, by 15 to 44 % in a free cluster of copper and
   nickel, and on the same trajectories of copper, with Zhou's EAM, they give a
-  conductivity 9 % higher than MDAPY's flux at 300 K, 6.94 against 7.55 W/(m K) over
+  conductivity 9 % higher than MDAPY's flux at 300 K, 7.55 against 6.94 W/(m K) over
   three runs, and 12 % higher in the liquid at 1600 K. Stillinger–Weber and Tersoff keep
   the energy of each three-body term whole with its centre atom, as LAMMPS's shares of
   their terms would give a wrong flux too; ADP and MEAM are refused. In MDAPY each

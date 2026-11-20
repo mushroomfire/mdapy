@@ -226,3 +226,66 @@ def test_stillinger_weber_on_the_processor_and_the_gpu(tmp_path, monkeypatch):
     work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.0005)])
     residual = np.abs(energy - energy[0] - work).max()
     assert abs(energy[-1] - energy[0]) > 20 * residual
+
+
+def hot_argon(seed=1):
+    """Argon as a dense fluid at 150 K, its crystal expanded."""
+    crystal = build_crystal("fcc", 5.6, elements="Ar", repeat=4)
+    with MolecularDynamics(crystal, ARGON, timestep=0.002) as md:
+        md.velocities(300.0, seed=seed)
+        md.run(1000, ensemble="nvt", temperature=150.0)
+        return md.system
+
+
+def test_the_convective_field_does_the_work_of_the_whole_flux(monkeypatch):
+    """With the energies each atom carries, each atom also pushed by the field
+    times its energy less their mean: at constant energy the field does the
+    work F . (sum_i E_i v_i + sum_i W_i v_i), the momentum stays zero, and on
+    the GPU, its module stood in for, the run is that of the processor."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    system = hot_argon()
+    field = np.array([0.02, -0.01, 0.005])
+    out = []
+    for device in ("cuda", "cpu"):
+        potential = LennardJones(
+            {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device=device
+        )
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(1000, thermo=1, controls=_HeatField(field, convective=True))
+            out.append((md.thermo, md.system))
+    (on_gpu, _), (here, end) = out
+    np.testing.assert_allclose(
+        np.stack(on_gpu["heat_flux"]), np.stack(here["heat_flux"]), rtol=1e-9, atol=1e-9
+    )
+    energy = here["total_energy"].to_numpy()
+    power = np.stack(here["heat_flux"].to_numpy()) @ field
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.002)])
+    residual = np.abs(energy - energy[0] - work).max()
+    assert abs(energy[-1] - energy[0]) > 1000 * residual
+    masses = mdapy.elements.atomic_masses(["Ar"])[0]
+    assert np.abs(masses * end["velocities"].sum(axis=0)).max() < 1e-9
+    # the flux with the energies carried differs from its potential part
+    with MolecularDynamics(system, ARGON, timestep=0.002) as md:
+        md.run(1000, thermo=1, controls=_HeatField(field))
+        potential_part = np.stack(md.thermo["heat_flux"].to_numpy())
+    assert np.abs(potential_part - np.stack(here["heat_flux"])).max() > 1.0
+
+
+def test_the_conductivity_with_the_energies_carried(tmp_path):
+    result = hnemd(
+        hot_argon(),
+        ARGON,
+        150.0,
+        field=(5e-3, 0, 0),
+        equilibration=100,
+        production=500,
+        every=5,
+        convective=True,
+    )
+    assert np.isfinite(result.kappa).all() and result.flux.shape == (100, 3)
+    two = hot_argon().with_columns(element=["Ar", "Kr"] * 128)
+    with pytest.raises(InvalidParameter, match="one element and one mass"):
+        hnemd(two, ARGON, 150.0, field=(5e-3, 0, 0), convective=True)
+    heavy = hot_argon().with_columns(mass=np.linspace(39.0, 41.0, 256))
+    with pytest.raises(InvalidParameter, match="one element and one mass"):
+        hnemd(heavy, ARGON, 150.0, field=(5e-3, 0, 0), convective=True)

@@ -175,6 +175,21 @@ NB_MODULE(_cuda, m) {
         .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
         .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
         .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def(
+            "convect",
+            [](Atoms& a, Vector field, double kick, double mvv2e) {
+                a.convect(field.data(), kick, mvv2e);
+            },
+            nb::arg("field"), nb::arg("kick"), nb::arg("mvv2e"))
+        .def(
+            "energy_flux",
+            [](const Atoms& a, double mvv2e) {
+                double* data;
+                nb::object out = new_array({3}, data);
+                a.energy_flux(mvv2e, data);
+                return out;
+            },
+            nb::arg("mvv2e"))
         .def("speed_squares", &Atoms::speed_squares)
         .def(
             "indent",

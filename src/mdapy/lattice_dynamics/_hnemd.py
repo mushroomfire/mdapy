@@ -18,6 +18,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.errors import InvalidParameter
 from mdapy.lattice_dynamics._green_kubo import _W_PER_M_K
+from mdapy.lattice_dynamics._phonons import _masses
 from mdapy.simulation._controls import _HeatField
 from mdapy.simulation._dynamics import MolecularDynamics
 
@@ -49,8 +50,8 @@ class HNEMD:
         (3,) float64 the standard error of kappa in W/(m K), from blocks of
         the run.
     flux : numpy.ndarray
-        (S, 3) float64 the potential part of the heat flux times the volume in
-        eV Å/ps, at the samples.
+        (S, 3) float64 the heat flux times the volume in eV Å/ps, at the
+        samples: its potential part, or with ``convective`` the whole flux.
     """
 
     temperature: float
@@ -101,6 +102,7 @@ def hnemd(
     blocks: int = 5,
     thermostat_damping: float | None = None,
     seed: int = 1,
+    convective: bool = False,
     progress: Callable[[int, int], None] | None = None,
     cancel: CancelToken | None = None,
 ) -> HNEMD:
@@ -138,6 +140,10 @@ def hnemd(
         Damping time of the thermostat in ps. Default 100 time steps.
     seed : int32, optional
         Seed of the starting velocities, positive. Default 1.
+    convective : bool, optional
+        Whether the energy each atom carries is part of the field and of the
+        flux, for atoms of one element and one mass. Default False: the
+        potential part of the flux alone.
     progress : callable, optional
         Called as ``progress(done, total)`` with the steps run.
     cancel : CancelToken, optional
@@ -154,8 +160,8 @@ def hnemd(
     InvalidParameter
         For a box that is not periodic, a temperature, field or numbers of
         steps that are not valid, a potential whose virials of each atom do
-        not give the heat flux, a LAMMPS one, or the errors of
-        ``MolecularDynamics``.
+        not give the heat flux, a LAMMPS one, ``convective`` with atoms of
+        several elements or masses, or the errors of ``MolecularDynamics``.
     Cancelled
         If cancelled.
     """
@@ -165,7 +171,15 @@ def hnemd(
         raise InvalidParameter("HNEMD needs a box periodic in every direction")
     if not temperature > 0:
         raise InvalidParameter(f"temperature must be positive, not {temperature!r}")
-    drive = _HeatField(field)
+    drive = _HeatField(field, convective)
+    if drive.convective:
+        elements = system["element"] if "element" in system.table.columns else ()
+        if len(set(elements)) > 1 or np.ptp(_masses(system)) > 0:
+            raise InvalidParameter(
+                "the energies each atom carries need atoms of one element and one "
+                "mass: in a mixture, the energies of each element would drive "
+                "their atoms against each other"
+            )
     if min(int(equilibration), int(production), int(every)) < 1:
         raise InvalidParameter("equilibration, production and every must be positive")
     if int(blocks) < 2 or int(production) // int(every) < int(blocks):

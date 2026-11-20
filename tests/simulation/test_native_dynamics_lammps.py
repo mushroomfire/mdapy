@@ -211,3 +211,39 @@ def test_lammps_does_not_hold_atoms(potentials):
     free = system.with_columns(movable=np.ones((len(system), 3), dtype=bool))
     with MolecularDynamics(free, lmp) as md:
         md.run(1)
+
+
+@pytest.mark.parametrize("tilt", [0.0, 1.2])
+def test_an_open_box_grows_as_in_lammps(potentials, lammps_constants, tilt):
+    """Atoms flying off a slab open along z: the box grows to hold them, never
+    smaller than the box given, as LAMMPS's boundary m grows it, at every step
+    here as LAMMPS builds its lists again at every step; the volume and the
+    pressure with it."""
+    eam, lmp = potentials
+    crystal = build_crystal("fcc", 4.05, elements="Al", repeat=(3, 3, 3))
+    matrix = crystal.box.matrix.copy()
+    matrix[1, 0] = tilt
+    crystal = crystal.with_box(
+        mdapy.Box(matrix, pbc=(True, True, False)), scale_positions=True
+    )
+    z = crystal["positions"][:, 2]
+    velocities = np.zeros((len(crystal), 3))
+    velocities[z > z.max() - 1.0, 2] = 30.0  # the top layer flies off at 3 km/s
+    velocities[z < 1.0, 2] = -20.0  # and the bottom one down
+    system = crystal.with_columns(velocities=velocities)
+    out = []
+    for potential in (lmp, eam):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            if potential is lmp:
+                md.command("neigh_modify every 1 delay 0 check no")
+            md.run(200, thermo=50)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a.box.matrix, b.box.matrix, rtol=0, atol=1e-8)
+    np.testing.assert_allclose(a.box.origin, b.box.origin, rtol=0, atol=1e-8)
+    np.testing.assert_allclose(ta["volume"], tb["volume"], rtol=1e-7)
+    np.testing.assert_allclose(ta["pressure"], tb["pressure"], rtol=0, atol=1e-5)
+    # grown while the atoms flew, back to the box given as they returned
+    assert tb["volume"].max() > 1.05 * tb["volume"][0]
+    fractional = b.box.to_fractional(b["positions"])[:, 2]
+    assert fractional.min() > 0 and fractional.max() < 1

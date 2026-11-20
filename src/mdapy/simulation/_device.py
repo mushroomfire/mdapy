@@ -81,6 +81,7 @@ class DeviceAtoms:
         self.weight = 0.0
         self.parts = (math.nan, math.nan)
         self.__field: np.ndarray | None = None  # of HNEMD, in the frame
+        self.__convective, self.__kick = False, 0.0  # as on the processor
 
     @property
     def positions(self) -> np.ndarray:
@@ -128,6 +129,8 @@ class DeviceAtoms:
             )
         if driven:
             self.__atoms.drive(self.__field)
+            if self.__convective:
+                self.__atoms.convect(self.__field, self.__kick, _MVV2E)
         if self.__target is not False:
             e, w = self.__switched(h, lo, pbc, energy, virial)
         if self.__watched:
@@ -217,16 +220,25 @@ class DeviceAtoms:
         if on.cutoff > self.__cutoff:  # one list for both, as each sorts the atoms
             self.__neighbors = self.__module.Neighbors(on.cutoff, self.__skin)
 
-    def set_field(self, field: np.ndarray | None) -> None:
-        """The driving field of HNEMD in the frame, or None for none."""
+    def set_field(
+        self, field: np.ndarray | None, convective: bool = False, kick: float = 0.0
+    ) -> None:
+        """The driving field of HNEMD in the frame, or None for none;
+        convective: with the energies each atom carries, at the velocities
+        kick times the force over the mass on."""
         self.__field = (
             None if field is None else np.ascontiguousarray(field, dtype=np.float64)
         )
+        self.__convective, self.__kick = bool(convective), float(kick)
 
     def heat_flux(self) -> np.ndarray:
-        """(3,) the potential part of the heat flux times the volume in the
-        frame, of the virials of the last computation and the velocities now."""
-        return self.__atoms.heat_flux()
+        """(3,) the heat flux times the volume in the frame, of the energies
+        and virials of the last computation and the velocities now: its
+        potential part, and with the energies each atom carries that too."""
+        flux = np.asarray(self.__atoms.heat_flux(), dtype=float)
+        if self.__convective:
+            flux = flux + np.asarray(self.__atoms.energy_flux(_MVV2E), dtype=float)
+        return flux
 
     def kick(self, c: float) -> None:
         self.__atoms.kick(c)

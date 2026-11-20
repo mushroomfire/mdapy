@@ -131,6 +131,12 @@ Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
 [doi:10.1145/174462.156635](https://doi.org/10.1145/174462.156635)
 { #edelsbrunner1994 }
 
+**Evans (1982).** D. J. Evans, Homogeneous NEMD algorithm for thermal
+conductivity: application of non-canonical linear response theory,
+*Phys. Lett. A* **91**, 457 (1982).
+[doi:10.1016/0375-9601(82)90748-4](https://doi.org/10.1016/0375-9601(82)90748-4)
+{ #evans1982 }
+
 **Faber and Ziman (1965).** T. E. Faber and J. M. Ziman, A theory of the
 electrical properties of liquid metals, *Phil. Mag.* **11**, 153 (1965).
 [doi:10.1080/14786436508211931](https://doi.org/10.1080/14786436508211931)

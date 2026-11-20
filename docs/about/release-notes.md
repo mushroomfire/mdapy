@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- `SpatialBinning(..., bounds=[(lo, hi)])` bins a fixed range of each axis, in Å along
+  its box vector from (0, 0, 0), instead of the box: the same bins in every frame of a
+  run whose box changes or whose atoms leave it along a direction that is not periodic,
+  as in the release of a shock. See
+  [Spatial binning](../user-guide/analysis/spatial-binning.md#fixed-bins).
 - The [Green–Kubo](../user-guide/properties/green-kubo.md) and
   [HNEMD](../user-guide/properties/hnemd.md) conductivities take Stillinger–Weber and
   Tersoff, on the processor and the GPU: their heat flux has the energy of each

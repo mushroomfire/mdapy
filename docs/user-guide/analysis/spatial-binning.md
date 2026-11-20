@@ -133,6 +133,25 @@ The virials of each atom come from a calculator, `potential.compute(system,
 atoms of several velocities, such as one across a shock front, keeps their spread in
 its temperature.
 
+## Fixed bins
+
+The bins divide the box, so they change with it, and along a direction that is not
+periodic they leave out the atoms outside it: those that
+[molecular dynamics](../molecular-dynamics/running.md) takes beyond the box, as when a
+shock reaches a free surface and the crystal releases or spalls. `bounds` fixes the
+range of each axis instead, in Å from (0, 0, 0) along its
+box vector, the coordinate itself for a box vector along x, y or z, so that the bins of
+every frame are the same, wherever the box is; atoms outside the range are left out.
+Slabs of 4 Å from z = −20 to 120 Å, beyond the copper above, which is 87 Å high:
+
+```python
+fixed = SpatialBinning(
+    "velocities", 35, reduction="temperature", bounds=[(-20.0, 120.0)]
+).compute(moving)
+fixed.centers[0][:3]  # -18, -14, -10 Å
+fixed.counts[:5]  # no atoms below the copper
+```
+
 ## Parameters
 
 | Name | Type | Default | Unit | Meaning |
@@ -141,12 +160,13 @@ its temperature.
 | `bins` | int32 or sequence of int32 | | | the number of bins along each axis, or one number for all |
 | `axes` | int32, str or a sequence of them | `"z"` | | the box vectors binned along, one to three of 0, 1, 2 or x, y, z |
 | `reduction` | str | `"mean"` | | one of `REDUCTIONS`: `"mean"`, `"sum"`, `"density"` (the sum per Å³), `"min"`, `"max"`, `"mass_mean"` (weighted by the masses), `"temperature"` (of the velocities, about the center of mass of each bin) or `"stress"` (of the virials of each atom with the velocities about the center of mass, in GPa, positive under tension) |
+| `bounds` | sequence of (float64, float64) or `None` | `None` | Å | for each axis, the range binned, (lo, hi) along its box vector from (0, 0, 0), or `None` for the box: see [Fixed bins](#fixed-bins) |
 
 `compute(system)` takes the system. Along periodic vectors the atoms are
 wrapped into the box first; along the others, those outside the box are
-left out. The atoms of a run of molecular dynamics may leave its box along a direction
-that is not periodic, as when a free surface expands: give the box room along it from
-the start, so that the bins hold every atom.
+left out. With `bounds`, the atoms outside the range of an axis are left out, and the
+volume of a bin, for `"density"` and `"stress"`, is that of the box over the bins times
+the part of each box vector its range covers.
 
 ## Results
 
@@ -156,7 +176,7 @@ A `SpatialBinningResult`:
 |---|---|---|
 | `values` | (n1[, n2[, n3]]) float64 | the reduced property in each bin, with a last axis for its components when it has several, and two, (3, 3), of a stress; NaN for the mean, minimum or maximum of an empty bin, and for the temperature of a bin of fewer than two atoms |
 | `counts` | (n1[, n2[, n3]]) int64 | the number of atoms in each bin |
-| `centers` | tuple of (n,) float64 | for each axis, the centers of its bins in Å along its box vector, from the origin of the box |
+| `centers` | tuple of (n,) float64 | for each axis, the centers of its bins in Å along its box vector, from the origin of the box, or with `bounds` from (0, 0, 0) |
 
 The bins are numbered as the axes are given: `values[i, j]` for the bin `i`
 along the first axis and `j` along the second.
@@ -165,7 +185,8 @@ along the first axis and `j` along the second.
 
 The constructor raises `InvalidParameter` for no axis or more than three,
 an unknown or repeated axis, a number of bins that is not a positive
-integer or not one per axis, and an unknown reduction; `compute` raises it
+integer or not one per axis, an unknown reduction, and `bounds` that are not one
+pair of finite numbers, lo below hi, or `None` for each axis; `compute` raises it
 for a property the system does not have, a temperature of a column that is not (N, 3)
 and a stress of one that is not (N, 3, 3), and `MissingProperty` for the moving
 reductions of a system without masses, a `mass` or an `element` column, and a stress

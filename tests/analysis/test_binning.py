@@ -221,3 +221,86 @@ def test_the_moving_reductions_need_their_columns():
         SpatialBinning("atomic_virials", 4, reduction="stress").compute(
             system.drop("velocities").with_columns(atomic_virials=virials)
         )
+
+
+@pytest.mark.parametrize("reduction", PLAIN)
+def test_bounds_bin_a_fixed_range(reduction):
+    """Bounds along the third vector, open, in a tilted box away from the
+    origin: the bins of a brute force over the place of each atom along it
+    from (0, 0, 0), with the atoms outside the box but inside the bounds."""
+    system = scattered(pbc=(True, True, False))
+    lo, hi, n = -2.0, 11.0, 6
+    result = SpatialBinning(
+        "charge", n, axes=2, reduction=reduction, bounds=[(lo, hi)]
+    ).compute(system)
+    box = system.box
+    length = np.linalg.norm(box.matrix[2])
+    place = (box.to_fractional(system["positions"])[:, 2]
+             - box.to_fractional(np.zeros((1, 3)))[0, 2]) * length  # fmt: skip
+    charge = system["charge"]
+    width = (hi - lo) / n
+    expected = np.full(n, np.nan)
+    counts = np.zeros(n, dtype=int)
+    for k in range(n):
+        mine = (place >= lo + k * width) & (place < lo + (k + 1) * width)
+        counts[k] = mine.sum()
+        v = charge[mine]
+        if reduction == "sum":
+            expected[k] = v.sum()
+        elif reduction == "density":
+            expected[k] = v.sum() / (box.volume / length * width)
+        elif mine.any():
+            expected[k] = getattr(np, reduction)(v)
+    np.testing.assert_array_equal(result.counts, counts)
+    np.testing.assert_allclose(result.values, expected, rtol=1e-12, atol=1e-12)
+    np.testing.assert_allclose(result.centers[0], lo + (np.arange(n) + 0.5) * width)
+    # the box holds fewer: its own bins leave the atoms outside it out
+    assert counts.sum() > SpatialBinning("charge", n).compute(system).counts.sum()
+
+
+def test_bounds_stay_as_the_box_grows():
+    """The same atoms in a box grown along its open vector, as molecular
+    dynamics grows it: the same bins and values with bounds."""
+    rng = np.random.default_rng(3)
+    box = mdapy.Box(np.diag([10.0, 10.0, 20.0]), pbc=(True, True, False))
+    positions = box.to_cartesian(rng.uniform(0, 1, (300, 3)))
+    positions[:20, 2] += 12.0  # flown beyond the top
+    system = mdapy.System(positions, box, elements="Cu").with_columns(
+        velocities=rng.normal(size=(300, 3)), charge=rng.normal(size=300)
+    )
+    grown = system.with_box(
+        mdapy.Box(np.diag([10.0, 10.0, 33.0]), origin=[0, 0, -1.0], pbc=box.pbc)
+    )
+    for reduction in ("mean", "density", "temperature"):
+        column = "velocities" if reduction == "temperature" else "charge"
+        binning = SpatialBinning(column, 8, reduction=reduction, bounds=[(-1.0, 33.0)])
+        a, b = binning.compute(system), binning.compute(grown)
+        np.testing.assert_array_equal(a.counts, b.counts)
+        np.testing.assert_allclose(a.values, b.values, rtol=1e-12, equal_nan=True)
+        assert a.counts.sum() == 300
+    # bounds that are the box give its own bins
+    plain = SpatialBinning("charge", 5, axes=(0, 2)).compute(grown)
+    bounded = SpatialBinning("charge", 5, axes=(0, 2), bounds=[None, (-1.0, 32.0)])
+    np.testing.assert_allclose(
+        bounded.compute(grown).values, plain.values, rtol=1e-12, equal_nan=True
+    )
+
+
+@pytest.mark.parametrize(
+    "bounds, message",
+    [
+        ([(0.0, 1.0), (0.0, 1.0)], "one range or None for each axis"),
+        ([(1.0, 0.0)], "lo < hi"),
+        ([(0.0, np.inf)], "finite"),
+        ([(0.0,)], r"\(lo, hi\) or None"),
+        ([1.0], r"\(lo, hi\) or None"),
+    ],
+)
+def test_bounds_errors(bounds, message):
+    with pytest.raises(InvalidParameter, match=message):
+        SpatialBinning("charge", 4, bounds=bounds)
+
+
+def test_bounds_in_the_repr():
+    assert "bounds=((0.0, 5.0),)" in repr(SpatialBinning("charge", 4, bounds=[(0, 5)]))
+    assert "bounds" not in repr(SpatialBinning("charge", 4))

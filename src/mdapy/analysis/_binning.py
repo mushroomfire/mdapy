@@ -44,8 +44,8 @@ class SpatialBinningResult(Result):
     counts : numpy.ndarray
         (n1[, n2[, n3]]) int64 the number of atoms in each bin.
     centers : tuple of numpy.ndarray
-        For each axis, (n,) float64 centers of its bins in Å along its box vector,
-        from the origin of the box.
+        For each axis, (n,) float64 centers of its bins in Å along its box vector:
+        from the origin of the box, or with bounds from (0, 0, 0).
     """
 
     values: np.ndarray
@@ -77,6 +77,12 @@ class SpatialBinning:
         a column of the virials of each atom in eV, as calculators give
         them, with the velocities about the center of mass of the bin, in
         GPa, positive under tension). Default mean.
+    bounds : sequence of (float64, float64) or None, optional
+        For each axis, the range binned, (lo, hi) in Å along its box vector
+        from (0, 0, 0), the coordinate itself for a box vector along x, y or
+        z; or None for the box. Bins that stay where they are as the box
+        changes, as that of molecular dynamics along a direction that is not
+        periodic does. Default None: the box along every axis.
     """
 
     def __init__(
@@ -86,6 +92,7 @@ class SpatialBinning:
         *,
         axes: int | str | Sequence[int | str] = 2,
         reduction: str = "mean",
+        bounds: Sequence[tuple[float, float] | None] | None = None,
     ):
         names = [axes] if isinstance(axes, (int, str)) else list(axes)
         if not 1 <= len(names) <= 3:
@@ -112,10 +119,28 @@ class SpatialBinning:
             raise InvalidParameter(
                 f"reduction must be one of {REDUCTIONS}, not {reduction!r}"
             )
+        ranges = [None] * len(indices) if bounds is None else list(bounds)
+        if len(ranges) != len(indices):
+            raise InvalidParameter("bounds must give one range or None for each axis")
+        for k, pair in enumerate(ranges):
+            if pair is None:
+                continue
+            try:
+                lo, hi = (float(v) for v in pair)
+            except (TypeError, ValueError):
+                raise InvalidParameter(
+                    f"each of bounds must be (lo, hi) or None, not {pair!r}"
+                ) from None
+            if not (np.isfinite(lo) and np.isfinite(hi) and lo < hi):
+                raise InvalidParameter(
+                    f"each of bounds must be two finite numbers, lo < hi, not {pair!r}"
+                )
+            ranges[k] = (lo, hi)
         self.column = str(column)
         self.axes = tuple(indices)
         self.bins = tuple(int(n) for n in counts)
         self.reduction = reduction
+        self.bounds = tuple(ranges)
 
     def compute(self, system: System) -> SpatialBinningResult:
         """The property of a system in bins.
@@ -141,7 +166,22 @@ class SpatialBinning:
         fractional = box.to_fractional(system["positions"])[:, self.axes]
         periodic = box.pbc[list(self.axes)]
         fractional[:, periodic] -= np.floor(fractional[:, periodic])
+        lengths = np.linalg.norm(box.matrix[list(self.axes)], axis=1)
+        # with bounds, the place along the vector from (0, 0, 0), as a fraction
+        # of the range
+        start = box.to_fractional(np.zeros((1, 3)))[0, list(self.axes)]
+        spans = lengths.copy()
+        for k, pair in enumerate(self.bounds):
+            if pair is not None:
+                lo, hi = pair
+                fractional[:, k] = ((fractional[:, k] - start[k]) * lengths[k] - lo) / (
+                    hi - lo
+                )
+                spans[k] = hi - lo
         inside = ((fractional >= 0) & (fractional < 1)).all(axis=1)
+        # the volume of a bin: that of the box times the fraction of each vector
+        # its range covers, over the bins
+        volume = box.volume * float(np.prod(spans / lengths))
         sizes = np.array(self.bins)
         cell = np.minimum((fractional[inside] * sizes).astype(np.int64), sizes - 1)
         flat = np.ravel_multi_index(tuple(cell.T), self.bins)
@@ -150,7 +190,7 @@ class SpatialBinning:
         counts = np.bincount(flat, minlength=total)
         k = values.shape[1]
         if self.reduction in _MOVING:
-            out = self.__moving(system, inside, flat, values, total, counts)
+            out = self.__moving(system, inside, flat, values, total, counts, volume)
         elif self.reduction in ("mean", "sum", "density"):
             out = np.stack(
                 [np.bincount(flat, values[:, c], minlength=total) for c in range(k)], 1
@@ -159,7 +199,7 @@ class SpatialBinning:
                 with np.errstate(invalid="ignore", divide="ignore"):
                     out = out / counts[:, None]
             elif self.reduction == "density":
-                out = out / (box.volume / total)
+                out = out / (volume / total)
         else:
             out = np.full((total, k), np.nan)
             order = np.argsort(flat, kind="stable")
@@ -174,9 +214,9 @@ class SpatialBinning:
             shape = self.bins
         else:
             shape = self.bins + ((k,) if raw.ndim > 1 else ())
-        lengths = np.linalg.norm(box.matrix[list(self.axes)], axis=1)
         centers = tuple(
-            (np.arange(n) + 0.5) / n * length for n, length in zip(self.bins, lengths)
+            (np.arange(n) + 0.5) / n * span + (0.0 if pair is None else pair[0])
+            for n, span, pair in zip(self.bins, spans, self.bounds)
         )
         return SpatialBinningResult(
             values=out.reshape(shape),
@@ -192,6 +232,7 @@ class SpatialBinning:
         values: np.ndarray,
         total: int,
         counts: np.ndarray,
+        volume: float,
     ) -> np.ndarray:
         """The mean weighted by mass, or the temperature or the stress about
         the center of mass of each bin, (bins, components)."""
@@ -248,10 +289,16 @@ class SpatialBinning:
         sums = np.stack(
             [np.bincount(flat, work[:, c], minlength=total) for c in range(9)], 1
         )
-        return -sums / (system.box.volume / total) * units.EV_PER_A3_TO_GPA
+        return -sums / (volume / total) * units.EV_PER_A3_TO_GPA
 
     def __repr__(self) -> str:
         return (
             f"SpatialBinning({self.column!r}, {self.bins!r}, axes={self.axes!r}, "
-            f"reduction={self.reduction!r})"
+            f"reduction={self.reduction!r}"
+            + (
+                ""
+                if all(b is None for b in self.bounds)
+                else f", bounds={self.bounds!r}"
+            )
+            + ")"
         )

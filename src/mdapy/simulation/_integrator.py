@@ -37,6 +37,9 @@ from mdapy.simulation import _controls, _device
 
 _KB = units.BOLTZMANN
 _MVV2E = units.AMU_A2_PER_PS2_TO_EV
+# the room between the atoms and a box grown to hold them, a fraction of its
+# vector, as LAMMPS's boundary m leaves it (SMALL of Domain::reset_box)
+_ROOM = 1.0e-4
 _FTM2V = 1.0 / _MVV2E
 _GPA_TO_EV_PER_A3 = units.GPA_TO_EV_PER_A3
 _EV_PER_A3_TO_GPA = units.EV_PER_A3_TO_GPA
@@ -694,6 +697,22 @@ class _Native:
     def __box(self) -> Box:
         return Box(self.__h, origin=self.__lo, pbc=self.__frame_pbc)
 
+    def __grown(self) -> tuple[np.ndarray, np.ndarray]:
+        """The box in the frame, its vectors and origin, grown along each
+        vector that is not periodic to hold the atoms, never smaller than the
+        box, as LAMMPS's boundary m grows it: by the extent of the fractional
+        coordinates along the vector beyond 0 and 1, and a little room. The
+        dynamics keeps its own box; this is the box it gives."""
+        h, lo = self.__h, self.__lo
+        closed = np.asarray(self.__frame_pbc, dtype=bool)
+        x = self.__atoms.positions
+        if closed.all() or len(x) == 0:
+            return h, lo
+        s = (np.asarray(x) - lo) @ np.linalg.inv(h)
+        low = np.where(closed, 0.0, np.minimum(s.min(axis=0) - _ROOM, 0.0))
+        high = np.where(closed, 1.0, np.maximum(s.max(axis=0) + _ROOM, 1.0))
+        return h * (high - low)[:, None], lo + low @ h
+
     # -- reading the state -------------------------------------------------
 
     @property
@@ -710,10 +729,11 @@ class _Native:
     @property
     def system(self) -> System:
         r = self.__rotation
-        matrix = np.einsum("ij,kj->ik", self.__h, r)
+        h, lo = self.__grown()
+        matrix = np.einsum("ij,kj->ik", h, r)
         if self.__swapped:
             matrix = matrix[[0, 2, 1]]
-        box = Box(matrix, origin=self.__lo @ r.T, pbc=self.__pbc)
+        box = Box(matrix, origin=lo @ r.T, pbc=self.__pbc)
         wrapped, image = box.wrap(self.__from_frame(self.__atoms.positions))
         table = self.__table.with_columns(
             pl.Series("positions", wrapped, dtype=pl.Array(pl.Float64, 3)),
@@ -757,7 +777,10 @@ class _Native:
         if not self.__computed:
             self.__compute()
         kinetic = 0.5 * self.__twice_kinetic()
-        tensor = self.__pressure_tensor()
+        # the volume of the box given, grown to the atoms that left it
+        h = self.__grown()[0]
+        volume = float(h[0, 0] * h[1, 1] * h[2, 2])
+        tensor = self.__pressure_tensor() * (self.__volume() / volume)
         r = self.__rotation
         stress = -(r @ tensor @ r.T) * _EV_PER_A3_TO_GPA
         return {
@@ -768,7 +791,7 @@ class _Native:
             "kinetic_energy": kinetic,
             "total_energy": self.__energy + kinetic,
             "pressure": float(np.trace(tensor)) / 3.0 * _EV_PER_A3_TO_GPA,
-            "volume": self.__volume(),
+            "volume": volume,
             "stress": [float(stress[a, b]) for a, b in
                        ((0, 0), (1, 1), (2, 2), (1, 2), (0, 2), (0, 1))],
         } | {

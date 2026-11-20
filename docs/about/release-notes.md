@@ -2,6 +2,12 @@
 
 ## 2.2.0 (not released)
 
+- `hnemd(..., convective=True)` puts the energy each atom carries in the field and in
+  the flux, as Evans's method does, for liquids and hot solids of one element: each atom
+  pushed also by the field times its energy less their mean, its kinetic energy at the
+  velocity the end of the step gives it. At constant energy the field does the work of
+  the whole flux, on the processor and the GPU. See
+  [HNEMD conductivity](../user-guide/properties/hnemd.md).
 - The [Green–Kubo](../user-guide/properties/green-kubo.md) and
   [HNEMD](../user-guide/properties/hnemd.md) conductivities take Stillinger–Weber and
   Tersoff, on the processor and the GPU: their heat flux has the energy of each

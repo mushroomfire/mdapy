@@ -579,6 +579,44 @@ def test_hnemd_of_stillinger_weber_as_on_the_processor(tmp_path):
     assert abs((energy - energy[0] - work)[-1]) < 0.05 * abs(energy[-1] - energy[0])
 
 
+def test_hnemd_with_the_energies_carried_as_on_the_processor():
+    """The field with the energies each atom carries, in a hot argon fluid:
+    on the GPU in double precision the run and the heat flux of the processor;
+    in mixed precision the work of the field is still the change of the
+    energy."""
+    from mdapy.simulation._controls import _HeatField
+
+    crystal = build_crystal("fcc", 5.6, elements="Ar", repeat=6)
+    with MolecularDynamics(
+        crystal, LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True), timestep=0.002
+    ) as md:
+        md.velocities(300.0, seed=1)
+        md.run(1000, ensemble="nvt", temperature=150.0)
+        system = md.system
+    field = np.array([0.02, -0.01, 0.005])
+    out = []
+    for options in ({"device": "cuda", "precision": "double"}, {}):
+        potential = LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True, **options)
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.run(500, thermo=10, controls=_HeatField(field, convective=True))
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    np.testing.assert_allclose(
+        np.stack(ta["heat_flux"]), np.stack(tb["heat_flux"]), rtol=1e-7, atol=1e-7
+    )
+    mixed = LennardJones(
+        {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device="cuda", precision="mixed"
+    )
+    with MolecularDynamics(system, mixed, timestep=0.002) as md:
+        md.run(1000, thermo=1, controls=_HeatField(field, convective=True))
+        thermo = md.thermo
+    energy = thermo["total_energy"].to_numpy()
+    power = np.stack(thermo["heat_flux"].to_numpy()) @ field
+    work = np.concatenate([[0.0], np.cumsum(0.5 * (power[1:] + power[:-1]) * 0.002)])
+    assert abs((energy - energy[0] - work)[-1]) < 0.02 * abs(energy[-1] - energy[0])
+
+
 @pytest.mark.parametrize("precision", ["mixed", "double"])
 def test_nemd(precision):
     """Two baths on the GPU drive heat through solid argon: its conductivity

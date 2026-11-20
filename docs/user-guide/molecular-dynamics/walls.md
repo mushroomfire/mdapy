@@ -99,7 +99,13 @@ front moves at a constant 51.8 Å/ps, 5.18 km/s, five times as fast as the pisto
 - A wall acts on every atom. A run takes at most one wall on each side of an axis,
   for instance a floor and a ceiling across z.
 - The periodic vectors of the box must be normal to the axis. The box itself does
-  not change: atoms leave it across an open face as they would without the wall.
+  not change: atoms leave it across an open face as they would without the wall, and
+  MDAPY's own dynamics keeps them, outside the box. [Spatial
+  binning](../analysis/spatial-binning.md) leaves out atoms outside the box along a
+  direction that is not periodic, so a run whose atoms fly off, as when a shock
+  reaches a free surface and the crystal releases or spalls, needs a box with room
+  along the shock from the start: the profiles then cover every atom, on the same bins
+  in every frame.
 - A crystal given a velocity $-u$ towards a still wall is the same as a crystal at
   rest hit by a piston at $u$, seen from the piston. This is the momentum mirror.
 - In LAMMPS a still wall is `fix wall/reflect` and a moving one `fix wall/piston`,

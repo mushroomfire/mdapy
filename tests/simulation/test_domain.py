@@ -363,6 +363,25 @@ def test_restart_files_do_not_depend_on_the_processes(monkeypatch, tmp_path, cas
         same(continued, whole)
 
 
+def test_one_process_cancelled_stops_them_all(monkeypatch):
+    from mdapy.core.threads import CancelToken
+    from mdapy.errors import Cancelled
+
+    crystal, potential, _, _ = CASES["lj"]
+
+    def task(rank):
+        token = CancelToken()
+        if rank == 0:
+            token.cancel()
+        with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+            with pytest.raises(Cancelled):
+                md.run(20, thermo=10, cancel=token)
+            md.run(5)  # every process goes on together
+        return True
+
+    assert processes.run(2, task, monkeypatch) == [True, True]
+
+
 def test_a_restart_file_that_cannot_be_written(monkeypatch):
     crystal, potential, _, _ = CASES["nve"]
 

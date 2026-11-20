@@ -430,6 +430,9 @@ class DomainAtoms(_HostAtoms):
     def _agreed(self, value: Any) -> Any:
         return self.__bricks.comm.bcast(value, root=0)
 
+    def _least(self, value: Any) -> Any:
+        return np.min(np.stack(self.__bricks.comm.allgather(np.asarray(value))), axis=0)
+
     @property
     def positions(self) -> np.ndarray:
         """Unwrapped, as on one process."""

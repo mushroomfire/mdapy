@@ -2,6 +2,16 @@
 
 ## 2.2.0 (not released)
 
+- Along a box vector that is not periodic, the box that MDAPY's own dynamics gives grows
+  to hold the atoms that left it, never smaller than the box given, as LAMMPS's
+  boundary `m` grows it, which the LAMMPS dynamics already did: in `system`, the frames,
+  and the volume and pressure of `thermo`. It stayed as given, with the atoms outside
+  it. See [Running molecular dynamics](../user-guide/molecular-dynamics/running.md#parameters).
+- `SpatialBinning(..., bounds=[(lo, hi)])` bins a fixed range of each axis, in Å along
+  its box vector from (0, 0, 0), instead of the box: the same bins in every frame of a
+  run whose box changes or whose atoms leave it along a direction that is not periodic,
+  as in the release of a shock. See
+  [Spatial binning](../user-guide/analysis/spatial-binning.md#fixed-bins).
 - `hnemd(..., convective=True)` puts the energy each atom carries in the field and in
   the flux, as Evans's method does, for liquids and hot solids of one element: each atom
   pushed also by the field times its energy less their mean, its kinetic energy at the
@@ -15,6 +25,11 @@
   (2015). The energies and virials of each atom that `compute` gives stay LAMMPS's
   shares, which would give a wrong flux. In a free cluster the flux is the change of the
   moment of the energies to 3e-7.
+- In LAMMPS, atoms held along some directions by `Hold` and pushed by an `AddForce`
+  given after it moved along the held directions: LAMMPS applies its fixes in the
+  order they are defined, and the added force came after the `setforce`. The added
+  forces are now defined first, so that the order of the controls does not matter, as
+  in MDAPY. See [Groups and controls](../user-guide/molecular-dynamics/controls.md).
 - The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
   guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
   what the engine is for and of every feature with where it runs, then running,

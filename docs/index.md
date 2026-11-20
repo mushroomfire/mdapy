@@ -99,85 +99,95 @@ where each feature runs.
 
 ## 🧰 What it does
 
-Structures are read or built into a `System`; its neighbor lists and the potentials
-feed the simulations and the analyses, and the results are drawn or fitted. Each box
-opens its pages.
+The main line goes from a structure to a picture, and each step branches out into
+the features around it. One `System` goes along the whole way: each step takes it and
+gives back a `System` or NumPy arrays for the next. Each box opens its pages.
 
-<div class="feature-map" markdown>
+<div class="mainline" markdown>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Input</p>
-<div class="feature-cells" markdown>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span>](basics/io.md){ .feature-card }
+[<b>Crystals and alloys</b><span>lattices · random alloys · SQS</span>](user-guide/build/crystals.md){ .ml-chip }
 
-[<b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span>](user-guide/build/crystals.md){ .feature-card }
+[<b>Defects</b><span>vacancies · faults · dislocations</span>](user-guide/build/defects.md){ .ml-chip }
 
-[<b>Interoperability</b><span>ASE · OVITO · pymatgen · freud · LAMMPS · VASP · GPUMD</span>](user-guide/interop/ase.md){ .feature-card }
+</div>
+
+[Build](user-guide/build/crystals.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Polycrystals</b><span>grains · twins · graphene</span>](user-guide/build/polycrystals.md){ .ml-chip }
+
+[<b>Files</b><span>XYZ · LAMMPS · POSCAR · CIF</span>](basics/io.md){ .ml-chip }
+
+[<b>Other programs</b><span>ASE · OVITO · pymatgen</span>](user-guide/interop/ase.md){ .ml-chip }
 
 </div>
 </div>
 
-<div class="feature-stage feature-core" markdown>
-<p class="feature-label">Core</p>
-<div class="feature-cells" markdown>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>System</b><span>box · topology · trajectory · any property of the atoms</span>](basics/system.md){ .feature-card }
+[<b>Potentials</b><span>EAM · Tersoff · NEP · LAMMPS</span>](user-guide/potentials/calculators.md){ .ml-chip }
 
-[<b>Neighbor lists</b><span>built once, shared by analyses and calculators</span>](basics/neighbor.md){ .feature-card }
+[<b>MLIP</b><span>training sets · errors</span>](user-guide/mlip/vasp.md){ .ml-chip }
 
-[<b>Potentials</b><span>native EAM · MEAM · Tersoff · NEP and more; LAMMPS · ASE · VASP</span>](user-guide/potentials/calculators.md){ .feature-card }
+</div>
+
+[Simulate](user-guide/molecular-dynamics/index.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Molecular dynamics</b><span>its own engine · GPU</span>](user-guide/molecular-dynamics/index.md){ .ml-chip }
+
+[<b>Properties</b><span>elastic · phonons · heat · melting</span>](user-guide/properties/elastic-constants.md){ .ml-chip }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Simulate</p>
-<div class="feature-cells" markdown>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>Molecular dynamics</b><span>its own engine · processor and GPU · ensembles · controls</span>](user-guide/molecular-dynamics/index.md){ .feature-card }
+[<b>Structures</b><span>CNA · PTM · grains</span>](user-guide/analysis/cna.md){ .ml-chip }
 
-[<b>Loading and shock</b><span>deformation · indentation · pistons · Hugoniostat · MSST</span>](user-guide/molecular-dynamics/deformation.md){ .feature-card }
+[<b>Defects</b><span>dislocations · Wigner–Seitz</span>](user-guide/analysis/dislocations.md){ .ml-chip }
+
+</div>
+
+[Analyze](user-guide/analysis/overview.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Local order</b><span>RDF · bond angles · Voronoi</span>](user-guide/analysis/rdf.md){ .ml-chip }
+
+[<b>Dynamics</b><span>MSD · strain · profiles</span>](user-guide/analysis/msd.md){ .ml-chip }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Properties</p>
-<div class="feature-cells" markdown>
+<div class="ml-stage" markdown>
+<div class="ml-up" markdown>
 
-[<b>Relaxation</b><span>minimization · defect energies</span>](user-guide/properties/minimize.md){ .feature-card }
+[<b>Rendering</b><span>ray tracing · CPU or GPU</span>](user-guide/visualization/rendering.md){ .ml-chip }
 
-[<b>Lattice dynamics</b><span>elastic constants · phonons · sheets · finite temperature</span>](user-guide/properties/elastic-constants.md){ .feature-card }
+[<b>Movies</b><span>flights through a run</span>](user-guide/visualization/movies.md){ .ml-chip }
 
-[<b>Thermal conductivity</b><span>phonons · Green–Kubo · HNEMD · NEMD</span>](user-guide/properties/thermal-conductivity.md){ .feature-card }
+</div>
 
-[<b>Thermodynamics</b><span>free energy · melting points · phase diagrams</span>](user-guide/properties/free-energy.md){ .feature-card }
+[Visualize](user-guide/visualization/rendering.md){ .ml-node }
+
+<div class="ml-down" markdown>
+
+[<b>Plots</b><span>figures · colors</span>](user-guide/visualization/plots.md){ .ml-chip }
+
+[<b>Fitting</b><span>splines · equations of state</span>](user-guide/fitting/interpolation.md){ .ml-chip }
 
 </div>
 </div>
 
-<div class="feature-stage" markdown>
-<p class="feature-label">Analyze</p>
-<div class="feature-cells" markdown>
-
-[<b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span>](user-guide/analysis/overview.md){ .feature-card }
-
-[<b>MLIP</b><span>VASP training sets · descriptors · choosing frames · errors · uncertainty</span>](user-guide/mlip/vasp.md){ .feature-card }
-
-</div>
-</div>
-
-<div class="feature-stage" markdown>
-<p class="feature-label">Output</p>
-<div class="feature-cells" markdown>
-
-[<b>Visualization</b><span>rendering · movies · plots · colors</span>](user-guide/visualization/rendering.md){ .feature-card }
-
-[<b>Fitting</b><span>splines · least squares · equations of state</span>](user-guide/fitting/interpolation.md){ .feature-card }
-
-</div>
-</div>
+<p class="ml-caption">↺ one System along the whole line</p>
 
 </div>
 

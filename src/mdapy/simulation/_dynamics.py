@@ -682,7 +682,14 @@ create_box {len(potential.elements)} box
                 if control.name is not None:
                     indented.append((control.name, f"mdapy_c{k}"))
         self.__indented = tuple(indented)
-        for k, control in enumerate(controls):
+        # then the forces added, and the rest in the order given: LAMMPS applies
+        # its fixes in the order they are defined, and the setforce of atoms held
+        # along some directions must come after every force, as MDAPY holds them
+        # last, whatever the order of the controls
+        numbered = list(enumerate(controls))
+        added = [(k, c) for k, c in numbered if isinstance(c, _controls.AddForce)]
+        others = [(k, c) for k, c in numbered if not isinstance(c, _controls.AddForce)]
+        for k, control in added + others:
             name = f"mdapy_c{k}"
             if isinstance(control, _controls.Indenter):
                 continue

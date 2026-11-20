@@ -10304,53 +10304,56 @@ simulations:</p>
 <p><a href="user-guide/molecular-dynamics/">Molecular dynamics</a> shows what it can do and
 where each feature runs.</p>
 <h2 id="what-it-does">🧰 What it does<a class="headerlink" href="#what-it-does" title="Permanent link">&para;</a></h2>
-<p>Every step works on one <code>System</code>: structures are built or read into it, its neighbor
-lists and potentials serve the simulations and the analyses, and each step gives back a
-<code>System</code> or NumPy arrays for the next. Each box opens its pages.</p>
-<div class="flow">
-<div class="flow-box">
-<p class="flow-label">Build</p>
-<div class="flow-row">
-<p><a class="flow-card" href="user-guide/build/crystals/"><b>Structure builder</b><span>crystals · alloys · defects · dislocations · polycrystals</span></a></p>
-<p><a class="flow-card" href="basics/io/"><b>Files</b><span>extended XYZ · LAMMPS · POSCAR · OUTCAR · CIF · PDB · MDAPY</span></a></p>
-<p><a class="flow-card" href="user-guide/interop/ase/"><b>Other programs</b><span>ASE · OVITO · pymatgen · freud · VASP · GPUMD</span></a></p>
+<p>The main line goes from a structure to a picture, and each step branches out into
+the features around it. One <code>System</code> goes along the whole way: each step takes it and
+gives back a <code>System</code> or NumPy arrays for the next. Each box opens its pages.</p>
+<div class="mainline">
+<div class="ml-stage">
+<div class="ml-up">
+<p><a class="ml-chip" href="user-guide/build/crystals/"><b>Crystals and alloys</b><span>lattices · random alloys · SQS</span></a></p>
+<p><a class="ml-chip" href="user-guide/build/defects/"><b>Defects</b><span>vacancies · faults · dislocations</span></a></p>
+</div>
+<p><a class="ml-node" href="user-guide/build/crystals/">Build</a></p>
+<div class="ml-down">
+<p><a class="ml-chip" href="user-guide/build/polycrystals/"><b>Polycrystals</b><span>grains · twins · graphene</span></a></p>
+<p><a class="ml-chip" href="basics/io/"><b>Files</b><span>XYZ · LAMMPS · POSCAR · CIF</span></a></p>
+<p><a class="ml-chip" href="user-guide/interop/ase/"><b>Other programs</b><span>ASE · OVITO · pymatgen</span></a></p>
 </div>
 </div>
-<p aria-hidden="true" class="flow-link"><span>↓</span></p>
-<div class="flow-box flow-core">
-<p class="flow-label">One System</p>
-<div class="flow-row">
-<p><a class="flow-card" href="basics/system/"><b>System</b><span>box · topology · trajectories · any property of the atoms</span></a></p>
-<p><a class="flow-card" href="basics/neighbor/"><b>Neighbor lists</b><span>built once, shared by analyses and potentials</span></a></p>
-<p><a class="flow-card" href="user-guide/potentials/calculators/"><b>Potentials</b><span>EAM · MEAM · Tersoff · NEP and more, on the processor or the GPU</span></a></p>
+<div class="ml-stage">
+<div class="ml-up">
+<p><a class="ml-chip" href="user-guide/potentials/calculators/"><b>Potentials</b><span>EAM · Tersoff · NEP · LAMMPS</span></a></p>
+<p><a class="ml-chip" href="user-guide/mlip/vasp/"><b>MLIP</b><span>training sets · errors</span></a></p>
+</div>
+<p><a class="ml-node" href="user-guide/molecular-dynamics/">Simulate</a></p>
+<div class="ml-down">
+<p><a class="ml-chip" href="user-guide/molecular-dynamics/"><b>Molecular dynamics</b><span>its own engine · GPU</span></a></p>
+<p><a class="ml-chip" href="user-guide/properties/elastic-constants/"><b>Properties</b><span>elastic · phonons · heat · melting</span></a></p>
 </div>
 </div>
-<p aria-hidden="true" class="flow-link flow-split"><span>↓</span><span>↓</span><span>↓</span></p>
-<div class="flow-stages">
-<div class="flow-box">
-<p class="flow-label">Simulate</p>
-<p><a class="flow-card" href="user-guide/molecular-dynamics/"><b>Molecular dynamics</b><span>its own engine · ensembles · controls · loading · shock</span></a></p>
-<p class="flow-sublabel">Properties</p>
-<div class="flow-grid">
-<p><a class="flow-card" href="user-guide/properties/minimize/"><b>Relaxation</b><span>minimization · defect energies</span></a></p>
-<p><a class="flow-card" href="user-guide/properties/elastic-constants/"><b>Lattice dynamics</b><span>elastic constants · phonons</span></a></p>
-<p><a class="flow-card" href="user-guide/properties/thermal-conductivity/"><b>Thermal conductivity</b><span>phonons · Green–Kubo · HNEMD · NEMD</span></a></p>
-<p><a class="flow-card" href="user-guide/properties/free-energy/"><b>Thermo&shy;dynamics</b><span>free energy · melting · phase diagrams</span></a></p>
+<div class="ml-stage">
+<div class="ml-up">
+<p><a class="ml-chip" href="user-guide/analysis/cna/"><b>Structures</b><span>CNA · PTM · grains</span></a></p>
+<p><a class="ml-chip" href="user-guide/analysis/dislocations/"><b>Defects</b><span>dislocations · Wigner–Seitz</span></a></p>
+</div>
+<p><a class="ml-node" href="user-guide/analysis/overview/">Analyze</a></p>
+<div class="ml-down">
+<p><a class="ml-chip" href="user-guide/analysis/rdf/"><b>Local order</b><span>RDF · bond angles · Voronoi</span></a></p>
+<p><a class="ml-chip" href="user-guide/analysis/msd/"><b>Dynamics</b><span>MSD · strain · profiles</span></a></p>
 </div>
 </div>
-<div class="flow-box">
-<p class="flow-label">Analyze</p>
-<p><a class="flow-card" href="user-guide/analysis/overview/"><b>Analysis</b><span>structures · local order · defects · dislocations · dynamics · statistics</span></a></p>
-<p><a class="flow-card" href="user-guide/mlip/vasp/"><b>MLIP</b><span>training sets · descriptors · errors · uncertainty</span></a></p>
+<div class="ml-stage">
+<div class="ml-up">
+<p><a class="ml-chip" href="user-guide/visualization/rendering/"><b>Rendering</b><span>ray tracing · CPU or GPU</span></a></p>
+<p><a class="ml-chip" href="user-guide/visualization/movies/"><b>Movies</b><span>flights through a run</span></a></p>
 </div>
-<div class="flow-box">
-<p class="flow-label">Visualize</p>
-<p><a class="flow-card" href="user-guide/visualization/rendering/"><b>Rendering</b><span>ray tracing on the processor or the GPU · movies</span></a></p>
-<p><a class="flow-card" href="user-guide/visualization/plots/"><b>Plots</b><span>figures and colors</span></a></p>
-<p><a class="flow-card" href="user-guide/fitting/interpolation/"><b>Fitting</b><span>splines · least squares · equations of state</span></a></p>
+<p><a class="ml-node" href="user-guide/visualization/rendering/">Visualize</a></p>
+<div class="ml-down">
+<p><a class="ml-chip" href="user-guide/visualization/plots/"><b>Plots</b><span>figures · colors</span></a></p>
+<p><a class="ml-chip" href="user-guide/fitting/interpolation/"><b>Fitting</b><span>splines · equations of state</span></a></p>
 </div>
 </div>
-<p class="flow-back">↺ every step gives back a System or NumPy arrays: the next step takes them</p>
+<p class="ml-caption">↺ one System along the whole line</p>
 </div>
 <h2 id="install">📦 Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy

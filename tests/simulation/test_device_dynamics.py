@@ -143,3 +143,36 @@ def test_errors(gpu, monkeypatch):
     monkeypatch.setattr(lj._on_device.potential, "compute", broken(1.0, np.inf))
     with pytest.raises(CalculationFailed, match="not finite"):
         run(crystal(), lj, 5)
+
+
+def test_a_restart_of_the_atoms_on_the_device(gpu, tmp_path):
+    """The path of the GPU, on the stand-in: a deformed run stopped and
+    finished from its file, whose forces of the last step come back to the
+    device, is the run that did not stop."""
+    from mdapy.simulation.controls import Deform
+
+    system = crystal()
+    potential = EAM.zhou(["Cu", "Ni"], device="cuda")
+    options = {"controls": [Deform(xx=1e-3)], "thermo": 10}
+    with MolecularDynamics(system, potential, timestep=0.002) as md:
+        md.velocities(600, seed=1)
+        md.run(40, **options)
+        whole = md.system
+    path = tmp_path / "md.restart"
+    with MolecularDynamics(system, potential, timestep=0.002) as md:
+        md.velocities(600, seed=1)
+        frames = md.iterate(
+            40, save_every=20, restart=path, restart_every=20, **options
+        )
+        for frame in frames:
+            if frame.info["timestep"] == 40:
+                break
+        frames.close()
+    again = MolecularDynamics.load(path, potential)
+    again.resume()
+    np.testing.assert_allclose(
+        again.system["positions"], whole["positions"], atol=1e-11
+    )
+    np.testing.assert_allclose(
+        again.system["velocities"], whole["velocities"], atol=1e-11
+    )

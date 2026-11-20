@@ -209,6 +209,14 @@ void Atoms::get_positions(double* positions) const {
     a.to_caller(placed.data(), positions, 3);
 }
 
+void Atoms::set_forces(const double* forces) {
+    Impl& a = *impl_;
+    std::vector<double> placed(static_cast<std::size_t>(3 * a.n));
+    a.to_places(forces, placed.data(), 3);
+    a.forces.resize(placed.size());
+    a.forces.upload(placed.data(), placed.size());
+}
+
 void Atoms::get_forces(double* forces) const {
     const Impl& a = *impl_;
     std::vector<double> placed(static_cast<std::size_t>(3 * a.n));

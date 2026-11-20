@@ -86,19 +86,34 @@ class DeviceAtoms:
     # the module, the atoms and the neighbor list on the device, the
     # potentials there, and the system: given again or built again, not kept
     # in a restart, whose system holds the positions and the velocities
-    __TRANSIENT = ("module", "atoms", "system", "neighbors", "potential", "other", "target")
+    __TRANSIENT = (
+        "module",
+        "atoms",
+        "system",
+        "neighbors",
+        "potential",
+        "other",
+        "target",
+    )
 
     def state(self) -> dict[str, Any]:
         """What a restart keeps of the atoms on the device, besides their
-        positions and velocities."""
+        positions and velocities: the forces of the last step too, those of
+        the atoms before a deformation carried them, which the next step
+        uses."""
         skip = {f"_DeviceAtoms__{name}" for name in self.__TRANSIENT}
-        return {k: v for k, v in vars(self).items() if k not in skip}
+        kept = {k: v for k, v in vars(self).items() if k not in skip}
+        kept["forces"] = self.__atoms.forces()
+        return kept
 
     def restore(self, state: dict[str, Any]) -> None:
-        """The counters, baths and controls as a restart kept them; the
-        controls of a run are set on the device by its start."""
+        """The counters, baths and controls as a restart kept them, and the
+        forces; the controls of a run are set on the device by its start."""
         skip = {f"_DeviceAtoms__{name}" for name in self.__TRANSIENT}
+        state = dict(state)
+        forces = state.pop("forces")
         vars(self).update({k: v for k, v in state.items() if k not in skip})
+        self.__atoms.set_forces(np.ascontiguousarray(forces, dtype=np.float64))
 
     @property
     def positions(self) -> np.ndarray:

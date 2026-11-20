@@ -83,6 +83,8 @@ public:
     // of MDAPY's integrator (simulation/_integrator.py) on every atom.
     void set_masses(const double* masses);          // (n,)
     void set_velocities(const double* velocities);  // (n, 3)
+    // The forces of the last step, as a restart kept them, (n, 3).
+    void set_forces(const double* forces);
     void get_velocities(double* velocities) const;
     void kick(double c);                            // v += c f / m
     void drift(double dt);                          // x += dt v

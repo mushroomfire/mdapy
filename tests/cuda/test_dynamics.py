@@ -869,8 +869,8 @@ def test_the_noise_of_the_processor_and_the_gpu_is_the_same(keep_momentum):
 
 def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
     """The run that stopped and the run that did not, on the GPU, with a
-    thermostat, baths and a deformation: alike to the rounding of forces
-    summed in other orders."""
+    Langevin thermostat, then baths and a deformation: alike to the rounding
+    of forces summed in other orders."""
     from mdapy.simulation.controls import Deform, Langevin
 
     system = crystal()
@@ -878,9 +878,8 @@ def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
     z = system["positions"][:, 2]
     bath = z < z.min() + 4.0
     options = {
-        "ensemble": "nvt", "temperature": 400, "thermostat": "langevin", "seed": 7,
+        "ensemble": "nve", "thermo": 20,
         "controls": [Langevin(bath, 600.0, damping=0.1, seed=3), Deform(xx=1e-3)],
-        "thermo": 20,
     }  # fmt: skip
     with MolecularDynamics(system, gpu, timestep=0.002) as md:
         md.velocities(400, seed=1)

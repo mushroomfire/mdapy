@@ -148,6 +148,15 @@ NB_MODULE(_cuda, m) {
                 a.set_velocities(velocities.data());
             },
             nb::arg("velocities"))
+        .def(
+            "set_forces",
+            [](Atoms& a, Positions forces) {
+                if (static_cast<std::int64_t>(forces.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one force per atom");
+                }
+                a.set_forces(forces.data());
+            },
+            nb::arg("forces"))
         .def("velocities",
              [](const Atoms& a) {
                  double* data;

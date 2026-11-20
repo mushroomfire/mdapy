@@ -47,6 +47,10 @@ class Atoms:
     def forces(self):
         return self.result[1]
 
+    def set_forces(self, forces):
+        energies, _, virials = self.result
+        self.result = (energies, np.array(forces), virials)
+
     def energies(self):
         return self.result[0]
 

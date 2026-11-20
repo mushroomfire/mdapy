@@ -17,6 +17,35 @@ from typing import Any, TextIO
 from mdapy.errors import InvalidParameter
 
 
+def _machine() -> str:
+    """The processor and the memory of this machine, for the heading of a log."""
+    import platform
+
+    from mdapy import _core
+
+    cpu = _core.core.cpu_name() or platform.machine()
+    memory = _core.core.memory_bytes()
+    text = (
+        f"{cpu}, {os.cpu_count()} logical CPUs, {_core.core.hardware_threads()} usable"
+    )
+    return text + (f", {memory / 2**30:.1f} GB of memory" if memory else "")
+
+
+def _on_gpu(calculator: Any) -> str | None:
+    """The GPU a calculator computes on, its memory and compute capability,
+    for the heading of a log; None for one on the processor."""
+    if getattr(calculator, "device", "cpu") != "cuda":
+        return None
+    from mdapy.calculators import _gpu as gpu
+
+    found = gpu.cuda().device_properties()
+    major, minor = found["compute_capability"]
+    return (
+        f"{found['name']}, {found['memory'] / 2**30:.1f} GB, compute capability "
+        f"{major}.{minor}, {found['multiprocessors']} multiprocessors"
+    )
+
+
 class _Log:
     """Where the lines go: a file of a path, opened here, overwritten and
     closed by close; or a stream, such as sys.stdout, that stays open. A

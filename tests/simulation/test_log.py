@@ -3,10 +3,12 @@ settings of each run, rows that read back as the thermodynamic state, the
 speed or where a run stopped, files and streams, and the errors."""
 
 import io
+import os
 
 import numpy as np
 import pytest
 
+import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, LennardJones, _gpu
 from mdapy.core.threads import CancelToken
@@ -100,7 +102,39 @@ def test_the_engine_on_the_gpu(monkeypatch):
     potential = EAM.zhou(["Cu"], device="cuda")
     with MolecularDynamics(copper(4), potential, timestep=0.002, log=stream) as md:
         md.run(2, thermo=1)
-    assert "# engine: MDAPY on the GPU, stand-in, mixed precision" in stream.getvalue()
+    assert (
+        "# engine: MDAPY on the GPU, stand-in, 12.0 GB, compute capability 8.6, "
+        "26 multiprocessors; mixed precision"
+    ) in stream.getvalue()
+    # a minimization with a potential there names the GPU
+    stream = io.StringIO()
+    minimize(copper(4), potential, max_steps=1, log=stream)
+    assert "# GPU: stand-in, 12.0 GB, compute capability 8.6" in stream.getvalue()
+
+
+def test_the_machine_is_named():
+    """The heading of each log names the processor, its logical CPUs and the
+    memory of the machine, as show_versions does."""
+    rows = {}
+    report = io.StringIO()
+    mdapy.show_versions(file=report)
+    for line in report.getvalue().splitlines():
+        rows[line[:15].strip()] = line[15:]
+    stream = io.StringIO()
+    with MolecularDynamics(copper(3), EAM.zhou(["Cu"]), log=stream) as md:
+        md.run(1)
+    minimize(copper(3), EAM.zhou(["Cu"]), max_steps=1, log=stream)
+    (machine, other) = [
+        line
+        for line in stream.getvalue().splitlines()
+        if line.startswith("# machine: ")
+    ]
+    assert machine == other
+    assert machine.startswith(
+        f"# machine: {rows['CPU']}, {os.cpu_count()} logical CPUs, "
+    )
+    assert rows["Memory"] in machine or rows["Memory"] == "unknown"
+    assert "GPU:" not in stream.getvalue()
 
 
 def test_errors(tmp_path):

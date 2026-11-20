@@ -33,6 +33,17 @@ public:
 // The name of the device in use; throws std::runtime_error without one.
 std::string device_name();
 
+// The device in use: its name, its memory in bytes, its compute capability
+// and its number of multiprocessors; throws std::runtime_error without one.
+struct DeviceProperties {
+    std::string name;
+    std::int64_t memory = 0;
+    int major = 0;
+    int minor = 0;
+    int multiprocessors = 0;
+};
+DeviceProperties device_properties();
+
 // Mixed: single precision for the distance and the terms of each pair, as
 // the GPU package of LAMMPS in mixed precision, double precision for the
 // positions and the sums. Double: double precision throughout.

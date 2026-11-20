@@ -5,7 +5,7 @@
 
 """mdapy: analysis and modelling of atomistic simulations."""
 
-__version__ = "2.1.0"
+__version__ = "2.2.0rc1"
 
 from mdapy import (
     analysis,

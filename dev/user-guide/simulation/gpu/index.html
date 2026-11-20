@@ -5944,10 +5944,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#building-the-gpu-part" class="md-nav__link">
+  <a href="#installing-the-gpu-part" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building the GPU part
+        Installing the GPU part
       
     </span>
   </a>
@@ -6510,6 +6510,8 @@
       
         
       
+        
+      
     
     
     
@@ -6533,7 +6535,7 @@
   <span class="md-ellipsis">
     
   
-    Relaxation
+    Relaxation and paths
   
 
     
@@ -6549,7 +6551,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Relaxation
+    Relaxation and paths
   
 
           </label>
@@ -6570,6 +6572,34 @@
     
   
     Energy minimization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../neb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Minimum energy paths
   
 
     
@@ -10314,10 +10344,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#building-the-gpu-part" class="md-nav__link">
+  <a href="#installing-the-gpu-part" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building the GPU part
+        Installing the GPU part
       
     </span>
   </a>
@@ -10388,10 +10418,10 @@
   
 
 
-<!-- needs: mdapy._cuda -->
+<!-- needs: gpu -->
 
 <h1 id="on-the-gpu">On the GPU<a class="headerlink" href="#on-the-gpu" title="Permanent link">&para;</a></h1>
-<p class="runs-on"><strong>Runs on</strong> an NVIDIA GPU, with MDAPY built with CUDA: see <a href="#building-the-gpu-part">Building the GPU part</a></p>
+<p class="runs-on"><strong>Runs on</strong> an NVIDIA GPU, with the GPU part of MDAPY: see <a href="#installing-the-gpu-part">Installing the GPU part</a></p>
 <p>The potentials of MDAPY compute on an NVIDIA GPU with CUDA, and
 <a href="../running/">molecular dynamics</a> with them runs there whole, for systems of
 hundreds of thousands to millions of atoms: <code>device="cuda"</code> puts a potential on the
@@ -10443,14 +10473,25 @@ value at 0.1 ps. In the first picosecond, alike in both precisions, it is the er
 the time step of 2 fs, as the atoms leave the perfect crystal, where no force acts.
 After it, double precision keeps the energy to 0.2 µeV per atom, and mixed precision
 lets it drift by less than 0.1 µeV per atom per ps.</em></p>
-<h2 id="building-the-gpu-part">Building the GPU part<a class="headerlink" href="#building-the-gpu-part" title="Permanent link">&para;</a></h2>
-<p>The wheels of MDAPY on PyPI hold no GPU part. MDAPY built from its source with the
-CUDA toolkit (tested with CUDA 12.6 and 13.5) holds it, the module <code>mdapy._cuda</code>:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
+<h2 id="installing-the-gpu-part">Installing the GPU part<a class="headerlink" href="#installing-the-gpu-part" title="Permanent link">&para;</a></h2>
+<p>The GPU part of MDAPY is a package of its own, <code>mdapy-cuda12</code>, built with CUDA 12 for
+Linux on x86-64 and on ARM (aarch64, as the GH200), which pip installs with MDAPY at its
+version:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12]"</span>
+</code></pre></div>
+<p>It runs on NVIDIA GPUs from the V100 on (compute capability 7.0: V100, T4, A100, the
+RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
+or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
+into it, and newer drivers run it too.
+<code>mdapy.show_versions()</code> names the GPU part and the GPU it found, in its row
+<code>GPU part</code>. Where there is no such package, on Windows or on the Jetson boards,
+MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
+and 13.5), which puts the GPU part in MDAPY itself, as the module <code>mdapy._cuda</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
 </code></pre></div>
 <p>It is compiled for the GPU of the machine; <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>
-compiles it for others, such as those of a cluster. The CUDA runtime is linked into
-the module, so running it needs only the driver of the GPU.</p>
+compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
+used before an installed <code>mdapy-cuda12</code>.</p>
 <h2 id="potentials">Potentials<a class="headerlink" href="#potentials" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

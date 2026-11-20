@@ -6385,6 +6385,8 @@
       
         
       
+        
+      
     
     
     
@@ -6408,7 +6410,7 @@
   <span class="md-ellipsis">
     
   
-    Relaxation
+    Relaxation and paths
   
 
     
@@ -6424,7 +6426,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Relaxation
+    Relaxation and paths
   
 
           </label>
@@ -6445,6 +6447,34 @@
     
   
     Energy minimization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/simulation/neb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Minimum energy paths
   
 
     
@@ -9173,6 +9203,62 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#minimum-energy-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimum energy paths
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Minimum energy paths">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.neb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        neb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.NEBResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEBResult
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="NEBResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.NEBResult.profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        profile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#molecular-dynamics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10620,6 +10706,62 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#minimum-energy-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Minimum energy paths
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Minimum energy paths">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.neb" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        neb
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.NEBResult" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        NEBResult
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="NEBResult">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#mdapy.simulation.NEBResult.profile" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        profile
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#molecular-dynamics" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11418,6 +11560,642 @@ information of <code>system</code> and the step number as <code>timestep</code> 
 
 
 
+
+
+
+  </div>
+
+    </div>
+
+</div><h2 id="minimum-energy-paths">Minimum energy paths<a class="headerlink" href="#minimum-energy-paths" title="Permanent link">&para;</a></h2>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="mdapy.simulation.neb" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">neb</span>
+
+
+<a href="#mdapy.simulation.neb" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">neb</span><span class="p">(</span><span class="n">initial</span><span class="p">,</span> <span class="n">final</span><span class="p">,</span> <span class="n">calculator</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">images</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">climb</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">spring</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">interpolation</span><span class="o">=</span><span class="s1">'linear'</span><span class="p">,</span> <span class="n">max_force</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> <span class="n">max_steps</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">max_step</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">callback</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log_every</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Finds the minimum energy path between two states with the nudged
+elastic band, its highest image climbing to the saddle point.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>initial</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The two states, each a minimum of the energy (relaxed with
+<code>minimize</code>), with the same atoms in the same order and the same
+box; a <code>mass</code> or an <code>element</code> column; a <code>movable</code> column of the
+initial state, (N, 3) bool, keeps each atom still along the
+directions where it is False.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>final</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="System (mdapy.core.system.System)" href="../structures/#mdapy.System">System</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The two states, each a minimum of the energy (relaxed with
+<code>minimize</code>), with the same atoms in the same order and the same
+box; a <code>mass</code> or an <code>element</code> column; a <code>movable</code> column of the
+initial state, (N, 3) bool, keeps each atom still along the
+directions where it is False.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>calculator</code>
+            </td>
+            <td>
+                  <code>Calculator or sequence of Calculator</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Computes energies and forces; or one for each image between the
+states, which then compute at the same time, each in a thread of its
+own: for calculators that each run on their own, such as VASP in
+directories of their own.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>images</code>
+            </td>
+            <td>
+                  <code>int32 or sequence of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of images between the states, interpolated by
+<code>interpolation</code>, or the images themselves to start from. Default 5.</p>
+              </div>
+            </td>
+            <td>
+                  <code>5</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>climb</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the image of highest energy climbs to the saddle point.
+Default True.</p>
+              </div>
+            </td>
+            <td>
+                  <code>True</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>spring</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Constant of the springs between the images along the band, in
+eV/Å². Default 1.0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1.0</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>interpolation</code>
+            </td>
+            <td>
+                  <code>(linear, idpp)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>How the images start: on the straight line between the states, each
+atom by its shortest periodic displacement, or relaxed from it on the
+image dependent pair potential, which keeps the distances between
+atoms near those of the states. Default "linear".</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#34;linear&#34;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_force</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Convergence: the largest force of the band on an atom of an image, in
+eV/Å. Default 0.01.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.01</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_steps</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Largest number of steps. Default 1000.</p>
+              </div>
+            </td>
+            <td>
+                  <code>1000</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>max_step</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Largest displacement of an atom along x, y or z in one step, in Å.
+Default 0.1.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.1</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>timestep</code>
+            </td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>First time step of the FIRE 2.0 dynamics of the band, in ps. Default
+0.001.</p>
+              </div>
+            </td>
+            <td>
+                  <code>0.001</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>callback</code>
+            </td>
+            <td>
+                  <code><span title="callable">callable</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called after every step as <code>callback(step, images, energies,
+max_force)</code>, with the band as a tuple of System; returning True
+stops it.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log</code>
+            </td>
+            <td>
+                  <code>(<span title="str">str</span>, PathLike or stream)</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Writes the band's relaxation to this file, which it overwrites, or to
+this stream: a heading, the largest force, the barrier and the image
+of highest energy every <code>log_every</code> steps and at the last, and how
+it ended. Lines that are not rows of numbers start with #. Default
+None, writing none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log_every</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Writes a row to the log every this many steps. Default 10.</p>
+              </div>
+            </td>
+            <td>
+                  <code>10</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="NEBResult
+
+
+  
+      dataclass
+   (mdapy.simulation._neb.NEBResult)" href="#mdapy.simulation.NEBResult">NEBResult</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The band, its energies and the barrier.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>For invalid options, states that differ in their atoms or box,
+images that do not fit them, or calculators that do not compute
+energies and forces.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code>MissingProperty</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If the system has neither masses nor elements.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="CalculationFailed (mdapy.errors.CalculationFailed)" href="../utilities/#mdapy.errors.CalculationFailed">CalculationFailed</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If an energy or a force is not finite.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="mdapy.simulation.NEBResult" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">NEBResult</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#mdapy.simulation.NEBResult" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NEBResult</span><span class="p">(</span><span class="n">images</span><span class="p">,</span> <span class="n">energies</span><span class="p">,</span> <span class="n">distances</span><span class="p">,</span> <span class="n">barrier</span><span class="p">,</span> <span class="n">highest</span><span class="p">,</span> <span class="n">converged</span><span class="p">,</span> <span class="n">steps</span><span class="p">,</span> <span class="n">max_force</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" title="Result
+
+
+  
+      dataclass
+   (mdapy.core.result.Result)" href="../utilities/#mdapy.core.Result">Result</a></code></p>
+
+
+
+        <p>The outcome of <code>neb</code>.</p>
+
+
+<p><span class="doc-section-title">Attributes:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.images">images</span></code></td>
+            <td>
+                  <code>tuple of System</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The band, the two states first and last, each with a <code>forces</code>
+column and <code>energy</code> in <code>info</code>: the forces of the calculator, not
+those of the band.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.energies">energies</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(M,) float64 energy of each image in eV.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.distances">distances</span></code></td>
+            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(M,) float64 distance of each image from the first along the band, in
+Å: the sums of the lengths of the steps between images, over all
+atoms.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.barrier">barrier</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Highest energy of the band less that of the first state, in eV.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.highest">highest</span></code></td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Index of the image of highest energy; with <code>climb</code>, it is on the
+saddle point.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.converged">converged</span></code></td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether no force of the band on an atom of the images between the
+states exceeds <code>max_force</code>.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.steps">steps</span></code></td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of steps taken.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.simulation.NEBResult.max_force">max_force</span></code></td>
+            <td>
+                  <code>float64</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Largest force of the band on an atom of the images between the
+states, in eV/Å.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.simulation.NEBResult.profile" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">profile</span>
+
+
+<a href="#mdapy.simulation.NEBResult.profile" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">profile</span><span class="p">(</span><span class="n">points</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The energy along the band between the images: a cubic between each
+two, through their energies, with the slopes the forces give along
+the band.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>points</code>
+            </td>
+            <td>
+                  <code>int32</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Number of points, from the first image to the last. Default 200.</p>
+              </div>
+            </td>
+            <td>
+                  <code>200</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+<th>Name</th>          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+<td><code>distances</code></td>            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(points,) float64 distance along the band in Å.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+<td><code>energies</code></td>            <td>
+                  <code>ndarray</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(points,) float64 energy in eV.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>If <code>points</code> is less than 2.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
 
 
 

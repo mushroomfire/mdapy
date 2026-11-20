@@ -6499,6 +6499,8 @@
       
         
       
+        
+      
     
     
     
@@ -6522,7 +6524,7 @@
   <span class="md-ellipsis">
     
   
-    Relaxation
+    Relaxation and paths
   
 
     
@@ -6538,7 +6540,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Relaxation
+    Relaxation and paths
   
 
           </label>
@@ -6559,6 +6561,34 @@
     
   
     Energy minimization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../neb/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Minimum energy paths
   
 
     
@@ -10486,23 +10516,29 @@ shows its progress, <code>tail -f md.log</code> in a terminal:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># MDAPY 2.2.0, molecular dynamics, 2026-11-19 13:29:02
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a># 500 atoms; box vectors 18.0750 18.0750 18.0750 Å long, periodic along a b c
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a># engine: MDAPY on the processor, 10 threads
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a># potential: EAM(elements=('Cu',), cutoff=5.715751993501819)
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a># time step: 0.002 ps
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>#
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a># run 1: 200 steps, nve; thermo every 50
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>#     step        time   temperature    potential_energy    kinetic_energy        total_energy      pressure            volume      wall
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>         0      0.0000       600.000        -1769.991294         38.700444        -1731.290850      0.697585         5905.2042      0.00
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>        50      0.1000       256.824        -1747.829401         16.565321        -1731.264079      3.565728         5905.2042      0.02
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>       100      0.2000       324.699        -1752.217267         20.943354        -1731.273913      3.078099         5905.2042      0.03
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>       150      0.3000       307.193        -1751.084251         19.814151        -1731.270099      3.109218         5905.2042      0.04
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>       200      0.4000       301.119        -1750.691224         19.422382        -1731.268842      3.167338         5905.2042      0.06
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a># run 1: 200 steps in 0.06 s; 3340.2 steps/s, 1.67 million atom-steps/s, 577.2 ns/day
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a># machine: Apple M5, 10 logical CPUs, 10 usable, 24.0 GB of memory
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a># potential: EAM(elements=('Cu',), cutoff=5.715751993501819)
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a># time step: 0.002 ps
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>#
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a># run 1: 200 steps, nve; thermo every 50
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>#     step        time   temperature    potential_energy    kinetic_energy        total_energy      pressure            volume      wall
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>         0      0.0000       600.000        -1769.991294         38.700444        -1731.290850      0.697585         5905.2042      0.00
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        50      0.1000       256.824        -1747.829401         16.565321        -1731.264079      3.565728         5905.2042      0.02
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>       100      0.2000       324.699        -1752.217267         20.943354        -1731.273913      3.078099         5905.2042      0.03
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>       150      0.3000       307.193        -1751.084251         19.814151        -1731.270099      3.109218         5905.2042      0.04
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>       200      0.4000       301.119        -1750.691224         19.422382        -1731.268842      3.167338         5905.2042      0.06
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a># run 1: 200 steps in 0.06 s; 3340.2 steps/s, 1.67 million atom-steps/s, 577.2 ns/day
 </code></pre></div>
 <p>Each run writes its settings, a row every <code>thermo</code> steps, the row
 <code>thermo</code> records, with <code>wall</code>, the seconds since the run began, and its
 speed; a run that stops early, cancelled or failed, says where it stopped.
 The engine is MDAPY on the processor with its threads, MDAPY on a GPU with
-its precision, or LAMMPS with its processes and command-line arguments.
+its memory, compute capability, multiprocessors and precision, or LAMMPS with
+its processes and command-line arguments; the machine is the processor, its
+logical CPUs, those this process may use, and the memory, as
+<code>mdapy.show_versions()</code> names them, of the main process under MPI. The
+<a href="../minimize/">minimization</a> and the <a href="../neb/">band</a> write the machine, and the
+GPU of a potential there, in their heading too.
 Lines that are not rows of numbers start with <code>#</code>, so that
 <code>numpy.loadtxt("md.log")</code> reads the rows of every run as one table. Under
 MPI the main process alone writes. Every run and <code>iterate</code> of the

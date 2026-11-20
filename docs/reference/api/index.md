@@ -23,9 +23,14 @@ import mdapy as mp
 
 ## Simulation
 
-- [Calculators](calculators.md)
-- [Relaxation and dynamics](relaxation.md)
+- [Potentials](calculators.md)
+- [Molecular dynamics](molecular-dynamics.md)
+
+## Properties
+
+- [Relaxation and defect energies](relaxation.md)
 - [Lattice dynamics](lattice-dynamics.md)
+- [Thermal conductivity](thermal-conductivity.md)
 - [Thermodynamics](thermodynamics.md)
 
 ## Other

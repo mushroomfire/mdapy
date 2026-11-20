@@ -2,6 +2,16 @@
 
 ## 2.2.0 (not released)
 
+- The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
+  guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
+  what the engine is for and of every feature with where it runs, then running,
+  [ensembles](../user-guide/molecular-dynamics/ensembles.md),
+  [records and frames](../user-guide/molecular-dynamics/records.md),
+  [LAMMPS](../user-guide/molecular-dynamics/in-lammps.md), the controls, mechanical
+  loading and shock, with a page on
+  [choosing a method](../user-guide/molecular-dynamics/shock.md) of shock. The
+  potentials and the properties have parts of their own too; the pages of
+  `user-guide/simulation/` moved there, and their old addresses lead to them.
 - `mdapy.simulation.Indenter`, a control of a virtual indenter, as LAMMPS's
   `fix indent`: a sphere, a cylinder or a plane, still or moving, that pushes the
   atoms inside it out with a force K d², recording the force on it and its energy;
@@ -104,7 +114,7 @@
   potential, the settings of each run, the thermodynamic state with the wall
   time, and the speed of each run or where it stopped; rows of numbers between
   lines that start with `#`, which `numpy.loadtxt` reads back. See
-  [Molecular dynamics](../user-guide/molecular-dynamics/running.md#log).
+  [Molecular dynamics](../user-guide/molecular-dynamics/records.md#log).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,
@@ -141,7 +151,7 @@
   atoms every `save_every` steps as the run reaches them, keeping none, so that
   `mdapy.io.write(path, md.iterate(...))` writes a trajectory while it runs, in LAMMPS
   and in MDAPY; the run stops where the reading stops. See
-  [Frames in files](../user-guide/molecular-dynamics/running.md#frames-in-files). A run of no
+  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files). A run of no
   steps records the thermodynamic state once, and with `save_every` keeps the atoms once,
   not twice.
 - `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
@@ -223,7 +233,7 @@ Since 2.1.0rc2:
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of
   `save_every` stay in the memory of every process, about 60 bytes per atom each; see
-  [Frames in files](../user-guide/molecular-dynamics/running.md#frames-in-files).
+  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files).
 - `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
   cutoff with its change over an eighth of the range of the volumes, the spacing of the
   default nine, whatever their number. It compared it with the change between neighbouring

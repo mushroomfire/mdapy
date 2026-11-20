@@ -26,6 +26,10 @@
 
 ::: mdapy.lattice_dynamics.read_band_structure
 
+::: mdapy.lattice_dynamics.PhononDOS
+
+::: mdapy.lattice_dynamics.ThermalProperties
+
 ::: mdapy.lattice_dynamics.force_constants
 
 ::: mdapy.lattice_dynamics.displaced_supercells
@@ -37,30 +41,6 @@
 ::: mdapy.lattice_dynamics.bond_stiffness
 
 ::: mdapy.lattice_dynamics.BondStiffness
-
-## Thermal conductivity
-
-::: mdapy.lattice_dynamics.thermal_conductivity
-
-::: mdapy.lattice_dynamics.ThermalConductivity
-
-::: mdapy.lattice_dynamics.green_kubo
-
-::: mdapy.lattice_dynamics.green_kubo_from_flux
-
-::: mdapy.lattice_dynamics.hnemd
-
-::: mdapy.lattice_dynamics.HNEMD
-
-::: mdapy.lattice_dynamics.nemd
-
-::: mdapy.lattice_dynamics.NEMD
-
-::: mdapy.lattice_dynamics.GreenKubo
-
-::: mdapy.lattice_dynamics.PhononDOS
-
-::: mdapy.lattice_dynamics.ThermalProperties
 
 ## Phonons at finite temperature
 

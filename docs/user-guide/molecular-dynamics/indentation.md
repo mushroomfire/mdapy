@@ -1,5 +1,7 @@
 # Indentation
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix indent`</p>
+
 `Indenter`, a [control](controls.md) of a run of [molecular dynamics](running.md), is a
 virtual indenter, as LAMMPS's `fix indent`: a sphere, a cylinder or the region beyond a
 plane that pushes the atoms inside it out with a force $K d^2$, $d$ how far inside.

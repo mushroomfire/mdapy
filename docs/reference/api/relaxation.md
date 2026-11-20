@@ -1,34 +1,10 @@
-# Relaxation and dynamics
+# Relaxation and defect energies
 
 ## Energy minimization
 
 ::: mdapy.simulation.minimize
 
 ::: mdapy.simulation.MinimizeResult
-
-## Molecular dynamics
-
-::: mdapy.simulation.MolecularDynamics
-
-::: mdapy.simulation.thermal_velocities
-
-::: mdapy.simulation.Hold
-
-::: mdapy.simulation.Move
-
-::: mdapy.simulation.AddForce
-
-::: mdapy.simulation.Langevin
-
-::: mdapy.simulation.Deform
-
-::: mdapy.simulation.AdaptiveTimestep
-
-::: mdapy.simulation.Switch
-
-::: mdapy.simulation.Wall
-
-::: mdapy.simulation.Indenter
 
 ## Defect energies
 

@@ -164,7 +164,7 @@ the vibrations make the rest, scattered through the crystal, "other".*
 
 The atoms of a dump come in the order LAMMPS holds them, each with its `id`,
 which counting structures does not need;
-[Frames in files](../user-guide/molecular-dynamics/running.md#frames-in-files) says
+[Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files) says
 how they match the atoms of the system.
 
 ## How long it takes

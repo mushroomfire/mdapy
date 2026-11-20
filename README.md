@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <b>Fast building, analysis, simulation and visualization of atomistic systems, in Python.</b>
+  <b>Build, simulate, analyze and visualize atomistic systems in one Python package.</b>
 </p>
 
 <p align="center">
@@ -40,6 +40,10 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 ## 💡 Why MDAPY
 
+- **All in one.** One package and one `System`, from the first structure through the
+  simulation and the analysis to the last picture. MDAPY has its own
+  [molecular dynamics engine](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/), potentials and ray
+  tracer, on the processor and on NVIDIA GPUs, so that a study needs no other program.
 - **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
   requirements. Packages such as [matplotlib](https://matplotlib.org) or
   [ASE](https://wiki.fysik.dtu.dk/ase/) are optional, and it carries no other
@@ -48,8 +52,15 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   results and with mature software. All of them run automatically on Linux, macOS and
   Windows. Results are the same for any number of threads, and damaged files or impossible
   inputs give a clear error, not a crash.
-- **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own. See the
+- **Fast.** The heavy parts run in C++, on a parallel engine of MDAPY's own, and molecular
+  dynamics runs whole on an NVIDIA GPU. See the
   [benchmarks](https://mushroomfire.github.io/mdapy/performance/comparison/).
+- **Interoperable.** It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
+  [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
+  [freud](https://freud.readthedocs.io), takes any ASE calculator or
+  [LAMMPS](https://www.lammps.org) interaction, runs its dynamics in LAMMPS when asked,
+  shares a process with [PyTorch](https://pytorch.org), and works as one step of
+  [high-throughput calculations](https://mushroomfire.github.io/mdapy/examples/high-throughput/).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
   `CommonNeighborAnalysis`. A `System` never changes in place, every analysis has the form
   `compute(system)` and returns NumPy arrays, and one unit system, Å, eV and ps, runs
@@ -58,24 +69,53 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   3.0, a replaced name warns long before it goes, and a result changes only to fix a bug,
   named in the release notes. See
   [Compatibility](https://mushroomfire.github.io/mdapy/about/compatibility/).
-- **Integrated.** One package and one `System`, from the first structure to the last
-  picture. It converts systems to and from [ASE](https://wiki.fysik.dtu.dk/ase/),
-  [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and
-  [freud](https://freud.readthedocs.io), takes any ASE calculator or
-  [LAMMPS](https://www.lammps.org) interaction, shares a process with
-  [PyTorch](https://pytorch.org), and works as one step of
-  [high-throughput calculations](https://mushroomfire.github.io/mdapy/examples/high-throughput/).
 - **Documented.** Every feature has its own page, with an example, its parameters, its
   results and its references, and [lessons](https://mushroomfire.github.io/mdapy/getting-started/learn/table/) lead
   from the first structure on.
+
+## ⚛️ Molecular dynamics
+
+MDAPY runs molecular dynamics with its own engine, on the processor or entirely on an
+NVIDIA GPU; the same calls run in LAMMPS too. It is made for materials and
+machine-learned potentials: metals, alloys, semiconductors, glasses and liquids, with
+EAM, MEAM, ADP, Tersoff, Stillinger–Weber or NEP, or any model with an ASE calculator.
+Molecular force fields, with bonds and angles, are not its aim. Its features serve
+mechanical and thermal simulations:
+
+- **Ensembles**: NVE, NVT, NPT and NPH, with Nosé–Hoover chains or Langevin dynamics.
+- **Controls**: held, moved and pushed groups of atoms, heat baths, adaptive time steps
+  and switching between potentials.
+- **Mechanical loading**: tension, compression and shear, and indentation.
+- **Shock**: pistons, the Hugoniostat and the multiscale shock technique.
+- **Heat**: thermal conductivity by Green–Kubo, HNEMD and NEMD; free energies, melting
+  points and phase diagrams.
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM
+from mdapy.simulation import Deform, MolecularDynamics
+
+crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 6))
+copper = EAM.zhou(["Cu"])  # EAM.zhou(["Cu"], device="cuda") runs on the GPU
+with MolecularDynamics(crystal, copper, timestep=0.002) as md:
+    md.velocities(300, seed=1)
+    md.run(2500, ensemble="npt", temperature=300, pressure=0.0)
+    md.run(2500, ensemble="nvt", temperature=300, controls=[Deform(xx=0.02)])
+    stress = md.thermo["stress"]  # the stress as copper is stretched along x
+```
+
+See [Molecular dynamics](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/) for what it can do and
+where each feature runs.
 
 ## 🧰 What it does
 
 | Area | What is in it |
 |---|---|
 | [**Build**](https://mushroomfire.github.io/mdapy/user-guide/build/crystals/) | Crystals, polycrystals, alloys, defects and dislocations |
+| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/molecular-dynamics/) | Its own molecular dynamics on the processor and NVIDIA GPUs: ensembles, controls, deformation, indentation and shock |
+| [**Potentials**](https://mushroomfire.github.io/mdapy/user-guide/potentials/calculators/) | Native EAM, MEAM, ADP, Tersoff, Stillinger–Weber, Lennard-Jones, Morse and NEP; interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/) |
+| [**Properties**](https://mushroomfire.github.io/mdapy/user-guide/properties/elastic-constants/) | Defect energies, elastic constants, phonons, thermal conductivity, free energies, melting points and phase diagrams |
 | [**Analyze**](https://mushroomfire.github.io/mdapy/user-guide/analysis/overview/) | More than 40 analyses of structure, local order, defects and dynamics |
-| [**Simulate**](https://mushroomfire.github.io/mdapy/user-guide/potentials/calculators/) | Native EAM, MEAM, ADP, Tersoff, Stillinger–Weber, Lennard-Jones, Morse and NEP, interfaces to [LAMMPS](https://www.lammps.org) and [ASE](https://wiki.fysik.dtu.dk/ase/); relaxation and dynamics; elastic constants, phonons, free energies, melting points and phase diagrams |
 | [**MLIP**](https://mushroomfire.github.io/mdapy/user-guide/mlip/checks/) | Training sets from [VASP](https://www.vasp.at), descriptors, errors of a model, the frames worth computing |
 | [**Visualize**](https://mushroomfire.github.io/mdapy/user-guide/visualization/rendering/) | Ray-traced pictures on the processor or the graphics card, movies and plots |
 | [**Exchange**](https://mushroomfire.github.io/mdapy/basics/io/) | Eight file formats, and systems shared with [ASE](https://wiki.fysik.dtu.dk/ase/), [OVITO](https://www.ovito.org), [pymatgen](https://pymatgen.org) and [freud](https://freud.readthedocs.io) |

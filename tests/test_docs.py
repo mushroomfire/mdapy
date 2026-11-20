@@ -174,6 +174,7 @@ def test_the_files_the_readme_points_to_exist():
         page
         for page in pages
         if not (DOCS / f"{page.rstrip('/') or 'index'}.md").exists()
+        and not (DOCS / page / "index.md").exists()
     ]
 
 

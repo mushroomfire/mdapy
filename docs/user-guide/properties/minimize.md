@@ -31,7 +31,7 @@ result = minimize(system, potential, cell="isotropic", pressure=10.0)
 | `max_stress` | float64 | 1e-2 | GPa | when the box relaxes, converged when every relaxed component of the stress is this close to $-p$ (−`pressure` on the diagonal, 0 off it) |
 | `save_every` | int32 | `None` | | keeps the configuration every this many steps, with the first and the last, in `frames` |
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
-| `log` | str, path or stream | `None` | | writes the minimization to this file, which it overwrites, or to this stream, such as `sys.stdout`, as the [log of molecular dynamics](../molecular-dynamics/running.md#log) does: a heading, then `step`, `energy` (eV), `max_force` (eV/Å), `max_stress` (GPa, the largest deviation of a relaxed stress component from its target; NaN when the box is kept) and `wall` (s) every `log_every` steps and at the last, and how it ended |
+| `log` | str, path or stream | `None` | | writes the minimization to this file, which it overwrites, or to this stream, such as `sys.stdout`, as the [log of molecular dynamics](../molecular-dynamics/records.md#log) does: a heading, then `step`, `energy` (eV), `max_force` (eV/Å), `max_stress` (GPa, the largest deviation of a relaxed stress component from its target; NaN when the box is kept) and `wall` (s) every `log_every` steps and at the last, and how it ended |
 | `log_every` | int32 | 10 | | writes a row to the log every this many steps |
 
 `cell` chooses how the box changes along its periodic directions; the atoms

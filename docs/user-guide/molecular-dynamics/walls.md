@@ -1,5 +1,7 @@
 # Walls
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix wall/reflect`, and `fix wall/piston` for a wall moving up from below along z</p>
+
 `Wall`, a [control](controls.md) of a run of [molecular dynamics](running.md), is a
 flat wall across an axis that reflects the atoms that reach it. A still wall is a
 momentum mirror that a moving crystal hits; a moving wall is a piston that drives a

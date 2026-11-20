@@ -1,5 +1,7 @@
 # Multiscale shock technique
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix msst`</p>
+
 `run(..., ensemble="msst")` compresses a periodic box along one axis as a steady
 shock wave of a given velocity compresses the matter it passes, as LAMMPS's
 `fix msst` does [(Reed et al. 2003)](../../reference/references.md#reed2003): the

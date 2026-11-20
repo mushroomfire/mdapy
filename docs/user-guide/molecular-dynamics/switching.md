@@ -1,5 +1,7 @@
 # Switching between potentials
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md); not in LAMMPS</p>
+
 `Switch`, a [control](controls.md) of a run of [molecular dynamics](running.md) in
 MDAPY, turns the potential of the run into another along the run: the forces are
 those of $(1-\lambda) U + \lambda U_\mathrm{target}$, and $\lambda$ goes from 0 to 1,

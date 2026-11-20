@@ -1,5 +1,7 @@
 # Adaptive time step
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix dt/reset`</p>
+
 `AdaptiveTimestep`, a [control](controls.md) of a run of
 [molecular dynamics](running.md), sets the time step by the fastest atom: no atom moves
 more than a given distance in a step. An atom of a collision cascade starts with

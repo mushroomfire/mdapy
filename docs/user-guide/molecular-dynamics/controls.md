@@ -1,5 +1,7 @@
 # Groups and controls
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix setforce`, `move`, `addforce` and `langevin`</p>
+
 A run of [molecular dynamics](running.md) can hold some atoms still, move
 others at a velocity, push others and keep others at a temperature: the
 controls of the run. Each acts on

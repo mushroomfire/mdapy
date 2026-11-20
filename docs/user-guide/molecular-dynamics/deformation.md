@@ -1,5 +1,7 @@
 # Deformation
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix deform`</p>
+
 `Deform`, a [control](controls.md) of a run of
 [molecular dynamics](running.md), stretches, compresses or shears the box at
 constant rates, the atoms carried with it: the loading of a tensile, a

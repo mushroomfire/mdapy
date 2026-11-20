@@ -1,4 +1,4 @@
-# Molecular dynamics through LAMMPS
+# Running LAMMPS from MDAPY
 
 [`MolecularDynamics`](../user-guide/molecular-dynamics/running.md) runs molecular dynamics in
 LAMMPS from Python: the atoms come from a `System`, LAMMPS moves them, and MDAPY
@@ -196,7 +196,7 @@ MDAPY, or in LAMMPS for a LAMMPS calculator.
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
 | An integrator of one's own, such as `fix nvt/sllod` for a shear flow | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
-| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/molecular-dynamics/running.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
+| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
 
 ## Several threads and GPUs with Kokkos
 

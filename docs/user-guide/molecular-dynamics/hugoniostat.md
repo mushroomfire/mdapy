@@ -1,5 +1,7 @@
 # Hugoniostat
 
+<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md) as `fix nphug`</p>
+
 `run(..., ensemble="nphug")` holds a crystal at a pressure, along one axis or alike
 along every axis, while its thermostat drives the energy to the Hugoniot of a
 reference state: the states that a steady shock wave leaves behind it,

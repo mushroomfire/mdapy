@@ -33,12 +33,8 @@ MDAPY_HOST_DEVICE inline void multiply(std::uint64_t a, std::uint64_t b, std::ui
 #if defined(__CUDA_ARCH__)
     high = __umul64hi(a, b);
     low = a * b;
-#elif defined(__SIZEOF_INT128__)
-    const unsigned __int128 p = static_cast<unsigned __int128>(a) * b;
-    high = static_cast<std::uint64_t>(p >> 64);
-    low = static_cast<std::uint64_t>(p);
 #else
-    // four products of 32-bit halves
+    // four products of 32-bit halves, in ISO C++ for every compiler
     const std::uint64_t a0 = a & 0xffffffffu, a1 = a >> 32;
     const std::uint64_t b0 = b & 0xffffffffu, b1 = b >> 32;
     const std::uint64_t p00 = a0 * b0, p01 = a0 * b1, p10 = a1 * b0, p11 = a1 * b1;

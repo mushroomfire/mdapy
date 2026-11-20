@@ -124,3 +124,76 @@ def test_element_dtype_physical_value_is_atomic_number():
     np.testing.assert_array_equal(s.to_physical().to_numpy(), np.arange(119))
     with pytest.raises(pl.exceptions.InvalidOperationError):
         pl.Series("element", ["Zz"], dtype=elements.ELEMENT_DTYPE)
+
+
+def test_xray_form_factors_count_the_electrons_at_q_zero():
+    z = np.arange(1, 99)
+    f = elements.xray_form_factors(z, 0.0)
+    assert f.shape == (98,)
+    np.testing.assert_allclose(f, z, atol=0.04)  # neutral atoms
+    q = np.linspace(0.0, 4 * np.pi * 6, 50)
+    curves = elements.xray_form_factors(["H", "Cu", "W"], q)
+    assert curves.shape == (3, 50)
+    assert (np.diff(curves, axis=1) < 1e-9).all()  # falling with q
+    np.testing.assert_array_equal(curves[1], elements.xray_form_factors([29], q)[0])
+
+
+def test_xray_form_factors_as_ase_transcribes_them():
+    """ASE carries the coefficients of twelve elements, typed independently.
+    Two have typing errors that put f(0) away from the number of electrons:
+    oxygen a2 = 2.5088111 and a3 = 0.637053 for 2.508818 and 0.637853
+    (f(0) = 7.9989), copper c = -3.774477 for -3.254477 (f(0) = 28.47)."""
+    waasmaier = pytest.importorskip("ase.utils.xrdebye").waasmaier
+    s = np.linspace(0.0, 6.0, 61)
+    fixed = {"O": {2: 2.508818, 4: 0.637853}, "Cu": {10: -3.254477}}
+    for symbol, abc in waasmaier.items():
+        abc = list(abc)
+        for k, value in fixed.get(symbol, {}).items():
+            assert abs(abc[k] - value) > 1e-6  # still wrong there
+            abc[k] = value
+        theirs = abc[10] + sum(
+            abc[2 * k] * np.exp(-abc[2 * k + 1] * s**2) for k in range(5)
+        )
+        ours = elements.xray_form_factors([symbol], 4 * np.pi * s)[0]
+        np.testing.assert_allclose(ours, theirs, rtol=0, atol=1e-5, err_msg=symbol)
+
+
+@pytest.mark.parametrize("bad", [["Es"], [0], ["X"], [99]])
+def test_xray_form_factors_of_unknown_elements(bad):
+    with pytest.raises(InvalidParameter, match="no X-ray form factor"):
+        elements.xray_form_factors(bad, 1.0)
+
+
+@pytest.mark.parametrize("q", [-0.1, 80.0, np.nan, [1.0, np.inf]])
+def test_xray_form_factors_out_of_range(q):
+    with pytest.raises(InvalidParameter, match="wave numbers must be from 0 to 75.40"):
+        elements.xray_form_factors(["Cu"], q)
+
+
+def test_neutron_scattering_lengths():
+    lengths = elements.neutron_scattering_lengths(
+        ["H", "H", "O", "Ni", "V", "Au"], [None, 2, None, 62, None, None]
+    )
+    # deuterium and hydrogen of opposite sign; vanadium near zero; gold of one
+    # isotope, 197
+    np.testing.assert_allclose(lengths, [-3.7409, 6.6681, 5.8037, -8.7, -0.443, 7.9])
+    np.testing.assert_array_equal(
+        elements.neutron_scattering_lengths([1, 8]),
+        elements.neutron_scattering_lengths(["H", "O"]),
+    )
+    assert elements.neutron_scattering_lengths([]).shape == (0,)
+
+
+def test_neutron_scattering_lengths_unknown():
+    with pytest.raises(
+        InvalidParameter, match="no neutron scattering length for Tc: give"
+    ):
+        elements.neutron_scattering_lengths(["Tc"])
+    with pytest.raises(InvalidParameter, match="no neutron scattering length for H-5"):
+        elements.neutron_scattering_lengths(["H"], [5])
+    with pytest.raises(InvalidParameter, match="one mass number"):
+        elements.neutron_scattering_lengths(["H", "O"], [2])
+    with pytest.raises(
+        InvalidParameter, match="no neutron scattering length for element 'X'"
+    ):
+        elements.neutron_scattering_lengths(["X"])

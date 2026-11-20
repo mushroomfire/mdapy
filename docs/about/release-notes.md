@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- The controls of a run of molecular dynamics, `Hold`, `Move`, `AddForce`, `Langevin`,
+  `Deform`, `AdaptiveTimestep`, `Switch`, `Wall` and `Indenter`, live in a module of their
+  own, `mdapy.simulation.controls`, beside `MolecularDynamics` in `mdapy.simulation`:
+  `from mdapy.simulation.controls import Deform`. See
+  [Groups and controls](../user-guide/molecular-dynamics/controls.md).
 - Along a box vector that is not periodic, the box that MDAPY's own dynamics gives grows
   to hold the atoms that left it, never smaller than the box given, as LAMMPS's
   boundary `m` grows it, which the LAMMPS dynamics already did: in `system`, the frames,
@@ -40,7 +45,7 @@
   [choosing a method](../user-guide/molecular-dynamics/shock.md) of shock. The
   potentials and the properties have parts of their own too; the pages of
   `user-guide/simulation/` moved there, and their old addresses lead to them.
-- `mdapy.simulation.Indenter`, a control of a virtual indenter, as LAMMPS's
+- `mdapy.simulation.controls.Indenter`, a control of a virtual indenter, as LAMMPS's
   `fix indent`: a sphere, a cylinder or a plane, still or moving, that pushes the
   atoms inside it out with a force K d², recording the force on it and its energy;
   in MDAPY, on the GPU and in LAMMPS alike. See
@@ -62,7 +67,7 @@
   barostats along one axis, `barostat="x"`, `"y"` or `"z"`, as `fix npt ... z`.
   In MDAPY, on the GPU and in LAMMPS alike. See
   [Hugoniostat](../user-guide/molecular-dynamics/hugoniostat.md).
-- `mdapy.simulation.Wall`, a control of a flat wall across an axis that reflects
+- `mdapy.simulation.controls.Wall`, a control of a flat wall across an axis that reflects
   the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
   piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and
   `fix wall/piston`; in MDAPY, on the GPU and in LAMMPS alike. See
@@ -109,25 +114,25 @@
   MDAPY with the same seed; a system's velocities are where a run starts. See
   [Molecular dynamics](../user-guide/molecular-dynamics/running.md#running).
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
-  hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
+  hold groups of atoms still (`mdapy.simulation.controls.Hold`), move them at a
   velocity and record the force on them (`Move`), push them (`AddForce`), or
   keep them at a temperature and record the heat this takes (`Langevin`), for
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   [Groups and controls](../user-guide/molecular-dynamics/controls.md).
-- `mdapy.simulation.Deform`, a control that stretches, compresses or shears the
+- `mdapy.simulation.controls.Deform`, a control that stretches, compresses or shears the
   box at constant strain rates, engineering or true, the atoms carried with it,
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
   [Deformation](../user-guide/molecular-dynamics/deformation.md).
-- `mdapy.simulation.AdaptiveTimestep`, a control that sets the time step by the
+- `mdapy.simulation.controls.AdaptiveTimestep`, a control that sets the time step by the
   fastest atom, so that no atom moves more than a distance in a step, within
   bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
   and in LAMMPS alike. See [Adaptive time step](../user-guide/molecular-dynamics/adaptive-timestep.md).
 - `free_energy` takes MDAPY's own potentials: the solid is switched to an Einstein
   crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
   processor or on the GPU, through
-  three new parts: `mdapy.simulation.Switch`, a control that turns the potential of a
+  three new parts: `mdapy.simulation.controls.Switch`, a control that turns the potential of a
   run into another, recording λ and the difference of their energies, as LAMMPS's
   `fix ti/spring` and `pair_style hybrid/scaled`; `mdapy.calculators.Springs`, the
   springs of an Einstein crystal; and `mdapy.calculators.UhlenbeckFord`, LAMMPS's

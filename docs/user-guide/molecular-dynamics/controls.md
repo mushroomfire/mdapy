@@ -12,7 +12,8 @@ whole run: a [`Deform`](deformation.md) deforms the box, an
 [`Switch`](switching.md) turns the potential into another, and a [`Wall`](walls.md) or
 an [`Indenter`](indentation.md) pushes the atoms that reach it. All of them act in
 MDAPY, on the processor and on the [GPU](gpu.md); all but the `Switch` act in LAMMPS
-too.
+too. They live in their own module, beside `MolecularDynamics`:
+`from mdapy.simulation.controls import Hold, Move`.
 
 Copper sheared between two walls at 300 K: the bottom wall held, the top
 one moved along x at 0.2 Å/ps, 20 m/s, the force of the crystal on it
@@ -24,7 +25,8 @@ import numpy as np
 import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import Hold, MolecularDynamics, Move
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import Hold, Move
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 8))
 crystal = crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False)))

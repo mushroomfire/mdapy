@@ -85,7 +85,7 @@ cascade away, as the crystal around it would:
 
 <!-- skip-test -->
 ```python
-from mdapy.simulation import AdaptiveTimestep, Langevin
+from mdapy.simulation.controls import AdaptiveTimestep, Langevin
 
 L = start.box.lengths
 inside = start.box.to_fractional(start["positions"]) * L

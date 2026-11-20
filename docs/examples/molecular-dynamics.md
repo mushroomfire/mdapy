@@ -102,7 +102,7 @@ has relaxed at zero pressure; in LAMMPS it is `fix deform`:
 
 <!-- skip-test -->
 ```python
-from mdapy.simulation import Deform
+from mdapy.simulation.controls import Deform
 
 curves = {}
 for temperature in (1.0, 300.0):

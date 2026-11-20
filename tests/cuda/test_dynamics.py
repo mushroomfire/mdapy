@@ -300,7 +300,7 @@ def walls(seed=0):
 
 
 def test_controls_as_on_the_processor():
-    from mdapy.simulation import AddForce, Hold, Move
+    from mdapy.simulation.controls import AddForce, Hold, Move
 
     system, bottom, top, middle = walls()
     controls = [
@@ -332,7 +332,7 @@ def test_controls_as_on_the_processor():
 def test_heat_baths(precision):
     """A hot and a cold bath: the energy changes by the heat they gave, and a
     seed gives the same run."""
-    from mdapy.simulation import Hold, Langevin
+    from mdapy.simulation.controls import Hold, Langevin
 
     system, bottom, top, middle = walls()
     potential = EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision)
@@ -362,7 +362,7 @@ def test_heat_baths(precision):
 def test_deformation_as_on_the_processor():
     """A box stretched, compressed and sheared on the GPU, then with a
     barostat on the lengths left: the runs of the processor."""
-    from mdapy.simulation import Deform
+    from mdapy.simulation.controls import Deform
 
     system, *_ = walls()
     out = []
@@ -403,7 +403,7 @@ def test_deformation_as_on_the_processor():
 def test_adaptive_timestep_as_on_the_processor():
     """The time step of a fast atom on the GPU: the steps and the runs of
     the processor."""
-    from mdapy.simulation import AdaptiveTimestep
+    from mdapy.simulation.controls import AdaptiveTimestep
 
     system = crystal()
     velocities = np.zeros((len(system), 3))
@@ -432,7 +432,7 @@ def test_a_switch_as_on_the_processor(target):
     cutoff the longer), to springs and to nothing: the runs and the
     differences of the energies of the processor."""
     from mdapy.calculators import Springs, UhlenbeckFord
-    from mdapy.simulation import Switch
+    from mdapy.simulation.controls import Switch
 
     system = crystal()
     out = []
@@ -647,7 +647,7 @@ def test_walls(precision):
     """A crystal open along z thrown against a still wall, then pushed by a
     piston, on the GPU: the runs of the processor in double precision, the
     atoms kept on their side of the walls in both."""
-    from mdapy.simulation import Wall
+    from mdapy.simulation.controls import Wall
 
     system = crystal()
     system = system.with_box(mdapy.Box(system.box.matrix, pbc=(True, True, False)))
@@ -760,7 +760,7 @@ def test_indenters(precision):
     its bottom, on the GPU: the run of the processor in double precision; in
     mixed precision the force on the sphere that of the processor's run, its
     chaos aside."""
-    from mdapy.simulation import Indenter
+    from mdapy.simulation.controls import Indenter
 
     system = crystal()
     system = system.with_box(mdapy.Box(system.box.matrix, pbc=(True, True, False)))

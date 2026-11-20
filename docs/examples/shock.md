@@ -45,7 +45,7 @@ their center of mass, their temperature about it, and their stress:
 <!-- skip-test -->
 ```python
 from mdapy.analysis import SpatialBinning
-from mdapy.simulation import Wall
+from mdapy.simulation.controls import Wall
 
 piston = Wall(position=float(warm["positions.z"].min()) - 1.0, velocity=10.0)
 profiles = []

@@ -9,6 +9,9 @@
   with MDAPY's potentials on the processor. Restart files hold the atoms in their own
   order, whatever the number of processes. It needs mpi4py. See
   [On many processes](../user-guide/simulation/processes.md).
+- `neb` on many processes shares the images among them, each process computing its own
+  whole: the path of one process, to the last bit, with any calculator. See
+  [Minimum energy paths](../user-guide/simulation/neb.md#on-many-processes).
 - Restart files of molecular dynamics: `run(..., restart="md.restart",
   restart_every=1000)` and `iterate` write the state of the dynamics every so many
   steps and at the end of a run, replacing the last once the new one is whole;

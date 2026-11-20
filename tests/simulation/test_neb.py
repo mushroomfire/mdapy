@@ -472,3 +472,36 @@ def test_invalid_states_and_options():
             MullerBrown(),
             images=1,
         )
+
+
+def test_the_images_shared_among_processes(monkeypatch, tmp_path):
+    """Under MPI each process computes its images, every process holds the
+    band: the path of one process, to the last bit."""
+    from simulation import processes
+
+    initial, final = vacancy_hop()
+    alone = neb(initial, final, EAM.zhou(["Cu"]), images=5, max_force=1e-3)
+    for size in (2, 3, 7):  # of seven, two compute no image
+        split = processes.run(
+            size,
+            lambda rank: neb(initial, final, EAM.zhou(["Cu"]), images=5, max_force=1e-3,
+                             log=tmp_path / f"neb{rank}.log"),
+            monkeypatch,
+        )  # fmt: skip
+        for result in split:
+            assert result.steps == alone.steps and result.converged
+            np.testing.assert_array_equal(result.energies, alone.energies)
+            for a, b in zip(result.images, alone.images):
+                np.testing.assert_array_equal(a["positions"], b["positions"])
+        # the main process writes the log
+        assert f"{size} processes" in (tmp_path / "neb0.log").read_text()
+        assert not (tmp_path / "neb1.log").exists()
+
+    # the callback of one process stops them all
+    def stopped(rank):
+        def stop(step, band, energies, largest):
+            return rank == 1 and step == 3
+
+        return neb(initial, final, EAM.zhou(["Cu"]), images=3, callback=stop).steps
+
+    assert processes.run(2, stopped, monkeypatch) == [3, 3]

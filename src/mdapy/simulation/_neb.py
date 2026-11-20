@@ -20,6 +20,7 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter
 from mdapy.neighbor import NeighborList
+from mdapy.simulation import _domain
 from mdapy.simulation._log import _Log, _machine, _on_gpu
 from mdapy.simulation._minimize import _FTM2V, _Fire, _masses, _Neighbors
 
@@ -454,6 +455,12 @@ def neb(
     last = computed(calculators[-1], initial.with_columns(positions=end), ends[1])
     systems: list[System] = [initial] * count
     results: list[Any] = [None] * count
+    # under MPI, the images shared among the processes, each computing its
+    # own whole, image k on process k modulo their number, every process
+    # then holding the whole band
+    comm = _domain.world()
+    rank, size = (0, 1) if comm is None else (comm.Get_rank(), comm.Get_size())
+    mine = [k for k in range(count) if k % size == rank]
 
     def compute(moving: np.ndarray) -> None:
         for k in range(count):
@@ -464,10 +471,15 @@ def neb(
                 results[k] = computed(calculators[k], systems[k], lists[k])
 
         if pool is None:
-            run(list(range(count)))
+            run(mine)
         else:
-            for done in [pool.submit(run, indices) for indices in groups.values()]:
+            shares = [[k for k in g if k in mine] for g in groups.values()]
+            for done in [pool.submit(run, share) for share in shares if share]:
                 done.result()
+        if comm is not None:
+            for part in comm.allgather({k: results[k] for k in mine}):
+                for k, result in part.items():
+                    results[k] = result
 
     energies = np.empty(count + 2)
     energies[0], energies[-1] = first.energy, last.energy
@@ -491,7 +503,7 @@ def neb(
         return out.reshape(-1, 3)
 
     inverse_mass = np.tile((_FTM2V / masses)[:, None], (count, 1))
-    writer = _Log(log)
+    writer = _Log(log, active=rank == 0)
 
     def band_now() -> tuple[System, ...]:
         states = (first.attach(initial.with_columns(positions=start)),)
@@ -518,6 +530,11 @@ def neb(
                     else []
                 ),
                 f"machine: {_machine()}",
+                *(
+                    [f"{size} processes, the images shared among them"]
+                    if size > 1
+                    else []
+                ),
                 f"spring {spring!r} eV/Å², max_force {max_force!r} eV/Å, "
                 f"max_steps {max_steps}",
                 "",
@@ -528,9 +545,13 @@ def neb(
             fire.advance(evaluate)
             if fire.step % log_every == 0:
                 write()
-            if callback is not None and callback(
-                fire.step, band_now(), energies.copy(), largest
-            ):
+            stop = callback is not None and bool(
+                callback(fire.step, band_now(), energies.copy(), largest)
+            )
+            # every process stops when the callback of one says so
+            if comm is not None:
+                stop = bool(comm.allreduce(int(stop)))
+            if stop:
                 break
         if writer.on:
             if fire.step % log_every != 0:

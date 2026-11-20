@@ -280,12 +280,19 @@ def world() -> Any:
     """The communicator of all the processes when this one is one of several
     under MPI, as mpirun, mpiexec or srun start them, or after mpi4py was
     imported; else None."""
-    launched = False
-    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE"):
+
+    def more_than_one(name: str) -> bool:
         try:
-            launched = launched or int(os.environ.get(name, "1")) > 1
+            return int(os.environ.get(name, "1")) > 1
         except ValueError:
-            continue
+            return False
+
+    # mpirun of Open MPI, PMI of MPICH, Intel MPI or srun --mpi=pmi2, MVAPICH;
+    # srun --mpi=pmix names its tasks alone
+    launched = any(
+        more_than_one(name)
+        for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE")
+    ) or ("PMIX_RANK" in os.environ and more_than_one("SLURM_STEP_NUM_TASKS"))
     if not launched and "mpi4py.MPI" not in sys.modules:
         return None
     try:

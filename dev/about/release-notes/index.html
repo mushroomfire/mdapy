@@ -2024,7 +2024,7 @@
   <span class="md-ellipsis">
     
   
-    A shock wave in copper
+    Shock and spall in copper
   
 
     
@@ -10728,6 +10728,11 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="220-not-released">2.2.0 (not released)<a class="headerlink" href="#220-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li>The controls of a run of molecular dynamics, <code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code>,
+  <code>Deform</code>, <code>AdaptiveTimestep</code>, <code>Switch</code>, <code>Wall</code> and <code>Indenter</code>, live in a module of their
+  own, <code>mdapy.simulation.controls</code>, beside <code>MolecularDynamics</code> in <code>mdapy.simulation</code>:
+  <code>from mdapy.simulation.controls import Deform</code>. See
+  <a href="../../user-guide/molecular-dynamics/controls/">Groups and controls</a>.</li>
 <li>Along a box vector that is not periodic, the box that MDAPY's own dynamics gives grows
   to hold the atoms that left it, never smaller than the box given, as LAMMPS's
   boundary <code>m</code> grows it, which the LAMMPS dynamics already did: in <code>system</code>, the frames,
@@ -10744,6 +10749,14 @@
   velocity the end of the step gives it. At constant energy the field does the work of
   the whole flux, on the processor and the GPU. See
   <a href="../../user-guide/properties/hnemd/">HNEMD conductivity</a>.</li>
+<li>The heat flux of EAM in <code>green_kubo</code> and <code>hnemd</code>: the virial of each atom of Fan et al.
+  (2015), from the derivatives of the energies of the others, instead of its pair forces
+  split in halves, LAMMPS's centroid stress of EAM, which do not give the change of the
+  moment of the energies in a free cluster. The conductivity of copper with Zhou's EAM
+  is 9 % lower at 300 K, and 12 % lower in the liquid at 1600 K, than with the flux of
+  2.1, which LAMMPS's <code>compute heat/flux</code> gives. The energies and virials of each atom
+  that <code>compute</code> gives stay LAMMPS's. See
+  <a href="../../user-guide/properties/green-kubo/">Green–Kubo conductivity</a>.</li>
 <li>The <a href="../../user-guide/properties/green-kubo/">Green–Kubo</a> and
   <a href="../../user-guide/properties/hnemd/">HNEMD</a> conductivities take Stillinger–Weber and
   Tersoff, on the processor and the GPU: their heat flux has the energy of each
@@ -10766,14 +10779,16 @@
   <a href="../../user-guide/molecular-dynamics/shock/">choosing a method</a> of shock. The
   potentials and the properties have parts of their own too; the pages of
   <code>user-guide/simulation/</code> moved there, and their old addresses lead to them.</li>
-<li><code>mdapy.simulation.Indenter</code>, a control of a virtual indenter, as LAMMPS's
+<li><code>mdapy.simulation.controls.Indenter</code>, a control of a virtual indenter, as LAMMPS's
   <code>fix indent</code>: a sphere, a cylinder or a plane, still or moving, that pushes the
   atoms inside it out with a force K d², recording the force on it and its energy;
   in MDAPY, on the GPU and in LAMMPS alike. See
   <a href="../../user-guide/molecular-dynamics/indentation/">Indentation</a>.</li>
-<li>The example <a href="../../examples/shock/">A shock wave in copper</a>: a piston at 1 km/s
-  through 102400 atoms on a GPU, the profiles of velocity, pressure and temperature
-  behind the front, and the stacking faults it leaves.</li>
+<li>The example <a href="../../examples/shock/">Shock and spall in copper</a>: a piston at 1 km/s for
+  5 ps through 320000 atoms on a GPU, then no piston: the wave diagram of the stress
+  along z in fixed slabs, the shock, its release and the spall where the releases meet,
+  the velocity of the free surface with its pull-back signal, and slices of the copper
+  from the stacking faults behind the front to the voids that open and tear it apart.</li>
 <li><code>run(..., ensemble="msst", barostat="z", shock_velocity=...)</code>, the multiscale
   shock technique of LAMMPS's <code>fix msst</code>: the box compressed along an axis as by a
   steady shock of that velocity, its settings <code>q</code>, <code>mu</code> and <code>tscale</code> in <code>msst</code>, the
@@ -10788,7 +10803,7 @@
   barostats along one axis, <code>barostat="x"</code>, <code>"y"</code> or <code>"z"</code>, as <code>fix npt ... z</code>.
   In MDAPY, on the GPU and in LAMMPS alike. See
   <a href="../../user-guide/molecular-dynamics/hugoniostat/">Hugoniostat</a>.</li>
-<li><code>mdapy.simulation.Wall</code>, a control of a flat wall across an axis that reflects
+<li><code>mdapy.simulation.controls.Wall</code>, a control of a flat wall across an axis that reflects
   the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
   piston that drives a shock wave), as LAMMPS's <code>fix wall/reflect</code> and
   <code>fix wall/piston</code>; in MDAPY, on the GPU and in LAMMPS alike. See
@@ -10839,18 +10854,18 @@
   <a href="../../user-guide/molecular-dynamics/running/#running">Molecular dynamics</a>.</p>
 </li>
 <li>Controls of molecular dynamics: <code>run(..., controls=[...])</code> and <code>iterate</code>
-  hold groups of atoms still (<code>mdapy.simulation.Hold</code>), move them at a
+  hold groups of atoms still (<code>mdapy.simulation.controls.Hold</code>), move them at a
   velocity and record the force on them (<code>Move</code>), push them (<code>AddForce</code>), or
   keep them at a temperature and record the heat this takes (<code>Langevin</code>), for
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
   <a href="../../user-guide/molecular-dynamics/controls/">Groups and controls</a>.</li>
-<li><code>mdapy.simulation.Deform</code>, a control that stretches, compresses or shears the
+<li><code>mdapy.simulation.controls.Deform</code>, a control that stretches, compresses or shears the
   box at constant strain rates, engineering or true, the atoms carried with it,
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (<code>fix deform</code>) alike. See
   <a href="../../user-guide/molecular-dynamics/deformation/">Deformation</a>.</li>
-<li><code>mdapy.simulation.AdaptiveTimestep</code>, a control that sets the time step by the
+<li><code>mdapy.simulation.controls.AdaptiveTimestep</code>, a control that sets the time step by the
   fastest atom, so that no atom moves more than a distance in a step, within
   bounds, as LAMMPS's <code>fix dt/reset</code>: for collision cascades; in MDAPY, on the GPU
   and in LAMMPS alike. See <a href="../../user-guide/molecular-dynamics/adaptive-timestep/">Adaptive time step</a>.</li>
@@ -10858,7 +10873,7 @@
 <p><code>free_energy</code> takes MDAPY's own potentials: the solid is switched to an Einstein
   crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
   processor or on the GPU, through
-  three new parts: <code>mdapy.simulation.Switch</code>, a control that turns the potential of a
+  three new parts: <code>mdapy.simulation.controls.Switch</code>, a control that turns the potential of a
   run into another, recording λ and the difference of their energies, as LAMMPS's
   <code>fix ti/spring</code> and <code>pair_style hybrid/scaled</code>; <code>mdapy.calculators.Springs</code>, the
   springs of an Einstein crystal; and <code>mdapy.calculators.UhlenbeckFord</code>, LAMMPS's

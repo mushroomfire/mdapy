@@ -2028,7 +2028,7 @@
   <span class="md-ellipsis">
     
   
-    A shock wave in copper
+    Shock and spall in copper
   
 
     
@@ -10192,7 +10192,11 @@ conductivity of a crystal along a box vector by nonequilibrium molecular dynamic
 (NEMD): a hot and a cold Langevin bath drive heat through the crystal between them, and
 the conductivity is the heat flux over the gradient of temperature it sets up. It runs
 in MDAPY, on the processor or the <a href="../../molecular-dynamics/gpu/">GPU</a>, or in LAMMPS for a
-<a href="../../potentials/lammps/">LAMMPS calculator</a>; the baths are <a href="../../molecular-dynamics/controls/"><code>Langevin</code></a> controls.</p>
+<a href="../../potentials/lammps/">LAMMPS calculator</a>; the baths are <a href="../../molecular-dynamics/controls/"><code>Langevin</code></a> controls.
+The baths hold the atoms of their slabs at the start, a group each: in a liquid these
+atoms wander out of their slabs, and the conductivity means nothing. A liquid takes the
+<a href="../green-kubo/">Green–Kubo</a> conductivity or <a href="../hnemd/">HNEMD</a> with <code>convective=True</code>;
+in liquid argon and silicon NEMD gave four times theirs.</p>
 <p>Solid argon at 40 K in a box 8.4 nm long, the baths at 45 and 35 K:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>

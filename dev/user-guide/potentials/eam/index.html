@@ -2028,7 +2028,7 @@
   <span class="md-ellipsis">
     
   
-    A shock wave in copper
+    Shock and spall in copper
   
 
     
@@ -10323,7 +10323,13 @@ the distances <span class="arithmatex">\(r_{ij}\)</span>, with the embedding ene
 potential <span class="arithmatex">\(\phi\)</span> of the species <span class="arithmatex">\(s_i\)</span> and <span class="arithmatex">\(s_j\)</span> of the atoms, interpolated from the tables of the file as LAMMPS
 <code>pair_style eam/alloy</code> and <code>eam/fs</code> do. In <code>eam/alloy</code> the density depends
 on the species that gives it only, <span class="arithmatex">\(\rho_{ab} = \rho_a\)</span>. Each pair's virial
-is shared equally by its two atoms.</p>
+is shared equally by its two atoms, as LAMMPS shares it. For the heat flux of the
+<a href="../../properties/green-kubo/">Green–Kubo</a> and <a href="../../properties/hnemd/">HNEMD</a>
+conductivities the virial of each atom is instead that of the derivatives of the
+others' energies by its position
+(<a href="../../../reference/references/#fan2015">Fan et al. (2015)</a>): the pair forces split in
+halves do not give the heat flux of EAM, and give copper a conductivity about a tenth
+too high; their sums are the same.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
 <p><a href="../../../reference/references/#daw1984">Daw and Baskes (1984)</a>, and the paper of the potential.</p>

@@ -229,6 +229,11 @@ column of fixed-size arrays of length 3 and use the plural name.
 | shock velocity, particle velocity | of a steady shock to a state of strain ε = 1 − V/V₀: the speed of its front, √((P − P₀)/(ρ₀ε)), and that of the matter behind it, ε times the first |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
 | NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |
+| NEB | the nudged elastic band: images between two states, pulled down across the band by the forces of the potential and kept apart along it by springs, which relax to the minimum energy path; `neb` |
+| minimum energy path | the path between two minima of the energy along which the force has no part across it; its highest point is a saddle point |
+| saddle point | a stationary point of the energy that is a maximum along one direction and a minimum along all others; the barrier is its energy above the initial state |
+| climbing image | the image of highest energy of a band, which feels no springs and the force along the band reversed, and so climbs to the saddle point; `climb` |
+| IDPP | the image dependent pair potential of Smidstrup et al. (2014): the distances of the pairs of atoms of each image kept near those interpolated between the states, for the start of a band; `interpolation="idpp"` |
 | HNEMD | homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, `hnemd` |
 | convective | of HNEMD: the energy each atom carries, $\sum_i E_i \mathbf v_i$, part of the field and of the heat flux, `hnemd(..., convective=True)` |
 | switching, λ | of `Switch`: the potential of a run turned into another, the forces of (1 − λ) times the one and λ times the other, λ going from `start` to `stop` along the run; the integral over λ of the difference of their energies is the difference of their free energies |
@@ -301,7 +306,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
 | a log of a run or a minimization, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo` | `logfile`, `log_file`, `verbose` |
-| convergence of a minimization | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
+| convergence of a minimization or a band | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
+| the images of a band between its two states, and the constant of its springs (eV/Å²) | `images`, `spring` | `nimages`, `n_images`, `k`, `kspring` |
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |
 | external hydrostatic pressure (GPa) | `pressure` | `press`, `p` |
 | magnitude of an applied strain | `strain` | `delta`, `eps` |

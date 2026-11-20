@@ -111,6 +111,96 @@ def _rows_times(rows: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return np.einsum("ij,kj->ik", rows, matrix)
 
 
+class _Neighbors:
+    """The neighbor lists of a calculator for configurations that change
+    little from one to the next: one search, with a skin, serves until an
+    atom has moved half as far."""
+
+    def __init__(self, cutoff: float):
+        self.__cutoff = float(cutoff)
+        self.__wide: NeighborList | None = None
+
+    def of(self, system: System) -> NeighborList | None:
+        """The list of system within the cutoff, or None for a calculator
+        without a finite cutoff."""
+        cutoff = self.__cutoff
+        if not 0.0 < cutoff < np.inf:
+            return None
+        wide = self.__wide
+        neighbors = wide._follow(system, cutoff) if wide is not None else None
+        if neighbors is None:
+            self.__wide = NeighborList.build(system, cutoff + _SKIN)
+            neighbors = self.__wide._follow(system, cutoff)
+        return neighbors
+
+
+class _Fire:
+    """FIRE 2.0 as LAMMPS min_style fire, a step at a time, over rows of
+    variables with their masses.
+
+    ``advance(evaluate)`` takes a step; ``evaluate(variables)`` gives the
+    forces on new variables, once in a step, or twice after an uphill one.
+    """
+
+    def __init__(
+        self,
+        variables: np.ndarray,
+        forces: np.ndarray,
+        inverse_mass: np.ndarray,
+        timestep: float,
+        max_step: float,
+    ):
+        self.variables = variables
+        self.forces = forces
+        self.velocities = np.zeros_like(variables)
+        self.step = 0
+        self.__inverse_mass = inverse_mass
+        self.__max_step = max_step
+        self.__dt, self.__alpha = timestep, _ALPHA0
+        self.__dt_max, self.__dt_min = _TMAX * timestep, _TMIN * timestep
+        self.__last_negative, self.__reset = 0, True
+
+    def advance(self, evaluate: Any) -> None:
+        self.step += 1
+        step = self.step
+        velocities, forces = self.velocities, self.forces
+        power = _dot(velocities, forces)
+        if power > 0.0:
+            # mix the velocities toward the forces
+            keep = 1.0 - self.__alpha
+            ff = _dot(forces, forces)
+            vv = _dot(velocities, velocities)
+            turn = self.__alpha * np.sqrt(vv / ff) if ff > 1e-20 else 0.0
+            if step - self.__last_negative > _DELAY:
+                self.__dt = min(self.__dt * _GROW, self.__dt_max)
+                self.__alpha *= _ALPHA_SHRINK
+        else:
+            # uphill: shrink the time step after the first steps, go back
+            # half a step and stop
+            self.__last_negative = step
+            if step >= _DELAY:
+                self.__alpha = _ALPHA0
+                if self.__dt * _SHRINK >= self.__dt_min:
+                    self.__dt *= _SHRINK
+            if velocities.any():
+                self.variables = self.variables - 0.5 * self.__dt * velocities
+                forces = self.forces = evaluate(self.variables)
+            velocities[:] = 0.0
+            self.__reset = True
+        # no variable moves more than max_step in one step
+        dt, inverse_mass = self.__dt, self.__inverse_mass
+        estimate = dt * inverse_mass * forces if self.__reset else velocities
+        fastest = float(np.abs(estimate).max(initial=0.0))
+        dtv = self.__max_step / fastest if dt * fastest > self.__max_step else dt
+        velocities += dtv * inverse_mass * forces
+        if power > 0.0:
+            velocities = keep * velocities + turn * forces
+        self.velocities = velocities
+        self.variables = self.variables + dtv * velocities
+        self.forces = evaluate(self.variables)
+        self.__reset = False
+
+
 def _projector(cell: str | None, pbc: np.ndarray):
     """The projection of a (3, 3) tensor onto the strains the mode allows."""
     periodic = np.outer(pbc, pbc)
@@ -266,21 +356,13 @@ def minimize(
             positions=origin + _rows_times(variables[:n], deformation.T)
         )
 
-    cutoff = float(calculator.cutoff)
-    wide: NeighborList | None = None
+    lists = _Neighbors(calculator.cutoff)
 
     def evaluate(variables: np.ndarray):
         # the result, the largest force, the stress, the forces on the
         # variables and the largest deviation of the stress from its target
-        nonlocal wide
         current = place(variables)
-        neighbors = None
-        if 0.0 < cutoff < np.inf:
-            neighbors = wide._follow(current, cutoff) if wide is not None else None
-            if neighbors is None:
-                wide = NeighborList.build(current, cutoff + _SKIN)
-                neighbors = wide._follow(current, cutoff)
-        result = calculator.compute(current, properties, neighbors=neighbors)
+        result = calculator.compute(current, properties, neighbors=lists.of(current))
         if not (np.isfinite(result.energy) and np.isfinite(result.forces).all()):
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
@@ -305,11 +387,15 @@ def minimize(
     variables = system["positions"].copy()
     if cell:
         variables = np.vstack([variables - origin, scale * np.eye(3)])
-    velocities = np.zeros_like(variables)
     current, result, largest, stress, forces, deviation = evaluate(variables)
-    dt, alpha = timestep, _ALPHA0
-    dt_max, dt_min = _TMAX * timestep, _TMIN * timestep
-    step, last_negative, reset = 0, 0, True
+
+    def forces_at(variables: np.ndarray) -> np.ndarray:
+        nonlocal current, result, largest, stress, deviation
+        current, result, largest, stress, forces, deviation = evaluate(variables)
+        return forces
+
+    fire = _Fire(variables, forces, inverse_mass, timestep, max_step)
+    step = 0
     frames: list[System] = []
 
     def frame() -> System:
@@ -347,42 +433,8 @@ def minimize(
     try:
         write()
         while not done() and step < max_steps:
-            step += 1
-            power = _dot(velocities, forces)
-            if power > 0.0:
-                # mix the velocities toward the forces
-                keep = 1.0 - alpha
-                ff = _dot(forces, forces)
-                vv = _dot(velocities, velocities)
-                turn = alpha * np.sqrt(vv / ff) if ff > 1e-20 else 0.0
-                if step - last_negative > _DELAY:
-                    dt = min(dt * _GROW, dt_max)
-                    alpha *= _ALPHA_SHRINK
-            else:
-                # uphill: shrink the time step after the first steps, go back
-                # half a step and stop
-                last_negative = step
-                if step >= _DELAY:
-                    alpha = _ALPHA0
-                    if dt * _SHRINK >= dt_min:
-                        dt *= _SHRINK
-                if velocities.any():
-                    variables = variables - 0.5 * dt * velocities
-                    current, result, largest, stress, forces, deviation = evaluate(
-                        variables
-                    )
-                velocities[:] = 0.0
-                reset = True
-            # no variable moves more than max_step in one step
-            estimate = dt * inverse_mass * forces if reset else velocities
-            fastest = float(np.abs(estimate).max(initial=0.0))
-            dtv = max_step / fastest if dt * fastest > max_step else dt
-            velocities += dtv * inverse_mass * forces
-            if power > 0.0:
-                velocities = keep * velocities + turn * forces
-            variables = variables + dtv * velocities
-            current, result, largest, stress, forces, deviation = evaluate(variables)
-            reset = False
+            fire.advance(forces_at)
+            step = fire.step
             if save_every is not None and step % save_every == 0:
                 save()
             if step % log_every == 0:

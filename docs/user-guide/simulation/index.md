@@ -1,8 +1,9 @@
 # Simulation
 
-MDAPY simulates atoms itself: molecular dynamics, the subject of this part, and
+MDAPY simulates atoms itself: molecular dynamics, the subject of this part,
 [energy minimization](minimize.md), which relaxes the atoms and the box to the nearest
-minimum of the energy. The functions that run them live in `mdapy.simulation`, the
+minimum of the energy, and [minimum energy paths](neb.md), the nudged elastic band
+between two minima and the barrier on its saddle point. The functions that run them live in `mdapy.simulation`, the
 controls of a run in `mdapy.simulation.controls`; the properties computed from them,
 such as conductivities and free energies, in `mdapy.properties`.
 

@@ -300,8 +300,9 @@ nav:
               - Walls: user-guide/simulation/walls.md
               - Hugoniostat: user-guide/simulation/hugoniostat.md
               - Multiscale shock technique: user-guide/simulation/msst.md
-          - Relaxation:
+          - Relaxation and paths:
               - Energy minimization: user-guide/simulation/minimize.md
+              - Minimum energy paths: user-guide/simulation/neb.md
       - Properties:
           - Defects:
               - Defect energies: user-guide/properties/defect-energies.md

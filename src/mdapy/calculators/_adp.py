@@ -125,6 +125,8 @@ class ADP(Calculator):
         Cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+
     def __init__(
         self,
         path: str | os.PathLike,

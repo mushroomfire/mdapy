@@ -282,6 +282,8 @@ class NEP(Calculator):
         The largest cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+
     # the virial of each atom from the energies of the others, as GPUMD's
     _heat_flux = True
 

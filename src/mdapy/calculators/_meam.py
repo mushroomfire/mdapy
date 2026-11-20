@@ -709,6 +709,8 @@ class MEAM(Calculator):
         farther away screen a pair.
     """
 
+    _takes_wider_lists = True
+
     def __init__(
         self,
         library: str | os.PathLike,

@@ -532,27 +532,19 @@ class DomainAtoms(_HostAtoms):
         thick = 1.0 / np.linalg.norm(bricks.inverse, axis=0)
         return (out * thick).max(axis=1, initial=0.0)
 
-    def __neighbors(self, slot: str, current: System, calculator: Any) -> Any:
+    def _wide(self, current: System, calculator: Any) -> NeighborList:
         """The pairs of the atoms whose neighbors the calculator needs: this
         process's atoms, and for a many-body potential the ghosts within its
         cutoff and the skin of the brick."""
-        cutoff = float(calculator.cutoff)
-        wide = self._lists.get(slot)
-        neighbors = wide._follow(current, cutoff) if wide is not None else None
-        if neighbors is None:
-            centers = self.__bricks.local
-            inner = _reach(calculator, target=True)[1]
-            if inner > 0.0:
-                centers += int(
-                    np.searchsorted(self.__far, inner + self.__skin, "right")
-                )
-            from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
+        from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
 
-            full = NeighborList.build(current, cutoff + self.__skin)
-            symmetric = isinstance(calculator, (MEAM, NEP, StillingerWeber, Tersoff))
-            self._lists[slot] = wide = _centered(full, centers, symmetric)
-            neighbors = wide._follow(current, cutoff)
-        return neighbors
+        centers = self.__bricks.local
+        inner = _reach(calculator, target=True)[1]
+        if inner > 0.0:
+            centers += int(np.searchsorted(self.__far, inner + self.__skin, "right"))
+        full = NeighborList.build(current, float(calculator.cutoff) + self.__skin)
+        symmetric = isinstance(calculator, (MEAM, NEP, StillingerWeber, Tersoff))
+        return _centered(full, centers, symmetric)
 
     def _evaluate(
         self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
@@ -579,7 +571,7 @@ class DomainAtoms(_HostAtoms):
         current = System(table=self.__part.with_columns(
             pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=self.__box)  # fmt: skip
-        neighbors = self.__neighbors(slot, current, calculator)
+        neighbors = self._neighbors(slot, current, calculator)
         result = calculator.compute(current, wanted, neighbors=neighbors)
         energies = np.asarray(result.atomic_energies, dtype=float)[:n]
         virials = (

@@ -407,12 +407,10 @@ class NeighborList:
             self.distances[order],
         )
 
-    def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
-        """The pairs of NeighborList.build(system, cutoff), in another order,
-        for the atoms of this list moved to their places in system, from the
-        pairs of this list without a new search; None for a list of nearest
-        neighbors, when the box changed or when an atom moved too far, half
-        the difference of the cutoffs or more."""
+    def __moved(self, system: System, cutoff: float) -> bool:
+        """Whether this list no longer holds every pair of system within
+        cutoff: a list of nearest neighbors, another box, or an atom moved
+        half the difference of the cutoffs or more."""
         old = self.system
         if (
             self.num_neighbors is not None
@@ -422,10 +420,28 @@ class NeighborList:
             or not np.array_equal(system.box.origin, old.box.origin)
             or not np.array_equal(system.box.pbc, old.box.pbc)
         ):
-            return None
+            return True
         step = system["positions"] - old["positions"]
         moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
-        if not cutoff + 2.0 * moved < self.cutoff:
+        return not cutoff + 2.0 * moved < self.cutoff
+
+    def _reuse(self, system: System, cutoff: float) -> "NeighborList | None":
+        """This list for the atoms of system, moved, with every pair it has,
+        those now beyond cutoff among them, for a calculator that passes over
+        them; the distances are those of the list. None as for _follow."""
+        if self.__moved(system, cutoff):
+            return None
+        return NeighborList(
+            system, self.cutoff, self.offsets, self.j, self.shifts, self.distances
+        )
+
+    def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
+        """The pairs of NeighborList.build(system, cutoff), in another order,
+        for the atoms of this list moved to their places in system, from the
+        pairs of this list without a new search; None for a list of nearest
+        neighbors, when the box changed or when an atom moved too far, half
+        the difference of the cutoffs or more."""
+        if self.__moved(system, cutoff):
             return None
         offsets, j, shifts, distances = _native.follow(
             np.ascontiguousarray(system["positions"]),

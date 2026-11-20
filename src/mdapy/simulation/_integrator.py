@@ -387,17 +387,31 @@ class _HostAtoms:
             * _MVV2E
         )
 
-    def _neighbors(self, slot: str, current: System, cutoff: float) -> Any:
-        """The pairs closer than cutoff, from the list kept in slot, built
-        again with a skin when the atoms have moved too far."""
+    def _neighbors(self, slot: str, current: System, calculator: Any) -> Any:
+        """The pairs of the calculator, from the list with a skin kept in
+        slot, built again when the atoms have moved too far: that list as it
+        is for MDAPY's potentials, which pass over the pairs beyond their
+        cutoffs, those closer than the cutoff for the others."""
+        cutoff = float(calculator.cutoff)
         if not 0.0 < cutoff < np.inf:
             return None
+        wider = getattr(calculator, "_takes_wider_lists", False)
+
+        def pairs(wide: NeighborList) -> NeighborList | None:
+            return (
+                wide._reuse(current, cutoff) if wider else wide._follow(current, cutoff)
+            )
+
         wide = self._lists.get(slot)
-        neighbors = wide._follow(current, cutoff) if wide is not None else None
+        neighbors = pairs(wide) if wide is not None else None
         if neighbors is None:
-            self._lists[slot] = wide = NeighborList.build(current, cutoff + _SKIN)
-            neighbors = wide._follow(current, cutoff)
+            self._lists[slot] = wide = self._wide(current, calculator)
+            neighbors = pairs(wide)
         return neighbors
+
+    def _wide(self, current: System, calculator: Any) -> NeighborList:
+        """A list of the pairs within the cutoff and the skin."""
+        return NeighborList.build(current, float(calculator.cutoff) + _SKIN)
 
     def _evaluate(
         self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
@@ -411,7 +425,7 @@ class _HostAtoms:
         current = System(table=table.with_columns(
             pl.Series("positions", self._x.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=box)  # fmt: skip
-        neighbors = self._neighbors(slot, current, float(calculator.cutoff))
+        neighbors = self._neighbors(slot, current, calculator)
         result = calculator.compute(current, wanted, neighbors=neighbors)
         work = (
             np.asarray(result.virial, dtype=float)

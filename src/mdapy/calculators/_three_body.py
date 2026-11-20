@@ -120,6 +120,8 @@ def _triplets(
 class _ThreeBody(Calculator):
     """A potential of three-body terms computed natively."""
 
+    _takes_wider_lists = True
+
     _name: str
     _compute: Any
     _gpu_potential: Any = None  # on the GPU

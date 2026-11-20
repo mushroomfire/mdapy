@@ -123,6 +123,10 @@ class Calculator(ABC):
     # (Fan et al., PRB 92, 094301 (2015)); not the virials of many-body terms
     # split among their atoms
     _heat_flux: bool = False
+    # whether compute passes over the pairs of a neighbor list beyond the
+    # cutoff of each pair, so that the dynamics can give it the list with its
+    # skin as it is between two builds, the pairs in the same order
+    _takes_wider_lists: bool = False
 
     @abstractmethod
     def compute(

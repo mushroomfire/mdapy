@@ -96,6 +96,8 @@ def _cutoff(value: Any, what: str = "cutoff") -> float:
 class _PairCalculator(Calculator):
     """A pair potential computed natively from tables of coefficients."""
 
+    _takes_wider_lists = True
+
     _style: str
     _name: str
     _heat_flux = True

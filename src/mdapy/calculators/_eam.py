@@ -317,6 +317,8 @@ class EAM(Calculator):
         Cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+
     # its forces are pairwise, and their virials split in halves
     _heat_flux = True
 

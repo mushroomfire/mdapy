@@ -31,6 +31,7 @@ from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
+from mdapy.neighbor import NeighborList
 from mdapy.simulation._integrator import _HostAtoms
 
 
@@ -294,24 +295,52 @@ def world() -> Any:
     return comm if comm.Get_size() > 1 else None
 
 
-def _reach(calculator: Any, target: bool = False) -> float:
-    """How far from an atom the atoms that its force depends on are: the
-    cutoff of a pair potential, twice the cutoff of MDAPY's many-body
-    potentials, through the neighbors of the neighbors. The springs of a
-    Switch tie each atom to its site alone."""
+def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
+    """How far from an atom the atoms that its force depends on are, and
+    those whose neighbors it needs: the cutoff and none for a pair potential;
+    twice the cutoff and the cutoff for MDAPY's many-body potentials, whose
+    forces depend on what the neighbors have of their neighbors, as the
+    density of EAM. The springs of a Switch tie each atom to its site alone."""
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._pair import _PairCalculator
 
     if isinstance(calculator, _PairCalculator) or (
         target and isinstance(calculator, Springs)
     ):
-        return float(calculator.cutoff)
+        return float(calculator.cutoff), 0.0
     if isinstance(calculator, (EAM, ADP, MEAM, NEP, StillingerWeber, Tersoff)):
-        return 2.0 * float(calculator.cutoff)
+        return 2.0 * float(calculator.cutoff), float(calculator.cutoff)
     raise InvalidParameter(
         "MDAPY's dynamics on several processes splits MDAPY's own potentials, EAM, "
         "ADP, MEAM, NEP, Tersoff, Stillinger-Weber and the pair potentials, not "
         f"{type(calculator).__name__}: run it on one process"
+    )
+
+
+def _centered(neighbors: NeighborList, centers: int, symmetric: bool) -> NeighborList:
+    """The pairs of the first atoms, the centers, alone: the others have no
+    neighbors, and the calculator spends nothing on them. symmetric: the
+    pairs of a center and another kept both ways, for the potentials that
+    give each pair's terms to its other atom through the pair back; no term
+    of another reaches the atoms of the process, whose neighbors are all
+    centers."""
+    offsets = np.asarray(neighbors.offsets)
+    n = len(offsets) - 1
+    if symmetric:
+        first = np.repeat(np.arange(n), np.diff(offsets))
+        kept = (first < centers) | (np.asarray(neighbors.j) < centers)
+        counts = np.bincount(first[kept], minlength=n)
+    else:
+        kept = slice(0, int(offsets[centers]))
+        counts = np.diff(offsets)
+        counts[centers:] = 0
+    return NeighborList(
+        neighbors.system,
+        neighbors.cutoff,
+        np.concatenate([[0], np.cumsum(counts)]).astype(offsets.dtype),
+        np.array(neighbors.j[kept]),
+        np.array(neighbors.shifts[kept]),
+        np.array(neighbors.distances[kept]),
     )
 
 
@@ -340,7 +369,11 @@ class DomainAtoms(_HostAtoms):
         self.__skin = float(skin)
         try:
             self.__bricks = Bricks(
-                comm, box.matrix, box.origin, box.pbc, _reach(calculator) + self.__skin
+                comm,
+                box.matrix,
+                box.origin,
+                box.pbc,
+                _reach(calculator)[0] + self.__skin,
             )
         except ValueError as error:
             raise InvalidParameter(str(error)) from None
@@ -368,6 +401,9 @@ class DomainAtoms(_HostAtoms):
         bricks.local = len(mine)
         self.__built: np.ndarray | None = None  # the positions at the last build
         self.__ghosts: np.ndarray = self._x  # this process's atoms and the ghosts
+        # the order of the ghosts, nearest the brick first, and how far each is
+        self.__order: np.ndarray = np.arange(len(mine))
+        self.__far: np.ndarray = np.zeros(0)
         self.__part: Any = None  # their table
         self.__box: Box | None = None  # their box, not periodic
 
@@ -448,7 +484,7 @@ class DomainAtoms(_HostAtoms):
         if self.__built is None:
             self.__build(table, box)
         else:
-            self.__ghosts = bricks.follow(self._x)
+            self.__ghosts = bricks.follow(self._x)[self.__order]
 
     def __build(self, table: pl.DataFrame, box: Box) -> None:
         """The atoms moved to their bricks and the ghosts found; the rows of
@@ -461,11 +497,57 @@ class DomainAtoms(_HostAtoms):
         self._x, self._v = fields["positions"], fields["velocities"]
         self.__image = fields["image"]
         self.__mine(fields["id"])
-        self.__ghosts, ids = bricks.borders(self._x, self._ids)
+        ghosts, ids = bricks.borders(self._x, self._ids)
+        # the ghosts nearest the brick first, so that those whose neighbors a
+        # potential needs come before the others
+        n = bricks.local
+        far = self.__beyond(ghosts[n:])
+        order = np.argsort(far, kind="stable")
+        self.__order = np.concatenate([np.arange(n), n + order])
+        self.__far = far[order]
+        self.__ghosts, ids = ghosts[self.__order], ids[self.__order]
         self.__part = table[ids]
         self.__box = Box(box.matrix, origin=box.origin, pbc=(False, False, False))
         self.__built = self._x.copy()
         self._lists = {}
+
+    def __beyond(self, x: np.ndarray) -> np.ndarray:
+        """How far atoms are from the brick, in Å across its faces; the end
+        bricks along a direction that is not periodic reach out of the box."""
+        bricks = self.__bricks
+        s = bricks.fractional(x)
+        closed = bricks.pbc
+        lower = np.where(~closed & (bricks.at == 0), -np.inf, bricks.at / bricks.counts)
+        upper = np.where(
+            ~closed & (bricks.at == bricks.counts - 1),
+            np.inf,
+            (bricks.at + 1) / bricks.counts,
+        )
+        out = np.maximum(np.maximum(lower - s, s - upper), 0.0)
+        thick = 1.0 / np.linalg.norm(bricks.inverse, axis=0)
+        return (out * thick).max(axis=1, initial=0.0)
+
+    def __neighbors(self, slot: str, current: System, calculator: Any) -> Any:
+        """The pairs of the atoms whose neighbors the calculator needs: this
+        process's atoms, and for a many-body potential the ghosts within its
+        cutoff and the skin of the brick."""
+        cutoff = float(calculator.cutoff)
+        wide = self._lists.get(slot)
+        neighbors = wide._follow(current, cutoff) if wide is not None else None
+        if neighbors is None:
+            centers = self.__bricks.local
+            inner = _reach(calculator, target=True)[1]
+            if inner > 0.0:
+                centers += int(
+                    np.searchsorted(self.__far, inner + self.__skin, "right")
+                )
+            from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
+
+            full = NeighborList.build(current, cutoff + self.__skin)
+            symmetric = isinstance(calculator, (MEAM, NEP, StillingerWeber, Tersoff))
+            self._lists[slot] = wide = _centered(full, centers, symmetric)
+            neighbors = wide._follow(current, cutoff)
+        return neighbors
 
     def _evaluate(
         self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
@@ -492,7 +574,7 @@ class DomainAtoms(_HostAtoms):
         current = System(table=self.__part.with_columns(
             pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=self.__box)  # fmt: skip
-        neighbors = self._neighbors(slot, current, float(calculator.cutoff))
+        neighbors = self.__neighbors(slot, current, calculator)
         result = calculator.compute(current, wanted, neighbors=neighbors)
         energies = np.asarray(result.atomic_energies, dtype=float)[:n]
         virials = (
@@ -511,7 +593,7 @@ class DomainAtoms(_HostAtoms):
     def set_switch(self, target: Any) -> None:
         super().set_switch(target)
         if target:
-            reach = _reach(target, target=True) + self.__skin
+            reach = _reach(target, target=True)[0] + self.__skin
             if reach > self.__bricks.reach:
                 try:
                     self.__bricks.set_reach(reach)
@@ -527,6 +609,8 @@ class DomainAtoms(_HostAtoms):
         "_DomainAtoms__image",
         "_DomainAtoms__built",
         "_DomainAtoms__ghosts",
+        "_DomainAtoms__order",
+        "_DomainAtoms__far",
         "_DomainAtoms__part",
         "_DomainAtoms__box",
         "_DomainAtoms__skin",

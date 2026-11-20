@@ -217,9 +217,11 @@ def shaken(structure, a, elements, repeat, seed=0):
 
 @pytest.mark.parametrize("kind", ["eam", "lj"])
 def test_the_flux_of_lammps(kind, tmp_path, monkeypatch):
-    """MDAPY's heat flux of a configuration, the one LAMMPS's compute
-    heat/flux gives with the centroid stress of each atom, with the kinetic
-    energies of LAMMPS's constant of metal units."""
+    """LAMMPS's compute heat/flux with the centroid stress of each atom, with
+    the kinetic energies of LAMMPS's constant of metal units: MDAPY's heat flux
+    of a pair potential; of EAM, that of its pair forces split in halves,
+    which LAMMPS's centroid stress of EAM is, and not MDAPY's of Fan et al.
+    (2015)."""
     pytest.importorskip("lammps")
     import mdapy
     from mdapy.calculators import EAM, LAMMPS, LennardJones
@@ -253,12 +255,24 @@ def test_the_flux_of_lammps(kind, tmp_path, monkeypatch):
         expected = np.array(md.lammps.numpy.extract_compute("flux", 0, 1)[:3])
     monkeypatch.setattr(units, "AMU_A2_PER_PS2_TO_EV", 1.0364269e-4)
     found = _flux(system, ours)
+    if kind == "eam":
+        halves = ours.compute(system, ("atomic_energies", "atomic_virials"))
+        v = system["velocities"]
+        kinetic = 0.5 * system["mass"] * (v * v).sum(axis=1) * 1.0364269e-4
+        split = (halves.atomic_energies + kinetic) @ v + np.einsum(
+            "iab,ib->a", halves.atomic_virials, v
+        )
+        np.testing.assert_allclose(
+            split, expected, rtol=1e-11, atol=1e-11 * np.abs(expected).max()
+        )
+        assert np.abs(found - expected).max() > 1e-3 * np.abs(expected).max()
+        return
     np.testing.assert_allclose(
         found, expected, rtol=1e-11, atol=1e-11 * np.abs(expected).max()
     )
 
 
-@pytest.mark.parametrize("kind", ["nep", "lj", "sw", "tersoff"])
+@pytest.mark.parametrize("kind", ["nep", "lj", "sw", "tersoff", "eam"])
 def test_the_flux_is_the_change_of_the_energy_moment(kind, tmp_path):
     """The heat flux of a cluster times its volume, sum_i E_i v_i + sum_i W_i
     v_i, is the time derivative of sum_i r_i E_i along the dynamics, by
@@ -277,6 +291,10 @@ def test_the_flux_is_the_change_of_the_energy_moment(kind, tmp_path):
 
     if kind == "nep":
         potential, step = NEP(write_nep(tmp_path / "nep.txt")), 1e-5
+    elif kind == "eam":
+        from mdapy.calculators import EAM
+
+        potential, step = EAM.zhou(["Cu", "Ni"]), 1e-6
     elif kind == "lj":
         potential, step = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0), 1e-6
     elif kind == "sw":

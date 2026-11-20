@@ -84,7 +84,7 @@ EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
 void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                 double* forces, double* virials, const Control& control) {
+                 double* forces, double* virials, const Control& control, bool heat) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
     std::vector<double> slope(static_cast<std::size_t>(n), 0.0);  // F'(rho)
 
@@ -149,10 +149,15 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                     const double phip = z2p * recip - phi * recip;
                     const double psip = slope[i] * rho_jp + slope[j] * rho_ip + phip;
                     const double fpair = -psip * recip;
+                    // the virial: the pair force split in halves, as LAMMPS; or
+                    // for the heat flux r_ij (x) dU_j/dr_i of Fan et al. (2015),
+                    // U_j = F(rho_j) + phi / 2 over its pairs
+                    const double share =
+                        heat ? -(slope[j] * rho_ip + 0.5 * phip) * recip : 0.5 * fpair;
                     for (int a = 0; a < 3; ++a) {
                         f[a] += del[a] * fpair;
                         for (int b = 0; b < 3; ++b) {
-                            w[3 * a + b] += 0.5 * del[a] * del[b] * fpair;
+                            w[3 * a + b] += del[a] * del[b] * share;
                         }
                     }
                     pair_energy += 0.5 * phi;

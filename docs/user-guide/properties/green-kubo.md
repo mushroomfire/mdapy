@@ -78,17 +78,22 @@ atom. The virial must be one that gives the flux of heat:
   of each atom, the right one for many-body potentials
   ([Surblys et al. (2019)](../../reference/references.md#surblys2019)), with
   `compute heat/flux`; a potential for which LAMMPS has no centroid stress, such as
-  Stillinger–Weber or Tersoff, is refused;
-- in MDAPY, the atomic energies and virials of the potential: for EAM and the pair
-  potentials, the virials of their pairwise forces split in halves, the centroid
-  stress of LAMMPS, so that the flux is that of `compute heat/flux` for the same atoms;
-  for NEP, Stillinger–Weber and Tersoff, the virial of each atom from the derivatives
-  of the energies of the others with its position, as GPUMD computes it
-  ([Fan et al. (2015)](../../reference/references.md#fan2015)), the energy of each
-  three-body term of the last two whole with its centre atom. The energies and virials
-  of each atom that Stillinger–Weber and Tersoff give otherwise, LAMMPS's shares of
-  their terms, would give a wrong flux; those of ADP and MEAM do, so these two are
-  refused. In MDAPY each record costs an evaluation of the forces more.
+  Stillinger–Weber or Tersoff, is refused, and that of EAM is its pair forces split in
+  halves, which does not give its heat flux (below);
+- in MDAPY, the energy of each atom and the virial of each atom from the derivatives of
+  the energies of the others with its position, as GPUMD computes it
+  ([Fan et al. (2015)](../../reference/references.md#fan2015)): in a free cluster this
+  flux is the change of the moment of the energies, as the heat flux is. For the pair
+  potentials that virial is their pairwise forces split in halves, LAMMPS's centroid
+  stress, so that the flux is that of `compute heat/flux` for the same atoms. For EAM
+  it is not: its pair forces split in halves, LAMMPS's centroid stress of EAM, miss the
+  change of the moment of its energies, by 15 to 44 % in a free cluster of copper and
+  nickel, and on the same trajectories of copper, with Zhou's EAM, they give a
+  conductivity 9 % higher than MDAPY's flux at 300 K, 7.55 against 6.94 W/(m K) over
+  three runs, and 12 % higher in the liquid at 1600 K. Stillinger–Weber and Tersoff keep
+  the energy of each three-body term whole with its centre atom, as LAMMPS's shares of
+  their terms would give a wrong flux too; ADP and MEAM are refused. In MDAPY each
+  record costs an evaluation of the forces more.
 
 The temperature of the result is the mean of the run at constant energy.
 

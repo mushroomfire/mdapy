@@ -279,12 +279,14 @@ class Potential:
 
     def compute_heat(self, atoms, neighbors, h, lo, pbc):
         """The energies and virials of the heat flux: those of the kernels
-        with heat for the three-body terms, as the device's compute_heat."""
-        three_body = self.compute_native in (
+        with heat for EAM and the three-body terms, as the device's
+        compute_heat."""
+        heat = self.compute_native in (
             _core.calculators.compute_stillinger_weber,
             _core.calculators.compute_tersoff,
+            _core.calculators.compute_eam,
         )
-        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, three_body)
+        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat)
 
 
 def stand_in(found=True):

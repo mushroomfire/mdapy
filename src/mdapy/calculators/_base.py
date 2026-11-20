@@ -25,9 +25,10 @@ PROPERTIES = frozenset(
 
 # Asked with the atomic properties by the heat flux alone, of a calculator
 # whose _heat_flux is True: the atomic energies and virials that give the
-# heat flux. Stillinger-Weber and Tersoff then give each term whole to its
-# centre atom and the virials of Fan et al., PRB 92, 094301 (2015), instead
-# of LAMMPS's shares; the others give what they give without it.
+# heat flux, the virials of Fan et al., PRB 92, 094301 (2015). EAM then gives
+# them instead of the pair forces split in halves, and Stillinger-Weber and
+# Tersoff instead of LAMMPS's shares, each term whole to its centre atom; the
+# others give what they give without it.
 HEAT_FLUX_TERMS = "_heat_flux_terms"
 
 

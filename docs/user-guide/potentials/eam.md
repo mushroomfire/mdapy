@@ -80,7 +80,13 @@ $\rho_{ab}$ that an atom of species $a$ gives one of species $b$, and the pair
 potential $\phi$ of the species $s_i$ and $s_j$ of the atoms, interpolated from the tables of the file as LAMMPS
 `pair_style eam/alloy` and `eam/fs` do. In `eam/alloy` the density depends
 on the species that gives it only, $\rho_{ab} = \rho_a$. Each pair's virial
-is shared equally by its two atoms.
+is shared equally by its two atoms, as LAMMPS shares it. For the heat flux of the
+[Green–Kubo](../properties/green-kubo.md) and [HNEMD](../properties/hnemd.md)
+conductivities the virial of each atom is instead that of the derivatives of the
+others' energies by its position
+([Fan et al. (2015)](../../reference/references.md#fan2015)): the pair forces split in
+halves do not give the heat flux of EAM, and give copper a conductivity about a tenth
+too high; their sums are the same.
 
 !!! quote "Please cite"
     [Daw and Baskes (1984)](../../reference/references.md#daw1984), and the paper of the potential.

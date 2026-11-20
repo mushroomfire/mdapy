@@ -7,17 +7,19 @@
 heat flux asks for with HEAT_FLUX_TERMS. In a free cluster the potential part
 of the heat flux is the change of the moment of the energies: for any
 velocities v, sum_i W_i v_i = d/dt sum_i r_i U_i + sum_i r_i (F_i . v_i), the
-last term what the kinetic energies give back in real dynamics. Stillinger-Weber
-and Tersoff give otherwise LAMMPS's shares of their terms, which do not."""
+last term what the kinetic energies give back in real dynamics. EAM gives
+otherwise its pair forces split in halves, as LAMMPS's centroid stress, and
+Stillinger-Weber and Tersoff LAMMPS's shares of their terms, which do not."""
 
 import numpy as np
 import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import NEP, LennardJones, StillingerWeber, Tersoff
+from mdapy.calculators import EAM, NEP, LennardJones, StillingerWeber, Tersoff
 from mdapy.calculators._base import HEAT_FLUX_TERMS
 
+from .eam_files import write_setfl
 from .nep_files import write_nep
 from .potential_files import write_sw, write_tersoff
 
@@ -76,6 +78,12 @@ def potentials(tmp_path):
             LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 6.0),
             jittered("fcc", 3.6, ("Cu", "Ni")),
         ),
+        "EAM": (EAM.zhou(["Cu", "Ni"]), jittered("fcc", 3.6, ("Cu", "Ni"))),
+        # a density of each pair of elements
+        "EAM/fs": (
+            EAM(write_setfl(tmp_path / "CuNi.eam.fs", fs=True)),
+            jittered("fcc", 3.3, ("Cu", "Ni")),
+        ),
         "NEP": (
             NEP(write_nep(tmp_path / "nep.txt")),
             jittered("fcc", 3.6, ("Cu", "Ni")),
@@ -84,7 +92,7 @@ def potentials(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "name", ["Stillinger-Weber", "Tersoff", "Lennard-Jones", "NEP"]
+    "name", ["Stillinger-Weber", "Tersoff", "Lennard-Jones", "NEP", "EAM", "EAM/fs"]
 )
 def test_the_flux_is_the_change_of_the_moment_of_the_energies(tmp_path, name):
     potential, crystal = potentials(tmp_path)[name]
@@ -93,20 +101,21 @@ def test_the_flux_is_the_change_of_the_moment_of_the_energies(tmp_path, name):
     np.testing.assert_allclose(flux, moment, rtol=0, atol=2e-6 * np.abs(flux).max())
 
 
-@pytest.mark.parametrize("name", ["Stillinger-Weber", "Tersoff"])
+@pytest.mark.parametrize("name", ["Stillinger-Weber", "Tersoff", "EAM"])
 def test_the_shares_of_lammps_do_not_give_the_flux(tmp_path, name):
     potential, crystal = potentials(tmp_path)[name]
     flux, moment = flux_and_moment(potential, cluster(crystal, 7.0), heat=False)
     assert np.abs(flux - moment).max() > 0.02 * np.abs(moment).max()
 
 
-@pytest.mark.parametrize("name", ["Stillinger-Weber", "Tersoff"])
+@pytest.mark.parametrize("name", ["Stillinger-Weber", "Tersoff", "EAM"])
 @pytest.mark.parametrize("repeat", [3, 1])  # 1: images of an atom among its pairs
 def test_the_terms_of_the_flux_sum_to_the_totals(tmp_path, name, repeat):
     potential, _ = potentials(tmp_path)[name]
     structure, a, elements = {
         "Stillinger-Weber": ("diamond", 5.3, ("Si", "Ge")),
         "Tersoff": ("diamond", 5.0, ("Si", "C", "Ge")),
+        "EAM": ("fcc", 3.6, ("Cu", "Ni")),
     }[name]
     system = jittered(structure, a, elements, repeat=repeat, seed=repeat)
     asked = ("energy", "forces", "virial", "atomic_energies", "atomic_virials")
@@ -118,8 +127,13 @@ def test_the_terms_of_the_flux_sum_to_the_totals(tmp_path, name, repeat):
     np.testing.assert_allclose(
         terms.atomic_virials.sum(axis=0), shares.virial, rtol=0, atol=1e-10
     )
-    # each atom's differ: the terms are not shared out
-    assert np.abs(terms.atomic_energies - shares.atomic_energies).max() > 1e-3
+    # each atom's differ: the terms are not shared out; EAM's energies are
+    # those of its sites either way, its virials differ
+    if name == "EAM":
+        np.testing.assert_array_equal(terms.atomic_energies, shares.atomic_energies)
+        assert np.abs(terms.atomic_virials - shares.atomic_virials).max() > 1e-3
+    else:
+        assert np.abs(terms.atomic_energies - shares.atomic_energies).max() > 1e-3
 
 
 def test_the_energy_of_each_atom_holds_its_terms_whole(tmp_path):
@@ -157,7 +171,16 @@ def test_on_the_gpu_stand_in(tmp_path, monkeypatch):
     monkeypatch.setattr(_gpu, "cuda", stand_in)
     system = jittered("diamond", 5.3, ("Si", "Ge"))
     path = write_sw(tmp_path / "a.sw", ("Si", "Ge"))
-    on_gpu = StillingerWeber(path, device="cuda").compute(system, HEAT)
-    here = StillingerWeber(path).compute(system, HEAT)
-    np.testing.assert_allclose(on_gpu.atomic_energies, here.atomic_energies, atol=1e-12)
-    np.testing.assert_allclose(on_gpu.atomic_virials, here.atomic_virials, atol=1e-12)
+    alloy = jittered("fcc", 3.6, ("Cu", "Ni"), repeat=4)
+    for make, atoms in (
+        (lambda **o: StillingerWeber(path, **o), system),
+        (lambda **o: EAM.zhou(["Cu", "Ni"], **o), alloy),
+    ):
+        on_gpu = make(device="cuda").compute(atoms, HEAT)
+        here = make().compute(atoms, HEAT)
+        np.testing.assert_allclose(
+            on_gpu.atomic_energies, here.atomic_energies, atol=1e-12
+        )
+        np.testing.assert_allclose(
+            on_gpu.atomic_virials, here.atomic_virials, atol=1e-12
+        )

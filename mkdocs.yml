@@ -236,13 +236,16 @@ nav:
               - Coordination number: user-guide/analysis/coordination.md
               - Bond angle distribution: user-guide/analysis/bond-angles.md
               - Bond length distribution: user-guide/analysis/bond-lengths.md
-              - Structure factor: user-guide/analysis/structure-factor.md
               - Spatial correlation function: user-guide/analysis/spatial-correlation.md
               - Steinhardt parameters: user-guide/analysis/steinhardt.md
               - Warren–Cowley parameters: user-guide/analysis/warren-cowley.md
               - Voronoi analysis: user-guide/analysis/voronoi.md
               - Ring statistics: user-guide/analysis/rings.md
               - Entropy fingerprint: user-guide/analysis/entropy.md
+          - Scattering and diffraction:
+              - Structure factor: user-guide/analysis/structure-factor.md
+              - Total scattering: user-guide/analysis/total-scattering.md
+              - Powder diffraction: user-guide/analysis/powder-diffraction.md
           - Defects and deformation:
               - Dislocation analysis: user-guide/analysis/dislocations.md
               - Wigner–Seitz analysis: user-guide/analysis/wigner-seitz.md

@@ -48,8 +48,12 @@ def test_every_result_is_a_result():
         "mdapy.analysis",
         "mdapy.calculators",
         "mdapy.identify",
-        "mdapy.lattice_dynamics",
         "mdapy.mlip",
+        "mdapy.properties.defects",
+        "mdapy.properties.elastic",
+        "mdapy.properties.phonons",
+        "mdapy.properties.thermodynamics",
+        "mdapy.properties.transport",
         "mdapy.simulation",
     ):
         module = importlib.import_module(name)

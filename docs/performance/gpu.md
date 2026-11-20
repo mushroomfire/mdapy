@@ -1,7 +1,7 @@
 # Molecular dynamics on the GPU
 
 MDAPY and LAMMPS run the same molecular dynamics at constant energy on one NVIDIA GPU,
-for each potential that MDAPY has on the [GPU](../user-guide/molecular-dynamics/gpu.md) and the
+for each potential that MDAPY has on the [GPU](../user-guide/simulation/gpu.md) and the
 KOKKOS package of LAMMPS has too: EAM, Lennard-Jones, Morse, ADP, Stillinger–Weber,
 Tersoff and MEAM, from 16 000 to 2 million atoms, in mixed and in double precision.
 

@@ -1,7 +1,7 @@
 # Free energy
 
-`mdapy.simulation.free_energy(system, potential, temperatures)` gives the free
-energy of a solid or a liquid per atom from [molecular dynamics](../molecular-dynamics/running.md), in
+`mdapy.properties.thermodynamics.free_energy(system, potential, temperatures)` gives the free
+energy of a solid or a liquid per atom from [molecular dynamics](../simulation/running.md), in
 MDAPY, or in LAMMPS for a [LAMMPS calculator](../potentials/lammps.md): at one temperature by
 switching to a system whose free energy is known, and from there to other
 temperatures by the enthalpy along a run.
@@ -12,7 +12,8 @@ Solid argon at 40 K and zero pressure, with MDAPY's
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import LennardJones
-from mdapy.simulation import free_energy, minimize
+from mdapy.simulation import minimize
+from mdapy.properties.thermodynamics import free_energy
 
 argon = LennardJones({"Ar": (0.0104, 3.4)}, 8.5, shift=True)
 crystal = minimize(
@@ -32,14 +33,15 @@ of three seeds each, with standard errors of 1e-5 eV.
 
 The melting point of copper from the crossing of the free energies of its solid and
 its liquid, of 5324 atoms each, with the EAM potential of Mishin et al. on a
-[GPU](../molecular-dynamics/gpu.md):
+[GPU](../simulation/gpu.md):
 
 <!-- skip-test -->
 ```python
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import free_energy, minimize
+from mdapy.simulation import minimize
+from mdapy.properties.thermodynamics import free_energy
 
 potential = EAM("Cu_mishin1.eam.alloy", device="cuda")  # the file of LAMMPS
 crystal = minimize(
@@ -98,7 +100,7 @@ a little on the number of atoms, and so does where the phases meet: the same cop
 The atoms are classical, as in molecular dynamics: the free energy has no
 zero-point energy, and well below the Debye temperature the
 [quasi-harmonic approximation](quasi-harmonic.md) is better. In MDAPY the potential
-computes on the processor or on the [GPU](../molecular-dynamics/gpu.md); LAMMPS needs its packages
+computes on the processor or on the [GPU](../simulation/gpu.md); LAMMPS needs its packages
 `EXTRA-FIX`, for solids, and `EXTRA-PAIR`, for liquids.
 
 | Name | Type | Default | Unit | Meaning |
@@ -115,7 +117,7 @@ computes on the processor or on the [GPU](../molecular-dynamics/gpu.md); LAMMPS 
 | `repeats` | int32 | 1 | | independent calculations at the first temperature, for `error` |
 | `mixing` | bool | `False` | | add the ideal entropy of mixing of a random solid solution, whose atoms do not exchange places in the dynamics; a liquid has it by itself |
 | `melt_temperature` | float64 | twice the first temperature | K | the temperature at which a liquid is melted |
-| `barostat` | str | `"aniso"`, `"iso"` for a liquid | | how the box changes, as in [`run`](../molecular-dynamics/running.md#running) |
+| `barostat` | str | `"aniso"`, `"iso"` for a liquid | | how the box changes, as in [`run`](../simulation/running.md#running) |
 | `seed` | int32 | 1 | | the seed of the random numbers |
 | `progress` | callable | `None` | | called as `progress(done, total)` with the steps run |
 | `cancel` | `CancelToken` | `None` | | stops the calculation, which raises `Cancelled` |
@@ -186,8 +188,8 @@ reduced Planck constant, $\omega_i = \sqrt{k_i/m_i}$ the angular frequency of th
 spring of atom $i$, $m_i$ its mass and $M$ the mass of all the atoms. Half the
 difference of the two ways removes the heat lost on the way.
 
-In MDAPY the switchings are runs with a [`Switch`](../molecular-dynamics/switching.md) to
-[`Springs`](../molecular-dynamics/switching.md#springs) or to [`UhlenbeckFord`](../potentials/pair-potentials.md#the-uhlenbeckford-model),
+In MDAPY the switchings are runs with a [`Switch`](../simulation/switching.md) to
+[`Springs`](../simulation/switching.md#springs) or to [`UhlenbeckFord`](../potentials/pair-potentials.md#the-uhlenbeckford-model),
 and for a solid the Langevin thermostat keeps the momentum, `keep_momentum`; in LAMMPS
 they are `fix ti/spring` and `pair_style hybrid/scaled` with `ufm`, and `fix langevin`
 with `zero yes`.

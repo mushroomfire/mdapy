@@ -19,7 +19,8 @@ from mdapy.analysis import (
 from mdapy.build import build_crystal, random_alloy
 from mdapy.errors import InvalidParameter
 from mdapy.identify import CommonNeighborAnalysis
-from mdapy.simulation import StackingFaultResult, pressure_temperature_diagram
+from mdapy.properties.defects import StackingFaultResult
+from mdapy.properties.thermodynamics import pressure_temperature_diagram
 
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
@@ -207,7 +208,7 @@ def test_curves_of_few_points_show_them():
 
 
 def test_phonons():
-    from mdapy.lattice_dynamics import phonons, primitive_cell
+    from mdapy.properties.phonons import phonons, primitive_cell
 
     from calculators.test_testing import Harmonic
 
@@ -284,7 +285,7 @@ def test_labels_are_upright():
 
 
 def test_phase_diagram():
-    from mdapy.simulation import binary_phase_diagram
+    from mdapy.properties.thermodynamics import binary_phase_diagram
 
     t = np.linspace(1000.0, 1700.0, 15)
     k = 8.617e-5
@@ -425,7 +426,7 @@ def test_warren_cowley_of_shells():
 
 
 def elastic_result(c11=168.6, c12=121.6, c44=75.4):
-    from mdapy.lattice_dynamics import ElasticResult
+    from mdapy.properties.elastic import ElasticResult
 
     c = np.zeros((6, 6))
     c[:3, :3] = c12
@@ -551,9 +552,9 @@ def test_the_extremes_across_a_direction():
 
 @pytest.mark.parametrize("quantity", ["shear_modulus", "poisson_ratio"])
 def test_the_extremes_against_every_direction_across(quantity):
-    from lattice_dynamics.test_elastic_anisotropy import triclinic
+    from properties.test_elastic_anisotropy import triclinic
 
-    from mdapy.lattice_dynamics import ElasticResult
+    from mdapy.properties.elastic import ElasticResult
     from mdapy.visualization.plot import _across, _elastic_values
 
     result = ElasticResult(triclinic(17))

@@ -14,9 +14,9 @@ import pytest
 import mdapy
 from mdapy.calculators import EAM, LAMMPS, Springs, UhlenbeckFord, _gpu
 from mdapy.errors import InvalidParameter
+from mdapy.properties._free_energy import _switch
 from mdapy.simulation import MolecularDynamics
 from mdapy.simulation._controls import smoothstep
-from mdapy.simulation._free_energy import _switch
 from mdapy.simulation.controls import Hold, Move, Switch
 from simulation.test_controls import (  # noqa: F401
     gap,

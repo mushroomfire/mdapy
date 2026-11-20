@@ -2,7 +2,7 @@
 
 # Thermal conductivity
 
-`mdapy.lattice_dynamics.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None, progress=None, cancel=None)`
+`mdapy.properties.transport.thermal_conductivity(constants, temperatures, *, mesh, sigma=None, symmetry=None, progress=None, cancel=None)`
 gives the lattice thermal conductivity of a crystal in the relaxation-time approximation:
 the heat that phonons carry, each mode until three-phonon scattering ends it, from the
 second and third order [force constants](force-constants.md).
@@ -11,12 +11,12 @@ second and third order [force constants](force-constants.md).
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import (
+from mdapy.properties.phonons import (
     displaced_supercells,
     force_constants,
     primitive_cell,
-    thermal_conductivity,
 )
+from mdapy.properties.transport import thermal_conductivity
 from mdapy.simulation import minimize
 
 potential = EAM.zhou(["Cu"])

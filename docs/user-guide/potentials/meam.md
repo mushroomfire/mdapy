@@ -73,7 +73,7 @@ $$
 | `library` | str or path-like | the library file: for each element its lattice, coordination, atomic number, mass, α, β0 to β3, lattice constant, cohesive energy, A, t0 to t3, ρ0 and the form of G (ibar), over one or more lines |
 | `elements` | sequence of str, or mapping | the entries of the library to use, in the order the indices of the parameter file number them, as the names after the files in `pair_coeff` of LAMMPS. An entry named by an element, as `'Cu'`, is that element; another, as `'AlS'`, the element of its atomic number. A mapping takes the element of the atoms to an entry, as `{"Al": "AlS"}` |
 | `parameters` | str, path-like or `None` | the parameter file, lines of `keyword(indices) = value`; `None` for none, as `NULL` in LAMMPS |
-| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../molecular-dynamics/gpu.md) |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../simulation/gpu.md) |
 | `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |

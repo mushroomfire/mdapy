@@ -1,6 +1,6 @@
 # Elastic constants at finite temperature
 
-`mdapy.lattice_dynamics.thermal_elastic_constants(qha, calculator, *,
+`mdapy.properties.elastic.thermal_elastic_constants(qha, calculator, *,
 method="quasi-harmonic", strain=5e-3, supercell=None, mesh=20,
 displacement=0.01, max_force=1e-6, max_steps=5000, symmetry=None)` gives the isothermal and
 adiabatic elastic constants of a crystal at the temperatures of a
@@ -9,11 +9,9 @@ adiabatic elastic constants of a crystal at the temperatures of a
 <!-- skip-test -->
 ```python
 import numpy as np
-from mdapy.lattice_dynamics import (
-    primitive_cell,
-    quasi_harmonic,
-    thermal_elastic_constants,
-)
+from mdapy.properties.elastic import thermal_elastic_constants
+from mdapy.properties.phonons import primitive_cell
+from mdapy.properties.thermodynamics import quasi_harmonic
 
 cell = primitive_cell(crystal)  # relaxed, as for the phonons
 qha = quasi_harmonic(cell, potential, np.arange(0, 901, 100))

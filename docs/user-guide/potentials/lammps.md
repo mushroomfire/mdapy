@@ -40,7 +40,7 @@ describes.
 | `close()` | closes the LAMMPS instance; the next computation starts a new one |
 
 The calculator keeps one LAMMPS instance while the atoms and their elements
-stay the same, as during [`minimize`](../properties/minimize.md), also when the box changes but not its
+stay the same, as during [`minimize`](../simulation/minimize.md), also when the box changes but not its
 periodic directions; it starts a new one for other atoms, elements or
 periodic directions. Any box works: LAMMPS receives it rotated to its restricted
 triclinic form, and forces and virials are rotated back. Along non-periodic

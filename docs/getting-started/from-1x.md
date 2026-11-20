@@ -16,7 +16,7 @@ needs it, `pip install "mdapy<2"` (see [Compatibility](../about/compatibility.md
   of the atoms (1.x `system.data`).
 - **Everything has a module**: `mdapy.io`, `mdapy.build`, `mdapy.transform`,
   `mdapy.identify` (structure analyses), `mdapy.analysis`, `mdapy.calculators`,
-  `mdapy.simulation`, `mdapy.lattice_dynamics`, `mdapy.mlip`, `mdapy.visualization`
+  `mdapy.simulation`, `mdapy.properties`, `mdapy.mlip`, `mdapy.visualization`
   and `mdapy.interop`. The top level holds only the foundations: `System`, `Box`,
   `Topology`, `NeighborList` and the threads.
 - **Neighbor lists are objects**, built once and given to the analyses that share them,
@@ -180,15 +180,15 @@ From `mdapy.build`.
 | `mp.FIRE(system).run(steps, fmax)` | `minimize(system, calc, max_force=fmax, max_steps=steps)`, from `mdapy.simulation`; `cell="full"` relaxes the box too |
 | `LammpsRunner(...).run_md(...)` | `with MolecularDynamics(system, potential) as md: md.run(steps, ensemble="nvt", temperature=300)` |
 | `get_sfe_fcc(name, a, calc)` | `stacking_fault_energy(crystal, calc, direction)` |
-| `mp.get_elastic_constant(system, calc)` | `elastic_constants(system, calc)`, from `mdapy.lattice_dynamics`: `result.constants` |
+| `mp.get_elastic_constant(system, calc)` | `elastic_constants(system, calc)`, from `mdapy.properties.elastic`: `result.constants` |
 | `MDElastic(...)`, `QHAElastic(...)` | `md_elastic_constants(...)`, `quasi_harmonic(...)` and `thermal_elastic_constants(...)` |
 | `Phonon(path, unitcell=system, repeat=...)` | `phonons(system, calc, supercell=...)`: `.band_structure(path)`, `.dos()`, `.thermal(temperatures)` |
 | `potential_tool.PCA`, `fps_sample` | `principal_components`, `farthest_point_sampling`, from `mdapy.mlip` |
 | `outcar2xyz(...)` | `write("train.xyz", read_trajectory("OUTCAR", "outcar"))` |
 
 See [Calculators](../user-guide/potentials/calculators.md),
-[Minimization](../user-guide/properties/minimize.md) and
-[Molecular dynamics](../user-guide/molecular-dynamics/running.md).
+[Minimization](../user-guide/simulation/minimize.md) and
+[Molecular dynamics](../user-guide/simulation/running.md).
 
 ## Pictures and figures
 
@@ -242,7 +242,7 @@ application with fuller features is developed separately.
 **Since 2.1**: `orthogonal_cell` is `mdapy.transform.orthogonal_cell` (see
 [Orthogonal cells](../user-guide/build/orthogonal-cell.md)), `Spline` is
 `mdapy.fitting.Spline` (see [Interpolation](../user-guide/fitting/interpolation.md)),
-and `BondStiffness(system, calculator, ...)` is `mdapy.lattice_dynamics.bond_stiffness`,
+and `BondStiffness(system, calculator, ...)` is `mdapy.properties.phonons.bond_stiffness`,
 which takes the cells and frames of any number of crystals, from any calculator or from
 DFT, and returns a `BondStiffness` that gives the force constants of any structure (see
 [Bond stiffness](../user-guide/properties/bond-stiffness.md)).

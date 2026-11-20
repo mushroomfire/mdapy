@@ -2,7 +2,7 @@
 
 [Elastic constants](elastic-constants.md), [phonons](phonons.md), the
 [quasi-harmonic approximation](quasi-harmonic.md), [elastic constants from
-molecular dynamics](md-elastic.md) and [molecular dynamics](../molecular-dynamics/running.md) of
+molecular dynamics](md-elastic.md) and [molecular dynamics](../simulation/running.md) of
 two-dimensional materials such as graphene. A box that is periodic along two
 vectors in the x-y plane and not along a third along z makes a system a sheet;
 nothing else changes in the calls.
@@ -12,7 +12,8 @@ nothing else changes in the calls.
 import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
-from mdapy.lattice_dynamics import elastic_constants, phonons
+from mdapy.properties.elastic import elastic_constants
+from mdapy.properties.phonons import phonons
 from mdapy.simulation import minimize
 
 potential = LAMMPS("pair_style lcbop\npair_coeff * * C.lcbop C", elements=["C"])
@@ -105,7 +106,7 @@ height of its box kept, and returns a `SheetQuasiHarmonicResult`:
 <!-- skip-test -->
 ```python
 import numpy as np
-from mdapy.lattice_dynamics import quasi_harmonic
+from mdapy.properties.thermodynamics import quasi_harmonic
 
 qha = quasi_harmonic(
     sheet, potential, [0, 100, 300], volumes=np.linspace(1.0, 1.025, 6), mesh=100
@@ -159,7 +160,7 @@ dynamics below, and the barostats change the sheet in its plane only.
 
 <!-- skip-test -->
 ```python
-from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.properties.elastic import md_elastic_constants
 from mdapy.transform import replicate
 
 hot = md_elastic_constants(
@@ -193,7 +194,7 @@ constants of a material of that thickness are $C[\mathrm{GPa}] = 10\, C[\mathrm{
 
 ## Molecular dynamics
 
-[`MolecularDynamics`](../molecular-dynamics/running.md) runs a sheet as it is. Its barostats change the
+[`MolecularDynamics`](../simulation/running.md) runs a sheet as it is. Its barostats change the
 sheet in its plane and keep the height of the box: alike along its two vectors
 for `"iso"` and `"xy"`, along each for `"aniso"`, and in any way in the plane,
 with the angle between them, for `"tri"`:

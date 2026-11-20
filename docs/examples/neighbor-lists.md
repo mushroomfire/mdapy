@@ -156,6 +156,6 @@ except InvalidParameter as error:
     print(error)  # the neighbor list was built for other positions or another box
 ```
 
-[Energy minimization](../user-guide/properties/minimize.md) keeps its own list
+[Energy minimization](../user-guide/simulation/minimize.md) keeps its own list
 between steps, with a margin beyond the cutoff of the calculator, and
 searches again only when an atom has moved far enough to need it.

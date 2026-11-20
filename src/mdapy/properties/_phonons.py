@@ -1,0 +1,1758 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""Harmonic phonons from the forces on displaced atoms."""
+
+import os
+from collections.abc import Sequence
+from dataclasses import dataclass
+from typing import NamedTuple
+
+import numpy as np
+import polars as pl
+from numpy.typing import ArrayLike
+
+from mdapy import units
+from mdapy._core import neighbor as _search
+from mdapy.analysis._symmetry import _keeping, _Operations, _rotations, _symmetry
+from mdapy.calculators._base import Calculator
+from mdapy.core.box import Box
+from mdapy.core.system import System
+from mdapy.elements import atomic_masses
+from mdapy.errors import FileFormatError, InvalidParameter
+from mdapy.neighbor import NeighborList
+from mdapy.properties._sheets import _in_periodic_box, _is_sheet
+
+# the frequency in THz of an eigenvalue of 1 eV/(Å² amu) of a dynamical matrix
+_THZ = 1 / (2 * np.pi * np.sqrt(units.AMU_A2_PER_PS2_TO_EV))
+# modes below this frequency in THz, the translations, carry no heat
+_LOWEST = 1e-3
+# frequencies below this in THz are a crystal that is not stable
+_IMAGINARY = -1e-2
+# frequencies closer than this in THz are taken as equal
+_DEGENERATE = 1e-3
+# modes of a frequency closer than this in THz to another share their group
+# velocities, and those below it have none, as in phonopy
+_SAME_VELOCITY = 1e-4
+# modes whose eigenvalues of the dynamical matrix are closer than this in
+# eV/(Å² amu) share their Grüneisen parameters, as in phonopy
+_SAME_EIGENVALUE = 1e-4
+# a direction in which the derivative of the dynamical matrix sets apart the
+# modes of equal frequency, as phonopy's
+_APART = np.array([1.0, 2.0, 3.0]) / np.sqrt(14.0)
+
+
+def _read_only(*arrays: np.ndarray | None) -> None:
+    for array in arrays:
+        if array is not None:
+            array.flags.writeable = False
+
+
+@dataclass(frozen=True)
+class BandStructure:
+    """Phonon frequencies along a path through the Brillouin zone.
+
+    Attributes
+    ----------
+    q : numpy.ndarray
+        (P, 3) float64 wave vectors in units of the reciprocal lattice vectors of
+        the cell.
+    distances : numpy.ndarray
+        (P,) float64 distance of each wave vector along the path, in 1/Å.
+    frequencies : numpy.ndarray
+        (P, 3n) float64 frequencies in THz, ascending at each wave vector, or each
+        column a branch when connected; imaginary ones as negative.
+    labels : tuple of (float64, str)
+        The distance and the label of each special point; two points that
+        meet at a break of the path share a label such as "U|K".
+    """
+
+    q: np.ndarray
+    distances: np.ndarray
+    frequencies: np.ndarray
+    labels: tuple[tuple[float, str], ...]
+
+    def __post_init__(self):
+        _read_only(self.q, self.distances, self.frequencies)
+
+    def write(self, path: str | os.PathLike) -> None:
+        """Writes the band structure in the format of phonopy's band.dat:
+        the distances of the ends of the lines in 1/Å without the factor 2π,
+        then each branch, line by line.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file.
+        """
+        starts = np.flatnonzero(np.diff(self.distances) == 0) + 1
+        lines = np.split(np.arange(len(self.distances)), starts)
+        x = self.distances / (2 * np.pi)
+        ends = [d / (2 * np.pi) for d, _ in self.labels]
+        if len(ends) != len(lines) + 1:
+            ends = [x[lines[0][0]]] + [x[line[-1]] for line in lines]
+        with open(path, "w") as f:
+            f.write("# End points of segments: \n")
+            f.write("#  " + "".join(f" {e:.8f}" for e in ends) + " \n")
+            for branch in self.frequencies.T:
+                for line in lines:
+                    for k in line:
+                        f.write(f"{x[k]:f} {branch[k]:f}\n")
+                    f.write("\n")
+                f.write("\n")
+
+
+@dataclass(frozen=True)
+class PhononDOS:
+    """The phonon density of states per atom.
+
+    Attributes
+    ----------
+    frequencies : numpy.ndarray
+        (F,) float64 frequencies in THz.
+    dos : numpy.ndarray
+        (F,) float64 states per THz per atom; it integrates to 3.
+    projected : numpy.ndarray or None
+        (F, n) float64, the density of states of each atom of the cell, each
+        integrating to 3, whose mean is ``dos``; when asked for.
+    """
+
+    frequencies: np.ndarray
+    dos: np.ndarray
+    projected: np.ndarray | None = None
+
+    def __post_init__(self):
+        _read_only(self.frequencies, self.dos, self.projected)
+
+
+@dataclass(frozen=True)
+class ThermalProperties:
+    """Harmonic thermodynamic properties of the vibrations, per atom.
+
+    Attributes
+    ----------
+    temperatures : numpy.ndarray
+        (T,) float64 temperatures in K.
+    free_energy : numpy.ndarray
+        (T,) float64 Helmholtz free energy of the vibrations in eV, with the zero
+        point energy.
+    energy : numpy.ndarray
+        (T,) float64 energy of the vibrations in eV, with the zero point energy.
+    entropy : numpy.ndarray
+        (T,) float64 entropy in eV/K.
+    heat_capacity : numpy.ndarray
+        (T,) float64 heat capacity at constant volume in eV/K.
+    """
+
+    temperatures: np.ndarray
+    free_energy: np.ndarray
+    energy: np.ndarray
+    entropy: np.ndarray
+    heat_capacity: np.ndarray
+
+    def __post_init__(self):
+        _read_only(
+            self.temperatures,
+            self.free_energy,
+            self.energy,
+            self.entropy,
+            self.heat_capacity,
+        )
+
+
+# Special points of the standard paths in Cartesian coordinates, in units of
+# 2π/a for the cubic lattices with a along x, y and z, and of 2π/a in the
+# plane and 2π/c along z for the hexagonal lattice with a along x
+# (Setyawan and Curtarolo 2010; for fcc the path of seekpath, Hinuma et
+# al. 2017).
+_S3 = np.sqrt(3)
+_PATHS = {
+    "sc": (
+        (("Γ", "X", "M", "Γ", "R", "X"), ("M", "R")),
+        {"Γ": (0, 0, 0), "X": (0, 0.5, 0), "M": (0.5, 0.5, 0), "R": (0.5, 0.5, 0.5)},
+    ),
+    "fcc": (
+        (("Γ", "X", "U"), ("K", "Γ", "L", "W", "X")),
+        {
+            "Γ": (0, 0, 0),
+            "X": (0, 1, 0),
+            "U": (0.25, 1, 0.25),
+            "K": (0.75, 0.75, 0),
+            "L": (0.5, 0.5, 0.5),
+            "W": (0.5, 1, 0),
+        },
+    ),
+    "bcc": (
+        (("Γ", "H", "N", "Γ", "P", "H"), ("P", "N")),
+        {"Γ": (0, 0, 0), "H": (0, 1, 0), "N": (0.5, 0.5, 0), "P": (0.5, 0.5, 0.5)},
+    ),
+    "hexagonal": (
+        (("Γ", "M", "K", "Γ", "A", "L", "H", "A"), ("L", "M"), ("K", "H")),
+        {
+            "Γ": (0, 0, 0),
+            "M": (0.5, _S3 / 6, 0),
+            "K": (1 / 3, _S3 / 3, 0),
+            "A": (0, 0, 0.5),
+            "L": (0.5, _S3 / 6, 0.5),
+            "H": (1 / 3, _S3 / 3, 0.5),
+        },
+    ),
+}
+
+
+def read_band_structure(path: str | os.PathLike) -> BandStructure:
+    """A band structure from a file in the format of phonopy's band.dat.
+
+    Parameters
+    ----------
+    path : str or path-like
+        The file, such as one phonopy wrote from a calculation with VASP.
+
+    Returns
+    -------
+    BandStructure
+        The distances, in 1/Å with the factor 2π, and the frequencies; the
+        wave vectors are not in the file and are NaN, and the special points
+        at the ends of the lines have no names.
+
+    Raises
+    ------
+    FileFormatError
+        If the file is not in that format.
+    """
+    with open(path) as f:
+        lines = f.read().splitlines()
+    try:
+        ends = np.array(lines[1].lstrip("#").split(), dtype=float)
+        # the branches, each ended by two blank lines
+        branches, rows, blank = [], [], 0
+        for line in lines[2:]:
+            if line.strip():
+                rows.append(line.split())
+                blank = 0
+                continue
+            blank += 1
+            if blank == 2 and rows:
+                branches.append(np.array(rows, dtype=float))
+                rows = []
+        if rows:
+            branches.append(np.array(rows, dtype=float))
+        data = np.stack([b[:, 1] for b in branches], axis=1)
+        distances = branches[0][:, 0]
+    except (IndexError, ValueError):
+        raise FileFormatError("not a band.dat of phonopy", str(path)) from None
+    scale = 2 * np.pi
+    return BandStructure(
+        q=np.full((len(distances), 3), np.nan),
+        distances=distances * scale,
+        frequencies=data,
+        labels=tuple((float(e) * scale, "") for e in ends),
+    )
+
+
+def _masses(system: System) -> np.ndarray:
+    if "mass" in system.table.columns:
+        return system["mass"].astype(float)
+    if "element" in system.table.columns:
+        return atomic_masses(system.table["element"].cast(pl.String).to_list())
+    raise InvalidParameter("phonons need the mass of every atom: an element or a mass")
+
+
+def _kinds(system: System) -> np.ndarray:
+    """The kind of each atom: atoms of one kind have the same element, type
+    and mass, where the system has them."""
+    columns = [c for c in ("element", "type", "mass") if c in system.table.columns]
+    if not columns:
+        return np.zeros(len(system), dtype=np.int64)
+    values = np.column_stack(
+        [system.table[c].to_physical().to_numpy().astype(float) for c in columns]
+    )
+    return np.unique(values, axis=0, return_inverse=True)[1].reshape(-1)
+
+
+def _lattice_basis(rows: np.ndarray) -> np.ndarray:
+    """A basis of the lattice that the integer rows generate: their Hermite
+    normal form, by integer row reduction."""
+    rows = [[int(x) for x in row] for row in rows]
+    basis = []
+    for column in range(3):
+        while True:
+            live = [r for r in rows if r[column] != 0]
+            if len(live) <= 1:
+                break
+            pivot = min(live, key=lambda r: abs(r[column]))
+            for r in live:
+                if r is not pivot:
+                    factor = r[column] // pivot[column]
+                    for c in range(3):
+                        r[c] -= factor * pivot[c]
+        pivot = next(r for r in rows if r[column] != 0)
+        rows = [r for r in rows if r is not pivot]
+        basis.append(pivot)
+    return np.array(basis, dtype=float)
+
+
+def _reduced(vectors: np.ndarray) -> np.ndarray:
+    """Short, nearly orthogonal vectors of the same lattice (LLL), right-handed."""
+    b = np.array(vectors, dtype=float)
+
+    def orthogonalized():
+        star, mu = b.copy(), np.zeros((3, 3))
+        for i in range(3):
+            for j in range(i):
+                mu[i, j] = b[i] @ star[j] / (star[j] @ star[j])
+                star[i] -= mu[i, j] * star[j]
+        return star, mu
+
+    k = 1
+    while k < 3:
+        for j in range(k - 1, -1, -1):
+            _, mu = orthogonalized()
+            b[k] -= np.round(mu[k, j]) * b[j]
+        star, mu = orthogonalized()
+        if star[k] @ star[k] >= (0.75 - mu[k, k - 1] ** 2) * (
+            star[k - 1] @ star[k - 1]
+        ):
+            k += 1
+        else:
+            b[[k - 1, k]] = b[[k, k - 1]]
+            k = max(k - 1, 1)
+    if np.linalg.det(b) < 0:
+        b[2] = -b[2]
+    return b
+
+
+def _translations(system: System, tolerance: float) -> tuple[np.ndarray, list]:
+    """The translations that map the crystal onto itself, the cell's own
+    lattice vectors aside: (m, 3) vectors in Å, the first zero, and for each
+    the atom that each atom goes to."""
+    box = system.box
+    positions, _ = box.wrap(system["positions"])
+    positions = np.ascontiguousarray(positions)
+    kinds = _kinds(system)
+    tree = _search.KdTree(
+        positions,
+        np.ascontiguousarray(box.matrix),
+        np.ascontiguousarray(box.origin),
+        np.ascontiguousarray(box.pbc),
+    )
+    found, maps = [np.zeros(3)], [np.arange(len(system))]
+    for j in np.flatnonzero(kinds == kinds[0])[1:]:
+        shift = positions[j] - positions[0]
+        image, _, distance = tree.nearest(np.ascontiguousarray(positions + shift), 1)
+        image = image[:, 0].astype(np.int64)
+        if distance.max() < tolerance and (kinds[image] == kinds).all():
+            found.append(shift)
+            maps.append(image)
+    return np.array(found), maps
+
+
+def primitive_cell(system: System, *, tolerance: float = 1e-4) -> System:
+    """The smallest periodic cell of a crystal.
+
+    Parameters
+    ----------
+    system : System
+        A crystal in a box periodic in every direction, or a sheet, periodic
+        along two vectors in the x-y plane and not along a third along z.
+        Atoms are alike when they have the same element, type and mass, where
+        the system has these columns.
+    tolerance : float64, optional
+        How far, in Å, an atom may be from the image of another under a
+        translation of the crystal. Default 1e-4.
+
+    Returns
+    -------
+    System
+        The atoms of one primitive cell, with all the columns of system, in
+        a box of short lattice vectors of the crystal with the same origin;
+        system itself when its box is already primitive.
+
+    Raises
+    ------
+    InvalidParameter
+        If the box is neither periodic nor that of a sheet, or has no atoms.
+    """
+    if len(system) == 0:
+        raise InvalidParameter("a primitive cell needs a periodic box with atoms")
+    if _is_sheet(system.box, "primitive cells"):
+        cell = primitive_cell(_in_periodic_box(system), tolerance=tolerance)
+        if len(cell) == len(system):
+            return system
+        matrix = np.zeros((3, 3))
+        matrix[:2] = cell.box.matrix[np.abs(cell.box.matrix[:, 2]) < 1e-9][:2]
+        matrix[2, 2] = system.box.matrix[2, 2]
+        if np.linalg.det(matrix) < 0:
+            matrix[[0, 1]] = matrix[[1, 0]]
+        box = Box(matrix, origin=system.box.origin, pbc=system.box.pbc)
+        wrapped, _ = box.wrap(cell["positions"])
+        return cell.with_box(box).with_columns(positions=wrapped)
+    found, maps = _translations(system, tolerance)
+    count = len(found)
+    if count == 1:
+        return system
+    box = system.box
+    # count times each translation is a vector of the lattice of the box
+    fractional = found @ np.linalg.inv(box.matrix)
+    integers = np.round(fractional * count)
+    rows = np.vstack([count * np.eye(3), integers])
+    vectors = _reduced(_lattice_basis(rows) / count @ box.matrix)
+    # one atom of each set that the translations map onto each other
+    first = np.min(np.stack(maps), axis=0)
+    keep = np.flatnonzero(first == np.arange(len(system)))
+    cell = Box(vectors, origin=box.origin)
+    wrapped, _ = cell.wrap(system["positions"][keep])
+    return system.gather(keep).with_box(cell).with_columns(positions=wrapped)
+
+
+def _repeat(value: int | ArrayLike, name: str) -> np.ndarray:
+    counts = np.array(value)
+    if counts.ndim == 0:
+        counts = np.repeat(counts, 3)
+    if (
+        counts.shape != (3,)
+        or not np.issubdtype(counts.dtype, np.integer)
+        or (counts < 1).any()
+    ):
+        raise InvalidParameter(
+            f"{name} must be one or three positive integers, not {value!r}"
+        )
+    return counts.astype(int)
+
+
+def _supercell_matrix(value: int | ArrayLike) -> np.ndarray:
+    """(3, 3) integer matrix of a supercell: its vectors are its rows times
+    the vectors of the cell."""
+    array = np.array(value)
+    if array.shape == (3, 3):
+        if not np.issubdtype(array.dtype, np.integer) or not np.linalg.det(array) > 0.5:
+            raise InvalidParameter(
+                "a supercell matrix must hold integers, with a positive determinant"
+            )
+        return array.astype(int)
+    return np.diag(_repeat(value, "supercell"))
+
+
+def _lattice_points(matrix: np.ndarray) -> np.ndarray:
+    """(S, 3) the lattice vectors of the cell, in its units, that reach the S
+    cells of a supercell: zero first, then ordered by the first, the second
+    and the third; for a diagonal matrix, the third varies fastest."""
+    corners = (
+        np.array([[i, j, k] for i in (0, 1) for j in (0, 1) for k in (0, 1)]) @ matrix
+    )
+    axes = [
+        np.arange(lo, hi + 1)
+        for lo, hi in zip(corners.min(axis=0), corners.max(axis=0))
+    ]
+    grid = np.stack(np.meshgrid(*axes, indexing="ij"), -1).reshape(-1, 3)
+    fractional = grid @ np.linalg.inv(matrix)
+    inside = ((fractional > -1e-9) & (fractional < 1 - 1e-9)).all(axis=1)
+    points = grid[inside]
+    # the cell itself first
+    origin = np.flatnonzero((points == 0).all(axis=1))
+    return np.concatenate([points[origin], np.delete(points, origin, axis=0)])
+
+
+def _widths(matrix: np.ndarray) -> np.ndarray:
+    """The distances between opposite faces of a box of these vectors."""
+    areas = np.linalg.norm(np.cross(matrix[[1, 2, 0]], matrix[[2, 0, 1]]), axis=1)
+    return abs(np.linalg.det(matrix)) / areas
+
+
+class _Crossing(NamedTuple):
+    """A pair of atoms on both sides of the cutoff over cells: its shortest
+    length and the cell of it, its longest and the cell of that, and the
+    cell in which it is nearest the cutoff with the pair there in Å."""
+
+    short: float
+    near: int
+    long: float
+    far: int
+    closest: int
+    vector: tuple[float, float, float]
+
+
+def _crossing(
+    cells: Sequence[System], cutoff: float, displacement: float
+) -> _Crossing | None:
+    """A pair of atoms whose length, give or take the displacement of the
+    force constants, is on both sides of the cutoff over the cells; None if
+    every pair keeps one side. The cells hold the same atoms in the same
+    order, each a deformation of the first with the atoms moved by less than
+    half the box."""
+    first = cells[0]
+    # far enough to see in the first cell every pair within the cutoff of any
+    stretch = max(
+        np.linalg.norm(np.linalg.solve(c.box.matrix, first.box.matrix), 2)
+        for c in cells
+    )
+    pairs = NeighborList.build(first, (cutoff + displacement) * stretch * 1.05 + 0.5)
+    i, j, shifts = pairs.i, pairs.j, pairs.shifts
+    start = first.box.to_fractional(first["positions"])
+    shortest = np.full(len(i), np.inf)
+    longest = np.zeros(len(i))
+    near = np.zeros(len(i), dtype=np.int64)
+    far = np.zeros(len(i), dtype=np.int64)
+    for k, cell in enumerate(cells):
+        moved = cell.box.to_fractional(cell["positions"]) - start
+        s = start + moved - np.round(moved)  # each atom on the side of the first
+        lengths = np.linalg.norm((s[j] - s[i] + shifts) @ cell.box.matrix, axis=1)
+        near = np.where(lengths < shortest, k, near)
+        far = np.where(lengths > longest, k, far)
+        shortest = np.minimum(shortest, lengths)
+        longest = np.maximum(longest, lengths)
+    inside = cutoff - (shortest - displacement)
+    outside = longest + displacement - cutoff
+    across = np.flatnonzero((inside > 0) & (outside >= 0))
+    if len(across) == 0:
+        return None
+    p = across[np.argmax(np.minimum(inside, outside)[across])]
+    vectors = []
+    for cell in cells:
+        moved = (
+            cell.box.to_fractional(cell["positions"][[i[p], j[p]]])
+            - start[[i[p], j[p]]]
+        )
+        ends = start[[i[p], j[p]]] + moved - np.round(moved)
+        vectors.append((ends[1] - ends[0] + shifts[p]) @ cell.box.matrix)
+    closest = int(np.argmin([abs(np.linalg.norm(v) - cutoff) for v in vectors]))
+    return _Crossing(
+        float(shortest[p]),
+        int(near[p]),
+        float(longest[p]),
+        int(far[p]),
+        closest,
+        tuple(float(x) for x in vectors[closest]),
+    )
+
+
+#: The largest jump of the free energy where a pair of atoms crosses the
+#: cutoff, as a part of its change over an eighth of the range of the
+#: volumes or over the strain, that the quasi-harmonic results tolerate:
+#: above it they depend on where the cells fall about the crossing by
+#: percents or more.
+_JUMP = 0.02
+
+
+def _cutoff_jump(
+    cell: System,
+    vector: Sequence[float],
+    calculator: Calculator,
+    supercell: int | ArrayLike | None,
+    displacement: float,
+    symmetry: bool | None,
+    temperature: float,
+    mesh: int | ArrayLike,
+    step: float,
+) -> tuple[float, float, float]:
+    """Where the pair vector of cell reaches the cutoff as the cell is scaled
+    uniformly (a sheet in its plane): how much the static energy and the
+    free energy of the vibrations at temperature jump, per atom, and the
+    second difference of the static energy per atom over scalings by step,
+    the mean of those on either side of the cutoff, all in eV. The static
+    energy comes from 1e-4 Å inside and outside the cutoff, extrapolated
+    linearly to it; the vibrations from the pair 2, 3 and 4 displacements
+    inside and outside, quadratically."""
+    sheet = _is_sheet(cell.box, "phonons")
+    v = np.asarray(vector, dtype=float)
+    cutoff = calculator.cutoff
+    n = len(cell)
+
+    def scale(length: float) -> float:  # that puts the pair at length
+        if sheet:
+            return float(np.sqrt((length**2 - v[2] ** 2) / (v[0] ** 2 + v[1] ** 2)))
+        return float(length / np.linalg.norm(v))
+
+    def scaled(s: float) -> System:
+        box = cell.box
+        factors = np.array([s, s, 1.0]) if sheet else np.full(3, s)
+        matrix = box.matrix * factors[:, None] if sheet else box.matrix * s
+        positions = box.origin + (cell["positions"] - box.origin) * factors
+        return cell.with_box(Box(matrix, origin=box.origin, pbc=box.pbc)).with_columns(
+            positions=positions
+        )
+
+    def energy(s: float) -> float:
+        return calculator.compute(scaled(s), ["energy"]).energy / n
+
+    def vibrations(s: float) -> float:
+        properties = _phonons(scaled(s), calculator, supercell, displacement, symmetry)
+        return float(properties.thermal([temperature], mesh=mesh).free_energy[0])
+
+    small = 1e-4
+    e = {k: energy(scale(cutoff + k * small)) for k in (-2, -1, 1, 2)}
+    static = (2 * e[1] - e[2]) - (2 * e[-1] - e[-2])
+    f = {k: vibrations(scale(cutoff + k * displacement)) for k in (-4, -3, -2, 2, 3, 4)}
+    vibration = (6 * f[2] - 8 * f[3] + 3 * f[4]) - (6 * f[-2] - 8 * f[-3] + 3 * f[-4])
+    # on either side, three cells that keep the pair there
+    seconds = []
+    for side in (-1, 1):
+        s = scale(cutoff + side * small)
+        e0, e1, e2 = (energy(s * (1 + side * step) ** k) for k in (0, 1, 2))
+        seconds.append(abs(e0 - 2 * e1 + e2))
+    return abs(static), abs(vibration), float(np.mean(seconds))
+
+
+def _default_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
+    """The supercell nearest a cube that is at least reach thick in every
+    direction: of the supercells round(edge inv(cell)) for edges from reach
+    to twice reach, the fewest cells among those as near a cube, by the
+    thinnest width over the edge of a cube of the same volume, as 0.95 of
+    the nearest."""
+    if (_widths(cell) >= reach - 1e-9).all():
+        return np.eye(3, dtype=int)
+    inverse = np.linalg.inv(cell)
+    found = {}
+    edge = reach
+    while edge < 2 * reach + np.linalg.norm(cell, axis=1).max():
+        matrix = np.round(edge * inverse).astype(int)
+        size = round(np.linalg.det(matrix))
+        if size > 0 and (_widths(matrix @ cell) >= reach - 1e-9).all():
+            box = matrix @ cell
+            cubic = _widths(box).min() / abs(np.linalg.det(box)) ** (1 / 3)
+            found[matrix.tobytes()] = (size, cubic, matrix)
+        edge *= 1.01
+    candidates = list(found.values())
+    best = max(c[1] for c in candidates)
+    return min((c for c in candidates if c[1] >= 0.95 * best), key=lambda c: c[0])[2]
+
+
+def _default_sheet_supercell(cell: np.ndarray, reach: float) -> np.ndarray:
+    """The supercell of a sheet nearest a square that is at least reach wide
+    across the plane: as ``_default_supercell``, in two dimensions."""
+
+    def widths(vectors: np.ndarray) -> np.ndarray:
+        return abs(np.linalg.det(vectors)) / np.linalg.norm(vectors[[1, 0]], axis=1)
+
+    plane = cell[:2, :2]
+    inverse = np.linalg.inv(plane)
+    found = {}
+    edge = reach
+    while edge < 2 * reach + np.linalg.norm(plane, axis=1).max():
+        matrix = np.round(edge * inverse).astype(int)
+        size = round(np.linalg.det(matrix))
+        if size > 0 and (widths(matrix @ plane) >= reach - 1e-9).all():
+            box = matrix @ plane
+            square = widths(box).min() / abs(np.linalg.det(box)) ** 0.5
+            found[matrix.tobytes()] = (size, square, matrix)
+        edge *= 1.01
+    candidates = list(found.values())
+    best = max(c[1] for c in candidates)
+    chosen = min((c for c in candidates if c[1] >= 0.95 * best), key=lambda c: c[0])[2]
+    matrix = np.eye(3, dtype=int)
+    matrix[:2, :2] = chosen
+    return matrix
+
+
+def _sheet_supercell(value: int | ArrayLike) -> np.ndarray:
+    """(3, 3) integer matrix of a supercell of a sheet, repeated in its plane
+    only: one integer repeats along both vectors of the plane."""
+    array = np.array(value)
+    if array.ndim == 0:
+        array = np.array([array, array, 1])
+    matrix = _supercell_matrix(array)
+    if (matrix[2] != (0, 0, 1)).any() or (matrix[:2, 2] != 0).any():
+        raise InvalidParameter("a supercell of a sheet repeats along its plane only")
+    return matrix
+
+
+def _mesh(mesh: int | ArrayLike) -> np.ndarray:
+    """(K, 3) wave vectors of a mesh through Γ, in units of the reciprocal
+    lattice vectors, in the order of the indices of the third vector first."""
+    counts = _repeat(mesh, "mesh")
+    axes = [np.arange(n) / n for n in counts]
+    return np.stack(np.meshgrid(*axes, indexing="ij"), -1).reshape(-1, 3)
+
+
+def _tetrahedra(counts: np.ndarray, reciprocal: np.ndarray) -> np.ndarray:
+    """(6K, 4) mesh points at the corners of the tetrahedra that fill the
+    mesh: six in each of its cells, around its shortest main diagonal."""
+    n1, n2, n3 = counts
+    step = reciprocal / counts[:, None]
+    starts = np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]])
+    signs = 1 - 2 * starts
+    lengths = [np.linalg.norm(s @ step) for s in signs]
+    start, sign = starts[np.argmin(lengths)], signs[np.argmin(lengths)]
+    corners = []
+    for a, b in ((0, 1), (0, 2), (1, 0), (1, 2), (2, 0), (2, 1)):
+        first = start.copy()
+        second = first.copy()
+        second[a] += sign[a]
+        third = second.copy()
+        third[b] += sign[b]
+        corners.append([first, second, third, start + sign])
+    corners = np.array(corners)  # (6, 4, 3)
+    cells = np.stack(
+        np.meshgrid(np.arange(n1), np.arange(n2), np.arange(n3), indexing="ij"), -1
+    ).reshape(-1, 1, 1, 3)
+    points = (cells + corners) % counts
+    flat = (points[..., 0] * n2 + points[..., 1]) * n3 + points[..., 2]
+    return flat.reshape(-1, 4)
+
+
+def _tetrahedron_dos(corners: np.ndarray, grid: np.ndarray) -> np.ndarray:
+    """(T, F) density of states of each tetrahedron of a band, with the
+    (T, 4) values at its corners, each integrating to 1."""
+    e = np.sort(corners, axis=1)
+    e1, e2, e3, e4 = (e[:, k : k + 1] for k in range(4))
+    x = grid[None, :]
+
+    def safe(value):
+        return np.where(value == 0, 1.0, value)
+
+    rising = 3 * (x - e1) ** 2 / safe((e2 - e1) * (e3 - e1) * (e4 - e1))
+    middle = (
+        3 * (e2 - e1)
+        + 6 * (x - e2)
+        - 3 * (e3 - e1 + e4 - e2) * (x - e2) ** 2 / safe((e3 - e2) * (e4 - e2))
+    ) / safe((e3 - e1) * (e4 - e1))
+    falling = 3 * (e4 - x) ** 2 / safe((e4 - e1) * (e4 - e2) * (e4 - e3))
+    return np.select(
+        [(e1 < x) & (x < e2), (e2 <= x) & (x < e3), (e3 <= x) & (x < e4)],
+        [rising, middle, falling],
+        0.0,
+    )
+
+
+def _groups(frequencies: np.ndarray, tolerance: float) -> list[np.ndarray]:
+    """The sets of two or more ascending frequencies within tolerance of
+    the next."""
+    apart = np.flatnonzero(np.diff(frequencies) > tolerance) + 1
+    return [g for g in np.split(np.arange(len(frequencies)), apart) if len(g) > 1]
+
+
+def _assigned(overlap: np.ndarray) -> np.ndarray:
+    """The mode of each branch, the largest overlaps first, each mode once."""
+    count = len(overlap)
+    mode = np.full(count, -1)
+    taken = np.zeros(count, dtype=bool)
+    for flat in np.argsort(-overlap, axis=None, kind="stable"):
+        branch, m = divmod(int(flat), count)
+        if mode[branch] < 0 and not taken[m]:
+            mode[branch], taken[m] = m, True
+    return mode
+
+
+def _connected(
+    frequencies: np.ndarray, vectors: np.ndarray, starts: list[int], tolerance: float
+) -> np.ndarray:
+    """Frequencies along a path, each column one branch followed from point
+    to point by the overlap of its polarization vectors; within a set of
+    equal frequencies the vectors mix, so a branch keeps the vector it had
+    before them, and branches that come out of such a set at the start of a
+    section are matched as one."""
+    count, branches = frequencies.shape
+    flat = vectors.reshape(count, branches, -1)
+    out = frequencies.copy()
+    ends = starts[1:] + [count]
+    for start, end in zip(starts, ends):
+        reference = flat[start].copy()
+        loose = _groups(frequencies[start], tolerance)  # branches matched as one
+        for k in range(start + 1, end):
+            overlap = np.abs(reference.conj() @ flat[k].T) ** 2
+            for group in loose:
+                overlap[group] = overlap[group].sum(axis=0)
+            mode = _assigned(overlap)
+            for group in loose:
+                mode[group] = sorted(mode[group], key=lambda m: frequencies[k, m])
+            out[k] = frequencies[k, mode]
+            equal = _groups(frequencies[k], tolerance)
+            mixed = np.zeros(branches, dtype=bool)
+            for group in equal:
+                mixed[np.isin(mode, group)] = True
+            was_loose = np.zeros(branches, dtype=bool)
+            for group in loose:
+                was_loose[group] = True
+            renew = ~mixed | was_loose
+            reference[renew] = flat[k, mode[renew]]
+            loose = [
+                np.flatnonzero(np.isin(mode, group) & was_loose) for group in equal
+            ]
+            loose = [g for g in loose if len(g) > 1]
+    return out
+
+
+class Phonons:
+    """Harmonic phonons of a crystal from its force constants.
+
+    Made by ``phonons``. Wave vectors are in units of the reciprocal
+    lattice vectors of the cell: q = (h, k, l) is h b1 + k b2 + l b3 with
+    a_i · b_j = 2π δ_ij.
+
+    Attributes
+    ----------
+    cell : System
+        The crystal whose vibrations these are.
+    supercell : numpy.ndarray
+        (3, 3) int64 matrix of the supercell in which the force constants
+        were found: its vectors are the rows of the matrix times the vectors
+        of the cell.
+    force_constants : numpy.ndarray
+        (n, n S, 3, 3) float64 second derivatives of the energy in eV/Å² with
+        respect to the positions of each atom of the cell and of each atom
+        of the supercell, which holds S cells, each with the atoms of the
+        cell in their order, the first cell that of the cell itself.
+    """
+
+    def __init__(
+        self,
+        cell: System,
+        supercell: np.ndarray,
+        force_constants: np.ndarray,
+        masses: np.ndarray,
+        reference: System | None = None,
+    ):
+        # reference: the same atoms in the same order, whose geometry picks
+        # the periodic images that the force constants of each pair go to;
+        # strained copies of a crystal take the unstrained one, so that
+        # their frequencies change smoothly with the strain
+        self.cell = cell
+        self.supercell = np.array(supercell, dtype=int)
+        self.supercell.flags.writeable = False
+        self.force_constants = force_constants
+        self.force_constants.flags.writeable = False
+        n = len(cell)
+        matrix = cell.box.matrix
+        repeats = _lattice_points(self.supercell)
+        self.__sheet = _is_sheet(cell.box, "phonons")
+        # a sheet has no images along its third vector
+        third = np.arange(1) if self.__sheet else np.arange(-2, 3)
+        grid = np.stack(
+            np.meshgrid(np.arange(-2, 3), np.arange(-2, 3), third, indexing="ij"), -1
+        )
+
+        def to_atoms(geometry: System, a: int) -> np.ndarray:
+            """(M, 3) the vectors from atom a to each atom of the supercell."""
+            box, positions = geometry.box.matrix, geometry["positions"]
+            atoms = ((repeats @ box)[:, None, :] + positions[None]).reshape(-1, 3)
+            return atoms - positions[a]
+
+        def images(geometry: System, a: int, nearest: np.ndarray) -> np.ndarray:
+            """(M, I, 3) the vectors from atom a to the I images of each atom
+            of the supercell, around the image given by nearest."""
+            big = self.supercell @ geometry.box.matrix
+            shifts = grid.reshape(-1, 3) @ big
+            return (to_atoms(geometry, a) + nearest @ big)[:, None, :] + shifts[None]
+
+        # each pair at its shortest distances in the supercell, shared
+        # equally among the images that are as short
+        first, second, vectors, weights = [], [], [], []
+        for a in range(n):
+            # atoms may be any number of periods away from each other
+            nearest = -np.round(
+                to_atoms(cell, a) @ np.linalg.inv(self.supercell @ matrix)
+            )
+            if self.__sheet:
+                nearest[:, 2] = 0.0  # no images along the height of a sheet
+            here = images(cell, a, nearest)
+            chosen = here if reference is None else images(reference, a, nearest)
+            lengths = np.linalg.norm(chosen, axis=2)
+            shortest = lengths.min(axis=1, keepdims=True)
+            near = lengths < shortest + 1e-5 * (1.0 + shortest)
+            j, s = np.nonzero(near)
+            first.append(np.full(len(j), a))
+            second.append(j)
+            vectors.append(here[j, s])
+            weights.append(1.0 / near.sum(axis=1)[j])
+        self.__a = np.concatenate(first)
+        self.__j = np.concatenate(second)
+        self.__vectors = np.concatenate(vectors)
+        self.__weights = np.concatenate(weights)
+        self.__constants = force_constants[self.__a, self.__j].reshape(-1, 9)
+        b = self.__j % n
+        self.__blocks = [
+            (a, c, np.flatnonzero((self.__a == a) & (b == c)))
+            for a in range(n)
+            for c in range(n)
+        ]
+        self.__masses = masses
+        self.__reciprocal = 2 * np.pi * np.linalg.inv(matrix).T
+
+    def __repr__(self) -> str:
+        cells = round(np.linalg.det(self.supercell))
+        atoms = f"{len(self.cell)} atom" + ("s" if len(self.cell) > 1 else "")
+        return f"Phonons({atoms}, supercell of {cells} cells)"
+
+    def __wave_vectors(self, q: ArrayLike) -> tuple[np.ndarray, bool]:
+        q = np.asarray(q, dtype=float)
+        single = q.ndim == 1
+        q = np.atleast_2d(q)
+        if q.ndim != 2 or q.shape[1] != 3 or not np.isfinite(q).all():
+            raise InvalidParameter("q must be a wave vector or (K, 3) wave vectors")
+        return q, single
+
+    def __dynamical(self, q: np.ndarray) -> np.ndarray:
+        """(K, 3n, 3n) dynamical matrices in eV/(Å² amu)."""
+        n = len(self.cell)
+        phase = np.exp(1j * (q @ self.__reciprocal) @ self.__vectors.T) * self.__weights
+        blocks = np.zeros((len(q), n, n, 9), dtype=complex)
+        for a, b, pairs in self.__blocks:
+            blocks[:, a, b] = phase[:, pairs] @ self.__constants[pairs]
+        masses = np.sqrt(np.outer(self.__masses, self.__masses))
+        blocks /= masses[None, :, :, None]
+        matrices = (
+            blocks.reshape(len(q), n, n, 3, 3)
+            .transpose(0, 1, 3, 2, 4)
+            .reshape(len(q), 3 * n, 3 * n)
+        )
+        return 0.5 * (matrices + matrices.conj().transpose(0, 2, 1))
+
+    def __derivatives(self, q: np.ndarray) -> np.ndarray:
+        """(K, 3, 3n, 3n) derivatives of the dynamical matrices with respect
+        to the Cartesian wave vector, in eV Å/(Å² amu)."""
+        n = len(self.cell)
+        phase = np.exp(1j * (q @ self.__reciprocal) @ self.__vectors.T) * self.__weights
+        blocks = np.zeros((len(q), 3, n, n, 9), dtype=complex)
+        for a, b, pairs in self.__blocks:
+            for x in range(3):
+                weighted = 1j * phase[:, pairs] * self.__vectors[pairs, x]
+                blocks[:, x, a, b] = weighted @ self.__constants[pairs]
+        masses = np.sqrt(np.outer(self.__masses, self.__masses))
+        blocks /= masses[None, None, :, :, None]
+        matrices = (
+            blocks.reshape(len(q), 3, n, n, 3, 3)
+            .transpose(0, 1, 2, 4, 3, 5)
+            .reshape(len(q), 3, 3 * n, 3 * n)
+        )
+        return 0.5 * (matrices + matrices.conj().transpose(0, 1, 3, 2))
+
+    def __solve(self, q: np.ndarray, vectors: bool, chunk: int = 2048):
+        frequencies, modes = [], []
+        for start in range(0, len(q), chunk):
+            matrices = self.__dynamical(q[start : start + chunk])
+            if vectors:
+                values, eigen = np.linalg.eigh(matrices)
+                modes.append(eigen.transpose(0, 2, 1))
+            else:
+                values = np.linalg.eigvalsh(matrices)
+            frequencies.append(np.sign(values) * np.sqrt(np.abs(values)) * _THZ)
+        frequencies = np.concatenate(frequencies)
+        if not vectors:
+            return frequencies, None
+        n = len(self.cell)
+        return frequencies, np.concatenate(modes).reshape(len(q), 3 * n, n, 3)
+
+    def frequencies(self, q: ArrayLike) -> np.ndarray:
+        """Phonon frequencies at wave vectors.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+
+        Returns
+        -------
+        numpy.ndarray
+            (3n,) or (K, 3n) float64 frequencies in THz, ascending; imaginary ones
+            as negative.
+        """
+        q, single = self.__wave_vectors(q)
+        frequencies, _ = self.__solve(q, vectors=False)
+        return frequencies[0] if single else frequencies
+
+    def modes(self, q: ArrayLike) -> tuple[np.ndarray, np.ndarray]:
+        """Phonon frequencies and polarization vectors at wave vectors.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+
+        Returns
+        -------
+        frequencies : numpy.ndarray
+            (3n,) or (K, 3n) float64 frequencies in THz, ascending.
+        vectors : numpy.ndarray
+            (3n, n, 3) or (K, 3n, n, 3) complex128 polarization vector of each
+            mode, normalized over the atoms of the cell; atom b of the cell
+            in the cell at R moves along its vector divided by the square
+            root of its mass, times exp(i q · (R + r_b)).
+        """
+        q, single = self.__wave_vectors(q)
+        frequencies, vectors = self.__solve(q, vectors=True)
+        if single:
+            return frequencies[0], vectors[0]
+        return frequencies, vectors
+
+    def group_velocities(
+        self, q: ArrayLike, *, symmetry: bool | None = None
+    ) -> np.ndarray:
+        """Group velocities of the phonons at wave vectors.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+        symmetry : bool, optional
+            Average the velocities over the rotations of the crystal, found
+            by spglib, that keep each wave vector: True, False, or by default
+            whenever spglib is installed.
+
+        Returns
+        -------
+        numpy.ndarray
+            (3n, 3) or (K, 3n, 3) float64 Cartesian group velocity of each
+            mode in Å/ps, the modes in the order of ``frequencies``; zero for
+            modes below 1e-4 THz.
+
+        Raises
+        ------
+        InvalidParameter
+            For wave vectors that are not three numbers each, or symmetry
+            True without spglib.
+        """
+        q, single = self.__wave_vectors(q)
+        cell = _in_periodic_box(self.cell) if self.__sheet else self.cell
+        rotations = _rotations(cell, symmetry)
+        inverse = np.linalg.inv(self.__reciprocal)
+        n3 = 3 * len(self.cell)
+        out = np.zeros((len(q), n3, 3))
+        for start in range(0, len(q), 512):
+            chunk = q[start : start + 512]
+            values, vectors = np.linalg.eigh(self.__dynamical(chunk))
+            frequencies = np.sign(values) * np.sqrt(np.abs(values)) * _THZ
+            derivatives = self.__derivatives(chunk)
+            along = np.einsum("x,kxij->kij", _APART, derivatives)
+            for k in range(len(chunk)):
+                v = np.zeros((n3, 3))
+                apart = np.flatnonzero(np.diff(frequencies[k]) >= _SAME_VELOCITY) + 1
+                for modes in np.split(np.arange(n3), apart):
+                    # modes of one frequency: the basis in which the derivative
+                    # along a direction of no symmetry is diagonal
+                    e = vectors[k][:, modes]
+                    _, turn = np.linalg.eigh(e.conj().T @ along[k] @ e)
+                    e = e @ turn
+                    v[modes] = np.einsum(
+                        "im,xij,jm->mx", e.conj(), derivatives[k], e
+                    ).real
+                # v = dω/dk = 2π dν/dk, with ν = c sqrt(λ)
+                moving = frequencies[k] > _SAME_VELOCITY
+                v[moving] *= (np.pi * _THZ**2 / frequencies[k][moving])[:, None]
+                v[~moving] = 0.0
+                if len(rotations) > 1:
+                    # the rotations that keep the wave vector, not moved back
+                    # by a reciprocal lattice vector
+                    wave = (chunk[k] - np.round(chunk[k])) @ self.__reciprocal
+                    kept = [
+                        r
+                        for r in rotations
+                        if np.abs((r @ wave - wave) @ inverse).max() < 1e-5
+                    ]
+                    v = np.mean([v @ r.T for r in kept], axis=0)
+                out[start + k] = v
+        return out[0] if single else out
+
+    def gruneisen(
+        self, q: ArrayLike, *, smaller: "Phonons", larger: "Phonons"
+    ) -> np.ndarray:
+        """Mode Grüneisen parameters: how the frequency of each mode changes
+        with the volume, from the phonons of the crystal at a smaller and a
+        larger volume.
+
+        Parameters
+        ----------
+        q : array_like of float64
+            A wave vector or (K, 3) wave vectors, in units of the reciprocal
+            lattice vectors of the cell.
+        smaller, larger : Phonons
+            The phonons of the same crystal, its atoms in the same order, in a
+            cell of a smaller and of a larger volume, such as from ``phonons``
+            of the cell scaled by a little.
+
+        Returns
+        -------
+        numpy.ndarray
+            (3n,) or (K, 3n) float64 mode Grüneisen parameters, -(V/ω) dω/dV,
+            of the modes of these phonons in the order of ``frequencies``;
+            NaN for modes below 1e-3 THz, the translations.
+
+        Raises
+        ------
+        InvalidParameter
+            For wave vectors that are not three numbers each, or phonons of
+            another number of atoms, or whose volumes are not smaller and
+            larger than that of these.
+        """
+        q, single = self.__wave_vectors(q)
+        volume = abs(np.linalg.det(self.cell.box.matrix))
+        low = abs(np.linalg.det(smaller.cell.box.matrix))
+        high = abs(np.linalg.det(larger.cell.box.matrix))
+        if len(smaller.cell) != len(self.cell) or len(larger.cell) != len(self.cell):
+            raise InvalidParameter(
+                "the phonons at other volumes must be of the same atoms"
+            )
+        if not low < volume < high:
+            raise InvalidParameter(
+                f"the volumes must be smaller and larger than {volume:.6g} Å³, "
+                f"not {low:.6g} and {high:.6g}"
+            )
+        n3 = 3 * len(self.cell)
+        out = np.zeros((len(q), n3))
+        for start in range(0, len(q), 512):
+            chunk = q[start : start + 512]
+            values, vectors = np.linalg.eigh(self.__dynamical(chunk))
+            change = larger.__dynamical(chunk) - smaller.__dynamical(chunk)
+            frequencies = np.sign(values) * np.sqrt(np.abs(values)) * _THZ
+            for k in range(len(chunk)):
+                # modes of nearly one frequency, as phonopy takes them: their
+                # eigenvalues closer than 1e-4 eV/(Å² amu); the basis in which
+                # the change is diagonal
+                apart = np.flatnonzero(np.diff(values[k]) >= _SAME_EIGENVALUE) + 1
+                for modes in np.split(np.arange(n3), apart):
+                    e = vectors[k][:, modes]
+                    out[start + k, modes] = np.linalg.eigvalsh(
+                        e.conj().T @ change[k] @ e
+                    )
+            moving = frequencies > _LOWEST
+            out[start : start + len(chunk)] = np.where(
+                moving,
+                -out[start : start + len(chunk)]
+                * volume
+                / (high - low)
+                / (2 * np.where(moving, values, 1.0)),
+                np.nan,
+            )
+        return out[0] if single else out
+
+    def __in_plane(self, sections: list) -> list:
+        """The sections of a path that lie in the plane of a sheet, cut where
+        they leave it."""
+        if not self.__sheet:
+            return sections
+        kept = []
+        for section in sections:
+            piece = []
+            for point in [*section, None]:
+                if point is not None and abs(point[1][2]) < 1e-9:
+                    piece.append(point)
+                    continue
+                if len(piece) > 1:
+                    kept.append(piece)
+                piece = []
+        return kept
+
+    def __mesh_counts(self, mesh: int | ArrayLike) -> np.ndarray:
+        """The mesh, one integer meaning the plane of a sheet."""
+        if self.__sheet and np.ndim(mesh) == 0:
+            return _repeat((mesh, mesh, 1), "mesh")
+        counts = _repeat(mesh, "mesh")
+        if self.__sheet and counts[2] != 1:
+            raise InvalidParameter("the mesh of a sheet has one wave vector along z")
+        return counts
+
+    def __standard_path(self, lattice: str) -> list[list[tuple[str, np.ndarray]]]:
+        if lattice not in _PATHS:
+            raise InvalidParameter(
+                f"path must be one of {tuple(_PATHS)} or a list of segments, "
+                f"not {lattice!r}"
+            )
+        sections, points = _PATHS[lattice]
+        # the lattice constants, from the translations of the crystal
+        matrix = primitive_cell(self.cell).box.matrix
+        combinations = np.stack(
+            np.meshgrid(*[np.arange(-3, 4)] * 3, indexing="ij"), -1
+        ).reshape(-1, 3)
+        translations = combinations @ matrix
+        lengths = np.linalg.norm(translations, axis=1)
+        nonzero = lengths > 1e-9
+        shortest = lengths[nonzero].min()
+        if lattice == "hexagonal":
+            flat = nonzero & (np.abs(translations[:, 2]) < 1e-6 * shortest)
+            upright = nonzero & (
+                np.linalg.norm(translations[:, :2], axis=1) < 1e-6 * shortest
+            )
+            if not flat.any() or not upright.any():
+                raise InvalidParameter(
+                    "the cell is not a hexagonal lattice with c along z"
+                )
+            a, c = lengths[flat].min(), lengths[upright].min()
+            expected = np.array([[a, 0, 0], [-a / 2, a * _S3 / 2, 0], [0, 0, c]])
+            scale = 2 * np.pi * np.array([1 / a, 1 / a, 1 / c])
+        else:
+            a = shortest * {"sc": 1.0, "fcc": np.sqrt(2), "bcc": 2 / _S3}[lattice]
+            expected = {
+                "sc": a * np.eye(3),
+                "fcc": a / 2 * np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]]),
+                "bcc": a / 2 * np.array([[-1, 1, 1], [1, -1, 1], [1, 1, -1]]),
+            }[lattice]
+            scale = np.full(3, 2 * np.pi / a)
+        integers = expected @ np.linalg.inv(matrix)
+        if np.abs(integers - np.round(integers)).max() > 1e-6 or not np.isclose(
+            abs(np.linalg.det(np.round(integers))), 1
+        ):
+            raise InvalidParameter(
+                f"the cell is not a {lattice} lattice with its axes along x, y and z"
+            )
+        to_cell = self.cell.box.matrix.T / (2 * np.pi)
+        return [
+            [(label, (np.array(points[label]) * scale) @ to_cell) for label in section]
+            for section in sections
+        ]
+
+    def __auto_path(self) -> list[list[tuple[str, np.ndarray]]]:
+        try:
+            import seekpath
+        except ImportError:
+            raise ImportError(
+                'path="auto" needs seekpath: pip install seekpath'
+            ) from None
+        cell = _in_periodic_box(self.cell) if self.__sheet else self.cell
+        found = seekpath.get_path(
+            (
+                cell.box.matrix,
+                cell.box.to_fractional(cell["positions"]),
+                (_kinds(cell) + 1).tolist(),
+            )
+        )
+        # its points in its own standard cell, turned back into this one
+        reciprocal = np.array(found["reciprocal_primitive_lattice"])
+        turn = np.array(found["rotation_matrix"])
+        to_cell = cell.box.matrix.T / (2 * np.pi)
+        points = {
+            label: (np.array(q) @ reciprocal) @ turn @ to_cell
+            for label, q in found["point_coords"].items()
+        }
+        sections: list[list[str]] = []
+        for start, end in found["path"]:
+            if sections and sections[-1][-1] == start:
+                sections[-1].append(end)
+            else:
+                sections.append([start, end])
+        name = {"GAMMA": "Γ"}
+        return [
+            [(name.get(label, label), points[label]) for label in section]
+            for section in sections
+        ]
+
+    def band_structure(
+        self,
+        path: str | Sequence[Sequence[tuple[str, ArrayLike]]],
+        *,
+        points: int = 51,
+        connected: bool = False,
+    ) -> BandStructure:
+        """Phonon frequencies along a path through the Brillouin zone.
+
+        Parameters
+        ----------
+        path : str or sequence of sequences of (str, array_like)
+            "auto" for the standard path of the crystal by its symmetry,
+            from seekpath; "sc", "fcc", "bcc" or "hexagonal" for the standard
+            path of that lattice, the cell having the axes of its
+            conventional cell along x, y and z, or a along x and c along z;
+            or the sections of a path, each a sequence of labeled wave
+            vectors in units of the reciprocal lattice vectors of the cell,
+            joined by straight lines.
+        points : int32, optional
+            Number of wave vectors on each line, its ends included.
+            Default 51.
+        connected : bool, optional
+            Follow each branch along the path by its polarization vector, so
+            that branches that cross stay apart; otherwise the frequencies
+            are ascending at each wave vector. Default False.
+
+        Returns
+        -------
+        BandStructure
+            The wave vectors, their distances along the path, the
+            frequencies and the labels of the special points.
+
+        Raises
+        ------
+        ImportError
+            For path "auto" without seekpath.
+        """
+        if path == "auto":
+            sections = self.__in_plane(self.__auto_path())
+        elif isinstance(path, str):
+            sections = self.__in_plane(self.__standard_path(path))
+        else:
+            try:
+                sections = [
+                    [(str(label), np.asarray(q, dtype=float)) for label, q in section]
+                    for section in path
+                ]
+            except (TypeError, ValueError):
+                raise InvalidParameter(
+                    "path must be sections of (label, wave vector) points"
+                ) from None
+            if any(len(s) < 2 or any(q.shape != (3,) for _, q in s) for s in sections):
+                raise InvalidParameter(
+                    "each section of a path needs two or more wave vectors of 3 values"
+                )
+        if int(points) < 2:
+            raise InvalidParameter(f"points must be at least 2, not {points!r}")
+        t = np.linspace(0, 1, int(points))[:, None]
+        wave_vectors, distances, labels, starts = [], [], [], []
+        reached = 0.0
+        for section in sections:
+            starts.append(sum(len(w) for w in wave_vectors))
+            if labels:
+                labels[-1] = (reached, f"{labels[-1][1]}|{section[0][0]}")
+            else:
+                labels.append((reached, section[0][0]))
+            for (_, start), (label, end) in zip(section, section[1:]):
+                line = start + t * (end - start)
+                length = np.linalg.norm((end - start) @ self.__reciprocal)
+                wave_vectors.append(line)
+                distances.append(reached + t[:, 0] * length)
+                reached += length
+                labels.append((reached, label))
+        q = np.concatenate(wave_vectors)
+        if connected:
+            frequencies, vectors = self.__solve(q, vectors=True)
+            frequencies = _connected(frequencies, vectors, starts, _DEGENERATE)
+        else:
+            frequencies = self.frequencies(q)
+        return BandStructure(
+            q=q,
+            distances=np.concatenate(distances),
+            frequencies=frequencies,
+            labels=tuple((float(d), label) for d, label in labels),
+        )
+
+    def __on_mesh(self, mesh, vectors: bool, stable: bool):
+        q = _mesh(mesh)
+        frequencies, modes = self.__solve(q, vectors=vectors)
+        lowest = frequencies.min()
+        if stable and lowest < _IMAGINARY:
+            raise InvalidParameter(
+                f"imaginary frequencies down to {lowest:.3g} THz: the crystal is "
+                f"not stable, or the supercell is too small"
+            )
+        return q, frequencies, modes
+
+    def dos(
+        self,
+        mesh: int | ArrayLike = 20,
+        *,
+        frequencies: ArrayLike | None = None,
+        sigma: float | None = None,
+        projected: bool = False,
+    ) -> PhononDOS:
+        """The phonon density of states, by the tetrahedron method or with
+        Gaussians.
+
+        Parameters
+        ----------
+        mesh : int32 or array_like, optional
+            Number of wave vectors along each reciprocal lattice vector, of
+            a mesh through Γ. Default 20.
+        frequencies : array_like of float64, optional
+            The frequencies in THz at which to give the density. Default 501
+            from 0, or a little below the lowest imaginary frequency, to a
+            little above the highest.
+        sigma : float64, optional
+            Width in THz of a Gaussian for each mode; by default the
+            tetrahedron method.
+        projected : bool, optional
+            Also give the part of each atom of the cell. Default False.
+
+        Returns
+        -------
+        PhononDOS
+            The frequencies and the density of states per atom.
+
+        Raises
+        ------
+        InvalidParameter
+            For a mesh or a sigma that is not positive.
+        """
+        if sigma is not None and not sigma > 0:
+            raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
+        counts = self.__mesh_counts(mesh)
+        _, values, modes = self.__on_mesh(counts, vectors=projected, stable=False)
+        if frequencies is None:
+            low = min(0.0, 1.05 * values.min() if values.min() < _IMAGINARY else 0.0)
+            grid = np.linspace(low, 1.05 * values.max(), 501)
+        else:
+            grid = np.asarray(frequencies, dtype=float).reshape(-1)
+        n = len(self.cell)
+        weights = None
+        if projected:
+            weights = (np.abs(modes) ** 2).sum(axis=3)  # (K, 3n, n)
+        dos = np.zeros(len(grid))
+        parts = np.zeros((len(grid), n)) if projected else None
+        if sigma is not None:
+            for k in range(len(values)):
+                g = np.exp(-0.5 * ((grid[:, None] - values[k][None]) / sigma) ** 2)
+                g /= sigma * np.sqrt(2 * np.pi)
+                dos += g.sum(axis=1)
+                if projected:
+                    parts += g @ weights[k]
+            count = len(values)
+        else:
+            tetrahedra = _tetrahedra(counts, self.__reciprocal)
+            for band in range(3 * n):
+                for start in range(0, len(tetrahedra), 4096):
+                    corners = tetrahedra[start : start + 4096]
+                    g = _tetrahedron_dos(values[corners, band], grid)
+                    dos += g.sum(axis=0)
+                    if projected:
+                        parts += g.T @ weights[corners, band].mean(axis=1)
+            count = len(tetrahedra)
+        return PhononDOS(
+            frequencies=grid,
+            dos=dos / (count * n),
+            projected=None if parts is None else parts / count,
+        )
+
+    def thermal_displacements(
+        self, temperatures: ArrayLike, *, mesh: int | ArrayLike = 20
+    ) -> np.ndarray:
+        """The thermal displacements of the atoms of the cell: the mean of the
+        products of their displacements along each pair of axes, by sums over
+        the modes on a mesh.
+
+        Parameters
+        ----------
+        temperatures : array_like of float64
+            Temperatures in K, not negative.
+        mesh : int32 or array_like, optional
+            Number of wave vectors along each reciprocal lattice vector, of
+            a mesh through Γ. Default 20.
+
+        Returns
+        -------
+        numpy.ndarray
+            (T, n, 3, 3) float64 mean products of the displacements of each
+            atom along x, y and z, in Å², with the zero point motion; the
+            diagonal is the mean square displacement along each axis. Modes
+            below 1e-3 THz, the translations of the crystal, are left out.
+
+        Raises
+        ------
+        InvalidParameter
+            For a negative temperature, a mesh that is not positive, or
+            imaginary frequencies on the mesh.
+        """
+        temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
+        if temperatures.ndim != 1 or not (temperatures >= 0).all():
+            raise InvalidParameter("temperatures must not be negative")
+        _, values, vectors = self.__on_mesh(
+            self.__mesh_counts(mesh), vectors=True, stable=True
+        )
+        moving = values > _LOWEST
+        omega = 2 * np.pi * np.where(moving, values, 1.0)  # rad/ps
+        quanta = units.PLANCK * np.where(moving, values, 1.0)  # eV
+        hbar = units.PLANCK / (2 * np.pi)  # eV ps
+        n = len(self.cell)
+        out = np.zeros((len(temperatures), n, 3, 3))
+        # e e* of each mode and atom: (K, 3n, n, 3, 3)
+        products = np.einsum("kmax,kmay->kmaxy", vectors, vectors.conj()).real
+        for t, temperature in enumerate(temperatures):
+            if temperature > 0:
+                # 1/(e^x - 1), without overflow where x is large
+                x = quanta / (units.BOLTZMANN * temperature)
+                occupation = np.exp(-x) / -np.expm1(-x)
+            else:
+                occupation = np.zeros_like(quanta)
+            # hbar (n + 1/2) / omega, in eV ps², per mass in amu: Å² from
+            # the factor of eV in amu Å²/ps²
+            weight = np.where(moving, hbar * (occupation + 0.5) / omega, 0.0)
+            out[t] = np.einsum("km,kmaxy->axy", weight, products)
+        out /= len(values) * self.__masses[None, :, None, None]
+        return out / units.AMU_A2_PER_PS2_TO_EV
+
+    def thermal(
+        self, temperatures: ArrayLike, *, mesh: int | ArrayLike = 20
+    ) -> ThermalProperties:
+        """Harmonic thermodynamic properties of the vibrations, by sums over
+        the modes on a mesh.
+
+        Parameters
+        ----------
+        temperatures : array_like of float64
+            Temperatures in K, not negative.
+        mesh : int32 or array_like, optional
+            Number of wave vectors along each reciprocal lattice vector, of
+            a mesh through Γ. Default 20.
+
+        Returns
+        -------
+        ThermalProperties
+            Free energy, energy, entropy and heat capacity per atom; modes
+            below 1e-3 THz, the translations of the crystal, are left out.
+
+        Raises
+        ------
+        InvalidParameter
+            For a negative temperature, a mesh that is not positive, or
+            imaginary frequencies on the mesh.
+        """
+        temperatures = np.atleast_1d(np.asarray(temperatures, dtype=float))
+        if temperatures.ndim != 1 or not (temperatures >= 0).all():
+            raise InvalidParameter("temperatures must not be negative")
+        _, values, _ = self.__on_mesh(
+            self.__mesh_counts(mesh), vectors=False, stable=True
+        )
+        quanta = units.PLANCK * values[values > _LOWEST]  # eV
+        count = values.size / (3 * len(self.cell))  # wave vectors per atom
+        kt = units.BOLTZMANN * temperatures
+        free, energy, entropy, capacity = [], [], [], []
+        for t in kt:
+            if t == 0:
+                free.append(0.5 * quanta.sum())
+                energy.append(0.5 * quanta.sum())
+                entropy.append(0.0)
+                capacity.append(0.0)
+                continue
+            x = quanta / t
+            occupation = 1.0 / np.expm1(x)
+            free.append((0.5 * quanta + t * np.log(-np.expm1(-x))).sum())
+            energy.append((quanta * (0.5 + occupation)).sum())
+            entropy.append(
+                units.BOLTZMANN * (x * occupation - np.log(-np.expm1(-x))).sum()
+            )
+            capacity.append(
+                units.BOLTZMANN * (x**2 * occupation * (1 + occupation)).sum()
+            )
+        scale = 1.0 / (count * len(self.cell))
+        return ThermalProperties(
+            temperatures=temperatures,
+            free_energy=np.array(free) * scale,
+            energy=np.array(energy) * scale,
+            entropy=np.array(entropy) * scale,
+            heat_capacity=np.array(capacity) * scale,
+        )
+
+
+def _supercell(cell: System, matrix: np.ndarray) -> System:
+    repeats = _lattice_points(matrix)
+    positions = (repeats @ cell.box.matrix)[:, None, :] + cell["positions"][None]
+    table = pl.concat([cell.table] * len(repeats)).with_columns(
+        pl.Series("positions", positions.reshape(-1, 3), dtype=pl.Array(pl.Float64, 3))
+    )
+    box = Box(matrix @ cell.box.matrix, origin=cell.box.origin, pbc=cell.box.pbc)
+    return System(table=table, box=box)
+
+
+def _kept(
+    operations: _Operations | None, matrix: np.ndarray, n: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """The rotations, Cartesian rotations, atoms and shifts of the symmetry
+    operations that map the supercell onto itself, the only ones that relate
+    its force constants; the identity alone without operations."""
+    if operations is None:
+        return (
+            np.eye(3, dtype=np.int64)[None],
+            np.eye(3)[None],
+            np.arange(n)[None],
+            np.zeros((1, n, 3), dtype=np.int64),
+        )
+    keep = _keeping(operations.rotations, matrix)
+    return (
+        operations.rotations[keep],
+        operations.cartesian[keep],
+        operations.atoms[keep],
+        operations.shifts[keep],
+    )
+
+
+def _moves(
+    cartesian: np.ndarray, atoms: np.ndarray
+) -> list[tuple[int, np.ndarray, list[int], list[int]]]:
+    """The moves of finite displacements: for one atom a of each set of
+    atoms that the operations make equivalent, the operations that keep it
+    in place, the fewest axes whose images under them span space, and for
+    each axis an operation of them that turns it around, or -1 where none
+    does and a moves by minus the displacement too."""
+
+    def rank(vectors: list) -> int:
+        return int(np.linalg.matrix_rank(np.array(vectors), tol=1e-6)) if vectors else 0
+
+    moves = []
+    done = np.zeros(atoms.shape[1], dtype=bool)
+    for a in range(atoms.shape[1]):
+        if done[a]:
+            continue
+        site = np.flatnonzero(atoms[:, a] == a)
+        # the axes to move along: each adds directions to the span of the others
+        axes, span = [], []
+        for alpha in range(3):
+            images = list(cartesian[site, :, alpha])
+            if rank(span + images) > rank(span):
+                axes.append(alpha)
+                span += images
+        flips = []
+        for alpha in axes:
+            flip = [k for k in site if cartesian[k, alpha, alpha] < -1 + 1e-6]
+            flips.append(int(flip[0]) if flip else -1)
+        moves.append((a, site, axes, flips))
+        done[np.unique(atoms[:, a])] = True
+    return moves
+
+
+def _displaced_forces(
+    cell: System,
+    calculator: Calculator,
+    matrix: np.ndarray,
+    displacement: float,
+    operations: _Operations | None = None,
+) -> np.ndarray:
+    """(n, n S, 3, 3) force constants by central differences of the forces
+    on the atoms of the supercell. Without symmetry operations each atom of
+    the first cell moves along x, y and z by plus and minus displacement.
+    With them, one atom of each set of equivalent atoms moves, along the
+    fewest axes whose images under the operations that keep it in place
+    span space, and only by plus displacement where such an operation turns
+    the axis around; the forces of the other moves are images of these."""
+    big = _supercell(cell, matrix)
+    positions = big["positions"]
+    n, size = len(cell), len(big)
+    rotations, cartesian, atoms, shifts = _kept(operations, matrix, n)
+    repeats = _lattice_points(matrix)
+    found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
+    inverse = np.linalg.inv(matrix)
+
+    def image(k: int, a: int) -> np.ndarray:
+        """(n S,) the atom of the supercell that operation k takes each atom
+        to, the image of atom a moved back into the first cell."""
+        lattice = (repeats @ rotations[k].T)[:, None, :] + shifts[k] - shifts[k, a]
+        fractional = lattice.reshape(-1, 3) @ inverse
+        inside = np.round((fractional - np.floor(fractional + 1e-9)) @ matrix)
+        cells = np.array([found[tuple(r)] for r in inside.astype(int).tolist()])
+        return cells * n + np.tile(atoms[k], len(repeats))
+
+    def forces(a: int, alpha: int, sign: float) -> np.ndarray:
+        moved = positions.copy()
+        moved[a, alpha] += sign * displacement
+        return calculator.compute(big.with_columns(positions=moved), ("forces",)).forces
+
+    constants = np.zeros((n, size, 3, 3))
+    for a, site, axes, flips in _moves(cartesian, atoms):
+        directions, responses = [], []
+        for alpha, flip in zip(axes, flips):
+            plus = forces(a, alpha, 1.0)
+            if flip >= 0:
+                minus = np.empty_like(plus)
+                minus[image(flip, a)] = plus @ cartesian[flip].T
+            else:
+                minus = forces(a, alpha, -1.0)
+            response = -(plus - minus) / (2 * displacement)  # row alpha of each 3 x 3
+            for k in site:
+                directions.append(cartesian[k, :, alpha])
+                moved = np.empty_like(response)
+                moved[image(k, a)] = response @ cartesian[k].T
+                responses.append(moved)
+        constants[a] = np.einsum(
+            "am,mjb->jab", np.linalg.pinv(np.array(directions)), np.array(responses)
+        )
+        # the atoms equivalent to a: images of its force constants
+        for b in np.unique(atoms[:, a]):
+            if b != a:
+                k = np.flatnonzero(atoms[:, a] == b)[0]
+                rotation = cartesian[k]
+                constants[b, image(k, a)] = rotation @ constants[a] @ rotation.T
+    return constants
+
+
+def _symmetrized(constants: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    """Force constants made symmetric in the two atoms and summing to zero
+    over the atoms of the supercell, so that a translation costs nothing."""
+    n = constants.shape[0]
+    repeats = _lattice_points(matrix)
+    # the pair (b in cell L, a in cell 0) is the pair (a in cell -L, b in cell 0)
+    fractional = -repeats @ np.linalg.inv(matrix)
+    opposite = np.round((fractional - np.floor(fractional + 1e-9)) @ matrix).astype(int)
+    found = {tuple(r): k for k, r in enumerate(repeats.tolist())}
+    index = np.array([found[tuple(r)] for r in opposite.tolist()])
+    j = np.arange(constants.shape[1])
+    other = index[j // n][None, :] * n + np.arange(n)[:, None]  # (n, M)
+    partner = j % n
+    constants = constants.copy()
+    for _ in range(10):
+        transposed = constants[partner[None, :], other].transpose(0, 1, 3, 2)
+        constants = 0.5 * (constants + transposed)
+        constants[np.arange(n), np.arange(n)] -= constants.sum(axis=1)
+    return constants
+
+
+def phonons(
+    system: System,
+    calculator: Calculator,
+    *,
+    supercell: int | ArrayLike | None = None,
+    displacement: float = 0.01,
+    symmetry: bool | None = None,
+) -> Phonons:
+    """Harmonic phonons of a crystal, from the forces on atoms displaced in
+    a supercell.
+
+    Parameters
+    ----------
+    system : System
+        The cell of the crystal, periodic in every direction, or of a sheet,
+        periodic along two vectors in the x-y plane and not along a third
+        along z, with atoms at rest (relax it first); best its primitive
+        cell. Each atom needs an element or a mass.
+    calculator : Calculator
+        Computes the forces.
+    supercell : int32 or array_like, optional
+        Repeats of the cell along its vectors, one or three, or a (3, 3)
+        integer matrix whose rows times the vectors of the cell are the
+        vectors of the supercell; a sheet repeats along its plane only, and
+        one integer means both of its vectors. Default the supercell nearest
+        a cube that is at least twice the cutoff of the calculator thick in
+        every direction, nearest a square across the plane for a sheet.
+    displacement : float64, optional
+        Displacement of the atoms in Å. Default 0.01.
+    symmetry : bool, optional
+        Move only the atoms and along the directions that the symmetry of
+        the cell, found by spglib, does not relate to others: True, False,
+        or by default whenever spglib is installed.
+
+    Returns
+    -------
+    Phonons
+        The force constants, which give frequencies, polarization vectors,
+        band structures, densities of states and thermal properties.
+
+    Raises
+    ------
+    InvalidParameter
+        If the box is neither periodic nor that of a sheet, there are no
+        atoms, an atom has no mass, the calculator does not compute forces,
+        the supercell is not
+        positive integers or a matrix of them with a positive determinant,
+        the displacement is not positive, or symmetry is True without
+        spglib.
+    """
+    return _phonons(system, calculator, supercell, displacement, symmetry)
+
+
+def _phonons(
+    system: System,
+    calculator: Calculator,
+    supercell: int | ArrayLike | None,
+    displacement: float,
+    symmetry: bool | None,
+    reference: System | None = None,
+) -> Phonons:
+    """The phonons of ``phonons``, the periodic images of the force
+    constants picked by the geometry of reference."""
+    if len(system) == 0:
+        raise InvalidParameter(
+            "phonons need a box periodic in every direction with atoms"
+        )
+    sheet = _is_sheet(system.box, "phonons")
+    if not displacement > 0:
+        raise InvalidParameter(f"displacement must be positive, not {displacement!r}")
+    if "forces" not in calculator.implemented:
+        raise InvalidParameter(f"{type(calculator).__name__} does not compute forces")
+    masses = _masses(system)
+    if supercell is None:
+        choose = _default_sheet_supercell if sheet else _default_supercell
+        matrix = choose(system.box.matrix, 2 * calculator.cutoff)
+    else:
+        matrix = _sheet_supercell(supercell) if sheet else _supercell_matrix(supercell)
+    operations = _symmetry(_in_periodic_box(system) if sheet else system, symmetry)
+    constants = _displaced_forces(system, calculator, matrix, displacement, operations)
+    return Phonons(
+        system, matrix, _symmetrized(constants, matrix), masses, reference=reference
+    )

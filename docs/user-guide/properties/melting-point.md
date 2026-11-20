@@ -1,8 +1,8 @@
 # Melting point
 
-`mdapy.simulation.melting_point(crystal, potential, temperature)` gives the melting
+`mdapy.properties.thermodynamics.melting_point(crystal, potential, temperature)` gives the melting
 point of a crystal from a first guess, by the two-phase method in
-[molecular dynamics](../molecular-dynamics/running.md), in MDAPY or in LAMMPS for a
+[molecular dynamics](../simulation/running.md), in MDAPY or in LAMMPS for a
 [LAMMPS calculator](../potentials/lammps.md): a solid and a liquid share a box at constant enthalpy and
 pressure, where the interface between them moves until they reach their common
 temperature. A run in which one phase takes over gives a new guess, until both last.
@@ -11,7 +11,8 @@ temperature. A run in which one phase takes over gives a new guess, until both l
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import melting_point, minimize
+from mdapy.simulation import minimize
+from mdapy.properties.thermodynamics import melting_point
 
 potential = EAM("Cu_mishin1.eam.alloy", device="cuda")  # the file of LAMMPS
 # the cell of four atoms on the processor: it is too small for the lists of the GPU
@@ -56,7 +57,7 @@ The crystal is repeated to about `num_atoms` atoms in a box three times as long 
 third vector as along the others; the interface lies across that vector. Each run:
 
 1. brings the crystal to the temperature and the pressure and takes its mean box;
-2. holds one half still, a [`Hold`](../molecular-dynamics/controls.md), and melts the other at constant
+2. holds one half still, a [`Hold`](../simulation/controls.md), and melts the other at constant
    volume with a Nosé–Hoover thermostat, at twice the temperature, hotter until its
    atoms have moved by about the distance between them;
 3. cools the melted half to the temperature and lets it settle;

@@ -16,7 +16,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 
 - **All in one.** One package and one `System`, from the first structure through the
   simulation and the analysis to the last picture. MDAPY has its own
-  [molecular dynamics engine](user-guide/molecular-dynamics/index.md), potentials and
+  [molecular dynamics engine](user-guide/simulation/index.md), potentials and
   ray tracer, on the processor and on NVIDIA GPUs, so that a study needs no other
   program.
 - **Light.** [NumPy](https://numpy.org) and [polars](https://pola.rs) are its only
@@ -35,7 +35,7 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   writes the files of [LAMMPS](https://www.lammps.org), [VASP](https://www.vasp.at) and
   [GPUMD](https://gpumd.org), takes any ASE calculator or LAMMPS interaction as a
   calculator ([Interoperability](user-guide/interop/ase.md)), runs its dynamics
-  [in LAMMPS](user-guide/molecular-dynamics/in-lammps.md) when asked, shares a process
+  [in LAMMPS](user-guide/simulation/in-lammps.md) when asked, shares a process
   with [PyTorch](https://pytorch.org) ([Parallelism](basics/parallelism.md)), and works as
   one step of [high-throughput calculations](examples/high-throughput.md).
 - **Predictable.** Names say what the code does: `minimize`, `elastic_constants`,
@@ -43,9 +43,10 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
   `compute(system)` and returns NumPy arrays, each concept has one name
   ([Glossary](reference/glossary.md)), and one unit system, Å, eV, ps, amu, K, and GPa for
   stress, runs through everything ([Units and conventions](reference/units.md)).
-- **Stable.** From 2.0.0 on, code that works keeps working: the API changes only with
-  3.0, a replaced name warns long before it goes, and a result changes only to fix a bug,
-  named in the release notes ([Compatibility](about/compatibility.md)).
+- **Stable.** From 2.0.0 on, nothing is taken away: every function, parameter and result
+  stays until 3.0, a name that moves to another module warns two minor releases before
+  its old import goes, and a result changes only to fix a bug, named in the release
+  notes ([Compatibility](about/compatibility.md)).
 - **Documented.** Every feature has its own page on how to use it and, for analyses, what
   it computes and which papers it follows, and
   [lessons](getting-started/learn/table.md) lead from the first structure on.
@@ -53,8 +54,8 @@ If you like MDAPY, please give it a ⭐ [star](https://github.com/mushroomfire/m
 ## ⚛️ Molecular dynamics
 
 MDAPY runs molecular dynamics with its own engine, on the processor or entirely on an
-NVIDIA [GPU](user-guide/molecular-dynamics/gpu.md); the same calls run
-[in LAMMPS](user-guide/molecular-dynamics/in-lammps.md) too. It is made for materials
+NVIDIA [GPU](user-guide/simulation/gpu.md); the same calls run
+[in LAMMPS](user-guide/simulation/in-lammps.md) too. It is made for materials
 and machine-learned potentials: metals, alloys, semiconductors, glasses and liquids,
 with [EAM](user-guide/potentials/eam.md), [MEAM](user-guide/potentials/meam.md),
 [ADP](user-guide/potentials/adp.md), [Tersoff](user-guide/potentials/tersoff.md),
@@ -65,15 +66,15 @@ bonds and angles, are not its aim. Its features serve mechanical and thermal
 simulations:
 
 - **Ensembles**: NVE, NVT, NPT and NPH, with Nosé–Hoover chains or Langevin dynamics
-  ([Ensembles](user-guide/molecular-dynamics/ensembles.md)).
+  ([Ensembles](user-guide/simulation/ensembles.md)).
 - **Controls**: held, moved and pushed groups of atoms, heat baths, adaptive time steps
   and switching between potentials
-  ([Groups and controls](user-guide/molecular-dynamics/controls.md)).
+  ([Groups and controls](user-guide/simulation/controls.md)).
 - **Mechanical loading**: tension, compression and shear
-  ([Deformation](user-guide/molecular-dynamics/deformation.md)), and
-  [indentation](user-guide/molecular-dynamics/indentation.md).
+  ([Deformation](user-guide/simulation/deformation.md)), and
+  [indentation](user-guide/simulation/indentation.md).
 - **Shock**: pistons, the Hugoniostat and the multiscale shock technique
-  ([Choosing a method](user-guide/molecular-dynamics/shock.md)).
+  ([Choosing a method](user-guide/simulation/shock.md)).
 - **Heat**: thermal conductivity by [Green–Kubo](user-guide/properties/green-kubo.md),
   [HNEMD](user-guide/properties/hnemd.md) and [NEMD](user-guide/properties/nemd.md);
   [free energies](user-guide/properties/free-energy.md),
@@ -95,7 +96,7 @@ with MolecularDynamics(crystal, copper, timestep=0.002) as md:
     stress = md.thermo["stress"]  # the stress as copper is stretched along x
 ```
 
-[Molecular dynamics](user-guide/molecular-dynamics/index.md) shows what it can do and
+[Molecular dynamics](user-guide/simulation/index.md) shows what it can do and
 where each feature runs.
 
 ## 🧰 What it does
@@ -137,11 +138,11 @@ gives back a `System` or NumPy arrays for the next. Each box opens its pages.
 
 </div>
 
-[Simulate](user-guide/molecular-dynamics/index.md){ .ml-node }
+[Simulate](user-guide/simulation/index.md){ .ml-node }
 
 <div class="ml-down" markdown>
 
-[<b>Molecular dynamics</b><span>its own engine · GPU</span>](user-guide/molecular-dynamics/index.md){ .ml-chip }
+[<b>Molecular dynamics</b><span>its own engine · GPU</span>](user-guide/simulation/index.md){ .ml-chip }
 
 [<b>Properties</b><span>elastic · phonons · heat · melting</span>](user-guide/properties/elastic-constants.md){ .ml-chip }
 

@@ -1,0 +1,151 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""Elastic constants against the stress of strained and relaxed boxes in
+LAMMPS. Skipped where LAMMPS is not installed."""
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy import units
+from mdapy.calculators import EAM
+from mdapy.properties.elastic import elastic_constants
+from mdapy.simulation import minimize
+
+from calculators.eam_files import alloy, write_setfl
+
+lammps = pytest.importorskip("lammps")
+
+# LAMMPS converts the virial to bar with its own constant for metal units
+BAR_TO_EV_PER_A3 = 1 / 1.6021765e6
+# change_box arguments of the strains xx, yy, zz, yz, xz, xy: a normal strain
+# also scales the tilt factors along it, as a uniform strain does; a shear
+# strain tilts the box, and x += g y also moves the third vector by g yz
+CHANGES = (
+    "x scale {s} xy final {xy_s} xz final {xz_s}",
+    "y scale {s} yz final {yz_s}",
+    "z scale {s}",
+    "yz delta {t}",
+    "xz delta {t}",
+    "xy delta {t} xz delta {t_yz}",
+)
+
+
+def lammps_stress(data, potential_file, change):
+    """The stress (Voigt, eV/Å^3) of the system in data after change_box and a
+    relaxation of the positions."""
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            f"""
+units metal
+atom_style atomic
+boundary p p p
+read_data {data}
+change_box all triclinic
+change_box all {change} remap units box
+pair_style eam/alloy
+pair_coeff * * {potential_file} Cu Ni
+compute p all pressure NULL virial
+thermo_style custom step pe c_p[1]
+min_style fire
+min_modify norm max
+minimize 0.0 1.0e-10 100000 1000000
+"""
+        )
+        xx, yy, zz, xy, xz, yz = np.array(
+            lmp.numpy.extract_compute("p", 0, 1), copy=True
+        )
+    finally:
+        lmp.close()
+    return -np.array([xx, yy, zz, yz, xz, xy]) * BAR_TO_EV_PER_A3
+
+
+def test_constants_as_lammps(tmp_path):
+    """mdapy strains symmetrically and LAMMPS shears by tilting the box; at
+    zero stress the two differ only in the second order of the strain."""
+    potential_file = write_setfl(tmp_path / "CuNi.eam.alloy")
+    eam = EAM(potential_file)
+    start = alloy(seed=15, repeat=3, jitter=0.0, a=3.35)
+    relaxed = minimize(
+        start, eam, cell="full", max_force=1e-9, max_stress=1e-7, max_steps=20000
+    ).system
+    # LAMMPS rotates a general triclinic box to its restricted form, and the
+    # constants of an alloy change with the orientation: strain both in that
+    # frame
+    general, data = tmp_path / "general.data", tmp_path / "in.data"
+    mdapy.io.write(general, relaxed, elements=["Cu", "Ni"])
+    lmp = lammps.lammps(cmdargs=["-log", "none", "-screen", "none", "-nocite"])
+    try:
+        lmp.commands_string(
+            f"units metal\natom_style atomic\nread_data {general}\nwrite_data {data}"
+        )
+    finally:
+        lmp.close()
+    rotated = mdapy.io.read(data).with_columns(
+        element=np.where(mdapy.io.read(data).table["type"].to_numpy() == 1, "Cu", "Ni")
+    )
+    strain = 1e-3
+    lengths = np.diag(rotated.box.matrix)
+    xy, xz, yz = (
+        rotated.box.matrix[1, 0],
+        rotated.box.matrix[2, 0],
+        rotated.box.matrix[2, 1],
+    )
+    expected = np.empty((6, 6))
+    for k, change in enumerate(CHANGES):
+        stresses = []
+        for sign in (1, -1):
+            # an engineering shear strain g tilts by g times the length along it
+            t = sign * strain * (lengths[2] if k in (3, 4) else lengths[1])
+            scale = 1 + sign * strain
+            command = change.format(
+                s=scale,
+                t=t,
+                t_yz=sign * strain * yz,
+                xy_s=xy * scale,
+                xz_s=xz * scale,
+                yz_s=yz * scale,
+            )
+            stresses.append(lammps_stress(data, potential_file, command))
+        expected[:, k] = (stresses[0] - stresses[1]) / (2 * strain)
+    expected *= units.EV_PER_A3_TO_GPA
+    result = elastic_constants(rotated, eam, strain=strain, max_force=1e-9)
+    np.testing.assert_allclose(result.constants, expected, rtol=1e-4, atol=1e-3)
+    assert expected[0, 0] > 50  # GPa, a stiff metal
+
+
+# silicon by Tersoff (1988), as in the file Si.tersoff of LAMMPS
+SILICON = (
+    "Si Si Si 3.0 1.0 1.3258 4.8381 2.0417 0.0000 22.956 "
+    "0.33675 1.3258 95.373 3.0 0.2 3.2394 3264.7\n"
+)
+
+
+def test_relaxations_follow_the_forces_of_the_strain(tmp_path):
+    """C44 of silicon, whose atoms relax most of it away (92 GPa unrelaxed,
+    10 relaxed): the same at strains of 1e-3 and 1e-4 and with tight
+    relaxations, as the relaxations converge to a part of the forces the
+    strain makes; with max_force alone, 1e-4 eV/Å, they gave 10.2 and 13.9."""
+    from mdapy.build import build_crystal
+    from mdapy.calculators import LAMMPS
+
+    path = tmp_path / "Si.tersoff"
+    path.write_text(SILICON)
+    potential = LAMMPS(f"pair_style tersoff\npair_coeff * * {path} Si", ["Si"])
+    cell = minimize(
+        build_crystal("diamond", 5.432, elements="Si"),
+        potential,
+        cell="full",
+        max_force=1e-8,
+        max_stress=1e-6,
+        max_steps=10000,
+    ).system
+    tight = elastic_constants(cell, potential, max_force=1e-8, symmetry=False)
+    for strain in (1e-3, 1e-4):
+        c44 = elastic_constants(cell, potential, strain=strain, symmetry=False)
+        assert c44.constants[3, 3] == pytest.approx(tight.constants[3, 3], rel=1e-3)
+    assert 10.2 < tight.constants[3, 3] < 10.4

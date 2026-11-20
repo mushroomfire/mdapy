@@ -16,7 +16,7 @@ descriptors = potential.descriptors(system)  # (N, dim)
 | Parameter | Type | Meaning |
 |---|---|---|
 | `path` | str or path-like | the potential file |
-| `device` | str | `"cpu"`, or `"cuda"` to compute energies, forces and virials on an NVIDIA GPU: see [On the GPU](../molecular-dynamics/gpu.md); `descriptors` and many frames at once are computed on the processor |
+| `device` | str | `"cpu"`, or `"cuda"` to compute energies, forces and virials on an NVIDIA GPU: see [On the GPU](../simulation/gpu.md); `descriptors` and many frames at once are computed on the processor |
 | `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |

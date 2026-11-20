@@ -21,7 +21,7 @@ directory="vasp", restart=True)` makes VASP a calculator: each call writes
 POSCAR, INCAR, KPOINTS and POTCAR in the directory, runs VASP there with the
 command and reads the energy, forces and stress of its OUTCAR. A Python
 script on a cluster, in the job script, so drives VASP through
-[`minimize`](../properties/minimize.md), [elastic constants](../properties/elastic-constants.md) or
+[`minimize`](../simulation/minimize.md), [elastic constants](../properties/elastic-constants.md) or
 [defect energies](../properties/defect-energies.md) as any other calculator.
 
 | Name | Type | Default | Unit | Meaning |

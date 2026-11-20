@@ -10,7 +10,7 @@ systems, each a right-handed triple ($\mathbf z = \mathbf x \times \mathbf y$).
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import stacking_fault_energy, surface_energy
+from mdapy.properties.defects import stacking_fault_energy, surface_energy
 
 copper = EAM.zhou(["Cu"])
 # the (111) plane of fcc copper, x along the partial slip direction [11-2]

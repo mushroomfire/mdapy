@@ -48,7 +48,7 @@ def labelled(frames):
     return out
 ```
 
-[Molecular dynamics](../user-guide/molecular-dynamics/running.md) runs in MDAPY,
+[Molecular dynamics](../user-guide/simulation/running.md) runs in MDAPY,
 with the teacher or a student:
 
 ```python
@@ -492,8 +492,9 @@ of the teacher, and the mean absolute difference of the models of the
 largest sets from it:
 
 ```python
-from mdapy.lattice_dynamics import elastic_constants
-from mdapy.simulation import minimize, surface_energy, vacancy_formation_energy
+from mdapy.properties.elastic import elastic_constants
+from mdapy.simulation import minimize
+from mdapy.properties.defects import surface_energy, vacancy_formation_energy
 
 
 def attempt(compute):

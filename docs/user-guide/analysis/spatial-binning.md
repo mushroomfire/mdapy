@@ -136,7 +136,7 @@ its temperature.
 ## Fixed bins
 
 The bins divide the box, so they change with it: along a direction that is not
-periodic, the box of [molecular dynamics](../molecular-dynamics/running.md#parameters)
+periodic, the box of [molecular dynamics](../simulation/running.md#parameters)
 grows with the atoms that leave it, as when a shock reaches a free surface and the
 crystal releases or spalls, and the bins of each frame differ. `bounds` fixes the range
 of each axis instead, in Å from (0, 0, 0) along its

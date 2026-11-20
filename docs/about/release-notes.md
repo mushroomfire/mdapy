@@ -2,16 +2,44 @@
 
 ## 2.2.0 (not released)
 
+- The calculations of properties live in `mdapy.properties`, in five modules by what
+  they give, and `mdapy.simulation` keeps what runs a simulation, `MolecularDynamics`,
+  `minimize`, `thermal_velocities` and its `controls`: a feature belongs where its
+  result belongs, and `mdapy.lattice_dynamics`, which held the conductivities and the
+  elastic constants beside the phonons, goes. The old imports keep working in 2.2 and
+  2.3, with a `DeprecationWarning` that names the new one, and go in 2.4. See the
+  [API reference](../reference/api/index.md) and
+  [Compatibility](compatibility.md#when-something-has-to-change).
+  - `mdapy.properties.defects`, from `mdapy.simulation`: `vacancy_formation_energy`,
+    `VacancyResult`, `surface_energy`, `SurfaceResult`, `stacking_fault_energy`,
+    `StackingFaultResult`, `stacking_fault_free_energy`, `FaultFreeEnergyResult`.
+  - `mdapy.properties.elastic`, from `mdapy.lattice_dynamics`: `elastic_constants`,
+    `ElasticResult`, `SheetElasticResult`, `thermal_elastic_constants`,
+    `ThermalElasticResult`, `md_elastic_constants`.
+  - `mdapy.properties.phonons`, from `mdapy.lattice_dynamics`: `phonons`, `Phonons`,
+    `PhononDOS`, `ThermalProperties`, `BandStructure`, `read_band_structure`,
+    `primitive_cell`, `force_constants`, `displaced_supercells`, `ForceConstants`,
+    `read_force_constants`, `bond_stiffness`, `BondStiffness`, `thermal_phonons`,
+    `phonons_from_frames`.
+  - `mdapy.properties.transport`, from `mdapy.lattice_dynamics`: `thermal_conductivity`,
+    `ThermalConductivity`, `green_kubo`, `green_kubo_from_flux`, `GreenKubo`; and the
+    new `hnemd`, `HNEMD`, `nemd` and `NEMD`.
+  - `mdapy.properties.thermodynamics`, from `mdapy.lattice_dynamics`: `quasi_harmonic`,
+    `QuasiHarmonicResult`, `SheetQuasiHarmonicResult`; from `mdapy.simulation`:
+    `free_energy`, `FreeEnergyResult`, `PhaseCoexistence`, `melting_point`,
+    `MeltingPointResult`, `MeltingAttempt`, `binary_phase_diagram`, `BinaryPhaseDiagram`,
+    `TieLine`, `PhaseBoundary`, `pressure_temperature_diagram`,
+    `PressureTemperatureDiagram`.
 - The controls of a run of molecular dynamics, `Hold`, `Move`, `AddForce`, `Langevin`,
   `Deform`, `AdaptiveTimestep`, `Switch`, `Wall` and `Indenter`, live in a module of their
   own, `mdapy.simulation.controls`, beside `MolecularDynamics` in `mdapy.simulation`:
   `from mdapy.simulation.controls import Deform`. See
-  [Groups and controls](../user-guide/molecular-dynamics/controls.md).
+  [Groups and controls](../user-guide/simulation/controls.md).
 - Along a box vector that is not periodic, the box that MDAPY's own dynamics gives grows
   to hold the atoms that left it, never smaller than the box given, as LAMMPS's
   boundary `m` grows it, which the LAMMPS dynamics already did: in `system`, the frames,
   and the volume and pressure of `thermo`. It stayed as given, with the atoms outside
-  it. See [Running molecular dynamics](../user-guide/molecular-dynamics/running.md#parameters).
+  it. See [Running molecular dynamics](../user-guide/simulation/running.md#parameters).
 - `SpatialBinning(..., bounds=[(lo, hi)])` bins a fixed range of each axis, in Å along
   its box vector from (0, 0, 0), instead of the box: the same bins in every frame of a
   run whose box changes or whose atoms leave it along a direction that is not periodic,
@@ -42,22 +70,23 @@
   given after it moved along the held directions: LAMMPS applies its fixes in the
   order they are defined, and the added force came after the `setforce`. The added
   forces are now defined first, so that the order of the controls does not matter, as
-  in MDAPY. See [Groups and controls](../user-guide/molecular-dynamics/controls.md).
-- The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
-  guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
-  what the engine is for and of every feature with where it runs, then running,
-  [ensembles](../user-guide/molecular-dynamics/ensembles.md),
-  [records and frames](../user-guide/molecular-dynamics/records.md),
-  [LAMMPS](../user-guide/molecular-dynamics/in-lammps.md), the controls, mechanical
-  loading and shock, with a page on
-  [choosing a method](../user-guide/molecular-dynamics/shock.md) of shock. The
-  potentials and the properties have parts of their own too; the pages of
-  `user-guide/simulation/` moved there, and their old addresses lead to them.
+  in MDAPY. See [Groups and controls](../user-guide/simulation/controls.md).
+- The documentation gives MDAPY's own molecular dynamics a part of its own in the user
+  guide, [Simulation](../user-guide/simulation/index.md): an overview of what the engine
+  is for and of every feature with where it runs, then running,
+  [ensembles](../user-guide/simulation/ensembles.md),
+  [records and frames](../user-guide/simulation/records.md),
+  [LAMMPS](../user-guide/simulation/in-lammps.md), the controls, mechanical loading and
+  shock, with a page on [choosing a method](../user-guide/simulation/shock.md) of shock,
+  and [energy minimization](../user-guide/simulation/minimize.md). The potentials and
+  the properties have parts of their own, the properties in the groups of
+  `mdapy.properties`; the pages of `user-guide/simulation/` that moved there keep their
+  old addresses, which lead to them.
 - `mdapy.simulation.controls.Indenter`, a control of a virtual indenter, as LAMMPS's
   `fix indent`: a sphere, a cylinder or a plane, still or moving, that pushes the
   atoms inside it out with a force K d², recording the force on it and its energy;
   in MDAPY, on the GPU and in LAMMPS alike. See
-  [Indentation](../user-guide/molecular-dynamics/indentation.md).
+  [Indentation](../user-guide/simulation/indentation.md).
 - The example [Shock and spall in copper](../examples/shock.md): a piston at 1 km/s for
   5 ps through 320000 atoms on a GPU, then no piston: the wave diagram of the stress
   along z in fixed slabs, the shock, its release and the spall where the releases meet,
@@ -69,30 +98,30 @@
   reference in `hugoniot`; `thermo` records the distances from the Hugoniot and the
   Rayleigh line, the particle velocity, the Lagrangian position and the energy of
   the box. In MDAPY, on the GPU and in LAMMPS alike. See
-  [Multiscale shock technique](../user-guide/molecular-dynamics/msst.md).
+  [Multiscale shock technique](../user-guide/simulation/msst.md).
 - `run(..., ensemble="nphug")`, the Hugoniostat of LAMMPS's `fix nphug`: a barostat
   at one pressure, along one axis or alike along every axis, and a thermostat that
   drives the energy to the Hugoniot of the state at the start, or of `hugoniot`;
   `thermo` records the distance from it and the shock and particle velocities. And
   barostats along one axis, `barostat="x"`, `"y"` or `"z"`, as `fix npt ... z`.
   In MDAPY, on the GPU and in LAMMPS alike. See
-  [Hugoniostat](../user-guide/molecular-dynamics/hugoniostat.md).
+  [Hugoniostat](../user-guide/simulation/hugoniostat.md).
 - `mdapy.simulation.controls.Wall`, a control of a flat wall across an axis that reflects
   the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
   piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and
   `fix wall/piston`; in MDAPY, on the GPU and in LAMMPS alike. See
-  [Walls](../user-guide/molecular-dynamics/walls.md).
+  [Walls](../user-guide/simulation/walls.md).
 - `SpatialBinning` reduces moving atoms: `reduction="mass_mean"`, the mean weighted by
   mass, the velocity of the center of mass of a bin for a column of velocities;
   `"temperature"` of the velocities and `"stress"` of the virials of each atom, both
   about the center of mass of each bin, for the profiles of shocks and flows. See
   [Spatial binning](../user-guide/analysis/spatial-binning.md#moving-atoms).
-- `mdapy.lattice_dynamics.nemd(system, potential, temperature)`: the thermal
+- `mdapy.properties.transport.nemd(system, potential, temperature)`: the thermal
   conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
   two slabs of the box, the heat they drive over the gradient of temperature between
   them; in MDAPY, on the GPU and in LAMMPS. See
   [NEMD conductivity](../user-guide/properties/nemd.md).
-- `mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)`: the
+- `mdapy.properties.transport.hnemd(system, potential, temperature, *, field)`: the
   thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
   small field pushing each atom through its virial, as GPUMD does, with EAM, the
   pair potentials and NEP. See [HNEMD conductivity](../user-guide/properties/hnemd.md).
@@ -122,23 +151,23 @@
   velocities of a temperature for the atoms of a system, or of a part of
   them, with no total momentum, those `MolecularDynamics.velocities` gives in
   MDAPY with the same seed; a system's velocities are where a run starts. See
-  [Molecular dynamics](../user-guide/molecular-dynamics/running.md#running).
+  [Molecular dynamics](../user-guide/simulation/running.md#running).
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
   hold groups of atoms still (`mdapy.simulation.controls.Hold`), move them at a
   velocity and record the force on them (`Move`), push them (`AddForce`), or
   keep them at a temperature and record the heat this takes (`Langevin`), for
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
-  [Groups and controls](../user-guide/molecular-dynamics/controls.md).
+  [Groups and controls](../user-guide/simulation/controls.md).
 - `mdapy.simulation.controls.Deform`, a control that stretches, compresses or shears the
   box at constant strain rates, engineering or true, the atoms carried with it,
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
-  [Deformation](../user-guide/molecular-dynamics/deformation.md).
+  [Deformation](../user-guide/simulation/deformation.md).
 - `mdapy.simulation.controls.AdaptiveTimestep`, a control that sets the time step by the
   fastest atom, so that no atom moves more than a distance in a step, within
   bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
-  and in LAMMPS alike. See [Adaptive time step](../user-guide/molecular-dynamics/adaptive-timestep.md).
+  and in LAMMPS alike. See [Adaptive time step](../user-guide/simulation/adaptive-timestep.md).
 - `free_energy` takes MDAPY's own potentials: the solid is switched to an Einstein
   crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
   processor or on the GPU, through
@@ -149,7 +178,7 @@
   `pair_style ufm`, also on the GPU. `run(..., keep_momentum=True)` gives Langevin
   dynamics whose random forces keep the total momentum (`fix langevin ... zero yes`).
   `stacking_fault_free_energy` runs in MDAPY likewise. See
-  [Switching between potentials](../user-guide/molecular-dynamics/switching.md) and
+  [Switching between potentials](../user-guide/simulation/switching.md) and
   [Free energy](../user-guide/properties/free-energy.md).
 
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
@@ -157,7 +186,7 @@
   potential, the settings of each run, the thermodynamic state with the wall
   time, and the speed of each run or where it stopped; rows of numbers between
   lines that start with `#`, which `numpy.loadtxt` reads back. See
-  [Molecular dynamics](../user-guide/molecular-dynamics/records.md#log).
+  [Molecular dynamics](../user-guide/simulation/records.md#log).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,
@@ -168,7 +197,7 @@
   every ensemble and with atoms held by a `movable` column; the atoms are copied back
   only for records and frames. The GPU part, the
   module `mdapy._cuda`, is built from source with the CUDA toolkit,
-  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/molecular-dynamics/gpu.md).
+  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/simulation/gpu.md).
 - Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:
@@ -189,12 +218,12 @@
   LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
   constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
   LAMMPS; a `movable` column keeps atoms still. See
-  [Molecular dynamics](../user-guide/molecular-dynamics/running.md).
+  [Molecular dynamics](../user-guide/simulation/running.md).
 - `MolecularDynamics.iterate(steps, *, save_every, ...)` runs as `run` does and gives the
   atoms every `save_every` steps as the run reaches them, keeping none, so that
   `mdapy.io.write(path, md.iterate(...))` writes a trajectory while it runs, in LAMMPS
   and in MDAPY; the run stops where the reading stops. See
-  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files). A run of no
+  [Frames in files](../user-guide/simulation/records.md#frames-in-files). A run of no
   steps records the thermodynamic state once, and with `save_every` keeps the atoms once,
   not twice.
 - `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
@@ -276,7 +305,7 @@ Since 2.1.0rc2:
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of
   `save_every` stay in the memory of every process, about 60 bytes per atom each; see
-  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files).
+  [Frames in files](../user-guide/simulation/records.md#frames-in-files).
 - `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
   cutoff with its change over an eighth of the range of the volumes, the spacing of the
   default nine, whatever their number. It compared it with the change between neighbouring
@@ -971,7 +1000,7 @@ error.
   asked, with the virial and the stress of each. Its steps use no BLAS, whose
   threads took the cores from the kernels under OpenBLAS (0.5 s against 3.5 s
   for 4000 atoms on 16 threads). See
-  [Energy minimization](../user-guide/properties/minimize.md).
+  [Energy minimization](../user-guide/simulation/minimize.md).
 - `mdapy.simulation.free_energy`: the free energy of solids and liquids per atom from
   molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
   and following the enthalpy to other temperatures; `crossing` gives where two phases
@@ -1047,7 +1076,7 @@ error.
   state as a polars table, frames and the final system back in the
   orientation of the box, any LAMMPS command in between; the same
   trajectory as the same LAMMPS input. See
-  [Molecular dynamics](../user-guide/molecular-dynamics/running.md).
+  [Molecular dynamics](../user-guide/simulation/running.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed

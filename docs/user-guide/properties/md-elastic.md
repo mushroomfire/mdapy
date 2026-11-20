@@ -1,10 +1,10 @@
 # Elastic constants from molecular dynamics
 
-`mdapy.lattice_dynamics.md_elastic_constants(system, potential, temperature,
+`mdapy.properties.elastic.md_elastic_constants(system, potential, temperature,
 *, pressure=0.0, strain=0.01, timestep=0.001, equilibration=10000,
 production=20000, every=10, blocks=5, barostat="tri", seed=1,
 method=None)` gives the isothermal elastic constants of a crystal at a
-temperature from [molecular dynamics](../molecular-dynamics/running.md), in MDAPY or in LAMMPS for a
+temperature from [molecular dynamics](../simulation/running.md), in MDAPY or in LAMMPS for a
 [LAMMPS calculator](../potentials/lammps.md), with their standard errors: from the mean stress under small strains, at the cost of
 thirteen runs, or, with `method="fluctuation"`, from the fluctuations of the
 stress in one run, [below](#from-the-fluctuations-of-the-stress). Both take
@@ -14,7 +14,7 @@ approximation](thermal-elastic.md) leaves out.
 <!-- skip-test -->
 ```python
 from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import md_elastic_constants
+from mdapy.properties.elastic import md_elastic_constants
 from mdapy.transform import replicate
 
 potential = EAM("Cu_mishin1.eam.alloy")
@@ -31,7 +31,7 @@ reference. For each of the six components of the strain in Voigt order,
 strains of $+\delta$ and $-\delta$ of the reference (shears as engineering
 strains, half on each off-diagonal entry, the atoms and their velocities
 moved with the box) each run `equilibration` steps at constant volume and
-temperature, with the Langevin thermostat of [`run`](../molecular-dynamics/running.md), then
+temperature, with the Langevin thermostat of [`run`](../simulation/running.md), then
 `production` steps over which the stress is averaged. The two runs of a
 component share the noise of the thermostat, which their difference cancels
 in part. A Nosé–Hoover thermostat, being deterministic, does not bring all
@@ -143,5 +143,5 @@ An `ElasticResult`, as of [`elastic_constants`](elastic-constants.md), with
 periodic nor that of a sheet, a temperature, strain or numbers of steps that are not positive,
 fewer than two blocks or fewer samples than blocks, a `method` other than
 `"strain"` and `"fluctuation"`, and the errors of
-[`MolecularDynamics`](../molecular-dynamics/running.md), and for a `potential` that is not a calculator.
+[`MolecularDynamics`](../simulation/running.md), and for a `potential` that is not a calculator.
 In LAMMPS the fluctuations need the package EXTRA-COMPUTE, for `compute born/matrix`.

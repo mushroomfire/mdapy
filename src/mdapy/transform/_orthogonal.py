@@ -159,7 +159,7 @@ def orthogonal_cell(
     source = system
     if minimal:
         # here, as the lattice dynamics import the transforms
-        from mdapy.lattice_dynamics._phonons import primitive_cell
+        from mdapy.properties._phonons import primitive_cell
 
         source = primitive_cell(system)
     box = source.box

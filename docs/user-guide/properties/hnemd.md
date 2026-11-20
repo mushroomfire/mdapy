@@ -1,6 +1,6 @@
 # HNEMD conductivity
 
-`mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)` gives the
+`mdapy.properties.transport.hnemd(system, potential, temperature, *, field)` gives the
 thermal conductivity of a crystal by homogeneous nonequilibrium molecular dynamics
 (HNEMD) in MDAPY ([Fan et al. (2019)](../../reference/references.md#fan2019)): a small
 driving field pushes each atom through its virial, so that heat flows along the field
@@ -16,7 +16,7 @@ field along x:
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import LennardJones
-from mdapy.lattice_dynamics import hnemd
+from mdapy.properties.transport import hnemd
 
 argon = LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True)
 crystal = build_crystal("fcc", 5.28, elements="Ar", repeat=4)  # 256 atoms
@@ -60,7 +60,7 @@ where it goes to zero.*
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `system` | `System` | | | the atoms in a box periodic in every direction, of its size at the temperature, with an `element` column |
-| `potential` | `Calculator` | | | the interaction, whose virials of each atom give the heat flux: [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md), [NEP](../potentials/nep.md), [Stillinger–Weber](../potentials/stillinger-weber.md) or [Tersoff](../potentials/tersoff.md), on the processor or the [GPU](../molecular-dynamics/gpu.md) |
+| `potential` | `Calculator` | | | the interaction, whose virials of each atom give the heat flux: [EAM](../potentials/eam.md), a [pair potential](../potentials/pair-potentials.md), [NEP](../potentials/nep.md), [Stillinger–Weber](../potentials/stillinger-weber.md) or [Tersoff](../potentials/tersoff.md), on the processor or the [GPU](../simulation/gpu.md) |
 | `temperature` | float64 | | K | the temperature of the thermostat |
 | `field` | (3,) float64 | | 1/Å | the driving field |
 | `timestep` | float64 | 0.001 | ps | the time step |
@@ -148,7 +148,7 @@ numbers of steps that are not positive, fewer than two blocks or fewer samples t
 blocks, a potential whose virials of each atom do not give the heat flux (such as
 ADP and MEAM), a LAMMPS calculator, `convective` with atoms of several elements or
 masses, and
-the errors of [`MolecularDynamics`](../molecular-dynamics/running.md); `Cancelled` when cancelled.
+the errors of [`MolecularDynamics`](../simulation/running.md); `Cancelled` when cancelled.
 
 !!! quote "Please cite"
     [Fan et al. (2019)](../../reference/references.md#fan2019) for the method.

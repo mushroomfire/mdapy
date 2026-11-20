@@ -1,11 +1,11 @@
 # NEMD conductivity
 
-`mdapy.lattice_dynamics.nemd(system, potential, temperature)` gives the thermal
+`mdapy.properties.transport.nemd(system, potential, temperature)` gives the thermal
 conductivity of a crystal along a box vector by nonequilibrium molecular dynamics
 (NEMD): a hot and a cold Langevin bath drive heat through the crystal between them, and
 the conductivity is the heat flux over the gradient of temperature it sets up. It runs
-in MDAPY, on the processor or the [GPU](../molecular-dynamics/gpu.md), or in LAMMPS for a
-[LAMMPS calculator](../potentials/lammps.md); the baths are [`Langevin`](../molecular-dynamics/controls.md) controls.
+in MDAPY, on the processor or the [GPU](../simulation/gpu.md), or in LAMMPS for a
+[LAMMPS calculator](../potentials/lammps.md); the baths are [`Langevin`](../simulation/controls.md) controls.
 The baths hold the atoms of their slabs at the start, a group each: in a liquid these
 atoms wander out of their slabs, and the conductivity means nothing. A liquid takes the
 [Green–Kubo](green-kubo.md) conductivity or [HNEMD](hnemd.md) with `convective=True`;
@@ -17,7 +17,7 @@ Solid argon at 40 K in a box 8.4 nm long, the baths at 45 and 35 K:
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import LennardJones
-from mdapy.lattice_dynamics import nemd
+from mdapy.properties.transport import nemd
 
 argon = LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True)
 crystal = build_crystal("fcc", 5.28, elements="Ar", repeat=(4, 4, 16))  # 1024 atoms
@@ -141,4 +141,4 @@ that is not positive, a difference that is not positive or not less than twice t
 temperature, an axis other than 0, 1 or 2, a number of slabs that is odd or less than
 10, slabs without atoms, numbers of steps or a damping that are not positive, fewer than
 two blocks or fewer than two samples each, a `potential` that is not a calculator, and
-the errors of [`MolecularDynamics`](../molecular-dynamics/running.md); `Cancelled` when cancelled.
+the errors of [`MolecularDynamics`](../simulation/running.md); `Cancelled` when cancelled.

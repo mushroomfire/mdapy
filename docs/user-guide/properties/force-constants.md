@@ -2,7 +2,7 @@
 
 # Force constants
 
-`mdapy.lattice_dynamics.force_constants(cell, frames, *, cutoff=None, cutoff_third=None, symmetry=None)`
+`mdapy.properties.phonons.force_constants(cell, frames, *, cutoff=None, cutoff_third=None, symmetry=None)`
 fits the second order force constants of a crystal, and the third order ones, to the
 forces on atoms displaced in a supercell, from any calculator or from a calculation with
 DFT; `displaced_supercells` makes the
@@ -12,7 +12,7 @@ from [phonopy](https://phonopy.github.io/phonopy/) as its `FORCE_CONSTANTS` file
 ```python
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.lattice_dynamics import (
+from mdapy.properties.phonons import (
     displaced_supercells,
     force_constants,
     primitive_cell,
@@ -188,7 +188,7 @@ four atoms in a supercell of 256; over 2 GB is refused.
 `read_force_constants(path, cell, supercell)` reads such a file:
 
 ```python
-from mdapy.lattice_dynamics import read_force_constants
+from mdapy.properties.phonons import read_force_constants
 
 constants.write("FORCE_CONSTANTS")  # phonopy reads it
 back = read_force_constants("FORCE_CONSTANTS", cell, 4)

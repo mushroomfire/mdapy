@@ -565,7 +565,7 @@ def msd(
 
 def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
     """The generalized stacking fault energy of a
-    ``mdapy.simulation.StackingFaultResult``, in mJ/m²: a point for each
+    ``mdapy.properties.defects.StackingFaultResult``, in mJ/m²: a point for each
     slip computed, joined by a line. ``options`` go to ``ax.plot``, such as
     ``label``."""
     ax = _axes(ax)
@@ -578,7 +578,7 @@ def stacking_fault(result: Any, *, ax: Any = None, **options: Any) -> Any:
 
 def band_structure(result: Any, *, ax: Any = None, color: str | None = None) -> Any:
     """The phonon frequencies of a
-    ``mdapy.lattice_dynamics.BandStructure`` along its path, with the
+    ``mdapy.properties.phonons.BandStructure`` along its path, with the
     special points marked and labeled.
 
     Parameters
@@ -617,7 +617,7 @@ def band_structure(result: Any, *, ax: Any = None, color: str | None = None) -> 
 
 def phonon_dos(result: Any, *, ax: Any = None, projected: bool = False) -> Any:
     """The phonon density of states of a
-    ``mdapy.lattice_dynamics.PhononDOS``, frequencies upward, to put
+    ``mdapy.properties.phonons.PhononDOS``, frequencies upward, to put
     beside a band structure.
 
     Parameters
@@ -663,7 +663,7 @@ def structure_counts(result: Any, *, ax: Any = None) -> Any:
 
 def phase_diagram(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
     """The boundaries of the phases of a
-    ``mdapy.simulation.BinaryPhaseDiagram``: where each tie line ends, against
+    ``mdapy.properties.thermodynamics.BinaryPhaseDiagram``: where each tie line ends, against
     the temperature, with the name of each phase in the middle of where it is the
     only one.
 
@@ -715,7 +715,7 @@ def phase_diagram(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
 
 def pressure_temperature(result: Any, *, ax: Any = None, labels: bool = True) -> Any:
     """The boundaries of the phases of a
-    ``mdapy.simulation.PressureTemperatureDiagram``: the temperature of each
+    ``mdapy.properties.thermodynamics.PressureTemperatureDiagram``: the temperature of each
     against the pressure, with the name of each phase in the middle of where it
     is stable.
 
@@ -827,7 +827,7 @@ def elastic_surface(
     points: int = 60,
     colormap: str = "viridis",
 ) -> Any:
-    """A quantity of an ``mdapy.lattice_dynamics.ElasticResult`` along every
+    """A quantity of an ``mdapy.properties.elastic.ElasticResult`` along every
     direction, as a surface in 3D: along each direction it lies as far from
     the origin as the size of the value there, in the color of the value.
 
@@ -938,7 +938,7 @@ def elastic_section(
     color: str | None = None,
     label: str | None = None,
 ) -> Any:
-    """A quantity of an ``mdapy.lattice_dynamics.ElasticResult`` along the
+    """A quantity of an ``mdapy.properties.elastic.ElasticResult`` along the
     directions of a plane: a curve as far from the origin along each direction
     as the size of the value there, dashed where the value is negative.
 

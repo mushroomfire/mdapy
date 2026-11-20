@@ -3,68 +3,21 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Simulations: energy minimization and the energies of defects with a
-calculator, molecular dynamics in MDAPY or in LAMMPS, with its controls in
-``mdapy.simulation.controls``, and free energies, melting points and phase
-diagrams."""
+"""Simulations: energy minimization and molecular dynamics, in MDAPY or in
+LAMMPS, with the controls of a run in ``mdapy.simulation.controls``. The
+properties that these give, such as elastic constants or free energies, are in
+``mdapy.properties``."""
 
-from mdapy.simulation._defect_energies import (
-    StackingFaultResult,
-    SurfaceResult,
-    VacancyResult,
-    stacking_fault_energy,
-    surface_energy,
-    vacancy_formation_energy,
-)
+from typing import Any
+
+from mdapy._moved import forward
 from mdapy.simulation._dynamics import MolecularDynamics
-from mdapy.simulation._fault_free_energy import (
-    FaultFreeEnergyResult,
-    stacking_fault_free_energy,
-)
-from mdapy.simulation._free_energy import (
-    FreeEnergyResult,
-    PhaseCoexistence,
-    free_energy,
-)
-from mdapy.simulation._melting import (
-    MeltingAttempt,
-    MeltingPointResult,
-    melting_point,
-)
 from mdapy.simulation._minimize import MinimizeResult, minimize
-from mdapy.simulation._phase_diagram import (
-    BinaryPhaseDiagram,
-    PhaseBoundary,
-    PressureTemperatureDiagram,
-    TieLine,
-    binary_phase_diagram,
-    pressure_temperature_diagram,
-)
 from mdapy.simulation._velocities import thermal_velocities
 
-__all__ = [
-    "BinaryPhaseDiagram",
-    "FaultFreeEnergyResult",
-    "FreeEnergyResult",
-    "MeltingAttempt",
-    "MeltingPointResult",
-    "MinimizeResult",
-    "MolecularDynamics",
-    "PhaseBoundary",
-    "PhaseCoexistence",
-    "PressureTemperatureDiagram",
-    "StackingFaultResult",
-    "SurfaceResult",
-    "TieLine",
-    "VacancyResult",
-    "binary_phase_diagram",
-    "free_energy",
-    "melting_point",
-    "minimize",
-    "pressure_temperature_diagram",
-    "stacking_fault_energy",
-    "stacking_fault_free_energy",
-    "surface_energy",
-    "thermal_velocities",
-    "vacancy_formation_energy",
-]
+__all__ = ["MinimizeResult", "MolecularDynamics", "minimize", "thermal_velocities"]
+
+
+def __getattr__(name: str) -> Any:
+    # the names that moved to mdapy.properties in 2.2, until 2.4
+    return forward(__name__, name)

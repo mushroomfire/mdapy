@@ -16,7 +16,8 @@ along [11-2] on its (111) planes:
 ```python
 import numpy as np
 from mdapy.build import build_crystal
-from mdapy.simulation import minimize, stacking_fault_energy
+from mdapy.simulation import minimize
+from mdapy.properties.defects import stacking_fault_energy
 from mdapy.visualization import plot
 
 cell = build_crystal("fcc", 3.52, elements="Ni")
@@ -72,7 +73,7 @@ the embedding energy stays at its last value, as in LAMMPS, unlike that of
 | Parameter | Type | Meaning |
 |---|---|---|
 | `path` | str or path-like | the potential file |
-| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../molecular-dynamics/gpu.md) |
+| `device` | str | `"cpu"`, or `"cuda"` to compute on an NVIDIA GPU: see [On the GPU](../simulation/gpu.md) |
 | `precision` | str or `None` | on the GPU `"mixed"` (by default) or `"double"`; the processor computes in double precision only |
 
 | Attribute | Type | Meaning |

@@ -74,7 +74,7 @@ def test_the_page_for_contributors_names_what_the_tests_need():
 
 
 def test_the_python_api_lists_every_public_name():
-    pages = (DOCS / "reference" / "api").glob("*.md")
+    pages = (DOCS / "reference" / "api").rglob("*.md")
     listed = set()
     for page in pages:
         listed |= set(re.findall(r"^::: (\S+)", page.read_text("utf-8"), re.M))
@@ -90,7 +90,11 @@ def test_the_python_api_lists_every_public_name():
         "mdapy.calculators",
         "mdapy.simulation",
         "mdapy.simulation.controls",
-        "mdapy.lattice_dynamics",
+        "mdapy.properties.defects",
+        "mdapy.properties.elastic",
+        "mdapy.properties.phonons",
+        "mdapy.properties.transport",
+        "mdapy.properties.thermodynamics",
         "mdapy.mlip",
         "mdapy.visualization",
         "mdapy.interop",

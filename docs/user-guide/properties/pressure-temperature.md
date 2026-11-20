@@ -1,6 +1,6 @@
 # Pressure-temperature diagrams
 
-`mdapy.simulation.pressure_temperature_diagram(phases)` gives the phase diagram of one
+`mdapy.properties.thermodynamics.pressure_temperature_diagram(phases)` gives the phase diagram of one
 element against pressure and temperature, from the [free energies](free-energy.md) of its
 phases at each pressure: at each temperature the phase with the lowest free energy is the
 stable one, and where this changes is a boundary.
@@ -10,7 +10,8 @@ stable one, and where this changes is a boundary.
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
-from mdapy.simulation import free_energy, minimize, pressure_temperature_diagram
+from mdapy.simulation import minimize
+from mdapy.properties.thermodynamics import free_energy, pressure_temperature_diagram
 from mdapy.visualization import plot
 
 potential = LAMMPS(

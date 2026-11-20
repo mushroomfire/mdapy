@@ -1,6 +1,6 @@
 # Phonons
 
-`mdapy.lattice_dynamics.phonons(system, calculator, *, supercell=None,
+`mdapy.properties.phonons.phonons(system, calculator, *, supercell=None,
 displacement=0.01, symmetry=None)` gives the harmonic vibrations of a crystal from the
 forces on atoms displaced in a supercell: frequencies and polarization
 vectors at any wave vector, band structures, densities of states and the
@@ -9,7 +9,7 @@ thermodynamic properties of the vibrations.
 <!-- skip-test -->
 ```python
 from mdapy.build import build_crystal
-from mdapy.lattice_dynamics import phonons, primitive_cell
+from mdapy.properties.phonons import phonons, primitive_cell
 from mdapy.simulation import minimize
 
 crystal = minimize(
@@ -165,7 +165,7 @@ those of MDAPY, which differ as the lattice constants do:
 <!-- skip-test -->
 ```python
 import numpy as np
-from mdapy.lattice_dynamics import read_band_structure
+from mdapy.properties.phonons import read_band_structure
 
 dft = read_band_structure("band.dat")  # from phonopy
 ends = [d for d, _ in dft.labels]

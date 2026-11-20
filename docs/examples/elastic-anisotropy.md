@@ -32,7 +32,7 @@ Relax the cubic crystal at zero stress, then compute its constants:
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import NEP
-from mdapy.lattice_dynamics import elastic_constants
+from mdapy.properties.elastic import elastic_constants
 from mdapy.simulation import minimize
 
 nep = NEP("nep.txt")

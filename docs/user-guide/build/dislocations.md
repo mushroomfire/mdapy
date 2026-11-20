@@ -69,7 +69,7 @@ fixed:
 ```python
 from mdapy.build import DISLOCATIONS, dislocation_cylinder, dislocation_quadrupole
 from mdapy.identify import DiamondStructure
-from mdapy.lattice_dynamics import elastic_constants
+from mdapy.properties.elastic import elastic_constants
 
 zhou_cu, zhou_fe = EAM.zhou(["Cu"]), EAM.zhou(["Fe"])
 cu = minimize(

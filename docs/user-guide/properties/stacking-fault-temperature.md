@@ -1,6 +1,6 @@
 # Stacking faults at finite temperature
 
-`mdapy.simulation.stacking_fault_free_energy(crystal, potential, direction,
+`mdapy.properties.defects.stacking_fault_free_energy(crystal, potential, direction,
 temperatures)` gives the free energy of a stacking fault per area at each temperature:
 the difference of the [free energies](free-energy.md) of the crystal with and without
 it, in one box of the size the crystal has at that temperature and pressure. The
@@ -12,7 +12,8 @@ energy at rest is the business of
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS
-from mdapy.simulation import minimize, stacking_fault_free_energy
+from mdapy.simulation import minimize
+from mdapy.properties.defects import stacking_fault_free_energy
 
 potential = LAMMPS(
     "pair_style eam/alloy\npair_coeff * * Cu_mishin1.eam.alloy Cu", elements=["Cu"]
@@ -54,7 +55,7 @@ left, the fault at rest:
 ```python
 from mdapy import units
 from mdapy.build import slip
-from mdapy.lattice_dynamics import phonons
+from mdapy.properties.phonons import phonons
 
 grid = (np.arange(10) + 0.5) / 10
 mesh = [[x, y, z] for x in grid for y in grid for z in (0.25, 0.75)]

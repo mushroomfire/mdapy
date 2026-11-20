@@ -8,7 +8,7 @@ with a calculator and give the energies of their defects.
 import numpy as np
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import (
+from mdapy.properties.defects import (
     stacking_fault_energy,
     surface_energy,
     vacancy_formation_energy,
@@ -56,12 +56,12 @@ other.*
 
 | Function | Parameters |
 |---|---|
-| `vacancy_formation_energy(crystal, calculator, *, atom=0, cell=None, max_force=1e-4, max_steps=10000)` | the perfect `crystal`, the `atom` removed, and how the box relaxes (`cell` of [minimize](minimize.md)) |
+| `vacancy_formation_energy(crystal, calculator, *, atom=0, cell=None, max_force=1e-4, max_steps=10000)` | the perfect `crystal`, the `atom` removed, and how the box relaxes (`cell` of [minimize](../simulation/minimize.md)) |
 | `surface_energy(crystal, calculator, *, axis=2, vacuum=15.0, max_force=1e-4, max_steps=10000)` | the periodic `crystal`, the box vector `axis` across the slab, and the `vacuum` in Å added along it |
 | `stacking_fault_energy(crystal, calculator, direction, *, points=21, height=None, axis=2, relax=True, max_force=1e-4, max_steps=10000)` | the `crystal` with the plane of the fault normal to the Cartesian `axis`, the slip vector `direction` in Å, the number of `points` from 0 to the whole vector, the fractional `height` of the fault (default 0.5) and whether the atoms relax along the normal |
 
 `max_force` (eV/Å) and `max_steps` are those of each
-[minimization](minimize.md), with FIRE; a minimization that does not
+[minimization](../simulation/minimize.md), with FIRE; a minimization that does not
 converge raises an error. The crystal must be large enough that a defect
 does not meet its periodic images, and the slab thick enough that its
 surfaces do not feel each other. With a crystal periodic along the normal of

@@ -494,7 +494,7 @@ def test_the_kept_momentum(precision):
 def test_the_free_energy_of_a_solid():
     """Frenkel-Ladd on the GPU: the solid of the processor, within the noise
     of short switchings."""
-    from mdapy.simulation import free_energy
+    from mdapy.properties.thermodynamics import free_energy
 
     system = build_crystal("fcc", 3.6, elements="Cu", repeat=(6, 6, 6))
     options = dict(
@@ -622,7 +622,7 @@ def test_nemd(precision):
     """Two baths on the GPU drive heat through solid argon: its conductivity
     of the order of that of argon, the gradient set by the baths."""
     from mdapy.calculators import LennardJones
-    from mdapy.lattice_dynamics import nemd
+    from mdapy.properties.transport import nemd
 
     argon = LennardJones(
         {"Ar": (0.0104, 3.405)}, 8.5, shift=True, device="cuda", precision=precision

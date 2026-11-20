@@ -1,6 +1,6 @@
 # Running LAMMPS from MDAPY
 
-[`MolecularDynamics`](../user-guide/molecular-dynamics/running.md) runs molecular dynamics in
+[`MolecularDynamics`](../user-guide/simulation/running.md) runs molecular dynamics in
 LAMMPS from Python: the atoms come from a `System`, LAMMPS moves them, and MDAPY
 keeps the thermodynamic state and the atoms along the way, which its analyses read
 as they are. This page heats copper until it melts and stretches it at two
@@ -96,7 +96,7 @@ holds both.
 
 ## Stretching at constant temperature
 
-A [`Deform`](../user-guide/molecular-dynamics/deformation.md) among the `controls` of `run`
+A [`Deform`](../user-guide/simulation/deformation.md) among the `controls` of `run`
 stretches the box along x by 0.1 % per ps, to 10 %, at 1 K and at 300 K, after the box
 has relaxed at zero pressure; in LAMMPS it is `fix deform`:
 
@@ -174,8 +174,8 @@ stress, with y and z free under zero pressure, `ensemble="npt"` with `pressure=0
 | Heat, cool, compress | a pair, `temperature=(300, 2200)` or `pressure=(0, 10)`, changes from the first value to the second along the run |
 | Let the box change shape | `barostat="aniso"` along each axis, `"tri"` in any way, `"xy"` in the plane of a [sheet](../user-guide/properties/sheets.md) |
 | Keep the atoms for analysis | `save_every=` gives `frames`, each a `System` for any analysis of MDAPY; `md.iterate(steps, save_every=...)` gives them one at a time as the run goes, for a file or an analysis, keeping none |
-| Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/properties/minimize.md), an analysis or a file |
-| Hold, move, push or heat groups of atoms, deform the box | `controls=` of `run`: `Hold`, `Move`, `AddForce`, `Langevin` and `Deform`, which become the fixes of LAMMPS ([Groups and controls](../user-guide/molecular-dynamics/controls.md)) |
+| Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/simulation/minimize.md), an analysis or a file |
+| Hold, move, push or heat groups of atoms, deform the box | `controls=` of `run`: `Hold`, `Move`, `AddForce`, `Langevin` and `Deform`, which become the fixes of LAMMPS ([Groups and controls](../user-guide/simulation/controls.md)) |
 | Add a fix or a compute of LAMMPS | `md.command(...)` before `run`, and `unfix` after |
 | Read what LAMMPS holds | `md.lammps`, the LAMMPS instance, such as `md.lammps.get_thermo("pe")` or `extract_compute` |
 
@@ -196,7 +196,7 @@ MDAPY, or in LAMMPS for a LAMMPS calculator.
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
 | An integrator of one's own, such as `fix nvt/sllod` for a shear flow | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
-| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
+| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/simulation/records.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
 
 ## Several threads and GPUs with Kokkos
 

@@ -3,89 +3,17 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Lattice dynamics: elastic constants, at rest and at finite temperature,
-force constants, bond stiffness, phonons and the quasi-harmonic
-approximation."""
+"""Moved in 2.2 to the submodules of ``mdapy.properties``: ``phonons``,
+``elastic``, ``transport`` and ``thermodynamics``. The names of 2.1 are found
+here in 2.2 and 2.3, with a ``DeprecationWarning`` that names their new place;
+this module goes in 2.4."""
 
-from mdapy.lattice_dynamics._bond_stiffness import BondStiffness, bond_stiffness
-from mdapy.lattice_dynamics._conductivity import (
-    ThermalConductivity,
-    thermal_conductivity,
-)
-from mdapy.lattice_dynamics._elastic import (
-    ElasticResult,
-    SheetElasticResult,
-    elastic_constants,
-)
-from mdapy.lattice_dynamics._force_constants import (
-    ForceConstants,
-    displaced_supercells,
-    force_constants,
-    read_force_constants,
-)
-from mdapy.lattice_dynamics._green_kubo import (
-    GreenKubo,
-    green_kubo,
-    green_kubo_from_flux,
-)
-from mdapy.lattice_dynamics._hnemd import HNEMD, hnemd
-from mdapy.lattice_dynamics._md_elastic import md_elastic_constants
-from mdapy.lattice_dynamics._nemd import NEMD, nemd
-from mdapy.lattice_dynamics._phonons import (
-    BandStructure,
-    PhononDOS,
-    Phonons,
-    ThermalProperties,
-    phonons,
-    primitive_cell,
-    read_band_structure,
-)
-from mdapy.lattice_dynamics._quasi_harmonic import (
-    QuasiHarmonicResult,
-    SheetQuasiHarmonicResult,
-    quasi_harmonic,
-)
-from mdapy.lattice_dynamics._thermal_elastic import (
-    ThermalElasticResult,
-    thermal_elastic_constants,
-)
-from mdapy.lattice_dynamics._thermal_phonons import (
-    phonons_from_frames,
-    thermal_phonons,
-)
+from typing import Any
 
-__all__ = [
-    "BandStructure",
-    "BondStiffness",
-    "ElasticResult",
-    "ForceConstants",
-    "GreenKubo",
-    "HNEMD",
-    "NEMD",
-    "PhononDOS",
-    "Phonons",
-    "QuasiHarmonicResult",
-    "SheetQuasiHarmonicResult",
-    "SheetElasticResult",
-    "ThermalElasticResult",
-    "ThermalConductivity",
-    "ThermalProperties",
-    "bond_stiffness",
-    "displaced_supercells",
-    "elastic_constants",
-    "force_constants",
-    "green_kubo",
-    "green_kubo_from_flux",
-    "hnemd",
-    "nemd",
-    "md_elastic_constants",
-    "phonons",
-    "phonons_from_frames",
-    "primitive_cell",
-    "quasi_harmonic",
-    "read_band_structure",
-    "read_force_constants",
-    "thermal_conductivity",
-    "thermal_elastic_constants",
-    "thermal_phonons",
-]
+from mdapy._moved import forward
+
+__all__: list[str] = []
+
+
+def __getattr__(name: str) -> Any:
+    return forward(__name__, name)

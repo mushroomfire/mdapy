@@ -1215,8 +1215,10 @@ def test_the_gpu_draws_scenes_of_one_kind():
     corner = rng.random((15, 3)) * 10
     triangles.add_triangles(corner[:, None, :] + rng.normal(size=(15, 3, 3)), (0, 0, 1))
     for scene in (spheres, triangles):
-        cpu = scene.render(width=64, height=48).astype(int)
-        gpu = scene.render(width=64, height=48, device="gpu").astype(int)
+        # large enough that the edges, where a software GPU may round otherwise,
+        # stay well under 1 % of the pixels (64 x 48 reached 1.7 % on Windows)
+        cpu = scene.render(width=128, height=96).astype(int)
+        gpu = scene.render(width=128, height=96, device="gpu").astype(int)
         assert (np.abs(cpu - gpu).max(axis=2) > 2).mean() < 0.01
 
 

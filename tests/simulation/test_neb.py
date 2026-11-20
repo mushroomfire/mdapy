@@ -268,7 +268,8 @@ def test_one_calculator_for_each_image_gives_the_same_band():
 
 class Slow(Calculator):
     """A calculator that takes its time, as a program running elsewhere
-    does, and notes when it computes."""
+    does, and notes when it computes: long enough that threads started
+    together on a busy machine still overlap."""
 
     cutoff = EAM.zhou(["Cu"]).cutoff
     implemented = frozenset({"energy", "forces"})
@@ -279,7 +280,7 @@ class Slow(Calculator):
 
     def compute(self, system, properties=("energy", "forces"), *, neighbors=None):
         start = time.perf_counter()
-        time.sleep(0.02)
+        time.sleep(0.25)
         result = self.eam.compute(system, properties, neighbors=neighbors)
         self.times.append((start, time.perf_counter()))
         return result

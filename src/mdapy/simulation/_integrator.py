@@ -763,10 +763,25 @@ class _Native:
             raise InvalidParameter(
                 f"{type(calculator).__name__} does not compute energies and forces"
             )
+        # under MPI, the atoms split among the processes by the bricks of the
+        # box (simulation/_domain.py, which builds on this module)
+        from mdapy.simulation import _domain
+
+        self.__comm = _domain.world()
         if getattr(calculator, "device", "cpu") == "cuda":
+            if self.__comm is not None:
+                raise InvalidParameter(
+                    "MDAPY's dynamics on the GPU runs on one process: under MPI, "
+                    "give a calculator on the processor"
+                )
             self.__atoms: Any = _device.DeviceAtoms(
                 calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation
             )
+        elif self.__comm is not None:
+            self.__atoms = _domain.DomainAtoms(
+                self.__comm, calculator, x, v, masses, self.__restrict, self.__box(),
+                _SKIN,
+            )  # fmt: skip
         else:
             self.__atoms = _HostAtoms(calculator, x, v, masses, self.__restrict)
         self.__computed = False
@@ -778,7 +793,7 @@ class _Native:
     def state(self) -> dict[str, Any]:
         """What a restart keeps: every variable of the dynamics and of its
         controls, and the atoms; not the calculator."""
-        skip = ("_Native__calculator", "_Native__atoms")
+        skip = ("_Native__calculator", "_Native__atoms", "_Native__comm")
         return {
             "native": {k: v for k, v in vars(self).items() if k not in skip},
             "atoms": self.__atoms.state(),
@@ -795,9 +810,22 @@ class _Native:
         on = _on_gpu(calculator)
         if on is not None:
             return f"MDAPY on the GPU, {on}; {calculator.precision} precision"
-        return f"MDAPY on the processor, {get_num_threads()} threads"
+        threads = get_num_threads()
+        if self.__comm is not None:
+            return (
+                f"MDAPY on the processor, {self.__comm.Get_size()} processes of "
+                f"{threads} threads"
+            )
+        return f"MDAPY on the processor, {threads} threads"
 
-    writes = True  # one process
+    @property
+    def writes(self) -> bool:
+        """Whether this process writes the log and files: the main one."""
+        return self.__comm is None or self.__comm.Get_rank() == 0
+
+    def shared(self, value: Any) -> Any:
+        """What the main process has, on every process."""
+        return value if self.__comm is None else self.__comm.bcast(value, root=0)
 
     # -- frames ------------------------------------------------------------
 

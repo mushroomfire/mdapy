@@ -9,11 +9,29 @@ and holds copies, ghosts, of those within a reach of it, periodic images
 among them. Atoms move to the process of their brick, and ghosts are found
 again, when the neighbor lists are built; in between, the ghosts follow their
 atoms. Communication goes brick to brick, along x, then y, then z, each step
-carrying what the steps before brought, so that the corners come too."""
+carrying what the steps before brought, so that the corners come too.
 
+DomainAtoms holds the atoms of one process for MDAPY's dynamics on the
+processor, with the interface of _HostAtoms: the calculator computes the atoms
+of the brick and the ghosts as a system without periodic directions, the
+ghosts as far as the force on an atom reaches (twice the cutoff of a many-body
+potential), so that the calculators need no change."""
+
+import math
+import os
+import sys
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
+import polars as pl
+
+from mdapy.calculators._base import Calculator
+from mdapy.calculators._springs import Springs
+from mdapy.core.box import Box
+from mdapy.core.system import System
+from mdapy.errors import InvalidParameter
+from mdapy.simulation._integrator import _HostAtoms
 
 
 def grid(processes: int, h: np.ndarray, pbc: np.ndarray) -> tuple[int, int, int]:
@@ -125,9 +143,10 @@ class Bricks:
                 # the nearer way round, the next brick across the boundary
                 half = self.counts[d] // 2
                 step = (step + half) % self.counts[d] - half
-            if np.abs(step).max(initial=0) > 1:
-                raise RuntimeError(
-                    "an atom moved farther than a brick between two builds"
+            if self.maximum(int(np.abs(step).max(initial=0))) > 1:
+                raise InvalidParameter(
+                    "an atom moved farther than a brick between two builds of "
+                    "the neighbor lists: the time step may be too long"
                 )
             keep = step == 0
             received = []
@@ -196,7 +215,7 @@ class Bricks:
                 destination, source = self.__neighbors(d, side)
                 sent = (x[chosen] + shift @ self.h, idx[chosen])
                 got = _exchange(comm, sent, destination, source)
-                self.__sends.append((chosen, shift, destination, source, len(got[0])))
+                self.__sends.append((chosen, shift, destination, source))
                 x = np.concatenate([x, got[0]])
                 idx = np.concatenate([idx, got[1]])
         return x, idx
@@ -205,29 +224,33 @@ class Bricks:
         """The positions of the ghosts again, from those of the local atoms,
         along the lists of the last ``borders``."""
         x = np.array(positions[: self.local])
-        for chosen, shift, destination, source, count in self.__sends:
+        for chosen, shift, destination, source in self.__sends:
             got = _exchange(
                 self.comm, (x[chosen] + shift @ self.h,), destination, source
             )[0]
-            if len(got) != count:
-                raise RuntimeError("the ghosts changed between two builds")
             x = np.concatenate([x, got])
         return x
 
+    def set_reach(self, reach: float) -> None:
+        self.reach = float(reach)
+        self.set_box(self.h, self.lo)
+
     def total(self, value: Any) -> Any:
         """The sum over the processes."""
-        from mpi4py import MPI
+        return self.comm.allreduce(value)
 
-        return self.comm.allreduce(value, op=MPI.SUM)
+    def maximum(self, value: Any) -> Any:
+        """The largest over the processes."""
+        return max(self.comm.allgather(value))
 
 
 def _exchange(
     comm: Any, sent: tuple, destination: int | None, source: int | None
 ) -> tuple:
     """What a process sends one way and receives from the other; empty
-    arrays where there is no process."""
-    if destination is None and source is None:
-        return tuple(a[:0] for a in sent)
+    arrays where there is no process, at a boundary that is not periodic
+    (never on both sides: a direction of one brick that is not periodic
+    sends nothing)."""
     if destination is None:
         return comm.recv(source=source)
     if source is None:
@@ -240,12 +263,292 @@ def _exchange_fields(
     comm: Any, sent: dict[str, np.ndarray], destination: int | None, source: int | None
 ) -> dict[str, np.ndarray]:
     """The fields of the atoms a process sends one way and receives from the
-    other."""
-    if destination is None and source is None:
-        return {k: v[:0] for k, v in sent.items()}
+    other, as _exchange."""
     if destination is None:
         return comm.recv(source=source)
     if source is None:
         comm.send(sent, dest=destination)
         return {k: v[:0] for k, v in sent.items()}
     return comm.sendrecv(sent, dest=destination, source=source)
+
+
+def world() -> Any:
+    """The communicator of all the processes when this one is one of several
+    under MPI, as mpirun, mpiexec or srun start them, or after mpi4py was
+    imported; else None."""
+    launched = False
+    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE"):
+        try:
+            launched = launched or int(os.environ.get(name, "1")) > 1
+        except ValueError:
+            continue
+    if not launched and "mpi4py.MPI" not in sys.modules:
+        return None
+    try:
+        from mpi4py import MPI
+    except ImportError:
+        raise InvalidParameter(
+            "MDAPY's dynamics on several processes needs mpi4py"
+        ) from None
+    comm = MPI.COMM_WORLD
+    return comm if comm.Get_size() > 1 else None
+
+
+def _reach(calculator: Any, target: bool = False) -> float:
+    """How far from an atom the atoms that its force depends on are: the
+    cutoff of a pair potential, twice the cutoff of MDAPY's many-body
+    potentials, through the neighbors of the neighbors. The springs of a
+    Switch tie each atom to its site alone."""
+    from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
+    from mdapy.calculators._pair import _PairCalculator
+
+    if isinstance(calculator, _PairCalculator) or (
+        target and isinstance(calculator, Springs)
+    ):
+        return float(calculator.cutoff)
+    if isinstance(calculator, (EAM, ADP, MEAM, NEP, StillingerWeber, Tersoff)):
+        return 2.0 * float(calculator.cutoff)
+    raise InvalidParameter(
+        "MDAPY's dynamics on several processes splits MDAPY's own potentials, EAM, "
+        "ADP, MEAM, NEP, Tersoff, Stillinger-Weber and the pair potentials, not "
+        f"{type(calculator).__name__}: run it on one process"
+    )
+
+
+class DomainAtoms(_HostAtoms):
+    """The atoms of one MPI process in MDAPY's dynamics on the processor:
+    those in its brick of the box, wrapped into the box along the periodic
+    directions with the boxes they crossed counted, and the ghosts within the
+    reach of the potential and the skin. The calculator computes the atoms of
+    the brick and the ghosts as a system without periodic directions; the
+    forces of the atoms of the brick are those of the whole system, and their
+    energies and virials sum to its energy and virial. The arrays of all the
+    atoms that the dynamics reads, positions, velocities and forces, are
+    gathered on every process, in the order of the atoms."""
+
+    def __init__(
+        self,
+        comm: Any,
+        calculator: Calculator,
+        x: np.ndarray,
+        v: np.ndarray,
+        masses: np.ndarray,
+        restrict: Any,
+        box: Box,
+        skin: float,
+    ):
+        self.__skin = float(skin)
+        try:
+            self.__bricks = Bricks(
+                comm, box.matrix, box.origin, box.pbc, _reach(calculator) + self.__skin
+            )
+        except ValueError as error:
+            raise InvalidParameter(str(error)) from None
+        self.__masses_of_all = masses
+        super().__init__(calculator, x, v, masses, restrict)
+        self.__distribute(x, v, None)
+
+    def __distribute(
+        self, x: np.ndarray, v: np.ndarray, forces: np.ndarray | None
+    ) -> None:
+        """This process's atoms of arrays of all the atoms."""
+        bricks = self.__bricks
+        self._count = len(x)
+        s = bricks.fractional(x)
+        whole = np.where(bricks.pbc, np.floor(s), 0.0)
+        brick = np.clip(
+            np.floor((s - whole) * bricks.counts), 0, bricks.counts - 1
+        ).astype(np.int64)
+        mine = np.flatnonzero((brick == bricks.at).all(axis=1))
+        self._x = x[mine] - whole[mine] @ bricks.h
+        self._v = np.array(v[mine], dtype=float)
+        self._forces = None if forces is None else np.array(forces[mine], dtype=float)
+        self.__image = whole[mine].astype(np.int64)
+        self.__mine(mine.astype(np.int64))
+        bricks.local = len(mine)
+        self.__built: np.ndarray | None = None  # the positions at the last build
+        self.__ghosts: np.ndarray = self._x  # this process's atoms and the ghosts
+        self.__part: Any = None  # their table
+        self.__box: Box | None = None  # their box, not periodic
+
+    def __mine(self, ids: np.ndarray) -> None:
+        self._ids = ids
+        self._rows = ids
+        self._masses = self.__masses_of_all[ids]
+
+    def __gather(self, values: np.ndarray) -> np.ndarray:
+        """Values of this process's atoms as an array of all, on every
+        process."""
+        parts = self.__bricks.comm.allgather((self._ids, values))
+        out = np.empty((self._count,) + values.shape[1:], dtype=values.dtype)
+        for ids, part in parts:
+            out[ids] = part
+        return out
+
+    def _total(self, value: Any) -> Any:
+        return self.__bricks.total(value)
+
+    def _agreed(self, value: Any) -> Any:
+        return self.__bricks.comm.bcast(value, root=0)
+
+    @property
+    def positions(self) -> np.ndarray:
+        """Unwrapped, as on one process."""
+        return self.__gather(self._x + self.__image @ self.__bricks.h)
+
+    @property
+    def velocities(self) -> np.ndarray:
+        return self.__gather(self._v)
+
+    @velocities.setter
+    def velocities(self, v: np.ndarray) -> None:
+        self._v = np.array(v[self._ids], dtype=float)
+
+    @property
+    def forces(self) -> np.ndarray:
+        return self.__gather(self._forces)
+
+    def compute(
+        self, table: pl.DataFrame, box: Box, energy: bool, virial: bool
+    ) -> tuple[float, np.ndarray]:
+        self.__update(table, box)
+        return super().compute(table, box, energy, virial)
+
+    def remap(
+        self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
+    ) -> None:
+        """The atoms carried with the box, and the bricks with them: the
+        boxes the atoms crossed count in the new box at once, and the
+        ghosts are found again."""
+        super().remap(old_lo, old, lo, new)
+        self.__set_box(new, lo)
+
+    def __set_box(self, h: np.ndarray, lo: np.ndarray) -> None:
+        try:
+            self.__bricks.set_box(h, lo)
+        except ValueError as error:
+            raise InvalidParameter(str(error)) from None
+        self.__built = None
+
+    def __update(self, table: pl.DataFrame, box: Box) -> None:
+        """The atoms moved to the processes of their bricks and the ghosts
+        found again when the box changed or an atom moved half the skin since
+        the last time; else the ghosts moved with their atoms."""
+        bricks = self.__bricks
+        if not (
+            np.array_equal(box.matrix, bricks.h)
+            and np.array_equal(box.origin, bricks.lo)
+        ):
+            self.__set_box(box.matrix, box.origin)
+        if self.__built is not None:
+            step = self._x - self.__built
+            moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+            if not 2.0 * bricks.maximum(moved) < self.__skin:
+                self.__built = None
+        if self.__built is None:
+            self.__build(table, box)
+        else:
+            self.__ghosts = bricks.follow(self._x)
+
+    def __build(self, table: pl.DataFrame, box: Box) -> None:
+        """The atoms moved to their bricks and the ghosts found; the rows of
+        the table of all the atoms, fixed in a run, taken for both."""
+        bricks = self.__bricks
+        fields = bricks.migrate(
+            {"positions": self._x, "velocities": self._v, "image": self.__image,
+             "id": self._ids}
+        )  # fmt: skip
+        self._x, self._v = fields["positions"], fields["velocities"]
+        self.__image = fields["image"]
+        self.__mine(fields["id"])
+        self.__ghosts, ids = bricks.borders(self._x, self._ids)
+        self.__part = table[ids]
+        self.__box = Box(box.matrix, origin=box.origin, pbc=(False, False, False))
+        self.__built = self._x.copy()
+        self._lists = {}
+
+    def _evaluate(
+        self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
+    ) -> tuple[float, np.ndarray, np.ndarray, Any]:
+        n = self.__bricks.local
+        virial = "virial" in wanted
+        if isinstance(calculator, Springs):
+            # each atom tied to its own site: this process's atoms alone, in
+            # the periodic box, at their unwrapped places
+            springs = Springs(
+                calculator.sites[self._ids], calculator.constants[self._ids]
+            )
+            current = System(self._x + self.__image @ self.__bricks.h, box)
+            result = springs.compute(current, ("energy", "atomic_energies", "forces"))
+            energies = np.asarray(result.atomic_energies, dtype=float)
+            return (
+                float(self._total(energies.sum())),
+                np.asarray(result.forces, dtype=float),
+                np.full((3, 3), np.nan),
+                SimpleNamespace(atomic_energies=energies, atomic_virials=None),
+            )
+        extra = ("atomic_energies",) + (("atomic_virials",) if virial else ())
+        wanted = tuple(wanted) + tuple(p for p in extra if p not in wanted)
+        current = System(table=self.__part.with_columns(
+            pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
+        ), box=self.__box)  # fmt: skip
+        neighbors = self._neighbors(slot, current, float(calculator.cutoff))
+        result = calculator.compute(current, wanted, neighbors=neighbors)
+        energies = np.asarray(result.atomic_energies, dtype=float)[:n]
+        virials = (
+            np.asarray(result.atomic_virials, dtype=float)[:n]
+            if result.atomic_virials is not None
+            else None
+        )
+        work = self._total(virials.sum(axis=0)) if virial else np.full((3, 3), np.nan)
+        return (
+            float(self._total(energies.sum())),
+            np.asarray(result.forces, dtype=float)[:n],
+            work,
+            SimpleNamespace(atomic_energies=energies, atomic_virials=virials),
+        )
+
+    def set_switch(self, target: Any) -> None:
+        super().set_switch(target)
+        if target:
+            reach = _reach(target, target=True) + self.__skin
+            if reach > self.__bricks.reach:
+                try:
+                    self.__bricks.set_reach(reach)
+                except ValueError as error:
+                    raise InvalidParameter(str(error)) from None
+                self.__built = None
+
+    # this process's part of the atoms: found again from a restart
+    _TRANSIENT = _HostAtoms._TRANSIENT + (
+        "_rows",
+        "_DomainAtoms__bricks",
+        "_DomainAtoms__masses_of_all",
+        "_DomainAtoms__image",
+        "_DomainAtoms__built",
+        "_DomainAtoms__ghosts",
+        "_DomainAtoms__part",
+        "_DomainAtoms__box",
+        "_DomainAtoms__skin",
+    )
+
+    def state(self) -> dict[str, Any]:
+        """As on one process: arrays of all the atoms, in their order, so
+        that a restart does not depend on the number of processes."""
+        kept = super().state()
+        kept["_x"] = self.positions
+        kept["_v"] = self.velocities
+        kept["_forces"] = None if self._forces is None else self.forces
+        kept["_masses"] = self.__masses_of_all
+        kept["_ids"] = np.arange(self._count, dtype=np.int64)
+        for name in ("_HostAtoms__virials", "_HostAtoms__energies"):
+            if kept.get(name) is not None:
+                kept[name] = self.__gather(kept[name])
+        return kept
+
+    def restore(self, state: dict[str, Any]) -> None:
+        super().restore(state)
+        self.__distribute(state["_x"], state["_v"], state["_forces"])
+        for name in ("_HostAtoms__virials", "_HostAtoms__energies"):
+            if state.get(name) is not None:
+                vars(self)[name] = state[name][self._ids]

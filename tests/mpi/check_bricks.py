@@ -5,20 +5,17 @@
 
 """Run under mpirun: the bricks of simulation/_domain.py hold each atom on
 one process, and as ghosts exactly the periodic images of the atoms within
-the reach of each brick. Prints "ok" on the first process, or raises."""
+the reach of each brick. Prints "ok" on the first process, or raises.
 
-import importlib.util
+    mpirun -np 4 python tests/mpi/check_bricks.py
+"""
+
 import itertools
-from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
 
-spec = importlib.util.spec_from_file_location(
-    "_domain", Path(__file__).parents[2] / "src" / "mdapy" / "simulation" / "_domain.py"
-)
-domain = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(domain)
+from mdapy.simulation import _domain as domain
 
 comm = MPI.COMM_WORLD
 rng = np.random.default_rng(7)

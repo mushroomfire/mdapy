@@ -2,6 +2,13 @@
 
 ## 2.3.0 (not released)
 
+- MDAPY's own dynamics runs on many processes with MPI: started by `mpirun` or `srun`,
+  the processes cut the box into bricks, each owning the atoms in its brick and keeping
+  copies of those within the reach of the potential, and the run is that of one
+  process, to the rounding of the forces; in every ensemble and with every control,
+  with MDAPY's potentials on the processor. Restart files hold the atoms in their own
+  order, whatever the number of processes. It needs mpi4py. See
+  [On many processes](../user-guide/simulation/processes.md).
 - Restart files of molecular dynamics: `run(..., restart="md.restart",
   restart_every=1000)` and `iterate` write the state of the dynamics every so many
   steps and at the end of a run, replacing the last once the new one is whole;

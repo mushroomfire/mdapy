@@ -1,0 +1,448 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""MDAPY's dynamics split among processes (simulation/_domain.py), the
+processes stood in for by threads (processes.py): the bricks hold each atom
+once and as ghosts exactly the images within their reach; a split run gives
+the run of one process, in every ensemble and with every control, to the
+rounding of the forces, which sum in another order; a restart file does not
+depend on the number of processes; and what cannot be split is refused.
+tests/mpi/ checks the same under mpirun."""
+
+import itertools
+import shutil
+import sys
+import types
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM, LennardJones, Springs, _gpu
+from mdapy.errors import InvalidParameter
+from mdapy.simulation import MolecularDynamics, _domain
+from mdapy.simulation._controls import _HeatField
+from mdapy.simulation.controls import (
+    AdaptiveTimestep,
+    AddForce,
+    Deform,
+    Hold,
+    Indenter,
+    Langevin,
+    Move,
+    Switch,
+    Wall,
+)
+from simulation import processes
+
+from calculators.gpu_stand_in import stand_in
+
+
+def copper(repeat=7, tilt=0.0, pbc=(True, True, True)):
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(repeat,) * 3)
+    matrix = crystal.box.matrix.copy()
+    matrix[1, 0] += tilt * matrix[0, 0]
+    return crystal.with_box(mdapy.Box(matrix, pbc=pbc), scale_positions=True)
+
+
+# -- the bricks ---------------------------------------------------------------
+
+
+def bricks_hold_every_atom(comm, h, pbc, reach, seed=7):
+    n = 600
+    rng = np.random.default_rng(seed)
+    lo = np.array([-1.0, 2.0, 0.5])
+    x = lo + rng.random((n, 3)) @ h
+    ids = np.arange(n, dtype=np.int64)
+    bricks = _domain.Bricks(comm, h, lo, pbc, reach)
+    s = bricks.fractional(x)
+    brick = np.clip(np.floor(s * bricks.counts), 0, bricks.counts - 1).astype(int)
+    mine = (brick == bricks.at).all(axis=1)
+    fields = {"positions": x[mine], "image": np.zeros((mine.sum(), 3), np.int64),
+              "id": ids[mine]}  # fmt: skip
+    # every atom moved a little, some across the faces of the bricks and the box
+    width = (1.0 / np.linalg.norm(np.linalg.inv(h), axis=0)) / bricks.counts
+    step = rng.normal(0, 0.15, (n, 3)) * min(width.min() / 4, 1.0)
+    fields["positions"] = fields["positions"] + step[fields["id"]]
+    fields = bricks.migrate(fields)
+    every = np.concatenate(comm.allgather(fields["id"]))
+    assert sorted(every.tolist()) == list(range(n))
+    np.testing.assert_allclose(
+        fields["positions"] + fields["image"] @ h, (x + step)[fields["id"]], atol=1e-9
+    )
+    # the ghosts: every image within the reach of the brick
+    xg, ig = bricks.borders(fields["positions"], fields["id"])
+    local = bricks.local
+    lower, upper = bricks.at / bricks.counts, (bricks.at + 1) / bricks.counts
+    allx = np.concatenate(comm.allgather(fields["positions"]))
+    alli = np.concatenate(comm.allgather(fields["id"]))
+    closed = np.asarray(pbc)
+    low = np.where(~closed & (bricks.at == 0), -np.inf, lower - bricks.fraction)
+    high = np.where(~closed & (bricks.at == bricks.counts - 1), np.inf,
+                    upper + bricks.fraction)  # fmt: skip
+    expect = []
+    for shift in itertools.product(*[(-1, 0, 1) if p else (0,) for p in pbc]):
+        y = allx + np.array(shift) @ h
+        g = bricks.fractional(y)
+        near = ((g >= low) & (g < high)).all(axis=1)
+        own = np.isin(alli, fields["id"]) & (np.array(shift) == 0).all()
+        expect += [
+            (int(alli[k]), *np.round(y[k], 9)) for k in np.flatnonzero(near & ~own)
+        ]
+    got = [(int(i), *np.round(p, 9)) for i, p in zip(ig[local:], xg[local:])]
+    assert sorted(got) == sorted(expect)
+    # the ghosts follow their atoms
+    nudge = rng.normal(0, 0.01, (n, 3))
+    followed = bricks.follow(
+        np.concatenate([xg[:local] + nudge[ig[:local]], xg[local:]])
+    )
+    np.testing.assert_allclose(
+        followed[local:], xg[local:] + nudge[ig[local:]], atol=1e-12
+    )
+    assert (
+        bricks.total(local) == n
+        and bricks.maximum(comm.Get_rank()) == comm.Get_size() - 1
+    )
+
+
+BOXES = {
+    "cubic": (np.diag([20.0, 18.0, 16.0]), (True, True, True), 3.0),
+    "triclinic": (np.array([[20.0, 0, 0], [4.0, 18.0, 0], [-3.0, 2.5, 16.0]]),
+                  (True, True, True), 2.5),
+    "open z": (np.diag([20.0, 18.0, 30.0]), (True, True, False), 3.0),
+    "open": (np.diag([24.0, 24.0, 24.0]), (False, False, False), 3.0),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("box", list(BOXES))
+@pytest.mark.parametrize("size", [1, 2, 3, 4, 6, 8])
+def test_the_bricks_hold_every_atom_and_its_ghosts(monkeypatch, box, size):
+    h, pbc, reach = BOXES[box]
+    processes.run(
+        size, lambda rank: bricks_hold_every_atom(processes.world(), h, pbc, reach),
+        monkeypatch,
+    )  # fmt: skip
+
+
+def test_the_grid_has_the_least_surface():
+    assert _domain.grid(8, np.diag([10.0, 10.0, 10.0]), np.ones(3, bool)) == (2, 2, 2)
+    assert _domain.grid(4, np.diag([40.0, 10.0, 10.0]), np.ones(3, bool)) == (4, 1, 1)
+    assert _domain.grid(6, np.diag([30.0, 20.0, 10.0]), np.ones(3, bool)) == (3, 2, 1)
+    # ties to the first found, as LAMMPS's procs2box takes them
+    assert _domain.grid(7, np.diag([10.0, 10.0, 10.0]), np.ones(3, bool)) == (1, 1, 7)
+
+
+# -- runs ----------------------------------------------------------------------
+
+
+def cases():
+    crystal = copper()
+    z = crystal["positions"][:, 2]
+    bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
+    middle = ~(bottom | top)
+    eam = EAM.zhou(["Cu"])
+    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
+    springs = Springs(crystal["positions"], np.full(len(crystal), 2.0))
+    open_z = copper(pbc=(True, True, False))
+    # the top layers outside the box, which grows to hold them
+    matrix = open_z.box.matrix.copy()
+    matrix[2, 2] -= 3.0
+    outside = open_z.with_box(mdapy.Box(matrix, pbc=(True, True, False)))
+    half = crystal.box.matrix[0, 0] / 2
+    return {
+        "nve": (crystal, eam, {}, 4),
+        "lj": (copper(5), lj, {}, 8),
+        "nvt": (crystal, eam, {"ensemble": "nvt", "temperature": (300, 500)}, 2),
+        "npt": (crystal, eam, {"ensemble": "npt", "temperature": 300, "pressure": 1.0}, 2),
+        "npt tri": (copper(tilt=0.1), eam, {"ensemble": "npt", "temperature": 300,
+                                            "pressure": 1.0, "barostat": "tri"}, 4),
+        "nph aniso": (crystal, eam, {"ensemble": "nph", "pressure": 1.0,
+                                     "barostat": "aniso"}, 2),
+        "langevin": (crystal, eam, {"ensemble": "nvt", "temperature": 400,
+                                    "thermostat": "langevin", "seed": 5,
+                                    "keep_momentum": True}, 4),
+        # compressed along z, across which two bricks split the box
+        "nphug": (copper(8), eam, {"ensemble": "nphug", "pressure": 5.0,
+                                   "barostat": "z"}, 2),
+        "msst": (copper(8), eam, {"ensemble": "msst", "barostat": "z",
+                                  "shock_velocity": 60.0}, 2),
+        "groups": (crystal, eam, {"controls": [
+            Hold(bottom), Move(top, (0.0, 0.0, 0.5), name="top"),
+            AddForce(middle, (0.01, 0.0, 0.0)),
+            Langevin(middle, 300.0, damping=0.1, seed=9, name="bath")]}, 4),
+        "deform": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
+                                  "controls": [Deform(xx=1e-3)]}, 2),
+        "adaptive": (crystal, eam, {"controls": [AdaptiveTimestep(0.02)]}, 2),
+        "wall": (open_z, eam, {"controls": [Wall("z", side="low", velocity=0.5)]}, 2),
+        "outside": (outside, eam, {"ensemble": "nvt", "temperature": 300}, 2),
+        "indenter": (open_z, eam, {"controls": [Indenter(
+            "sphere", center=(half, half, z.max() + 9.5), radius=10.0,
+            velocity=(0.0, 0.0, -3.0), name="tip")]}, 2),
+        "switch": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
+                                  "thermostat": "langevin", "seed": 2,
+                                  "controls": [Switch(springs, name="switch")]}, 2),
+        "switch to eam": (crystal, lj, {"controls": [Switch(eam, name="switch")]}, 2),
+        "hnemd": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
+                                 "controls": [_HeatField((0.0, 0.0, 1e-4))]}, 2),
+        "hnemd convective": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
+                                            "controls": [_HeatField((1e-4, 0, 0), True)]},
+                             2),
+    }  # fmt: skip
+
+
+CASES = cases()
+
+
+def run(crystal, potential, options, steps=30):
+    with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+        md.velocities(300, seed=1)
+        md.run(steps, thermo=10, **options)
+        return md.system, md.thermo
+
+
+def same(a, b):
+    (sa, ta), (sb, tb) = a, b
+    x = (sa["positions"] - sb["positions"]) @ np.linalg.inv(sb.box.matrix)
+    x[:, sb.box.pbc] -= np.round(x[:, sb.box.pbc])
+    assert np.abs(x @ sb.box.matrix).max() < 1e-9
+    np.testing.assert_allclose(sa["velocities"], sb["velocities"], rtol=0, atol=1e-9)
+    np.testing.assert_allclose(sa.box.matrix, sb.box.matrix, rtol=0, atol=1e-10)
+    np.testing.assert_array_equal(sa["image"], sb["image"])
+    assert ta.columns == tb.columns and ta.height == tb.height
+    for name in ta.columns:
+        np.testing.assert_allclose(
+            np.stack(ta[name].to_numpy()), np.stack(tb[name].to_numpy()),
+            rtol=1e-9, atol=1e-9, err_msg=name,
+        )  # fmt: skip
+
+
+@pytest.mark.parametrize("case", list(CASES))
+def test_a_split_run_is_the_run_of_one_process(monkeypatch, case):
+    crystal, potential, options, size = CASES[case]
+    alone = run(crystal, potential, options)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+def potentials(tmp_path):
+    """Each of MDAPY's potentials, with a crystal two bricks can split."""
+    from mdapy.calculators import (
+        ADP,
+        MEAM,
+        NEP,
+        Morse,
+        StillingerWeber,
+        Tersoff,
+        UhlenbeckFord,
+    )
+
+    from calculators.meam_files import CASES as MEAMS
+    from calculators.meam_files import write_library, write_parameters
+    from calculators.nep_files import write_nep
+    from calculators.potential_files import write_adp, write_sw, write_tersoff
+    from calculators.test_meam import crystal as meam_crystal
+
+    def mixed(structure, a, elements, repeat, p=None):
+        system = build_crystal(structure, a, elements=elements[0], repeat=(repeat,) * 3)
+        rng = np.random.default_rng(0)
+        return system.with_columns(element=list(rng.choice(elements, len(system), p=p)))
+
+    names, lines, structure, a = MEAMS["silicon and carbon, dia, screening beyond rc"]
+    meam = MEAM(write_library(tmp_path / "library.meam"), names,
+                write_parameters(tmp_path / "x.meam", lines))  # fmt: skip
+    repeat = int(np.ceil(2 * (2 * meam.cutoff + 1.0) / a)) + 1
+    return {
+        "ADP": (ADP(write_adp(tmp_path / "CuNi.adp")), mixed("fcc", 3.6, ("Cu", "Ni"), 7)),
+        "MEAM": (meam, meam_crystal(structure, a, meam.elements, repeat=repeat,
+                                    jitter=0.05, seed=3)),
+        "NEP": (NEP(write_nep(tmp_path / "nep.txt", zbl="universal")),
+                mixed("fcc", 3.6, ("Cu", "Ni"), 8)),
+        "Tersoff": (Tersoff(write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C"))),
+                    mixed("diamond", 5.43, ("Si", "C"), 4, p=[0.8, 0.2])),
+        "Stillinger-Weber": (StillingerWeber(write_sw(tmp_path / "SiGe.sw", ("Si", "Ge"))),
+                             mixed("diamond", 5.43, ("Si", "Ge"), 4)),
+        "Morse": (Morse({("Cu", "Cu"): (0.34, 1.36, 2.87)}, 6.0), copper(5)),
+        "Uhlenbeck-Ford": (UhlenbeckFord((0.5, 1.5), 5.0), copper(5)),
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "name", ["ADP", "MEAM", "NEP", "Tersoff", "Stillinger-Weber", "Morse",
+             "Uhlenbeck-Ford"]
+)  # fmt: skip
+def test_every_potential_of_mdapy_splits(monkeypatch, tmp_path, name):
+    potential, system = potentials(tmp_path)[name]
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    alone = run(system, potential, options)
+    for split in processes.run(2, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+def test_atoms_that_move_far(monkeypatch):
+    """Hot atoms, which move half the skin between two builds of the
+    neighbor lists, many times in the run."""
+    crystal, potential = copper(), EAM.zhou(["Cu"])
+
+    def hot():
+        with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+            md.velocities(3000, seed=1)
+            md.run(150, thermo=50)
+            return md.system, md.thermo
+
+    alone = hot()
+    for split in processes.run(2, lambda rank: hot(), monkeypatch):
+        same(split, alone)
+
+
+def test_the_log_names_the_processes(monkeypatch, tmp_path):
+    crystal, potential, options, _ = CASES["lj"]
+
+    def task(rank):
+        log = tmp_path / f"md{rank}.log"
+        with MolecularDynamics(crystal, potential, timestep=0.002, log=log) as md:
+            md.run(10, thermo=10)
+        return log.exists()
+
+    # the main process alone writes the log
+    assert processes.run(3, task, monkeypatch) == [True, False, False]
+    assert (
+        "MDAPY on the processor, 3 processes of" in (tmp_path / "md0.log").read_text()
+    )
+
+
+def stop(crystal, potential, options, path):
+    """The run stopped after 20 of its 30 steps, its restart file written."""
+    with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+        md.velocities(300, seed=1)
+        frames = md.iterate(30, save_every=10, thermo=10, restart=path, restart_every=20,
+                            **options)  # fmt: skip
+        for frame in frames:
+            if frame.info["timestep"] >= 30:
+                break
+        frames.close()
+
+
+def finish(path, potential):
+    again = MolecularDynamics.load(path, potential)
+    assert again.step == 20
+    again.resume()
+    return again.system, again.thermo
+
+
+# the box of "outside" grows to hold its atoms in the file
+@pytest.mark.parametrize("case", ["langevin", "hnemd convective", "outside"])
+def test_restart_files_do_not_depend_on_the_processes(monkeypatch, tmp_path, case):
+    crystal, potential, options, _ = CASES[case]
+    whole = run(crystal, potential, options)
+    path, copy = tmp_path / "md.restart", tmp_path / "copy.restart"
+    # written by two processes, read by two and by one
+    processes.run(2, lambda rank: stop(crystal, potential, options, path), monkeypatch)
+    shutil.copy(path, copy)
+    for continued in processes.run(
+        2, lambda rank: finish(path, potential), monkeypatch
+    ):
+        same(continued, whole)
+    same(finish(copy, potential), whole)
+    # written by one, read by four
+    stop(crystal, potential, options, path)
+    for continued in processes.run(
+        4, lambda rank: finish(path, potential), monkeypatch
+    ):
+        same(continued, whole)
+
+
+def test_a_restart_file_that_cannot_be_written(monkeypatch):
+    crystal, potential, _, _ = CASES["nve"]
+
+    def task(rank):
+        with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+            with pytest.raises(InvalidParameter, match="cannot write the restart file"):
+                md.save("/nonexistent-folder/md.restart")
+            md.run(1)  # every process goes on together
+        return True
+
+    assert processes.run(2, task, monkeypatch) == [True, True]
+
+
+# -- the world and what is refused ------------------------------------------------
+
+
+def test_the_world(monkeypatch):
+    for name in ("OMPI_COMM_WORLD_SIZE", "PMI_SIZE", "MV2_COMM_WORLD_SIZE"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.delitem(sys.modules, "mpi4py.MPI", raising=False)
+    assert _domain.world() is None
+    monkeypatch.setenv("PMI_SIZE", "many")
+    assert _domain.world() is None
+    monkeypatch.setenv("OMPI_COMM_WORLD_SIZE", "4")
+    monkeypatch.setitem(sys.modules, "mpi4py", None)
+    with pytest.raises(InvalidParameter, match="needs mpi4py"):
+        _domain.world()
+    one = types.SimpleNamespace(Get_size=lambda: 1)
+    four = types.SimpleNamespace(Get_size=lambda: 4)
+    fake = types.ModuleType("mpi4py")
+    fake.MPI = types.SimpleNamespace(COMM_WORLD=one)
+    monkeypatch.setitem(sys.modules, "mpi4py", fake)
+    assert _domain.world() is None
+    fake.MPI.COMM_WORLD = four
+    assert _domain.world() is four
+    # mpi4py imported, whatever started the processes
+    monkeypatch.delenv("OMPI_COMM_WORLD_SIZE")
+    monkeypatch.setitem(sys.modules, "mpi4py.MPI", fake.MPI)
+    assert _domain.world() is four
+
+
+def refused(monkeypatch, size, task, match):
+    def checked(rank):
+        with pytest.raises(InvalidParameter, match=match):
+            task()
+
+    processes.run(size, checked, monkeypatch)
+
+
+def test_what_cannot_be_split(monkeypatch):
+    crystal = copper()
+    sites = Springs(crystal["positions"], 1.0)
+    refused(monkeypatch, 2, lambda: MolecularDynamics(crystal, sites, timestep=0.002),
+            "not Springs: run it on one process")  # fmt: skip
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    gpu = EAM.zhou(["Cu"], device="cuda")
+    refused(monkeypatch, 2, lambda: MolecularDynamics(crystal, gpu, timestep=0.002),
+            "runs on one process")  # fmt: skip
+    # bricks thinner than the reach of the ghosts, at the start and on the way
+    eam = EAM.zhou(["Cu"])
+    refused(monkeypatch, 2, lambda: MolecularDynamics(copper(4), eam, timestep=0.002),
+            "use fewer processes")  # fmt: skip
+
+    def squeezed():
+        with MolecularDynamics(crystal, eam, timestep=0.002) as md:
+            md.run(30, controls=[Deform(zz=-0.5)])  # across the bricks
+
+    refused(monkeypatch, 2, squeezed, "use fewer processes")
+
+    def switched():
+        lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
+        with MolecularDynamics(copper(4), lj, timestep=0.002) as md:
+            md.run(10, controls=[Switch(eam)])
+
+    refused(monkeypatch, 2, switched, "use fewer processes")
+
+
+def test_an_atom_too_fast(monkeypatch):
+    h = np.diag([40.0, 10.0, 10.0])
+
+    def task(rank):
+        comm = processes.world()
+        bricks = _domain.Bricks(comm, h, np.zeros(3), (True, True, True), 2.0)
+        x = np.array([[5.0 + 10.0 * rank, 5.0, 5.0]])
+        if rank == 0:
+            x[0, 0] += 20.0  # two bricks on
+        with pytest.raises(InvalidParameter, match="farther than a brick"):
+            bricks.migrate({"positions": x, "image": np.zeros((1, 3), np.int64)})
+
+    processes.run(4, task, monkeypatch)

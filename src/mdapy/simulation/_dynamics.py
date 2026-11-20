@@ -1055,7 +1055,19 @@ class MolecularDynamics:
     def __write_restart(
         self, path: str, pending: tuple[dict[str, Any], int] | None
     ) -> None:
-        _restart.write(path, self.__state(pending), first=self.__potential)
+        # every process gathers the state, the main one writes it, and all
+        # learn whether it could
+        state = self.__state(pending)
+        engine = self.__engine
+        error = None
+        if engine.writes:
+            try:
+                _restart.write(path, state, first=self.__potential)
+            except InvalidParameter as failed:
+                error = failed
+        error = engine.shared(error)
+        if error is not None:
+            raise error
 
     def save(self, path: str | os.PathLike) -> None:
         """Writes the state of the dynamics to a restart file, between runs,

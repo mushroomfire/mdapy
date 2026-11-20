@@ -114,6 +114,31 @@ jobs:
           python -c "import mdapy; assert mdapy.index_dtype == 'int64'"
           pytest -q -n auto
 
+  # MDAPY's dynamics split among processes under mpirun, against the run of one
+  # process (tests/mpi); pytest checks the same with threads for processes
+  # (tests/simulation/test_domain.py).
+  mpi:
+    name: pytest — MPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: OpenMPI and mpi4py
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q openmpi-bin libopenmpi-dev
+          pip install mpi4py
+      - name: Install
+        run: pip install . -Ccmake.define.MDAPY_WERROR=ON
+      - name: Under mpirun
+        env:
+          MDAPY_NUM_THREADS: 1
+        run: |
+          for n in 1 2 3 4; do mpirun --oversubscribe -np $n python tests/mpi/check_bricks.py; done
+          mpirun --oversubscribe -np 4 python tests/mpi/check_dynamics.py
+
   # The GPU part, mdapy-cuda12, compiled for one architecture with CUDA 12.9 and
   # GCC, warnings as errors. The runner has no GPU: the module is only loaded.
   # Its tests run on a machine with a GPU.

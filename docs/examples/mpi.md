@@ -10,8 +10,9 @@ come back whole to each. One script then builds a structure and runs it, and
 LAMMPS writes the frames as it goes; a second script analyses them afterwards,
 with every core.
 
-This page heats a copper crystal with a void on many processes, and finds how
-much of it stays fcc.
+MDAPY's own dynamics runs on many processes too, with MDAPY's potentials: see
+[On many processes](../user-guide/simulation/processes.md). This page heats a copper
+crystal with a void on many processes in LAMMPS, and finds how much of it stays fcc.
 
 ## What it needs
 

@@ -72,6 +72,7 @@ each part of them.
 | start at a temperature, or give part of the atoms one | [`velocities`, `thermal_velocities`](running.md#starting-velocities) | ✓ | ✓ | ✓ |
 | record the state, write a log, keep or stream the atoms | [`thermo`, `log`, `save_every`, `iterate`](records.md) | ✓ | ✓ | ✓ |
 | go on after a crash from a restart file | [`restart`, `load`, `resume`](restart.md) | ✓ | ✓ | — |
+| share a large system among many processes with MPI | [`mpirun`](processes.md) | ✓ | — | ✓ |
 | hold, move or push a group of atoms, and record the force on it | [`Hold`, `Move`, `AddForce`](controls.md) | ✓ | ✓ | ✓ |
 | keep a group at a temperature, a heat bath | [`Langevin`](controls.md) | ✓ | ✓ | ✓ |
 | take smaller steps when atoms move fast | [`AdaptiveTimestep`](adaptive-timestep.md) | ✓ | ✓ | ✓ |
@@ -104,7 +105,8 @@ they run.
 
 [Running molecular dynamics](running.md), [Ensembles](ensembles.md) and
 [Records and frames](records.md) cover what every simulation needs;
-[On the GPU](gpu.md) takes it to millions of atoms. The other pages each describe one
+[On the GPU](gpu.md) and [On many processes](processes.md) take it to millions of
+atoms. The other pages each describe one
 feature. The examples run whole studies in MDAPY:
 [a copper cluster melting](../../examples/cluster-melting.md),
 [a collision cascade in tungsten](../../examples/radiation-cascade.md) and

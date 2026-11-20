@@ -287,6 +287,7 @@ nav:
               - Ensembles: user-guide/simulation/ensembles.md
               - Records and frames: user-guide/simulation/records.md
               - On the GPU: user-guide/simulation/gpu.md
+              - On many processes: user-guide/simulation/processes.md
               - In LAMMPS: user-guide/simulation/in-lammps.md
               - Restart files: user-guide/simulation/restart.md
           - Controls:

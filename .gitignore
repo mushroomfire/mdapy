@@ -8,6 +8,7 @@ wheelhouse/
 
 # Build
 /build/
+/cuda12/build/
 /_skbuild/
 
 # Tests and coverage

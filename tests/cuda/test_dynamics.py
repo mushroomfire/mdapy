@@ -8,11 +8,13 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LennardJones
+from mdapy.calculators import EAM, LennardJones, _gpu
 from mdapy.errors import CalculationFailed, InvalidParameter
 from mdapy.simulation import MolecularDynamics
 
-cuda = pytest.importorskip("mdapy._cuda")
+cuda = _gpu.module()
+if cuda is None:
+    pytest.skip("no GPU part of MDAPY", allow_module_level=True)
 try:
     cuda.device_name()
 except RuntimeError:

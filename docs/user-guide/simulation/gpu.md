@@ -1,8 +1,8 @@
-<!-- needs: mdapy._cuda -->
+<!-- needs: gpu -->
 
 # On the GPU
 
-<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, with MDAPY built with CUDA: see [Building the GPU part](#building-the-gpu-part)</p>
+<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, with the GPU part of MDAPY: see [Installing the GPU part](#installing-the-gpu-part)</p>
 
 The potentials of MDAPY compute on an NVIDIA GPU with CUDA, and
 [molecular dynamics](running.md) with them runs there whole, for systems of
@@ -64,18 +64,32 @@ the time step of 2 fs, as the atoms leave the perfect crystal, where no force ac
 After it, double precision keeps the energy to 0.2 µeV per atom, and mixed precision
 lets it drift by less than 0.1 µeV per atom per ps.*
 
-## Building the GPU part
+## Installing the GPU part
 
-The wheels of MDAPY on PyPI hold no GPU part. MDAPY built from its source with the
-CUDA toolkit (tested with CUDA 12.6 and 13.5) holds it, the module `mdapy._cuda`:
+The GPU part of MDAPY is a package of its own, `mdapy-cuda12`, built with CUDA 12 for
+Linux on x86-64 and on ARM (aarch64, as the GH200), which pip installs with MDAPY at its
+version:
+
+```bash
+pip install "mdapy[cuda12]"
+```
+
+It runs on NVIDIA GPUs from the V100 on (compute capability 7.0: V100, T4, A100, the
+RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
+or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
+into it, and newer drivers run it too.
+`mdapy.show_versions()` names the GPU part and the GPU it found, in its row
+`GPU part`. Where there is no such package, on Windows or on the Jetson boards,
+MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
+and 13.5), which puts the GPU part in MDAPY itself, as the module `mdapy._cuda`:
 
 ```bash
 pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
 ```
 
 It is compiled for the GPU of the machine; `-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`
-compiles it for others, such as those of a cluster. The CUDA runtime is linked into
-the module, so running it needs only the driver of the GPU.
+compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
+used before an installed `mdapy-cuda12`.
 
 ## Potentials
 

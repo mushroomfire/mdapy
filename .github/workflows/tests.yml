@@ -114,6 +114,29 @@ jobs:
           python -c "import mdapy; assert mdapy.index_dtype == 'int64'"
           pytest -q -n auto
 
+  # The GPU part, mdapy-cuda12, compiled for one architecture with CUDA 12.9 and
+  # GCC, warnings as errors. The runner has no GPU: the module is only loaded.
+  # Its tests run on a machine with a GPU.
+  cuda:
+    name: build — CUDA 12
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: CUDA 12.9
+        run: |
+          wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
+          sudo apt-get update -q
+          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9 libcurand-dev-12-9
+          echo /usr/local/cuda-12.9/bin >> "$GITHUB_PATH"
+      - name: Build mdapy-cuda12 for one architecture
+        run: pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86-real -Ccmake.define.MDAPY_WERROR=ON
+      - name: Load it
+        run: python -I cuda12/check_import.py
+
   coverage:
     name: coverage
     runs-on: ubuntu-latest

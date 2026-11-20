@@ -196,6 +196,12 @@
   time, and the speed of each run or where it stopped; rows of numbers between
   lines that start with `#`, which `numpy.loadtxt` reads back. See
   [Molecular dynamics](../user-guide/simulation/records.md#log).
+- The GPU part of MDAPY is a package of its own on PyPI, `mdapy-cuda12`, built with
+  CUDA 12 for Linux on x86-64 and ARM and NVIDIA GPUs from the V100 on:
+  `pip install "mdapy[cuda12]"` installs it at the version of MDAPY, and it needs only
+  the driver of the GPU, 525 or newer. MDAPY built from its source with the CUDA
+  toolkit holds its own, which comes first; `show_versions` names the GPU part in use.
+  See [Installing the GPU part](../user-guide/simulation/gpu.md#installing-the-gpu-part).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,
@@ -204,9 +210,7 @@
   the device with a neighbor list of their own; every calculator has `device` and
   `precision`. `MolecularDynamics` with such a potential runs on the GPU whole, in
   every ensemble and with atoms held by a `movable` column; the atoms are copied back
-  only for records and frames. The GPU part, the
-  module `mdapy._cuda`, is built from source with the CUDA toolkit,
-  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/simulation/gpu.md).
+  only for records and frames. See [On the GPU](../user-guide/simulation/gpu.md).
 - Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:

@@ -23,21 +23,49 @@ PRECISIONS = ("mixed", "double")
 SKIN = 1.0
 
 
-def cuda() -> Any:
-    """mdapy._cuda, with a device to run on."""
+_NO_GPU_PART = (
+    "this MDAPY has no GPU part: on Linux on x86-64 or ARM, install it with "
+    'pip install "mdapy[cuda12]"; elsewhere, build MDAPY with the CUDA toolkit, '
+    "pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON"
+)
+
+
+def module() -> Any:
+    """The GPU part: mdapy._cuda of an MDAPY built with the CUDA toolkit, or
+    that of the package mdapy-cuda12 at the version of MDAPY; None without
+    either."""
     try:
         from mdapy import _cuda
+
+        return _cuda
     except ImportError:
-        raise InvalidParameter(
-            "this MDAPY was built without its GPU part: build it with the CUDA "
-            "toolkit, pip install mdapy --no-binary mdapy "
-            "-Ccmake.define.MDAPY_CUDA=ON"
-        ) from None
+        pass
     try:
-        _cuda.device_name()
+        import mdapy_cuda12
+    except ImportError:
+        return None
+    import mdapy
+
+    if mdapy_cuda12.__version__ != mdapy.__version__:
+        raise InvalidParameter(
+            f"mdapy-cuda12 {mdapy_cuda12.__version__} is not the GPU part of MDAPY "
+            f'{mdapy.__version__}: pip install --upgrade "mdapy[cuda12]"'
+        )
+    from mdapy_cuda12 import _cuda
+
+    return _cuda
+
+
+def cuda() -> Any:
+    """The GPU part, with a device to run on."""
+    found = module()
+    if found is None:
+        raise InvalidParameter(_NO_GPU_PART)
+    try:
+        found.device_name()
     except RuntimeError as error:
         raise InvalidParameter(str(error)) from None
-    return _cuda
+    return found
 
 
 def resolve(device: str, precision: str | None) -> tuple[str, str]:

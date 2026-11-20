@@ -47,6 +47,46 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
 
+  # The GPU part, the package mdapy-cuda12 (cuda12/), built with CUDA 12.9 and
+  # GCC 14 in the manylinux container for the GPUs of cuda12/pyproject.toml, on
+  # x86-64 and on ARM (NVIDIA's sbsa, as the GH200). The runners have no GPU:
+  # the test is that the module loads and refuses to run without a device. The
+  # GPU tests run on the built wheels on machines with a GPU before the tag (a
+  # dispatch with publish=false builds them).
+  cuda-wheels:
+    name: wheels — CUDA 12, Linux ${{ matrix.archs }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, archs: x86_64 }
+          - { os: ubuntu-24.04-arm, archs: aarch64 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v4.3
+        with:
+          package-dir: cuda12
+        env:
+          CIBW_BUILD: "cp311-* cp312-*"
+          CIBW_SKIP: "*-musllinux_*"
+          CIBW_ARCHS: ${{ matrix.archs }}
+          CIBW_BEFORE_ALL_LINUX: >-
+            dnf install -y dnf-plugins-core &&
+            dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/$([ "$(uname -m)" = aarch64 ] && echo sbsa || echo x86_64)/cuda-rhel8.repo &&
+            dnf install -y cuda-nvcc-12-9 cuda-cudart-devel-12-9 cuda-cccl-12-9 libcurand-devel-12-9 gcc-toolset-14-gcc-c++
+          CIBW_ENVIRONMENT_LINUX: >-
+            PATH=/usr/local/cuda-12.9/bin:$PATH
+            CUDACXX=/usr/local/cuda-12.9/bin/nvcc
+            CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
+            CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+            CUDAHOSTCXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
+          CIBW_TEST_COMMAND: python -I {package}/check_import.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-cuda12-${{ matrix.archs }}
+          path: wheelhouse/*.whl
+
   sdist:
     runs-on: ubuntu-latest
     steps:
@@ -62,7 +102,7 @@ jobs:
           path: dist/*.tar.gz
 
   publish:
-    needs: [wheels, sdist]
+    needs: [wheels, cuda-wheels, sdist]
     # Tag pushes always publish; manual runs only when publish=true.
     if: github.event_name == 'push' || inputs.publish
     runs-on: ubuntu-latest

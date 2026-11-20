@@ -18,6 +18,7 @@ from mdapy.calculators import (
     StillingerWeber,
     Tersoff,
     UhlenbeckFord,
+    _gpu,
 )
 from mdapy.calculators._base import HEAT_FLUX_TERMS
 from mdapy.errors import InvalidParameter
@@ -30,7 +31,9 @@ from calculators.nep_files import write_nep
 from calculators.potential_files import write_adp, write_sw, write_tersoff
 from calculators.test_meam import crystal as meam_crystal
 
-cuda = pytest.importorskip("mdapy._cuda")
+cuda = _gpu.module()
+if cuda is None:
+    pytest.skip("no GPU part of MDAPY", allow_module_level=True)
 try:
     cuda.device_name()
 except RuntimeError:

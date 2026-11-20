@@ -90,8 +90,15 @@ without a GPU, pictures are traced on the processor.
 ## Potentials and dynamics on an NVIDIA GPU
 
 [Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
-need MDAPY built from its source with the CUDA toolkit (tested with CUDA 13.5), which the
-wheels of PyPI are not:
+need the GPU part of MDAPY, the package `mdapy-cuda12` on Linux on x86-64 and ARM, for
+NVIDIA GPUs from the V100 on with a driver of version 525 or newer:
+
+```bash
+pip install "mdapy[cuda12]"
+```
+
+Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
+part in MDAPY itself:
 
 ```bash
 pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
@@ -99,7 +106,8 @@ pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
 
 The build compiles for the GPU of the machine, or for those of
 `-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`, and links the CUDA runtime
-into MDAPY, so that running it needs only the driver of the GPU.
+into MDAPY, so that running it needs only the driver of the GPU. See
+[Installing the GPU part](../user-guide/simulation/gpu.md#installing-the-gpu-part).
 
 ## 64-bit atom indices
 

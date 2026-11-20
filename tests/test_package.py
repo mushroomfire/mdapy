@@ -4,6 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 import re
+import tomllib
+from pathlib import Path
 
 import mdapy
 
@@ -23,3 +25,23 @@ def test_errors_and_units_are_importable_as_modules():
 
     assert mdapy.errors.Cancelled is Cancelled
     assert mdapy.units.BOLTZMANN == BOLTZMANN
+
+
+def test_the_gpu_part_is_of_the_version_of_mdapy():
+    """mdapy-cuda12 takes its version from MDAPY, and the extra cuda12 of
+    MDAPY asks for that version; the package carries the license of MDAPY."""
+    root = Path(__file__).parent.parent
+    project = tomllib.loads((root / "pyproject.toml").read_text())
+    (requirement,) = project["project"]["optional-dependencies"]["cuda12"]
+    assert requirement.startswith(f"mdapy-cuda12=={mdapy.__version__};")
+    assert (
+        "(platform_machine == 'x86_64' or platform_machine == 'aarch64')" in requirement
+    )
+    plugin = tomllib.loads((root / "cuda12" / "pyproject.toml").read_text())
+    version = plugin["tool"]["scikit-build"]["metadata"]["version"]
+    assert version["input"] == "../src/mdapy/__init__.py"
+    assert (
+        version["regex"]
+        == project["tool"]["scikit-build"]["metadata"]["version"]["regex"]
+    )
+    assert (root / "cuda12" / "LICENSE").read_text() == (root / "LICENSE").read_text()

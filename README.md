@@ -176,6 +176,7 @@ More in the [documentation](https://mushroomfire.github.io/mdapy/), from the
 
 ```bash
 pip install mdapy
+pip install "mdapy[cuda12]"  # with the GPU part, on Linux with an NVIDIA GPU
 ```
 
 MDAPY needs Python 3.11 or newer. Code written for 1.x keeps working with

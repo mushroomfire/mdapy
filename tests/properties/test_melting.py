@@ -14,9 +14,9 @@ from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS, LennardJones
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.properties import _melting as module
 from mdapy.properties._melting import MeltingAttempt, melting_point
 from mdapy.simulation import MolecularDynamics, minimize
-from mdapy.simulation import _melting as module
 
 EPSILON, SIGMA, CUT = 0.0104, 3.4, 8.5
 BOLTZMANN = 8.617333262e-5

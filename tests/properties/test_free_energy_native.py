@@ -16,9 +16,9 @@ from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS, LennardJones, _gpu
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled
+from mdapy.properties import _free_energy as module
 from mdapy.properties.phonons import phonons, primitive_cell
 from mdapy.properties.thermodynamics import free_energy
-from mdapy.simulation import _free_energy as module
 from mdapy.simulation import minimize
 
 from calculators.gpu_stand_in import stand_in

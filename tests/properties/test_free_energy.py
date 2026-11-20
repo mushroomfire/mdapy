@@ -19,9 +19,9 @@ from mdapy.calculators import LAMMPS
 from mdapy.core.threads import CancelToken
 from mdapy.elements import atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
+from mdapy.properties import _free_energy as module
 from mdapy.properties.phonons import phonons, primitive_cell
 from mdapy.properties.thermodynamics import FreeEnergyResult, free_energy
-from mdapy.simulation import _free_energy as module
 from mdapy.simulation import minimize
 
 pytest.importorskip("lammps")

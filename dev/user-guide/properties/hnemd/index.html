@@ -10324,6 +10324,13 @@ where it goes to zero.</em></p>
 <td>the seed of the starting velocities</td>
 </tr>
 <tr>
+<td><code>convective</code></td>
+<td>bool</td>
+<td><code>False</code></td>
+<td></td>
+<td>whether the energy each atom carries is part of the field and of the flux, for atoms of one element and one mass: see <a href="#definition">Definition</a></td>
+</tr>
+<tr>
 <td><code>progress</code></td>
 <td>callable</td>
 <td><code>None</code></td>
@@ -10346,11 +10353,21 @@ conductivity of the same flux, 0.56 ± 0.08; with 4e-3 and 8e-3 /Å the conducti
 rose to 0.74 and 0.89 W/(m K), beyond the linear response. Check that half the field
 gives the same conductivity. Fields of 1e-5 to 1e-4 /Å serve crystals that
 conduct well, such as silicon or graphene.</p>
-<p><strong>The flux.</strong> The heat flux of HNEMD is its potential part, <span class="arithmatex">\(\sum_i \mathsf W_i
-\mathbf v_i\)</span>, as in GPUMD; the energy each atom carries, <span class="arithmatex">\(\sum_i e_i \mathbf v_i\)</span>, is
-left out of the field and of the flux. It is small in solids: in argon at 40 K the
-Green–Kubo conductivity of the potential part alone was 0.56 ± 0.08 W/(m K), and
-0.61 ± 0.08 with the energies carried, over the same six runs, each about 8 % less.</p>
+<p><strong>The flux.</strong> By default the heat flux of HNEMD is its potential part,
+<span class="arithmatex">\(\sum_i \mathsf W_i \mathbf v_i\)</span>, as in GPUMD; the energy each atom carries,
+<span class="arithmatex">\(\sum_i E_i \mathbf v_i\)</span>, is left out of the field and of the flux. It is small in
+solids: in argon at 40 K the Green–Kubo conductivity of the potential part alone was
+0.56 ± 0.08 W/(m K), and 0.61 ± 0.08 with the energies carried, over the same six runs,
+each about 8 % less. <code>convective=True</code> puts it in both, for liquids and hot solids. It
+needs atoms of one element and one mass: in a mixture the energies of each element would
+drive its atoms against the others'.</p>
+<p>In the Lennard-Jones liquid at its triple point, argon at 87 K and 2048 atoms, HNEMD gave
+0.132 ± 0.001 W/(m K) with <code>convective=True</code>, at fields of 0.006, 0.015 and 0.029 /Å
+alike, and 0.107 ± 0.001 without: the energies carried are a fifth of the conduction.
+The Green–Kubo conductivity of the same liquid was 0.130 ± 0.004 for the whole flux and
+0.104 ± 0.003 for its potential part, over four runs of 5 ns, and that of LAMMPS's
+<code>compute heat/flux</code> 0.134 ± 0.005. In liquid silicon of Stillinger and Weber at 2000 K,
+they were 1.13 and 1.07 W/(m K), against 1.13 ± 0.05 and 1.09 ± 0.05.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>hnemd</code> returns an <code>HNEMD</code>; every array is read-only.</p>
 <table>
@@ -10409,7 +10426,7 @@ Green–Kubo conductivity of the potential part alone was 0.56 ± 0.08 W/(m K), 
 <td><code>flux</code></td>
 <td>(S, 3) float64</td>
 <td>eV Å/ps</td>
-<td>the potential part of the heat flux times the volume, at the samples</td>
+<td>the heat flux times the volume at the samples: its potential part, or with <code>convective</code> the whole flux</td>
 </tr>
 <tr>
 <td><code>along</code></td>
@@ -10431,12 +10448,21 @@ stress, see <a href="../green-kubo/">Green–Kubo conductivity</a>). The field d
 \]</div>
 <p>with <span class="arithmatex">\(T\)</span> the temperature, <span class="arithmatex">\(V\)</span> the volume and <span class="arithmatex">\(\langle \cdot \rangle\)</span> the mean over the
 run with the field.</p>
+<p>With <code>convective</code>, each atom feels the push <span class="arithmatex">\((E_i - \bar E)\,\mathbf F_e\)</span> too, where
+<span class="arithmatex">\(E_i\)</span> is its energy, that of the potential and its kinetic energy, and <span class="arithmatex">\(\bar E\)</span> the mean
+of the energies, as in Evans's method
+(<a href="../../../reference/references/#evans1982">Evans (1982)</a>); the work of the field is then
+<span class="arithmatex">\(\mathbf F_e \cdot \mathbf J\)</span> with the whole flux <span class="arithmatex">\(\mathbf J = \sum_i E_i \mathbf v_i +
+\sum_i \mathsf W_i \mathbf v_i\)</span>, and the same relation gives the conductivity. The
+kinetic energy in the push is that of the velocity the end of the step gives the atom,
+from the forces of the step.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>hnemd</code> raises <code>InvalidParameter</code> for a box that is not periodic in every direction, a
 temperature that is not positive, a field that is not three finite numbers or is zero,
 numbers of steps that are not positive, fewer than two blocks or fewer samples than
 blocks, a potential whose virials of each atom do not give the heat flux (such as
-ADP and MEAM), a LAMMPS calculator, and
+ADP and MEAM), a LAMMPS calculator, <code>convective</code> with atoms of several elements or
+masses, and
 the errors of <a href="../../molecular-dynamics/running/"><code>MolecularDynamics</code></a>; <code>Cancelled</code> when cancelled.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>

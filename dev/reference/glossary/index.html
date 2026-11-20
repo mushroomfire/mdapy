@@ -11165,6 +11165,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>homogeneous nonequilibrium molecular dynamics: each atom pushed by a small field through its virial, so that heat flows along the field; the mean flux over the field is the thermal conductivity, <code>hnemd</code></td>
 </tr>
 <tr>
+<td>convective</td>
+<td>of HNEMD: the energy each atom carries, <span class="arithmatex">\(\sum_i E_i \mathbf v_i\)</span>, part of the field and of the heat flux, <code>hnemd(..., convective=True)</code></td>
+</tr>
+<tr>
 <td>switching, λ</td>
 <td>of <code>Switch</code>: the potential of a run turned into another, the forces of (1 − λ) times the one and λ times the other, λ going from <code>start</code> to <code>stop</code> along the run; the integral over λ of the difference of their energies is the difference of their free energies</td>
 </tr>

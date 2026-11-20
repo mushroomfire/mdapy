@@ -11471,7 +11471,7 @@ samples.</p>
 
 
 <a href="#mdapy.lattice_dynamics.hnemd" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hnemd</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hnemd</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperature</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span> <span class="n">every</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">blocks</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">convective</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">cancel</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -11676,6 +11676,24 @@ that half of it gives the same conductivity.</p>
           </tr>
           <tr class="doc-section-item">
             <td>
+                <code>convective</code>
+            </td>
+            <td>
+                  <code><span title="bool">bool</span></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Whether the energy each atom carries is part of the field and of the
+flux, for atoms of one element and one mass. Default False: the
+potential part of the flux alone.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
                 <code>progress</code>
             </td>
             <td>
@@ -11756,8 +11774,8 @@ error.</p>
               <div class="doc-md-description">
                 <p>For a box that is not periodic, a temperature, field or numbers of
 steps that are not valid, a potential whose virials of each atom do
-not give the heat flux, a LAMMPS one, or the errors of
-<code>MolecularDynamics</code>.</p>
+not give the heat flux, a LAMMPS one, <code>convective</code> with atoms of
+several elements or masses, or the errors of <code>MolecularDynamics</code>.</p>
               </div>
             </td>
           </tr>
@@ -11902,8 +11920,8 @@ the run.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>(S, 3) float64 the potential part of the heat flux times the volume in
-eV Å/ps, at the samples.</p>
+                <p>(S, 3) float64 the heat flux times the volume in eV Å/ps, at the
+samples: its potential part, or with <code>convective</code> the whole flux.</p>
               </div>
             </td>
           </tr>

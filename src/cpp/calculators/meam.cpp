@@ -183,12 +183,17 @@ MeamPotential make_meam_potential(int elements, const double* element, const dou
 void compute_meam(const MeamPotential& m, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                  double* forces, double* virials, const Control& control) {
+                  double* forces, double* virials, const Control& control,
+                  const std::int64_t* given) {
     const std::int64_t pairs = offsets[n];
     const auto np = static_cast<std::size_t>(pairs);
     const double rc2 = m.rc * m.rc, drinv = 1.0 / m.delr;
-    const std::vector<std::int64_t> reverse =
-        reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+    std::vector<std::int64_t> found;
+    if (given == nullptr) {
+        found = reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+        given = found.data();
+    }
+    const std::int64_t* reverse = given;
     const auto vector_of = [&](std::int64_t i, std::int64_t p, double* r) {
         return neighbor::pair_vector(positions + 3 * i,
                                      positions + 3 * static_cast<std::int64_t>(neighbors[p]),
@@ -792,7 +797,8 @@ void compute_meam(const MeamPotential& m, std::int64_t n, const std::int32_t* sp
             }
         },
         stage(control, 2, 3));
-    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, {control.cancel, {}});
+    gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, {control.cancel, {}},
+           false, nullptr, nullptr, reverse);
 }
 
 }  // namespace mdapy::calculators

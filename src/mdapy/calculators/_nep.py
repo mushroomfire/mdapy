@@ -367,6 +367,8 @@ class NEP(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                -1,
+                neighbors._reverse(),
             )
         return CalculatorResult(
             energy=float(energies.sum()),
@@ -402,6 +404,7 @@ class NEP(Calculator):
                 None,
                 None,
                 owned,
+                neighbors._reverse(),
             )
         return _reversed_part(energies, forces, virials, properties, reverse)
 

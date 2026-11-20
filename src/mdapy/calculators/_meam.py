@@ -840,6 +840,7 @@ class MEAM(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                neighbors._reverse(),
             )
         return CalculatorResult(
             energy=float(energies.sum()),

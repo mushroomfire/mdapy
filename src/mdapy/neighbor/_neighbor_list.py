@@ -14,6 +14,7 @@ from typing import Any
 import numpy as np
 
 from mdapy._core import analysis as _analysis
+from mdapy._core import calculators as _calculators
 from mdapy._core import neighbor as _native
 from mdapy.core.indices import index_dtype
 from mdapy.core.system import System
@@ -108,6 +109,9 @@ class NeighborList:
         # the first _sorted pairs of each atom are its nearest, nearest first
         self._sorted = 0 if num_neighbors is None else num_neighbors
         self.__lock = threading.RLock()
+        # what is found from the pairs alone, shared by the lists that reuse
+        # them as they are
+        self.__derived: dict[str, np.ndarray] = {}
 
     @classmethod
     def build(
@@ -431,9 +435,22 @@ class NeighborList:
         them; the distances are those of the list. None as for _follow."""
         if self.__moved(system, cutoff):
             return None
-        return NeighborList(
+        reused = NeighborList(
             system, self.cutoff, self.offsets, self.j, self.shifts, self.distances
         )
+        reused.__derived = self.__derived
+        return reused
+
+    def _reverse(self) -> np.ndarray:
+        """For each pair (i, j, s) of this list, symmetric, the index of the
+        pair (j, i, -s): found once for these pairs, by this list and the
+        lists that reuse them."""
+        reverse = self.__derived.get("reverse")
+        if reverse is None:
+            reverse = _calculators.reverse_pairs(self.offsets, self.j, self.shifts)
+            reverse.flags.writeable = False
+            self.__derived["reverse"] = reverse
+        return reverse
 
     def _follow(self, system: System, cutoff: float) -> "NeighborList | None":
         """The pairs of NeighborList.build(system, cutoff), in another order,

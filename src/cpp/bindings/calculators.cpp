@@ -25,6 +25,7 @@
 #include "bindings/frames.h"
 #include "calculators/adp.h"
 #include "calculators/eam.h"
+#include "calculators/many_body.h"
 #include "calculators/meam.h"
 #include "calculators/nep.h"
 #include "calculators/pair.h"
@@ -96,6 +97,60 @@ bool within(const index_t* indices, std::int64_t count, std::int64_t n) {
             return Range{std::min(a.first, b.first), std::max(a.second, b.second)};
         });
     return count == 0 || (range.first >= 0 && range.second < n);
+}
+
+using Reverse = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// The reverse of each pair given, after checking that one is given for each
+// and that each lies among the pairs; null when none is given.
+const std::int64_t* reverse_of(const std::optional<Reverse>& reverse, Neighbors neighbors) {
+    if (!reverse.has_value()) {
+        return nullptr;
+    }
+    const auto count = static_cast<std::int64_t>(neighbors.shape(0));
+    if (static_cast<std::int64_t>(reverse->shape(0)) != count) {
+        throw std::invalid_argument("a reverse for each pair");
+    }
+    const std::int64_t* r = reverse->data();
+    {
+        nb::gil_scoped_release release;
+        const bool inside = parallel_reduce(
+            count, 0, true,
+            [&](std::int64_t begin, std::int64_t end) {
+                for (std::int64_t q = begin; q < end; ++q) {
+                    if (r[q] < 0 || r[q] >= count) {
+                        return false;
+                    }
+                }
+                return true;
+            },
+            [](bool a, bool b) { return a && b; });
+        if (!inside) {
+            throw std::invalid_argument("a reverse pair is outside the pairs");
+        }
+    }
+    return r;
+}
+
+// For each pair (i, j, s) of a full neighbor list, the index of (j, i, -s).
+nb::object reverse_pairs(Offsets offsets, Neighbors neighbors, Shifts shifts) {
+    const auto n = static_cast<std::int64_t>(offsets.shape(0)) - 1;
+    if (n < 0 || neighbors.shape(0) != shifts.shape(0) ||
+        offsets.data()[n] != static_cast<std::int64_t>(neighbors.shape(0)) ||
+        !within(neighbors.data(), static_cast<std::int64_t>(neighbors.shape(0)), n)) {
+        throw std::invalid_argument("not a neighbor list");
+    }
+    std::int64_t* out;
+    const std::size_t shape[1] = {neighbors.shape(0)};
+    nb::object result = new_array(1, shape, out);
+    run_released(
+        [&](const Control& control) {
+            const std::vector<std::int64_t> reverse = calculators::reverse_pairs(
+                n, offsets.data(), neighbors.data(), shifts.data(), control);
+            std::copy(reverse.begin(), reverse.end(), out);
+        },
+        nb::none(), nullptr);
+    return result;
 }
 
 // The number of centres among the atoms, the first of them.
@@ -276,7 +331,8 @@ calculators::TersoffPotential make_tersoff(int elements, Flat rows) {
 nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Species species,
                           Positions positions, Matrix matrix, Offsets offsets,
                           Neighbors neighbors, Shifts shifts, nb::handle progress,
-                          const CancelToken* cancel, bool heat, std::int64_t centers) {
+                          const CancelToken* cancel, bool heat, std::int64_t centers,
+                          const std::optional<Reverse>& reverse) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
@@ -287,12 +343,13 @@ nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Specie
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = new_array(3, shape3, virials);
+    const std::int64_t* given = reverse_of(reverse, neighbors);
     run_released(
         [&](const Control& control) {
             calculators::compute_tersoff(potential, n, species.data(), positions.data(),
                                          matrix.data(), offsets.data(), neighbors.data(),
                                          shifts.data(), energies, forces, virials, control,
-                                         heat, c);
+                                         heat, c, given);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -312,7 +369,8 @@ nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& 
                                    Species species, Positions positions, Matrix matrix,
                                    Offsets offsets, Neighbors neighbors, Shifts shifts,
                                    nb::handle progress, const CancelToken* cancel, bool heat,
-                                   std::int64_t centers) {
+                                   std::int64_t centers,
+                                   const std::optional<Reverse>& reverse) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
@@ -323,12 +381,13 @@ nb::tuple compute_stillinger_weber(const calculators::StillingerWeberPotential& 
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = new_array(3, shape3, virials);
+    const std::int64_t* given = reverse_of(reverse, neighbors);
     run_released(
         [&](const Control& control) {
             calculators::compute_stillinger_weber(potential, n, species.data(), positions.data(),
                                                   matrix.data(), offsets.data(), neighbors.data(),
                                                   shifts.data(), energies, forces, virials,
-                                                  control, heat, c);
+                                                  control, heat, c, given);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -454,7 +513,8 @@ calculators::MeamPotential make_meam(Table element, Table ebound, Array cmin, Ar
 
 nb::tuple compute_meam(const calculators::MeamPotential& potential, Species species,
                        Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                       Shifts shifts, nb::handle progress, const CancelToken* cancel) {
+                       Shifts shifts, nb::handle progress, const CancelToken* cancel,
+                       const std::optional<Reverse>& reverse) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     double *energies, *forces, *virials;
@@ -464,11 +524,12 @@ nb::tuple compute_meam(const calculators::MeamPotential& potential, Species spec
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = new_array(3, shape3, virials);
+    const std::int64_t* given = reverse_of(reverse, neighbors);
     run_released(
         [&](const Control& control) {
             calculators::compute_meam(potential, n, species.data(), positions.data(),
                                       matrix.data(), offsets.data(), neighbors.data(),
-                                      shifts.data(), energies, forces, virials, control);
+                                      shifts.data(), energies, forces, virials, control, given);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -531,7 +592,8 @@ void check_nep_input(const calculators::NepModel& model, Species species, Positi
 
 nb::tuple compute_nep(const calculators::NepModel& model, Species species, Positions positions,
                       Matrix matrix, Offsets offsets, Neighbors neighbors, Shifts shifts,
-                      nb::handle progress, const CancelToken* cancel, std::int64_t centers) {
+                      nb::handle progress, const CancelToken* cancel, std::int64_t centers,
+                      const std::optional<Reverse>& reverse) {
     check_nep_input(model, species, positions, offsets, neighbors, shifts);
     const auto n = static_cast<std::int64_t>(species.shape(0));
     const std::int64_t c = centers < 0 ? n : centres_of(centers, species);
@@ -542,11 +604,12 @@ nb::tuple compute_nep(const calculators::NepModel& model, Species species, Posit
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = new_array(3, shape3, virials);
+    const std::int64_t* given = reverse_of(reverse, neighbors);
     run_released(
         [&](const Control& control) {
             calculators::compute_nep(model, n, species.data(), positions.data(), matrix.data(),
                                      offsets.data(), neighbors.data(), shifts.data(), energies,
-                                     forces, virials, nullptr, control, c);
+                                     forces, virials, nullptr, control, c, given);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -626,7 +689,7 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_meam", &compute_meam, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr);
+          nb::arg("cancel").none() = nullptr, nb::arg("reverse") = nb::none());
     nb::class_<calculators::AdpPotential>(m, "AdpPotential")
         .def_ro("elements", &calculators::AdpPotential::elements)
         .def_ro("cutoff", &calculators::AdpPotential::cutoff);
@@ -652,16 +715,20 @@ void bind_calculators(nb::module_& m) {
           nb::arg("species"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
           nb::arg("neighbors"), nb::arg("shifts"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr, nb::arg("heat") = false,
-          nb::arg("centers") = -1);
+          nb::arg("centers") = -1,
+          nb::arg("reverse") = nb::none());
     nb::class_<calculators::TersoffPotential>(m, "TersoffPotential")
         .def_ro("elements", &calculators::TersoffPotential::elements)
         .def_ro("cutoff", &calculators::TersoffPotential::cutoff);
     m.def("make_tersoff", &make_tersoff, nb::arg("elements"), nb::arg("rows"));
+    m.def("reverse_pairs", &reverse_pairs, nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"));
     m.def("compute_tersoff", &compute_tersoff, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr, nb::arg("heat") = false,
-          nb::arg("centers") = -1);
+          nb::arg("centers") = -1,
+          nb::arg("reverse") = nb::none());
     nb::class_<calculators::PairPotential>(m, "PairPotential")
         .def_ro("species", &calculators::PairPotential::species)
         .def_ro("cutoff", &calculators::PairPotential::cutoff);
@@ -704,7 +771,8 @@ void bind_calculators(nb::module_& m) {
     m.def("compute_nep", &compute_nep, nb::arg("model"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr, nb::arg("centers") = -1);
+          nb::arg("cancel").none() = nullptr, nb::arg("centers") = -1,
+          nb::arg("reverse") = nb::none());
     m.def("nep_frames", &nep_frames, nb::arg("model"), nb::arg("species"), nb::arg("starts"),
           nb::arg("positions"), nb::arg("matrices"), nb::arg("origins"), nb::arg("pbc"),
           nb::arg("cutoff"), nb::arg("forces"), nb::arg("progress") = nb::none(),

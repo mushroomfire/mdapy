@@ -78,7 +78,8 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                               const double* matrix, const std::int64_t* offsets,
                               const index_t* neighbors, const std::int8_t* shifts,
                               double* energies, double* forces, double* virials,
-                              const Control& control, bool heat, std::int64_t centers) {
+                              const Control& control, bool heat, std::int64_t centers,
+                              const std::int64_t* reverse) {
     // the terms of the first centers atoms alone, all atoms gathering them
     const std::int64_t c = centers < 0 ? n : centers;
     Shares shares(n, offsets[n]);
@@ -215,7 +216,7 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
         },
         stage(control, 0, 2));
     gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2),
-           heat, positions, matrix);
+           heat, positions, matrix, reverse);
 }
 
 }  // namespace mdapy::calculators

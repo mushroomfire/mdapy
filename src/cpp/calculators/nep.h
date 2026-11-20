@@ -64,7 +64,8 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, double* descriptors,
-                 const Control& control = {}, std::int64_t centers = -1);
+                 const Control& control = {}, std::int64_t centers = -1,
+                 const std::int64_t* reverse = nullptr);
 
 // Each of many frames as compute_nep finds it alone, with the neighbors
 // within cutoff, a frame on a thread (species: n atoms in all). With forces,

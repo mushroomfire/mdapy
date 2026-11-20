@@ -170,6 +170,8 @@ class _ThreeBody(Calculator):
                 progress,
                 _native_token(cancel),
                 heat,
+                -1,
+                neighbors._reverse(),
             )
         return CalculatorResult(
             energy=float(energies.sum()),
@@ -205,6 +207,7 @@ class _ThreeBody(Calculator):
                 None,
                 HEAT_FLUX_TERMS in properties,
                 owned,
+                neighbors._reverse(),
             )
         return _reversed_part(energies, forces, virials, properties, reverse)
 

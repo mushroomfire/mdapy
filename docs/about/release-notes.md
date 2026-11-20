@@ -23,6 +23,9 @@
   EAM's densities skip their derivatives and pairs that cross no boundary their
   shift: with the neighbor lists kept with their skin, EAM runs 1.7 times as fast on
   one thread as in 2.2 and Lennard-Jones 2.8 times, the same runs to the last bit.
+  Tersoff, Stillinger-Weber, NEP and MEAM find the reverse of each pair once for a
+  neighbor list, not at each call: Stillinger-Weber 1.6 times as fast, Tersoff 1.2
+  times.
 - Restart files of molecular dynamics: `run(..., restart="md.restart",
   restart_every=1000)` and `iterate` write the state of the dynamics every so many
   steps and at the end of a run, replacing the last once the new one is whole;

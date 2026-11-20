@@ -179,7 +179,7 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, double* descriptors, const Control& control,
-                 std::int64_t centers) {
+                 std::int64_t centers, const std::int64_t* given) {
     // the vector of pair p of atom i, as NeighborList.vectors gives it
     const auto vector_of = [&](std::int64_t i, std::int64_t p, double* v) {
         neighbor::pair_vector(positions + 3 * i,
@@ -439,8 +439,12 @@ void compute_nep(const NepModel& model, std::int64_t n, const std::int32_t* spec
     // and those of its neighbors' energies by the reverse pairs, r_ji = -r_ij;
     // the virial of a derivative of a neighbor's energy goes to the atom.
     // the pairs reversed are quick: cancelled, but not in the progress
-    const std::vector<std::int64_t> reverse =
-        reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+    std::vector<std::int64_t> found;
+    if (given == nullptr) {
+        found = reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+        given = found.data();
+    }
+    const std::int64_t* reverse = given;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {

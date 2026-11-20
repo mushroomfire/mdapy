@@ -194,7 +194,8 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                      const std::int32_t* species, const double* positions, const double* matrix,
                      const std::int64_t* offsets, const index_t* neighbors,
                      const std::int8_t* shifts, double* energies, double* forces,
-                     double* virials, const Control& control, bool heat, std::int64_t centers) {
+                     double* virials, const Control& control, bool heat, std::int64_t centers,
+                     const std::int64_t* reverse) {
     // the terms of the first centers atoms alone, all atoms gathering them
     const std::int64_t c = centers < 0 ? n : centers;
     Shares shares(n, offsets[n]);
@@ -320,7 +321,7 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
         },
         stage(control, 0, 2));
     gather(shares, n, offsets, neighbors, shifts, energies, forces, virials, stage(control, 1, 2),
-           heat, positions, matrix);
+           heat, positions, matrix, reverse);
 }
 
 }  // namespace mdapy::calculators

@@ -249,6 +249,6 @@ glide set, whole ones on the shuffle set.*
 
 - [Crystals](crystals.md) for `orientation`, [Point defects, stacking
   faults and surfaces](defects.md) for `slip` and `add_vacuum`, and
-  [Defect energies](../simulation/defect-energies.md) for
+  [Defect energies](../properties/defect-energies.md) for
   `surface_energy` and `stacking_fault_energy`.
 - [Dislocations](dislocations.md) built on these slip systems.

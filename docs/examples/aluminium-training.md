@@ -48,7 +48,7 @@ def labelled(frames):
     return out
 ```
 
-[Molecular dynamics](../user-guide/simulation/dynamics.md) runs in MDAPY,
+[Molecular dynamics](../user-guide/molecular-dynamics/running.md) runs in MDAPY,
 with the teacher or a student:
 
 ```python

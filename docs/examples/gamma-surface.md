@@ -1,6 +1,6 @@
 # Gamma surfaces
 
-The [stacking fault energy](../user-guide/simulation/defect-energies.md) follows one slip
+The [stacking fault energy](../user-guide/properties/defect-energies.md) follows one slip
 direction. The gamma surface gives the energy of every slip vector in the plane, as a map:
 its valleys show how a dislocation dissociates and which paths slip takes. This page
 computes it for copper on {111} and for tungsten on {110}, with the EAM potentials of Zhou

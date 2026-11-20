@@ -3,8 +3,8 @@
 LAMMPS runs a large system on many processes with MPI: each owns a part of the
 box and its atoms. A script that drives LAMMPS through MDAPY runs this way too.
 `mpirun` starts the same script in every process, and every LAMMPS call made
-through MDAPY, the [LAMMPS calculator](../user-guide/simulation/lammps.md) and
-[`MolecularDynamics`](../user-guide/simulation/dynamics.md), runs on all of
+through MDAPY, the [LAMMPS calculator](../user-guide/potentials/lammps.md) and
+[`MolecularDynamics`](../user-guide/molecular-dynamics/running.md), runs on all of
 them together: LAMMPS splits the atoms among the processes, and the results
 come back whole to each. One script then builds a structure and runs it, and
 LAMMPS writes the frames as it goes; a second script analyses them afterwards,
@@ -164,7 +164,7 @@ the vibrations make the rest, scattered through the crystal, "other".*
 
 The atoms of a dump come in the order LAMMPS holds them, each with its `id`,
 which counting structures does not need;
-[Frames in files](../user-guide/simulation/dynamics.md#frames-in-files) says
+[Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files) says
 how they match the atoms of the system.
 
 ## How long it takes

@@ -1,6 +1,6 @@
-# Molecular dynamics through LAMMPS
+# Running LAMMPS from MDAPY
 
-[`MolecularDynamics`](../user-guide/simulation/dynamics.md) runs molecular dynamics in
+[`MolecularDynamics`](../user-guide/molecular-dynamics/running.md) runs molecular dynamics in
 LAMMPS from Python: the atoms come from a `System`, LAMMPS moves them, and MDAPY
 keeps the thermodynamic state and the atoms along the way, which its analyses read
 as they are. This page heats copper until it melts and stretches it at two
@@ -9,7 +9,7 @@ on several threads or a GPU with Kokkos.
 
 It needs the Python module of LAMMPS, built with the styles of the potential, as the
 [LAMMPS documentation](https://docs.lammps.org/Python_install.html) describes. The
-potential is a [LAMMPS calculator](../user-guide/simulation/lammps.md): any
+potential is a [LAMMPS calculator](../user-guide/potentials/lammps.md): any
 interaction that LAMMPS computes in metal units. Here, the EAM potential of Zhou et
 al. for copper, which MDAPY writes as a file for LAMMPS:
 
@@ -91,12 +91,12 @@ crystal melts. c: the atoms in solid surroundings, by their bonds of q6.*
 The crystal melts at about 1550 K. Without a surface to start from, a crystal melts only
 well above its melting point, and heated at 19 K/ps it has little time to do so; the
 temperature at which the solid and the liquid coexist is the melting point, which
-[`melting_point`](../user-guide/simulation/melting-point.md) finds from a box that
+[`melting_point`](../user-guide/properties/melting-point.md) finds from a box that
 holds both.
 
 ## Stretching at constant temperature
 
-A [`Deform`](../user-guide/simulation/deformation.md) among the `controls` of `run`
+A [`Deform`](../user-guide/molecular-dynamics/deformation.md) among the `controls` of `run`
 stretches the box along x by 0.1 % per ps, to 10 %, at 1 K and at 300 K, after the box
 has relaxed at zero pressure; in LAMMPS it is `fix deform`:
 
@@ -172,20 +172,20 @@ stress, with y and z free under zero pressure, `ensemble="npt"` with `pressure=0
 |---|---|
 | Hold a temperature, a pressure, or both | `run(steps, ensemble="nvt", temperature=300)`, `"npt"` with `pressure=0.0`, `"nph"`, or `"nve"` |
 | Heat, cool, compress | a pair, `temperature=(300, 2200)` or `pressure=(0, 10)`, changes from the first value to the second along the run |
-| Let the box change shape | `barostat="aniso"` along each axis, `"tri"` in any way, `"xy"` in the plane of a [sheet](../user-guide/simulation/sheets.md) |
+| Let the box change shape | `barostat="aniso"` along each axis, `"tri"` in any way, `"xy"` in the plane of a [sheet](../user-guide/properties/sheets.md) |
 | Keep the atoms for analysis | `save_every=` gives `frames`, each a `System` for any analysis of MDAPY; `md.iterate(steps, save_every=...)` gives them one at a time as the run goes, for a file or an analysis, keeping none |
-| Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/simulation/minimize.md), an analysis or a file |
-| Hold, move, push or heat groups of atoms, deform the box | `controls=` of `run`: `Hold`, `Move`, `AddForce`, `Langevin` and `Deform`, which become the fixes of LAMMPS ([Groups and controls](../user-guide/simulation/controls.md)) |
+| Go on from the end | `md.system` holds the atoms, with velocities and images, for [`minimize`](../user-guide/properties/minimize.md), an analysis or a file |
+| Hold, move, push or heat groups of atoms, deform the box | `controls=` of `run`: `Hold`, `Move`, `AddForce`, `Langevin` and `Deform`, which become the fixes of LAMMPS ([Groups and controls](../user-guide/molecular-dynamics/controls.md)) |
 | Add a fix or a compute of LAMMPS | `md.command(...)` before `run`, and `unfix` after |
 | Read what LAMMPS holds | `md.lammps`, the LAMMPS instance, such as `md.lammps.get_thermo("pe")` or `extract_compute` |
 
 Several functions of MDAPY run their molecular dynamics this way:
-[elastic constants](../user-guide/simulation/md-elastic.md),
-[free energies](../user-guide/simulation/free-energy.md),
-[melting points](../user-guide/simulation/melting-point.md),
-[pressure–temperature diagrams](../user-guide/simulation/pressure-temperature.md) and
-[stacking faults at a temperature](../user-guide/simulation/stacking-fault-temperature.md);
-[phonons at a temperature](../user-guide/simulation/thermal-phonons.md) run theirs in
+[elastic constants](../user-guide/properties/md-elastic.md),
+[free energies](../user-guide/properties/free-energy.md),
+[melting points](../user-guide/properties/melting-point.md),
+[pressure–temperature diagrams](../user-guide/properties/pressure-temperature.md) and
+[stacking faults at a temperature](../user-guide/properties/stacking-fault-temperature.md);
+[phonons at a temperature](../user-guide/properties/thermal-phonons.md) run theirs in
 MDAPY, or in LAMMPS for a LAMMPS calculator.
 
 ## What it is not made for
@@ -196,7 +196,7 @@ MDAPY, or in LAMMPS for a LAMMPS calculator.
 | Units other than metal | the units of MDAPY are those of metal: Å, eV, ps | a potential for metal units |
 | Many nodes, with MPI | MDAPY runs LAMMPS in its own process | Kokkos on the threads of one node or a GPU (below); for more, `mpirun` with an input script, and MDAPY on its dump files |
 | An integrator of one's own, such as `fix nvt/sllod` for a shear flow | each `run` adds its thermostat or barostat, and a second one would move the atoms twice | the fixes and `md.command("run 10000")`: `thermo` and `frames` record only `run`, and `md.system` reads the atoms after |
-| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/simulation/dynamics.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
+| Many frames of a large system in `frames` | `frames` stay in memory | `mdapy.io.write(path, md.iterate(...))`, which writes them as the run goes ([Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files)), or `md.command("dump ...")`; read with `mdapy.io.read_trajectory` |
 
 ## Several threads and GPUs with Kokkos
 

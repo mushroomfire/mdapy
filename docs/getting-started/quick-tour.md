@@ -1,8 +1,8 @@
 # Quick tour
 
 This page builds a small copper crystal, writes and reads it, finds its
-neighbors, computes its energy with a potential, relaxes it and writes the
-result. Every block runs as shown, in order. To learn step by step instead,
+neighbors, computes its energy with a potential, relaxes it, runs molecular dynamics
+with it, and draws a polycrystal. Every block runs as shown, in order. To learn step by step instead,
 start with [the lessons](learn/table.md).
 
 ## A system
@@ -55,7 +55,7 @@ result.energy / len(system)  # eV per atom
 result.stress  # (3, 3) GPa
 ```
 
-See [Calculators](../user-guide/simulation/calculators.md) and [EAM](../user-guide/simulation/eam.md).
+See [Calculators](../user-guide/potentials/calculators.md) and [EAM](../user-guide/potentials/eam.md).
 
 ## Relaxation
 
@@ -74,7 +74,24 @@ relaxed.converged, relaxed.energy, relaxed.stress
 write("relaxed.xyz", relaxed.system)  # with forces, energy and stress
 ```
 
-See [Energy minimization](../user-guide/simulation/minimize.md).
+See [Energy minimization](../user-guide/properties/minimize.md).
+
+## Molecular dynamics
+
+MDAPY's own engine heats the relaxed crystal to 300 K at zero pressure; with
+`EAM.zhou(["Cu"], device="cuda")` the same run goes on an NVIDIA GPU.
+
+```python
+from mdapy.simulation import MolecularDynamics
+
+with MolecularDynamics(relaxed.system, potential, timestep=0.002) as md:
+    md.velocities(600, seed=1)
+    md.run(2000, ensemble="npt", temperature=300, pressure=0.0, thermo=100)
+    md.thermo[["time", "temperature", "pressure"]].tail(3)  # ps, K, GPa
+    warm = md.system  # the atoms at the end, with their velocities
+```
+
+See [Molecular dynamics](../user-guide/molecular-dynamics/index.md).
 
 ## Analysis and pictures
 

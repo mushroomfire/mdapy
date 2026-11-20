@@ -2,11 +2,21 @@
 
 ## 2.2.0 (not released)
 
+- The documentation puts MDAPY's own molecular dynamics in a part of its own in the user
+  guide, [Molecular dynamics](../user-guide/molecular-dynamics/index.md): an overview of
+  what the engine is for and of every feature with where it runs, then running,
+  [ensembles](../user-guide/molecular-dynamics/ensembles.md),
+  [records and frames](../user-guide/molecular-dynamics/records.md),
+  [LAMMPS](../user-guide/molecular-dynamics/in-lammps.md), the controls, mechanical
+  loading and shock, with a page on
+  [choosing a method](../user-guide/molecular-dynamics/shock.md) of shock. The
+  potentials and the properties have parts of their own too; the pages of
+  `user-guide/simulation/` moved there, and their old addresses lead to them.
 - `mdapy.simulation.Indenter`, a control of a virtual indenter, as LAMMPS's
   `fix indent`: a sphere, a cylinder or a plane, still or moving, that pushes the
   atoms inside it out with a force K d², recording the force on it and its energy;
   in MDAPY, on the GPU and in LAMMPS alike. See
-  [Indentation](../user-guide/simulation/indentation.md).
+  [Indentation](../user-guide/molecular-dynamics/indentation.md).
 - The example [A shock wave in copper](../examples/shock.md): a piston at 1 km/s
   through 102400 atoms on a GPU, the profiles of velocity, pressure and temperature
   behind the front, and the stacking faults it leaves.
@@ -16,19 +26,19 @@
   reference in `hugoniot`; `thermo` records the distances from the Hugoniot and the
   Rayleigh line, the particle velocity, the Lagrangian position and the energy of
   the box. In MDAPY, on the GPU and in LAMMPS alike. See
-  [Multiscale shock technique](../user-guide/simulation/msst.md).
+  [Multiscale shock technique](../user-guide/molecular-dynamics/msst.md).
 - `run(..., ensemble="nphug")`, the Hugoniostat of LAMMPS's `fix nphug`: a barostat
   at one pressure, along one axis or alike along every axis, and a thermostat that
   drives the energy to the Hugoniot of the state at the start, or of `hugoniot`;
   `thermo` records the distance from it and the shock and particle velocities. And
   barostats along one axis, `barostat="x"`, `"y"` or `"z"`, as `fix npt ... z`.
   In MDAPY, on the GPU and in LAMMPS alike. See
-  [Hugoniostat](../user-guide/simulation/hugoniostat.md).
+  [Hugoniostat](../user-guide/molecular-dynamics/hugoniostat.md).
 - `mdapy.simulation.Wall`, a control of a flat wall across an axis that reflects
   the atoms that pass it, still (a momentum mirror) or moving at a velocity (a
   piston that drives a shock wave), as LAMMPS's `fix wall/reflect` and
   `fix wall/piston`; in MDAPY, on the GPU and in LAMMPS alike. See
-  [Walls](../user-guide/simulation/walls.md).
+  [Walls](../user-guide/molecular-dynamics/walls.md).
 - `SpatialBinning` reduces moving atoms: `reduction="mass_mean"`, the mean weighted by
   mass, the velocity of the center of mass of a bin for a column of velocities;
   `"temperature"` of the velocities and `"stress"` of the virials of each atom, both
@@ -38,54 +48,54 @@
   conductivity by nonequilibrium molecular dynamics, a hot and a cold Langevin bath in
   two slabs of the box, the heat they drive over the gradient of temperature between
   them; in MDAPY, on the GPU and in LAMMPS. See
-  [NEMD conductivity](../user-guide/simulation/nemd.md).
+  [NEMD conductivity](../user-guide/properties/nemd.md).
 - `mdapy.lattice_dynamics.hnemd(system, potential, temperature, *, field)`: the
   thermal conductivity by homogeneous nonequilibrium molecular dynamics in MDAPY, a
   small field pushing each atom through its virial, as GPUMD does, with EAM, the
-  pair potentials and NEP. See [HNEMD conductivity](../user-guide/simulation/hnemd.md).
+  pair potentials and NEP. See [HNEMD conductivity](../user-guide/properties/hnemd.md).
 - `melting_point` takes any calculator: its molecular dynamics run in MDAPY, or in
   LAMMPS for a LAMMPS calculator; the solid half is held by a `Hold` while the
   other melts with a thermostat of its own, and the crystal gets its velocities
   from `thermal_velocities`, in either engine. See
-  [Melting point](../user-guide/simulation/melting-point.md).
+  [Melting point](../user-guide/properties/melting-point.md).
 - `md_elastic_constants` takes any calculator: its molecular dynamics run in
   MDAPY, or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of
   `run` in either; the Born term of the fluctuations in MDAPY is that of
   LAMMPS's `compute born/matrix numdiff`. The kinetic term counts all N atoms,
   as the thermostat no longer holds the momentum of the center of mass. See
-  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
+  [Elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md).
 - `green_kubo` takes MDAPY's EAM, pair potentials and NEP: its molecular dynamics
   run in MDAPY, with the heat flux of the atomic energies and virials of the
   potential, the flux of LAMMPS's `compute heat/flux` for the same atoms; or in
   LAMMPS, as before, for a LAMMPS calculator. Stillinger–Weber, Tersoff, ADP and
   MEAM, whose virials of each atom do not give the heat flux, are refused. See
-  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+  [Green–Kubo conductivity](../user-guide/properties/green-kubo.md).
 
 - `thermal_phonons` takes any calculator: its molecular dynamics run in MDAPY,
   or in LAMMPS for a LAMMPS calculator, with the Langevin thermostat of `run`
-  in either. See [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+  in either. See [Phonons at finite temperature](../user-guide/properties/thermal-phonons.md).
 
 - `mdapy.simulation.thermal_velocities(system, temperature, *, seed, mask=None)`:
   velocities of a temperature for the atoms of a system, or of a part of
   them, with no total momentum, those `MolecularDynamics.velocities` gives in
   MDAPY with the same seed; a system's velocities are where a run starts. See
-  [Molecular dynamics](../user-guide/simulation/dynamics.md#running).
+  [Molecular dynamics](../user-guide/molecular-dynamics/running.md#running).
 - Controls of molecular dynamics: `run(..., controls=[...])` and `iterate`
   hold groups of atoms still (`mdapy.simulation.Hold`), move them at a
   velocity and record the force on them (`Move`), push them (`AddForce`), or
   keep them at a temperature and record the heat this takes (`Langevin`), for
   that run, in MDAPY and in LAMMPS alike; the temperature and the thermostat
   count the directions that move freely. See
-  [Groups and controls](../user-guide/simulation/controls.md).
+  [Groups and controls](../user-guide/molecular-dynamics/controls.md).
 - `mdapy.simulation.Deform`, a control that stretches, compresses or shears the
   box at constant strain rates, engineering or true, the atoms carried with it,
   with a barostat on the lengths it leaves for uniaxial stress; in MDAPY, on the
   GPU and in LAMMPS (`fix deform`) alike. See
-  [Deformation](../user-guide/simulation/deformation.md).
+  [Deformation](../user-guide/molecular-dynamics/deformation.md).
 - `mdapy.simulation.AdaptiveTimestep`, a control that sets the time step by the
   fastest atom, so that no atom moves more than a distance in a step, within
   bounds, as LAMMPS's `fix dt/reset`: for collision cascades; in MDAPY, on the GPU
-  and in LAMMPS alike. See [Adaptive time step](../user-guide/simulation/adaptive-timestep.md).
+  and in LAMMPS alike. See [Adaptive time step](../user-guide/molecular-dynamics/adaptive-timestep.md).
 - `free_energy` takes MDAPY's own potentials: the solid is switched to an Einstein
   crystal and the liquid to the Uhlenbeck–Ford model in MDAPY's dynamics, on the
   processor or on the GPU, through
@@ -96,15 +106,15 @@
   `pair_style ufm`, also on the GPU. `run(..., keep_momentum=True)` gives Langevin
   dynamics whose random forces keep the total momentum (`fix langevin ... zero yes`).
   `stacking_fault_free_energy` runs in MDAPY likewise. See
-  [Switching between potentials](../user-guide/simulation/switching.md) and
-  [Free energy](../user-guide/simulation/free-energy.md).
+  [Switching between potentials](../user-guide/molecular-dynamics/switching.md) and
+  [Free energy](../user-guide/properties/free-energy.md).
 
 - `MolecularDynamics(log=...)` and `minimize(log=..., log_every=10)` write what
   they do to a file or a stream as they go: a heading with the engine and the
   potential, the settings of each run, the thermodynamic state with the wall
   time, and the speed of each run or where it stopped; rows of numbers between
   lines that start with `#`, which `numpy.loadtxt` reads back. See
-  [Molecular dynamics](../user-guide/simulation/dynamics.md#log).
+  [Molecular dynamics](../user-guide/molecular-dynamics/records.md#log).
 - The potentials of MDAPY run on an NVIDIA GPU with CUDA: `EAM`, `EAM.zhou`,
   `LennardJones`, `Morse`, `ADP`, `Tersoff`, `StillingerWeber`, `MEAM` and `NEP` take `device="cuda"`
   and `precision`, `"mixed"` (by default,
@@ -115,17 +125,17 @@
   every ensemble and with atoms held by a `movable` column; the atoms are copied back
   only for records and frames. The GPU part, the
   module `mdapy._cuda`, is built from source with the CUDA toolkit,
-  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/simulation/gpu.md).
+  `-Ccmake.define.MDAPY_CUDA=ON`. See [On the GPU](../user-guide/molecular-dynamics/gpu.md).
 - Native calculators of the classic potentials of LAMMPS, which read its files and compute
   energies, forces and virials as LAMMPS does, atom by atom, sharing the energy and the
   virial of each term among its atoms as LAMMPS does:
-  [`MEAM`](../user-guide/simulation/meam.md) (`pair_style meam`, first and second
+  [`MEAM`](../user-guide/potentials/meam.md) (`pair_style meam`, first and second
   neighbors, the reference structures fcc, bcc, hcp, dia, dim, sc, b1, b2 and l12),
-  [`ADP`](../user-guide/simulation/adp.md) (`pair_style adp`),
-  [`Tersoff`](../user-guide/simulation/tersoff.md) (`pair_style tersoff`),
-  [`StillingerWeber`](../user-guide/simulation/stillinger-weber.md) (`pair_style sw`),
-  [`LennardJones`](../user-guide/simulation/pair-potentials.md) (`pair_style lj/cut`, with its
-  mixing rules) and [`Morse`](../user-guide/simulation/pair-potentials.md) (`pair_style morse`).
+  [`ADP`](../user-guide/potentials/adp.md) (`pair_style adp`),
+  [`Tersoff`](../user-guide/potentials/tersoff.md) (`pair_style tersoff`),
+  [`StillingerWeber`](../user-guide/potentials/stillinger-weber.md) (`pair_style sw`),
+  [`LennardJones`](../user-guide/potentials/pair-potentials.md) (`pair_style lj/cut`, with its
+  mixing rules) and [`Morse`](../user-guide/potentials/pair-potentials.md) (`pair_style morse`).
   Where two entries of a Tersoff or Stillinger–Weber file meet in one term and disagree,
   LAMMPS takes one by the numbering of the atoms or the order of the neighbors; these take
   their mean, the same whatever the order. Each has the `cutoff`, `elements` and
@@ -136,12 +146,12 @@
   LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, which give the same runs with the same
   constants, and Langevin dynamics, `run(..., thermostat="langevin", seed=)`, also in
   LAMMPS; a `movable` column keeps atoms still. See
-  [Molecular dynamics](../user-guide/simulation/dynamics.md).
+  [Molecular dynamics](../user-guide/molecular-dynamics/running.md).
 - `MolecularDynamics.iterate(steps, *, save_every, ...)` runs as `run` does and gives the
   atoms every `save_every` steps as the run reaches them, keeping none, so that
   `mdapy.io.write(path, md.iterate(...))` writes a trajectory while it runs, in LAMMPS
   and in MDAPY; the run stops where the reading stops. See
-  [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files). A run of no
+  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files). A run of no
   steps records the thermodynamic state once, and with `save_every` keeps the atoms once,
   not twice.
 - `thermal_conductivity(..., progress=None, cancel=None)` reports its progress and stops
@@ -195,7 +205,7 @@ Since 2.1.0rc2:
 - The documentation says in words what each symbol of a formula stands for, and the
   [cheat sheet](../getting-started/learn/cheat-sheet.md) holds the additions of 2.1: fitting,
   lattice dynamics from elastic constants to the thermal conductivity, dislocations and CA
-  files, and NEP with LAMMPS. The page of [EAM](../user-guide/simulation/eam.md) says that
+  files, and NEP with LAMMPS. The page of [EAM](../user-guide/potentials/eam.md) says that
   an average atom needs a potential of the eam/alloy form, as `EAM.average` refuses an
   `eam/fs` one.
 - `md_elastic_constants` takes `method=None` by default: the strains for a crystal, the
@@ -223,21 +233,21 @@ Since 2.1.0rc2:
   started by `mpirun` builds the system on the main process and runs it, LAMMPS writing the
   frames with a dump as it runs; the other analyses the files with every core. The frames of
   `save_every` stay in the memory of every process, about 60 bytes per atom each; see
-  [Frames in files](../user-guide/simulation/dynamics.md#frames-in-files).
+  [Frames in files](../user-guide/molecular-dynamics/records.md#frames-in-files).
 - `quasi_harmonic` compares the jump of the free energy where a pair of atoms crosses the
   cutoff with its change over an eighth of the range of the volumes, the spacing of the
   default nine, whatever their number. It compared it with the change between neighbouring
   volumes, so that more volumes over the same range were refused although the results did
   not change: 13 volumes of `EAM.zhou` copper from 0.97 to 1.07 at 400 K had a jump of 3.5 %
   and were refused, 7 had 0.9 %; both now have 1.6 % and give the same results within 1 %.
-  See [Crossing the cutoff](../user-guide/simulation/quasi-harmonic.md#crossing-the-cutoff).
+  See [Crossing the cutoff](../user-guide/properties/quasi-harmonic.md#crossing-the-cutoff).
 - `plot.parity` draws several sets on the same axes: their range and one diagonal hold them
   all, where each call had set them to its own set.
 - `plot.rdf`, `plot.structure_factor`, `plot.bond_angles` and `plot.msd` show the points
   of a curve of 30 points or fewer as dots on its line, such as the MSD of a few frames.
-  The pictures of the [quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md),
-  the [elastic constants at finite temperature](../user-guide/simulation/thermal-elastic.md)
-  and the [thermal conductivity](../user-guide/simulation/thermal-conductivity.md) show the
+  The pictures of the [quasi-harmonic approximation](../user-guide/properties/quasi-harmonic.md),
+  the [elastic constants at finite temperature](../user-guide/properties/thermal-elastic.md)
+  and the [thermal conductivity](../user-guide/properties/thermal-conductivity.md) show the
   temperatures computed the same way.
 
 ## 2.1.0rc2
@@ -255,18 +265,18 @@ holds. Until 2.1.0 only fixes follow.
   it for every crossing, so that every range of volumes about the fcc crystal of
   `EAM.zhou`, whose cutoff is its fifth shell, was refused for a jump of 1 %. Potentials
   cut off without smoothing, or NEP, jump by 4 to 33 % and are refused as before. See
-  [Crossing the cutoff](../user-guide/simulation/quasi-harmonic.md#crossing-the-cutoff).
+  [Crossing the cutoff](../user-guide/properties/quasi-harmonic.md#crossing-the-cutoff).
 - `EAM(path)` reads `eam/fs` files of LAMMPS, Finnis–Sinclair potentials in which each
   element gives each element an electron density of its own, such as those of Mendelev
   et al. for Cu–Zr, Al–Fe and Fe–P, and computes them as `pair_style eam/fs`; `write`
   writes them back as `eam/fs`. The format is told apart from `eam/alloy` by the number
   of values in the file. See
-  [Finnis–Sinclair potentials](../user-guide/simulation/eam.md#finnissinclair-potentials).
+  [Finnis–Sinclair potentials](../user-guide/potentials/eam.md#finnissinclair-potentials).
 - `EAM(path)` reads the funcfl files of LAMMPS `pair_style eam`, one element each, such as
   the potentials of Foiles et al. (`Cu_u3.eam`), and `EAM([paths])` mixes several of them
   into an alloy as LAMMPS does: the tables interpolated onto one grid, the pairs from the
   effective charges. `EAM.path` is then the tuple of the files. See
-  [Funcfl files](../user-guide/simulation/eam.md#funcfl-files).
+  [Funcfl files](../user-guide/potentials/eam.md#funcfl-files).
 - A new example, [LAMMPS on many processes with MPI](../examples/mpi.md): a script started by
   `mpirun` builds and analyses on its main process and runs LAMMPS through MDAPY on every
   process, 12 times faster on 16 processes for 108 000 atoms.
@@ -287,7 +297,7 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `write(path, *, full=False)` and `read_force_constants(path, cell, supercell)` write and
   read phonopy's `FORCE_CONSTANTS`, compact or full, for any supercell matrix: force
   constants of phonopy, from VASP for example, give MDAPY's phonons. See
-  [Force constants](../user-guide/simulation/force-constants.md).
+  [Force constants](../user-guide/properties/force-constants.md).
 - `mdapy.lattice_dynamics.force_constants(cell, frames, *, symmetry=None)` fits the second
   order force constants of a crystal to the forces of displaced supercells from any
   calculator or from DFT, with the symmetry of the crystal, the exchange of the two atoms
@@ -313,14 +323,14 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `ThermalConductivity` holds `kappa`, the `q` and `weights` of the irreducible wave
   vectors, and the `frequencies`, `group_velocities`, `gamma`, `lifetimes` and
   `heat_capacities` of their modes, the scattering computed in parallel in C++. See
-  [Thermal conductivity](../user-guide/simulation/thermal-conductivity.md).
+  [Thermal conductivity](../user-guide/properties/thermal-conductivity.md).
 - `mdapy.lattice_dynamics.green_kubo(system, potential, temperature, ...)` gives the thermal
   conductivity from the heat flux of equilibrium molecular dynamics in LAMMPS by the
   Green–Kubo relation, with the centroid stress of each atom for many-body potentials;
   `green_kubo_from_flux` does it with a flux from any dynamics. Its `GreenKubo` holds the
   `temperature`, `volume`, the `times` of the correlation, the `running` integral,
   `kappa`, its `errors` from blocks and the `flux`. See
-  [Green–Kubo conductivity](../user-guide/simulation/green-kubo.md).
+  [Green–Kubo conductivity](../user-guide/properties/green-kubo.md).
 - `Phonons.group_velocities(q, *, symmetry=None)` gives the group velocity of each mode in
   Å/ps, from the derivative of the dynamical matrix, with modes of equal frequency set
   apart along (1, 2, 3) and averaged over the rotations that keep the wave vector, as
@@ -338,7 +348,7 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `error`, and gives the `stiffness` of any bond and the `force_constants`, so the phonons
   and vibrational free energy, of any arrangement of the elements, such as a special
   quasirandom structure. See
-  [Bond stiffness](../user-guide/simulation/bond-stiffness.md).
+  [Bond stiffness](../user-guide/properties/bond-stiffness.md).
 - A new example, [Lattice dynamics of solid argon](../examples/argon.md), follows argon from
   the forces of a few displaced supercells to its thermal conductivity: phonons, the files
   of phonopy, thermal displacements, Grüneisen parameters, springs along the bonds, third
@@ -365,7 +375,7 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   a quantity along every direction as a surface in 3D, and `plot.elastic_section(result,
   quantity="young_modulus", normal=(0, 0, 1), *, ax=None, extreme=None, points=360,
   color=None, label=None)` along the directions of a plane. See
-  [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions) and
+  [Elastic constants](../user-guide/properties/elastic-constants.md#along-directions) and
   the example [Elastic anisotropy of copper and titanium](../examples/elastic-anisotropy.md).
 - `md_elastic_constants(..., method="fluctuation")` gives the elastic constants from the
   fluctuations of the stress in one run at the mean box: the Born term, the
@@ -374,7 +384,7 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   their errors, with errors 1.5 to 25 times smaller at equal steps and independent
   of the size; for constants that relax strongly, as the shear of silicon, the
   strains stay better. See
-  [From the fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress).
+  [From the fluctuations of the stress](../user-guide/properties/md-elastic.md#from-the-fluctuations-of-the-stress).
 - `md_elastic_constants` keeps the strained crystal at the temperature with a Langevin
   thermostat, whose noise the two runs of a component share; the Nosé–Hoover thermostat
   it had, being deterministic, did not bring all the vibrations back to the
@@ -445,7 +455,7 @@ and fixes. The API of 2.0.0 holds, and a test keeps it: each addition is named b
   `md_elastic_constants` of a sheet returns its `SheetElasticResult` in N/m, which
   gains `errors`; and `MolecularDynamics.run` changes a sheet in its plane with the
   barostats `"iso"`, `"aniso"` and `"tri"`, as with `"xy"`. See
-  [Sheets](../user-guide/simulation/sheets.md).
+  [Sheets](../user-guide/properties/sheets.md).
 
 ### Other additions and changes
 
@@ -892,7 +902,7 @@ error.
 - `mdapy.calculators.Calculator`, the interface of every calculator, and
   `CalculatorResult` with energies, forces, virials and stress.
   `mdapy.calculators.testing.check_calculator` tests any implementation. See
-  [Calculators](../user-guide/simulation/calculators.md).
+  [Calculators](../user-guide/potentials/calculators.md).
 - `mdapy.calculators.EAM` for potentials in the LAMMPS eam/alloy format,
   agreeing with LAMMPS.
 - `mdapy.calculators.NEP` for neuroevolution potentials (nep4 and nep4_zbl
@@ -907,7 +917,7 @@ error.
 - `mdapy.calculators.VASP` runs VASP for each calculation with a command,
   as in the job script of a cluster: it writes the inputs, keeps the wave
   functions between calls and reads the OUTCAR. `CalculationFailed` reports
-  a run that stopped. See [VASP](../user-guide/simulation/vasp.md).
+  a run that stopped. See [VASP](../user-guide/potentials/vasp.md).
 
 ### Simulation
 
@@ -918,30 +928,30 @@ error.
   asked, with the virial and the stress of each. Its steps use no BLAS, whose
   threads took the cores from the kernels under OpenBLAS (0.5 s against 3.5 s
   for 4000 atoms on 16 threads). See
-  [Energy minimization](../user-guide/simulation/minimize.md).
+  [Energy minimization](../user-guide/properties/minimize.md).
 - `mdapy.simulation.free_energy`: the free energy of solids and liquids per atom from
   molecular dynamics in LAMMPS, by switching to springs or to the Uhlenbeck-Ford model
   and following the enthalpy to other temperatures; `crossing` gives where two phases
-  meet. See [Free energy](../user-guide/simulation/free-energy.md).
+  meet. See [Free energy](../user-guide/properties/free-energy.md).
 - `mdapy.simulation.melting_point`: the melting point from a first guess, by the
   two-phase method. `MolecularDynamics.run` takes the ensemble `"nph"`. See
-  [Melting point](../user-guide/simulation/melting-point.md).
+  [Melting point](../user-guide/properties/melting-point.md).
 - `mdapy.simulation.binary_phase_diagram` and `plot.phase_diagram`: the phase diagram
   of two elements from the free energies of their phases. See
-  [Phase diagrams](../user-guide/simulation/phase-diagram.md).
+  [Phase diagrams](../user-guide/properties/phase-diagram.md).
 - `mdapy.simulation.pressure_temperature_diagram` and `plot.pressure_temperature`: the
   phase diagram of one element against pressure and temperature, from the free energies of
   its phases at each pressure. See
-  [Pressure-temperature diagrams](../user-guide/simulation/pressure-temperature.md).
+  [Pressure-temperature diagrams](../user-guide/properties/pressure-temperature.md).
 - `mdapy.simulation.stacking_fault_free_energy`: the free energy of a stacking fault at
   each temperature, from two crystals in one box. See
-  [Stacking faults at finite temperature](../user-guide/simulation/stacking-fault-temperature.md).
+  [Stacking faults at finite temperature](../user-guide/properties/stacking-fault-temperature.md).
 - `slip`: an atom outside the box moves as its image in the box does; a layer of a
   relaxed crystal at the bottom of the box was split by rounding, and gave a stacking
   fault energy far too large.
 - `mdapy.lattice_dynamics.elastic_constants`: the (6, 6) elastic constants
   from the stress under small strains, with relaxed positions, and Voigt,
-  Reuss and Hill moduli. See [Elastic constants](../user-guide/simulation/elastic-constants.md).
+  Reuss and Hill moduli. See [Elastic constants](../user-guide/properties/elastic-constants.md).
 - `mdapy.lattice_dynamics.phonons`: harmonic phonons from the forces on
   displaced atoms with any calculator, the force constants made symmetric
   and free of translations; frequencies and polarization vectors at any
@@ -954,31 +964,31 @@ error.
   branches followed through crossings; imaginary frequencies in the density
   of states; band structures written and read as phonopy's band.dat;
   `plot.band_structure` and `plot.phonon_dos`. `units.PLANCK`.
-  See [Phonons](../user-guide/simulation/phonons.md).
+  See [Phonons](../user-guide/properties/phonons.md).
 - `mdapy.lattice_dynamics.quasi_harmonic`: the quasi-harmonic
   approximation from phonons at several volumes: the equilibrium volume,
   Gibbs energy, entropy, bulk modulus, thermal expansion and heat capacity
   at constant pressure against temperature, at any pressure, the shape of
   the box relaxed at each volume. See
-  [Quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md).
+  [Quasi-harmonic approximation](../user-guide/properties/quasi-harmonic.md).
 - `mdapy.lattice_dynamics.thermal_elastic_constants`: isothermal and
   adiabatic elastic constants at finite temperature, quasi-harmonic or
-  quasi-static. See [Elastic constants at finite temperature](../user-guide/simulation/thermal-elastic.md).
+  quasi-static. See [Elastic constants at finite temperature](../user-guide/properties/thermal-elastic.md).
 - Sheets: a box periodic along two vectors in the x-y plane makes a system a
   two-dimensional material. `elastic_constants` gives its constants in N/m as a
   `SheetElasticResult`, with Young's, shear and area moduli and Poisson's
   ratios; `phonons` takes supercells and meshes in the plane and band paths
   through it; `primitive_cell` takes it too; `MolecularDynamics.run` controls the
   pressure in the plane with `barostat="xy"`, and runs a flat sheet, which LAMMPS
-  refused when its height shrank to nothing. See [Sheets](../user-guide/simulation/sheets.md).
+  refused when its height shrank to nothing. See [Sheets](../user-guide/properties/sheets.md).
 - `mdapy.lattice_dynamics.thermal_phonons` and `phonons_from_frames`: phonons at a
   temperature, from the forces on atoms in molecular dynamics, by the force
   constants that best give them. See
-  [Phonons at finite temperature](../user-guide/simulation/thermal-phonons.md).
+  [Phonons at finite temperature](../user-guide/properties/thermal-phonons.md).
 - `mdapy.lattice_dynamics.md_elastic_constants`: isothermal elastic
   constants at a temperature from the mean stress of molecular dynamics in
   LAMMPS under small strains, with standard errors from block averages. See
-  [Elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md).
+  [Elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md).
 - Symmetry with spglib (optional, the extra `symmetry`): `phonons`,
   `quasi_harmonic`, `elastic_constants` and `thermal_elastic_constants`
   skip the displacements and strains that the symmetry of the crystal
@@ -994,13 +1004,13 @@ error.
   state as a polars table, frames and the final system back in the
   orientation of the box, any LAMMPS command in between; the same
   trajectory as the same LAMMPS input. See
-  [Molecular dynamics](../user-guide/simulation/dynamics.md).
+  [Molecular dynamics](../user-guide/molecular-dynamics/running.md).
 
 - `mdapy.simulation.vacancy_formation_energy`, `surface_energy` and
   `stacking_fault_energy` (the generalized stacking fault energy, relaxed
   along the normal), agreeing with LAMMPS; `minimize` keeps atoms still
   along the directions where a `movable` column is False. See
-  [Defect energies](../user-guide/simulation/defect-energies.md).
+  [Defect energies](../user-guide/properties/defect-energies.md).
 
 ### Analyses
 

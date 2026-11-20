@@ -5,7 +5,7 @@ Elastic constants hold everything about how a crystal answers a small load, but 
 into the numbers and pictures that answer the usual questions: how stiff is the crystal
 along a direction, what does a polycrystal of it do, which shear does a dislocation
 feel, and does a stretch make it wider somewhere. See
-[Elastic constants](../user-guide/simulation/elastic-constants.md) for the functions
+[Elastic constants](../user-guide/properties/elastic-constants.md) for the functions
 themselves and their definitions, and [Plots](../user-guide/visualization/plots.md) for
 the figures.
 
@@ -113,7 +113,7 @@ for direction in ([1, 0, 0], [1, 1, 0], [1, 1, 1]):
 
 Copper is more than three times stiffer along ⟨111⟩ than along ⟨100⟩, and the
 polycrystal, at 135 GPa, lies in between. The modulus along every direction is a
-surface, drawn on [Elastic constants](../user-guide/simulation/elastic-constants.md#along-directions);
+surface, drawn on [Elastic constants](../user-guide/properties/elastic-constants.md#along-directions);
 its sections in three planes are easier to read:
 
 ```python

@@ -1,4 +1,4 @@
-# Calculators
+# Potentials
 
 ## The interface
 

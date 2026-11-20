@@ -1,6 +1,6 @@
-# A copper cluster melting in MDAPY
+# A copper cluster melting
 
-[`MolecularDynamics`](../user-guide/simulation/dynamics.md) runs molecular dynamics in
+[`MolecularDynamics`](../user-guide/molecular-dynamics/running.md) runs molecular dynamics in
 MDAPY itself with any calculator but a LAMMPS one, with no LAMMPS installed. This page
 heats a cluster of 627 copper atoms in vacuum until it melts, with the EAM potential of
 Zhou et al. that MDAPY computes, writes the atoms to a file as the run goes, and follows
@@ -56,7 +56,7 @@ The 65000 steps take about 25 s on four threads of an Apple M5. Each frame holds
 positions, the velocities and the images of the atoms, the box, and the step and the
 time of the frame. A loop over `md.iterate(...)` would instead give each frame to an
 analysis as it comes, without a file; [Frames in
-files](../user-guide/simulation/dynamics.md#frames-in-files) says more.
+files](../user-guide/molecular-dynamics/records.md#frames-in-files) says more.
 
 ## The energy and the crystal
 

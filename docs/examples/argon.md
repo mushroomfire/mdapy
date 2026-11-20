@@ -10,11 +10,11 @@ constants: the harmonic force constants and the phonons, the files of phonopy, t
 thermal displacements and the Grüneisen parameters, springs along the bonds, the third
 order force constants and the thermal conductivity of the phonons, and the conductivity
 of molecular dynamics by the Green–Kubo relation. See
-[Force constants](../user-guide/simulation/force-constants.md),
-[Phonons](../user-guide/simulation/phonons.md),
-[Bond stiffness](../user-guide/simulation/bond-stiffness.md),
-[Thermal conductivity](../user-guide/simulation/thermal-conductivity.md) and
-[Green–Kubo conductivity](../user-guide/simulation/green-kubo.md) for the functions
+[Force constants](../user-guide/properties/force-constants.md),
+[Phonons](../user-guide/properties/phonons.md),
+[Bond stiffness](../user-guide/properties/bond-stiffness.md),
+[Thermal conductivity](../user-guide/properties/thermal-conductivity.md) and
+[Green–Kubo conductivity](../user-guide/properties/green-kubo.md) for the functions
 themselves.
 
 ## The crystal

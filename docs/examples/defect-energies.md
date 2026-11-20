@@ -3,7 +3,7 @@
 The energies of vacancies, surfaces and stacking faults are the first
 check of a potential for a metal. This page computes them for copper with
 the EAM potential of Zhou et al., and checks that each has converged with
-the size of the cell. See [Defect energies](../user-guide/simulation/defect-energies.md)
+the size of the cell. See [Defect energies](../user-guide/properties/defect-energies.md)
 for the functions themselves.
 
 ## The lattice constant

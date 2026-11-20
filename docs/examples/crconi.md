@@ -7,9 +7,9 @@ NEP model for CrCoNi alloys of
 phonon dispersions of bcc Cr, hcp Co and fcc Ni, drawn over the DFT
 dispersions (VASP and phonopy) of the same paper, and the elastic constants
 of the CrCoNi alloy from 0 to 1000 K, against measured ones. See
-[Phonons](../user-guide/simulation/phonons.md),
-[Quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md) and
-[Elastic constants at finite temperature](../user-guide/simulation/thermal-elastic.md)
+[Phonons](../user-guide/properties/phonons.md),
+[Quasi-harmonic approximation](../user-guide/properties/quasi-harmonic.md) and
+[Elastic constants at finite temperature](../user-guide/properties/thermal-elastic.md)
 for the functions themselves.
 
 !!! note "Cite the model and the data"
@@ -231,10 +231,10 @@ C11 288.6, C12 183.7, C44 143.8 GPa
 
 ### From 0 to 1000 K
 
-The [quasi-harmonic approximation](../user-guide/simulation/quasi-harmonic.md)
+The [quasi-harmonic approximation](../user-guide/properties/quasi-harmonic.md)
 gives the volume of the crystal at each temperature from the free energy
 of its vibrations, and
-[`thermal_elastic_constants`](../user-guide/simulation/thermal-elastic.md) the
+[`thermal_elastic_constants`](../user-guide/properties/thermal-elastic.md) the
 elastic constants there, from the second derivatives of the static energy
 and of the free energy of the vibrations under strain. The structure, 10.6 Å
 across, is taken as its own supercell to keep this affordable; it takes
@@ -267,7 +267,7 @@ stresses under strain give the same constants to 0.1 GPa.
 ### From molecular dynamics
 
 The quasi-harmonic approximation takes the anharmonic vibrations in only through the
-volume. [`md_elastic_constants`](../user-guide/simulation/md-elastic.md) takes them all,
+volume. [`md_elastic_constants`](../user-guide/properties/md-elastic.md) takes them all,
 from the mean stress of molecular dynamics under small strains. Here it runs in LAMMPS
 with the NEP of KOKKOS, `pair_style nep/kk`, on a GPU, in 4 × 4 × 4 copies of the
 structure, 6912 atoms, for 120 ps under each of the 12 strains; each temperature takes
@@ -304,7 +304,7 @@ for t, result in zip(hot[::3], md[::3]):
 
 With `method="fluctuation"`, the crystal runs once more at each temperature, at
 its mean box, and the constants come from the
-[fluctuations of the stress](../user-guide/simulation/md-elastic.md#from-the-fluctuations-of-the-stress):
+[fluctuations of the stress](../user-guide/properties/md-elastic.md#from-the-fluctuations-of-the-stress):
 1 ns at zero pressure for the mean box, then 1 ns at that box, about
 17 minutes on one GPU:
 

@@ -89,7 +89,7 @@ without a GPU, pictures are traced on the processor.
 
 ## Potentials and dynamics on an NVIDIA GPU
 
-[Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
+[Potentials and molecular dynamics on the GPU](../user-guide/molecular-dynamics/gpu.md)
 need MDAPY built from its source with the CUDA toolkit (tested with CUDA 13.5), which the
 wheels of PyPI are not:
 
@@ -140,7 +140,7 @@ parts raise an error that names the package to install.
 | freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
 | pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
 | OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
-| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/simulation/lammps.md), [molecular dynamics](../user-guide/simulation/dynamics.md) and [elastic constants from molecular dynamics](../user-guide/simulation/md-elastic.md) |
+| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/potentials/lammps.md), [molecular dynamics](../user-guide/molecular-dynamics/running.md) and [elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md) |
 
 Extras combine: `pip install "mdapy[plot,symmetry,ase]"`. OVITO's package
 from PyPI warns in a conda environment, where conda's own is preferred, so

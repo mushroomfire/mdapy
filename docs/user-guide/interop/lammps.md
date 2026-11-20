@@ -39,8 +39,8 @@ with read_trajectory("dump.lammpstrj", elements=["Cu"]) as frames:
 | data files (`read_data`, `write_data`) | `mdapy.io.read`, `mdapy.io.write`: atom styles, velocities, topology, type labels, coefficients | [LAMMPS data](../../reference/formats/lammps-data.md) |
 | text dumps (`dump atom`, `dump custom`) | `mdapy.io.read_trajectory`, `mdapy.io.write` | [LAMMPS dump](../../reference/formats/lammps-dump.md) |
 | the box: bounds, tilt factors, general triclinic boxes | `Box.from_lammps`, `Box.to_lammps` | [Simulation box](../../basics/box.md) |
-| any `pair_style` | the calculator `LAMMPS` | [LAMMPS calculator](../simulation/lammps.md) |
-| potentials in the eam/alloy format | `EAM` reads and writes them | [EAM](../simulation/eam.md) |
+| any `pair_style` | the calculator `LAMMPS` | [LAMMPS calculator](../potentials/lammps.md) |
+| potentials in the eam/alloy format | `EAM` reads and writes them | [EAM](../potentials/eam.md) |
 | `replicate` | `mdapy.transform.replicate` | [Periodic copies and images](../build/transform.md) |
 
 MDAPY works in LAMMPS metal units; the data and dump files of real units are

@@ -3,8 +3,8 @@
 `SpaceGroup` finds the space group of a crystal with
 [spglib](https://spglib.readthedocs.io): its number and symbol, its
 symmetry operations, and the atoms they make equivalent. The same
-operations let [phonons](../simulation/phonons.md) and
-[elastic constants](../simulation/elastic-constants.md) skip the
+operations let [phonons](../properties/phonons.md) and
+[elastic constants](../properties/elastic-constants.md) skip the
 displacements and strains that symmetry relates to others.
 
 <!-- needs: spglib -->

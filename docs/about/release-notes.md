@@ -1,5 +1,20 @@
 # Release notes
 
+## 2.3.0 (not released)
+
+- Restart files of molecular dynamics: `run(..., restart="md.restart",
+  restart_every=1000)` and `iterate` write the state of the dynamics every so many
+  steps and at the end of a run, replacing the last once the new one is whole;
+  `MolecularDynamics.load(path, potential)` reads it, `resume()` finishes the run it
+  stopped in, as if it had not stopped, to the rounding of the forces, and `save(path)`
+  writes one between runs. On the processor and the GPU, in every ensemble and with
+  every control. See [Restart files](../user-guide/simulation/restart.md).
+- The noise of Langevin dynamics and baths is drawn by a counter-based generator,
+  Philox4x64-10, from the seed, the index of each atom and the step, the same on the
+  processor and the GPU, whatever order the GPU keeps its atoms in: a run of a seed
+  on the GPU in double precision is that on the processor. Runs of the same seed draw
+  other numbers than in 2.2.
+
 ## 2.2.0 (not released)
 
 - The calculations of properties live in `mdapy.properties`, in five modules by what

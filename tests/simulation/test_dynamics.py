@@ -540,3 +540,11 @@ def test_a_log_of_lammps(setfl, tmp_path):
     np.testing.assert_allclose(
         rows[:, 2], thermo["temperature"].to_numpy(), rtol=0, atol=5.0001e-4
     )
+
+
+def test_restart_files_are_of_runs_in_mdapy(tmp_path, potential):
+    with MolecularDynamics(crystal(), potential) as md:
+        with pytest.raises(InvalidParameter, match="write_restart"):
+            md.save(tmp_path / "md.restart")
+        with pytest.raises(InvalidParameter, match="write_restart"):
+            md.run(10, restart=tmp_path / "md.restart", restart_every=5)

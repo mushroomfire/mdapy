@@ -229,6 +229,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | shock velocity, particle velocity | of a steady shock to a state of strain ε = 1 − V/V₀: the speed of its front, √((P − P₀)/(ρ₀ε)), and that of the matter behind it, ε times the first |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
 | NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |
+| restart file | the whole state of molecular dynamics at a step, from which `MolecularDynamics.load` and `resume` go on after a crash; `restart`, `restart_every` |
 | NEB | the nudged elastic band: images between two states, pulled down across the band by the forces of the potential and kept apart along it by springs, which relax to the minimum energy path; `neb` |
 | minimum energy path | the path between two minima of the energy along which the force has no part across it; its highest point is a saddle point |
 | saddle point | a stationary point of the energy that is a maximum along one direction and a minimum along all others; the barrier is its energy above the initial state |

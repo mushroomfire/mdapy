@@ -288,6 +288,7 @@ nav:
               - Records and frames: user-guide/simulation/records.md
               - On the GPU: user-guide/simulation/gpu.md
               - In LAMMPS: user-guide/simulation/in-lammps.md
+              - Restart files: user-guide/simulation/restart.md
           - Controls:
               - Groups and controls: user-guide/simulation/controls.md
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md

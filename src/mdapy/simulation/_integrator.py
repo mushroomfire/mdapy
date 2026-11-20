@@ -529,6 +529,23 @@ class _HostAtoms:
         self.__seed = secrets.randbits(63) if seed is None else int(seed)
         self.__draws = 0
 
+    # the calculators, the function that restricts the velocities and the
+    # neighbor lists: given again or built again, not kept in a restart
+    __TRANSIENT = ("calculator", "restrict", "wide", "target_wide")
+
+    def state(self) -> dict[str, Any]:
+        """What a restart keeps of the atoms."""
+        skip = {f"_HostAtoms__{name}" for name in self.__TRANSIENT}
+        return {k: v for k, v in vars(self).items() if k not in skip}
+
+    def restore(self, state: dict[str, Any]) -> None:
+        """The atoms as a restart kept them; the neighbor lists are built
+        again."""
+        vars(self).update(state)
+        self.__wide = None
+        if "_HostAtoms__target_wide" in vars(self):
+            self.__target_wide = None
+
     def set_controls(
         self,
         free: np.ndarray | None,
@@ -716,6 +733,20 @@ class _Native:
         self.__energy = math.nan
         self.__virial = np.full((3, 3), np.nan)
         self.__run: dict[str, Any] = {}
+
+    def state(self) -> dict[str, Any]:
+        """What a restart keeps: every variable of the dynamics and of its
+        controls, and the atoms; not the calculator."""
+        skip = ("_Native__calculator", "_Native__atoms")
+        return {
+            "native": {k: v for k, v in vars(self).items() if k not in skip},
+            "atoms": self.__atoms.state(),
+        }
+
+    def restore(self, state: dict[str, Any]) -> None:
+        """The dynamics as a restart kept it, with the calculator given."""
+        vars(self).update(state["native"])
+        self.__atoms.restore(state["atoms"])
 
     def describe(self) -> str:
         """What runs the dynamics, for the log."""

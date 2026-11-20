@@ -22,7 +22,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.simulation import _controls
+from mdapy.simulation import _controls, _restart
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log, _machine
 
@@ -871,6 +871,9 @@ class MolecularDynamics:
         self.__saved: int | None = None  # the step of the last frame kept or given
         self.__reading: Any = None  # the frames of an iterate not read to the end
         self.__runs = 0
+        self.__potential = potential
+        # a run a restart file stopped in: its settings and the steps it ran
+        self.__pending: tuple[dict[str, Any], int] | None = None
         if isinstance(potential, LAMMPS):
             self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
         else:
@@ -1009,6 +1012,151 @@ class MolecularDynamics:
                 "or close them first"
             )
 
+    # -- restarts ---------------------------------------------------------
+
+    @staticmethod
+    def __restart_settings(
+        restart: str | os.PathLike | None, every: int | None
+    ) -> tuple[str, int] | None:
+        if restart is None:
+            if every is not None:
+                raise InvalidParameter("restart_every needs restart, the file")
+            return None
+        if every is None:
+            every = 1000
+        if isinstance(every, bool) or not isinstance(every, int) or every < 1:
+            raise InvalidParameter(
+                f"restart_every must be a positive integer, not {every!r}"
+            )
+        if not isinstance(restart, (str, os.PathLike)):
+            raise InvalidParameter(f"restart must be a path, not {restart!r}")
+        return os.fspath(restart), every
+
+    def __native_only(self) -> None:
+        if not isinstance(self.__engine, _Native):
+            raise InvalidParameter(
+                "restart files keep runs in MDAPY; LAMMPS writes its own, with "
+                "md.command('write_restart file')"
+            )
+
+    def __state(self, pending: tuple[dict[str, Any], int] | None) -> dict[str, Any]:
+        self.__native_only()
+        engine = self.__engine
+        return {
+            "timestep": self.timestep,
+            "system": engine.system,
+            "engine": engine.state(),
+            "rows": self.__rows,
+            "runs": self.__runs,
+            "saved": self.__saved,
+            "pending": pending,
+        }
+
+    def __write_restart(
+        self, path: str, pending: tuple[dict[str, Any], int] | None
+    ) -> None:
+        _restart.write(path, self.__state(pending), first=self.__potential)
+
+    def save(self, path: str | os.PathLike) -> None:
+        """Writes the state of the dynamics to a restart file, between runs,
+        for ``load`` to go on from.
+
+        Parameters
+        ----------
+        path : str or os.PathLike
+            The file, replaced once the new one is whole.
+
+        Raises
+        ------
+        InvalidParameter
+            While the frames of an ``iterate`` are being read, for a
+            LAMMPS calculator, or if the file cannot be written.
+        """
+        self.__idle()
+        self.__write_restart(os.fspath(path), self.__pending)
+
+    @classmethod
+    def load(
+        cls,
+        path: str | os.PathLike,
+        potential: Any,
+        *,
+        others: Any = (),
+        log: Any = None,
+    ) -> "MolecularDynamics":
+        """The dynamics of a restart file, to go on from where it was written.
+
+        Parameters
+        ----------
+        path : str or os.PathLike
+            A restart file that this version of MDAPY wrote.
+        potential : Calculator
+            The potential of the dynamics, as given when it began.
+        others : sequence of Calculator, optional
+            The other potentials its runs use, those of ``Switch`` controls,
+            in the order they first came. Default none.
+        log : str, os.PathLike or stream, optional
+            The log, added to rather than overwritten. Default None.
+
+        Returns
+        -------
+        MolecularDynamics
+            At the step the file was written, with the thermodynamic state
+            recorded so far; ``resume`` finishes a run the file stopped in.
+
+        Raises
+        ------
+        InvalidParameter
+            For a file that is not a restart file of this version of MDAPY,
+            a potential of another kind than the file's, or too few others.
+        """
+        state, names = _restart.read(path, [potential, *others])
+        if names and not names[0].startswith(type(potential).__name__ + "("):
+            raise InvalidParameter(
+                f"this restart file ran with {names[0]}, not a {type(potential).__name__}"
+            )
+        md = cls(state["system"], potential, timestep=state["timestep"])
+        if state["pending"] is not None:
+            # the controls of the run set up, on the GPU too, as at its start;
+            # its variables then as the file kept them
+            md.__engine.start(state["pending"][0])
+        md.__engine.restore(state["engine"])
+        md.__rows = list(state["rows"])
+        md.__runs = state["runs"]
+        md.__saved = state["saved"]
+        md.__pending = state["pending"]
+        md.__log = _Log(log, active=md.__engine.writes, append=True)
+        if md.__log.on:
+            md.__log.comment("", f"continued from {os.fspath(path)} at step {md.step}")
+        return md
+
+    def resume(
+        self, *, progress: Any = None, cancel: CancelToken | None = None
+    ) -> None:
+        """Finishes the run that a restart file stopped in, with its settings,
+        controls and restart files, as if it had not stopped.
+
+        Parameters
+        ----------
+        progress : callable, optional
+            Called as ``progress(done, total)`` with the steps of the run.
+        cancel : CancelToken, optional
+            Stops the run, which raises ``mdapy.errors.Cancelled``.
+
+        Raises
+        ------
+        InvalidParameter
+            If no run was stopped: the file was written between runs.
+        """
+        if self.__pending is None:
+            raise InvalidParameter(
+                "no run to resume: the restart file was written between runs"
+            )
+        self.__idle()
+        spec, done = self.__pending
+        self.__pending = None
+        self.__frames.extend(self.__steps(spec, progress, cancel, resumed=done))
+
     # -- running ----------------------------------------------------------
 
     def velocities(self, temperature: float, *, seed: int) -> None:
@@ -1059,6 +1207,8 @@ class MolecularDynamics:
         controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
+        restart: str | os.PathLike | None = None,
+        restart_every: int | None = None,
     ) -> None:
         """Runs molecular dynamics.
 
@@ -1136,6 +1286,13 @@ class MolecularDynamics:
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
             Stops the run, which raises ``mdapy.errors.Cancelled``.
+        restart : str or os.PathLike, optional
+            Writes the state of the run to this file every ``restart_every``
+            steps and at its end, each time replacing the last whole, for
+            ``MolecularDynamics.load`` to go on from; in MDAPY only. Default
+            None, writing none.
+        restart_every : int32, optional
+            Steps between restart files. Default 1000 with ``restart``.
 
         Raises
         ------
@@ -1165,6 +1322,9 @@ class MolecularDynamics:
             shock_velocity,
             msst,
         )
+        spec["restart"] = self.__restart_settings(restart, restart_every)
+        if spec["restart"] is not None:
+            self.__native_only()
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
 
@@ -1189,6 +1349,8 @@ class MolecularDynamics:
         controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
+        restart: str | os.PathLike | None = None,
+        restart_every: int | None = None,
     ) -> Iterator[System]:
         """Runs molecular dynamics as ``run`` does, giving the atoms every
         save_every steps as the run reaches them instead of keeping them: the
@@ -1269,7 +1431,10 @@ class MolecularDynamics:
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
             Stops the run, which raises ``mdapy.errors.Cancelled``.
-
+        restart : str or os.PathLike, optional
+            Writes a restart file, as ``run`` does. Default None.
+        restart_every : int32, optional
+            Steps between restart files. Default 1000 with ``restart``.
 
         Returns
         -------
@@ -1308,6 +1473,9 @@ class MolecularDynamics:
             shock_velocity,
             msst,
         )
+        spec["restart"] = self.__restart_settings(restart, restart_every)
+        if spec["restart"] is not None:
+            self.__native_only()
         return self.__read(spec, progress, cancel)
 
     def __read(
@@ -1466,32 +1634,48 @@ class MolecularDynamics:
         return spec
 
     def __steps(
-        self, spec: dict[str, Any], progress: Any, cancel: CancelToken | None
+        self,
+        spec: dict[str, Any],
+        progress: Any,
+        cancel: CancelToken | None,
+        resumed: int | None = None,
     ) -> Iterator[System]:
         """Runs, recording the thermodynamic state, and gives the atoms every
-        save_every steps; the run ends where the frames stop being read."""
+        save_every steps; the run ends where the frames stop being read. A
+        run resumed from a restart goes on from the steps it had run."""
         engine = self.__engine
         steps, thermo, every = spec["steps"], spec["thermo"], spec["save_every"]
-        done = 0
+        restart, restart_every = spec.get("restart") or (None, None)
+        done = 0 if resumed is None else resumed
         finished = False
         log = self.__log
-        self.__runs += 1
+        if resumed is None:
+            self.__runs += 1
         if log.on:
-            log.comment("", self.__settings(self.__runs, spec))
+            if resumed is None:
+                log.comment("", self.__settings(self.__runs, spec))
+            else:
+                log.comment(
+                    "", f"run {self.__runs} resumed after {resumed} of {steps} steps"
+                )
             log.columns(_LOG_COLUMNS)
         began = time.perf_counter()
         try:
-            engine.start(spec)
-            start = engine.step
-            if not self.__rows or self.__rows[-1]["step"] != start:
-                self.__record()
+            if resumed is None:
+                engine.start(spec)
+                start = engine.step
+                if not self.__rows or self.__rows[-1]["step"] != start:
+                    self.__record()
+                if every is not None and self.__saved != start:
+                    self.__saved = start
+                    yield engine.system
             time0 = self.__rows[-1]["time"]
-            if every is not None and self.__saved != start:
-                self.__saved = start
-                yield engine.system
             stops = set(range(thermo, steps, thermo)) | {steps}
             if every is not None:
                 stops |= set(range(every, steps + 1, every))
+            if restart is not None:
+                stops |= set(range(restart_every, steps, restart_every))
+            stops = {s for s in stops if s > done} | ({0} if steps == 0 else set())
             stops.discard(0)  # a run of no steps: the start only, once
             for stop in sorted(stops):
                 if cancel is not None and cancel.cancelled:
@@ -1505,10 +1689,14 @@ class MolecularDynamics:
                 if every is not None and done % every == 0:
                     self.__saved = engine.step
                     yield engine.system
+                if restart is not None and done % restart_every == 0 and done < steps:
+                    self.__write_restart(restart, (spec, done))
             finished = True
         finally:
             if not engine.closed:
                 engine.finish()
+            if finished and restart is not None:
+                self.__write_restart(restart, None)
             if log.on:
                 seconds = time.perf_counter() - began
                 if not finished:

@@ -83,6 +83,23 @@ class DeviceAtoms:
         self.__field: np.ndarray | None = None  # of HNEMD, in the frame
         self.__convective, self.__kick = False, 0.0  # as on the processor
 
+    # the module, the atoms and the neighbor list on the device, the
+    # potentials there, and the system: given again or built again, not kept
+    # in a restart, whose system holds the positions and the velocities
+    __TRANSIENT = ("module", "atoms", "system", "neighbors", "potential", "other", "target")
+
+    def state(self) -> dict[str, Any]:
+        """What a restart keeps of the atoms on the device, besides their
+        positions and velocities."""
+        skip = {f"_DeviceAtoms__{name}" for name in self.__TRANSIENT}
+        return {k: v for k, v in vars(self).items() if k not in skip}
+
+    def restore(self, state: dict[str, Any]) -> None:
+        """The counters, baths and controls as a restart kept them; the
+        controls of a run are set on the device by its start."""
+        skip = {f"_DeviceAtoms__{name}" for name in self.__TRANSIENT}
+        vars(self).update({k: v for k, v in state.items() if k not in skip})
+
     @property
     def positions(self) -> np.ndarray:
         """Unwrapped: the GPU wraps the atoms into the box when it builds a

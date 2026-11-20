@@ -865,3 +865,42 @@ def test_the_noise_of_the_processor_and_the_gpu_is_the_same(keep_momentum):
     a, b = runs
     np.testing.assert_allclose(a["positions"], b["positions"], rtol=0, atol=1e-8)
     np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-8)
+
+
+def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
+    """The run that stopped and the run that did not, on the GPU, with a
+    thermostat, baths and a deformation: alike to the rounding of forces
+    summed in other orders."""
+    from mdapy.simulation.controls import Deform, Langevin
+
+    system = crystal()
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    z = system["positions"][:, 2]
+    bath = z < z.min() + 4.0
+    options = {
+        "ensemble": "nvt", "temperature": 400, "thermostat": "langevin", "seed": 7,
+        "controls": [Langevin(bath, 600.0, damping=0.1, seed=3), Deform(xx=1e-3)],
+        "thermo": 20,
+    }  # fmt: skip
+    with MolecularDynamics(system, gpu, timestep=0.002) as md:
+        md.velocities(400, seed=1)
+        md.run(100, **options)
+        whole = md.system
+    path = tmp_path / "gpu.restart"
+    with MolecularDynamics(system, gpu, timestep=0.002) as md:
+        md.velocities(400, seed=1)
+        frames = md.iterate(
+            100, save_every=50, restart=path, restart_every=50, **options
+        )
+        for frame in frames:
+            if frame.info["timestep"] == 100:
+                break
+        frames.close()
+    again = MolecularDynamics.load(path, gpu)
+    assert again.step == 50
+    again.resume()
+    np.testing.assert_allclose(again.system["positions"], whole["positions"], atol=1e-8)
+    np.testing.assert_allclose(
+        again.system["velocities"], whole["velocities"], atol=1e-8
+    )
+    np.testing.assert_allclose(again.system.box.matrix, whole.box.matrix, atol=1e-10)

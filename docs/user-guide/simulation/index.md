@@ -71,6 +71,7 @@ each part of them.
 | let the box change in every direction, along each axis, in its plane or along one axis | [`barostat`](ensembles.md#barostats) | ✓ | ✓ | ✓ |
 | start at a temperature, or give part of the atoms one | [`velocities`, `thermal_velocities`](running.md#starting-velocities) | ✓ | ✓ | ✓ |
 | record the state, write a log, keep or stream the atoms | [`thermo`, `log`, `save_every`, `iterate`](records.md) | ✓ | ✓ | ✓ |
+| go on after a crash from a restart file | [`restart`, `load`, `resume`](restart.md) | ✓ | ✓ | — |
 | hold, move or push a group of atoms, and record the force on it | [`Hold`, `Move`, `AddForce`](controls.md) | ✓ | ✓ | ✓ |
 | keep a group at a temperature, a heat bath | [`Langevin`](controls.md) | ✓ | ✓ | ✓ |
 | take smaller steps when atoms move fast | [`AdaptiveTimestep`](adaptive-timestep.md) | ✓ | ✓ | ✓ |

@@ -91,6 +91,14 @@ each about 8 % less. `convective=True` puts it in both, for liquids and hot soli
 needs atoms of one element and one mass: in a mixture the energies of each element would
 drive its atoms against the others'.
 
+In the Lennard-Jones liquid at its triple point, argon at 87 K and 2048 atoms, HNEMD gave
+0.132 ± 0.001 W/(m K) with `convective=True`, at fields of 0.006, 0.015 and 0.029 /Å
+alike, and 0.107 ± 0.001 without: the energies carried are a fifth of the conduction.
+The Green–Kubo conductivity of the same liquid was 0.130 ± 0.004 for the whole flux and
+0.104 ± 0.003 for its potential part, over four runs of 5 ns, and that of LAMMPS's
+`compute heat/flux` 0.134 ± 0.005. In liquid silicon of Stillinger and Weber at 2000 K,
+they were 1.13 and 1.07 W/(m K), against 1.13 ± 0.05 and 1.09 ± 0.05.
+
 ## Results
 
 `hnemd` returns an `HNEMD`; every array is read-only.

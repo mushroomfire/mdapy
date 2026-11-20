@@ -13,15 +13,9 @@ import pytest
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, _gpu
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import (
-    AdaptiveTimestep,
-    Deform,
-    Hold,
-    Langevin,
-    MolecularDynamics,
-    Move,
-)
+from mdapy.simulation import MolecularDynamics
 from mdapy.simulation._integrator import _FTM2V, _step_limit
+from mdapy.simulation.controls import AdaptiveTimestep, Deform, Hold, Langevin, Move
 from simulation.test_controls import (  # noqa: F401
     gap,
     lammps_constants,

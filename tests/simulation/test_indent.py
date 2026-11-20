@@ -14,13 +14,8 @@ import pytest
 import mdapy
 from mdapy.calculators import EAM, LennardJones, _gpu
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import (
-    AdaptiveTimestep,
-    Deform,
-    Hold,
-    Indenter,
-    MolecularDynamics,
-)
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import AdaptiveTimestep, Deform, Hold, Indenter
 from simulation.test_controls import lammps_constants, potentials, slab  # noqa: F401
 
 from calculators.gpu_stand_in import stand_in

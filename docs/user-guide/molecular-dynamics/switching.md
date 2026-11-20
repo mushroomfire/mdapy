@@ -19,7 +19,8 @@ import numpy as np
 
 from mdapy.build import build_crystal
 from mdapy.calculators import LennardJones, Springs
-from mdapy.simulation import MolecularDynamics, Switch, minimize
+from mdapy.simulation import MolecularDynamics, minimize
+from mdapy.simulation.controls import Switch
 
 argon = LennardJones({"Ar": (0.0104, 3.4)}, 8.5, shift=True)
 crystal = minimize(

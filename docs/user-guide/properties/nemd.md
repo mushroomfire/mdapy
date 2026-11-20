@@ -6,6 +6,10 @@ conductivity of a crystal along a box vector by nonequilibrium molecular dynamic
 the conductivity is the heat flux over the gradient of temperature it sets up. It runs
 in MDAPY, on the processor or the [GPU](../molecular-dynamics/gpu.md), or in LAMMPS for a
 [LAMMPS calculator](../potentials/lammps.md); the baths are [`Langevin`](../molecular-dynamics/controls.md) controls.
+The baths hold the atoms of their slabs at the start, a group each: in a liquid these
+atoms wander out of their slabs, and the conductivity means nothing. A liquid takes the
+[Green–Kubo](green-kubo.md) conductivity or [HNEMD](hnemd.md) with `convective=True`;
+in liquid argon and silicon NEMD gave four times theirs.
 
 Solid argon at 40 K in a box 8.4 nm long, the baths at 45 and 35 K:
 

@@ -15,12 +15,8 @@ import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, LennardJones, _gpu
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import (
-    AdaptiveTimestep,
-    Deform,
-    MolecularDynamics,
-    Wall,
-)
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import AdaptiveTimestep, Deform, Wall
 from simulation.test_controls import MASSES, lammps_constants, potentials  # noqa: F401
 
 from calculators.gpu_stand_in import stand_in

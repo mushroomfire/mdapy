@@ -17,7 +17,8 @@ import numpy as np
 
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import Deform, MolecularDynamics
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import Deform
 
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 6))
 copper = EAM.zhou(["Cu"])

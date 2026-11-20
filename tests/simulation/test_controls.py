@@ -16,8 +16,9 @@ import pytest
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, LAMMPS
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import AddForce, Hold, MolecularDynamics, Move
+from mdapy.simulation import MolecularDynamics
 from mdapy.simulation import _integrator as integrator
+from mdapy.simulation.controls import AddForce, Hold, Move
 
 MASSES = {"Al": 26.981539, "Cu": 63.546}
 
@@ -309,7 +310,7 @@ def test_on_the_gpu(potentials, monkeypatch):
     """The controls of the dynamics on the GPU, its module stood in for on
     the processor: the runs of the processor, and the heat of the baths."""
     from mdapy.calculators import _gpu
-    from mdapy.simulation import Langevin
+    from mdapy.simulation.controls import Langevin
 
     from calculators.gpu_stand_in import stand_in
 
@@ -364,7 +365,7 @@ def test_on_the_gpu(potentials, monkeypatch):
 
 
 def baths(system, bottom, top):
-    from mdapy.simulation import Langevin
+    from mdapy.simulation.controls import Langevin
 
     return [
         Langevin(bottom, 600.0, damping=0.1, seed=3, name="hot"),
@@ -392,7 +393,7 @@ def test_heat_baths_balance_the_energy(potentials, engine):
 
 
 def test_a_bath_holds_its_temperature(potentials):
-    from mdapy.simulation import Langevin
+    from mdapy.simulation.controls import Langevin
 
     eam, _ = potentials
     system, bottom, _, _ = slab()
@@ -421,7 +422,7 @@ def test_a_bath_holds_its_temperature(potentials):
 
 
 def test_bath_errors(potentials):
-    from mdapy.simulation import Langevin
+    from mdapy.simulation.controls import Langevin
 
     eam, _ = potentials
     system, bottom, top, _ = slab()

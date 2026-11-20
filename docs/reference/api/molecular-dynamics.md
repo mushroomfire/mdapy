@@ -8,20 +8,22 @@
 
 ## Controls
 
-::: mdapy.simulation.Hold
+`from mdapy.simulation.controls import ...`
 
-::: mdapy.simulation.Move
+::: mdapy.simulation.controls.Hold
 
-::: mdapy.simulation.AddForce
+::: mdapy.simulation.controls.Move
 
-::: mdapy.simulation.Langevin
+::: mdapy.simulation.controls.AddForce
 
-::: mdapy.simulation.Deform
+::: mdapy.simulation.controls.Langevin
 
-::: mdapy.simulation.AdaptiveTimestep
+::: mdapy.simulation.controls.Deform
 
-::: mdapy.simulation.Switch
+::: mdapy.simulation.controls.AdaptiveTimestep
 
-::: mdapy.simulation.Wall
+::: mdapy.simulation.controls.Switch
 
-::: mdapy.simulation.Indenter
+::: mdapy.simulation.controls.Wall
+
+::: mdapy.simulation.controls.Indenter

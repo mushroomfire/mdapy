@@ -197,7 +197,7 @@
   lines that start with `#`, which `numpy.loadtxt` reads back. See
   [Molecular dynamics](../user-guide/simulation/records.md#log).
 - The GPU part of MDAPY is a package of its own on PyPI, `mdapy-cuda12`, built with
-  CUDA 12 for Linux on x86-64 and NVIDIA GPUs from the V100 on:
+  CUDA 12 for Linux on x86-64 and ARM and NVIDIA GPUs from the V100 on:
   `pip install "mdapy[cuda12]"` installs it at the version of MDAPY, and it needs only
   the driver of the GPU, 525 or newer. MDAPY built from its source with the CUDA
   toolkit holds its own, which comes first; `show_versions` names the GPU part in use.

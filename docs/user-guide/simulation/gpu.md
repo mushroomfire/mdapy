@@ -67,17 +67,19 @@ lets it drift by less than 0.1 µeV per atom per ps.*
 ## Installing the GPU part
 
 The GPU part of MDAPY is a package of its own, `mdapy-cuda12`, built with CUDA 12 for
-Linux on x86-64, which pip installs with MDAPY at its version:
+Linux on x86-64 and on ARM (aarch64, as the GH200), which pip installs with MDAPY at its
+version:
 
 ```bash
 pip install "mdapy[cuda12]"
 ```
 
 It runs on NVIDIA GPUs from the V100 on (compute capability 7.0: V100, T4, A100, the
-RTX 20, 30, 40 and 50 series, L40, H100, B200) with the driver of the GPU, 525 or
-newer; the CUDA runtime is linked into it, so no CUDA toolkit is needed.
+RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
+or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
+into it, and newer drivers run it too.
 `mdapy.show_versions()` names the GPU part and the GPU it found, in its row
-`GPU part`. Where there is no such package, on Windows or on ARM, or for CUDA 13,
+`GPU part`. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
 and 13.5), which puts the GPU part in MDAPY itself, as the module `mdapy._cuda`:
 

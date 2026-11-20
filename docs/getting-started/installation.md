@@ -90,8 +90,8 @@ without a GPU, pictures are traced on the processor.
 ## Potentials and dynamics on an NVIDIA GPU
 
 [Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
-need the GPU part of MDAPY, the package `mdapy-cuda12` on Linux on x86-64, for NVIDIA
-GPUs from the V100 on with a driver of version 525 or newer:
+need the GPU part of MDAPY, the package `mdapy-cuda12` on Linux on x86-64 and ARM, for
+NVIDIA GPUs from the V100 on with a driver of version 525 or newer:
 
 ```bash
 pip install "mdapy[cuda12]"

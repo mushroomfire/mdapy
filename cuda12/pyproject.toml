@@ -21,6 +21,8 @@ classifiers = [
     "Environment :: GPU :: NVIDIA CUDA :: 12",
     "Intended Audience :: Science/Research",
     "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Physics",
     "Programming Language :: C++",
     "Programming Language :: Python :: 3",

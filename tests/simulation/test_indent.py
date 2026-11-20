@@ -109,6 +109,12 @@ def test_the_same_runs_as_lammps(potentials, lammps_constants, case):  # noqa: F
     )
     assert np.abs(force).max() > 0.1  # it touched the atoms
     assert tb["tip_force"][-1] is None  # not in the run after it
+    # the stress of the atoms, whose virial leaves the indenter out, times
+    # the volume: LAMMPS's box follows the atoms out of it only when it builds
+    # its neighbor lists, MDAPY's at each record
+    sa, sb = (np.stack(t["stress"].to_numpy()) * t["volume"].to_numpy()[:, None]
+              for t in (ta, tb))  # fmt: skip
+    np.testing.assert_allclose(sa, sb, rtol=0, atol=1e-6 * np.abs(sb).max())
 
 
 def gas(positions, pbc=(True, True, False)):

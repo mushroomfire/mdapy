@@ -131,18 +131,6 @@
   color: var(--md-primary-fg-color);
   text-decoration: underline;
 }
-/* the simulation, a chain: relaxation, then the two methods that start
-   from a relaxed crystal */
-.md-typeset .feature-chain {
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) minmax(0, 1fr);
-}
-.md-typeset .feature-chain > p:has(.feature-arrow) {
-  align-items: center;
-}
-.md-typeset .feature-arrow {
-  color: var(--md-default-fg-color--lighter);
-  font-size: 0.9rem;
-}
 @media screen and (max-width: 37.5em) {
   .md-typeset .feature-stage {
     grid-template-columns: minmax(0, 1fr);
@@ -150,17 +138,6 @@
   }
   .md-typeset .feature-stage + .feature-stage {
     margin-top: 0.4rem;
-  }
-  .md-typeset .feature-chain {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .md-typeset .feature-chain > p:has(.feature-arrow) {
-    justify-content: center;
-  }
-  .md-typeset .feature-arrow {
-    display: inline-block;
-    transform: rotate(90deg);
-    line-height: 1;
   }
 }
 
@@ -173,4 +150,16 @@
 .md-banner--warning a:hover {
   color: var(--md-primary-bg-color);
   text-decoration: underline;
+}
+
+/* where a feature of molecular dynamics runs, under the title of its page */
+.md-typeset p.runs-on {
+  margin-top: -0.6em;
+  padding: 0.35em 0.8em;
+  border-left: 2px solid var(--md-default-fg-color--lighter);
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+}
+.md-typeset p.runs-on strong {
+  color: var(--md-default-fg-color);
 }

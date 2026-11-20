@@ -13,21 +13,21 @@
         <link rel="canonical" href="https://mushroomfire.github.io/mdapy/dev/examples/molecular-dynamics/">
       
       
-        <link rel="prev" href="../elastic-anisotropy/">
+        <link rel="prev" href="../shock/">
       
       
-        <link rel="next" href="../cluster-melting/">
+        <link rel="next" href="../defect-energies/">
       
       
         
       
       
       <link rel="icon" href="../../assets/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+      <meta name="generator" content="mkdocs-ProperDocs 1.6.7, mkdocs-material-9.8.2">
     
     
       
-        <title>Molecular dynamics through LAMMPS - MDAPY</title>
+        <title>Running LAMMPS from MDAPY - MDAPY</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#molecular-dynamics-through-lammps" class="md-skip">
+        <a href="#running-lammps-from-mdapy" class="md-skip">
           Skip to content
         </a>
       
@@ -129,7 +129,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Molecular dynamics through LAMMPS
+              Running LAMMPS from MDAPY
             
           </span>
         </div>
@@ -274,6 +274,8 @@
           
   
   
+    
+  
   Getting started
 
         </a>
@@ -303,6 +305,8 @@
         <a href="../../basics/system/" class="md-tabs__link">
           
   
+  
+    
   
   Basics
 
@@ -337,6 +341,8 @@
         <a href="../two-phase-polycrystal/" class="md-tabs__link">
           
   
+  
+    
   
   Examples
 
@@ -375,6 +381,8 @@
           
   
   
+    
+  
   User guide
 
         </a>
@@ -400,6 +408,8 @@
         <a href="../../performance/comparison/" class="md-tabs__link">
           
   
+  
+    
   
   Performance
 
@@ -428,6 +438,8 @@
           
   
   
+    
+  
   Reference
 
         </a>
@@ -450,6 +462,8 @@
         <a href="../../about/release-notes/" class="md-tabs__link">
           
   
+  
+    
   
   About
 
@@ -538,6 +552,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -589,6 +609,14 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -733,6 +761,22 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -997,6 +1041,14 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -1048,6 +1100,22 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1305,6 +1373,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -1420,6 +1494,12 @@
   
   
     
+    
+      
+        
+      
+        
+      
     
     
     
@@ -1546,6 +1626,20 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -1600,6 +1694,18 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -1806,6 +1912,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -1831,7 +1947,7 @@
   <span class="md-ellipsis">
     
   
-    Simulation
+    Molecular dynamics
   
 
     
@@ -1847,7 +1963,296 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Simulation
+    Molecular dynamics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cluster-melting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A copper cluster melting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../radiation-cascade/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A collision cascade in tungsten
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../shock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A shock wave in copper
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running LAMMPS from MDAPY
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Running LAMMPS from MDAPY
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#heating-until-it-melts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Heating until it melts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#stretching-at-constant-temperature" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Stretching at constant temperature
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-does" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it does
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-it-is-not-made-for" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What it is not made for
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#several-threads-and-gpus-with-kokkos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several threads and GPUs with Kokkos
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Properties
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Properties
   
 
           </label>
@@ -1941,276 +2346,6 @@
                 
   
   
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Molecular dynamics through LAMMPS
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Molecular dynamics through LAMMPS
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#heating-until-it-melts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Heating until it melts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#stretching-at-constant-temperature" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Stretching at constant temperature
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-does" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it does
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#what-it-is-not-made-for" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        What it is not made for
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#several-threads-and-gpus-with-kokkos" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Several threads and GPUs with Kokkos
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../cluster-melting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    A copper cluster melting in MDAPY
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../radiation-cascade/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    A collision cascade in tungsten
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../shock/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    A shock wave in copper
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../crconi/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    A machine-learned potential for CrCoNi
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../aluminium-training/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Generated training sets for aluminium
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
   
   
     <li class="md-nav__item">
@@ -2279,6 +2414,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -2294,10 +2435,137 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
         
           
-          <label class="md-nav__link" for="__nav_4_3" id="__nav_4_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Machine-learned potentials
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Machine-learned potentials
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../crconi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A machine-learned potential for CrCoNi
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../aluminium-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated training sets for aluminium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+          
+          
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_4_5" id="__nav_4_5_label" tabindex="">
             
   
   
@@ -2315,8 +2583,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_3">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2426,6 +2694,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -2441,10 +2715,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4_6" >
         
           
-          <label class="md-nav__link" for="__nav_4_4" id="__nav_4_4_label" tabindex="">
+          <label class="md-nav__link" for="__nav_4_6" id="__nav_4_6_label" tabindex="">
             
   
   
@@ -2462,8 +2736,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_4_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2552,6 +2826,26 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -2604,6 +2898,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -2655,6 +2959,14 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -2800,6 +3112,14 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -2944,6 +3264,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -3059,6 +3385,20 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3296,6 +3636,22 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -3375,6 +3731,28 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -3715,6 +4093,30 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -4084,6 +4486,24 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -4368,6 +4788,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -4539,6 +4969,20 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -4768,6 +5212,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -4948,6 +5402,28 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -4970,7 +5446,7 @@
   <span class="md-ellipsis">
     
   
-    Simulation
+    Potentials
   
 
     
@@ -4986,59 +5462,7 @@
             <span class="md-nav__icon md-icon"></span>
             
   
-    Simulation
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_1" >
-        
-          
-          <label class="md-nav__link" for="__nav_5_3_1" id="__nav_5_3_1_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Calculators
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_1_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_1">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Calculators
+    Potentials
   
 
           </label>
@@ -5051,7 +5475,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/calculators/" class="md-nav__link">
+      <a href="../../user-guide/potentials/calculators/" class="md-nav__link">
         
   
   
@@ -5079,7 +5503,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/eam/" class="md-nav__link">
+      <a href="../../user-guide/potentials/eam/" class="md-nav__link">
         
   
   
@@ -5107,7 +5531,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/meam/" class="md-nav__link">
+      <a href="../../user-guide/potentials/meam/" class="md-nav__link">
         
   
   
@@ -5135,7 +5559,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/adp/" class="md-nav__link">
+      <a href="../../user-guide/potentials/adp/" class="md-nav__link">
         
   
   
@@ -5163,7 +5587,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/tersoff/" class="md-nav__link">
+      <a href="../../user-guide/potentials/tersoff/" class="md-nav__link">
         
   
   
@@ -5191,7 +5615,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/stillinger-weber/" class="md-nav__link">
+      <a href="../../user-guide/potentials/stillinger-weber/" class="md-nav__link">
         
   
   
@@ -5219,7 +5643,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/pair-potentials/" class="md-nav__link">
+      <a href="../../user-guide/potentials/pair-potentials/" class="md-nav__link">
         
   
   
@@ -5247,7 +5671,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/nep/" class="md-nav__link">
+      <a href="../../user-guide/potentials/nep/" class="md-nav__link">
         
   
   
@@ -5275,7 +5699,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/lammps/" class="md-nav__link">
+      <a href="../../user-guide/potentials/lammps/" class="md-nav__link">
         
   
   
@@ -5303,7 +5727,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/vasp/" class="md-nav__link">
+      <a href="../../user-guide/potentials/vasp/" class="md-nav__link">
         
   
   
@@ -5340,6 +5764,20 @@
   
     
     
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -5352,17 +5790,90 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_2" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_2" id="__nav_5_3_2_label" tabindex="0">
+          <div class="md-nav__link md-nav__container">
+            <a href="../../user-guide/molecular-dynamics/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Molecular dynamics
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_4_2" id="__nav_5_4_2_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    Relaxation
+    Running
   
 
     
@@ -5373,12 +5884,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_2">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_2">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Relaxation
+    Running
   
 
           </label>
@@ -5391,14 +5902,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/minimize/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/running/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Energy minimization
+    Running molecular dynamics
   
 
     
@@ -5419,14 +5930,98 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/defect-energies/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/ensembles/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Defect energies
+    Ensembles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/molecular-dynamics/records/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Records and frames
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/molecular-dynamics/gpu/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    On the GPU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/molecular-dynamics/in-lammps/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    In LAMMPS
   
 
     
@@ -5456,6 +6051,14 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -5468,17 +6071,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_3" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_3" id="__nav_5_3_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_4_3" id="__nav_5_4_3_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    Molecular dynamics
+    Controls
   
 
     
@@ -5489,12 +6092,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Molecular dynamics
+    Controls
   
 
           </label>
@@ -5507,63 +6110,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/dynamics/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Molecular dynamics
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/simulation/gpu/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    On the GPU
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../user-guide/simulation/controls/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/controls/" class="md-nav__link">
         
   
   
@@ -5591,7 +6138,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/adaptive-timestep/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/adaptive-timestep/" class="md-nav__link">
         
   
   
@@ -5619,7 +6166,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/switching/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/switching/" class="md-nav__link">
         
   
   
@@ -5656,6 +6203,12 @@
   
     
     
+      
+        
+      
+        
+      
+    
     
     
       
@@ -5668,10 +6221,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_4" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_4" id="__nav_5_3_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_4_4" id="__nav_5_4_4_label" tabindex="0">
             
   
   
@@ -5689,8 +6242,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_4">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5707,7 +6260,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/deformation/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/deformation/" class="md-nav__link">
         
   
   
@@ -5735,7 +6288,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/indentation/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/indentation/" class="md-nav__link">
         
   
   
@@ -5772,6 +6325,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -5784,10 +6347,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4_5" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_5" id="__nav_5_3_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_4_5" id="__nav_5_4_5_label" tabindex="0">
             
   
   
@@ -5805,8 +6368,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_5">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_4_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_4_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5823,7 +6386,35 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/walls/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/shock/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Choosing a method
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/molecular-dynamics/walls/" class="md-nav__link">
         
   
   
@@ -5851,7 +6442,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/hugoniostat/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/hugoniostat/" class="md-nav__link">
         
   
   
@@ -5879,7 +6470,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/msst/" class="md-nav__link">
+      <a href="../../user-guide/molecular-dynamics/msst/" class="md-nav__link">
         
   
   
@@ -5887,6 +6478,198 @@
     
   
     Multiscale shock technique
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Properties
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Properties
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_5_5_1" id="__nav_5_5_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Relaxation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Relaxation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/properties/minimize/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Energy minimization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/properties/defect-energies/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Defect energies
   
 
     
@@ -5916,6 +6699,26 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -5928,10 +6731,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_2" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_6" id="__nav_5_3_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_2" id="__nav_5_5_2_label" tabindex="0">
             
   
   
@@ -5949,8 +6752,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_6">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_2">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -5967,7 +6770,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/elastic-constants/" class="md-nav__link">
+      <a href="../../user-guide/properties/elastic-constants/" class="md-nav__link">
         
   
   
@@ -5995,7 +6798,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/thermal-elastic/" class="md-nav__link">
+      <a href="../../user-guide/properties/thermal-elastic/" class="md-nav__link">
         
   
   
@@ -6023,7 +6826,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/md-elastic/" class="md-nav__link">
+      <a href="../../user-guide/properties/md-elastic/" class="md-nav__link">
         
   
   
@@ -6051,7 +6854,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/phonons/" class="md-nav__link">
+      <a href="../../user-guide/properties/phonons/" class="md-nav__link">
         
   
   
@@ -6079,7 +6882,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/force-constants/" class="md-nav__link">
+      <a href="../../user-guide/properties/force-constants/" class="md-nav__link">
         
   
   
@@ -6107,7 +6910,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/bond-stiffness/" class="md-nav__link">
+      <a href="../../user-guide/properties/bond-stiffness/" class="md-nav__link">
         
   
   
@@ -6135,7 +6938,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/thermal-phonons/" class="md-nav__link">
+      <a href="../../user-guide/properties/thermal-phonons/" class="md-nav__link">
         
   
   
@@ -6163,7 +6966,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/quasi-harmonic/" class="md-nav__link">
+      <a href="../../user-guide/properties/quasi-harmonic/" class="md-nav__link">
         
   
   
@@ -6191,7 +6994,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/sheets/" class="md-nav__link">
+      <a href="../../user-guide/properties/sheets/" class="md-nav__link">
         
   
   
@@ -6228,6 +7031,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -6240,10 +7053,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_3" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_7" id="__nav_5_3_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_3" id="__nav_5_5_3_label" tabindex="0">
             
   
   
@@ -6261,8 +7074,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_7">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_3">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6279,7 +7092,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/thermal-conductivity/" class="md-nav__link">
+      <a href="../../user-guide/properties/thermal-conductivity/" class="md-nav__link">
         
   
   
@@ -6307,7 +7120,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/green-kubo/" class="md-nav__link">
+      <a href="../../user-guide/properties/green-kubo/" class="md-nav__link">
         
   
   
@@ -6335,7 +7148,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/hnemd/" class="md-nav__link">
+      <a href="../../user-guide/properties/hnemd/" class="md-nav__link">
         
   
   
@@ -6363,7 +7176,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/nemd/" class="md-nav__link">
+      <a href="../../user-guide/properties/nemd/" class="md-nav__link">
         
   
   
@@ -6400,6 +7213,18 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -6412,10 +7237,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_3_8" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_4" >
         
           
-          <label class="md-nav__link" for="__nav_5_3_8" id="__nav_5_3_8_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_4" id="__nav_5_5_4_label" tabindex="0">
             
   
   
@@ -6433,8 +7258,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_3_8_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_3_8">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6451,7 +7276,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/free-energy/" class="md-nav__link">
+      <a href="../../user-guide/properties/free-energy/" class="md-nav__link">
         
   
   
@@ -6479,7 +7304,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/melting-point/" class="md-nav__link">
+      <a href="../../user-guide/properties/melting-point/" class="md-nav__link">
         
   
   
@@ -6507,7 +7332,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/phase-diagram/" class="md-nav__link">
+      <a href="../../user-guide/properties/phase-diagram/" class="md-nav__link">
         
   
   
@@ -6535,7 +7360,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/pressure-temperature/" class="md-nav__link">
+      <a href="../../user-guide/properties/pressure-temperature/" class="md-nav__link">
         
   
   
@@ -6563,7 +7388,7 @@
   
   
     <li class="md-nav__item">
-      <a href="../../user-guide/simulation/stacking-fault-temperature/" class="md-nav__link">
+      <a href="../../user-guide/properties/stacking-fault-temperature/" class="md-nav__link">
         
   
   
@@ -6608,6 +7433,26 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -6620,10 +7465,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
         
           
-          <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
             
   
   
@@ -6641,8 +7486,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_4">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -6920,6 +7765,18 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -6932,10 +7789,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
         
           
-          <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
             
   
   
@@ -6953,8 +7810,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_7">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7120,6 +7977,14 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -7132,10 +7997,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_8" >
         
           
-          <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
             
   
   
@@ -7153,8 +8018,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_6">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7264,6 +8129,24 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -7276,10 +8159,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_9" >
         
           
-          <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_9" id="__nav_5_9_label" tabindex="0">
             
   
   
@@ -7297,8 +8180,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_7">
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_9">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7555,6 +8438,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -7726,6 +8619,14 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -7778,6 +8679,34 @@
   
     
     
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -7793,8 +8722,9 @@
         <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
         
           
-          <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../reference/api/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
@@ -7808,8 +8738,14 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
         <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_7_1">
@@ -7822,32 +8758,6 @@
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
             
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../../reference/api/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Overview
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
               
             
               
@@ -7913,6 +8823,18 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -8112,58 +9034,6 @@
   
   
   
-    
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_5" >
-        
-          
-          <label class="md-nav__link" for="__nav_7_1_5" id="__nav_7_1_5_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Simulation
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7_1_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Simulation
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-  
-  
     <li class="md-nav__item">
       <a href="../../reference/api/calculators/" class="md-nav__link">
         
@@ -8172,7 +9042,7 @@
   <span class="md-ellipsis">
     
   
-    Calculators
+    Potentials
   
 
     
@@ -8193,6 +9063,96 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reference/api/molecular-dynamics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Molecular dynamics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_7" id="__nav_7_1_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Properties
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Properties
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reference/api/relaxation/" class="md-nav__link">
         
   
@@ -8200,7 +9160,7 @@
   <span class="md-ellipsis">
     
   
-    Relaxation and dynamics
+    Relaxation and defect energies
   
 
     
@@ -8229,6 +9189,34 @@
     
   
     Lattice dynamics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/api/thermal-conductivity/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Thermal conductivity
   
 
     
@@ -8434,6 +9422,16 @@
   
     
     
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
     
     
       
@@ -8605,6 +9603,24 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -8896,6 +9912,18 @@
   
   
     
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
     
     
     
@@ -9189,8 +10217,8 @@
   
 
 
-<h1 id="molecular-dynamics-through-lammps">Molecular dynamics through LAMMPS<a class="headerlink" href="#molecular-dynamics-through-lammps" title="Permanent link">&para;</a></h1>
-<p><a href="../../user-guide/simulation/dynamics/"><code>MolecularDynamics</code></a> runs molecular dynamics in
+<h1 id="running-lammps-from-mdapy">Running LAMMPS from MDAPY<a class="headerlink" href="#running-lammps-from-mdapy" title="Permanent link">&para;</a></h1>
+<p><a href="../../user-guide/molecular-dynamics/running/"><code>MolecularDynamics</code></a> runs molecular dynamics in
 LAMMPS from Python: the atoms come from a <code>System</code>, LAMMPS moves them, and MDAPY
 keeps the thermodynamic state and the atoms along the way, which its analyses read
 as they are. This page heats copper until it melts and stretches it at two
@@ -9198,7 +10226,7 @@ temperatures, then says what the interface is not made for, and how to run LAMMP
 on several threads or a GPU with Kokkos.</p>
 <p>It needs the Python module of LAMMPS, built with the styles of the potential, as the
 <a href="https://docs.lammps.org/Python_install.html">LAMMPS documentation</a> describes. The
-potential is a <a href="../../user-guide/simulation/lammps/">LAMMPS calculator</a>: any
+potential is a <a href="../../user-guide/potentials/lammps/">LAMMPS calculator</a>: any
 interaction that LAMMPS computes in metal units. Here, the EAM potential of Zhou et
 al. for copper, which MDAPY writes as a file for LAMMPS:</p>
 <!-- skip-test -->
@@ -9268,10 +10296,10 @@ crystal melts. c: the atoms in solid surroundings, by their bonds of q6.</em></p
 <p>The crystal melts at about 1550 K. Without a surface to start from, a crystal melts only
 well above its melting point, and heated at 19 K/ps it has little time to do so; the
 temperature at which the solid and the liquid coexist is the melting point, which
-<a href="../../user-guide/simulation/melting-point/"><code>melting_point</code></a> finds from a box that
+<a href="../../user-guide/properties/melting-point/"><code>melting_point</code></a> finds from a box that
 holds both.</p>
 <h2 id="stretching-at-constant-temperature">Stretching at constant temperature<a class="headerlink" href="#stretching-at-constant-temperature" title="Permanent link">&para;</a></h2>
-<p>A <a href="../../user-guide/simulation/deformation/"><code>Deform</code></a> among the <code>controls</code> of <code>run</code>
+<p>A <a href="../../user-guide/molecular-dynamics/deformation/"><code>Deform</code></a> among the <code>controls</code> of <code>run</code>
 stretches the box along x by 0.1 % per ps, to 10 %, at 1 K and at 300 K, after the box
 has relaxed at zero pressure; in LAMMPS it is <code>fix deform</code>:</p>
 <!-- skip-test -->
@@ -9351,7 +10379,7 @@ stress, with y and z free under zero pressure, <code>ensemble="npt"</code> with 
 </tr>
 <tr>
 <td>Let the box change shape</td>
-<td><code>barostat="aniso"</code> along each axis, <code>"tri"</code> in any way, <code>"xy"</code> in the plane of a <a href="../../user-guide/simulation/sheets/">sheet</a></td>
+<td><code>barostat="aniso"</code> along each axis, <code>"tri"</code> in any way, <code>"xy"</code> in the plane of a <a href="../../user-guide/properties/sheets/">sheet</a></td>
 </tr>
 <tr>
 <td>Keep the atoms for analysis</td>
@@ -9359,11 +10387,11 @@ stress, with y and z free under zero pressure, <code>ensemble="npt"</code> with 
 </tr>
 <tr>
 <td>Go on from the end</td>
-<td><code>md.system</code> holds the atoms, with velocities and images, for <a href="../../user-guide/simulation/minimize/"><code>minimize</code></a>, an analysis or a file</td>
+<td><code>md.system</code> holds the atoms, with velocities and images, for <a href="../../user-guide/properties/minimize/"><code>minimize</code></a>, an analysis or a file</td>
 </tr>
 <tr>
 <td>Hold, move, push or heat groups of atoms, deform the box</td>
-<td><code>controls=</code> of <code>run</code>: <code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code> and <code>Deform</code>, which become the fixes of LAMMPS (<a href="../../user-guide/simulation/controls/">Groups and controls</a>)</td>
+<td><code>controls=</code> of <code>run</code>: <code>Hold</code>, <code>Move</code>, <code>AddForce</code>, <code>Langevin</code> and <code>Deform</code>, which become the fixes of LAMMPS (<a href="../../user-guide/molecular-dynamics/controls/">Groups and controls</a>)</td>
 </tr>
 <tr>
 <td>Add a fix or a compute of LAMMPS</td>
@@ -9376,12 +10404,12 @@ stress, with y and z free under zero pressure, <code>ensemble="npt"</code> with 
 </tbody>
 </table>
 <p>Several functions of MDAPY run their molecular dynamics this way:
-<a href="../../user-guide/simulation/md-elastic/">elastic constants</a>,
-<a href="../../user-guide/simulation/free-energy/">free energies</a>,
-<a href="../../user-guide/simulation/melting-point/">melting points</a>,
-<a href="../../user-guide/simulation/pressure-temperature/">pressure–temperature diagrams</a> and
-<a href="../../user-guide/simulation/stacking-fault-temperature/">stacking faults at a temperature</a>;
-<a href="../../user-guide/simulation/thermal-phonons/">phonons at a temperature</a> run theirs in
+<a href="../../user-guide/properties/md-elastic/">elastic constants</a>,
+<a href="../../user-guide/properties/free-energy/">free energies</a>,
+<a href="../../user-guide/properties/melting-point/">melting points</a>,
+<a href="../../user-guide/properties/pressure-temperature/">pressure–temperature diagrams</a> and
+<a href="../../user-guide/properties/stacking-fault-temperature/">stacking faults at a temperature</a>;
+<a href="../../user-guide/properties/thermal-phonons/">phonons at a temperature</a> run theirs in
 MDAPY, or in LAMMPS for a LAMMPS calculator.</p>
 <h2 id="what-it-is-not-made-for">What it is not made for<a class="headerlink" href="#what-it-is-not-made-for" title="Permanent link">&para;</a></h2>
 <table>
@@ -9416,7 +10444,7 @@ MDAPY, or in LAMMPS for a LAMMPS calculator.</p>
 <tr>
 <td>Many frames of a large system in <code>frames</code></td>
 <td><code>frames</code> stay in memory</td>
-<td><code>mdapy.io.write(path, md.iterate(...))</code>, which writes them as the run goes (<a href="../../user-guide/simulation/dynamics/#frames-in-files">Frames in files</a>), or <code>md.command("dump ...")</code>; read with <code>mdapy.io.read_trajectory</code></td>
+<td><code>mdapy.io.write(path, md.iterate(...))</code>, which writes them as the run goes (<a href="../../user-guide/molecular-dynamics/records/#frames-in-files">Frames in files</a>), or <code>md.command("dump ...")</code>; read with <code>mdapy.io.read_trajectory</code></td>
 </tr>
 </tbody>
 </table>
@@ -9496,7 +10524,7 @@ on a GPU in this way, with <code>pair_style nep/kk</code>.</p>
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../elastic-anisotropy/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Elastic anisotropy of copper and titanium">
+          <a href="../shock/" class="md-footer__link md-footer__link--prev" aria-label="Previous: A shock wave in copper">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -9506,20 +10534,20 @@ on a GPU in this way, with <code>pair_style nep/kk</code>.</p>
                 Previous
               </span>
               <div class="md-ellipsis">
-                Elastic anisotropy of copper and titanium
+                A shock wave in copper
               </div>
             </div>
           </a>
         
         
           
-          <a href="../cluster-melting/" class="md-footer__link md-footer__link--next" aria-label="Next: A copper cluster melting in MDAPY">
+          <a href="../defect-energies/" class="md-footer__link md-footer__link--next" aria-label="Next: Defect energies of copper">
             <div class="md-footer__title">
               <span class="md-footer__direction">
                 Next
               </span>
               <div class="md-ellipsis">
-                A copper cluster melting in MDAPY
+                Defect energies of copper
               </div>
             </div>
             <div class="md-footer__button md-icon">
@@ -9560,7 +10588,7 @@ on a GPU in this way, with <code>pair_style nep/kk</code>.</p>
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.tabs", "navigation.sections", "navigation.indexes", "navigation.top", "navigation.footer", "search.suggest", "search.highlight", "content.code.copy", "toc.follow"], "search": "../../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": "latest", "provider": "mike"}}</script>
     
     
       <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>

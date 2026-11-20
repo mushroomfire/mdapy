@@ -11,10 +11,12 @@ import numpy as np
 import pytest
 
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM
+from mdapy.calculators import EAM, _gpu
 from mdapy.simulation import minimize, neb
 
-cuda = pytest.importorskip("mdapy._cuda")
+cuda = _gpu.module()
+if cuda is None:
+    pytest.skip("no GPU part of MDAPY", allow_module_level=True)
 try:
     cuda.device_name()
 except RuntimeError:

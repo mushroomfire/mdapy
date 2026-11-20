@@ -27,6 +27,9 @@ from pathlib import Path
 import conftest
 import pytest
 
+from mdapy.calculators import _gpu
+from mdapy.errors import InvalidParameter
+
 DOCS = Path(__file__).resolve().parents[1] / "docs"
 BLOCK = re.compile(
     r"(?P<before>[^\n]*)\n```python[^\n]*\n(?P<code>.*?)\n```", re.DOTALL
@@ -186,7 +189,13 @@ def test_the_files_the_readme_points_to_exist():
 @pytest.mark.parametrize("page", PAGES, ids=lambda p: str(p.relative_to(DOCS)))
 def test_examples_run(page, tmp_path, monkeypatch):
     for module in NEEDS.findall(page.read_text(encoding="utf-8")):
-        pytest.importorskip(module)
+        if module == "gpu":  # the GPU part of MDAPY, and a GPU
+            try:
+                _gpu.cuda()
+            except InvalidParameter as error:
+                pytest.skip(str(error))
+        else:
+            pytest.importorskip(module)
     for folder in FILES.findall(page.read_text(encoding="utf-8")):
         shutil.copytree(page.parent / folder, tmp_path, dirs_exist_ok=True)
     (tmp_path / "images").mkdir(exist_ok=True)

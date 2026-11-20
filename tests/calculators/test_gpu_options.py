@@ -3,6 +3,7 @@ GPU does with the module of the GPU, here a stand-in that computes on the
 processor; tests/cuda compares the GPU itself with the processor."""
 
 import sys
+import types
 
 import numpy as np
 import pytest
@@ -35,7 +36,7 @@ def test_without_the_gpu_part():
     try:
         import mdapy._cuda  # noqa: F401
     except ImportError:
-        with pytest.raises(InvalidParameter, match="built without its GPU part"):
+        with pytest.raises(InvalidParameter, match="has no GPU part"):
             EAM.zhou(["Cu"], device="cuda")
     else:
         pytest.skip("the GPU part is there")
@@ -156,3 +157,57 @@ def test_no_device(monkeypatch):
     found = stand_in()
     monkeypatch.setattr(mdapy, "_cuda", found)
     assert _gpu.cuda() is found
+
+
+def plugin(version: str, found: bool = True) -> types.ModuleType:
+    """A stand-in for the package mdapy-cuda12 of a version."""
+    package = types.ModuleType("mdapy_cuda12")
+    package.__version__ = version
+    package._cuda = stand_in(found=found)
+    package._cuda.__name__ = "mdapy_cuda12._cuda"
+    return package
+
+
+def test_the_gpu_part_of_mdapy_cuda12(monkeypatch):
+    import mdapy
+
+    monkeypatch.setitem(sys.modules, "mdapy._cuda", None)  # not built in
+    monkeypatch.delattr(mdapy, "_cuda", raising=False)
+    package = plugin(mdapy.__version__)
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", package)
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12._cuda", package._cuda)
+    assert _gpu.module() is package._cuda
+    assert _gpu.cuda() is package._cuda
+    assert mdapy.core.versions._gpu_part().startswith("mdapy-cuda12; ")
+    # without a device
+    package = plugin(mdapy.__version__, found=False)
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", package)
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12._cuda", package._cuda)
+    with pytest.raises(InvalidParameter, match="no CUDA device"):
+        _gpu.cuda()
+    assert "no CUDA device" in mdapy.core.versions._gpu_part()
+    # of another version of MDAPY
+    other = plugin("1.0.0")
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", other)
+    with pytest.raises(
+        InvalidParameter, match=r"mdapy-cuda12 1\.0\.0 is not the GPU part"
+    ):
+        EAM.zhou(["Cu"], device="cuda")
+    assert "--upgrade" in mdapy.core.versions._gpu_part()
+    # neither
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", None)
+    assert _gpu.module() is None
+    with pytest.raises(InvalidParameter, match='pip install "mdapy\\[cuda12\\]"'):
+        _gpu.cuda()
+    assert mdapy.core.versions._gpu_part() == "none"
+
+
+def test_the_gpu_part_built_with_mdapy(monkeypatch):
+    import mdapy
+
+    found = stand_in()
+    found.__name__ = "mdapy._cuda"
+    monkeypatch.setitem(sys.modules, "mdapy._cuda", found)
+    monkeypatch.setattr(mdapy, "_cuda", found, raising=False)
+    assert _gpu.module() is found
+    assert mdapy.core.versions._gpu_part().startswith("built with MDAPY; ")

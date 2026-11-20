@@ -24,6 +24,7 @@ _OPTIONAL = (
     "freud-analysis",
     "lammps",
     "matplotlib",
+    "mdapy-cuda12",
     "ovito",
     "pymatgen-core",
     "seekpath",
@@ -50,6 +51,25 @@ def _glibc() -> tuple[tuple[str, str], ...]:
     ):  # Windows has no confstr, macOS no name
         return ()
     return (("glibc", found.split()[-1]),) if found else ()
+
+
+def _gpu_part() -> str:
+    """Where the GPU part of MDAPY comes from, and the GPU it runs on."""
+    from mdapy.calculators import _gpu
+    from mdapy.errors import InvalidParameter
+
+    try:
+        found = _gpu.module()
+    except InvalidParameter as error:  # another version of mdapy-cuda12
+        return str(error)
+    if found is None:
+        return "none"
+    where = "built with MDAPY" if found.__name__ == "mdapy._cuda" else "mdapy-cuda12"
+    try:
+        device = found.device_name()
+    except RuntimeError as error:
+        device = str(error)
+    return f"{where}; {device}"
 
 
 def show_versions(file: TextIO | None = None) -> None:
@@ -80,6 +100,7 @@ def show_versions(file: TextIO | None = None) -> None:
             ("MDAPY threads", str(get_num_threads())),
             ("Memory", f"{memory / 2**30:.1f} GB" if memory else "unknown"),
             ("GPU", _core.visualization.gpu_device() or "none found"),
+            ("GPU part", _gpu_part()),
             ("FFmpeg", "found" if shutil.which("ffmpeg") else "not found"),
         ),
         (

@@ -1,0 +1,59 @@
+# The package mdapy-cuda12: the GPU part of MDAPY alone, built with CUDA 12 from
+# the sources of MDAPY one directory up, for the wheels of MDAPY, which hold
+# none. Users install it with pip install "mdapy[cuda12]", at the version of
+# MDAPY; MDAPY loads it for calculators given device="cuda".
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mdapy-cuda12"
+dynamic = ["version"]
+description = "The GPU part of MDAPY, with CUDA 12"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MPL-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: GPU :: NVIDIA CUDA :: 12",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/mushroomfire/mdapy"
+Documentation = "https://mushroomfire.github.io/mdapy/user-guide/simulation/gpu/"
+Issues = "https://github.com/mushroomfire/mdapy/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.source-dir = ".."
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp312"
+wheel.packages = ["mdapy_cuda12"]
+cmake.build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+MDAPY_CUDA_ONLY = "ON"
+MDAPY_CUDA_LINEINFO = "OFF"
+# the machine code of the V100, T4, A100, RTX 30 and A-series, RTX 40 and L40,
+# H100, B200 and RTX 50, and the PTX of the last for GPUs to come
+CMAKE_CUDA_ARCHITECTURES = "70-real;75-real;80-real;86-real;89-real;90-real;100-real;120-real;120-virtual"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../src/mdapy/__init__.py"
+regex = '__version__ = "(?P<value>[^"]+)"'
+
+[[tool.scikit-build.generate]]
+path = "mdapy_cuda12/_version.py"
+location = "install"
+template = '''
+__version__ = "${version}"
+'''

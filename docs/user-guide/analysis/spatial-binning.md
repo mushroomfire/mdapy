@@ -135,11 +135,11 @@ its temperature.
 
 ## Fixed bins
 
-The bins divide the box, so they change with it, and along a direction that is not
-periodic they leave out the atoms outside it: those that
-[molecular dynamics](../molecular-dynamics/running.md) takes beyond the box, as when a
-shock reaches a free surface and the crystal releases or spalls. `bounds` fixes the
-range of each axis instead, in Å from (0, 0, 0) along its
+The bins divide the box, so they change with it: along a direction that is not
+periodic, the box of [molecular dynamics](../molecular-dynamics/running.md#parameters)
+grows with the atoms that leave it, as when a shock reaches a free surface and the
+crystal releases or spalls, and the bins of each frame differ. `bounds` fixes the range
+of each axis instead, in Å from (0, 0, 0) along its
 box vector, the coordinate itself for a box vector along x, y or z, so that the bins of
 every frame are the same, wherever the box is; atoms outside the range are left out.
 Slabs of 4 Å from z = −20 to 120 Å, beyond the copper above, which is 87 Å high:

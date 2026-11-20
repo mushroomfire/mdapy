@@ -50,9 +50,10 @@ Python module, installed as the
 type and the command-line arguments of LAMMPS, such as those of Kokkos. The
 box may have any orientation and need not be periodic: LAMMPS gets it rotated
 into its own form, its non-periodic directions shrink-wrapped but never
-smaller than the box of `system`, and everything comes back in the
+smaller than the box of `system` (boundary `m`), and everything comes back in the
 orientation of `system`. MDAPY's own dynamics works in the same form of the
-box.
+box, and gives the box grown as LAMMPS grows it; LAMMPS grows it when it builds its
+neighbor lists again, MDAPY at each record.
 
 ## LAMMPS commands
 

@@ -2,6 +2,11 @@
 
 ## 2.2.0 (not released)
 
+- Along a box vector that is not periodic, the box that MDAPY's own dynamics gives grows
+  to hold the atoms that left it, never smaller than the box given, as LAMMPS's
+  boundary `m` grows it, which the LAMMPS dynamics already did: in `system`, the frames,
+  and the volume and pressure of `thermo`. It stayed as given, with the atoms outside
+  it. See [Running molecular dynamics](../user-guide/molecular-dynamics/running.md#parameters).
 - `SpatialBinning(..., bounds=[(lo, hi)])` bins a fixed range of each axis, in Å along
   its box vector from (0, 0, 0), instead of the box: the same bins in every frame of a
   run whose box changes or whose atoms leave it along a direction that is not periodic,

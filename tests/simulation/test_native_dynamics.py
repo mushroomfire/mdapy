@@ -230,8 +230,13 @@ def test_a_cluster_and_a_sheet(eam):
     with MolecularDynamics(sheet, eam, timestep=0.002) as md:
         md.velocities(300, seed=1)
         md.run(300, ensemble="npt", temperature=300, pressure=0.0, barostat="aniso")
-        box = md.system.box.matrix
-    assert box[2, 2] == 30.0 and box[0, 0] != 12.15
+        end = md.system
+    # the barostat in the plane; across it the box only grows, to the atoms
+    # that went below its face
+    box = end.box.matrix
+    assert box[0, 0] != 12.15 and box[2, 2] >= 30.0
+    fractional = end.box.to_fractional(end["positions"])[:, 2]
+    assert fractional.min() > 0 and fractional.max() < 1
 
 
 def test_an_ase_calculator():
@@ -410,3 +415,36 @@ def test_invalid_iterate(eam):
         md.run(0, save_every=1)
         assert md.thermo["step"].to_list() == [0]
         assert [f.info["timestep"] for f in md.frames] == [0]
+
+
+def test_an_open_box_holds_the_atoms_that_leave_it():
+    """Along a vector that is not periodic the box given grows to hold the
+    atoms that leave it, in the system and the frames, as LAMMPS's boundary m;
+    the periodic vectors stay, and so does a box the atoms stay within."""
+    from mdapy.calculators import LennardJones
+
+    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
+    matrix = crystal.box.matrix.copy()
+    matrix[2] = [1.0, 0.5, 20.0]  # a third vector tilted, with room
+    box = mdapy.Box(matrix, origin=[0.0, 0.0, -5.0], pbc=(True, True, False))
+    within = crystal.with_box(box)
+    with MolecularDynamics(within, lj, timestep=0.002) as md:
+        md.run(50)
+        assert md.system.box == box  # no atom near the faces
+    z = crystal["positions"][:, 2]
+    velocities = np.zeros((len(crystal), 3))
+    velocities[z > z.max() - 1.0, 2] = 30.0
+    flying = within.with_columns(velocities=velocities)
+    with MolecularDynamics(flying, lj, timestep=0.002) as md:
+        md.run(300, save_every=100)
+        frames, end = md.frames, md.system
+    np.testing.assert_allclose(end.box.matrix[:2], matrix[:2])
+    np.testing.assert_allclose(end.box.matrix[2] / np.linalg.norm(end.box.matrix[2]),
+                               matrix[2] / np.linalg.norm(matrix[2]))  # fmt: skip
+    np.testing.assert_allclose(end.box.origin, box.origin)
+    for frame in frames + (end,):
+        f = frame.box.to_fractional(frame["positions"])[:, 2]
+        assert f.min() >= 0 and f.max() < 1
+        assert frame.box.volume >= box.volume
+    assert max(frame.box.matrix[2, 2] for frame in frames + (end,)) > 22.0

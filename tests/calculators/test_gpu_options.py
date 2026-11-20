@@ -28,18 +28,11 @@ def test_device_and_precision():
         Morse({"Cu": (0.3, 1.4, 2.5)}, 6.0, precision="mixed")
 
 
-@pytest.mark.skipif(
-    "mdapy._cuda" in sys.modules or _gpu.__spec__ is None,
-    reason="the GPU part is there",
-)
 def test_without_the_gpu_part():
-    try:
-        import mdapy._cuda  # noqa: F401
-    except ImportError:
-        with pytest.raises(InvalidParameter, match="has no GPU part"):
-            EAM.zhou(["Cu"], device="cuda")
-    else:
+    if _gpu.module() is not None:
         pytest.skip("the GPU part is there")
+    with pytest.raises(InvalidParameter, match="has no GPU part"):
+        EAM.zhou(["Cu"], device="cuda")
 
 
 def test_a_calculator_on_the_gpu(monkeypatch):

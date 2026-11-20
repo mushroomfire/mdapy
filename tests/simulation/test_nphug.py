@@ -17,8 +17,9 @@ import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM, _gpu
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import Langevin, MolecularDynamics
+from mdapy.simulation import MolecularDynamics
 from mdapy.simulation import _integrator as integrator
+from mdapy.simulation.controls import Langevin
 from simulation.test_controls import gap, potentials, slab  # noqa: F401
 
 from calculators.gpu_stand_in import stand_in

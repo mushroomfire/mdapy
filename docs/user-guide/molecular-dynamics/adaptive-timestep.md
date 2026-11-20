@@ -19,7 +19,8 @@ import numpy as np
 from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import AdaptiveTimestep, MolecularDynamics
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import AdaptiveTimestep
 
 copper = EAM.zhou(["Cu"])
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=8)  # 2048 atoms

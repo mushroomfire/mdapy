@@ -4,19 +4,10 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Simulations: energy minimization and the energies of defects with a
-calculator, and molecular dynamics in LAMMPS."""
+calculator, molecular dynamics in MDAPY or in LAMMPS, with its controls in
+``mdapy.simulation.controls``, and free energies, melting points and phase
+diagrams."""
 
-from mdapy.simulation._controls import (
-    AdaptiveTimestep,
-    AddForce,
-    Deform,
-    Hold,
-    Indenter,
-    Langevin,
-    Move,
-    Switch,
-    Wall,
-)
 from mdapy.simulation._defect_energies import (
     StackingFaultResult,
     SurfaceResult,
@@ -52,29 +43,20 @@ from mdapy.simulation._phase_diagram import (
 from mdapy.simulation._velocities import thermal_velocities
 
 __all__ = [
-    "AdaptiveTimestep",
-    "AddForce",
     "BinaryPhaseDiagram",
-    "Deform",
     "FaultFreeEnergyResult",
     "FreeEnergyResult",
-    "Hold",
-    "Indenter",
-    "Langevin",
     "MeltingAttempt",
     "MeltingPointResult",
     "MinimizeResult",
     "MolecularDynamics",
-    "Move",
     "PhaseBoundary",
     "PhaseCoexistence",
     "PressureTemperatureDiagram",
     "StackingFaultResult",
     "SurfaceResult",
-    "Switch",
     "TieLine",
     "VacancyResult",
-    "Wall",
     "binary_phase_diagram",
     "free_energy",
     "melting_point",

@@ -33,7 +33,11 @@ from mdapy.core import Result
 HERE = Path(__file__).resolve().parent
 NOTES = HERE.parents[1] / "docs" / "about" / "release-notes.md"
 #: Public modules beyond the subpackages of mdapy.
-MORE_MODULES = ("mdapy.calculators.testing", "mdapy.visualization.plot")
+MORE_MODULES = (
+    "mdapy.calculators.testing",
+    "mdapy.simulation.controls",
+    "mdapy.visualization.plot",
+)
 
 
 def modules() -> list[str]:

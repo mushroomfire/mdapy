@@ -16,8 +16,9 @@ from mdapy.calculators import ADP, LAMMPS, LennardJones, StillingerWeber, _gpu
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.lattice_dynamics import hnemd
-from mdapy.simulation import Deform, MolecularDynamics
+from mdapy.simulation import MolecularDynamics
 from mdapy.simulation._controls import _HeatField
+from mdapy.simulation.controls import Deform
 
 from calculators.gpu_stand_in import stand_in
 from calculators.potential_files import write_adp, write_sw

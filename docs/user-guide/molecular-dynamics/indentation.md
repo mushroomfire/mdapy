@@ -16,7 +16,8 @@ A sphere of 4 nm pressed into a film of copper at 50 m/s, on a
 import mdapy
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import Hold, Indenter, MolecularDynamics
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import Hold, Indenter
 
 copper = EAM.zhou(["Cu"], device="cuda")
 film = build_crystal("fcc", 3.615, elements="Cu", repeat=(40, 40, 20))  # 128000 atoms

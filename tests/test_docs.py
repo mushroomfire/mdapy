@@ -89,6 +89,7 @@ def test_the_python_api_lists_every_public_name():
         "mdapy.transform",
         "mdapy.calculators",
         "mdapy.simulation",
+        "mdapy.simulation.controls",
         "mdapy.lattice_dynamics",
         "mdapy.mlip",
         "mdapy.visualization",

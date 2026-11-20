@@ -16,7 +16,8 @@ import mdapy
 from mdapy.analysis import SpatialBinning
 from mdapy.build import build_crystal
 from mdapy.calculators import EAM
-from mdapy.simulation import MolecularDynamics, Wall
+from mdapy.simulation import MolecularDynamics
+from mdapy.simulation.controls import Wall
 
 copper = EAM.zhou(["Cu"])
 crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(6, 6, 60))  # 8640 atoms

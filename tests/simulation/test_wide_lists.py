@@ -14,7 +14,7 @@ import pytest
 
 from mdapy.calculators import EAM, LennardJones
 from mdapy.calculators._base import Calculator
-from mdapy.simulation import MolecularDynamics
+from mdapy.simulation import MolecularDynamics, minimize
 from simulation.test_domain import copper, potentials
 
 
@@ -45,6 +45,24 @@ def test_the_runs_of_the_list_with_its_skin_are_those_of_the_pairs(
     np.testing.assert_array_equal(a["positions"], b["positions"])
     np.testing.assert_array_equal(a["velocities"], b["velocities"])
     assert ta.equals(tb)
+
+
+@pytest.mark.parametrize("name", ["EAM", "Tersoff"])
+def test_so_are_the_minimizations(monkeypatch, tmp_path, name):
+    if name == "EAM":
+        potential, system = EAM.zhou(["Cu"]), copper(4)
+        rng = np.random.default_rng(3)
+        system = system.with_columns(
+            positions=system["positions"] + rng.normal(0, 0.1, (len(system), 3))
+        )
+    else:
+        potential, system = potentials(tmp_path)[name]
+    a = minimize(system, potential, max_force=1e-6, cell="axes")
+    monkeypatch.setattr(type(potential), "_takes_wider_lists", False)
+    b = minimize(system, potential, max_force=1e-6, cell="axes")
+    assert a.steps == b.steps and a.steps > 10
+    np.testing.assert_array_equal(a.system["positions"], b.system["positions"])
+    np.testing.assert_array_equal(a.system.box.matrix, b.system.box.matrix)
 
 
 def test_other_calculators_get_the_pairs_within_their_cutoff():

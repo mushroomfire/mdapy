@@ -433,8 +433,8 @@ def neb(
     if interpolation == "idpp":
         band = _idpp(band, initial, spring, movable)
 
-    lists = [_Neighbors(c.cutoff) for c in calculators]
-    ends = [_Neighbors(calculators[0].cutoff), _Neighbors(calculators[-1].cutoff)]
+    lists = [_Neighbors(c) for c in calculators]
+    ends = [_Neighbors(calculators[0]), _Neighbors(calculators[-1])]
     # the images that share a calculator compute one after another, the
     # groups at the same time
     groups: dict[int, list[int]] = {}

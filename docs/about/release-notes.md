@@ -2,11 +2,12 @@
 
 ## 2.3.0 (not released)
 
-- MDAPY's own dynamics on the processor gives MDAPY's potentials its neighbor list with
-  the skin as it is between two builds, instead of the pairs within the cutoff at each
-  step, and they pass over the pairs beyond their cutoffs: the same runs to the last
-  bit, 1.3 times as fast with EAM and 2.3 times with Lennard-Jones on one thread.
-  Other calculators get the pairs within their cutoff as before.
+- MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
+  their neighbor list with the skin as it is between two builds, instead of the pairs
+  within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the
+  same runs to the last bit, 1.3 times as fast with EAM and 2.3 times with
+  Lennard-Jones on one thread. Other calculators get the pairs within their cutoff as
+  before.
 - MDAPY's own dynamics runs on many processes with MPI: started by `mpirun` or `srun`,
   the processes cut the box into bricks, each owning the atoms in its brick and keeping
   copies of those within the reach of the potential, and the run is that of one

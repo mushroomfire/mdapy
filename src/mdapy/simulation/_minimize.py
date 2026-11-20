@@ -114,23 +114,31 @@ def _rows_times(rows: np.ndarray, matrix: np.ndarray) -> np.ndarray:
 class _Neighbors:
     """The neighbor lists of a calculator for configurations that change
     little from one to the next: one search, with a skin, serves until an
-    atom has moved half as far."""
+    atom has moved half as far; as it is for MDAPY's potentials, which pass
+    over the pairs beyond their cutoffs, else the pairs within the cutoff."""
 
-    def __init__(self, cutoff: float):
-        self.__cutoff = float(cutoff)
+    def __init__(self, calculator: Any):
+        self.__cutoff = float(calculator.cutoff)
+        self.__wider = bool(getattr(calculator, "_takes_wider_lists", False))
         self.__wide: NeighborList | None = None
 
     def of(self, system: System) -> NeighborList | None:
-        """The list of system within the cutoff, or None for a calculator
+        """The list of system for the calculator, or None for a calculator
         without a finite cutoff."""
         cutoff = self.__cutoff
         if not 0.0 < cutoff < np.inf:
             return None
+
+        def pairs(wide: NeighborList) -> NeighborList | None:
+            if self.__wider:
+                return wide._reuse(system, cutoff)
+            return wide._follow(system, cutoff)
+
         wide = self.__wide
-        neighbors = wide._follow(system, cutoff) if wide is not None else None
+        neighbors = pairs(wide) if wide is not None else None
         if neighbors is None:
-            self.__wide = NeighborList.build(system, cutoff + _SKIN)
-            neighbors = self.__wide._follow(system, cutoff)
+            self.__wide = wide = NeighborList.build(system, cutoff + _SKIN)
+            neighbors = pairs(wide)
         return neighbors
 
 
@@ -356,7 +364,7 @@ def minimize(
             positions=origin + _rows_times(variables[:n], deformation.T)
         )
 
-    lists = _Neighbors(calculator.cutoff)
+    lists = _Neighbors(calculator)
 
     def evaluate(variables: np.ndarray):
         # the result, the largest force, the stress, the forces on the

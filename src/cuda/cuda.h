@@ -409,6 +409,10 @@ public:
     // Whether such a potential leaves forces on the ghosts, and with heat
     // their virials, which go back to their atoms.
     virtual bool reverse() const { return false; }
+    // Whether the virial of each atom is gathered from the energies of its
+    // neighbors, so that the ghosts hold some of those of the process, which
+    // go back whenever virials are computed.
+    virtual bool gathered() const { return false; }
     virtual int stages() const { return 1; }
     virtual void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
                                bool energy, bool virial, bool heat) {

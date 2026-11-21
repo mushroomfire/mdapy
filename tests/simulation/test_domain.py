@@ -441,26 +441,31 @@ def test_every_potential_of_mdapy_splits(monkeypatch, tmp_path, name):
         same(split, alone)
 
 
-@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber"])
+@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber", "NEP"])
 @pytest.mark.parametrize("heat", [False, True])
-def test_three_body_potentials_on_gpus(monkeypatch, tmp_path, name, heat):
+def test_many_body_potentials_of_centres_on_gpus(monkeypatch, tmp_path, name, heat):
     """On a GPU each the atoms of each process are the centres of the terms,
-    with ghosts within the cutoff, and the forces on the ghosts, with their
-    virials for the heat flux, go back to their atoms: the run of one GPU."""
-    from mdapy.calculators import StillingerWeber, Tersoff
+    with ghosts within the cutoff, and the forces on the ghosts go back to
+    their atoms, with their virials for the heat flux, and for the pressure
+    with NEP, whose atoms gather their virials: the run of one GPU."""
+    from mdapy.calculators import NEP, StillingerWeber, Tersoff
 
+    from calculators.nep_files import write_nep
     from calculators.potential_files import write_sw, write_tersoff
 
     monkeypatch.setattr(_gpu, "cuda", stand_in)
     gpu = {"device": "cuda", "precision": "double"}
     if name == "Tersoff":
         potential = Tersoff(write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C")), **gpu)
+    elif name == "NEP":
+        potential = NEP(write_nep(tmp_path / "nep.txt", zbl="universal"), **gpu)
     else:
         potential = StillingerWeber(write_sw(tmp_path / "SiGe.sw", ("Si", "Ge")), **gpu)
     system = potentials(tmp_path)[name][1]
-    options = {"ensemble": "nvt", "temperature": 600}
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
     if heat:
-        options["controls"] = [_HeatField((2e-4, 0.0, 1e-4))]
+        options = {"ensemble": "nvt", "temperature": 600,
+                   "controls": [_HeatField((2e-4, 0.0, 1e-4))]}  # fmt: skip
     alone = run(system, potential, options)
     for split in processes.run(3, lambda rank: run(system, potential, options),
                                monkeypatch):  # fmt: skip

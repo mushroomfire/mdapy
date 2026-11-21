@@ -317,13 +317,30 @@ class Bricks:
         Memory of a GPU goes to MPI as it is."""
         null = self.__null
         self.comm.Sendrecv(
-            sent
-            if hasattr(sent, "__cuda_array_interface__")
-            else np.ascontiguousarray(sent),
+            _buffer(sent),
             dest=null if destination is None else destination,
             recvbuf=received,
             source=null if source is None else source,
         )
+
+    def swap_all(self, messages: list) -> None:
+        """Messages that do not depend on each other, (sent, destination,
+        received, source) each as swap takes them, sent and received at once,
+        each told by its place in the list."""
+        null = self.__null
+        waiting = []
+        for tag, (_, _, received, source) in enumerate(messages):
+            source = null if source is None else source
+            if source is not None:
+                waiting.append(self.comm.Irecv(received, source=source, tag=tag))
+        for tag, (sent, destination, _, _) in enumerate(messages):
+            destination = null if destination is None else destination
+            if destination is not None:
+                waiting.append(
+                    self.comm.Isend(_buffer(sent), dest=destination, tag=tag)
+                )
+        for request in waiting:
+            request.Wait()
 
     def set_reach(self, reach: float) -> None:
         self.reach = float(reach)
@@ -343,6 +360,13 @@ class Bricks:
         out = np.empty(1)
         self.comm.Allreduce(np.array([float(value)]), out, op=self.__max)
         return float(out[0])
+
+
+def _buffer(values: Any) -> Any:
+    """What MPI sends of values: memory of a GPU as it is, else an array."""
+    if hasattr(values, "__cuda_array_interface__"):
+        return values
+    return np.ascontiguousarray(values)
 
 
 def _exchange(

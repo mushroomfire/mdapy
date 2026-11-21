@@ -581,6 +581,7 @@ NB_MODULE(_cuda, m) {
         .def_prop_ro("species", &Potential::species)
         .def_prop_ro("thin", &Potential::thin)
         .def_prop_ro("reverse", &Potential::reverse)
+        .def_prop_ro("gathered", &Potential::gathered)
         .def_prop_ro("stages", &Potential::stages)
         .def_prop_ro("forwarded_bytes",
                      [](Potential& p) {

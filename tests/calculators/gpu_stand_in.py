@@ -614,10 +614,11 @@ class Potential:
     reverse, the three-body potentials, whose terms are those of the atoms of
     the process, the forces on the ghosts sent back."""
 
-    def __init__(self, made, compute, thin=False, staged=False, reverse=False):
+    def __init__(self, made, compute, thin=False, staged=False, reverse=False,
+                 gathered=False):  # fmt: skip
         self.native, self.compute_native = made, compute
         self.asked = []
-        self.thin, self.reverse = thin or reverse, reverse
+        self.thin, self.reverse, self.gathered = thin or reverse, reverse, gathered
         self.stages = 2 if staged else 1
         self.forwarded_bytes = 8 if staged else 0
         # what a stage leaves for the next, of each process: the threads that
@@ -674,7 +675,8 @@ class Potential:
 
     def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False,
                 centers=None):  # fmt: skip
-        """centers: the first atoms alone the centres of the three-body terms."""
+        """centers: the first atoms alone the centres of the terms, as under
+        MPI."""
         self.asked.append((energy, virial, atomic))
         system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
         nl = NeighborList.build(system, neighbors.cutoff)
@@ -685,7 +687,7 @@ class Potential:
             self.native, atoms.species, np.ascontiguousarray(atoms.x), h,
             nl.offsets, nl.j, nl.shifts, None, None, *extra, **options,
         )  # fmt: skip
-        if centers is not None and not heat:
+        if centers is not None and not heat and not self.gathered:
             # the device keeps the terms of a centre with it: the shares the
             # processor gave the ghosts are the process's, its totals the same
             energies, forces, virials = atoms.result
@@ -708,7 +710,7 @@ class Potential:
 class Overlay:
     """Potentials of the stand-in added together, as the device's."""
 
-    thin, reverse, stages, forwarded_bytes = False, False, 1, 0
+    thin, reverse, gathered, stages, forwarded_bytes = False, False, False, 1, 0
 
     def __init__(self, parts):
         self.parts = list(parts)
@@ -768,7 +770,7 @@ def stand_in(found=True):
         if max(arguments[0][1:5]) + 1 > 20:  # functions of each kind
             raise ValueError("on the GPU, NEP takes at most 20 functions of each kind")
         made = native.make_nep(*arguments[:-1])
-        return Potential(made, native.compute_nep)
+        return Potential(made, native.compute_nep, reverse=True, gathered=True)
 
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)

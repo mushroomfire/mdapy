@@ -175,13 +175,14 @@ the neighbor list nothing else leaves the GPUs. A build, when an atom of any pro
 has moved half the skin or the box has changed, moves the atoms to the processes of
 their bricks and finds the ghosts again.
 
-The pair potentials, EAM, Stillinger-Weber and Tersoff take ghosts within their
+The pair potentials, EAM, Stillinger-Weber, Tersoff and NEP take ghosts within their
 cutoff and the skin, as KOKKOS does. EAM sends the slopes of the embedding functions
 of the atoms to their ghosts at each step, between its densities and its forces.
-The terms of Stillinger-Weber and Tersoff are those of the atoms of the process, and
-the forces they leave on the ghosts go back to their atoms, with their virials under
-a heat field. ADP, MEAM and NEP take ghosts within twice their cutoff and the skin,
-so that each GPU computes the atoms of its process from all their neighbors.
+The terms of Stillinger-Weber and Tersoff, and the energies of NEP, are those of the
+atoms of the process, and the forces they leave on the ghosts go back to their
+atoms, with their virials under a heat field, and with NEP whenever virials are
+computed. ADP and MEAM take ghosts within twice their cutoff and the skin, so that
+each GPU computes the atoms of its process from all their neighbors.
 
 What the processes send each other goes to MPI in the memory of the GPU itself
 when MPI moves that memory (an MPI built with CUDA, often called GPU-aware or

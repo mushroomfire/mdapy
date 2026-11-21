@@ -496,6 +496,22 @@ def test_many_body_potentials_of_centres_on_gpus(monkeypatch, tmp_path, name, he
         same(split, alone)
 
 
+@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber"])
+def test_three_body_potentials_on_processes_of_one_thread(monkeypatch, tmp_path, name):
+    """On one thread a process computes each term of its atoms once, its
+    forces on the ghosts sent back: the run of one process, to the rounding,
+    under a barostat that takes the virial at every step."""
+    from mdapy.core.threads import set_num_threads
+
+    potential, system = potentials(tmp_path)[name]
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    alone = run(system, potential, options)
+    set_num_threads(1)
+    for split in processes.run(3, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
 def test_atoms_that_move_far(monkeypatch):
     """Hot atoms, which move half the skin between two builds of the
     neighbor lists, many times in the run."""

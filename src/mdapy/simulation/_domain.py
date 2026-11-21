@@ -407,16 +407,44 @@ def resolved(comm: Any) -> Any:
 
 
 def digest(*values: Any) -> bytes:
-    """A digest of numbers, arrays and their reprs."""
+    """A digest of numbers, strings and arrays, in tuples and objects: an
+    object given by its type and its attributes, whatever its repr; one
+    within it by its repr when it has one of its own."""
     h = hashlib.blake2b(digest_size=16)
-    for value in values:
+
+    def add(value: Any, depth: int) -> None:
         if isinstance(value, np.ndarray):
             array = np.ascontiguousarray(value)
             h.update(repr((array.dtype.str, array.shape)).encode())
             h.update(array.tobytes())
-        else:
+        elif value is None or isinstance(
+            value, (bool, int, float, complex, str, bytes, np.generic)
+        ):
             h.update(repr(value).encode())
+        elif isinstance(value, (list, tuple)):
+            h.update(b"(")
+            for item in value:
+                add(item, depth)
+            h.update(b")")
+        elif isinstance(value, dict):
+            h.update(b"{")
+            for key in sorted(value, key=str):
+                h.update(str(key).encode())
+                add(value[key], depth)
+            h.update(b"}")
+        elif depth > 0 and type(value).__repr__ is not object.__repr__:
+            # an object within, as a calculator, whose caches may differ from
+            # process to process: by what it says it is
+            h.update(repr(value).encode())
+        else:
+            h.update(type(value).__name__.encode())
+            fields = getattr(value, "__dict__", None)
+            if fields is not None and depth < 3:
+                add(fields, depth + 1)
         h.update(b"|")
+
+    for value in values:
+        add(value, 0)
     return h.digest()
 
 

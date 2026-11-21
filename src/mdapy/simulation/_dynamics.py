@@ -1777,7 +1777,7 @@ class MolecularDynamics:
             self.__comm,
             "the settings of a run",
             *(value for key, value in spec.items() if key != "controls"),
-            *(repr(control) for control in checked),
+            *checked,
         )
         return spec
 

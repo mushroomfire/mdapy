@@ -113,7 +113,7 @@ with plot.style():
         z / 10,
         time,
         waves,
-        cmap="RdYlBu_r",
+        cmap="berlin",  # dark at zero, apart from the white of no atoms
         norm=TwoSlopeNorm(0.0, vmin=-50.0, vmax=20.0),  # the pull in full red
         shading="nearest",
     )
@@ -128,9 +128,9 @@ with plot.style():
 
 ![The stress along z of the copper against its place and time, and the velocity of its free surface](images/shock-spall-wave.png)
 
-*a: The slabs without atoms are left white. The piston drives a shock of 51 GPa
-(blue) at 5.2 km/s. At 5 ps it stops, and a release follows the shock and wears it
-down. At 14 ps the shock reaches the free
+*a: The slabs without atoms are left white, those under no stress dark. The piston
+drives a shock of 51 GPa (blue) at 5.2 km/s. At 5 ps it stops, and a release follows
+the shock and wears it down. At 14 ps the shock reaches the free
 surface at 73 nm and comes back as a release. The two releases meet near 66 nm at
 20 ps, where they pull the copper by 19.5 GPa (red): it spalls there, and the layer
 beyond, the scab, rings between its two new surfaces. b: The free surface jumps to

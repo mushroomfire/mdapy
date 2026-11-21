@@ -4,7 +4,6 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "calculators/eam.h"
-#include "calculators/once.h"
 
 #include <algorithm>
 #include <cmath>
@@ -225,19 +224,16 @@ void eam_densities_once(const EamPotential& potential, std::int64_t centers,
                         const std::int32_t* species, const double* positions,
                         const double* matrix, const std::int64_t* offsets,
                         const index_t* neighbors, const std::int8_t* shifts,
-                        const std::int64_t* ids, double* rho) {
+                        double* rho) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
     for (std::int64_t i = 0; i < centers; ++i) {
         const int si = species[i];
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
-            if (!once_first(i, j, shifts + 3 * p, centers, ids)) {
-                continue;
-            }
             double r[3];
             const double r2 =
                 neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, r);
-            if (!(r2 < cutoff2) || !once_then(i, j, r, centers, ids)) {
+            if (!(r2 < cutoff2)) {
                 continue;
             }
             const int sj = species[j];
@@ -268,21 +264,18 @@ void eam_embedding(const EamPotential& potential, std::int64_t centers,
 void eam_forces_once(const EamPotential& potential, std::int64_t centers,
                      const std::int32_t* species, const double* positions, const double* matrix,
                      const std::int64_t* offsets, const index_t* neighbors,
-                     const std::int8_t* shifts, const std::int64_t* ids, const double* slope,
+                     const std::int8_t* shifts, const double* slope,
                      double* energies, double* forces, double* virials, bool heat) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
     for (std::int64_t i = 0; i < centers; ++i) {
         const int si = species[i];
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
-            if (!once_first(i, j, shifts + 3 * p, centers, ids)) {
-                continue;
-            }
             double v[3];
             neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, v);
             const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
             const double r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
-            if (!(r2 < cutoff2) || !once_then(i, j, v, centers, ids)) {
+            if (!(r2 < cutoff2)) {
                 continue;
             }
             const int sj = species[j];

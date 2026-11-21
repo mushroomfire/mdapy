@@ -22,7 +22,7 @@ from mdapy.calculators._base import (
     _reversed_part,
 )
 from mdapy.core.system import System
-from mdapy.core.threads import _native_token, get_num_threads
+from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
@@ -104,6 +104,8 @@ class _PairCalculator(Calculator):
     """A pair potential computed natively from tables of coefficients."""
 
     _takes_wider_lists = True
+    # on one thread under MPI, each pair once among the processes
+    _pairs_once = True
 
     _style: str
     _name: str
@@ -194,6 +196,7 @@ class _PairCalculator(Calculator):
         forward: Any,
         reverse: Any,
         ids: np.ndarray,
+        once: tuple | None = None,
     ) -> _Part:
         """The part of the first owned atoms, a process's of MPI, of the
         species, positions and box matrix of atoms (a system with ghosts),
@@ -212,13 +215,12 @@ class _PairCalculator(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
-        if get_num_threads() == 1:
-            # on one thread each pair once among the processes, as LAMMPS's
-            # newton on, the forces on the ghosts back to their atoms
-            with neighbors._reading():
-                energies, forces, virials = _native.compute_pair_once(
-                    *arrays, owned, np.ascontiguousarray(ids, dtype=np.int64), virial
-                )
+        if once is not None:
+            # on one thread each pair once among the processes, those given,
+            # as LAMMPS's newton on, the forces on the ghosts back
+            energies, forces, virials = _native.compute_pair_once(
+                arrays[0], *arrays[1:4], *once, owned, virial
+            )
             return _reversed_part(energies, forces, virials, properties, reverse)
         with neighbors._reading():
             energies, forces, virials = _native.compute_pair(

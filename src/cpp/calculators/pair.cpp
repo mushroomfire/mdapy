@@ -4,7 +4,6 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 
 #include "calculators/pair.h"
-#include "calculators/once.h"
 
 #include <algorithm>
 #include <cmath>
@@ -120,7 +119,7 @@ template <PairStyle Style>
 void compute_once(const PairPotential& potential, std::int64_t n, std::int64_t centers,
                   const std::int32_t* species, const double* positions, const double* matrix,
                   const std::int64_t* offsets, const index_t* neighbors,
-                  const std::int8_t* shifts, const std::int64_t* ids, double* energies,
+                  const std::int8_t* shifts, double* energies,
                   double* forces, double* virials) {
     const auto t = static_cast<std::int64_t>(potential.species);
     std::fill(energies, energies + n, 0.0);
@@ -132,16 +131,12 @@ void compute_once(const PairPotential& potential, std::int64_t n, std::int64_t c
         const std::int64_t si = species[i];
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
-            if (!once_first(i, j, shifts + 3 * p, centers, ids)) {
-                continue;
-            }
             double v[3];
             neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, v);
             const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
             const double r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
             const std::int64_t k = si * t + species[j];
-            if (!(r2 < potential.cutsq[static_cast<std::size_t>(k)]) ||
-                !once_then(i, j, v, centers, ids)) {
+            if (!(r2 < potential.cutsq[static_cast<std::size_t>(k)])) {
                 continue;
             }
             const double* c = potential.coefficients.data() + 4 * k;
@@ -214,19 +209,19 @@ void compute_pair_once(const PairPotential& potential, std::int64_t n, std::int6
                        const std::int32_t* species, const double* positions,
                        const double* matrix, const std::int64_t* offsets,
                        const index_t* neighbors, const std::int8_t* shifts,
-                       const std::int64_t* ids, double* energies, double* forces,
+                       double* energies, double* forces,
                        double* virials) {
     if (potential.style == PairStyle::LennardJones) {
         compute_once<PairStyle::LennardJones>(potential, n, centers, species, positions, matrix,
-                                              offsets, neighbors, shifts, ids, energies, forces,
+                                              offsets, neighbors, shifts, energies, forces,
                                               virials);
     } else if (potential.style == PairStyle::Morse) {
         compute_once<PairStyle::Morse>(potential, n, centers, species, positions, matrix,
-                                       offsets, neighbors, shifts, ids, energies, forces,
+                                       offsets, neighbors, shifts, energies, forces,
                                        virials);
     } else {
         compute_once<PairStyle::UhlenbeckFord>(potential, n, centers, species, positions,
-                                               matrix, offsets, neighbors, shifts, ids,
+                                               matrix, offsets, neighbors, shifts,
                                                energies, forces, virials);
     }
 }

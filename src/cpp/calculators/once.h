@@ -16,6 +16,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #include "core/index.h"
 
@@ -52,5 +53,18 @@ inline bool once_then(std::int64_t i, std::int64_t j, const double* v, std::int6
     }
     return false;
 }
+
+// The pairs of a full neighbor list of n atoms that a process computes on one
+// thread, those of its first centers atoms that once_first and once_then
+// keep, in the order of the list: as a list of its own, the rows of the
+// other atoms empty, so that the kernels go through it without asking.
+struct OncePairs {
+    std::vector<std::int64_t> offsets;  // n + 1
+    std::vector<index_t> neighbors;
+    std::vector<std::int8_t> shifts;  // 3 per pair
+};
+OncePairs once_pairs(std::int64_t n, std::int64_t centers, const std::int64_t* offsets,
+                     const index_t* neighbors, const std::int8_t* shifts,
+                     const std::int64_t* ids, const double* positions, const double* matrix);
 
 }  // namespace mdapy::calculators

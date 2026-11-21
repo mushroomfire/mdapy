@@ -28,10 +28,12 @@ from typing import Any
 import numpy as np
 import polars as pl
 
+from mdapy._core import calculators as _native_calculators
 from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
+from mdapy.core.threads import get_num_threads
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.simulation._integrator import _HostAtoms
@@ -677,14 +679,24 @@ class DomainAtoms(_HostAtoms):
             kept = self.__kept.get(slot)
             if kept is None:
                 built = self.__built_system()
+                wide = self._wide(built, calculator)
+                # on one thread, the pairs this process computes once among
+                # the processes, as LAMMPS's newton on
+                once = None
+                if getattr(calculator, "_pairs_once", False) and get_num_threads() == 1:
+                    once = _native_calculators.once_pairs(
+                        wide.offsets, wide.j, wide.shifts, n, self.__sub_ids,
+                        np.ascontiguousarray(self.__ghosts), self.__matrix,
+                    )  # fmt: skip
                 kept = self.__kept[slot] = (
-                    self._wide(built, calculator),
+                    wide,
                     np.ascontiguousarray(calculator._species(built)),
+                    once,
                 )
-            neighbors, species = kept
+            neighbors, species, once = kept
             atoms = (species, np.ascontiguousarray(self.__ghosts), self.__matrix)
             part = split(atoms, tuple(wanted), neighbors, n, self.__forward,
-                         self.__reverse, self.__sub_ids)  # fmt: skip
+                         self.__reverse, self.__sub_ids, once)  # fmt: skip
             return (
                 float(part.energy),
                 np.asarray(part.forces, dtype=float),

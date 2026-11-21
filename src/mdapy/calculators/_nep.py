@@ -388,6 +388,7 @@ class NEP(Calculator):
         forward: Any,
         reverse: Any,
         ids: np.ndarray,
+        once: tuple | None = None,
     ) -> _Part:
         """The part of the first owned atoms, a process's of MPI, of the
         species, positions and box matrix of atoms (a system with ghosts):

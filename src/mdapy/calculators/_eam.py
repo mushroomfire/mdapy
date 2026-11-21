@@ -22,7 +22,7 @@ from mdapy.calculators._base import (
     _reversed_part,
 )
 from mdapy.core.system import System
-from mdapy.core.threads import _native_token, get_num_threads
+from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
 from mdapy.errors import FileFormatError, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -325,6 +325,8 @@ class EAM(Calculator):
     """
 
     _takes_wider_lists = True
+    # on one thread under MPI, each pair once among the processes
+    _pairs_once = True
 
     # its forces are pairwise, and their virials split in halves
     _heat_flux = True
@@ -610,6 +612,7 @@ class EAM(Calculator):
         forward: Any,
         reverse: Any,
         ids: np.ndarray,
+        once: tuple | None = None,
     ) -> _Part:
         """The part of the first owned atoms, a process's of MPI, of the
         species, positions and box matrix of atoms (a system with ghosts):
@@ -629,20 +632,18 @@ class EAM(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
-        if get_num_threads() == 1:
-            # on one thread each pair once among the processes, as LAMMPS's
-            # newton on: the densities of the ghosts back to their atoms, the
-            # slopes to the ghosts, the forces on the ghosts back
-            ids = np.ascontiguousarray(ids, dtype=np.int64)
-            with neighbors._reading():
-                rho = _native.eam_densities_once(self.__potential, *arrays, owned, ids)
+        if once is not None:
+            # on one thread each pair once among the processes, those given,
+            # as LAMMPS's newton on: the densities of the ghosts back to their
+            # atoms, the slopes to the ghosts, the forces on the ghosts back
+            pairs = (*arrays[:3], *once)
+            rho = _native.eam_densities_once(self.__potential, *pairs, owned)
             rho = np.ascontiguousarray(reverse(rho))
             embedding, slopes = _native.eam_embedding(self.__potential, arrays[0], rho)
             slopes = np.ascontiguousarray(forward(slopes))
-            with neighbors._reading():
-                energies, forces, virials = _native.eam_forces_once(
-                    self.__potential, *arrays, owned, ids, slopes, virial, heat
-                )
+            energies, forces, virials = _native.eam_forces_once(
+                self.__potential, *pairs, owned, slopes, virial, heat
+            )
             energies[:owned] += embedding
             return _reversed_part(energies, forces, virials, properties, reverse)
         with neighbors._reading():

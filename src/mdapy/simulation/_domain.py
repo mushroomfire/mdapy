@@ -473,6 +473,11 @@ class DomainAtoms(_HostAtoms):
         bricks.local = len(mine)
         self.__built: np.ndarray | None = None  # the positions at the last build
         self.__ghosts: np.ndarray = self._x  # this process's atoms and the ghosts
+        # of the last build: its system, and the neighbor lists and species of
+        # the calculators, by slot
+        self.__system: System | None = None
+        self.__kept: dict = {}
+        self.__matrix = np.ascontiguousarray(bricks.h)
         self.__sub_ids: np.ndarray = self._ids  # the ids of them
         # the order of the ghosts, nearest the brick first, and how far each is
         self.__order: np.ndarray = np.arange(len(mine))
@@ -587,8 +592,20 @@ class DomainAtoms(_HostAtoms):
         self.__box = Box(
             box.matrix, origin=box.origin, pbc=bricks.pbc & (bricks.counts == 1)
         )
+        self.__matrix = np.ascontiguousarray(self.__box.matrix)
+        self.__system = None
+        self.__kept = {}
         self.__built = self._x.copy()
         self._lists = {}
+
+    def __built_system(self) -> System:
+        """The atoms and the ghosts at the last build, as a system."""
+        if self.__system is None:
+            self.__system = System(table=self.__part.with_columns(
+                pl.Series("positions", self.__ghosts.copy(),
+                          dtype=pl.Array(pl.Float64, 3))
+            ), box=self.__box)  # fmt: skip
+        return self.__system
 
     def __forward(self, values: np.ndarray) -> np.ndarray:
         """Values of this process's atoms, and of the ghosts after them."""
@@ -651,15 +668,22 @@ class DomainAtoms(_HostAtoms):
                 np.full((3, 3), np.nan),
                 SimpleNamespace(atomic_energies=energies, atomic_virials=None),
             )
-        current = System(table=self.__part.with_columns(
-            pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
-        ), box=self.__box)  # fmt: skip
-        neighbors = self._neighbors(slot, current, calculator)
         split = getattr(calculator, "_split", None)
         if split is not None:
             # the calculator computes this process's atoms alone, and sends
-            # what it needs to the ghosts or back from them
-            part = split(current, tuple(wanted), neighbors, n, self.__forward,
+            # what it needs to the ghosts or back from them; its neighbor list
+            # and species, of the system of the last build, serve until the
+            # next, which comes before an atom has moved half the skin
+            kept = self.__kept.get(slot)
+            if kept is None:
+                built = self.__built_system()
+                kept = self.__kept[slot] = (
+                    self._wide(built, calculator),
+                    np.ascontiguousarray(calculator._species(built)),
+                )
+            neighbors, species = kept
+            atoms = (species, np.ascontiguousarray(self.__ghosts), self.__matrix)
+            part = split(atoms, tuple(wanted), neighbors, n, self.__forward,
                          self.__reverse, self.__sub_ids)  # fmt: skip
             return (
                 float(part.energy),
@@ -668,6 +692,10 @@ class DomainAtoms(_HostAtoms):
                 SimpleNamespace(atomic_energies=part.atomic_energies,
                                 atomic_virials=part.atomic_virials),
             )  # fmt: skip
+        current = System(table=self.__part.with_columns(
+            pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
+        ), box=self.__box)  # fmt: skip
+        neighbors = self._neighbors(slot, current, calculator)
         extra = ("atomic_energies",) + (("atomic_virials",) if virial else ())
         wanted = tuple(wanted) + tuple(p for p in extra if p not in wanted)
         result = calculator.compute(current, wanted, neighbors=neighbors)
@@ -687,6 +715,7 @@ class DomainAtoms(_HostAtoms):
 
     def set_switch(self, target: Any) -> None:
         super().set_switch(target)
+        self.__kept.pop("target", None)
         if target:
             reach = _reach(target, target=True)[0] + self.__skin
             if reach > self.__bricks.reach:
@@ -704,6 +733,9 @@ class DomainAtoms(_HostAtoms):
         "_DomainAtoms__image",
         "_DomainAtoms__built",
         "_DomainAtoms__ghosts",
+        "_DomainAtoms__system",
+        "_DomainAtoms__kept",
+        "_DomainAtoms__matrix",
         "_DomainAtoms__sub_ids",
         "_DomainAtoms__order",
         "_DomainAtoms__far",

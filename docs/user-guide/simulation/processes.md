@@ -101,9 +101,15 @@ vector it is cut along. The atoms go to the processes of their bricks, and the
 ghosts are found again, when the box changes or an atom has moved half the
 skin; in between, the ghosts move with their atoms.
 
-Each process may run several threads: `MDAPY_NUM_THREADS` times the number of
-processes is the number of cores to use, 40 for example as 40 × 1, 10 × 4 or
-4 × 10.
+A process of one thread computes each pair of atoms once among all the
+processes, as LAMMPS with `newton on`: a pair of two of its atoms once, a pair of
+one of its atoms and a ghost on the process of the atom of the lower id, and the
+forces on the ghost go back to their atom. A process of several threads, set by
+`MDAPY_NUM_THREADS`, has each atom gather its pairs, as one process does, so that
+the threads write no atom but their own. One thread a process is the faster: run
+as many processes as cores, with `MDAPY_NUM_THREADS=1`. The forces of a run on
+many processes sum in another order than on one, and so differ in their last
+digits with the number of processes and of threads.
 
 ## What it runs
 

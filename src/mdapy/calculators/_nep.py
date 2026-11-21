@@ -381,7 +381,7 @@ class NEP(Calculator):
 
     def _split(
         self,
-        system: System,
+        atoms: tuple,
         properties: tuple,
         neighbors: NeighborList,
         owned: int,
@@ -389,16 +389,17 @@ class NEP(Calculator):
         reverse: Any,
         ids: np.ndarray,
     ) -> _Part:
-        """The part of the first owned atoms of system, a process's of MPI:
+        """The part of the first owned atoms, a process's of MPI, of the
+        species, positions and box matrix of atoms (a system with ghosts):
         their energies and the derivatives of them alone, which reach the
         ghosts within the cutoff, and the forces on the ghosts sent back to
         their atoms."""
         with neighbors._reading():
             energies, forces, virials = _native.compute_nep(
                 self.__model,
-                self._species(system),
-                np.ascontiguousarray(system["positions"]),
-                np.ascontiguousarray(system.box.matrix),
+                atoms[0],
+                atoms[1],
+                atoms[2],
                 neighbors.offsets,
                 neighbors.j,
                 neighbors.shifts,

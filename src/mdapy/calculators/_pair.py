@@ -187,7 +187,7 @@ class _PairCalculator(Calculator):
 
     def _split(
         self,
-        system: System,
+        atoms: tuple,
         properties: tuple,
         neighbors: NeighborList,
         owned: int,
@@ -195,7 +195,8 @@ class _PairCalculator(Calculator):
         reverse: Any,
         ids: np.ndarray,
     ) -> _Part:
-        """The part of the first owned atoms of system, a process's of MPI,
+        """The part of the first owned atoms, a process's of MPI, of the
+        species, positions and box matrix of atoms (a system with ghosts),
         whose pairs reach the ghosts within the cutoff: on one thread each
         pair of two of them once, as LAMMPS."""
         virial = (
@@ -204,9 +205,9 @@ class _PairCalculator(Calculator):
         )
         arrays = (
             self.__potential,
-            self._species(system),
-            np.ascontiguousarray(system["positions"]),
-            np.ascontiguousarray(system.box.matrix),
+            atoms[0],
+            atoms[1],
+            atoms[2],
             neighbors.offsets,
             neighbors.j,
             neighbors.shifts,

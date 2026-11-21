@@ -782,6 +782,41 @@ nb::object count_neighbors(Positions3 positions, Matrix3 matrix, Origin3 origin,
     return result;
 }
 
+nb::tuple wave_densities(Positions3 positions, Matrix3 matrix, Types type, int types,
+                         double q_max, nb::handle progress, const CancelToken* cancel) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (type.shape(0) != positions.shape(0) || types < 1 || !(q_max > 0.0)) {
+        throw std::invalid_argument("invalid arguments to the wave densities");
+    }
+    for (std::int64_t i = 0; i < n; ++i) {
+        if (type.data()[i] < 0 || type.data()[i] >= types) {
+            throw std::invalid_argument("a type is outside the range");
+        }
+    }
+    std::vector<double> lengths, rho_re, rho_im;
+    run_released(
+        [&](const Control& control) {
+            analysis::wave_densities(positions.data(), n, matrix.data(), type.data(), types,
+                                     q_max, lengths, rho_re, rho_im, 0, control);
+        },
+        progress, cancel);
+    const auto count = lengths.size();
+    auto own = [](std::vector<double>&& values) {
+        auto* kept = new std::vector<double>(std::move(values));
+        return std::make_pair(kept, nb::capsule(kept, [](void* p) noexcept {
+                                  delete static_cast<std::vector<double>*>(p);
+                              }));
+    };
+    auto [kept_lengths, lengths_owner] = own(std::move(lengths));
+    auto [kept_re, re_owner] = own(std::move(rho_re));
+    auto [kept_im, im_owner] = own(std::move(rho_im));
+    const std::size_t one[1] = {count};
+    const std::size_t two[2] = {count, static_cast<std::size_t>(types)};
+    return nb::make_tuple(nb::ndarray<nb::numpy, double>(kept_lengths->data(), 1, one, lengths_owner),
+                          nb::ndarray<nb::numpy, double>(kept_re->data(), 2, two, re_owner),
+                          nb::ndarray<nb::numpy, double>(kept_im->data(), 2, two, im_owner));
+}
+
 nb::tuple structure_factor(Positions3 positions, Matrix3 matrix, Types type, int types,
                            double q_max, int bins, std::int64_t block, nb::handle progress,
                            const CancelToken* cancel) {
@@ -1147,6 +1182,9 @@ void bind_analysis(nb::module_& m) {
           nb::arg("reference_inverse"), nb::arg("reference_origin"), nb::arg("positions"),
           nb::arg("inverse"), nb::arg("origin"), nb::arg("pbc"), nb::arg("reference_matrix"),
           nb::arg("matrix"), nb::arg("tensor"), nb::arg("d2min"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr);
+    m.def("wave_densities", &wave_densities, nb::arg("positions"), nb::arg("matrix"),
+          nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr);
     m.def("structure_factor", &structure_factor, nb::arg("positions"), nb::arg("matrix"),
           nb::arg("type"), nb::arg("types"), nb::arg("q_max"), nb::arg("bins"),

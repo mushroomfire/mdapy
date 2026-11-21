@@ -14,6 +14,7 @@ radii those of Alvarez (2013).
 
 from collections.abc import Iterable
 from math import nan
+from typing import Any
 
 import numpy as np
 import polars as pl
@@ -31,6 +32,8 @@ __all__ = [
     "covalent_radii",
     "vdw_radii",
     "element_from_mass",
+    "xray_form_factors",
+    "neutron_scattering_lengths",
 ]
 
 # Generated from IUPAC 2016 data; index = atomic number, 0 = unknown ("X").
@@ -710,3 +713,115 @@ def element_from_mass(
             f"{tolerance} amu {found}; specify the elements explicitly"
         )
     return SYMBOLS[int(matches[0])]
+
+
+def _numbers(elements: Iterable[str] | Iterable[int]) -> np.ndarray:
+    """The atomic numbers of chemical symbols or of atomic numbers."""
+    elements = list(elements)
+    if elements and isinstance(elements[0], str):
+        return atomic_numbers(elements)
+    return np.asarray(elements, dtype=np.int64).reshape(-1)
+
+
+# sin(theta)/lambda up to which the X-ray form factors hold, in 1/Å
+_XRAY_S_MAX = 6.0
+
+
+def xray_form_factors(elements: Iterable[str] | Iterable[int], q: Any) -> np.ndarray:
+    """X-ray atomic form factors of neutral atoms (Waasmaier and Kirfel 1995).
+
+    Parameters
+    ----------
+    elements : iterable of str or int32
+        Chemical symbols or atomic numbers, from H to Cf (1-98).
+    q : float64 or array_like
+        Wave numbers in 1/Å, q = 4π sin(θ)/λ, from 0 to 4π × 6 = 75.40 (the
+        range of the fits).
+
+    Returns
+    -------
+    numpy.ndarray
+        (N, M) float64, the form factor of each of the N elements at each of
+        the M wave numbers, in electrons; (N,) for one wave number.
+
+    Raises
+    ------
+    InvalidParameter
+        If an element is unknown or beyond Cf, or a wave number is negative,
+        beyond the range or not finite.
+    """
+    from mdapy._scattering_tables import XRAY
+
+    z = _numbers(elements)
+    if z.size and (z.min() < 1 or z.max() >= len(XRAY)):
+        bad = int(z[(z < 1) | (z >= len(XRAY))][0])
+        name = repr(SYMBOLS[bad]) if 0 <= bad < len(SYMBOLS) else bad
+        raise InvalidParameter(f"no X-ray form factor for element {name}")
+    q = np.asarray(q, dtype=np.float64)
+    s = q / (4.0 * np.pi)
+    if not np.isfinite(q).all() or (q < 0).any() or (s > _XRAY_S_MAX + 1e-12).any():
+        raise InvalidParameter(
+            f"wave numbers must be from 0 to {4 * np.pi * _XRAY_S_MAX:.2f} 1/Å"
+        )
+    table = np.array([XRAY[k] for k in z], dtype=np.float64).reshape(-1, 11)
+    a, b, c = table[:, :5], table[:, 5:10], table[:, 10]
+    s2 = np.atleast_1d(s) ** 2
+    f = np.einsum("nk,nkm->nm", a, np.exp(-b[:, :, None] * s2[None, None, :]))
+    f += c[:, None]
+    return f[:, 0] if q.ndim == 0 else f
+
+
+def neutron_scattering_lengths(
+    elements: Iterable[str] | Iterable[int],
+    mass_numbers: Iterable[int | None] | None = None,
+) -> np.ndarray:
+    """Bound coherent neutron scattering lengths of natural elements or of
+    their isotopes (Rauch and Waschkowski 2003).
+
+    Parameters
+    ----------
+    elements : iterable of str or int32
+        Chemical symbols or atomic numbers.
+    mass_numbers : iterable of int32 or None, optional
+        The mass number of an isotope for each element, as 2 for deuterium,
+        or None for the natural element. Default None, natural elements.
+
+    Returns
+    -------
+    numpy.ndarray
+        (N,) float64, the lengths in fm, one per element.
+
+    Raises
+    ------
+    InvalidParameter
+        If an element is unknown, has no known length (as Tc or Ra), or an
+        isotope is not in the table, or the mass numbers are not one per
+        element.
+    """
+    from mdapy._scattering_tables import NEUTRON, NEUTRON_ISOTOPES
+
+    z = _numbers(elements)
+    if z.size and (z.min() < 1 or z.max() >= len(NEUTRON)):
+        bad = int(z[(z < 1) | (z >= len(NEUTRON))][0])
+        name = repr(SYMBOLS[bad]) if 0 <= bad < len(SYMBOLS) else bad
+        raise InvalidParameter(f"no neutron scattering length for element {name}")
+    masses = [None] * len(z) if mass_numbers is None else list(mass_numbers)
+    if len(masses) != len(z):
+        raise InvalidParameter("give one mass number, or None, for each element")
+    lengths = np.empty(len(z), dtype=np.float64)
+    for k, (number, mass) in enumerate(zip(z, masses)):
+        if mass is None:
+            lengths[k] = NEUTRON[number]
+            if np.isnan(lengths[k]):
+                raise InvalidParameter(
+                    f"no neutron scattering length for {SYMBOLS[number]}: give the "
+                    "mass number of an isotope"
+                )
+        else:
+            try:
+                lengths[k] = NEUTRON_ISOTOPES[(int(number), int(mass))]
+            except KeyError:
+                raise InvalidParameter(
+                    f"no neutron scattering length for {SYMBOLS[number]}-{mass}"
+                ) from None
+    return lengths

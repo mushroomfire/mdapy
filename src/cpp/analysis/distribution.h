@@ -50,6 +50,17 @@ void count_neighbors_list(std::int64_t n, const std::int64_t* offsets, const ind
                           const double* limits, std::int64_t* counts,
                           const Control& control = {});
 
+// The reciprocal lattice vectors q = h b1 + k b2 + l b3 of a periodic box with
+// 0 < |q| <= q_max, one of each pair +q, -q, and the density of each type at
+// each: lengths |q| (count), rho_re and rho_im (count x types), rho_t the sum
+// of exp(i q . r) over the atoms of type t. matrix: rows a1, a2, a3. The atoms
+// are taken in blocks of block atoms (0: as many as fit 256 MB of tables).
+void wave_densities(const double* positions, std::int64_t n, const double* matrix,
+                    const std::int32_t* type, int types, double q_max,
+                    std::vector<double>& lengths, std::vector<double>& rho_re,
+                    std::vector<double>& rho_im, std::int64_t block = 0,
+                    const Control& control = {});
+
 // Static structure factor of a periodic box at every reciprocal lattice
 // vector q = h b1 + k b2 + l b3 with 0 < |q| <= q_max, one of each pair +q,
 // -q: sums over bins of equal width of Re(rho_a(q) rho_b(q)*) for the types a,

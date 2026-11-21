@@ -287,6 +287,11 @@ Berne, G. Ciccotti and D. F. Coker (World Scientific, Singapore, 1998), p. 385.
 [doi:10.1142/9789812839664_0016](https://doi.org/10.1142/9789812839664_0016)
 { #jonsson1998 }
 
+**Keen (2001).** D. A. Keen, A comparison of various commonly used correlation
+functions for describing total scattering, *J. Appl. Cryst.* **34**, 172 (2001).
+[doi:10.1107/S0021889800019993](https://doi.org/10.1107/S0021889800019993)
+{ #keen2001 }
+
 **Kelchner et al. (1998).** C. L. Kelchner, S. J. Plimpton and J. C.
 Hamilton, Dislocation nucleation and defect structure during surface
 indentation, *Phys. Rev. B* **58**, 11085 (1998).
@@ -351,6 +356,11 @@ thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 20544
 (2010).
 [doi:10.1103/PhysRevB.81.205441](https://doi.org/10.1103/PhysRevB.81.205441)
 { #lindsay2010 }
+
+**Lorch (1969).** E. Lorch, Neutron diffraction by germania, silica and
+radiation-damaged silica glasses, *J. Phys. C: Solid State Phys.* **2**, 229 (1969).
+[doi:10.1088/0022-3719/2/2/305](https://doi.org/10.1088/0022-3719/2/2/305)
+{ #lorch1969 }
 
 **Maras et al. (2016). E. Maras, O. Trushin, A. Stukowski, T. Ala-Nissila
 and H. Jónsson, Global transition path search for dislocation formation in Ge
@@ -439,6 +449,11 @@ Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101*
 055504 (2008).
 [doi:10.1103/PhysRevLett.101.055504](https://doi.org/10.1103/PhysRevLett.101.055504)
 { #ranganathan2008 }
+
+**Rauch and Waschkowski (2003).** H. Rauch and W. Waschkowski, Neutron
+scattering lengths, in *Neutron Data Booklet*, 2nd edition, edited by A.-J.
+Dianoux and G. Lander (Old City Publishing, Philadelphia, 2003), chapter 1.1.
+{ #rauch2003 }
 
 **Ravelo et al. (2004).** R. Ravelo, B. L. Holian, T. C. Germann and P. S. Lomdahl,
 Constant-stress Hugoniostat method for following the dynamical evolution of shocked
@@ -634,6 +649,12 @@ sur les parallélloèdres primitifs, *J. Reine Angew. Math.* **134**, 198
 (1908).
 [doi:10.1515/crll.1908.134.198](https://doi.org/10.1515/crll.1908.134.198)
 { #voronoi1908 }
+
+**Waasmaier and Kirfel (1995).** D. Waasmaier and A. Kirfel, New analytical
+scattering-factor functions for free atoms and ions, *Acta Cryst.* **A51**, 416
+(1995).
+[doi:10.1107/S0108767394013292](https://doi.org/10.1107/S0108767394013292)
+{ #waasmaier1995 }
 
 **Wallace (1972).** D. C. Wallace, *Thermodynamics of Crystals* (Wiley,
 New York, 1972).

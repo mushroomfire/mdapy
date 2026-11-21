@@ -74,6 +74,21 @@
   processor and the GPU, whatever order the GPU keeps its atoms in: a run of a seed
   on the GPU in double precision is that on the processor. Runs of the same seed draw
   other numbers than in 2.2.
+- `mdapy.analysis.TotalScattering(radiation, q_max)`: the total structure factor S(q)
+  and F(q) and the reduced pair distribution function G(r) as X-rays or neutrons see
+  them, each pair of elements weighted by the form factors or the scattering lengths;
+  its `TotalScatteringResult` has `transform`, G(r) from S(q) over the range an
+  experiment measures, with the function of Lorch. Against the sum over the wave vectors of the box in NumPy. See
+  [Total scattering](../user-guide/analysis/total-scattering.md).
+- `mdapy.analysis.PowderDiffraction(wavelength, two_theta)`: the X-ray or neutron powder
+  pattern of every wave vector of the box at its own angle, with the Lorentz-polarization
+  factor, a Debye–Waller factor and a broadening, in a `PowderDiffractionResult`; against LAMMPS's `compute xrd` and the
+  reflections of copper. See
+  [Powder diffraction](../user-guide/analysis/powder-diffraction.md).
+- `mdapy.elements.xray_form_factors(elements, q)`, the form factors of the neutral atoms
+  of Waasmaier and Kirfel (1995), and `neutron_scattering_lengths(elements,
+  mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
+  Rauch and Waschkowski (2003).
 
 ## 2.2.0 (not released)
 

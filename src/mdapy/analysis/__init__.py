@@ -54,6 +54,12 @@ from mdapy.analysis._polyhedra import (
     CoordinationPolyhedraResult,
 )
 from mdapy.analysis._rings import RingResult, RingStatistics
+from mdapy.analysis._scattering import (
+    PowderDiffraction,
+    PowderDiffractionResult,
+    TotalScattering,
+    TotalScatteringResult,
+)
 from mdapy.analysis._species import ChemicalSpecies, SpeciesResult
 from mdapy.analysis._statistics import OPERATIONS, Histogram, HistogramResult, reduce
 from mdapy.analysis._steinhardt import SteinhardtParameters, SteinhardtResult
@@ -125,6 +131,10 @@ __all__ = [
     "StrainResult",
     "StructureFactor",
     "StructureFactorResult",
+    "TotalScattering",
+    "TotalScatteringResult",
+    "PowderDiffraction",
+    "PowderDiffractionResult",
     "SurfaceMesh",
     "SurfaceMeshResult",
     "SurfaceRegions",

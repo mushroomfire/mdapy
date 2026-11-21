@@ -18,9 +18,10 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _element_indices,
+    _Part,
 )
 from mdapy.core.system import System
-from mdapy.core.threads import _native_token
+from mdapy.core.threads import _native_token, get_num_threads
 from mdapy.elements import SYMBOLS
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
@@ -181,6 +182,50 @@ class _PairCalculator(Calculator):
             virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
+        )
+
+    def _split(
+        self,
+        system: System,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+    ) -> _Part:
+        """The part of the first owned atoms of system, a process's of MPI,
+        whose pairs reach the ghosts within the cutoff: on one thread each
+        pair of two of them once, as LAMMPS."""
+        virial = (
+            bool({"virial", "atomic_virials"} & set(properties))
+            and WITHOUT_VIRIAL not in properties
+        )
+        arrays = (
+            self.__potential,
+            self._species(system),
+            np.ascontiguousarray(system["positions"]),
+            np.ascontiguousarray(system.box.matrix),
+            neighbors.offsets,
+            neighbors.j,
+            neighbors.shifts,
+        )
+        with neighbors._reading():
+            if get_num_threads() == 1:
+                energies, forces, virials = _native.compute_pair_once(
+                    *arrays, owned, virial
+                )
+            else:
+                energies, forces, virials = _native.compute_pair(
+                    *arrays, None, None, virial
+                )
+                energies, forces = energies[:owned], forces[:owned]
+                virials = virials[:owned] if virials is not None else None
+        return _Part(
+            float(energies.sum()),
+            forces,
+            virials.sum(axis=0) if virials is not None else np.full((3, 3), np.nan),
+            energies,
+            virials,
         )
 
 

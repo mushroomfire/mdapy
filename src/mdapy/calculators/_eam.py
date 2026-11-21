@@ -21,7 +21,7 @@ from mdapy.calculators._base import (
     _Part,
 )
 from mdapy.core.system import System
-from mdapy.core.threads import _native_token
+from mdapy.core.threads import _native_token, get_num_threads
 from mdapy.elements import SYMBOLS
 from mdapy.errors import FileFormatError, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
@@ -626,11 +626,15 @@ class EAM(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
+        # on one thread, each pair of two of these atoms once, as LAMMPS
+        once = get_num_threads() == 1
         with neighbors._reading():
-            embedding, slopes = _native.eam_densities(self.__potential, *arrays, owned)
+            embedding, slopes = _native.eam_densities(
+                self.__potential, *arrays, owned, once
+            )
             slopes = np.ascontiguousarray(forward(slopes))
             energies, forces, virials = _native.eam_forces(
-                self.__potential, *arrays, slopes, embedding, virial, heat
+                self.__potential, *arrays, slopes, embedding, virial, heat, once
             )
         return _Part(
             float(energies.sum()),

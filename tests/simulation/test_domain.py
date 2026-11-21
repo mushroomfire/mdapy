@@ -498,3 +498,18 @@ def test_an_atom_too_fast(monkeypatch):
             bricks.migrate({"positions": x, "image": np.zeros((1, 3), np.int64)})
 
     processes.run(4, task, monkeypatch)
+
+
+@pytest.mark.parametrize("case", ["nve", "npt tri", "groups", "hnemd convective",
+                                  "small", "outside", "lj", "switch to eam"])  # fmt: skip
+def test_processes_of_one_thread(monkeypatch, case):
+    """On one thread a process computes each pair of its own atoms once, as
+    LAMMPS: the run of one process too, to the rounding."""
+    from mdapy.core.threads import set_num_threads
+
+    crystal, potential, options, size = CASES[case]
+    alone = run(crystal, potential, options)
+    set_num_threads(1)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)

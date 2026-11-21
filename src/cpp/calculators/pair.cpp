@@ -112,6 +112,81 @@ void compute_style(const PairPotential& potential, std::int64_t n, const std::in
     }
 }
 
+// On one thread, each pair of two of the first centers atoms once, the
+// forces on both from it, as LAMMPS's newton off: the forces, energies and
+// virials of the centres.
+template <PairStyle Style>
+void compute_once(const PairPotential& potential, std::int64_t centers,
+                  const std::int32_t* species, const double* positions, const double* matrix,
+                  const std::int64_t* offsets, const index_t* neighbors,
+                  const std::int8_t* shifts, double* energies, double* forces,
+                  double* virials) {
+    const auto t = static_cast<std::int64_t>(potential.species);
+    std::fill(energies, energies + centers, 0.0);
+    std::fill(forces, forces + 3 * centers, 0.0);
+    if (virials != nullptr) {
+        std::fill(virials, virials + 9 * centers, 0.0);
+    }
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const std::int64_t si = species[i];
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            const auto j = static_cast<std::int64_t>(neighbors[p]);
+            const std::int8_t* shift = shifts + 3 * p;
+            if (j < centers) {
+                // two centres: from the lower, or the image with the shift
+                // whose first component not zero is positive
+                bool here = i < j;
+                if (i == j) {
+                    here = shift[0] != 0 ? shift[0] > 0 : shift[1] != 0 ? shift[1] > 0 : shift[2] > 0;
+                }
+                if (!here) {
+                    continue;
+                }
+            }
+            double v[3];
+            neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shift, matrix, v);
+            const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
+            const double r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
+            const std::int64_t k = si * t + species[j];
+            if (!(r2 < potential.cutsq[static_cast<std::size_t>(k)])) {
+                continue;
+            }
+            const double* c = potential.coefficients.data() + 4 * k;
+            const double offset = potential.offset[static_cast<std::size_t>(k)];
+            double e, fpair;
+            if constexpr (Style == PairStyle::LennardJones) {
+                lennard_jones(c, offset, r2, e, fpair);
+            } else if constexpr (Style == PairStyle::Morse) {
+                morse(c, offset, r2, e, fpair);
+            } else {
+                uhlenbeck_ford(c, offset, r2, e, fpair);
+            }
+            const bool both = j < centers;
+            for (int a = 0; a < 3; ++a) {
+                forces[3 * i + a] += del[a] * fpair;
+                if (both) {
+                    forces[3 * j + a] -= del[a] * fpair;
+                }
+            }
+            energies[i] += 0.5 * e;
+            if (both) {
+                energies[j] += 0.5 * e;
+            }
+            if (virials != nullptr) {
+                for (int a = 0; a < 3; ++a) {
+                    for (int b = 0; b < 3; ++b) {
+                        const double w = 0.5 * del[a] * del[b] * fpair;
+                        virials[9 * i + 3 * a + b] += w;
+                        if (both) {
+                            virials[9 * j + 3 * a + b] += w;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 }  // namespace
 
 PairPotential make_pair_potential(PairStyle style, int species, const double* cutsq,
@@ -146,6 +221,25 @@ void compute_pair(const PairPotential& potential, std::int64_t n, const std::int
         compute_style<PairStyle::UhlenbeckFord>(potential, n, species, positions, matrix, offsets,
                                           neighbors, shifts, energies, forces, virials,
                                           control);
+    }
+}
+
+void compute_pair_once(const PairPotential& potential, std::int64_t centers,
+                       const std::int32_t* species, const double* positions,
+                       const double* matrix, const std::int64_t* offsets,
+                       const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                       double* forces, double* virials) {
+    if (potential.style == PairStyle::LennardJones) {
+        compute_once<PairStyle::LennardJones>(potential, centers, species, positions, matrix,
+                                              offsets, neighbors, shifts, energies, forces,
+                                              virials);
+    } else if (potential.style == PairStyle::Morse) {
+        compute_once<PairStyle::Morse>(potential, centers, species, positions, matrix, offsets,
+                                       neighbors, shifts, energies, forces, virials);
+    } else {
+        compute_once<PairStyle::UhlenbeckFord>(potential, centers, species, positions, matrix,
+                                               offsets, neighbors, shifts, energies, forces,
+                                               virials);
     }
 }
 

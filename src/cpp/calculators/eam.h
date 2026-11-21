@@ -104,4 +104,18 @@ void eam_forces(const EamPotential& potential, std::int64_t centers, const std::
                 double* energies, double* forces, double* virials, const Control& control = {},
                 bool heat = false);
 
+// The same passes on one thread, each pair of two centres once, the forces
+// on both from it, as LAMMPS's newton off computes them: for a process of MPI
+// on one thread. The forces, energies and virials of the centres alone.
+void eam_densities_once(const EamPotential& potential, std::int64_t centers,
+                        const std::int32_t* species, const double* positions,
+                        const double* matrix, const std::int64_t* offsets,
+                        const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                        double* slopes);
+void eam_forces_once(const EamPotential& potential, std::int64_t centers,
+                     const std::int32_t* species, const double* positions, const double* matrix,
+                     const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* slopes, double* energies,
+                     double* forces, double* virials, bool heat);
+
 }  // namespace mdapy::calculators

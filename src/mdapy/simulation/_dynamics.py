@@ -26,6 +26,7 @@ from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.simulation import _controls, _restart
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log, _machine
+from mdapy.simulation._pimd import _RingPolymer
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
@@ -877,6 +878,9 @@ class MolecularDynamics:
         rows of numbers start with #, so that ``numpy.loadtxt`` reads the
         rows of every run as one table. Under MPI the main process writes.
         Default None, writing none.
+    beads : int32, optional
+        The beads of the ring polymer of each atom, for path-integral
+        molecular dynamics of the quantum nuclei; 1, classical. Default 1.
 
     Attributes
     ----------
@@ -904,9 +908,12 @@ class MolecularDynamics:
         *,
         timestep: float = 0.001,
         log: Any = None,
+        beads: int = 1,
     ):
         if not timestep > 0:
             raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
+        if isinstance(beads, bool) or int(beads) != beads or beads < 1:
+            raise InvalidParameter(f"beads must be a positive integer, not {beads!r}")
         self.timestep = float(timestep)
         self.__n = len(system)
         self.__pbc = system.box.pbc
@@ -919,7 +926,16 @@ class MolecularDynamics:
         # a run a restart file stopped in: its settings and the steps it ran
         self.__pending: tuple[dict[str, Any], int] | None = None
         if isinstance(potential, LAMMPS):
-            self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
+            if beads > 1:
+                raise InvalidParameter(
+                    "path-integral dynamics runs in MDAPY, with a calculator other "
+                    "than LAMMPS"
+                )
+            self.__engine: _Lammps | _Native | _RingPolymer = _Lammps(
+                system, potential, timestep
+            )
+        elif beads > 1:
+            self.__engine = _RingPolymer(system, potential, timestep, int(beads))
         else:
             self.__engine = _Native(system, potential, timestep)
         try:
@@ -1012,6 +1028,17 @@ class MolecularDynamics:
         return self.__engine.system
 
     @property
+    def beads(self) -> tuple[System, ...]:
+        """The atoms at each bead of their ring polymers, the bead in
+        ``info["bead"]``, of path-integral dynamics; the atoms alone
+        otherwise."""
+        self.__open()
+        engine = self.__engine
+        if isinstance(engine, _RingPolymer):
+            return tuple(engine.bead_systems())
+        return (engine.system,)
+
+    @property
     def thermo(self) -> pl.DataFrame:
         """The thermodynamic state every ``thermo`` steps of the runs: step,
         time (ps), temperature (K), potential, kinetic and total energy
@@ -1077,7 +1104,7 @@ class MolecularDynamics:
         return os.fspath(restart), every
 
     def __native_only(self) -> None:
-        if not isinstance(self.__engine, _Native):
+        if not isinstance(self.__engine, (_Native, _RingPolymer)):
             raise InvalidParameter(
                 "restart files keep runs in MDAPY; LAMMPS writes its own, with "
                 "md.command('write_restart file')"
@@ -1088,6 +1115,7 @@ class MolecularDynamics:
         engine = self.__engine
         return {
             "timestep": self.timestep,
+            "beads": getattr(engine, "beads", 1),
             "system": engine.system,
             "engine": engine.state(),
             "rows": self.__rows,
@@ -1171,7 +1199,12 @@ class MolecularDynamics:
             raise InvalidParameter(
                 f"this restart file ran with {names[0]}, not a {type(potential).__name__}"
             )
-        md = cls(state["system"], potential, timestep=state["timestep"])
+        md = cls(
+            state["system"],
+            potential,
+            timestep=state["timestep"],
+            beads=state.get("beads", 1),
+        )
         if state["pending"] is not None:
             # the controls of the run set up, on the GPU too, as at its start;
             # its variables then as the file kept them

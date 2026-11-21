@@ -303,6 +303,8 @@ nav:
               - Walls: user-guide/simulation/walls.md
               - Hugoniostat: user-guide/simulation/hugoniostat.md
               - Multiscale shock technique: user-guide/simulation/msst.md
+          - Quantum nuclei:
+              - Path integrals: user-guide/simulation/pimd.md
           - Radiation damage:
               - Electronic stopping: user-guide/simulation/electronic-stopping.md
           - Relaxation and paths:

@@ -2,7 +2,7 @@
 
 <p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md)</p>
 
-`mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001)`
+`mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001, log=None, beads=1)`
 runs molecular dynamics of a system and gives back the thermodynamic state,
 the atoms along the way and the system at the end. With any calculator of MDAPY,
 such as [EAM](../potentials/eam.md), [NEP](../potentials/nep.md) or an
@@ -98,6 +98,7 @@ they are, whatever the box, are [`SpatialBinning`](../analysis/spatial-binning.m
 | `potential` | calculator | | | the interaction: a `LAMMPS` calculator, run in LAMMPS, or any other calculator, run in MDAPY, which needs energies and forces, and the virial for a barostat |
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `log` | str, path or stream | `None` | | writes the runs to this file, which it overwrites, or to this stream, such as `sys.stdout`: see [Log](records.md#log) |
+| `beads` | int32 | 1 | | the beads of the ring polymer of each atom, for quantum nuclei: see [Path integrals](pimd.md) |
 
 ## Running
 

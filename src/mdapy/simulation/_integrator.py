@@ -439,8 +439,8 @@ class _HostAtoms:
         is for MDAPY's potentials, which pass over the pairs beyond their
         cutoffs, those closer than the cutoff for the others."""
         cutoff = float(calculator.cutoff)
-        if not 0.0 < cutoff < np.inf:
-            return None
+        if not 0.0 < cutoff < np.inf or getattr(calculator, "device", "cpu") == "cuda":
+            return None  # none, or a list of its own on the GPU
         wider = getattr(calculator, "_takes_wider_lists", False)
 
         def pairs(wide: NeighborList) -> NeighborList | None:

@@ -103,6 +103,12 @@ functions, *École thématique de la Société Française de la Neutronique*
 [doi:10.1051/sfn/201112010](https://doi.org/10.1051/sfn/201112010)
 { #calandrini2011 }
 
+**Ceriotti et al. (2010).** M. Ceriotti, M. Parrinello, T. E. Markland and D. E.
+Manolopoulos, Efficient stochastic thermostatting of path integral molecular dynamics,
+*J. Chem. Phys.* **133**, 124104 (2010).
+[doi:10.1063/1.3489925](https://doi.org/10.1063/1.3489925)
+{ #ceriotti2010 }
+
 **Cordero et al. (2008).** B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés,
 J. Echeverría, E. Cremades, F. Barragán and S. Alvarez, Covalent radii
 revisited, *Dalton Trans.*, 2832 (2008).

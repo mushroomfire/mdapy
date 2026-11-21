@@ -37,6 +37,13 @@
   ZBL on an EAM for the close collisions of a cascade, the same as LAMMPS atom by atom
   and in a cascade with electronic stopping step by step; on the processor, on many
   processes and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
+- Path-integral molecular dynamics of quantum nuclei: `MolecularDynamics(..., beads=P)`,
+  each atom a ring polymer of P beads, sampled by BAOAB in the normal modes with the
+  PILE_L thermostat, or run without it as ring-polymer molecular dynamics; `thermo`
+  records the centroid-virial and primitive kinetic energies and the centroid-virial
+  pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
+  of the finite ring polymer in closed form. See
+  [Path integrals](../user-guide/simulation/pimd.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

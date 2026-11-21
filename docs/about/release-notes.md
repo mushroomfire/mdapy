@@ -17,7 +17,9 @@
   atoms alone, with ghosts within the cutoff and the skin, sending what the atoms of
   a many-body potential have of their neighbors to the ghosts, or the forces on the
   ghosts back, and bricks thinner than the cutoff pass the ghosts on. It needs
-  mpi4py. See [On many processes](../user-guide/simulation/processes.md).
+  mpi4py. A process of one thread computes each pair once among the processes. See
+  [On many processes](../user-guide/simulation/processes.md), and its times on 1 to 40
+  processes in [Performance](../performance/mpi.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

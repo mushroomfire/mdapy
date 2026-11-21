@@ -107,7 +107,8 @@ one of its atoms and a ghost on the process of the atom of the lower id, and the
 forces on the ghost go back to their atom. A process of several threads, set by
 `MDAPY_NUM_THREADS`, has each atom gather its pairs, as one process does, so that
 the threads write no atom but their own. One thread a process is the faster: run
-as many processes as cores, with `MDAPY_NUM_THREADS=1`. The forces of a run on
+as many processes as cores, with `MDAPY_NUM_THREADS=1`; [Performance](../../performance/mpi.md)
+compares the times with those of LAMMPS. The forces of a run on
 many processes sum in another order than on one, and so differ in their last
 digits with the number of processes and of threads.
 

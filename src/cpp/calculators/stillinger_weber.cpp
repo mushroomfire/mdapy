@@ -24,7 +24,21 @@ struct Near {
     int species;
     double r[3];  // x_j - x_i
     double rsq;
+    // what the three-body terms of the centre take of this neighbor alone
+    double length, rinvsq, gsrainvsq, expgsrainv;
 };
+
+// The parts of the three-body terms of a neighbor of a centre of species si
+// that depend on it alone, by the entry i j j.
+void prepare(const StillingerWeberPotential& potential, int si, Near& q) {
+    const P& pij = potential.of(si, q.species, q.species);
+    q.length = std::sqrt(q.rsq);
+    q.rinvsq = 1.0 / q.rsq;
+    const double rainv = 1.0 / (q.length - pij.cut);
+    const double gsrainv = pij.sigma_gamma * rainv;
+    q.gsrainvsq = gsrainv * rainv / q.length;
+    q.expgsrainv = std::exp(gsrainv);
+}
 
 // The two-body term of species si and sj at r^2 by the entries i j j and
 // j i i, which LAMMPS takes one of by the numbering of the atoms, here their
@@ -67,20 +81,12 @@ void three_body(const StillingerWeberPotential& potential, std::int64_t i, int s
                 const std::vector<Near>& near, bool heat, Sink& sink) {
     for (std::size_t a = 0; a + 1 < near.size(); ++a) {
         const Near& j = near[a];
-        const P& pij = potential.of(si, j.species, j.species);
-        const double r1 = std::sqrt(j.rsq), rinvsq1 = 1.0 / j.rsq;
-        const double rainv1 = 1.0 / (r1 - pij.cut);
-        const double gsrainv1 = pij.sigma_gamma * rainv1;
-        const double gsrainvsq1 = gsrainv1 * rainv1 / r1;
-        const double expgsrainv1 = std::exp(gsrainv1);
+        const double r1 = j.length, rinvsq1 = j.rinvsq;
+        const double gsrainvsq1 = j.gsrainvsq, expgsrainv1 = j.expgsrainv;
         for (std::size_t b = a + 1; b < near.size(); ++b) {
             const Near& k = near[b];
-            const P& pik = potential.of(si, k.species, k.species);
-            const double r2 = std::sqrt(k.rsq), rinvsq2 = 1.0 / k.rsq;
-            const double rainv2 = 1.0 / (r2 - pik.cut);
-            const double gsrainv2 = pik.sigma_gamma * rainv2;
-            const double gsrainvsq2 = gsrainv2 * rainv2 / r2;
-            const double expgsrainv2 = std::exp(gsrainv2);
+            const double r2 = k.length, rinvsq2 = k.rinvsq;
+            const double gsrainvsq2 = k.gsrainvsq, expgsrainv2 = k.expgsrainv;
             const double rinv12 = 1.0 / (r1 * r2);
             const double cs = (j.r[0] * k.r[0] + j.r[1] * k.r[1] + j.r[2] * k.r[2]) * rinv12;
             const double facexp = expgsrainv1 * expgsrainv2;
@@ -211,8 +217,9 @@ void compute_stillinger_weber(const StillingerWeberPotential& potential, std::in
                 // the neighbors within the radius of their pair, each pair half from each atom
                 near.clear();
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const Near q = near_of(i, p, species, positions, matrix, neighbors, shifts);
+                    Near q = near_of(i, p, species, positions, matrix, neighbors, shifts);
                     if (q.rsq < potential.of(si, q.species, q.species).cutsq) {
+                        prepare(potential, si, q);
                         near.push_back(q);
                     }
                     double energy, fpair;
@@ -243,6 +250,7 @@ void compute_stillinger_weber_once(const StillingerWeberPotential& potential, st
     std::fill(forces, forces + 3 * n, 0.0);
     if (virials != nullptr) std::fill(virials, virials + 9 * n, 0.0);
     ToAtoms sink{energies, forces, virials};
+    const double cutmax2 = potential.cutoff * potential.cutoff;
     std::vector<Near> near;
     for (std::int64_t i = 0; i < centers; ++i) {
         const int si = species[i];
@@ -250,7 +258,7 @@ void compute_stillinger_weber_once(const StillingerWeberPotential& potential, st
         for (std::int64_t p = once_offsets[i]; p < once_offsets[i + 1]; ++p) {
             const Near q = near_of(i, p, species, positions, matrix, once_neighbors, once_shifts);
             double energy, fpair;
-            if (!two_body(potential, si, q.species, q.rsq, energy, fpair)) {
+            if (!(q.rsq < cutmax2) || !two_body(potential, si, q.species, q.rsq, energy, fpair)) {
                 continue;
             }
             sink.own_energy(i, 0.5 * energy);
@@ -260,8 +268,9 @@ void compute_stillinger_weber_once(const StillingerWeberPotential& potential, st
         }
         near.clear();
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-            const Near q = near_of(i, p, species, positions, matrix, neighbors, shifts);
+            Near q = near_of(i, p, species, positions, matrix, neighbors, shifts);
             if (q.rsq < potential.of(si, q.species, q.species).cutsq) {
+                prepare(potential, si, q);
                 near.push_back(q);
             }
         }

@@ -215,9 +215,13 @@ def cases():
         "stopping": (crystal, eam, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), 0.5 * np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02, mask=middle)]}, 4),
-        # computed whole on each process, with ghosts twice the cutoff thick
+        # split as its calculators, of the same elements, one thread each
+        # computing each pair once among the processes
         "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0)]), {}, 4),
         "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0)]), {}, 8),
+        # computed whole on each process, with ghosts twice the cutoff thick:
+        # its calculators of other elements
+        "overlay whole": (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)]), {}, 4),
         "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02)]}, 8),
@@ -543,7 +547,8 @@ def test_processes_with_a_gpu_each(monkeypatch, name):
 
 @pytest.mark.parametrize("case", ["nve", "npt tri", "groups", "hnemd convective",
                                   "small", "outside", "lj", "switch to eam",
-                                  "stopping", "stopping lj"])  # fmt: skip
+                                  "stopping", "stopping lj", "overlay",
+                                  "overlay of pairs"])  # fmt: skip
 def test_processes_of_one_thread(monkeypatch, case):
     """On one thread a process computes each pair of its own atoms once, as
     LAMMPS: the run of one process too, to the rounding."""

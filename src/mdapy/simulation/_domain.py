@@ -388,6 +388,12 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
     from mdapy.calculators._pair import _PairCalculator
 
     pair = isinstance(calculator, _PairCalculator)
+    if isinstance(calculator, Overlay) and calculator._split is not None:
+        # split as its calculators, each with its own reach
+        return (
+            max(_reach(p, target)[0] for p in calculator.calculators),
+            max(_reach(p, target)[1] for p in calculator.calculators),
+        )
     if isinstance(calculator, Overlay) and not _on_gpu(calculator):
         # computed whole, the atoms and the ghosts: a pair potential needs
         # ghosts within its cutoff, a many-body one within twice its cutoff,

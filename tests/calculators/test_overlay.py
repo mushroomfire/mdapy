@@ -125,6 +125,9 @@ def test_on_the_gpu_stood_in(monkeypatch):
 def test_parameters():
     eam, zbl = parts()
     overlay = Overlay([eam, zbl])
+    # splits among processes as its calculators of the same elements
+    assert overlay._split is not None and overlay._pairs_once
+    assert Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)])._split is None
     assert overlay.calculators == (eam, zbl)
     assert overlay.cutoff == eam.cutoff and overlay.elements == ("Cu", "Ni")
     assert overlay.implemented == eam.implemented

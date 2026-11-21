@@ -36,7 +36,7 @@
 - `Overlay`, calculators added together, as LAMMPS's `pair_style hybrid/overlay`: a
   ZBL on an EAM for the close collisions of a cascade, the same as LAMMPS atom by atom
   and in a cascade with electronic stopping step by step; on the processor, on many
-  processes and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
+  processes, split as its calculators, and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
 - Path-integral molecular dynamics of quantum nuclei: `MolecularDynamics(..., beads=P)`,
   each atom a ring polymer of P beads, sampled by BAOAB in the normal modes with the
   PILE_L thermostat, or run without it as ring-polymer molecular dynamics; `thermo`

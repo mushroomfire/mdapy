@@ -199,6 +199,26 @@ def test_on_the_gpu_stood_in(monkeypatch):
     np.testing.assert_allclose(ta["pressure"], tb["pressure"], rtol=1e-10)
 
 
+def test_an_overlay_from_arrays_as_through_systems():
+    """An Overlay of EAM and ZBL computes each bead from arrays, as its
+    calculators split; the same run as an Overlay of other elements
+    computed through systems."""
+    from mdapy.build import build_crystal
+    from mdapy.calculators import EAM, ZBL, Overlay
+
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
+    out = []
+    for order in (["Cu"], ["Ni", "Cu"]):
+        overlay = Overlay([EAM.zhou(["Cu"]), ZBL(order, 1.0, 2.0)])
+        with MolecularDynamics(crystal, overlay, timestep=0.002, beads=3) as md:
+            md.velocities(50, seed=1)
+            md.run(20, temperature=50, seed=2, thermo=10, **NVT)
+            out.append((md.system, md.thermo))
+    np.testing.assert_allclose(out[0][0]["velocities"], out[1][0]["velocities"],
+                               atol=1e-10)  # fmt: skip
+    np.testing.assert_allclose(out[0][1]["pressure"], out[1][1]["pressure"], rtol=1e-10)
+
+
 def test_a_mass_column_and_the_log():
     """The masses of a mass column, deuterium for hydrogen; the log names
     the beads."""

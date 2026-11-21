@@ -4810,6 +4810,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#from-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10355,6 +10366,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#from-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        From molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#results" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10497,6 +10519,27 @@ frame, as LAMMPS and OVITO unwrap it: when the box changes, an atom some boxes
 away from where it started moves with the box by that many times the change.
 With <code>unwrap=False</code>, for positions already unwrapped, such as <code>xu yu zu</code> of a
 LAMMPS dump, the positions are used as they are.</p>
+<h2 id="from-molecular-dynamics">From molecular dynamics<a class="headerlink" href="#from-molecular-dynamics" title="Permanent link">&para;</a></h2>
+<p>Each frame that <a href="../../simulation/records/"><code>MolecularDynamics</code></a> keeps or gives has
+the <code>image</code> column, the boxes each atom has crossed since the start, in MDAPY, on
+the GPU and in LAMMPS alike, so that the atoms are followed exactly however far
+they move between two frames:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LennardJones</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">liquid</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">5.26</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Ar"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">argon</span> <span class="o">=</span> <span class="n">LennardJones</span><span class="p">((</span><span class="mf">0.0104</span><span class="p">,</span> <span class="mf">3.40</span><span class="p">),</span> <span class="mf">8.0</span><span class="p">)</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">liquid</span><span class="p">,</span> <span class="n">argon</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.005</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">2000</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">600</span><span class="p">)</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">MeanSquaredDisplacement</span><span class="p">()</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">frames</span><span class="p">)</span>  <span class="c1"># lag in frames of 0.25 ps</span>
+</code></pre></div>
+<p><a href="../../../basics/io/"><code>mdapy.io.write</code></a> keeps the <code>image</code> column in the files it
+writes, extended XYZ, LAMMPS dumps (<code>ix iy iz</code>) and MDAPY's own, so that frames
+written as a long run goes, with <a href="../../simulation/records/#frames-in-files"><code>iterate</code></a>,
+and read back with <a href="../../../basics/trajectory/"><code>read_trajectory</code></a> give the same
+displacement.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p>A <code>DisplacementResult</code>:</p>
 <table>

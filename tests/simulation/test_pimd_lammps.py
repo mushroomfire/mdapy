@@ -10,7 +10,6 @@ their statistical errors. MDAPY_LAMMPS_NEB gives the command that starts
 it, with {n} for the number of processes, such as
 ``mpirun -np {n} /path/to/lmp``."""
 
-import glob
 import os
 import subprocess
 
@@ -61,8 +60,8 @@ def lammps(tmp_path):
     ]  # fmt: skip
     subprocess.run(command, cwd=tmp_path, check=True, capture_output=True, timeout=1800)
     rows = []
-    for path in sorted(glob.glob(str(tmp_path / "log.lammps.*"))):
-        lines = open(path).read().splitlines()
+    for path in sorted(tmp_path.glob("log.lammps.*")):
+        lines = path.read_text().splitlines()
         start = next(i for i, line in enumerate(lines) if line.split()[:1] == ["Step"])
         table = []
         for line in lines[start + 1 :]:

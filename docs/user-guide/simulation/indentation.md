@@ -88,56 +88,61 @@ dislocation lines of the [dislocation analysis](../analysis/dislocations.md):
 
 <!-- skip-test -->
 ```python
+import numpy as np
+
 from mdapy.analysis import DislocationAnalysis
 from mdapy.identify import CommonNeighborAnalysis
-from mdapy.visualization import render
+from mdapy.visualization import render, write_png
 
 structures = CommonNeighborAnalysis().compute(deepest)
-below = deepest["positions.z"] < surface - 3.0  # all but the top surface
-render(
-    deepest,
-    "images/indentation-structures.png",
-    atoms=(structures.structure != structures.names.index("fcc")) & below,
-    color=structures,
-    view=(0.6, -1.0, -0.12),
-    width=1000,
-    height=700,
-    legend=True,
-)
-
 dislocations = DislocationAnalysis("fcc").compute(deepest)
+below = deepest["positions.z"] < surface - 3.0  # all but the top surface
 kinds = {"1/2<110>": "perfect", "1/6<112>": "Shockley", "1/6<110>": "stair-rod",
          "1/3<100>": "Hirth", "1/3<111>": "Frank"}  # fmt: skip
 palette = DislocationAnalysis.FAMILY_COLORS["fcc"]
 families = sorted({line.family for line in dislocations.lines})
-render(
-    deepest,
-    "images/indentation-dislocations.png",
-    atoms=[],  # the lines alone
-    dislocations=dislocations,
-    dislocation_radius=1.0,
-    view=(0.6, -1.0, -0.12),
-    width=1000,
-    height=700,
-    legend={f"{kinds.get(f, '')} {f}".strip(): palette[f] for f in families},
-)
+view = (0.6, -1.0, -0.12)
+# the same frame in both pictures
+middle = deepest.box.origin + deepest.box.matrix.sum(axis=0) / 2
+pictures = [
+    render(
+        deepest,
+        atoms=(structures.structure != structures.names.index("fcc")) & below,
+        color=structures,
+        view=view,
+        focus=middle,
+        span=490.0,
+        width=900,
+        height=640,
+        legend=True,
+    ),
+    render(
+        deepest,
+        atoms=[],  # the lines alone
+        dislocations=dislocations,
+        dislocation_radius=1.0,
+        view=view,
+        focus=middle,
+        span=490.0,
+        width=900,
+        height=640,
+        legend={f"{kinds.get(f, '')} {f}".strip(): palette[f] for f in families},
+    ),
+]
+write_png("images/indentation-defects.png", np.hstack(pictures))
 ```
 
-![The stacking faults under a sphere pressed 2 nm into copper](images/indentation-structures.png)
+![The stacking faults and the dislocation lines under a sphere pressed 2 nm into copper](images/indentation-defects.png)
 
-*Under the dent, the atoms of the contact in gray, stacking faults on the four {111}
-planes, two layers of hcp atoms each, run out from the indenter, bounded by partial
-dislocations: some 6500 hcp atoms at 20 Å. Loops of them have glided away along
-⟨110⟩, the deepest to 18 nm below the surface; the lower half of the film, down to its
-bottom, stays fcc. The atoms scattered through the film are taken out of fcc for a
-moment by the vibrations at 300 K.*
-
-![The dislocation lines under a sphere pressed 2 nm into copper](images/indentation-dislocations.png)
-
-*The dislocation lines of the same film in the colors of the families of their Burgers
-vectors: 389 nm of lines, 334 nm of them Shockley partials (green) at the edges of the
-faults, with stair-rods (magenta) and Hirth locks (yellow) where faults on two {111}
-planes meet, which close the loops that glide away.*
+*Left, under the dent, the atoms of the contact in gray, stacking faults on the four
+{111} planes, two layers of hcp atoms each, run out from the indenter, bounded by partial
+dislocations: some 6500 hcp atoms at 20 Å. Loops of them have glided away along ⟨110⟩,
+the deepest to 18 nm below the surface; the lower half of the film, down to its bottom,
+stays fcc. The atoms scattered through the film are taken out of fcc for a moment by the
+vibrations at 300 K. Right, the dislocation lines in the colors of the families of their
+Burgers vectors: 389 nm of lines, 334 nm of them Shockley partials (green) at the edges
+of the faults, with stair-rods (magenta) and Hirth locks (yellow) where faults on two
+{111} planes meet, which close the loops that glide away.*
 
 ## Parameters
 

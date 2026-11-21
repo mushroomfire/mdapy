@@ -581,3 +581,126 @@ def test_each_process_its_gpu(monkeypatch):
     _gpu.cuda()
     _gpu.cuda()
     assert chosen == [2]
+
+
+# -- minimization ----------------------------------------------------------------
+
+
+def shaken(system, seed=0, scale=0.08):
+    rng = np.random.default_rng(seed)
+    return system.with_columns(
+        positions=system["positions"] + rng.normal(0, scale, (len(system), 3))
+    )
+
+
+def minimizations(tmp_path):
+    from mdapy.calculators import MEAM, Tersoff
+
+    from calculators.meam_files import CASES as MEAMS
+    from calculators.meam_files import write_library, write_parameters
+    from calculators.potential_files import write_tersoff
+    from calculators.test_meam import crystal as meam_crystal
+
+    eam = EAM.zhou(["Cu"])
+    names, lines, structure, a = MEAMS["silicon and carbon, dia, screening beyond rc"]
+    meam = MEAM(write_library(tmp_path / "library.meam"), names,
+                write_parameters(tmp_path / "x.meam", lines))  # fmt: skip
+    repeat = int(np.ceil(2 * (2 * meam.cutoff + 1.0) / a)) + 1
+    silicon = build_crystal("diamond", 5.43, elements="Si", repeat=(4, 4, 4))
+    rng = np.random.default_rng(3)
+    silicon = silicon.with_columns(element=list(rng.choice(["Si", "C"], len(silicon),
+                                                           p=[0.8, 0.2])))  # fmt: skip
+    return {
+        "eam": (shaken(copper()), eam, {}, 4),
+        "eam cell": (shaken(copper(tilt=0.05)), eam, {"cell": "full"}, 2),
+        "lj": (shaken(copper(5)), LennardJones({"Cu": (0.4, 2.3)}, 5.0), {}, 8),
+        "tersoff": (shaken(silicon, scale=0.05),
+                    Tersoff(write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C"))), {}, 4),
+        "meam": (meam_crystal(structure, a, meam.elements, repeat=repeat, jitter=0.05,
+                              seed=3), meam, {}, 2),
+        "small": (shaken(copper(3)), eam, {"cell": "isotropic"}, 8),
+        "surface": (shaken(copper(pbc=(True, True, False))), eam, {}, 4),
+    }  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    "case", ["eam", "eam cell", "lj", "tersoff", "meam", "small", "surface"]
+)
+def test_a_minimization_on_many_processes(monkeypatch, tmp_path, case):
+    """Every process takes the steps of FIRE over every atom, the forces
+    shared among them: the minimization of one process, to the rounding."""
+    import io
+
+    from mdapy.simulation import minimize
+
+    system, potential, options, size = minimizations(tmp_path)[case]
+
+    def run(rank):
+        log = io.StringIO()
+        result = minimize(system, potential, max_force=1e-4, max_steps=300, log=log,
+                          **options)  # fmt: skip
+        return result, log.getvalue()
+
+    alone, _ = run(None)
+    assert alone.steps > 10
+    results = processes.run(size, run, monkeypatch)
+    for result, log in results:
+        assert result.steps == alone.steps and result.converged == alone.converged
+        assert result.energy == pytest.approx(alone.energy, rel=1e-11, abs=1e-9)
+        np.testing.assert_allclose(result.system["positions"],
+                                   alone.system["positions"], atol=1e-7)  # fmt: skip
+        np.testing.assert_allclose(result.system.box.matrix, alone.system.box.matrix,
+                                   atol=1e-9)  # fmt: skip
+    logs = [log for _, log in results]
+    assert "energy minimization" in logs[0] and not any(logs[1:])
+
+
+def test_a_minimization_in_lammps_on_many_processes(monkeypatch):
+    """A calculator that does not split, as LAMMPS under MPI, computes on
+    every process as on one."""
+    from mdapy.simulation import _domain as domain
+
+    class Whole(LennardJones):
+        pass
+
+    lj = Whole({"Cu": (0.4, 2.3)}, 5.0)
+    monkeypatch.setattr(domain, "_reach", lambda *a, **k: (_ for _ in ()).throw(
+        InvalidParameter("no split")))  # fmt: skip
+    from mdapy.simulation import minimize
+
+    system = shaken(copper(4))
+    alone = minimize(system, lj, max_steps=20)
+    for result in processes.run(2, lambda rank: minimize(system, lj, max_steps=20),
+                                monkeypatch):  # fmt: skip
+        np.testing.assert_allclose(result.system["positions"], alone.system["positions"],
+                                   atol=1e-12)  # fmt: skip
+
+
+def test_a_minimization_in_a_box_too_thin(monkeypatch):
+    from mdapy.simulation import minimize
+
+    # 7.2 Å across, cut in two along each vector: thinner than the reach of
+    # a cutoff of 8 Å and the skin
+    system = shaken(build_crystal("fcc", 3.615, elements="Cu", repeat=(2, 2, 2)))
+    lj = LennardJones({"Cu": (0.4, 2.3)}, 8.0)
+    with pytest.raises(InvalidParameter, match="fewer processes"):
+        processes.run(8, lambda rank: minimize(system, lj, max_steps=5), monkeypatch)
+
+
+def test_a_minimization_with_a_gpu_each(monkeypatch):
+    """Each process computes its atoms and ghosts whole on its GPU, stood in
+    for: the minimization of one process on the processor."""
+    from mdapy.simulation import minimize
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    system = shaken(copper())
+    alone = minimize(system, EAM.zhou(["Cu"]), max_force=1e-4, max_steps=200)
+    gpu = EAM.zhou(["Cu"], device="cuda", precision="double")
+    for result in processes.run(
+        2,
+        lambda rank: minimize(system, gpu, max_force=1e-4, max_steps=200),
+        monkeypatch,
+    ):
+        assert result.steps == alone.steps
+        np.testing.assert_allclose(result.system["positions"], alone.system["positions"],
+                                   atol=1e-7)  # fmt: skip

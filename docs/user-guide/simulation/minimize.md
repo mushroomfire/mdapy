@@ -120,6 +120,13 @@ with plot.style():
 Each kink is an uphill step: FIRE steps half a step back, stops the atoms
 and starts again with a shorter time step.*
 
+Under `mpirun`, the forces of MDAPY's own potentials are shared among the processes:
+each process computes the atoms of its brick of the box, as the
+[dynamics on many processes](processes.md) does, and every process takes the steps of
+FIRE over every atom, the minimization of one process, to the rounding of the forces.
+A [LAMMPS](../potentials/lammps.md) potential computes as LAMMPS splits it, and other
+calculators on every process whole. Only the main process writes the log.
+
 `minimize` raises `InvalidParameter` for a non-positive `max_force`,
 `max_step`, `timestep`, `max_stress`, `save_every` or `log_every`, a negative
 `max_steps`, an unknown `cell`, a calculator that does not compute energies

@@ -351,5 +351,5 @@ def stand_in(found=True):
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
         device_name=device_name, device_properties=device_properties,
-        NotFinite=NotFinite,
+        NotFinite=NotFinite, device_count=lambda: 1, use_device=lambda device: None,
     )  # fmt: skip

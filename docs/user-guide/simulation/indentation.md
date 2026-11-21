@@ -8,7 +8,7 @@ plane that pushes the atoms inside it out with a force $K d^2$, $d$ how far insi
 Moved at a constant velocity into a crystal, it indents it; the force of the atoms on
 it is the load.
 
-A sphere of 4 nm pressed into a film of copper at 50 m/s, on a
+A sphere of 4 nm pressed into a film of copper 36 nm thick at 50 m/s, on a
 [GPU](gpu.md):
 
 <!-- skip-test -->
@@ -20,7 +20,7 @@ from mdapy.simulation import MolecularDynamics
 from mdapy.simulation.controls import Hold, Indenter
 
 copper = EAM.zhou(["Cu"], device="cuda")
-film = build_crystal("fcc", 3.615, elements="Cu", repeat=(40, 40, 20))  # 128000 atoms
+film = build_crystal("fcc", 3.615, elements="Cu", repeat=(80, 80, 100))  # 2560000 atoms
 with MolecularDynamics(film, copper, timestep=0.002) as md:
     md.velocities(600, seed=1)
     md.run(5000, ensemble="npt", temperature=300, pressure=0.0, barostat="aniso")
@@ -77,39 +77,67 @@ with plot.style():
 
 ![The load on a sphere of 4 nm pressed into copper against its depth, with the curve of Hertz](images/indentation-load.png)
 
-*The load follows the elastic contact of Hertz, with a reduced modulus of 94 GPa, to
-about 7 Å; then the crystal yields under the indenter, and the load grows more slowly,
-falling back by tens of nN at times as dislocations nucleate and glide away, to 387 nN
-at 20 Å. The run took 56 s on one V100.*
+*The load follows the elastic contact of Hertz, with a reduced modulus of 80 GPa, to
+about 8 Å; then the crystal yields under the indenter, and the load grows more slowly,
+falling back by 20 to 25 nN at times as dislocations nucleate and glide away, to 330 nN
+at 20 Å. The run took 8 minutes on one V100.*
 
-The film at the deepest, the atoms below its surface that are not fcc by the
-[common neighbor analysis](../analysis/cna.md):
+The film at the deepest: the atoms that are not fcc by the
+[common neighbor analysis](../analysis/cna.md), but those of its top surface, and the
+dislocation lines of the [dislocation analysis](../analysis/dislocations.md):
 
 <!-- skip-test -->
 ```python
+from mdapy.analysis import DislocationAnalysis
 from mdapy.identify import CommonNeighborAnalysis
 from mdapy.visualization import render
 
 structures = CommonNeighborAnalysis().compute(deepest)
-z = deepest["positions.z"]
-inside = (z < surface - 3.0) & (z > z.min() + 3.0)  # neither of the free surfaces
+below = deepest["positions.z"] < surface - 3.0  # all but the top surface
 render(
     deepest,
     "images/indentation-structures.png",
-    atoms=(structures.structure != 1) & inside,
+    atoms=(structures.structure != structures.names.index("fcc")) & below,
     color=structures,
-    view=(0.6, -1.0, -0.35),
+    view=(0.6, -1.0, -0.12),
     width=1000,
-    height=640,
+    height=700,
     legend=True,
+)
+
+dislocations = DislocationAnalysis("fcc").compute(deepest)
+kinds = {"1/2<110>": "perfect", "1/6<112>": "Shockley", "1/6<110>": "stair-rod",
+         "1/3<100>": "Hirth", "1/3<111>": "Frank"}  # fmt: skip
+palette = DislocationAnalysis.FAMILY_COLORS["fcc"]
+families = sorted({line.family for line in dislocations.lines})
+render(
+    deepest,
+    "images/indentation-dislocations.png",
+    atoms=[],  # the lines alone
+    dislocations=dislocations,
+    dislocation_radius=1.0,
+    view=(0.6, -1.0, -0.12),
+    width=1000,
+    height=700,
+    legend={f"{kinds.get(f, '')} {f}".strip(): palette[f] for f in families},
 )
 ```
 
-![The stacking faults and dislocations under a sphere pressed 2 nm into copper](images/indentation-structures.png)
+![The stacking faults under a sphere pressed 2 nm into copper](images/indentation-structures.png)
 
 *Under the dent, the atoms of the contact in gray, stacking faults on the four {111}
 planes, two layers of hcp atoms each, run out from the indenter, bounded by partial
-dislocations: some 7000 hcp atoms at 20 Å.*
+dislocations: some 6500 hcp atoms at 20 Å. Loops of them have glided away along
+⟨110⟩, the deepest to 18 nm below the surface; the lower half of the film, down to its
+bottom, stays fcc. The atoms scattered through the film are taken out of fcc for a
+moment by the vibrations at 300 K.*
+
+![The dislocation lines under a sphere pressed 2 nm into copper](images/indentation-dislocations.png)
+
+*The dislocation lines of the same film in the colors of the families of their Burgers
+vectors: 389 nm of lines, 334 nm of them Shockley partials (green) at the edges of the
+faults, with stair-rods (magenta) and Hirth locks (yellow) where faults on two {111}
+planes meet, which close the loops that glide away.*
 
 ## Parameters
 

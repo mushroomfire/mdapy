@@ -40,10 +40,10 @@ class NEMD:
     gradient : float64
         The gradient of temperature in K/Å, the mean of the two halves.
     positions : numpy.ndarray
-        (B,) float64 the middle of each slab along the axis in Å, from the
-        middle of the cold bath.
+        (B,) float64 the mean position along the axis in Å of the atoms of
+        each slab at the start, from the start of the box.
     temperatures : numpy.ndarray
-        (B,) float64 the mean temperature of each slab in K.
+        (B,) float64 the mean temperature of the atoms of each slab in K.
     times : numpy.ndarray
         (S,) float64 the time in ps of each record of the measurement.
     hot : numpy.ndarray
@@ -126,7 +126,9 @@ def nemd(
     nonequilibrium molecular dynamics (NEMD): the box cut into slabs across
     the vector, Langevin baths in the slab at its start, cold, and in the
     middle one, hot, the rest at constant energy; the heat the baths drive
-    through each half over the gradient of temperature there.
+    through each half over the gradient of temperature there. A slab is the
+    group of the atoms in it at the start, for the baths and for the
+    temperatures alike.
 
     Parameters
     ----------
@@ -217,11 +219,15 @@ def nemd(
     others = [k for k in range(3) if k != axis]
     area = float(np.linalg.norm(np.cross(box.matrix[others[0]], box.matrix[others[1]])))
     length = float(box.volume / area)
-    slab = np.floor(box.to_fractional(system["positions"])[:, axis] % 1.0 * bins)
-    slab = np.minimum(slab.astype(int), bins - 1)
+    # each slab is the group of the atoms in it at the start, for the baths and
+    # the temperatures alike: an atom of a bath that vibrates across the edge of
+    # its slab is not counted in the next one
+    fraction = box.to_fractional(system["positions"])[:, axis] % 1.0
+    slab = np.minimum((fraction * bins).astype(int), bins - 1)
     counts = np.bincount(slab, minlength=bins)
     if (counts == 0).any():
         raise InvalidParameter("every slab needs atoms: fewer bins, or a longer box")
+    positions = np.bincount(slab, fraction, minlength=bins) / counts * length
     cold, hot = slab == 0, slab == bins // 2
     masses = _masses(system)
     total = int(equilibration) + int(relaxation) + int(production)
@@ -280,20 +286,16 @@ def nemd(
         )
         next(frames)  # the atoms at the start, where the relaxation ended
         for frame in frames:
-            where = frame.box.to_fractional(frame["positions"])[:, axis] % 1.0
-            index = np.minimum((where * bins).astype(int), bins - 1)
             v = frame["velocities"]
             energy = masses * np.einsum("ij,ij->i", v, v) * units.AMU_A2_PER_PS2_TO_EV
-            kinetic = np.bincount(index, energy, minlength=bins)
-            number = np.bincount(index, minlength=bins)
-            samples.append(kinetic / (3 * units.BOLTZMANN * np.maximum(number, 1)))
+            kinetic = np.bincount(slab, energy, minlength=bins)
+            samples.append(kinetic / (3 * units.BOLTZMANN * counts))
         # the records of the measurement, at the samples
         rows = md.thermo[start : start + len(samples)]
     times = rows["time"].to_numpy() - rows["time"][0]
     heat_hot = rows["hot_energy"].to_numpy()
     heat_cold = rows["cold_energy"].to_numpy()
     profiles = np.array(samples)
-    positions = (np.arange(bins) + 0.5) / bins * length
 
     def conductivity(part: slice) -> tuple[float, float, float]:
         power = 0.5 * (

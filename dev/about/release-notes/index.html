@@ -10100,10 +10100,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#220rc2" class="md-nav__link">
+  <a href="#220" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.2.0rc2
+        2.2.0
       
     </span>
   </a>
@@ -10690,10 +10690,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#220rc2" class="md-nav__link">
+  <a href="#220" class="md-nav__link">
     <span class="md-ellipsis">
       
-        2.2.0rc2
+        2.2.0
       
     </span>
   </a>
@@ -11146,14 +11146,30 @@
 
 
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
-<h2 id="220rc2">2.2.0rc2<a class="headerlink" href="#220rc2" title="Permanent link">&para;</a></h2>
-<p>The second release candidate of MDAPY 2.2: fixes since 2.2.0rc1. The API of 2.2.0rc1
-holds. Until 2.2.0 only fixes and documentation follow.</p>
+<h2 id="220">2.2.0<a class="headerlink" href="#220" title="Permanent link">&para;</a></h2>
+<p>MDAPY 2.2: its own molecular dynamics engine, on the processor and on NVIDIA GPUs, made
+for materials and machine-learned potentials, with the controls of mechanical and thermal
+loading and of shock; the GPU part as a package of its own,
+<code>pip install "mdapy[cuda12]"</code>; the classic potentials of LAMMPS as native calculators; the
+thermal conductivity by Green–Kubo, HNEMD and NEMD in MDAPY; minimum energy paths by the
+nudged elastic band; the coverage of descriptor space and generated training sets; and the
+API in layers. What 2.2 holds is in the notes of 2.2.0rc1 below. Code written for 2.1
+keeps working: the names that moved warn until 2.4, and the API of 2.2.0, its additions
+included, holds in every later 2.x release. Since 2.2.0rc1:</p>
 <ul>
 <li>With an <code>Indenter</code>, MDAPY's own dynamics on the processor took the energy of the last
   indenter for the virial of the atoms, so that the pressure and the stress of <code>thermo</code>,
   and a barostat, were wrong while an indenter was there; on the GPU and in LAMMPS they
   were right. See <a href="../../user-guide/simulation/indentation/">Indentation</a>.</li>
+<li>Examples run again, larger and longer: <a href="../../user-guide/simulation/deformation/">Deformation</a>
+  draws the stresses of copper as they are and adds graphene pulled along its two
+  directions; <a href="../../user-guide/properties/nemd/">NEMD</a> shows the heat of the baths and its
+  table of lengths with three seeds; <a href="../../user-guide/simulation/indentation/">Indentation</a>
+  presses a film 36 nm thick and draws its dislocation lines; the wave diagram of
+  <a href="../../examples/shock/">shock and spall</a> leaves the slabs without atoms white. Graphene in
+  <a href="../../user-guide/properties/sheets/">Sheets</a> and
+  <a href="../../examples/graphene-elastic/">Elastic constants of graphene</a> takes the NEP model of
+  carbon in place of LCBOP.</li>
 </ul>
 <h2 id="220rc1">2.2.0rc1<a class="headerlink" href="#220rc1" title="Permanent link">&para;</a></h2>
 <p>The release candidate of MDAPY 2.2: its own molecular dynamics engine, on the processor

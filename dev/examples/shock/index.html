@@ -10507,7 +10507,7 @@ velocity of the free surface:</p>
 <a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a>        <span class="n">z</span> <span class="o">/</span> <span class="mi">10</span><span class="p">,</span>
 <a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>        <span class="n">time</span><span class="p">,</span>
 <a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">waves</span><span class="p">,</span>
-<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">cmap</span><span class="o">=</span><span class="s2">"RdYlBu_r"</span><span class="p">,</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">cmap</span><span class="o">=</span><span class="s2">"berlin"</span><span class="p">,</span>  <span class="c1"># dark at zero, apart from the white of no atoms</span>
 <a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>        <span class="n">norm</span><span class="o">=</span><span class="n">TwoSlopeNorm</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="mf">50.0</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mf">20.0</span><span class="p">),</span>  <span class="c1"># the pull in full red</span>
 <a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>        <span class="n">shading</span><span class="o">=</span><span class="s2">"nearest"</span><span class="p">,</span>
 <a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="p">)</span>
@@ -10520,9 +10520,9 @@ velocity of the free surface:</p>
 <a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/shock-spall-wave"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
 </code></pre></div>
 <p><img alt="The stress along z of the copper against its place and time, and the velocity of its free surface" src="../images/shock-spall-wave.png" /></p>
-<p><em>a: The slabs without atoms are left white. The piston drives a shock of 51 GPa
-(blue) at 5.2 km/s. At 5 ps it stops, and a release follows the shock and wears it
-down. At 14 ps the shock reaches the free
+<p><em>a: The slabs without atoms are left white, those under no stress dark. The piston
+drives a shock of 51 GPa (blue) at 5.2 km/s. At 5 ps it stops, and a release follows
+the shock and wears it down. At 14 ps the shock reaches the free
 surface at 73 nm and comes back as a release. The two releases meet near 66 nm at
 20 ps, where they pull the copper by 19.5 GPa (red): it spalls there, and the layer
 beyond, the scab, rings between its two new surfaces. b: The free surface jumps to

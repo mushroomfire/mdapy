@@ -10468,23 +10468,26 @@
 molecular dynamics</a> and <a href="../../simulation/running/">molecular dynamics</a> of
 two-dimensional materials such as graphene. A box that is periodic along two
 vectors in the x-y plane and not along a third along z makes a system a sheet;
-nothing else changes in the calls.</p>
+nothing else changes in the calls. Graphene here takes the
+<a href="../../../examples/graphene-polycrystal/#the-boundaries-settle">NEP model of carbon</a> of
+the graphene polycrystal: download <a href="../../../examples/carbon/nep.txt"><code>nep.txt</code></a> into the
+working directory.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEP</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.elastic</span><span class="w"> </span><span class="kn">import</span> <span class="n">elastic_constants</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.phonons</span><span class="w"> </span><span class="kn">import</span> <span class="n">phonons</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span><span class="s2">"pair_style lcbop</span><span class="se">\n</span><span class="s2">pair_coeff * * C.lcbop C"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"graphene"</span><span class="p">,</span> <span class="mf">2.46</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"C"</span><span class="p">)</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">sheet</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">with_box</span><span class="p">(</span><span class="n">mdapy</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="n">crystal</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">pbc</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)))</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">sheet</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span><span class="o">.</span><span class="n">system</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
 <a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">elastic</span> <span class="o">=</span> <span class="n">elastic_constants</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">elastic</span><span class="o">.</span><span class="n">constants</span>  <span class="c1"># (3, 3) N/m: 331, 73 and 129</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">elastic</span><span class="o">.</span><span class="n">young_modulus</span><span class="p">(),</span> <span class="n">elastic</span><span class="o">.</span><span class="n">poisson_ratio</span><span class="p">()</span>  <span class="c1"># 315 N/m, 0.22</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">elastic</span><span class="o">.</span><span class="n">constants</span>  <span class="c1"># (3, 3) N/m: 359, 51 and 154</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">elastic</span><span class="o">.</span><span class="n">young_modulus</span><span class="p">(),</span> <span class="n">elastic</span><span class="o">.</span><span class="n">poisson_ratio</span><span class="p">()</span>  <span class="c1"># 352 N/m, 0.14</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="n">result</span> <span class="o">=</span> <span class="n">phonons</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">)</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">bands</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">band_structure</span><span class="p">(</span><span class="s2">"hexagonal"</span><span class="p">)</span>  <span class="c1"># Γ-M-K-Γ</span>
@@ -10504,7 +10507,7 @@ nothing else changes in the calls.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/sheets"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
 </code></pre></div>
 <p><img alt="Phonons of graphene" src="../images/sheets.png" /></p>
-<p><em>Graphene with the LCBOP potential of LAMMPS. The lowest branch near Γ, the
+<p><em>Graphene with the NEP model of carbon. The lowest branch near Γ, the
 vibration across the sheet, is quadratic; the two above it are linear.</em></p>
 <p>The height of the box does not matter and the atoms need no vacuum around
 them: a sheet has no images along z. A calculator that always takes the box as
@@ -10578,15 +10581,12 @@ box of the same height.</p>
 <p><code>quasi_harmonic</code> computes the phonons of a sheet at several areas, the
 height of its box kept, and returns a <code>SheetQuasiHarmonicResult</code>:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.thermodynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">quasi_harmonic</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">qha</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span> <span class="n">volumes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.025</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">100</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">qha</span><span class="o">.</span><span class="n">area</span>  <span class="c1"># Å² per atom: 2.641, 2.639, 2.630, the relaxed sheet 2.619</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">qha</span><span class="o">.</span><span class="n">thermal_expansion</span>  <span class="c1"># 1/K: 0, -1.1e-5, -2.3e-5, as the sheet shrinks</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span>  <span class="c1"># N/m: 191, 178, 134</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.thermodynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">quasi_harmonic</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">qha</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">300</span><span class="p">],</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">qha</span><span class="o">.</span><span class="n">area</span>  <span class="c1"># Å² per atom: 2.594, 2.593, 2.590, the relaxed sheet 2.581</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">qha</span><span class="o">.</span><span class="n">thermal_expansion</span>  <span class="c1"># 1/K: 0, -4.4e-6, -6.3e-6, as the sheet shrinks</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span>  <span class="c1"># N/m: 194, 191, 183</span>
 </code></pre></div>
 <p><code>volumes</code> gives the areas, as ratios to the area of <code>sheet</code>, and
 <code>pressures</code> and <code>pressure</code> are in the plane, in N/m: a tension is a negative
@@ -10595,10 +10595,9 @@ its plane bends: its vibrations across the plane, quadratic in the wave
 vector, have imaginary frequencies under any compression the mesh can
 resolve, and <code>quasi_harmonic</code> then raises <code>InvalidParameter</code>. A sheet that
 shrinks on heating, as graphene, can therefore be followed only while its
-equilibrium area stays above that of the relaxed sheet: with LCBOP up to some
-400 K, its zero-point vibrations stretching it by 0.8 %. A tension, through
-<code>pressure</code>, keeps it stretched. The long-range part of LCBOP reaches its
-cutoff between the default areas, so the example takes fewer.</p>
+equilibrium area stays above that of the relaxed sheet: with this model up to some
+950 K, its zero-point vibrations stretching it by 0.5 %. A tension, through
+<code>pressure</code>, keeps it stretched.</p>
 <table>
 <thead>
 <tr>
@@ -10691,12 +10690,12 @@ dynamics below, and the barostats change the sheet in its plane only.</p>
 <p>A sheet takes the fluctuations, as a strain that compresses it wrinkles it:
 the sheet bends out of its plane rather than shorten, and resists less than
 under a stretch. With <code>method="strain"</code>, the strains of +1 % and −1 % average
-the two responses. On 16 × 16 cells of graphene with LCBOP at 100 K they give
-C11 217 N/m along x and 176 N/m along y, which the symmetry makes equal,
-against 274 N/m for both from the fluctuations. Near 0 K, where the sheet
+the two responses. On 16 × 16 cells of graphene at 100 K they give
+C11 298 N/m along x and 247 N/m along y, which the symmetry makes equal,
+against 349 N/m for both from the fluctuations. Near 0 K, where the sheet
 hardly ripples, the strains still hold.</p>
 <p>The fluctuations need long runs, as the vibrations across the sheet change
-slowly: a million steps of 0.5 fs give errors of a few N/m on 512 atoms. The
+slowly: a million steps of 0.5 fs give errors of 1 to 3 N/m on 512 atoms. The
 constants of a free sheet depend on its size, as its ripples grow with it;
 <a href="../../../examples/graphene-elastic/">Elastic constants of graphene</a> compares
 molecular dynamics with the quasi-harmonic approximation from 100 to 1000 K
@@ -10705,7 +10704,7 @@ and on sheets of 128 to 2048 atoms.</p>
 <p>A sheet has no thickness of its own, so its constants are in N/m. With a thickness
 <span class="arithmatex">\(h\)</span> chosen by convention, such as the 3.35 Å between the layers of graphite, the
 constants of a material of that thickness are <span class="arithmatex">\(C[\mathrm{GPa}] = 10\, C[\mathrm{N/m}]
-/ h[\text{Å}]\)</span>: 331 N/m is 988 GPa.</p>
+/ h[\text{Å}]\)</span>: 359 N/m is 1072 GPa.</p>
 <h2 id="molecular-dynamics">Molecular dynamics<a class="headerlink" href="#molecular-dynamics" title="Permanent link">&para;</a></h2>
 <p><a href="../../simulation/running/"><code>MolecularDynamics</code></a> runs a sheet as it is. Its barostats change the
 sheet in its plane and keep the height of the box: alike along its two vectors

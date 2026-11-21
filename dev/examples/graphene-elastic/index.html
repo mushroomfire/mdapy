@@ -2379,10 +2379,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-the-two-differ" class="md-nav__link">
+  <a href="#molecular-dynamics-and-the-quasi-harmonic-approximation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why the two differ
+        Molecular dynamics and the quasi-harmonic approximation
       
     </span>
   </a>
@@ -10386,10 +10386,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#why-the-two-differ" class="md-nav__link">
+  <a href="#molecular-dynamics-and-the-quasi-harmonic-approximation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Why the two differ
+        Molecular dynamics and the quasi-harmonic approximation
       
     </span>
   </a>
@@ -10431,26 +10431,32 @@
 <p>A sheet of graphene is stiff in its plane and soft across it. Its vibrations
 across the plane, whose frequency is quadratic in the wave vector, ripple it at
 any temperature, and the ripples soften it in its plane. This page computes the
-elastic constants of graphene with the LCBOP potential of LAMMPS: static, from
-the quasi-harmonic approximation, and from molecular dynamics from 100 to
-1000 K. It then shows how they depend on the size of the sheet. See
+elastic constants of graphene with a <a href="../../user-guide/potentials/nep/">NEP</a> model of
+carbon trained with TorchNEP on the GAP-2017 data, that of the
+<a href="../graphene-polycrystal/">graphene polycrystal</a>: static, from the quasi-harmonic
+approximation, and from molecular dynamics from 100 to 1000 K. It then shows how
+they depend on the size of the sheet. See
 <a href="../../user-guide/properties/sheets/">Sheets</a>,
 <a href="../../user-guide/properties/quasi-harmonic/">Quasi-harmonic approximation</a> and
 <a href="../../user-guide/properties/md-elastic/">Elastic constants from molecular dynamics</a>
 for the functions themselves.</p>
-<p>Copy the potential
-<a href="https://github.com/lammps/lammps/blob/develop/potentials/C.lcbop"><code>C.lcbop</code></a>
-of LAMMPS into the working directory.</p>
+<div class="admonition note">
+<p class="admonition-title">Cite the model and the data</p>
+<p>The model comes from <a href="../../reference/references/#wu2026torchnep">Wu et al. (2026), TorchNEP</a>,
+trained on the data of <a href="../../reference/references/#deringer2017">Deringer and Csányi (2017)</a>.
+Cite both when you use it.</p>
+</div>
+<p>Download the model <a href="../carbon/nep.txt"><code>nep.txt</code></a> into the working directory.</p>
 <h2 id="at-0-k">At 0 K<a class="headerlink" href="#at-0-k" title="Permanent link">&para;</a></h2>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">import</span><span class="w"> </span><span class="nn">mdapy</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LAMMPS</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEP</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.elastic</span><span class="w"> </span><span class="kn">import</span> <span class="n">elastic_constants</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">minimize</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">LAMMPS</span><span class="p">(</span><span class="s2">"pair_style lcbop</span><span class="se">\n</span><span class="s2">pair_coeff * * C.lcbop C"</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="p">[</span><span class="s2">"C"</span><span class="p">])</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">potential</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">)</span>
 <a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"graphene"</span><span class="p">,</span> <span class="mf">2.46</span><span class="p">,</span> <span class="n">c</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"C"</span><span class="p">)</span>
 <a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">sheet</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">with_box</span><span class="p">(</span><span class="n">mdapy</span><span class="o">.</span><span class="n">Box</span><span class="p">(</span><span class="n">crystal</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span><span class="p">,</span> <span class="n">pbc</span><span class="o">=</span><span class="p">(</span><span class="kc">True</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="kc">False</span><span class="p">)))</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">sheet</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span><span class="p">,</span> <span class="n">max_stress</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">)</span><span class="o">.</span><span class="n">system</span>
@@ -10465,35 +10471,33 @@ of LAMMPS into the working directory.</p>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="nb">print</span><span class="p">(</span><span class="s2">"C11 </span><span class="si">%.1f</span><span class="s2">, C12 </span><span class="si">%.1f</span><span class="s2">, C66 </span><span class="si">%.1f</span><span class="s2"> N/m"</span> <span class="o">%</span> <span class="n">hexagonal</span><span class="p">(</span><span class="n">static</span><span class="o">.</span><span class="n">constants</span><span class="p">))</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"area modulus </span><span class="si">{</span><span class="n">static</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> N/m"</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>C11 331.2, C12 73.4, C66 128.9 N/m
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>area modulus 202.3 N/m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>C11 359.2, C12 51.2, C66 154.0 N/m
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>area modulus 205.2 N/m
 </code></pre></div>
 <p>The area modulus is the tension per unit of relative change of the area:
 <span class="arithmatex">\((C_{11} + C_{12})/2\)</span> for a hexagonal sheet.</p>
 <h2 id="the-quasi-harmonic-approximation">The quasi-harmonic approximation<a class="headerlink" href="#the-quasi-harmonic-approximation" title="Permanent link">&para;</a></h2>
 <p><a href="../../user-guide/properties/quasi-harmonic/"><code>quasi_harmonic</code></a> finds the area
 of the sheet at each temperature from the free energy of its vibrations, and
-the area modulus there. It takes a few seconds:</p>
+the area modulus there. It takes a second:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.thermodynamics</span><span class="w"> </span><span class="kn">import</span> <span class="n">quasi_harmonic</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">401</span><span class="p">,</span> <span class="mf">25.0</span><span class="p">)</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">qha</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>    <span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">volumes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.025</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">100</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="p">)</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">modulus</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">temperatures</span><span class="p">[::</span><span class="mi">4</span><span class="p">],</span> <span class="n">qha</span><span class="o">.</span><span class="n">area</span><span class="p">[::</span><span class="mi">4</span><span class="p">],</span> <span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">[::</span><span class="mi">4</span><span class="p">]):</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">t</span><span class="si">:</span><span class="s2">3.0f</span><span class="si">}</span><span class="s2"> K: area </span><span class="si">{</span><span class="n">area</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> Å² per atom, area modulus </span><span class="si">{</span><span class="n">modulus</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> N/m"</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">temperatures</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">951</span><span class="p">,</span> <span class="mf">25.0</span><span class="p">)</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">qha</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">100</span><span class="p">)</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">area</span><span class="p">,</span> <span class="n">modulus</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">temperatures</span><span class="p">[::</span><span class="mi">8</span><span class="p">],</span> <span class="n">qha</span><span class="o">.</span><span class="n">area</span><span class="p">[::</span><span class="mi">8</span><span class="p">],</span> <span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">[::</span><span class="mi">8</span><span class="p">]):</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">t</span><span class="si">:</span><span class="s2">3.0f</span><span class="si">}</span><span class="s2"> K: area </span><span class="si">{</span><span class="n">area</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2"> Å² per atom, area modulus </span><span class="si">{</span><span class="n">modulus</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> N/m"</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  0 K: area 2.6408 Å² per atom, area modulus 191.4 N/m
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>100 K: area 2.6390 Å² per atom, area modulus 178.4 N/m
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>200 K: area 2.6352 Å² per atom, area modulus 159.4 N/m
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>300 K: area 2.6301 Å² per atom, area modulus 134.3 N/m
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>400 K: area 2.6229 Å² per atom, area modulus 99.4 N/m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>  0 K: area 2.5940 Å² per atom, area modulus 194.2 N/m
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>200 K: area 2.5919 Å² per atom, area modulus 187.1 N/m
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>400 K: area 2.5887 Å² per atom, area modulus 177.7 N/m
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>600 K: area 2.5856 Å² per atom, area modulus 166.7 N/m
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>800 K: area 2.5827 Å² per atom, area modulus 154.5 N/m
 </code></pre></div>
-<p>The vibrations at zero point stretch the sheet by 0.8 % from its static area,
-2.619 Å² per atom, which softens it to 191 N/m at 0 K. On heating, the
-vibrations across the sheet shrink it and soften it fast. Near 400 K its area
-approaches the static one, under which these vibrations have imaginary
+<p>The vibrations at zero point stretch the sheet by 0.5 % from its static area,
+2.581 Å² per atom, which softens it to 194 N/m at 0 K. On heating, the
+vibrations across the sheet shrink it and soften it. Near 950 K its area
+reaches the static one, under which these vibrations have imaginary
 frequencies, and the approximation ends there, as
 <a href="../../user-guide/properties/sheets/#quasi-harmonic-approximation">Sheets</a>
 explains.</p>
@@ -10502,76 +10506,79 @@ explains.</p>
 anharmonic vibrations. For a sheet it uses by default the fluctuations of the
 stress at the mean area of the sheet. Here it runs on 16 × 16 cells, 512 atoms,
 with a time step of 0.5 fs: 500 ps at zero pressure for the mean area, then
-500 ps at that area for the fluctuations, at each temperature:</p>
+500 ps at that area for the fluctuations, at each temperature. The model runs on a
+<a href="../../user-guide/simulation/gpu/">GPU</a> in double precision, as the Born term takes
+differences of the virial under strains of 10⁻⁵:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.properties.elastic</span><span class="w"> </span><span class="kn">import</span> <span class="n">md_elastic_constants</span>
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">replicate</span>
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">big</span> <span class="o">=</span> <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">hot</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">800</span><span class="p">,</span> <span class="mi">1000</span><span class="p">]</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">md</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    <span class="n">md_elastic_constants</span><span class="p">(</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>        <span class="n">big</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    <span class="p">)</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">hot</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="p">]</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="n">md</span><span class="p">):</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    <span class="nb">print</span><span class="p">(</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>        <span class="s2">"</span><span class="si">%4d</span><span class="s2"> K: C11 </span><span class="si">%.1f</span><span class="s2">, C12 </span><span class="si">%.1f</span><span class="s2">, C66 </span><span class="si">%.1f</span><span class="s2"> N/m"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">*</span><span class="n">hexagonal</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">constants</span><span class="p">)),</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="sa">f</span><span class="s2">"area modulus </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> N/m"</span><span class="p">,</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    <span class="p">)</span>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">gpu</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="s2">"double"</span><span class="p">)</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">big</span> <span class="o">=</span> <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">hot</span> <span class="o">=</span> <span class="p">[</span><span class="mi">100</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">400</span><span class="p">,</span> <span class="mi">600</span><span class="p">,</span> <span class="mi">800</span><span class="p">,</span> <span class="mi">1000</span><span class="p">]</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">md</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    <span class="n">md_elastic_constants</span><span class="p">(</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>        <span class="n">big</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="p">)</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">hot</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">]</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="n">md</span><span class="p">):</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    <span class="nb">print</span><span class="p">(</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>        <span class="s2">"</span><span class="si">%4d</span><span class="s2"> K: C11 </span><span class="si">%.1f</span><span class="s2">, C12 </span><span class="si">%.1f</span><span class="s2">, C66 </span><span class="si">%.1f</span><span class="s2"> N/m"</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="o">*</span><span class="n">hexagonal</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">constants</span><span class="p">)),</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>        <span class="sa">f</span><span class="s2">"area modulus </span><span class="si">{</span><span class="n">result</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> N/m"</span><span class="p">,</span>
+<a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a>    <span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a> 100 K: C11 273.6, C12 42.0, C66 114.6 N/m area modulus 157.8 N/m
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a> 200 K: C11 261.8, C12 37.1, C66 118.1 N/m area modulus 149.3 N/m
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a> 300 K: C11 242.3, C12 22.7, C66 108.0 N/m area modulus 131.6 N/m
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a> 400 K: C11 238.8, C12 25.9, C66 106.3 N/m area modulus 132.2 N/m
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a> 600 K: C11 228.7, C12 13.7, C66 107.4 N/m area modulus 121.1 N/m
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a> 800 K: C11 214.7, C12 9.1, C66 100.6 N/m area modulus 111.5 N/m
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>1000 K: C11 197.0, C12 10.2, C66 93.8 N/m area modulus 103.5 N/m
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a> 100 K: C11 349.4, C12 46.0, C66 151.4 N/m area modulus 197.7 N/m
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a> 200 K: C11 341.0, C12 41.8, C66 148.3 N/m area modulus 191.4 N/m
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a> 300 K: C11 332.2, C12 36.7, C66 146.4 N/m area modulus 184.5 N/m
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a> 400 K: C11 326.1, C12 34.4, C66 144.1 N/m area modulus 180.3 N/m
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a> 600 K: C11 309.2, C12 27.0, C66 138.9 N/m area modulus 168.0 N/m
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a> 800 K: C11 303.4, C12 25.6, C66 137.2 N/m area modulus 164.5 N/m
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>1000 K: C11 298.4, C12 26.0, C66 134.2 N/m area modulus 162.2 N/m
 </code></pre></div>
-<p>Each temperature took 9 to 12 minutes on 16 processes of a node of the Triton
-cluster of Aalto University (Intel Xeon Gold 6248), with LAMMPS built with MPI;
-see <a href="../mpi/">LAMMPS on many processes with MPI</a>. The standard errors are 3 to
-10 N/m for C11, 2 to 4 N/m for C12 and 1 to 5 N/m for C66: the vibrations
+<p>Each temperature took about an hour on one V100. The standard errors are 1 to
+3 N/m for C11, 0.6 to 2 N/m for C12 and 0.2 to 1.2 N/m for C66: the vibrations
 across the sheet change slowly, and the fluctuations need long runs.</p>
 <h2 id="why-not-strains">Why not strains<a class="headerlink" href="#why-not-strains" title="Permanent link">&para;</a></h2>
 <p><code>method="strain"</code> takes the mean stress under strains of +1 % and −1 %. A
 strain that compresses a sheet wrinkles it: the sheet bends out of its plane
 rather than shorten, and resists less than under a stretch. On the same 512
-atoms at 100 K, 1 % of stretch along x raises the tension by 3.0 N/m, and 1 %
-of compression lowers it by 1.5 N/m. The heights of the atoms spread by 0.16 Å
-under the stretch, 0.22 Å at rest and 0.65 Å under the compression. The strains
-average the two responses: at 100 K they give C11 217 N/m along x and 176 N/m
-along y, which the symmetry of graphene makes equal, against 274 N/m for both
+atoms at 100 K, 1 % of stretch along x raises the tension by 3.4 N/m, and 1 %
+of compression lowers it by 2.4 N/m. The heights of the atoms spread by 0.10 Å
+under the stretch, 0.13 Å at rest and 0.48 Å under the compression. The strains
+average the two responses: at 100 K they give C11 298 N/m along x and 247 N/m
+along y, which the symmetry of graphene makes equal, against 349 N/m for both
 from the fluctuations. <code>md_elastic_constants</code> therefore takes the fluctuations
 for a sheet unless <code>method="strain"</code> is given.</p>
-<h2 id="why-the-two-differ">Why the two differ<a class="headerlink" href="#why-the-two-differ" title="Permanent link">&para;</a></h2>
-<p>The vibrations across the sheet are soft: their frequency falls as the square
-of the wave vector, so the longest of them, as long as the sheet, move the
-most, and they ripple the sheet. Stretching a rippled sheet first flattens its
-ripples, which costs little. The sheet is therefore softer in its plane than a
-flat one, and the more so the larger it is, as longer ripples fit in it.</p>
-<p>The quasi-harmonic approximation takes the vibrations as harmonic at each area:
-it sees that they stiffen as the sheet is stretched, which softens the sheet as
+<h2 id="molecular-dynamics-and-the-quasi-harmonic-approximation">Molecular dynamics and the quasi-harmonic approximation<a class="headerlink" href="#molecular-dynamics-and-the-quasi-harmonic-approximation" title="Permanent link">&para;</a></h2>
+<p>On 16 × 16 cells the two agree within 5 % from 100 to 800 K, in the figure below,
+when the approximation takes a mesh of as many cells as the sheet: molecular dynamics
+is the stiffer below some 250 K, as its atoms are classical, without the vibrations at
+zero point that soften the sheet in the approximation, and the softer above, as it
+takes the anharmonic vibrations that the approximation leaves out.</p>
+<p>These grow with the size of the sheet. The vibrations across the sheet are soft:
+their frequency falls as the square of the wave vector, so the longest of them, as
+long as the sheet, move the most, and they ripple the sheet. Stretching a rippled
+sheet first flattens its ripples, which costs little. The sheet is therefore softer
+in its plane than a flat one, and the more so the larger it is, as longer ripples fit
+in it. The quasi-harmonic approximation takes the vibrations as harmonic at each
+area: it sees that they stiffen as the sheet is stretched, which softens the sheet as
 it heats, but not that ripples of different wavelengths change one another.
-Molecular dynamics takes both, and the second grows with the size of the
-sheet. To compare them on the same vibrations, give the approximation a <code>mesh</code>
-of as many cells as the sheet of molecular dynamics, here at 300 K:</p>
+Molecular dynamics takes both. To compare them on the same vibrations, give the
+approximation a <code>mesh</code> of as many cells as the sheet of molecular dynamics, here at
+300 K:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">cells</span> <span class="o">=</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">32</span><span class="p">]</span>
 <a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">by_size</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">md_elastic_constants</span><span class="p">(</span>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">potential</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>        <span class="n">replicate</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">gpu</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span>
 <a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>        <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">1000000</span><span class="p">,</span>
 <a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="p">)</span>
 <a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">cells</span>
 <a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="p">]</span>  <span class="c1"># fmt: skip</span>
 <a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">by_mesh</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">quasi_harmonic</span><span class="p">(</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>        <span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="p">[</span><span class="mf">300.0</span><span class="p">],</span> <span class="n">volumes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.025</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">mesh</span><span class="o">=</span><span class="n">n</span>
-<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>    <span class="p">)</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
-<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a>    <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">cells</span>
-<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="p">]</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">quasi_harmonic</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="p">[</span><span class="mf">300.0</span><span class="p">],</span> <span class="n">mesh</span><span class="o">=</span><span class="n">n</span><span class="p">)</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">cells</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="p">]</span>
 </code></pre></div>
 <table>
 <thead>
@@ -10586,99 +10593,95 @@ of as many cells as the sheet of molecular dynamics, here at 300 K:</p>
 <tr>
 <td>8 × 8</td>
 <td style="text-align: right;">128</td>
-<td style="text-align: right;">164.5 ± 0.8 N/m</td>
-<td style="text-align: right;">164.3 N/m</td>
+<td style="text-align: right;">195.5 ± 0.1 N/m</td>
+<td style="text-align: right;">190.3 N/m</td>
 </tr>
 <tr>
 <td>16 × 16</td>
 <td style="text-align: right;">512</td>
-<td style="text-align: right;">131.6 ± 3.0 N/m</td>
-<td style="text-align: right;">147.2 N/m</td>
+<td style="text-align: right;">184.5 ± 1.2 N/m</td>
+<td style="text-align: right;">186.5 N/m</td>
 </tr>
 <tr>
 <td>24 × 24</td>
 <td style="text-align: right;">1152</td>
-<td style="text-align: right;">112.6 ± 4.2 N/m</td>
-<td style="text-align: right;">141.1 N/m</td>
+<td style="text-align: right;">167.6 ± 2.1 N/m</td>
+<td style="text-align: right;">184.8 N/m</td>
 </tr>
 <tr>
 <td>32 × 32</td>
 <td style="text-align: right;">2048</td>
-<td style="text-align: right;">93.6 ± 8.0 N/m</td>
-<td style="text-align: right;">138.3 N/m</td>
+<td style="text-align: right;">158.6 ± 4.8 N/m</td>
+<td style="text-align: right;">184.0 N/m</td>
 </tr>
 </tbody>
 </table>
-<p>On 8 × 8 cells the two agree, and at 100 K as well: 182.1 ± 0.6 N/m by
-molecular dynamics, 185.4 N/m by the approximation. On larger sheets molecular
-dynamics goes on softening, while the approximation levels off, at 134 N/m for
-a mesh of 100. The gap of 23 N/m between the two at 100 K on 16 × 16 cells, in
-the figure, therefore comes from the size of the sheet, not from the classical
-atoms of molecular dynamics. A crystal has no such vibrations, and there the
-two agree within 5 % up to 1000 K, as for
-<a href="../crconi/#from-molecular-dynamics">CrCoNi</a>. The constants of a free sheet
-from molecular dynamics are those of its size.</p>
+<p>On 8 × 8 cells molecular dynamics is 3 % the stiffer, and 4 % at 100 K, 201.4 ± 0.1
+N/m against 193.5 N/m: the vibrations at zero point of the approximation. On larger
+sheets molecular dynamics goes on softening, by 19 % from 8 × 8 to 32 × 32 cells,
+while the approximation levels off, at 183 N/m for a mesh of 100. A crystal has no
+such vibrations, and there the two agree within 5 % up to 1000 K, as for
+<a href="../crconi/#from-molecular-dynamics">CrCoNi</a>. The constants of a free sheet from
+molecular dynamics are those of its size.</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot</span>
 <a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
 <a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">strained</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">md_elastic_constants</span><span class="p">(</span>
-<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="n">big</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">200000</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>        <span class="n">big</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">t</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.0005</span><span class="p">,</span> <span class="n">equilibration</span><span class="o">=</span><span class="mi">20000</span><span class="p">,</span> <span class="n">production</span><span class="o">=</span><span class="mi">200000</span><span class="p">,</span>
 <a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>        <span class="n">method</span><span class="o">=</span><span class="s2">"strain"</span><span class="p">,</span>
 <a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="p">)</span>
 <a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">hot</span>
 <a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="p">]</span>  <span class="c1"># fmt: skip</span>
-<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">small</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span>
-<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>    <span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">volumes</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.025</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">16</span>
-<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">)</span>
-<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a>
-<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>
-<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">spread</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
-<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="w">    </span><span class="sd">"""The standard error of the area modulus, the errors taken as independent."""</span>
-<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>    <span class="n">e</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span>
-<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
-<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a>
-<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>
-<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a><span class="k">with</span> <span class="n">plot</span><span class="o">.</span><span class="n">style</span><span class="p">():</span>
-<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s2">"double"</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic, mesh 100"</span><span class="p">)</span>
-<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">small</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">,</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic, mesh 16"</span><span class="p">)</span>
-<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>    <span class="n">left</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">md</span><span class="p">],</span> <span class="p">[</span><span class="n">spread</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">md</span><span class="p">],</span>
-<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>                  <span class="n">fmt</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"MD, fluctuations"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
-<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">strained</span><span class="p">],</span> <span class="s2">"x"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"0.5"</span><span class="p">,</span>
-<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>              <span class="n">label</span><span class="o">=</span><span class="s2">"MD, strains"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
-<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">static</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">(),</span> <span class="s2">"s"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"0.2"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"static"</span><span class="p">)</span>
-<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>    <span class="n">left</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"temperature (K)"</span><span class="p">)</span>
-<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>    <span class="n">left</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"area modulus (N/m)"</span><span class="p">)</span>
-<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>    <span class="n">left</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>    <span class="n">right</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">by_mesh</span><span class="p">,</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"^"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"C1"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic"</span><span class="p">)</span>
-<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>    <span class="n">right</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">by_size</span><span class="p">],</span>
-<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>                   <span class="p">[</span><span class="n">spread</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">by_size</span><span class="p">],</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"C2"</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
-<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>                   <span class="n">label</span><span class="o">=</span><span class="s2">"MD, fluctuations"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
-<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> × </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">])</span>
-<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"cells of the sheet, and of the mesh"</span><span class="p">)</span>
-<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"area modulus at 300 K (N/m)"</span><span class="p">)</span>
-<a id="__codelineno-7-40" name="__codelineno-7-40" href="#__codelineno-7-40"></a>    <span class="n">right</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
-<a id="__codelineno-7-41" name="__codelineno-7-41" href="#__codelineno-7-41"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/graphene-elastic"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">small</span> <span class="o">=</span> <span class="n">quasi_harmonic</span><span class="p">(</span><span class="n">sheet</span><span class="p">,</span> <span class="n">potential</span><span class="p">,</span> <span class="n">temperatures</span><span class="p">,</span> <span class="n">mesh</span><span class="o">=</span><span class="mi">16</span><span class="p">)</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+<a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">spread</span><span class="p">(</span><span class="n">result</span><span class="p">):</span>
+<a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="w">    </span><span class="sd">"""The standard error of the area modulus, the errors taken as independent."""</span>
+<a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>    <span class="n">e</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">errors</span>
+<a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a>    <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="n">e</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">e</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="mi">4</span>
+<a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>
+<a id="__codelineno-7-18" name="__codelineno-7-18" href="#__codelineno-7-18"></a>
+<a id="__codelineno-7-19" name="__codelineno-7-19" href="#__codelineno-7-19"></a><span class="k">with</span> <span class="n">plot</span><span class="o">.</span><span class="n">style</span><span class="p">():</span>
+<a id="__codelineno-7-20" name="__codelineno-7-20" href="#__codelineno-7-20"></a>    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">left</span><span class="p">,</span> <span class="n">right</span><span class="p">)</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s2">"double"</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-7-21" name="__codelineno-7-21" href="#__codelineno-7-21"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">qha</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic, mesh 100"</span><span class="p">)</span>
+<a id="__codelineno-7-22" name="__codelineno-7-22" href="#__codelineno-7-22"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">temperatures</span><span class="p">,</span> <span class="n">small</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">,</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic, mesh 16"</span><span class="p">)</span>
+<a id="__codelineno-7-23" name="__codelineno-7-23" href="#__codelineno-7-23"></a>    <span class="n">left</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">md</span><span class="p">],</span> <span class="p">[</span><span class="n">spread</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">md</span><span class="p">],</span>
+<a id="__codelineno-7-24" name="__codelineno-7-24" href="#__codelineno-7-24"></a>                  <span class="n">fmt</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"MD, fluctuations"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-7-25" name="__codelineno-7-25" href="#__codelineno-7-25"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">hot</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">strained</span><span class="p">],</span> <span class="s2">"x"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"0.5"</span><span class="p">,</span>
+<a id="__codelineno-7-26" name="__codelineno-7-26" href="#__codelineno-7-26"></a>              <span class="n">label</span><span class="o">=</span><span class="s2">"MD, strains"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-7-27" name="__codelineno-7-27" href="#__codelineno-7-27"></a>    <span class="n">left</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">static</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">(),</span> <span class="s2">"s"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"0.2"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"static"</span><span class="p">)</span>
+<a id="__codelineno-7-28" name="__codelineno-7-28" href="#__codelineno-7-28"></a>    <span class="n">left</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"temperature (K)"</span><span class="p">)</span>
+<a id="__codelineno-7-29" name="__codelineno-7-29" href="#__codelineno-7-29"></a>    <span class="n">left</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"area modulus (N/m)"</span><span class="p">)</span>
+<a id="__codelineno-7-30" name="__codelineno-7-30" href="#__codelineno-7-30"></a>    <span class="n">left</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<a id="__codelineno-7-31" name="__codelineno-7-31" href="#__codelineno-7-31"></a>    <span class="n">right</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">by_mesh</span><span class="p">,</span> <span class="s2">"--"</span><span class="p">,</span> <span class="n">marker</span><span class="o">=</span><span class="s2">"^"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"C1"</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">"quasi-harmonic"</span><span class="p">)</span>
+<a id="__codelineno-7-32" name="__codelineno-7-32" href="#__codelineno-7-32"></a>    <span class="n">right</span><span class="o">.</span><span class="n">errorbar</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="p">[</span><span class="n">r</span><span class="o">.</span><span class="n">area_modulus</span><span class="p">()</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">by_size</span><span class="p">],</span>
+<a id="__codelineno-7-33" name="__codelineno-7-33" href="#__codelineno-7-33"></a>                   <span class="p">[</span><span class="n">spread</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">by_size</span><span class="p">],</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">"o"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">"C2"</span><span class="p">,</span> <span class="n">capsize</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+<a id="__codelineno-7-34" name="__codelineno-7-34" href="#__codelineno-7-34"></a>                   <span class="n">label</span><span class="o">=</span><span class="s2">"MD, fluctuations"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-7-35" name="__codelineno-7-35" href="#__codelineno-7-35"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2"> × </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">cells</span><span class="p">])</span>
+<a id="__codelineno-7-36" name="__codelineno-7-36" href="#__codelineno-7-36"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"cells of the sheet, and of the mesh"</span><span class="p">)</span>
+<a id="__codelineno-7-37" name="__codelineno-7-37" href="#__codelineno-7-37"></a>    <span class="n">right</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"area modulus at 300 K (N/m)"</span><span class="p">)</span>
+<a id="__codelineno-7-38" name="__codelineno-7-38" href="#__codelineno-7-38"></a>    <span class="n">right</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+<a id="__codelineno-7-39" name="__codelineno-7-39" href="#__codelineno-7-39"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/graphene-elastic"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
 </code></pre></div>
 <p><img alt="The area modulus of graphene against the temperature and the size of the sheet" src="../images/graphene-elastic.png" /></p>
-<p><em>The area modulus of graphene with LCBOP. Left, against the temperature: the
-lines are the quasi-harmonic approximation, on a mesh of 100 cells and on one
+<p><em>The area modulus of graphene with the NEP model. Left, against the temperature:
+the lines are the quasi-harmonic approximation, on a mesh of 100 cells and on one
 of 16, as many as the sheet of molecular dynamics; the points are molecular
 dynamics on 16 × 16 cells, by the fluctuations of the stress, with their
 standard errors, and, in gray, by strains, which the wrinkling of the
 compressed sheet makes too soft. Right, at 300 K against the size of the sheet:
-the two agree on the smallest sheet and part as it grows.</em></p>
+the two agree on the smaller sheets and part as it grows.</em></p>
 <h2 id="what-to-keep-in-mind">What to keep in mind<a class="headerlink" href="#what-to-keep-in-mind" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Molecular dynamics is classical.</strong> The quasi-harmonic approximation
   includes the vibrations at zero point, which stretch the sheet and soften it
-  by 5 % at 0 K. On 8 × 8 cells at 100 K the two still differ by only 2 %.</li>
-<li><strong>The quasi-harmonic approximation ends near 400 K</strong> for LCBOP, where the
+  by 5 % at 0 K. Below some 250 K molecular dynamics is therefore the stiffer.</li>
+<li><strong>The quasi-harmonic approximation ends near 950 K</strong> for this model, where the
   sheet shrinks to its static area. A tension, through <code>pressure</code>, keeps it
   stretched.</li>
 <li><strong>Fluctuations need long runs on a sheet.</strong> A million steps of 0.5 fs give
-  errors of a few N/m on 512 atoms, and the errors grow with the size of the
+  errors of 1 to 3 N/m on 512 atoms, and the errors grow with the size of the
   sheet.</li>
 <li><strong>The size is part of the result.</strong> Give the number of cells with the
   constants of a free sheet.</li>

@@ -13,6 +13,8 @@ import queue
 import threading
 from typing import Any, Callable
 
+import numpy as np
+
 from mdapy.simulation import _domain
 
 # seconds a process waits for the others before the test fails
@@ -50,6 +52,15 @@ class Comm:
     def sendrecv(self, value: Any, dest: int, source: int) -> Any:
         self.send(value, dest)
         return self.recv(source)
+
+    def Sendrecv(  # noqa: N802
+        self, sendbuf: Any, dest: Any = None, recvbuf: Any = None, source: Any = None
+    ) -> None:
+        """As mpi4py's, of buffers, None the process that is not."""
+        if dest is not None:
+            self.send(np.array(sendbuf), dest)
+        if source is not None:
+            recvbuf[...] = self.recv(source)
 
     def allgather(self, value: Any) -> list:
         world = self.__world

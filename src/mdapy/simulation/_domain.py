@@ -97,6 +97,11 @@ class Bricks:
         self.set_box(h, lo)
         self.local = 0  # the atoms this process owns, at the start of the arrays
         self.__sends: list = []
+        # the process that is not, of mpi4py's MPI, or None for others
+        mpi = sys.modules.get("mpi4py.MPI")
+        self.__null = (
+            mpi.PROC_NULL if mpi is not None and isinstance(comm, mpi.Comm) else None
+        )
 
     def rank_of(self, at: np.ndarray) -> int:
         at = np.asarray(at) % self.counts
@@ -248,13 +253,16 @@ class Bricks:
     def forward(self, values: np.ndarray, shifted: bool = False) -> np.ndarray:
         """Values of the local atoms, (local, ...), and those of their ghosts
         after them, along the lists of the last ``borders``; positions,
-        shifted, by the box vectors the ghosts crossed."""
-        x = np.array(values)
-        for chosen, shift, destination, source, _, _ in self.__sends:
+        shifted, by the box vectors the ghosts crossed. The ghosts of each
+        message come straight into their rows, the buffers of MPI."""
+        values = np.asarray(values)
+        last = self.__sends[-1] if self.__sends else None
+        size = last[4] + last[5] if last is not None else len(values)
+        x = np.empty((size,) + values.shape[1:], dtype=values.dtype)
+        x[: self.local] = values
+        for chosen, shift, destination, source, start, count in self.__sends:
             sent = x[chosen] + shift @ self.h if shifted else x[chosen]
-            x = np.concatenate(
-                [x, _exchange(self.comm, (sent,), destination, source)[0]]
-            )
+            self.__swap(sent, destination, x[start : start + count], source)
         return x
 
     def reverse(self, values: np.ndarray) -> np.ndarray:
@@ -264,11 +272,27 @@ class Bricks:
         the ghosts of ghosts come back through them."""
         x = np.array(values)
         for chosen, _, destination, source, start, count in reversed(self.__sends):
-            back = _exchange(
-                self.comm, (x[start : start + count],), source, destination
-            )
-            x[chosen] += back[0]
+            back = np.empty((len(chosen),) + x.shape[1:], dtype=x.dtype)
+            self.__swap(x[start : start + count], source, back, destination)
+            x[chosen] += back
         return x[: self.local]
+
+    def __swap(
+        self,
+        sent: np.ndarray,
+        destination: int | None,
+        received: np.ndarray,
+        source: int | None,
+    ) -> None:
+        """Rows sent one way, the rows of received filled from the other, of
+        known numbers, without pickles; nothing where there is no process."""
+        null = self.__null
+        self.comm.Sendrecv(
+            np.ascontiguousarray(sent),
+            dest=null if destination is None else destination,
+            recvbuf=received,
+            source=null if source is None else source,
+        )
 
     def set_reach(self, reach: float) -> None:
         self.reach = float(reach)
@@ -449,6 +473,7 @@ class DomainAtoms(_HostAtoms):
         bricks.local = len(mine)
         self.__built: np.ndarray | None = None  # the positions at the last build
         self.__ghosts: np.ndarray = self._x  # this process's atoms and the ghosts
+        self.__sub_ids: np.ndarray = self._ids  # the ids of them
         # the order of the ghosts, nearest the brick first, and how far each is
         self.__order: np.ndarray = np.arange(len(mine))
         self.__far: np.ndarray = np.zeros(0)
@@ -557,6 +582,7 @@ class DomainAtoms(_HostAtoms):
         self.__order = np.concatenate([np.arange(n), n + order])
         self.__far = far[order]
         self.__ghosts, ids = ghosts[self.__order], ids[self.__order]
+        self.__sub_ids = np.ascontiguousarray(ids, dtype=np.int64)
         self.__part = table[ids]
         self.__box = Box(
             box.matrix, origin=box.origin, pbc=bricks.pbc & (bricks.counts == 1)
@@ -634,7 +660,7 @@ class DomainAtoms(_HostAtoms):
             # the calculator computes this process's atoms alone, and sends
             # what it needs to the ghosts or back from them
             part = split(current, tuple(wanted), neighbors, n, self.__forward,
-                         self.__reverse)  # fmt: skip
+                         self.__reverse, self.__sub_ids)  # fmt: skip
             return (
                 float(part.energy),
                 np.asarray(part.forces, dtype=float),
@@ -678,6 +704,7 @@ class DomainAtoms(_HostAtoms):
         "_DomainAtoms__image",
         "_DomainAtoms__built",
         "_DomainAtoms__ghosts",
+        "_DomainAtoms__sub_ids",
         "_DomainAtoms__order",
         "_DomainAtoms__far",
         "_DomainAtoms__part",

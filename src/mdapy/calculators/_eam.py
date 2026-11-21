@@ -19,6 +19,7 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _Part,
+    _reversed_part,
 )
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token, get_num_threads
@@ -608,6 +609,7 @@ class EAM(Calculator):
         owned: int,
         forward: Any,
         reverse: Any,
+        ids: np.ndarray,
     ) -> _Part:
         """The part of the first owned atoms of system, a process's of MPI:
         their densities, the slopes of their embedding functions sent to
@@ -626,15 +628,27 @@ class EAM(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
-        # on one thread, each pair of two of these atoms once, as LAMMPS
-        once = get_num_threads() == 1
+        if get_num_threads() == 1:
+            # on one thread each pair once among the processes, as LAMMPS's
+            # newton on: the densities of the ghosts back to their atoms, the
+            # slopes to the ghosts, the forces on the ghosts back
+            ids = np.ascontiguousarray(ids, dtype=np.int64)
+            with neighbors._reading():
+                rho = _native.eam_densities_once(self.__potential, *arrays, owned, ids)
+            rho = np.ascontiguousarray(reverse(rho))
+            embedding, slopes = _native.eam_embedding(self.__potential, arrays[0], rho)
+            slopes = np.ascontiguousarray(forward(slopes))
+            with neighbors._reading():
+                energies, forces, virials = _native.eam_forces_once(
+                    self.__potential, *arrays, owned, ids, slopes, virial, heat
+                )
+            energies[:owned] += embedding
+            return _reversed_part(energies, forces, virials, properties, reverse)
         with neighbors._reading():
-            embedding, slopes = _native.eam_densities(
-                self.__potential, *arrays, owned, once
-            )
+            embedding, slopes = _native.eam_densities(self.__potential, *arrays, owned)
             slopes = np.ascontiguousarray(forward(slopes))
             energies, forces, virials = _native.eam_forces(
-                self.__potential, *arrays, slopes, embedding, virial, heat, once
+                self.__potential, *arrays, slopes, embedding, virial, heat
             )
         return _Part(
             float(energies.sum()),

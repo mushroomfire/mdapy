@@ -19,6 +19,7 @@ from mdapy.calculators._base import (
     CalculatorResult,
     _element_indices,
     _Part,
+    _reversed_part,
 )
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token, get_num_threads
@@ -192,6 +193,7 @@ class _PairCalculator(Calculator):
         owned: int,
         forward: Any,
         reverse: Any,
+        ids: np.ndarray,
     ) -> _Part:
         """The part of the first owned atoms of system, a process's of MPI,
         whose pairs reach the ghosts within the cutoff: on one thread each
@@ -209,17 +211,20 @@ class _PairCalculator(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
-        with neighbors._reading():
-            if get_num_threads() == 1:
+        if get_num_threads() == 1:
+            # on one thread each pair once among the processes, as LAMMPS's
+            # newton on, the forces on the ghosts back to their atoms
+            with neighbors._reading():
                 energies, forces, virials = _native.compute_pair_once(
-                    *arrays, owned, virial
+                    *arrays, owned, np.ascontiguousarray(ids, dtype=np.int64), virial
                 )
-            else:
-                energies, forces, virials = _native.compute_pair(
-                    *arrays, None, None, virial
-                )
-                energies, forces = energies[:owned], forces[:owned]
-                virials = virials[:owned] if virials is not None else None
+            return _reversed_part(energies, forces, virials, properties, reverse)
+        with neighbors._reading():
+            energies, forces, virials = _native.compute_pair(
+                *arrays, None, None, virial
+            )
+        energies, forces = energies[:owned], forces[:owned]
+        virials = virials[:owned] if virials is not None else None
         return _Part(
             float(energies.sum()),
             forces,

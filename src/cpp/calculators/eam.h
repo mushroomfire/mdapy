@@ -104,18 +104,24 @@ void eam_forces(const EamPotential& potential, std::int64_t centers, const std::
                 double* energies, double* forces, double* virials, const Control& control = {},
                 bool heat = false);
 
-// The same passes on one thread, each pair of two centres once, the forces
-// on both from it, as LAMMPS's newton off computes them: for a process of MPI
-// on one thread. The forces, energies and virials of the centres alone.
+// The same on one thread, each pair once among the processes of MPI
+// (calculators/once.h), as LAMMPS's newton on: the densities that the pairs
+// give each atom of the list, ghosts among them, added to rho (n); the
+// embedding energies and slopes of the centres from their whole densities;
+// the forces, pair energies and virials (unless null) that the pairs give
+// every atom, added to forces (n x 3), energies (n) and virials (n x 9).
 void eam_densities_once(const EamPotential& potential, std::int64_t centers,
                         const std::int32_t* species, const double* positions,
                         const double* matrix, const std::int64_t* offsets,
-                        const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                        double* slopes);
+                        const index_t* neighbors, const std::int8_t* shifts,
+                        const std::int64_t* ids, double* rho);
+void eam_embedding(const EamPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* rho, double* energies,
+                   double* slopes);
 void eam_forces_once(const EamPotential& potential, std::int64_t centers,
                      const std::int32_t* species, const double* positions, const double* matrix,
                      const std::int64_t* offsets, const index_t* neighbors,
-                     const std::int8_t* shifts, const double* slopes, double* energies,
-                     double* forces, double* virials, bool heat);
+                     const std::int8_t* shifts, const std::int64_t* ids, const double* slopes,
+                     double* energies, double* forces, double* virials, bool heat);
 
 }  // namespace mdapy::calculators

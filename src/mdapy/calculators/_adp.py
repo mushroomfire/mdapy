@@ -234,6 +234,7 @@ class ADP(Calculator):
         owned: int,
         forward: Any,
         reverse: Any,
+        ids: np.ndarray,
     ) -> _Part:
         """The part of the first owned atoms of system, a process's of MPI:
         their densities, dipoles and quadrupoles, sent with the slopes of their

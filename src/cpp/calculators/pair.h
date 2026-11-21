@@ -46,12 +46,15 @@ void compute_pair(const PairPotential& potential, std::int64_t n, const std::int
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,
                   double* forces, double* virials, const Control& control = {});
 
-// On one thread, for the first centers atoms, each pair of two of them once,
-// as LAMMPS's newton off computes them: for a process of MPI on one thread.
-void compute_pair_once(const PairPotential& potential, std::int64_t centers,
+// On one thread, each pair once among the processes of MPI
+// (calculators/once.h), as LAMMPS's newton on: the forces, energies and
+// virials (unless null) that the pairs of the first centers atoms give every
+// atom, n of them.
+void compute_pair_once(const PairPotential& potential, std::int64_t n, std::int64_t centers,
                        const std::int32_t* species, const double* positions,
                        const double* matrix, const std::int64_t* offsets,
-                       const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                       double* forces, double* virials);
+                       const index_t* neighbors, const std::int8_t* shifts,
+                       const std::int64_t* ids, double* energies, double* forces,
+                       double* virials);
 
 }  // namespace mdapy::calculators

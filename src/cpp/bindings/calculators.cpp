@@ -188,7 +188,7 @@ using Values = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::
 // energies and the slopes of their embedding functions.
 nb::tuple eam_densities(const calculators::EamPotential& potential, Species species,
                         Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                        Shifts shifts, std::int64_t centers, bool once) {
+                        Shifts shifts, std::int64_t centers) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const std::int64_t c = centres_of(centers, species);
     double *energies, *slopes;
@@ -197,15 +197,9 @@ nb::tuple eam_densities(const calculators::EamPotential& potential, Species spec
     nb::object s = new_array(1, shape, slopes);
     run_released(
         [&](const Control& control) {
-            if (once) {
-                calculators::eam_densities_once(potential, c, species.data(), positions.data(),
-                                                matrix.data(), offsets.data(), neighbors.data(),
-                                                shifts.data(), energies, slopes);
-            } else {
-                calculators::eam_densities(potential, c, species.data(), positions.data(),
-                                           matrix.data(), offsets.data(), neighbors.data(),
-                                           shifts.data(), energies, slopes, control);
-            }
+            calculators::eam_densities(potential, c, species.data(), positions.data(),
+                                       matrix.data(), offsets.data(), neighbors.data(),
+                                       shifts.data(), energies, slopes, control);
         },
         nb::none(), nullptr);
     return nb::make_tuple(e, s);
@@ -216,8 +210,7 @@ nb::tuple eam_densities(const calculators::EamPotential& potential, Species spec
 // and, with virial, their virials (None without).
 nb::tuple eam_forces(const calculators::EamPotential& potential, Species species,
                      Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
-                     Shifts shifts, Values slopes, Values embedding, bool virial, bool heat,
-                     bool once) {
+                     Shifts shifts, Values slopes, Values embedding, bool virial, bool heat) {
     check_input(potential.elements, species, positions, offsets, neighbors, shifts);
     const std::int64_t c = centres_of(static_cast<std::int64_t>(embedding.shape(0)), species);
     if (slopes.shape(0) != species.shape(0)) {
@@ -233,17 +226,10 @@ nb::tuple eam_forces(const calculators::EamPotential& potential, Species species
     std::copy(embedding.data(), embedding.data() + c, energies);
     run_released(
         [&](const Control& control) {
-            if (once) {
-                calculators::eam_forces_once(potential, c, species.data(), positions.data(),
-                                             matrix.data(), offsets.data(), neighbors.data(),
-                                             shifts.data(), slopes.data(), energies, forces,
-                                             virials, heat);
-            } else {
-                calculators::eam_forces(potential, c, species.data(), positions.data(),
-                                        matrix.data(), offsets.data(), neighbors.data(),
-                                        shifts.data(), slopes.data(), energies, forces, virials,
-                                        control, heat);
-            }
+            calculators::eam_forces(potential, c, species.data(), positions.data(),
+                                    matrix.data(), offsets.data(), neighbors.data(),
+                                    shifts.data(), slopes.data(), energies, forces, virials,
+                                    control, heat);
         },
         nb::none(), nullptr);
     return nb::make_tuple(e, f, w);
@@ -310,26 +296,116 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
                                             offset.data(), coefficients.data());
 }
 
-// The forces, energies and virials (None without virial) of the first
-// centers atoms, each pair of two of them once, on one thread.
+using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// The ids of every atom, as many as the atoms.
+const std::int64_t* ids_of(Ids ids, Species species) {
+    if (ids.shape(0) != species.shape(0)) {
+        throw std::invalid_argument("an id for each atom");
+    }
+    return ids.data();
+}
+
+// On one thread, each pair once among the processes of MPI: the densities the
+// pairs of the first centers atoms give every atom.
+nb::object eam_densities_once(const calculators::EamPotential& potential, Species species,
+                              Positions positions, Matrix matrix, Offsets offsets,
+                              Neighbors neighbors, Shifts shifts, std::int64_t centers, Ids ids) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    const std::int64_t* id = ids_of(ids, species);
+    double* rho;
+    const std::size_t shape[1] = {species.shape(0)};
+    nb::object out = new_array(1, shape, rho);
+    std::fill(rho, rho + species.shape(0), 0.0);
+    {
+        nb::gil_scoped_release release;
+        calculators::eam_densities_once(potential, c, species.data(), positions.data(),
+                                        matrix.data(), offsets.data(), neighbors.data(),
+                                        shifts.data(), id, rho);
+    }
+    return out;
+}
+
+// The embedding energies and slopes of the first atoms, one for each density.
+nb::tuple eam_embedding(const calculators::EamPotential& potential, Species species,
+                        Values rho) {
+    const auto c = static_cast<std::int64_t>(rho.shape(0));
+    if (c > static_cast<std::int64_t>(species.shape(0))) {
+        throw std::invalid_argument("more densities than atoms");
+    }
+    for (std::int64_t i = 0; i < c; ++i) {
+        if (species.data()[i] < 0 || species.data()[i] >= potential.elements) {
+            throw std::invalid_argument("a species index is outside the potential");
+        }
+    }
+    double *energies, *slopes;
+    const std::size_t shape[1] = {static_cast<std::size_t>(c)};
+    nb::object e = new_array(1, shape, energies);
+    nb::object s = new_array(1, shape, slopes);
+    calculators::eam_embedding(potential, c, species.data(), rho.data(), energies, slopes);
+    return nb::make_tuple(e, s);
+}
+
+// On one thread, each pair once among the processes of MPI: the pair
+// energies, forces and virials (None without virial) the pairs of the first
+// centers atoms give every atom, from the slopes of every atom.
+nb::tuple eam_forces_once(const calculators::EamPotential& potential, Species species,
+                          Positions positions, Matrix matrix, Offsets offsets,
+                          Neighbors neighbors, Shifts shifts, std::int64_t centers, Ids ids,
+                          Values slopes, bool virial, bool heat) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    const std::int64_t* id = ids_of(ids, species);
+    if (slopes.shape(0) != species.shape(0)) {
+        throw std::invalid_argument("a slope for each atom");
+    }
+    const std::size_t n = species.shape(0);
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {n};
+    const std::size_t shape2[2] = {n, 3};
+    const std::size_t shape3[3] = {n, 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    std::fill(energies, energies + n, 0.0);
+    std::fill(forces, forces + 3 * n, 0.0);
+    if (virials != nullptr) {
+        std::fill(virials, virials + 9 * n, 0.0);
+    }
+    {
+        nb::gil_scoped_release release;
+        calculators::eam_forces_once(potential, c, species.data(), positions.data(),
+                                     matrix.data(), offsets.data(), neighbors.data(),
+                                     shifts.data(), id, slopes.data(), energies, forces, virials,
+                                     heat);
+    }
+    return nb::make_tuple(e, f, w);
+}
+
+// On one thread, each pair once among the processes of MPI: the energies,
+// forces and virials (None without virial) the pairs of the first centers
+// atoms give every atom.
 nb::tuple compute_pair_once(const calculators::PairPotential& potential, Species species,
                             Positions positions, Matrix matrix, Offsets offsets,
-                            Neighbors neighbors, Shifts shifts, std::int64_t centers,
+                            Neighbors neighbors, Shifts shifts, std::int64_t centers, Ids ids,
                             bool virial) {
     check_input(potential.species, species, positions, offsets, neighbors, shifts);
     const std::int64_t c = centres_of(centers, species);
+    const std::int64_t* id = ids_of(ids, species);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
     double *energies, *forces, *virials = nullptr;
-    const std::size_t shape1[1] = {static_cast<std::size_t>(c)};
-    const std::size_t shape2[2] = {static_cast<std::size_t>(c), 3};
-    const std::size_t shape3[3] = {static_cast<std::size_t>(c), 3, 3};
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
     nb::object e = new_array(1, shape1, energies);
     nb::object f = new_array(2, shape2, forces);
     nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
     {
         nb::gil_scoped_release release;
-        calculators::compute_pair_once(potential, c, species.data(), positions.data(),
+        calculators::compute_pair_once(potential, n, c, species.data(), positions.data(),
                                        matrix.data(), offsets.data(), neighbors.data(),
-                                       shifts.data(), energies, forces, virials);
+                                       shifts.data(), id, energies, forces, virials);
     }
     return nb::make_tuple(e, f, w);
 }
@@ -774,7 +850,16 @@ void bind_calculators(nb::module_& m) {
           nb::arg("coefficients"));
     m.def("compute_pair_once", &compute_pair_once, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
-          nb::arg("shifts"), nb::arg("centers"), nb::arg("virial"));
+          nb::arg("shifts"), nb::arg("centers"), nb::arg("ids"), nb::arg("virial"));
+    m.def("eam_densities_once", &eam_densities_once, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("centers"), nb::arg("ids"));
+    m.def("eam_embedding", &eam_embedding, nb::arg("potential"), nb::arg("species"),
+          nb::arg("rho"));
+    m.def("eam_forces_once", &eam_forces_once, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("centers"), nb::arg("ids"), nb::arg("slopes"),
+          nb::arg("virial"), nb::arg("heat") = false);
     m.def("compute_pair", &compute_pair, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
@@ -794,11 +879,11 @@ void bind_calculators(nb::module_& m) {
           nb::arg("virial") = true);
     m.def("eam_densities", &eam_densities, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
-          nb::arg("shifts"), nb::arg("centers"), nb::arg("once") = false);
+          nb::arg("shifts"), nb::arg("centers"));
     m.def("eam_forces", &eam_forces, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("slopes"), nb::arg("embedding"), nb::arg("virial"),
-          nb::arg("heat") = false, nb::arg("once") = false);
+          nb::arg("heat") = false);
     nb::class_<calculators::NepModel>(m, "NepModel")
         .def_ro("types", &calculators::NepModel::types)
         .def_ro("dim", &calculators::NepModel::dim);

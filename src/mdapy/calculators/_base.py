@@ -53,7 +53,7 @@ class _Part(NamedTuple):
 def _reversed_part(
     energies: np.ndarray,
     forces: np.ndarray,
-    virials: np.ndarray,
+    virials: np.ndarray | None,
     properties: tuple,
     reverse: Any,
 ) -> _Part:
@@ -65,6 +65,14 @@ def _reversed_part(
     each = bool(
         {"atomic_energies", "atomic_virials", HEAT_FLUX_TERMS} & set(properties)
     )
+    if virials is None:
+        return _Part(
+            float(energies.sum()),
+            reverse(forces),
+            np.full((3, 3), np.nan),
+            reverse(energies) if each else None,
+            None,
+        )
     if each:
         n = len(energies)
         back = reverse(np.hstack([forces, energies[:, None], virials.reshape(n, 9)]))

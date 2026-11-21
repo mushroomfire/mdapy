@@ -190,6 +190,7 @@ class _ThreeBody(Calculator):
         owned: int,
         forward: Any,
         reverse: Any,
+        ids: np.ndarray,
     ) -> _Part:
         """The part of the first owned atoms of system, a process's of MPI:
         the terms of those atoms alone, which reach the ghosts within the

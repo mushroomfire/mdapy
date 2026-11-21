@@ -387,6 +387,7 @@ class NEP(Calculator):
         owned: int,
         forward: Any,
         reverse: Any,
+        ids: np.ndarray,
     ) -> _Part:
         """The part of the first owned atoms of system, a process's of MPI:
         their energies and the derivatives of them alone, which reach the

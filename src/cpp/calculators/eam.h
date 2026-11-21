@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -25,15 +26,33 @@ public:
     // values: n >= 5 samples
     Spline(const double* values, int n, double delta);
     // The value and the derivative at x. Beyond the table the spline of the
-    // last interval continues up to its end, as in LAMMPS.
-    void evaluate(double x, double& value, double& derivative) const;
-    double value(double x) const;
+    // last interval continues up to its end, as in LAMMPS. Defined here, so
+    // that the kernels of every file inline them.
+    void evaluate(double x, double& value, double& derivative) const {
+        const auto& c = row(x, x);
+        value = ((c[3] * x + c[4]) * x + c[5]) * x + c[6];
+        derivative = (c[0] * x + c[1]) * x + c[2];
+    }
+    double value(double x) const {
+        const auto& c = row(x, x);
+        return ((c[3] * x + c[4]) * x + c[5]) * x + c[6];
+    }
     // The table for the GPU: n + 1 rows of 7 coefficients, row 0 unused.
     int size() const { return n_; }
     double inverse_delta() const { return inverse_delta_; }
     const std::array<double, 7>* coefficients() const { return coefficients_.data(); }
 
 private:
+    // The coefficients of the interval of x, and in p the place in it.
+    const std::array<double, 7>& row(double x, double& p) const {
+        p = x * inverse_delta_ + 1.0;
+        int m = static_cast<int>(p);
+        m = std::max(1, std::min(m, n_ - 1));
+        p -= m;
+        p = std::min(p, 1.0);
+        return coefficients_[static_cast<std::size_t>(m)];
+    }
+
     int n_;
     double inverse_delta_;
     std::vector<std::array<double, 7>> coefficients_;  // index 1 to n

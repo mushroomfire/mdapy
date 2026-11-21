@@ -1,6 +1,6 @@
 # Path integrals
 
-<p class="runs-on" markdown>**Runs on** the processor · the forces on the [GPU](gpu.md) · not on many processes yet · not in LAMMPS</p>
+<p class="runs-on" markdown>**Runs on** the processor, the beads on [many processes](processes.md) · the forces on the [GPU](gpu.md) · not in LAMMPS</p>
 
 `MolecularDynamics(system, potential, beads=P)` treats the nuclei as quantum
 particles: path-integral molecular dynamics, in which each atom is a ring polymer of
@@ -121,6 +121,16 @@ The runs take the options of [Running](running.md), with these:
 `info["bead"]`; `md.system`, the frames of `iterate` and `save_every` and the system
 of a restart are the centroids, the mean place and velocity of the beads of each atom.
 
+## On many processes
+
+Under `mpirun` the beads are shared among the processes, each computing the forces of
+its own beads, `P` processes for `P` beads at most; every process then takes the same
+steps, and the run is that of one process. The atoms of a bead are not split further:
+
+```bash
+MDAPY_NUM_THREADS=1 mpirun -np 8 python pimd.py  # 8 beads, one each
+```
+
 ## Results
 
 `thermo` records the quantum estimators:
@@ -167,7 +177,7 @@ water at 300 K.
 ## Errors
 
 `MolecularDynamics` raises `InvalidParameter` for `beads` that is not a positive
-integer, with a `LAMMPS` calculator, a `movable` column or under MPI. A run raises it
+integer, with a `LAMMPS` calculator or a `movable` column. A run raises it
 for an ensemble other than `"nvt"` and `"nve"`, a thermostat other than `"langevin"`
 with `"nvt"`, no temperature or two, and controls.
 

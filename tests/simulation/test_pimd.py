@@ -18,7 +18,7 @@ import mdapy
 from mdapy import units
 from mdapy.calculators import LennardJones, Springs, _gpu
 from mdapy.errors import InvalidParameter
-from mdapy.simulation import MolecularDynamics, _domain, _pimd
+from mdapy.simulation import MolecularDynamics, _pimd
 from mdapy.simulation.controls import Hold
 
 from calculators.gpu_stand_in import stand_in
@@ -240,6 +240,41 @@ def test_atoms_that_overlap():
             md.run(1, temperature=300, **NVT)
 
 
+@pytest.mark.parametrize("size", [2, 3])
+def test_beads_shared_among_processes(monkeypatch, tmp_path, size):
+    """Processes, stood in for by threads, each computing the forces of its
+    beads: the run of one process, its restart file and its log too."""
+    import io
+
+    from mdapy.build import build_crystal
+    from mdapy.calculators import EAM
+    from simulation import processes
+
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(3, 3, 3))
+    eam = EAM.zhou(["Cu"])
+
+    def run(rank):
+        log = io.StringIO()
+        with MolecularDynamics(crystal, eam, timestep=0.002, beads=4, log=log) as md:
+            md.velocities(50, seed=1)
+            md.run(30, temperature=50, seed=2, thermo=10, **NVT,
+                   restart=tmp_path / f"{rank}.restart", restart_every=20)  # fmt: skip
+            return md.system, md.thermo, log.getvalue()
+
+    alone = run("alone")
+    for system, thermo, log in processes.run(size, run, monkeypatch):
+        np.testing.assert_allclose(
+            system["velocities"], alone[0]["velocities"], atol=1e-12
+        )
+        np.testing.assert_allclose(
+            thermo["kinetic_energy"].to_numpy(), alone[1]["kinetic_energy"].to_numpy(),
+            rtol=1e-12,
+        )  # fmt: skip
+    logs = [log for *_, log in processes.run(size, run, monkeypatch)]
+    assert f"the beads on {size} processes" in logs[0] and logs[1] == ""
+    assert (tmp_path / "0.restart").exists() and not (tmp_path / "1.restart").exists()
+
+
 def test_errors(monkeypatch):
     system, springs, _ = hydrogen(8)
     for beads in (0, -2, 1.5, True):
@@ -270,6 +305,3 @@ def test_errors(monkeypatch):
         ):  # fmt: skip
             with pytest.raises(InvalidParameter, match=message):
                 md.run(1, **options)
-    monkeypatch.setattr(_domain, "world", lambda: object())
-    with pytest.raises(InvalidParameter, match="one process"):
-        MolecularDynamics(system, springs, beads=2)

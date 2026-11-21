@@ -21,11 +21,12 @@ import numpy as np
 import polars as pl
 
 from mdapy import _core, units
-from mdapy.calculators._base import Calculator
+from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
 from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
-from mdapy.errors import InvalidParameter, MissingProperty
+from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
+from mdapy.neighbor import NeighborList
 from mdapy.simulation import _integrator
 from mdapy.simulation._log import _on_gpu
 
@@ -56,6 +57,12 @@ def normal_modes(beads: int) -> tuple[np.ndarray, np.ndarray]:
     return c, 2.0 * np.sin(math.pi * np.arange(p) / p)
 
 
+def _same(values: np.ndarray) -> np.ndarray:
+    """What a process sends to its ghosts, or back from them: without
+    ghosts, the values as they are."""
+    return values
+
+
 class _RingPolymer:
     """The state of a path-integral dynamics in MDAPY and its steps, with
     the interface of _Native for MolecularDynamics."""
@@ -67,11 +74,9 @@ class _RingPolymer:
             raise InvalidParameter("potential must be an MDAPY calculator")
         from mdapy.simulation import _domain
 
-        if _domain.world() is not None:
-            raise InvalidParameter(
-                "path-integral dynamics runs on one process; its beads are not yet "
-                "shared among processes"
-            )
+        # under MPI the beads are shared among the processes, each computing
+        # the forces of its own, and every process takes the same steps
+        self.__comm = _domain.world()
         table = system.table
         n = len(system)
         if "mass" in table.columns:
@@ -122,6 +127,21 @@ class _RingPolymer:
                                    lambda vectors, rows=None: vectors)
             for k in range(p)
         ]  # fmt: skip
+        # MDAPY's potentials on the processor compute each bead from arrays,
+        # with a neighbor list of its own kept until a bead has moved half
+        # the skin: (list, positions when built) of each bead
+        self.__direct = (
+            callable(getattr(calculator, "_split", None))
+            and getattr(calculator, "_takes_wider_lists", False)
+            and calculator.device == "cpu"
+        )
+        self.__lists: list = [None] * p
+        if self.__direct:
+            self.__species = np.ascontiguousarray(calculator._species(system))
+            self.__ids = np.arange(n, dtype=np.int64)
+        size = 1 if self.__comm is None else self.__comm.Get_size()
+        rank = 0 if self.__comm is None else self.__comm.Get_rank()
+        self.__mine = [k for k in range(p) if k % size == rank]
         self.__modes, self.__frequencies = normal_modes(p)
         self.timestep = float(timestep)
         self.__step = 0
@@ -136,12 +156,20 @@ class _RingPolymer:
     # -- what MolecularDynamics asks of an engine ------------------------------
 
     def state(self) -> dict[str, Any]:
-        """Every variable but the calculator and the atoms of the beads."""
-        skip = ("_RingPolymer__calculator", "_RingPolymer__beads")
+        """Every variable but the calculator, the atoms of the beads and
+        the neighbor lists."""
+        skip = (
+            "_RingPolymer__calculator",
+            "_RingPolymer__beads",
+            "_RingPolymer__lists",
+            "_RingPolymer__comm",
+            "_RingPolymer__mine",
+        )
         return {"pimd": {k: v for k, v in vars(self).items() if k not in skip}}
 
     def restore(self, state: dict[str, Any]) -> None:
         vars(self).update(state["pimd"])
+        self.__lists = [None] * self.__p
         for k, bead in enumerate(self.__beads):
             bead.restore({"_x": self.__x[k], "_v": self.__v[k]})
 
@@ -151,19 +179,24 @@ class _RingPolymer:
             where = f"the forces on the GPU, {_on_gpu(calculator)}"
         else:
             where = f"the processor, {get_num_threads()} threads"
+        if self.__comm is not None:
+            where += f", the beads on {self.__comm.Get_size()} processes"
         return f"MDAPY, path integrals of {self.__p} beads; {where}"
 
     @property
     def writes(self) -> bool:
-        return True
+        """Whether this process writes the log and files: the main one."""
+        return self.__comm is None or self.__comm.Get_rank() == 0
 
-    @staticmethod
-    def anywhere(flag: bool) -> bool:
-        return flag
+    def anywhere(self, flag: bool) -> bool:
+        """Whether any process has the flag."""
+        if self.__comm is None:
+            return flag
+        return bool(self.__comm.allreduce(int(flag)))
 
-    @staticmethod
-    def shared(value: Any) -> Any:
-        return value
+    def shared(self, value: Any) -> Any:
+        """What the main process has, on every process."""
+        return value if self.__comm is None else self.__comm.bcast(value, root=0)
 
     @property
     def closed(self) -> bool:
@@ -235,12 +268,59 @@ class _RingPolymer:
         """The forces on every bead; their energies, and their virials when
         full; each bead refuses forces that are not finite."""
         box = self.__box
-        for k, bead in enumerate(self.__beads):
-            bead._x = self.__x[k]
-            energy, virial = bead.compute(self.__table, box, True, full)
-            self.__f[k] = bead.forces
-            self.__energies[k] = energy
-            self.__virials[k] = virial
+        if self.__direct:
+            self.__compute_direct(full)
+        else:
+            for k in self.__mine:
+                bead = self.__beads[k]
+                bead._x = self.__x[k]
+                energy, virial = bead.compute(self.__table, box, True, full)
+                self.__f[k] = bead.forces
+                self.__energies[k] = energy
+                self.__virials[k] = virial
+        if self.__comm is not None:
+            # the forces, energies and virials of every bead, on every process
+            mine = self.__mine
+            parts = self.__comm.allgather(
+                (mine, self.__f[mine], self.__energies[mine], self.__virials[mine])
+            )
+            for beads, f, e, w in parts:
+                self.__f[beads], self.__energies[beads] = f, e
+                self.__virials[beads] = w
+
+    def __compute_direct(self, full: bool) -> None:
+        """Each bead from arrays, as a process of MPI computes its atoms,
+        here without ghosts."""
+        box, calculator = self.__box, self.__calculator
+        matrix = np.ascontiguousarray(box.matrix)
+        cutoff = float(calculator.cutoff)
+        wanted = ("energy", "forces") + (("virial",) if full else (WITHOUT_VIRIAL,))
+        for k in self.__mine:
+            x = np.ascontiguousarray(self.__x[k])
+            kept = self.__lists[k]
+            if kept is not None:
+                step = x - kept[1]
+                moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+                if not 2.0 * moved < _integrator._SKIN:
+                    kept = None
+            if kept is None:
+                current = System(table=self.__table.with_columns(
+                    pl.Series("positions", x.copy(), dtype=pl.Array(pl.Float64, 3))
+                ), box=box)  # fmt: skip
+                kept = self.__lists[k] = (
+                    NeighborList.build(current, cutoff + _integrator._SKIN),
+                    x.copy(),
+                )
+            part = calculator._split((self.__species, x, matrix), wanted, kept[0],
+                                     self.__n, _same, _same, self.__ids)  # fmt: skip
+            forces = np.asarray(part.forces, dtype=float)
+            if not (math.isfinite(part.energy) and np.isfinite(forces).all()):
+                raise CalculationFailed(
+                    "the energy or the forces are not finite: atoms may overlap"
+                )
+            self.__f[k] = forces
+            self.__energies[k] = float(part.energy)
+            self.__virials[k] = part.virial if full else np.full((3, 3), np.nan)
 
     # -- a run -----------------------------------------------------------------
 
@@ -278,7 +358,9 @@ class _RingPolymer:
         self.__atime, self.__astep = self.__time, self.__step
         if self.__thermostat:
             seed = run["seed"]
-            self.__seed = secrets.randbits(63) if seed is None else int(seed)
+            self.__seed = (
+                self.shared(secrets.randbits(63)) if seed is None else int(seed)
+            )
             self.__draws = 0
         self.__compute()
 

@@ -42,7 +42,8 @@
   PILE_L thermostat, or run without it as ring-polymer molecular dynamics; `thermo`
   records the centroid-virial and primitive kinetic energies and the centroid-virial
   pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
-  of the finite ring polymer in closed form. See
+  of the finite ring polymer in closed form, and neon at 20 K the averages of LAMMPS's
+  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. See
   [Path integrals](../user-guide/simulation/pimd.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;

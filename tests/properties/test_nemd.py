@@ -11,12 +11,14 @@ import numpy as np
 import pytest
 
 import mdapy
+from mdapy import units
 from mdapy.build import build_crystal
 from mdapy.calculators import LAMMPS, LennardJones, _gpu
 from mdapy.core.threads import CancelToken
 from mdapy.errors import Cancelled, InvalidParameter
 from mdapy.properties._nemd import _gradient
 from mdapy.properties.transport import nemd
+from mdapy.simulation._dynamics import MolecularDynamics
 
 from calculators.gpu_stand_in import stand_in
 
@@ -65,6 +67,48 @@ def test_solid_argon_between_two_baths():
     assert len(result.times) == len(result.hot) == 240
     assert repr(result).startswith("NEMD(")
     assert not result.temperatures.flags.writeable
+
+
+def test_the_slabs_are_the_atoms_in_them_at_the_start(monkeypatch):
+    """The temperature of a slab is that of the atoms in it at the start, as
+    a bath is: the atoms of a bath on the edge of its slab, which vibrate
+    across it, are not counted in the next slab."""
+    frames = []
+    iterate = MolecularDynamics.iterate
+
+    def kept(self, *args, **kwargs):
+        for frame in iterate(self, *args, **kwargs):
+            frames.append(frame)
+            yield frame
+
+    monkeypatch.setattr(MolecularDynamics, "iterate", kept)
+    box = long_box((3, 3, 12))  # the planes of the baths on the edges of their slabs
+    options = dict(FAST, production=2000, every=20, blocks=2)
+    result = nemd(box, argon(), 40.0, **options)
+    fraction = box.box.to_fractional(box["positions"])[:, 2] % 1.0
+    slab = np.minimum((fraction * 20).astype(int), 19)
+    counts = np.bincount(slab, minlength=20)
+    mass = 39.948 * units.AMU_A2_PER_PS2_TO_EV
+    expected = np.mean(
+        [
+            np.bincount(slab, mass * (f["velocities"] ** 2).sum(axis=1), minlength=20)
+            / (3 * units.BOLTZMANN * counts)
+            for f in frames[1:]
+        ],
+        axis=0,
+    )
+    np.testing.assert_allclose(result.temperatures, expected, rtol=1e-12)
+    np.testing.assert_allclose(
+        result.positions,
+        np.bincount(slab, fraction, minlength=20) / counts * result.length,
+        rtol=1e-12,
+    )
+    # the atoms do cross the edges of their slabs as they vibrate
+    crossed = np.zeros(len(box), dtype=bool)
+    for f in frames[1:]:
+        later = f.box.to_fractional(f["positions"])[:, 2] % 1.0
+        crossed |= np.minimum((later * 20).astype(int), 19) != slab
+    assert crossed.sum() > 10
 
 
 def test_in_lammps_and_on_the_gpu(monkeypatch):

@@ -124,8 +124,10 @@ class _ThreeBody(Calculator):
     """A potential of three-body terms computed natively."""
 
     _takes_wider_lists = True
-    # on one thread each process of MPI computes each term once
+    # on one thread each process of MPI computes each term once; the virials
+    # of the heat flux gather the terms of the ghosts' pairs too
     _pairs_once = True
+    _heat_needs_ghosts = True
 
     _name: str
     _compute: Any

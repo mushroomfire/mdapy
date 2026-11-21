@@ -17,13 +17,14 @@ import os
 import shutil
 import sys
 import tempfile
+from pathlib import Path
 
 import numpy as np
 from mpi4py import MPI
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LennardJones, Springs
+from mdapy.calculators import EAM, LennardJones, Springs, StillingerWeber, Tersoff
 from mdapy.simulation import MolecularDynamics, _domain
 from mdapy.simulation._controls import _HeatField
 from mdapy.simulation.controls import (
@@ -37,6 +38,9 @@ from mdapy.simulation.controls import (
     Switch,
     Wall,
 )
+
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from calculators.potential_files import write_sw, write_tersoff  # noqa: E402
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
@@ -60,9 +64,20 @@ def cases():
     springs = Springs(crystal["positions"], np.full(len(crystal), 2.0))
     open_z = copper(pbc=(True, True, False))
     length = crystal.box.matrix[0, 0]
+    # silicon and germanium, with a potential file of each process's own
+    files = Path(tempfile.mkdtemp())
+    silicon = build_crystal("diamond", 5.43, elements="Si", repeat=(8, 8, 8))
+    kinds = np.random.default_rng(0).choice(["Si", "Ge"], len(silicon))
+    sige = silicon.with_columns(element=list(kinds))
+    sw = StillingerWeber(write_sw(files / "SiGe.sw", ("Si", "Ge")))
+    tersoff = Tersoff(write_tersoff(files / "SiGe.tersoff", ("Si", "Ge")))
     return {
         "nve": (crystal, eam, {}),
         "lj": (crystal, lj, {}),
+        "sw": (sige, sw, {"ensemble": "npt", "temperature": 600, "pressure": 0.0}),
+        "tersoff": (sige, tersoff, {"ensemble": "npt", "temperature": 600, "pressure": 0.0}),
+        "tersoff hnemd": (sige, tersoff, {"ensemble": "nvt", "temperature": 600,
+                                          "controls": [_HeatField((1e-4, 0.0, 0.0))]}),
         "nvt": (crystal, eam, {"ensemble": "nvt", "temperature": (300, 500)}),
         "npt": (crystal, eam, {"ensemble": "npt", "temperature": 300, "pressure": 1.0}),
         "npt tri": (

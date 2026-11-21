@@ -30,7 +30,8 @@ import numpy as np
 import polars as pl
 
 from mdapy._core import calculators as _native_calculators
-from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
+from mdapy._core import neighbor as _native_neighbor
+from mdapy.calculators._base import HEAT_FLUX_TERMS, WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -835,12 +836,27 @@ class DomainAtoms(_HostAtoms):
         thick = 1.0 / np.linalg.norm(bricks.inverse, axis=0)
         return (out * thick).max(axis=1, initial=0.0)
 
-    def _wide(self, current: System, calculator: Any) -> NeighborList:
+    def _wide(
+        self, current: System, calculator: Any, mine: bool = False
+    ) -> NeighborList:
         """The pairs of the atoms whose neighbors the calculator needs: this
         process's atoms, and for a many-body potential the ghosts within its
-        cutoff and the skin of the brick."""
+        cutoff and the skin of the brick; mine: those of this process's atoms
+        alone, as the kernels of one thread need them."""
         from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
 
+        if mine:
+            box = current.box
+            cutoff = float(calculator.cutoff) + self.__skin
+            offsets, j, shifts, distances = _native_neighbor.build(
+                np.ascontiguousarray(current["positions"]),
+                np.ascontiguousarray(box.matrix),
+                np.ascontiguousarray(box.origin),
+                np.ascontiguousarray(box.pbc),
+                cutoff,
+                rows=self.__bricks.local,
+            )
+            return NeighborList(current, cutoff, offsets, j, shifts, distances)
         centers = self.__bricks.local
         inner = _reach(calculator, target=True)[1]
         if inner > 0.0:
@@ -880,14 +896,25 @@ class DomainAtoms(_HostAtoms):
             # what it needs to the ghosts or back from them; its neighbor list
             # and species, of the system of the last build, serve until the
             # next, which comes before an atom has moved half the skin
+            # on one thread, the pairs this process computes once among the
+            # processes, as LAMMPS's newton on, from the pairs of its own atoms
+            # alone; but the heat flux of the three-body terms, which each atom
+            # gathers from the pairs of the ghosts too
+            alone = (
+                getattr(calculator, "_pairs_once", False)
+                and get_num_threads() == 1
+                and not (
+                    HEAT_FLUX_TERMS in wanted
+                    and getattr(calculator, "_heat_needs_ghosts", False)
+                )
+            )
+            slot = f"{slot} alone" if alone else slot
             kept = self.__kept.get(slot)
             if kept is None:
                 built = self.__built_system()
-                wide = self._wide(built, calculator)
-                # on one thread, the pairs this process computes once among
-                # the processes, as LAMMPS's newton on
+                wide = self._wide(built, calculator, mine=alone)
                 once = None
-                if getattr(calculator, "_pairs_once", False) and get_num_threads() == 1:
+                if alone:
                     once = _native_calculators.once_pairs(
                         wide.offsets, wide.j, wide.shifts, n, self.__sub_ids,
                         np.ascontiguousarray(self.__ghosts), self.__matrix,
@@ -935,7 +962,7 @@ class DomainAtoms(_HostAtoms):
         """From the list of the potential over this process's atoms and the
         ghosts, or for a potential on the GPU a list of the processor's own,
         kept until the next build."""
-        kept = self.__kept.get("potential")
+        kept = self.__kept.get("potential", self.__kept.get("potential alone"))
         wide = kept[0] if kept is not None else self._lists.get("potential")
         if wide is None:
             wide = self.__kept.get("stopping")

@@ -251,9 +251,11 @@ void CellGrid::scan(std::int64_t t, Visit&& visit) const {
 // positions: n x 3; matrix: 3 x 3, rows a, b, c; origin: 3; pbc: 3.
 // Throws std::invalid_argument for a non-positive cutoff or a singular box,
 // std::overflow_error for a shift outside int8 or too many atoms.
+// rows: the pairs of the first rows atoms alone, the others with none,
+// though they are neighbors of those; negative for every atom.
 NeighborPairs build(const double* positions, std::int64_t n, const double* matrix,
                     const double* origin, const bool* pbc, double cutoff,
-                    const Control& control = {});
+                    const Control& control = {}, std::int64_t rows = -1);
 
 // The vectors (pairs x 3) from each atom to its neighbors, x_j - x_i + shift . H,
 // computed as the search computes the distances.

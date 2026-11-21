@@ -135,8 +135,27 @@ class Atoms:
         self.x[:m] -= whole @ h
         self.image[:m] += whole.astype(np.int32)
 
-    def fractions(self, d, h, lo, begin, end):
+    def __fractions(self, d, h, lo, begin, end):
         return ((self.x[begin:end] - lo) @ np.linalg.inv(h))[:, d]
+
+    def truncate(self, count):
+        self.keep_rows(np.arange(count))
+
+    def steps(self, d, h, lo, counts, at, periodic):
+        s = self.__fractions(d, h, lo, 0, self.size)
+        with np.errstate(invalid="ignore"):
+            brick = np.clip(np.floor(np.nan_to_num(s, nan=0.0) * counts), 0, counts - 1)
+        step = brick.astype(np.int64) - at
+        if periodic:
+            half = counts // 2
+            step = (step + half) % counts - half
+        step = np.clip(step, -100, 100).astype(np.int8)
+        step[~np.isfinite(s)] = 127
+        return step
+
+    def slab(self, d, h, lo, low, high, begin, end):
+        t = self.__fractions(d, h, lo, begin, end)
+        return ((t >= low) & (t < high)).astype(np.uint8)
 
     def gather_positions(self, rows, shift):
         return self.x[rows] + shift

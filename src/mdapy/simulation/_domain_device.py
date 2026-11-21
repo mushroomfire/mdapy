@@ -217,23 +217,19 @@ class DomainDeviceAtoms(DeviceAtoms):
         bricks, atoms = self._bricks, self._atoms
         h, lo = np.ascontiguousarray(bricks.h), np.ascontiguousarray(bricks.lo)
         atoms.settle()
-        atoms.keep_rows(np.arange(self._local, dtype=np.int32))
+        atoms.truncate(self._local)  # the atoms of the process come first
         atoms.wrap(h, lo, tuple(bool(p) for p in bricks.pbc))
         size = self._module.Atoms.row_bytes()
         for d in range(3):
             if bricks.counts[d] == 1:
                 continue
-            s = atoms.fractions(d, h, lo, 0, atoms.size)
-            brick = np.floor(s * bricks.counts[d])
-            step = np.clip(np.nan_to_num(brick, nan=0.0), 0, bricks.counts[d] - 1)
-            step = step.astype(np.int64) - bricks.at[d]
-            if bricks.pbc[d]:  # the nearer way round, across the boundary
-                half = bricks.counts[d] // 2
-                step = (step + half) % bricks.counts[d] - half
+            step = atoms.steps(d, h, lo, int(bricks.counts[d]), int(bricks.at[d]),
+                               bool(bricks.pbc[d]))  # fmt: skip
             # every process raises together, or the others would wait for ever:
             # 3 for a position gone wrong, else how many bricks an atom moved
-            lost = not np.isfinite(s).all()
-            worst = bricks.maximum(3.0 if lost else float(np.abs(step).max(initial=0)))
+            lost = bool((step == 127).any())
+            moved = float(np.abs(step).max(initial=0)) if not lost else 3.0
+            worst = bricks.maximum(moved)
             if worst >= 3.0:
                 raise CalculationFailed(_NOT_FINITE)
             if worst > 1.0:
@@ -302,13 +298,13 @@ class DomainDeviceAtoms(DeviceAtoms):
             for _ in range(int(bricks.hops[d])):
                 for side in (-1, 1):
                     begin, end = came[side]
-                    t = atoms.fractions(d, h, lo, begin, end)
                     if side < 0:
-                        near = (t >= lower[d]) & (t < lower[d] + bricks.fraction[d])
+                        low, high = lower[d], lower[d] + bricks.fraction[d]
                         edge = bricks.at[d] == 0
                     else:
-                        near = (t < upper[d]) & (t >= upper[d] - bricks.fraction[d])
+                        low, high = upper[d] - bricks.fraction[d], upper[d]
                         edge = bricks.at[d] == bricks.counts[d] - 1
+                    near = atoms.slab(d, h, lo, float(low), float(high), begin, end)
                     chosen = (begin + np.flatnonzero(near)).astype(np.int32)
                     if edge and not bricks.pbc[d]:
                         chosen = chosen[:0]

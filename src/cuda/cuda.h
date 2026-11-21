@@ -97,6 +97,15 @@ public:
     // and ids. Each drops what the controls of a run set on the atoms, which
     // the caller gives again, and the energies and virials computed.
     void settle();
+    void truncate(std::int64_t count);  // the first count rows kept
+    // The brick of each atom along vector d, of counts, as a step from at,
+    // the nearer way round when periodic; 127 for a position not finite.
+    void steps(int d, const double* h, const double* lo, int counts, int at, bool periodic,
+               std::int8_t* out) const;
+    // 1 for each row from begin to end of a fractional coordinate along
+    // vector d in [low, high), else 0.
+    void slab(int d, const double* h, const double* lo, double low, double high,
+              std::int64_t begin, std::int64_t end, std::uint8_t* out) const;
     void keep_rows(const std::int32_t* rows, std::int64_t count);
     std::vector<unsigned char> pack_rows(const std::int32_t* rows, std::int64_t count) const;
     static std::size_t row_bytes();
@@ -106,10 +115,6 @@ public:
     // The first owned atoms into the box h (3, 3) of origin lo (3,) along the
     // periodic directions, their images counted.
     void wrap(const double* h, const double* lo, const bool* pbc);
-    // The fractional coordinate along vector d of the box of the rows from
-    // begin to end, into out (end - begin,).
-    void fractions(int d, const double* h, const double* lo, std::int64_t begin,
-                   std::int64_t end, double* out) const;
     // The positions of rows (count,), plus shift (3,), into out (count, 3).
     void gather_positions(const std::int32_t* rows, std::int64_t count, const double* shift,
                           double* out) const;

@@ -109,6 +109,28 @@ NB_MODULE(_cuda, m) {
                  return out;
              })
         .def("settle", &Atoms::settle)
+        .def("truncate", &Atoms::truncate, nb::arg("count"))
+        .def(
+            "steps",
+            [](const Atoms& a, int d, Matrix h, Vector lo, int counts, int at, bool periodic) {
+                std::int8_t* data;
+                nb::object out = new_array({static_cast<std::size_t>(a.size())}, data);
+                a.steps(d, h.data(), lo.data(), counts, at, periodic, data);
+                return out;
+            },
+            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("counts"), nb::arg("at"),
+            nb::arg("periodic"))
+        .def(
+            "slab",
+            [](const Atoms& a, int d, Matrix h, Vector lo, double low, double high,
+               std::int64_t begin, std::int64_t end) {
+                std::uint8_t* data;
+                nb::object out = new_array({static_cast<std::size_t>(end - begin)}, data);
+                a.slab(d, h.data(), lo.data(), low, high, begin, end, data);
+                return out;
+            },
+            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("low"), nb::arg("high"),
+            nb::arg("begin"), nb::arg("end"))
         .def(
             "keep_rows", [](Atoms& a, Rows rows) {
                 a.keep_rows(rows.data(), static_cast<std::int64_t>(rows.shape(0)));
@@ -149,16 +171,6 @@ NB_MODULE(_cuda, m) {
                 a.wrap(h.data(), lo.data(), pbc.data());
             },
             nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
-        .def(
-            "fractions",
-            [](const Atoms& a, int d, Matrix h, Vector lo, std::int64_t begin,
-               std::int64_t end) {
-                double* data;
-                nb::object out = new_array({static_cast<std::size_t>(end - begin)}, data);
-                a.fractions(d, h.data(), lo.data(), begin, end, data);
-                return out;
-            },
-            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("begin"), nb::arg("end"))
         .def(
             "gather_positions",
             [](const Atoms& a, Rows rows, Vector shift) {

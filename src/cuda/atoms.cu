@@ -87,44 +87,52 @@ template void Atoms::Impl::to_places<std::int32_t>(const std::int32_t*, std::int
 template void Atoms::Impl::to_caller<double>(const double*, double*, int) const;
 template void Atoms::Impl::to_caller<std::int32_t>(const std::int32_t*, std::int32_t*, int) const;
 
+namespace {
+
+template <class T>
+__global__ void gather_width(std::int64_t n, int width, const std::int32_t* order, const T* in,
+                             T* out) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= n * width) return;
+    const std::int64_t r = k / width, c = k % width;
+    out[k] = in[static_cast<std::int64_t>(order[r]) * width + c];
+}
+
+// buffer, of width values for each of n atoms when set, reordered through
+// spare, in the memory each has
+template <class T>
+void reordered(std::int64_t n, int width, const std::int32_t* order, Buffer<T>& buffer,
+               Buffer<unsigned char>& spare) {
+    const auto size = static_cast<std::size_t>(n * width);
+    if (n == 0 || buffer.size() != size) return;  // not set
+    spare.resize(size * sizeof(T));
+    T* out = reinterpret_cast<T*>(spare.data());
+    gather_width<<<blocks(n * width), kBlock>>>(n, width, order, buffer.data(), out);
+    MDAPY_LAUNCHED();
+    MDAPY_CUDA(cudaMemcpy(buffer.data(), out, size * sizeof(T), cudaMemcpyDeviceToDevice));
+}
+
+}  // namespace
+
 void Atoms::Impl::permute(const std::int32_t* order) {
     if (original.size() != static_cast<std::size_t>(n)) {
         original.resize(static_cast<std::size_t>(n));
         identity<<<blocks(n), kBlock>>>(n, original.data());
         MDAPY_LAUNCHED();
     }
-    Buffer<double4a> x2;
-    gathered(n, order, x, x2);
-    Buffer<int3> m2;
-    gathered(n, order, images, m2);
-    Buffer<std::int32_t> s2;
-    gathered(n, order, species, s2);
-    Buffer<std::int32_t> o2;
-    gathered(n, order, original, o2);
-    Buffer<double> w2;
-    gathered(n, order, masses, w2);
-    Buffer<std::int32_t> h2;
-    gathered(n, order, movable, h2);
-    Buffer<std::int32_t> g2;
-    gathered(n, order, groups, g2);
-    Buffer<double> k2;
-    gathered(n, order, spring_constants, k2);
-    Buffer<std::int64_t> i2;
-    gathered(n, order, ids, i2);
-    // three doubles of each atom
-    const auto triples = [&](Buffer<double>& buffer) {
-        if (buffer.size() != static_cast<std::size_t>(3 * n)) return;
-        Buffer<Triple> moved(static_cast<std::size_t>(n));
-        gather<<<blocks(n), kBlock>>>(n, order, reinterpret_cast<const Triple*>(buffer.data()),
-                                      moved.data());
-        MDAPY_LAUNCHED();
-        MDAPY_CUDA(cudaMemcpy(buffer.data(), moved.data(), static_cast<std::size_t>(n) * sizeof(Triple),
-                              cudaMemcpyDeviceToDevice));
-    };
-    triples(velocities);
-    triples(prescribed);
-    triples(added);
-    triples(sites);
+    reordered(n, 1, order, x, spare);
+    reordered(n, 1, order, images, spare);
+    reordered(n, 1, order, species, spare);
+    reordered(n, 1, order, original, spare);
+    reordered(n, 1, order, masses, spare);
+    reordered(n, 1, order, movable, spare);
+    reordered(n, 1, order, groups, spare);
+    reordered(n, 1, order, spring_constants, spare);
+    reordered(n, 1, order, ids, spare);
+    reordered(n, 3, order, velocities, spare);
+    reordered(n, 3, order, prescribed, spare);
+    reordered(n, 3, order, added, spare);
+    reordered(n, 3, order, sites, spare);
     ++version;
     stale = true;
 }

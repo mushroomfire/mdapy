@@ -57,14 +57,6 @@ __global__ void wrap_kernel(std::int64_t n, DeviceBox<double> box, double4a* x, 
     images[i] = m;
 }
 
-__global__ void fraction_kernel(std::int64_t begin, std::int64_t count, const double4a* x,
-                                double3 lo, double3 column, double* out) {
-    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (k >= count) return;
-    const double4a p = x[begin + k];
-    out[k] = (p.x - lo.x) * column.x + (p.y - lo.y) * column.y + (p.z - lo.z) * column.z;
-}
-
 // The places of rows given from the host, on the device.
 void device_rows(const std::int32_t* rows, std::int64_t count, std::int64_t n,
                  Buffer<std::int32_t>& out) {
@@ -118,7 +110,85 @@ void check_carried(const Atoms::Impl& a) {
     }
 }
 
+// The brick each atom is in along a vector, counts of them, as a step from
+// at, the nearer way round along a periodic one; 127 for a position gone wrong.
+__global__ void steps_kernel(std::int64_t count, const double4a* x, double3 lo, double3 column,
+                             int counts, int at, int periodic, std::int8_t* out) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= count) return;
+    const double4a p = x[k];
+    const double s = (p.x - lo.x) * column.x + (p.y - lo.y) * column.y + (p.z - lo.z) * column.z;
+    if (!isfinite(s)) {
+        out[k] = 127;
+        return;
+    }
+    const double b = floor(s * counts);
+    int brick = b < 0.0 ? 0 : (b > counts - 1 ? counts - 1 : static_cast<int>(b));
+    int step = brick - at;
+    if (periodic) {
+        const int half = counts / 2;
+        step = ((step + half) % counts + counts) % counts - half;
+    }
+    out[k] = static_cast<std::int8_t>(step < -100 ? -100 : (step > 100 ? 100 : step));
+}
+
+// Whether the fractional coordinate along a vector of each row is in [low, high).
+__global__ void slab_kernel(std::int64_t begin, std::int64_t count, const double4a* x, double3 lo,
+                            double3 column, double low, double high, std::uint8_t* out) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= count) return;
+    const double4a p = x[begin + k];
+    const double s = (p.x - lo.x) * column.x + (p.y - lo.y) * column.y + (p.z - lo.z) * column.z;
+    out[k] = s >= low && s < high ? 1 : 0;
+}
+
+double3 column_of(const double* h, int d) {
+    Box box{};
+    std::memcpy(box.h, h, sizeof(box.h));
+    const DeviceBox<double> dbox = device_box<double>(box);
+    return make_double3(dbox.inverse[d], dbox.inverse[3 + d], dbox.inverse[6 + d]);
+}
+
 }  // namespace
+
+void Atoms::truncate(std::int64_t count) {
+    Impl& a = *impl_;
+    check_carried(a);
+    if (count < 0 || count > a.n) {
+        throw std::invalid_argument("more rows than the atoms");
+    }
+    // the first rows, where they are
+    each_carried(a, [&](auto& buffer, int width) { buffer.resize(static_cast<std::size_t>(count * width)); });
+    renumbered(a, count);
+}
+
+void Atoms::steps(int d, const double* h, const double* lo, int counts, int at, bool periodic,
+                  std::int8_t* out) const {
+    const Impl& a = *impl_;
+    if (a.n == 0) return;
+    Buffer<std::int8_t> values(static_cast<std::size_t>(a.n));
+    steps_kernel<<<blocks(a.n), kBlock>>>(a.n, a.x.data(), make_double3(lo[0], lo[1], lo[2]),
+                                          column_of(h, d), counts, at, periodic ? 1 : 0,
+                                          values.data());
+    MDAPY_LAUNCHED();
+    values.download(out, static_cast<std::size_t>(a.n));
+}
+
+void Atoms::slab(int d, const double* h, const double* lo, double low, double high,
+                 std::int64_t begin, std::int64_t end, std::uint8_t* out) const {
+    const Impl& a = *impl_;
+    if (d < 0 || d > 2 || begin < 0 || end < begin || end > a.n) {
+        throw std::invalid_argument("rows or a vector outside the atoms and the box");
+    }
+    const std::int64_t count = end - begin;
+    if (count == 0) return;
+    Buffer<std::uint8_t> values(static_cast<std::size_t>(count));
+    slab_kernel<<<blocks(count), kBlock>>>(begin, count, a.x.data(),
+                                           make_double3(lo[0], lo[1], lo[2]), column_of(h, d),
+                                           low, high, values.data());
+    MDAPY_LAUNCHED();
+    values.download(out, static_cast<std::size_t>(count));
+}
 
 void Atoms::settle() {
     Impl& a = *impl_;
@@ -250,28 +320,6 @@ void Atoms::wrap(const double* h, const double* lo, const bool* pbc) {
     wrap_kernel<<<blocks(m), kBlock>>>(m, device_box<double>(box), a.x.data(), a.images.data());
     MDAPY_LAUNCHED();
     ++a.version;
-}
-
-void Atoms::fractions(int d, const double* h, const double* lo, std::int64_t begin,
-                      std::int64_t end, double* out) const {
-    const Impl& a = *impl_;
-    if (d < 0 || d > 2 || begin < 0 || end < begin || end > a.n) {
-        throw std::invalid_argument("rows or a vector outside the atoms and the box");
-    }
-    const std::int64_t count = end - begin;
-    if (count == 0) return;
-    Box box{};
-    std::memcpy(box.h, h, sizeof(box.h));
-    std::memcpy(box.lo, lo, sizeof(box.lo));
-    const DeviceBox<double> dbox = device_box<double>(box);
-    const double3 column =
-        make_double3(dbox.inverse[d], dbox.inverse[3 + d], dbox.inverse[6 + d]);
-    Buffer<double> values(static_cast<std::size_t>(count));
-    fraction_kernel<<<blocks(count), kBlock>>>(begin, count, a.x.data(),
-                                               make_double3(lo[0], lo[1], lo[2]), column,
-                                               values.data());
-    MDAPY_LAUNCHED();
-    values.download(out, static_cast<std::size_t>(count));
 }
 
 void Atoms::gather_positions(const std::int32_t* rows, std::int64_t count, const double* shift,

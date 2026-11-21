@@ -1,0 +1,234 @@
+/* The colors of the site: ink and neutral grays. The red stays in the logo,
+   and on a link under the pointer. */
+:root > * {
+  --md-primary-fg-color: #ffffff;
+  --md-primary-fg-color--light: #f3f2f0;
+  --md-primary-fg-color--dark: #e6e5e2;
+  --md-primary-bg-color: #1c1a1b;
+  --md-primary-bg-color--light: #5f5b5a;
+  --md-accent-fg-color: #a80f2a;
+  --md-accent-fg-color--transparent: rgba(28, 26, 27, 0.08);
+  --md-accent-bg-color: #ffffff;
+  --md-typeset-a-color: #1c1a1b;
+}
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #1b1b1d;
+  --md-default-bg-color--light: #1b1b1dbf;
+  --md-code-bg-color: #26262a;
+  --md-primary-fg-color: #1f2125;
+  --md-primary-fg-color--light: #2a2c30;
+  --md-primary-fg-color--dark: #17181b;
+  --md-primary-bg-color: #f2f0ec;
+  --md-primary-bg-color--light: #a9a7a3;
+  --md-accent-fg-color: #f0657b;
+  --md-accent-fg-color--transparent: rgba(242, 240, 236, 0.1);
+  --md-accent-bg-color: #1c1a1b;
+  --md-typeset-a-color: #e8e6e1;
+}
+.md-header {
+  box-shadow: 0 1px 0 var(--md-default-fg-color--lightest);
+}
+.md-tabs {
+  box-shadow: 0 1px 0 var(--md-default-fg-color--lightest);
+}
+.md-search__form,
+.md-search__form:hover {
+  background-color: var(--md-primary-fg-color--light);
+}
+.md-search__input::placeholder,
+.md-search__icon {
+  color: var(--md-primary-bg-color--light);
+}
+.md-header__button.md-logo img {
+  height: 1.6rem;
+}
+/* Links in ink stand out by a line under them. */
+.md-typeset a:not(.headerlink) {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: var(--md-default-fg-color--lighter);
+  text-underline-offset: 0.15em;
+}
+
+/* The logo heading the home page, centered. */
+.md-typeset h1.logo {
+  text-align: center;
+}
+
+/* The map of the home page: the main line, a big arrow in ink of four steps,
+   and the features each step branches out into, above and below it, joined
+   to it by stems; each box a link to its pages. On a phone the line runs
+   down, each step over its features. */
+.md-typeset .mainline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 1.2em 0 1.6em;
+}
+.md-typeset .ml-stage {
+  display: contents;
+}
+.md-typeset .ml-stage:nth-child(1) > * { grid-column: 1; }
+.md-typeset .ml-stage:nth-child(2) > * { grid-column: 2; }
+.md-typeset .ml-stage:nth-child(3) > * { grid-column: 3; }
+.md-typeset .ml-stage:nth-child(4) > * { grid-column: 4; }
+.md-typeset .ml-up,
+.md-typeset .ml-down {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0 0.25rem;
+}
+.md-typeset .ml-up {
+  grid-row: 1;
+  justify-content: flex-end;
+}
+.md-typeset .ml-down {
+  grid-row: 3;
+}
+.md-typeset .ml-up > p,
+.md-typeset .ml-down > p {
+  display: flex;
+  margin: 0;
+}
+/* the stems from the branches to the line */
+.md-typeset .ml-up::after,
+.md-typeset .ml-down::before {
+  content: "";
+  align-self: center;
+  width: 2px;
+  height: 0.55rem;
+  background: var(--md-default-fg-color--lighter);
+}
+.md-typeset a.ml-chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.3rem;
+  background: var(--md-code-bg-color);
+  color: var(--md-typeset-a-color);
+  text-decoration: none;
+  line-height: 1.25;
+  transition: border-color 125ms, color 125ms;
+}
+.md-typeset a.ml-chip b {
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+.md-typeset a.ml-chip span {
+  font-size: 0.58rem;
+  color: var(--md-default-fg-color--light);
+}
+.md-typeset a.ml-chip:hover,
+.md-typeset a.ml-chip:focus-visible {
+  border-color: var(--md-default-fg-color--light);
+}
+.md-typeset a.ml-chip:hover b,
+.md-typeset a.ml-chip:focus-visible b {
+  color: var(--md-accent-fg-color);
+}
+/* the main line: chevrons in ink, each step's point in the next one's notch,
+   the last one the head of the arrow */
+.md-typeset .ml-stage > p:has(a.ml-node) {
+  grid-row: 2;
+  display: flex;
+  margin: 0;
+}
+.md-typeset a.ml-node {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.3rem;
+  padding: 0 1rem;
+  background: var(--md-primary-bg-color);
+  color: var(--md-primary-fg-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 50%, calc(100% - 0.8rem) 100%, 0 100%, 0.8rem 50%);
+}
+.md-typeset .ml-stage:nth-child(1) a.ml-node {
+  clip-path: polygon(0 0, calc(100% - 0.8rem) 0, 100% 50%, calc(100% - 0.8rem) 100%, 0 100%);
+}
+.md-typeset .ml-stage:not(:nth-child(1)) > p:has(a.ml-node) {
+  margin-left: -0.62rem;
+}
+.md-typeset a.ml-node:hover,
+.md-typeset a.ml-node:focus-visible {
+  text-decoration: underline;
+}
+.md-typeset p.ml-caption {
+  grid-column: 1 / -1;
+  margin: 0.6rem 0 0;
+  text-align: center;
+  font-size: 0.64rem;
+  color: var(--md-default-fg-color--light);
+}
+@media screen and (max-width: 37.5em) {
+  .md-typeset .mainline {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.45rem;
+  }
+  .md-typeset .ml-stage {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.3rem;
+  }
+  .md-typeset .ml-stage > * {
+    grid-column: auto;
+  }
+  .md-typeset .ml-stage:nth-child(n) > p:has(a.ml-node) {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    order: -1;
+    margin-left: 0;
+  }
+  .md-typeset .ml-up,
+  .md-typeset .ml-down {
+    display: contents;
+  }
+  .md-typeset .ml-up::after,
+  .md-typeset .ml-down::before {
+    display: none;
+  }
+  .md-typeset .ml-stage:nth-child(n) a.ml-node {
+    min-height: 2rem;
+    clip-path: none;
+    border-radius: 0.3rem;
+  }
+  .md-typeset .ml-stage + .ml-stage::before {
+    content: "↓";
+    order: -2;
+    grid-column: 1 / -1;
+    justify-self: center;
+    color: var(--md-default-fg-color--lighter);
+    line-height: 1;
+  }
+}
+
+/* The banner over a version other than the latest release: neutral, as the rest. */
+.md-banner--warning {
+  background-color: var(--md-primary-fg-color--dark);
+  color: var(--md-primary-bg-color);
+}
+.md-banner--warning a,
+.md-banner--warning a:hover {
+  color: var(--md-primary-bg-color);
+  text-decoration: underline;
+}
+
+/* where a feature of molecular dynamics runs, under the title of its page */
+.md-typeset p.runs-on {
+  margin-top: -0.6em;
+  padding: 0.35em 0.8em;
+  border-left: 2px solid var(--md-default-fg-color--lighter);
+  color: var(--md-default-fg-color--light);
+  font-size: 0.68rem;
+}
+.md-typeset p.runs-on strong {
+  color: var(--md-default-fg-color);
+}

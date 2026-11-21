@@ -70,6 +70,8 @@ Precision precision_of(const std::string& name) {
 NB_MODULE(_cuda, m) {
     nb::exception<mdapy::cuda::NotFinite>(m, "NotFinite");
     m.def("device_name", &mdapy::cuda::device_name);
+    m.def("device_count", &mdapy::cuda::device_count);
+    m.def("use_device", &mdapy::cuda::use_device, nb::arg("device"));
     m.def("device_properties", [] {
         const mdapy::cuda::DeviceProperties p = mdapy::cuda::device_properties();
         nb::dict out;

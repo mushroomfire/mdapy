@@ -44,6 +44,13 @@ struct DeviceProperties {
 };
 DeviceProperties device_properties();
 
+// The number of devices this process sees, 0 without any.
+int device_count();
+
+// The device the following allocations and kernels of this process use;
+// Throws std::invalid_argument for one it does not see.
+void use_device(int device);
+
 // Mixed: single precision for the distance and the terms of each pair, as
 // the GPU package of LAMMPS in mixed precision, double precision for the
 // positions and the sums. Double: double precision throughout.

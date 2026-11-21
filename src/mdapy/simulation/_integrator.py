@@ -816,16 +816,13 @@ class _Native:
         from mdapy.simulation import _domain
 
         self.__comm = _domain.world()
-        if getattr(calculator, "device", "cpu") == "cuda":
-            if self.__comm is not None:
-                raise InvalidParameter(
-                    "MDAPY's dynamics on the GPU runs on one process: under MPI, "
-                    "give a calculator on the processor"
-                )
+        if self.__comm is None and getattr(calculator, "device", "cpu") == "cuda":
             self.__atoms: Any = _device.DeviceAtoms(
                 calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation
             )
         elif self.__comm is not None:
+            # on many processes the steps run on the processor, and the
+            # forces of a potential on the GPU on the GPU of each process
             self.__atoms = _domain.DomainAtoms(
                 self.__comm, calculator, x, v, masses, self.__restrict, self.__box(),
                 _SKIN,
@@ -856,13 +853,18 @@ class _Native:
         """What runs the dynamics, for the log."""
         calculator = self.__calculator
         on = _on_gpu(calculator)
-        if on is not None:
+        if on is not None and self.__comm is None:
             return f"MDAPY on the GPU, {on}; {calculator.precision} precision"
         threads = get_num_threads()
         if self.__comm is not None:
+            where = (
+                f", the forces on a GPU each, {on}; {calculator.precision} precision"
+                if on is not None
+                else ""
+            )
             return (
                 f"MDAPY on the processor, {self.__comm.Get_size()} processes of "
-                f"{threads} threads"
+                f"{threads} threads{where}"
             )
         return f"MDAPY on the processor, {threads} threads"
 

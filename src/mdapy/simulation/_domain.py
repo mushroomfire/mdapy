@@ -386,7 +386,12 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._pair import _PairCalculator
 
-    if isinstance(calculator, MEAM):
+    pair = isinstance(calculator, _PairCalculator)
+    if isinstance(calculator, MEAM) or (
+        _on_gpu(calculator) and not pair
+    ):  # fmt: skip
+        # MEAM, and any many-body potential on the GPU, which computes the
+        # atoms and the ghosts whole
         return 2.0 * float(calculator.cutoff), float(calculator.cutoff)
     if (
         isinstance(calculator, (_PairCalculator, EAM, ADP, NEP, StillingerWeber, Tersoff))
@@ -398,6 +403,10 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
         "ADP, MEAM, NEP, Tersoff, Stillinger-Weber and the pair potentials, not "
         f"{type(calculator).__name__}: run it on one process"
     )
+
+
+def _on_gpu(calculator: Any) -> bool:
+    return getattr(calculator, "device", "cpu") == "cuda"
 
 
 def _centered(neighbors: NeighborList, centers: int, symmetric: bool) -> NeighborList:
@@ -679,7 +688,9 @@ class DomainAtoms(_HostAtoms):
                 np.full((3, 3), np.nan),
                 SimpleNamespace(atomic_energies=energies, atomic_virials=None),
             )
-        split = getattr(calculator, "_split", None)
+        # a potential on the GPU computes the atoms and the ghosts whole,
+        # with a neighbor list of its own
+        split = None if _on_gpu(calculator) else getattr(calculator, "_split", None)
         if split is not None:
             # the calculator computes this process's atoms alone, and sends
             # what it needs to the ghosts or back from them; its neighbor list
@@ -716,7 +727,9 @@ class DomainAtoms(_HostAtoms):
         current = System(table=self.__part.with_columns(
             pl.Series("positions", self.__ghosts.copy(), dtype=pl.Array(pl.Float64, 3))
         ), box=self.__box)  # fmt: skip
-        neighbors = self._neighbors(slot, current, calculator)
+        neighbors = (
+            None if _on_gpu(calculator) else self._neighbors(slot, current, calculator)
+        )
         extra = ("atomic_energies",) + (("atomic_virials",) if virial else ())
         wanted = tuple(wanted) + tuple(p for p in extra if p not in wanted)
         result = calculator.compute(current, wanted, neighbors=neighbors)

@@ -43,6 +43,23 @@ DeviceProperties device_properties() {
 
 std::string device_name() { return device_properties().name; }
 
+int device_count() {
+    int count = 0;
+    if (cudaGetDeviceCount(&count) != cudaSuccess) {
+        return 0;
+    }
+    return count;
+}
+
+void use_device(int device) {
+    const int count = device_count();
+    if (device < 0 || device >= count) {
+        throw std::invalid_argument("no CUDA device " + std::to_string(device) + " of " +
+                                    std::to_string(count));
+    }
+    MDAPY_CUDA(cudaSetDevice(device));
+}
+
 template <class Real>
 DeviceBox<Real> device_box(const Box& box) {
     const double* h = box.h;

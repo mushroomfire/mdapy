@@ -459,10 +459,6 @@ def test_what_cannot_be_split(monkeypatch):
     sites = Springs(crystal["positions"], 1.0)
     refused(monkeypatch, 2, lambda: MolecularDynamics(crystal, sites, timestep=0.002),
             "not Springs: run it on one process")  # fmt: skip
-    monkeypatch.setattr(_gpu, "cuda", stand_in)
-    gpu = EAM.zhou(["Cu"], device="cuda")
-    refused(monkeypatch, 2, lambda: MolecularDynamics(crystal, gpu, timestep=0.002),
-            "runs on one process")  # fmt: skip
     # a box cut into bricks along a vector across which it is thinner than
     # the reach of the ghosts, at the start and on the way
     eam = EAM.zhou(["Cu"])
@@ -500,6 +496,29 @@ def test_an_atom_too_fast(monkeypatch):
     processes.run(4, task, monkeypatch)
 
 
+@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones"])
+def test_processes_with_a_gpu_each(monkeypatch, name):
+    """Each process computes the forces of its atoms and ghosts on its GPU,
+    stood in for on the processor, the steps on the processor: the run of one
+    process on the GPU, to the rounding."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    if name == "EAM":
+        crystal, potential = (
+            copper(),
+            EAM.zhou(["Cu"], device="cuda", precision="double"),
+        )
+        options = {"ensemble": "npt", "temperature": 300, "pressure": 0.0}
+    else:
+        crystal = copper(5)
+        potential = LennardJones({"Cu": (0.4, 2.3)}, 5.0, device="cuda",
+                                 precision="double")  # fmt: skip
+        options = {"ensemble": "nvt", "temperature": 300}
+    alone = run(crystal, potential, options)
+    for split in processes.run(2, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
 @pytest.mark.parametrize("case", ["nve", "npt tri", "groups", "hnemd convective",
                                   "small", "outside", "lj", "switch to eam"])  # fmt: skip
 def test_processes_of_one_thread(monkeypatch, case):
@@ -513,3 +532,24 @@ def test_processes_of_one_thread(monkeypatch, case):
     for split in processes.run(size, lambda rank: run(crystal, potential, options),
                                monkeypatch):  # fmt: skip
         same(split, alone)
+
+
+def test_each_process_its_gpu(monkeypatch):
+    """Under MPI the GPU part takes the device of the rank of the process on
+    its node, once, before anything is on a device."""
+    chosen = []
+    fake = types.SimpleNamespace(
+        device_name=lambda: "a GPU", device_count=lambda: 4, use_device=chosen.append
+    )
+    monkeypatch.setattr(_gpu, "module", lambda: fake)
+    for name in ("OMPI_COMM_WORLD_LOCAL_RANK", "MPI_LOCALRANKID",
+                 "MV2_COMM_WORLD_LOCAL_RANK", "SLURM_LOCALID"):  # fmt: skip
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(_gpu, "_chosen", [])
+    assert _gpu.cuda() is fake and chosen == []  # not under MPI
+    monkeypatch.setattr(_gpu, "_chosen", [])
+    monkeypatch.setenv("MPI_LOCALRANKID", "many")
+    monkeypatch.setenv("SLURM_LOCALID", "6")
+    _gpu.cuda()
+    _gpu.cuda()
+    assert chosen == [2]

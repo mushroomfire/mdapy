@@ -62,6 +62,11 @@ class Comm:
         if source is not None:
             recvbuf[...] = self.recv(source)
 
+    def Allreduce(self, sendbuf: Any, recvbuf: Any, op: str) -> None:  # noqa: N802
+        """As mpi4py's, of buffers, the operation "sum" or "max"."""
+        parts = self.allgather(np.array(sendbuf))
+        recvbuf[...] = np.sum(parts, axis=0) if op == "sum" else np.max(parts, axis=0)
+
     def allgather(self, value: Any) -> list:
         world = self.__world
         world.barrier.wait()

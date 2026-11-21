@@ -101,9 +101,11 @@ class Bricks:
         self.__sends: list = []
         # the process that is not, of mpi4py's MPI, or None for others
         mpi = sys.modules.get("mpi4py.MPI")
-        self.__null = (
-            mpi.PROC_NULL if mpi is not None and isinstance(comm, mpi.Comm) else None
-        )
+        real = mpi is not None and isinstance(comm, mpi.Comm)
+        self.__null = mpi.PROC_NULL if real else None
+        # the operations of the sums, of mpi4py's MPI, or named for others
+        self.__sum = mpi.SUM if real else "sum"
+        self.__max = mpi.MAX if real else "max"
 
     def rank_of(self, at: np.ndarray) -> int:
         at = np.asarray(at) % self.counts
@@ -301,12 +303,19 @@ class Bricks:
         self.set_box(self.h, self.lo)
 
     def total(self, value: Any) -> Any:
-        """The sum over the processes."""
+        """The sum over the processes: of an array of float64 through the
+        buffers of MPI, as each step sums one."""
+        if isinstance(value, np.ndarray) and value.dtype == np.float64:
+            out = np.empty_like(value)
+            self.comm.Allreduce(np.ascontiguousarray(value), out, op=self.__sum)
+            return out
         return self.comm.allreduce(value)
 
-    def maximum(self, value: Any) -> Any:
+    def maximum(self, value: float) -> float:
         """The largest over the processes."""
-        return max(self.comm.allgather(value))
+        out = np.empty(1)
+        self.comm.Allreduce(np.array([float(value)]), out, op=self.__max)
+        return float(out[0])
 
 
 def _exchange(

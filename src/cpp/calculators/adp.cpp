@@ -65,12 +65,11 @@ void adp_densities(const AdpPotential& potential, std::int64_t centers,
                     const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
                     const int sj = species[neighbors[p]];
                     const double r = std::sqrt(r2);
-                    double value, derivative, u, w;
-                    potential.density[static_cast<std::size_t>(sj)].evaluate(r, value, derivative);
-                    rho += value;
+                    // the values alone: their derivatives come in the forces
+                    rho += potential.density[static_cast<std::size_t>(sj)].value(r);
                     const std::size_t k = potential.pair_index(si, sj);
-                    potential.dipole[k].evaluate(r, u, derivative);
-                    potential.quadrupole[k].evaluate(r, w, derivative);
+                    const double u = potential.dipole[k].value(r);
+                    const double w = potential.quadrupole[k].value(r);
                     for (int a = 0; a < 3; ++a) {
                         m[a] += u * del[a];
                     }
@@ -129,7 +128,11 @@ void adp_forces_of(const AdpPotential& potential, std::int64_t centers,
                     const double r = std::sqrt(r2);
                     double rho_i, rhoip, rho_j, rhojp, z2, z2p, u2, u2p, w2, w2p;
                     potential.density[static_cast<std::size_t>(si)].evaluate(r, rho_i, rhoip);
-                    potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+                    if (si == sj) {
+                        rhojp = rhoip;
+                    } else {
+                        potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+                    }
                     const std::size_t k = potential.pair_index(si, sj);
                     potential.pair[k].evaluate(r, z2, z2p);
                     potential.dipole[k].evaluate(r, u2, u2p);
@@ -258,14 +261,13 @@ void adp_densities_once(const AdpPotential& potential, std::int64_t centers,
             const int sj = species[j];
             const double r = std::sqrt(r2);
             double* other = sums + kState * static_cast<std::size_t>(j);
-            double value, derivative, u, w;
-            potential.density[static_cast<std::size_t>(sj)].evaluate(r, value, derivative);
-            own[0] += value;
-            potential.density[static_cast<std::size_t>(si)].evaluate(r, value, derivative);
-            other[0] += value;
+            // the values alone, one density of a pair of one element
+            const double to_i = potential.density[static_cast<std::size_t>(sj)].value(r);
+            own[0] += to_i;
+            other[0] += si == sj ? to_i : potential.density[static_cast<std::size_t>(si)].value(r);
             const std::size_t k = potential.pair_index(si, sj);
-            potential.dipole[k].evaluate(r, u, derivative);
-            potential.quadrupole[k].evaluate(r, w, derivative);
+            const double u = potential.dipole[k].value(r);
+            const double w = potential.quadrupole[k].value(r);
             // the dipole along x_i - x_j at i, along x_j - x_i at j; the
             // quadrupole, even, the same at both
             for (int a = 0; a < 3; ++a) {
@@ -314,7 +316,11 @@ void adp_forces_once(const AdpPotential& potential, std::int64_t centers,
             const double r = std::sqrt(r2);
             double rho_i, rhoip, rho_j, rhojp, z2, z2p, u2, u2p, w2, w2p;
             potential.density[static_cast<std::size_t>(si)].evaluate(r, rho_i, rhoip);
-            potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+            if (si == sj) {
+                rhojp = rhoip;
+            } else {
+                potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+            }
             const std::size_t k = potential.pair_index(si, sj);
             potential.pair[k].evaluate(r, z2, z2p);
             potential.dipole[k].evaluate(r, u2, u2p);

@@ -81,10 +81,10 @@ for name, deform in (
         md.run(30000, ensemble="nvt", temperature=300, thermo=20, controls=deform)
         pulled = md.thermo
     time = pulled["time"].to_numpy() - pulled["time"][0]
-    # the tension of the sheet, in N/m, from the stress over the box with its
-    # vacuum, 20 Å high
-    tension = np.stack(pulled["stress"].to_numpy())[:, :2] * flat.box.matrix[2, 2] / 10
-    pulls[name] = (rate * time, tension)
+    # the stress of a sheet 3.35 Å thick, the spacing of the layers of graphite,
+    # from the stress over the box with its vacuum, 20 Å high
+    stress = np.stack(pulled["stress"].to_numpy())[:, :2] * flat.box.matrix[2, 2] / 3.35
+    pulls[name] = (rate * time, stress)
 ```
 
 The strain is the rate times the time since the run began: each length grows by
@@ -115,9 +115,9 @@ with plot.style():
     strain, stress = curves["shear"]
     b.plot(strain * 100, stress[:, 5], lw=0.8)
     b.set(xlabel="Shear strain xy (%)", ylabel="Shear stress xy (GPa)")
-    for (name, (strain, tension)), k in zip(pulls.items(), (0, 1)):
-        c.plot(strain * 100, tension[:, k], label=name, lw=0.8)
-    c.set(xlabel="Strain (%)", ylabel="Tension of graphene (N/m)")
+    for (name, (strain, stress)), k in zip(pulls.items(), (0, 1)):
+        c.plot(strain * 100, stress[:, k], label=name, lw=0.8)
+    c.set(xlabel="Strain (%)", ylabel="Stress of graphene (GPa)")
     c.legend()
     for ax, label in zip((a, b, c), "abc"):
         plot.panel_label(ax, label)
@@ -138,8 +138,10 @@ b: The shear stress rises by 54 GPa per unit strain, C44 = 55 GPa at 300 K, to
 9.3 GPa at 17 %, where the crystal gives way. c: Graphene pulled along its two
 directions: the curves fall on each other to 15 %, as the elastic response of a
 hexagonal sheet is the same in every direction of its plane, and part at larger
-strains. The sheet breaks at 42.0 N/m and 21.1 % along the armchair direction and at
-41.7 N/m and 22.2 % along the zigzag one; the tension then rings about zero.*
+strains. Over a thickness of 3.35 Å the sheet breaks at 125 GPa and 21.1 % along the
+armchair direction and at 125 GPa and 22.2 % along the zigzag one, and the stress then
+rings about zero. Suspended sheets indented by a tip gave a Young's modulus of 1.0 TPa
+and a strength of 130 ± 10 GPa ([Lee et al. 2008](../../reference/references.md#lee2008)).*
 
 The runs take about 3 minutes for copper and 2 for graphene on 8 cores. The rate,
 2 % of the length every ps or 2 × 10¹⁰ per second, is one of molecular dynamics,

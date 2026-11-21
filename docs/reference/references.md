@@ -324,6 +324,12 @@ nearest-neighbor modified embedded-atom-method potential, *Phys. Rev. B* **62**,
 [doi:10.1103/PhysRevB.62.8564](https://doi.org/10.1103/PhysRevB.62.8564)
 { #lee2000 }
 
+**Lee et al. (2008).** C. Lee, X. Wei, J. W. Kysar and J. Hone, Measurement of the
+elastic properties and intrinsic strength of monolayer graphene, *Science* **321**, 385
+(2008).
+[doi:10.1126/science.1157996](https://doi.org/10.1126/science.1157996)
+{ #lee2008 }
+
 **Lin et al. (2008).** Z. Lin, R. A. Johnson and L. V. Zhigilei,
 Computational study of the generation of crystal defects in a bcc metal
 target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108

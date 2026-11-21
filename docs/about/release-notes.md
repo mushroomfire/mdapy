@@ -25,6 +25,13 @@
   processes, each computing the atoms of its brick with their ghosts, every process
   taking the steps of FIRE over every atom: the minimization of one process, with and
   without the box relaxing. See [Energy minimization](../user-guide/simulation/minimize.md).
+- `comm=`, an mpi4py communicator, for `MolecularDynamics`, `minimize`, `neb` and the
+  `LAMMPS` calculator: `MPI.COMM_SELF` gives each process a simulation of its own, a
+  temperature or a seed on each, and a communicator of a group splits one among the
+  group. The processes of one simulation check that they hold the same system and take
+  the same runs, and all raise when one differs, where a temperature on each process
+  would have run one system made of the atoms of each. See
+  [A simulation on each process](../user-guide/simulation/processes.md#a-simulation-on-each-process).
 - `neb` on many processes shares the images among them, each process computing its own
   whole: the path of one process, to the last bit, with any calculator. See
   [Minimum energy paths](../user-guide/simulation/neb.md#on-many-processes).

@@ -24,7 +24,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.simulation import _controls, _restart
+from mdapy.simulation import _controls, _domain, _restart
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log, _machine
 from mdapy.simulation._pimd import _RingPolymer
@@ -183,7 +183,9 @@ def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
 class _Lammps:
     """The state of the dynamics in LAMMPS and its steps."""
 
-    def __init__(self, system: System, potential: LAMMPS, timestep: float):
+    def __init__(
+        self, system: System, potential: LAMMPS, timestep: float, comm: Any = None
+    ):
         self.__timestep = float(timestep)
         self.__adaptive = False  # whether a run changes the time step
         if "element" not in system.table.columns:
@@ -248,7 +250,7 @@ class _Lammps:
         self.__indented: tuple = ()  # (name, fix) of each named indenter
         self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
-        lmp = _lammps(potential.cmdargs)
+        lmp = _lammps(potential.cmdargs, comm)
         self.__holder.append(lmp)
         pbc = box.pbc[[0, 2, 1]] if self.__swapped else box.pbc
         lengths = lammps_box.hi - lammps_box.lo
@@ -889,6 +891,13 @@ class MolecularDynamics:
     beads : int32, optional
         The beads of the ring polymer of each atom, for path-integral
         molecular dynamics of the quantum nuclei; 1, classical. Default 1.
+    comm : mpi4py communicator, optional
+        The processes that run this dynamics together, split among them,
+        each holding the same system and taking the same runs; with a
+        LAMMPS calculator, the processes of LAMMPS. ``MPI.COMM_SELF`` runs
+        it on each process alone, for a simulation of its own on each.
+        Default None: every process that MPI started, as ``mpirun`` or
+        ``srun`` start them; with a LAMMPS calculator, its own.
 
     Attributes
     ----------
@@ -900,7 +909,8 @@ class MolecularDynamics:
     InvalidParameter
         If the potential is not a calculator, the time step is not
         positive, an element has no atom type, LAMMPS rejects the
-        commands, or the log cannot be written.
+        commands, the log cannot be written, comm is not a communicator,
+        or the processes of comm hold different systems.
     MissingProperty
         If the system has no ``element`` column (with LAMMPS), or neither
         a ``mass`` nor an ``element`` column.
@@ -917,6 +927,7 @@ class MolecularDynamics:
         timestep: float = 0.001,
         log: Any = None,
         beads: int = 1,
+        comm: Any = None,
     ):
         if not timestep > 0:
             raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
@@ -933,6 +944,18 @@ class MolecularDynamics:
         self.__potential = potential
         # a run a restart file stopped in: its settings and the steps it ran
         self.__pending: tuple[dict[str, Any], int] | None = None
+        # the processes of this dynamics hold the same atoms, or it would run
+        # one system made of the atoms of each
+        if isinstance(potential, LAMMPS):
+            if comm is None:
+                comm = potential.comm
+            shared = _domain.resolved(comm) if potential._mpi else None
+        else:
+            shared = _domain.resolved(comm)
+        _domain.agree(shared, "the system, the time step or the beads",
+                      *_domain.of_system(system), float(timestep), int(beads),
+                      type(potential).__name__)  # fmt: skip
+        self.__comm = shared
         if isinstance(potential, LAMMPS):
             if beads > 1:
                 raise InvalidParameter(
@@ -940,12 +963,14 @@ class MolecularDynamics:
                     "than LAMMPS"
                 )
             self.__engine: _Lammps | _Native | _RingPolymer = _Lammps(
-                system, potential, timestep
+                system, potential, timestep, comm
             )
         elif beads > 1:
-            self.__engine = _RingPolymer(system, potential, timestep, int(beads))
+            self.__engine = _RingPolymer(
+                system, potential, timestep, int(beads), shared
+            )
         else:
-            self.__engine = _Native(system, potential, timestep)
+            self.__engine = _Native(system, potential, timestep, shared)
         try:
             self.__log = _Log(log, active=self.__engine.writes)
         except InvalidParameter:
@@ -1175,6 +1200,7 @@ class MolecularDynamics:
         *,
         others: Any = (),
         log: Any = None,
+        comm: Any = None,
     ) -> "MolecularDynamics":
         """The dynamics of a restart file, to go on from where it was written.
 
@@ -1189,6 +1215,8 @@ class MolecularDynamics:
             in the order they first came. Default none.
         log : str, os.PathLike or stream, optional
             The log, added to rather than overwritten. Default None.
+        comm : mpi4py communicator, optional
+            The processes that run it, as for ``MolecularDynamics``.
 
         Returns
         -------
@@ -1212,6 +1240,7 @@ class MolecularDynamics:
             potential,
             timestep=state["timestep"],
             beads=state.get("beads", 1),
+            comm=comm,
         )
         if state["pending"] is not None:
             # the controls of the run set up, on the GPU too, as at its start;
@@ -1281,6 +1310,7 @@ class MolecularDynamics:
             raise InvalidParameter(f"seed must be positive, not {seed!r}")
         self.__open()
         self.__idle()
+        _domain.agree(self.__comm, "the velocities", float(temperature), int(seed))
         self.__engine.velocities(float(temperature), int(seed))
 
     def run(
@@ -1743,6 +1773,12 @@ class MolecularDynamics:
             "save_every": None if save_every is None else int(save_every),
             "controls": checked,
         }
+        _domain.agree(
+            self.__comm,
+            "the settings of a run",
+            *(value for key, value in spec.items() if key != "controls"),
+            *(repr(control) for control in checked),
+        )
         return spec
 
     def __steps(

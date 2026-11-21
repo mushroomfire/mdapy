@@ -47,10 +47,11 @@ end is such a file too, from which the next run of the script starts.
 | `restart` | str or path | `None` | of `run` and `iterate`: the file, replaced each time once the new one is whole, so that a crash while writing leaves the last |
 | `restart_every` | int32 | 1000 | steps between files, with `restart` |
 
-`MolecularDynamics.load(path, potential, *, others=(), log=None)` reads a file:
+`MolecularDynamics.load(path, potential, *, others=(), log=None, comm=None)` reads a file:
 `potential` is that of the dynamics, of the same kind; `others` the other
 potentials its runs use, those of a [`Switch`](switching.md), in the order they
-first came; `log` a log to go on with, added to. `resume(*, progress=None,
+first came; `log` a log to go on with, added to; `comm` the processes that run it,
+as for [`MolecularDynamics`](running.md). `resume(*, progress=None,
 cancel=None)` finishes the run the file stopped in.
 
 ## What a file holds

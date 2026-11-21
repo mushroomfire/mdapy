@@ -239,6 +239,7 @@ def minimize(
     callback: Any = None,
     log: Any = None,
     log_every: int = 10,
+    comm: Any = None,
 ) -> MinimizeResult:
     """Minimizes the energy over the positions, and optionally the box, with
     FIRE 2.0.
@@ -286,6 +287,11 @@ def minimize(
         reads the rows. Default None, writing none.
     log_every : int32, optional
         Writes a row to the log every this many steps. Default 10.
+    comm : mpi4py communicator, optional
+        The processes that share the forces of this minimization, each
+        holding the same system; ``MPI.COMM_SELF`` minimizes on each
+        process alone. Default None: every process that MPI started. A
+        LAMMPS calculator computes on its own processes.
 
     Returns
     -------
@@ -296,7 +302,9 @@ def minimize(
     ------
     InvalidParameter
         For invalid options, a calculator without the properties needed,
-        or a log that cannot be written.
+        a log that cannot be written, comm that is not a communicator, or
+        processes of one minimization that hold different systems or
+        options.
     MissingProperty
         If the system has neither masses nor elements.
     """
@@ -367,9 +375,21 @@ def minimize(
     lists = _Neighbors(calculator)
     # under MPI, the forces of MDAPY's potentials shared among the processes,
     # every process taking the same steps over every atom
+    from mdapy.calculators._lammps import LAMMPS
     from mdapy.simulation import _domain
 
-    comm = _domain.world()
+    comm = _domain.resolved(comm)
+    # the processes of a LAMMPS that computes on several
+    lammps_comm = (
+        _domain.resolved(calculator.comm)
+        if isinstance(calculator, LAMMPS) and calculator._mpi
+        else None
+    )
+    inputs = (*_domain.of_system(system), max_force, max_steps, max_step, timestep,
+              cell, pressure, max_stress, save_every, log_every,
+              type(calculator).__name__)  # fmt: skip
+    for c in (comm, lammps_comm):
+        _domain.agree(c, "the system or the options of a minimization", *inputs)
     shared = None
     if comm is not None:
         try:
@@ -434,7 +454,9 @@ def minimize(
 
     if save_every is not None:
         save()
-    writer = _Log(log, active=comm is None or comm.Get_rank() == 0)
+    writer = _Log(
+        log, active=all(c is None or c.Get_rank() == 0 for c in (comm, lammps_comm))
+    )
     if writer.on:
         lengths = " ".join(f"{v:.4f}" for v in np.linalg.norm(box0.matrix, axis=1))
         relax = (

@@ -82,6 +82,41 @@ with MolecularDynamics(crystal, potential, timestep=0.002) as md:
 A restart file holds the atoms in their own order, whatever the number of
 processes: a run stopped on 16 processes goes on from its file on 32, or on one.
 
+The processes of one dynamics must hold the same system and take the same runs.
+Each checks it, at `MolecularDynamics`, `velocities` and each run, and when one
+differs every process raises `InvalidParameter`. Without this check, a
+temperature of its own on each process would give one system made of the atoms
+of each process, each part at its own temperature.
+
+## A simulation on each process
+
+For many independent simulations, such as a temperature or a seed on each
+process, `comm=MPI.COMM_SELF` gives each process a simulation of its own, as if
+it were alone:
+
+<!-- skip-test -->
+```python
+from mpi4py import MPI
+
+world = MPI.COMM_WORLD
+temperature = 300 + 100 * world.rank
+
+with MolecularDynamics(
+    crystal, potential, timestep=0.002, log=f"md.{world.rank}.log", comm=MPI.COMM_SELF
+) as md:
+    md.velocities(temperature, seed=1)
+    md.run(10_000, ensemble="nvt", temperature=temperature)
+```
+
+A communicator of a group of processes splits a simulation among the group:
+`MPI.COMM_WORLD.Split(world.rank // 4)` gives each four processes a simulation
+of their own. `minimize` and `neb` take `comm` too, and so does the
+[LAMMPS calculator](../potentials/lammps.md), whose LAMMPS computes on the
+processes given: `MPI.COMM_SELF` for a LAMMPS of its own on each process. `neb`
+shares its images among its processes, each computing its own, so it refuses a
+LAMMPS calculator on several processes unless `neb` runs with
+`comm=MPI.COMM_SELF`, all of them then computing each image together.
+
 ## How the box is split
 
 The box is cut into a grid of bricks, one for each process, with the least
@@ -151,7 +186,10 @@ machine with one GPU: see [On the GPU](gpu.md).
 
 ## Errors
 
-`MolecularDynamics` under MPI raises `InvalidParameter` for a calculator other
+`MolecularDynamics`, `minimize` and `neb` raise `InvalidParameter` for a `comm` that
+is not a communicator of mpi4py, and on every process when the processes of one
+simulation hold different systems or options. `MolecularDynamics`
+under MPI raises `InvalidParameter` for a calculator other
 than MDAPY's own potentials, a box thinner than the
 reach of the ghosts along a vector it is cut along, and when mpi4py is not
 installed. A run raises it when the box shrinks until it is that thin, when a

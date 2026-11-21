@@ -19,6 +19,7 @@ one brick, the
 ghosts as far as the force on an atom reaches (twice the cutoff of a many-body
 potential), so that the calculators need no change."""
 
+import hashlib
 import math
 import os
 import sys
@@ -373,6 +374,66 @@ def world() -> Any:
         ) from None
     comm = MPI.COMM_WORLD
     return comm if comm.Get_size() > 1 else None
+
+
+def resolved(comm: Any) -> Any:
+    """The communicator of the processes that share one simulation: those
+    MPI started when comm is None (world), or comm, an mpi4py communicator;
+    None for one process alone."""
+    if comm is None:
+        return world()
+    if not all(
+        callable(getattr(comm, name, None)) for name in ("Get_size", "Get_rank")
+    ):
+        raise InvalidParameter(f"comm must be a communicator of mpi4py, not {comm!r}")
+    return comm if comm.Get_size() > 1 else None
+
+
+def digest(*values: Any) -> bytes:
+    """A digest of numbers, arrays and their reprs."""
+    h = hashlib.blake2b(digest_size=16)
+    for value in values:
+        if isinstance(value, np.ndarray):
+            array = np.ascontiguousarray(value)
+            h.update(repr((array.dtype.str, array.shape)).encode())
+            h.update(array.tobytes())
+        else:
+            h.update(repr(value).encode())
+        h.update(b"|")
+    return h.digest()
+
+
+def of_system(system: System) -> tuple:
+    """What the processes of one simulation must hold alike of its atoms."""
+    table = system.table
+    values: list[Any] = [
+        len(system),
+        system.box.matrix,
+        system.box.origin,
+        system.box.pbc,
+    ]
+    for name in ("positions", "velocities", "mass", "movable"):
+        if name in table.columns:
+            values += [name, np.asarray(table[name].to_numpy())]
+    if "element" in table.columns:
+        values += ["element", table["element"].to_physical().to_numpy()]
+    return tuple(values)
+
+
+def agree(comm: Any, what: str, *values: Any) -> None:
+    """Raises on every process of comm unless each gives the same values:
+    the processes of one simulation run the same script."""
+    if comm is None:
+        return
+    digests = comm.allgather(digest(*values))
+    other = next((r for r, d in enumerate(digests) if d != digests[0]), None)
+    if other is not None:
+        raise InvalidParameter(
+            f"the processes of one simulation differ in {what}: process {other} "
+            "from process 0. They run one simulation together, split among them; "
+            "for a simulation on each process alone, give comm=MPI.COMM_SELF, or "
+            "a communicator of each group of processes"
+        )
 
 
 def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:

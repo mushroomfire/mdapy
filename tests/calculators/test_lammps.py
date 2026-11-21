@@ -121,7 +121,9 @@ def test_one_instance_for_the_same_atoms(potentials, monkeypatch):
     started = []
     original = module._lammps
     monkeypatch.setattr(
-        module, "_lammps", lambda args: started.append(1) or original(args)
+        module,
+        "_lammps",
+        lambda args, comm=None: started.append(1) or original(args, comm),
     )
     system = random_system("triclinic", (True, True, False), seed=3)
     rng = np.random.default_rng(4)
@@ -174,7 +176,9 @@ def test_minimization(potentials, monkeypatch):
     started = []
     original = module._lammps
     monkeypatch.setattr(
-        module, "_lammps", lambda args: started.append(1) or original(args)
+        module,
+        "_lammps",
+        lambda args, comm=None: started.append(1) or original(args, comm),
     )
     a = minimize(system, calculator, cell="full", max_force=1e-6, max_stress=1e-6)
     b = minimize(system, eam, cell="full", max_force=1e-6, max_stress=1e-6)

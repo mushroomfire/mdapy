@@ -90,6 +90,16 @@ class Comm:
         self.__world.barrier.wait()
 
 
+class Alone:
+    """A communicator of one process, as mpi4py's MPI.COMM_SELF."""
+
+    def Get_size(self) -> int:  # noqa: N802
+        return 1
+
+    def Get_rank(self) -> int:  # noqa: N802
+        return 0
+
+
 _here = threading.local()
 
 

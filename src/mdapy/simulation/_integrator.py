@@ -819,7 +819,9 @@ class _HostAtoms:
 class _Native:
     """The state of the dynamics in MDAPY and its steps."""
 
-    def __init__(self, system: System, calculator: Calculator, timestep: float):
+    def __init__(
+        self, system: System, calculator: Calculator, timestep: float, comm: Any = None
+    ):
         if not isinstance(calculator, Calculator):
             raise InvalidParameter("potential must be an MDAPY calculator")
         table = system.table
@@ -902,7 +904,7 @@ class _Native:
         # box (simulation/_domain.py, which builds on this module)
         from mdapy.simulation import _domain
 
-        self.__comm = _domain.world()
+        self.__comm = comm  # of the processes it is split among, or None
         if self.__comm is None and getattr(calculator, "device", "cpu") == "cuda":
             self.__atoms: Any = _device.DeviceAtoms(
                 calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation

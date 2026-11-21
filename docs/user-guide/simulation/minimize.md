@@ -2,7 +2,7 @@
 
 `mdapy.simulation.minimize(system, calculator, *, max_force=1e-3, max_steps=1000,
 max_step=0.1, timestep=0.001, cell=None, pressure=0.0, max_stress=1e-2,
-save_every=None, callback=None)` minimizes the energy over the positions, and
+save_every=None, callback=None, log=None, log_every=10, comm=None)` minimizes the energy over the positions, and
 optionally the box, with FIRE 2.0
 ([Guénolé et al. (2020)](../../reference/references.md#guenole2020)), the fast inertial relaxation
 engine of [Bitzek et al. (2006)](../../reference/references.md#bitzek2006), as LAMMPS
@@ -33,6 +33,7 @@ result = minimize(system, potential, cell="isotropic", pressure=10.0)
 | `callback` | callable | `None` | | called after each step as `callback(step, system, energy, max_force)`; returning True stops the minimization |
 | `log` | str, path or stream | `None` | | writes the minimization to this file, which it overwrites, or to this stream, such as `sys.stdout`, as the [log of molecular dynamics](records.md#log) does: a heading, then `step`, `energy` (eV), `max_force` (eV/Å), `max_stress` (GPa, the largest deviation of a relaxed stress component from its target; NaN when the box is kept) and `wall` (s) every `log_every` steps and at the last, and how it ended |
 | `log_every` | int32 | 10 | | writes a row to the log every this many steps |
+| `comm` | mpi4py communicator | `None` | | the processes that share the forces; `MPI.COMM_SELF` for a minimization of its own on each process; by default every process MPI started: see [On many processes](processes.md#a-simulation-on-each-process) |
 
 `cell` chooses how the box changes along its periodic directions; the atoms
 move with it, and the lattice vectors along directions that are not periodic

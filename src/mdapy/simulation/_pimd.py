@@ -68,15 +68,18 @@ class _RingPolymer:
     the interface of _Native for MolecularDynamics."""
 
     def __init__(
-        self, system: System, calculator: Calculator, timestep: float, beads: int
+        self,
+        system: System,
+        calculator: Calculator,
+        timestep: float,
+        beads: int,
+        comm: Any = None,
     ):
         if not isinstance(calculator, Calculator):
             raise InvalidParameter("potential must be an MDAPY calculator")
-        from mdapy.simulation import _domain
-
         # under MPI the beads are shared among the processes, each computing
         # the forces of its own, and every process takes the same steps
-        self.__comm = _domain.world()
+        self.__comm = comm
         table = system.table
         n = len(system)
         if "mass" in table.columns:

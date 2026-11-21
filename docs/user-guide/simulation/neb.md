@@ -4,7 +4,7 @@
 
 `mdapy.simulation.neb(initial, final, calculator, *, images=5, climb=True,
 spring=1.0, interpolation="linear", max_force=0.01, max_steps=1000,
-max_step=0.1, timestep=0.001, callback=None, log=None, log_every=10)` finds
+max_step=0.1, timestep=0.001, callback=None, log=None, log_every=10, comm=None)` finds
 the minimum energy path between two states with the nudged elastic band
 ([Jónsson et al. (1998)](../../reference/references.md#jonsson1998)): a chain
 of images between them, each pulled down across the path by the forces of the
@@ -74,6 +74,7 @@ with Zhou's EAM.*
 | `callback` | callable | `None` | | called after each step as `callback(step, images, energies, max_force)`, with the band as a tuple of `System`; returning True stops it |
 | `log` | str, path or stream | `None` | | writes the relaxation of the band to this file, which it overwrites, or to this stream, as the [log of molecular dynamics](records.md#log) does: a heading, then `step`, `max_force` (eV/Å), `barrier` (eV), `highest` (the image of highest energy) and `wall` (s) every `log_every` steps and at the last, and how it ended |
 | `log_every` | int32 | 10 | | writes a row to the log every this many steps |
+| `comm` | mpi4py communicator | `None` | | the processes that share the images; `MPI.COMM_SELF` for a band of its own on each process, or with a LAMMPS calculator on several processes; by default every process MPI started: see [On many processes](processes.md#a-simulation-on-each-process) |
 
 It returns an `NEBResult`:
 

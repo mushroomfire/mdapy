@@ -138,8 +138,9 @@ skin; in between, the ghosts move with their atoms.
 
 A process of one thread computes each pair of atoms of EAM, ADP and the pair
 potentials once among all the processes, as LAMMPS with `newton on`: a pair of two of its atoms once, a pair of
-one of its atoms and a ghost on the process of the atom of the lower id, and the
-forces on the ghost go back to their atom. A process of several threads, set by
+one of its atoms and a ghost on the process of one of the two, half the pairs
+across each face of a brick on each side, and the forces on the ghost go back to
+their atom. A process of several threads, set by
 `MDAPY_NUM_THREADS`, has each atom gather its pairs, as one process does, so that
 the threads write no atom but their own. One thread a process is the faster: run
 as many processes as cores, with `MDAPY_NUM_THREADS=1`; [Performance](../../performance/mpi.md)

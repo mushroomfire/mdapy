@@ -164,6 +164,9 @@ void compute_once(const PairPotential& potential, std::int64_t n, std::int64_t c
     }
     for (std::int64_t i = 0; i < centers; ++i) {
         const std::int64_t si = species[i];
+        // what the pairs of i give it, summed here and added once
+        double fi[3] = {0.0, 0.0, 0.0}, ei = 0.0;
+        double wi[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
             double v[3];
@@ -179,20 +182,25 @@ void compute_once(const PairPotential& potential, std::int64_t n, std::int64_t c
             double e, fpair;
             pair_term<Style>(c, offset, r2, e, fpair);
             for (int a = 0; a < 3; ++a) {
-                forces[3 * i + a] += del[a] * fpair;
+                fi[a] += del[a] * fpair;
                 forces[3 * j + a] -= del[a] * fpair;
             }
-            energies[i] += 0.5 * e;
+            ei += 0.5 * e;
             energies[j] += 0.5 * e;
             if (virials != nullptr) {
                 for (int a = 0; a < 3; ++a) {
                     for (int b = 0; b < 3; ++b) {
                         const double w = 0.5 * del[a] * del[b] * fpair;
-                        virials[9 * i + 3 * a + b] += w;
+                        wi[3 * a + b] += w;
                         virials[9 * j + 3 * a + b] += w;
                     }
                 }
             }
+        }
+        for (int a = 0; a < 3; ++a) forces[3 * i + a] += fi[a];
+        energies[i] += ei;
+        if (virials != nullptr) {
+            for (int a = 0; a < 9; ++a) virials[9 * i + a] += wi[a];
         }
     }
 }

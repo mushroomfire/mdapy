@@ -30,7 +30,8 @@ import numpy as np
 import polars as pl
 
 from mdapy._core import calculators as _native_calculators
-from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
+from mdapy._core import core as _native_core
+from mdapy.calculators._base import HEAT_FLUX_TERMS, WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
 from mdapy.core.system import System
@@ -38,6 +39,12 @@ from mdapy.core.threads import get_num_threads
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.simulation._integrator import _counted, _HostAtoms
+
+# Added to the fractional coordinates by which the atoms go to the bricks, so
+# that the atoms of a lattice plane on a face of a brick all go to the brick
+# above it, however their coordinates round, and the bricks of a crystal hold
+# as many atoms each.
+_TIE = 1e-9
 
 
 def grid(processes: int, h: np.ndarray, pbc: np.ndarray) -> tuple[int, int, int]:
@@ -136,7 +143,14 @@ class Bricks:
         )
 
     def fractional(self, x: np.ndarray) -> np.ndarray:
-        return (x - self.lo) @ self.inverse
+        """The fractional coordinates by which the atoms go to the bricks,
+        measured from origin."""
+        return (x - self.lo) @ self.inverse + _TIE
+
+    @property
+    def origin(self) -> np.ndarray:
+        """Where fractional measures from: lo moved by the tie."""
+        return self.lo - _TIE * self.h.sum(axis=0)
 
     def migrate(self, fields: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The local atoms after each went to the process of its brick:
@@ -271,12 +285,13 @@ class Bricks:
             self.__swap(sent, destination, x[start : start + count], source)
         return x
 
-    def reverse(self, values: np.ndarray) -> np.ndarray:
+    def reverse(self, values: np.ndarray, copy: bool = True) -> np.ndarray:
         """Values of the local atoms and the ghosts, (all, ...), the values of
         each ghost added to those of its atom: the values of the local atoms.
         The lists of the last ``borders`` are gone through backwards, so that
-        the ghosts of ghosts come back through them."""
-        x = np.array(values)
+        the ghosts of ghosts come back through them. copy=False adds into
+        values, an array of the caller's own."""
+        x = np.array(values) if copy else values
         for chosen, _, destination, source, start, count in reversed(self.__sends):
             back = np.empty((len(chosen),) + x.shape[1:], dtype=x.dtype)
             self.__swap(x[start : start + count], source, back, destination)
@@ -746,8 +761,10 @@ class DomainAtoms(_HostAtoms):
         ):
             self.__set_box(box.matrix, box.origin)
         if self.__built is not None:
-            step = self._x - self.__built
-            moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+            moved = math.sqrt(_native_core.largest_step(
+                np.ascontiguousarray(self._x, dtype=np.float64),
+                np.ascontiguousarray(self.__built, dtype=np.float64),
+            ))  # fmt: skip
             if not 2.0 * bricks.maximum(moved) < self.__skin:
                 self.__built = None
         if self.__built is None:
@@ -804,7 +821,7 @@ class DomainAtoms(_HostAtoms):
         the ghosts' added."""
         ordered = np.empty_like(values)
         ordered[self.__order] = values
-        return self.__bricks.reverse(ordered)
+        return self.__bricks.reverse(ordered, copy=False)
 
     def __beyond(self, x: np.ndarray) -> np.ndarray:
         """How far atoms are from the brick, in Å across its faces; the end
@@ -867,24 +884,46 @@ class DomainAtoms(_HostAtoms):
             # what it needs to the ghosts or back from them; its neighbor list
             # and species, of the system of the last build, serve until the
             # next, which comes before an atom has moved half the skin
+            # on one thread, the pairs this process computes once among the
+            # processes, as LAMMPS's newton on, from the pairs of its own atoms
+            # alone; but the heat flux of the three-body terms, which each atom
+            # gathers from the pairs of the ghosts too
+            alone = (
+                getattr(calculator, "_pairs_once", False)
+                and get_num_threads() == 1
+                and not (
+                    HEAT_FLUX_TERMS in wanted
+                    and getattr(calculator, "_heat_needs_ghosts", False)
+                )
+            )
+            slot = f"{slot} alone" if alone else slot
             kept = self.__kept.get(slot)
             if kept is None:
                 built = self.__built_system()
-                wide = self._wide(built, calculator)
-                # on one thread, the pairs this process computes once among
-                # the processes, as LAMMPS's newton on
                 once = None
-                if getattr(calculator, "_pairs_once", False) and get_num_threads() == 1:
-                    once = _native_calculators.once_pairs(
-                        wide.offsets, wide.j, wide.shifts, n, self.__sub_ids,
+                if alone:
+                    # one search for the pairs computed once, and for the
+                    # three-body terms every pair of this process's atoms
+                    rows = getattr(calculator, "_once_with_rows", False)
+                    box = built.box
+                    cutoff = float(calculator.cutoff) + self.__skin
+                    lists = _native_calculators.build_once(
                         np.ascontiguousarray(self.__ghosts), self.__matrix,
+                        np.ascontiguousarray(box.origin), np.ascontiguousarray(box.pbc),
+                        cutoff, n, self.__sub_ids, rows,
                     )  # fmt: skip
+                    pairs, full = lists if rows else (lists, lists)
+                    wide = NeighborList(built, cutoff, *full)
+                    once = pairs[:3]
+                else:
+                    wide = self._wide(built, calculator)
                 kept = self.__kept[slot] = (
                     wide,
                     np.ascontiguousarray(calculator._species(built)),
                     once,
+                    once is None or getattr(calculator, "_once_with_rows", False),
                 )
-            neighbors, species, once = kept
+            neighbors, species, once, _ = kept
             atoms = (species, np.ascontiguousarray(self.__ghosts), self.__matrix)
             part = split(atoms, tuple(wanted), neighbors, n, self.__forward,
                          self.__reverse, self.__sub_ids, once)  # fmt: skip
@@ -922,8 +961,10 @@ class DomainAtoms(_HostAtoms):
         """From the list of the potential over this process's atoms and the
         ghosts, or for a potential on the GPU a list of the processor's own,
         kept until the next build."""
-        kept = self.__kept.get("potential")
-        wide = kept[0] if kept is not None else self._lists.get("potential")
+        kept = self.__kept.get("potential", self.__kept.get("potential alone"))
+        # the list of the potential where it has every pair of the atoms
+        full = kept is not None and kept[3]
+        wide = kept[0] if full else self._lists.get("potential")
         if wide is None:
             wide = self.__kept.get("stopping")
             if wide is None:
@@ -1025,7 +1066,7 @@ class SharedForces:
                 "is cut along: fewer processes"
             )
         x = np.asarray(system["positions"], dtype=float)
-        s = (x - lo) @ inverse
+        s = (x - lo) @ inverse + _TIE
         whole = np.where(pbc, np.floor(s), 0.0)
         s -= whole
         brick = np.clip(np.floor(s * counts), 0, counts - 1).astype(np.int64)

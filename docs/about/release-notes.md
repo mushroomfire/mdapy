@@ -43,6 +43,12 @@
   GPU when MPI moves it, as Open MPI built with CUDA tells, or as
   `MDAPY_GPU_AWARE_MPI` says. See [With a GPU
   each](../user-guide/simulation/processes.md#with-a-gpu-each).
+- On many processes of one thread the processes of a crystal compute as much each:
+  the atoms of a lattice plane on a face of a brick all go to one of its two bricks,
+  and the pairs across a face are shared half and half between them. Stillinger–Weber
+  and Tersoff compute each term once there, as LAMMPS's `newton on`, and the pairs a
+  process computes once are found in one search. See [Molecular dynamics on many
+  processes](../performance/mpi.md).
 - A restart of molecular dynamics on the GPU keeps the boxes each atom crossed, its
   `image`, which the run after a restart counted again from zero.
 - `ElectronicStopping`, a control of molecular dynamics: the friction of the electrons

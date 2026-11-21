@@ -88,6 +88,10 @@ class Overlay(Calculator):
             else None
         )
         self._pairs_once = all(getattr(p, "_pairs_once", False) for p in parts)
+        self._heat_needs_ghosts = any(
+            getattr(p, "_heat_needs_ghosts", False) for p in parts
+        )
+        self._once_with_rows = any(getattr(p, "_once_with_rows", False) for p in parts)
         self.__gpu: _gpu.OnDevice | None = None
         if self.device == "cuda":
             on = [getattr(p, "_on_device", None) for p in parts]

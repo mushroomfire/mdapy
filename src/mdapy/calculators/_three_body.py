@@ -16,6 +16,7 @@ from mdapy import _core
 from mdapy.calculators import _gpu
 from mdapy.calculators._base import (
     HEAT_FLUX_TERMS,
+    WITHOUT_VIRIAL,
     Calculator,
     CalculatorResult,
     _element_indices,
@@ -123,9 +124,15 @@ class _ThreeBody(Calculator):
     """A potential of three-body terms computed natively."""
 
     _takes_wider_lists = True
+    # on one thread each process of MPI computes each term once; the virials
+    # of the heat flux gather the terms of the ghosts' pairs too
+    _pairs_once = True
+    _once_with_rows = True
+    _heat_needs_ghosts = True
 
     _name: str
     _compute: Any
+    _compute_once: Any
     _gpu_potential: Any = None  # on the GPU
     # with HEAT_FLUX_TERMS, each term whole with its centre and the virials of
     # Fan et al. (2015)
@@ -196,7 +203,22 @@ class _ThreeBody(Calculator):
         """The part of the first owned atoms, a process's of MPI, of the
         species, positions and box matrix of atoms (a system with ghosts):
         the terms of those atoms alone, which reach the ghosts within the
-        cutoff, and the forces on the ghosts sent back to their atoms."""
+        cutoff, and the forces on the ghosts sent back to their atoms. On
+        one thread, with the pairs once given, each term once and its forces
+        put straight on its atoms, as LAMMPS's newton on, but for the heat
+        flux."""
+        heat = HEAT_FLUX_TERMS in properties
+        if once is not None and not heat:
+            virial = (
+                bool({"virial", "atomic_virials"} & set(properties))
+                and WITHOUT_VIRIAL not in properties
+            )
+            with neighbors._reading():
+                energies, forces, virials = type(self)._compute_once(
+                    self._potential, *atoms, neighbors.offsets, neighbors.j,
+                    neighbors.shifts, *once, owned, virial,
+                )  # fmt: skip
+            return _reversed_part(energies, forces, virials, properties, reverse)
         with neighbors._reading():
             energies, forces, virials = type(self)._compute(
                 self._potential,
@@ -208,7 +230,7 @@ class _ThreeBody(Calculator):
                 neighbors.shifts,
                 None,
                 None,
-                HEAT_FLUX_TERMS in properties,
+                heat,
                 owned,
                 neighbors._reverse(),
             )
@@ -257,6 +279,7 @@ class Tersoff(_ThreeBody):
 
     _name = "Tersoff"
     _compute = staticmethod(_native.compute_tersoff)
+    _compute_once = staticmethod(_native.compute_tersoff_once)
 
     def __init__(
         self,
@@ -333,6 +356,7 @@ class StillingerWeber(_ThreeBody):
 
     _name = "StillingerWeber"
     _compute = staticmethod(_native.compute_stillinger_weber)
+    _compute_once = staticmethod(_native.compute_stillinger_weber_once)
 
     def __init__(
         self,

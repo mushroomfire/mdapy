@@ -142,6 +142,30 @@ def test_the_bricks_hold_every_atom_and_its_ghosts(monkeypatch, box, size):
     )  # fmt: skip
 
 
+def test_the_bricks_of_a_crystal_hold_as_many_atoms():
+    """The atoms of the lattice planes on the faces of the bricks all go to
+    the brick above, however their coordinates round."""
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(20, 20, 20))
+    h = crystal.box.matrix
+    counts = _domain.grid(40, h, np.ones(3, bool))
+
+    class Comm:
+        def Get_size(self):  # noqa: N802
+            return 40
+
+        def Get_rank(self):  # noqa: N802
+            return 0
+
+    bricks = _domain.Bricks(Comm(), h, crystal.box.origin, (True, True, True), 6.7)
+    s = bricks.fractional(np.asarray(crystal["positions"]))
+    brick = np.floor((s - np.floor(s)) * counts).astype(int)
+    owner = brick[:, 0] + counts[0] * (brick[:, 1] + counts[1] * brick[:, 2])
+    held = np.bincount(owner, minlength=40)
+    assert held.min() == held.max() == len(crystal) // 40
+    # the GPU measures the fractional coordinates from origin, with no tie
+    assert np.abs(bricks.fractional(bricks.origin)).max() < 1e-15
+
+
 def test_the_grid_has_the_least_surface():
     assert _domain.grid(8, np.diag([10.0, 10.0, 10.0]), np.ones(3, bool)) == (2, 2, 2)
     assert _domain.grid(4, np.diag([40.0, 10.0, 10.0]), np.ones(3, bool)) == (4, 1, 1)
@@ -467,6 +491,22 @@ def test_many_body_potentials_of_centres_on_gpus(monkeypatch, tmp_path, name, he
         options = {"ensemble": "nvt", "temperature": 600,
                    "controls": [_HeatField((2e-4, 0.0, 1e-4))]}  # fmt: skip
     alone = run(system, potential, options)
+    for split in processes.run(3, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber"])
+def test_three_body_potentials_on_processes_of_one_thread(monkeypatch, tmp_path, name):
+    """On one thread a process computes each term of its atoms once, its
+    forces on the ghosts sent back: the run of one process, to the rounding,
+    under a barostat that takes the virial at every step."""
+    from mdapy.core.threads import set_num_threads
+
+    potential, system = potentials(tmp_path)[name]
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    alone = run(system, potential, options)
+    set_num_threads(1)
     for split in processes.run(3, lambda rank: run(system, potential, options),
                                monkeypatch):  # fmt: skip
         same(split, alone)

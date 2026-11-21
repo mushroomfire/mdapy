@@ -289,6 +289,16 @@ _THERMOSTAT_STREAM = 0
 _BATH_STREAM = 1
 
 
+def _fused(*arrays: np.ndarray) -> bool:
+    """Whether the steps of the integrator can go through arrays of the atoms
+    in one pass of the core: of float64, in order, the first writable; the
+    same values as NumPy's."""
+    return arrays[0].flags.writeable and all(
+        isinstance(a, np.ndarray) and a.dtype == np.float64 and a.flags.c_contiguous
+        for a in arrays
+    )
+
+
 def _counted(
     wide: NeighborList,
     x: np.ndarray,
@@ -634,14 +644,20 @@ class _HostAtoms:
         return other, (1.0 - weight) * forces + weight * pulls, push
 
     def kick(self, c: float) -> None:
-        self._v += c * self._forces / self._masses[:, None]
+        if _fused(self._v, self._forces, self._masses):
+            _core.core.kick(self._v, self._forces, self._masses, c)
+        else:
+            self._v += c * self._forces / self._masses[:, None]
 
     def drift(self, dt: float) -> None:
         self._x += dt * self._v
 
     def kick_drift(self, c: float, dt: float) -> None:
-        self.kick(c)
-        self.drift(dt)
+        if _fused(self._v, self._forces, self._masses, self._x):
+            _core.core.kick_drift(self._v, self._forces, self._masses, c, self._x, dt)
+        else:
+            self.kick(c)
+            self.drift(dt)
 
     indenters: tuple = ()  # (kind, axis, sign, k, radius) of each indenter
     indenter_at: tuple = ()  # their centers or planes at the step

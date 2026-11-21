@@ -55,4 +55,17 @@ void compute_tersoff(const TersoffPotential& potential, std::int64_t n,
                      std::int64_t centers = -1,
                      const std::int64_t* reverse = nullptr);
 
+// The same of the first centers atoms on one thread, as LAMMPS with newton
+// on: the repulsion of each pair of the list once_* (each pair once among the
+// processes of MPI), the bonds of each centre over its pairs of the full list,
+// their forces and their shares of the energies and virials (virials null for
+// none) on every atom, the ghosts among them.
+void compute_tersoff_once(const TersoffPotential& potential, std::int64_t n,
+                          const std::int32_t* species, const double* positions,
+                          const double* matrix, const std::int64_t* offsets,
+                          const index_t* neighbors, const std::int8_t* shifts,
+                          const std::int64_t* once_offsets, const index_t* once_neighbors,
+                          const std::int8_t* once_shifts, std::int64_t centers, double* energies,
+                          double* forces, double* virials);
+
 }  // namespace mdapy::calculators

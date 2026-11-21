@@ -68,6 +68,83 @@ struct Shares {
     }
 };
 
+// Where the terms of a centre go, as the kernels of the potentials hand
+// them: own_energy(i, e) to the centre, pair_energy(p, j, e) to the neighbor
+// j of its pair p, pair_force(i, p, j, r, f, to_neighbor) as
+// Shares::pair_force, derivative(i, p, j, f) a force f on j and -f on the
+// centre, virial3(i, pj, j, pk, k, w) the virial w (9) to each of the
+// three atoms of a term.
+//
+// ToShares: into the shares, which gather gives the atoms after, for any
+// number of threads.
+struct ToShares {
+    Shares& shares;
+    void own_energy(std::int64_t i, double e) { shares.own_energy[static_cast<std::size_t>(i)] += e; }
+    void pair_energy(std::int64_t p, std::int64_t, double e) {
+        shares.energy[static_cast<std::size_t>(p)] += e;
+    }
+    void pair_force(std::int64_t i, std::int64_t p, std::int64_t, const double* r, const double* f,
+                    double to_neighbor) {
+        shares.pair_force(i, p, r, f, to_neighbor);
+    }
+    void derivative(std::int64_t, std::int64_t p, std::int64_t, const double* f) {
+        double* t = &shares.derivative[3 * static_cast<std::size_t>(p)];
+        for (int a = 0; a < 3; ++a) t[a] -= f[a];
+    }
+    void virial3(std::int64_t i, std::int64_t pj, std::int64_t, std::int64_t pk, std::int64_t,
+                 const double* w) {
+        double* own = &shares.own_virial[9 * static_cast<std::size_t>(i)];
+        double* wj = &shares.virial[9 * static_cast<std::size_t>(pj)];
+        double* wk = &shares.virial[9 * static_cast<std::size_t>(pk)];
+        for (int c = 0; c < 9; ++c) {
+            own[c] += w[c];
+            wj[c] += w[c];
+            wk[c] += w[c];
+        }
+    }
+};
+
+// ToAtoms: straight into the energies (n), forces (n x 3) and virials
+// (n x 9, or null for none) of the atoms, on one thread, as LAMMPS with
+// newton on: each term once, its parts on the ghosts sent back after.
+struct ToAtoms {
+    double* energies;
+    double* forces;
+    double* virials;
+    void own_energy(std::int64_t i, double e) { energies[i] += e; }
+    void pair_energy(std::int64_t, std::int64_t j, double e) { energies[j] += e; }
+    void pair_force(std::int64_t i, std::int64_t, std::int64_t j, const double* r, const double* f,
+                    double to_neighbor) {
+        for (int a = 0; a < 3; ++a) {
+            forces[3 * j + a] += f[a];
+            forces[3 * i + a] -= f[a];
+        }
+        if (virials == nullptr) return;
+        for (int a = 0; a < 3; ++a) {
+            for (int b = 0; b < 3; ++b) {
+                const double v = r[a] * f[b];
+                virials[9 * j + 3 * a + b] += to_neighbor * v;
+                virials[9 * i + 3 * a + b] += (1.0 - to_neighbor) * v;
+            }
+        }
+    }
+    void derivative(std::int64_t i, std::int64_t, std::int64_t j, const double* f) {
+        for (int a = 0; a < 3; ++a) {
+            forces[3 * j + a] += f[a];
+            forces[3 * i + a] -= f[a];
+        }
+    }
+    void virial3(std::int64_t i, std::int64_t, std::int64_t j, std::int64_t, std::int64_t k,
+                 const double* w) {
+        if (virials == nullptr) return;
+        for (int c = 0; c < 9; ++c) {
+            virials[9 * i + c] += w[c];
+            virials[9 * j + c] += w[c];
+            virials[9 * k + c] += w[c];
+        }
+    }
+};
+
 // Energies (n), forces (n x 3) and virials (n x 9) gathered from the shares.
 // heat: the virials of the heat flux instead, those of Fan et al., PRB 92,
 // 094301 (2015): for each atom i, the sum over its pairs p = (i, j) of

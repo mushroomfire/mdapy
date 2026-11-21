@@ -302,10 +302,54 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
 }
 
 using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Origin = nb::ndarray<const double, nb::shape<3>, nb::c_contig, nb::device::cpu>;
+using Periodic = nb::ndarray<const bool, nb::shape<3>, nb::c_contig, nb::device::cpu>;
 
 // The pairs of a full neighbor list of the atoms that a process of MPI
 // computes on one thread, each pair once among the processes: offsets, j and
 // shifts of a list of their own.
+// The arrays of a list of pairs: offsets, neighbors, shifts and, when kept,
+// distances.
+nb::tuple pair_arrays(const calculators::OncePairs& pairs, bool distances) {
+    std::int64_t* o;
+    index_t* j;
+    std::int8_t* sh;
+    const std::size_t shape1[1] = {pairs.offsets.size()};
+    const std::size_t shape2[1] = {pairs.neighbors.size()};
+    const std::size_t shape3[2] = {pairs.neighbors.size(), 3};
+    nb::object a = new_array(1, shape1, o);
+    nb::object b = new_array(1, shape2, j);
+    nb::object c = new_array(2, shape3, sh);
+    std::copy(pairs.offsets.begin(), pairs.offsets.end(), o);
+    std::copy(pairs.neighbors.begin(), pairs.neighbors.end(), j);
+    std::copy(pairs.shifts.begin(), pairs.shifts.end(), sh);
+    if (!distances) return nb::make_tuple(a, b, c);
+    double* d;
+    nb::object e = new_array(1, shape2, d);
+    std::copy(pairs.distances.begin(), pairs.distances.end(), d);
+    return nb::make_tuple(a, b, c, e);
+}
+
+// The pairs each process of MPI computes once of its first centers atoms,
+// found by one search on one thread, with their distances; with full, the
+// full list of those atoms after them.
+nb::tuple build_once(Positions positions, Matrix matrix, Origin origin, Periodic pbc,
+                     double cutoff, std::int64_t centers, Ids ids, bool full) {
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    if (ids.shape(0) != positions.shape(0) || centers < 0 || centers > n) {
+        throw std::invalid_argument("an id for each atom, and centers among them");
+    }
+    calculators::OncePairs once, all;
+    {
+        nb::gil_scoped_release release;
+        once = calculators::build_once(positions.data(), n, matrix.data(), origin.data(),
+                                       pbc.data(), cutoff, centers, ids.data(),
+                                       full ? &all : nullptr);
+    }
+    if (!full) return pair_arrays(once, true);
+    return nb::make_tuple(pair_arrays(once, true), pair_arrays(all, true));
+}
+
 nb::tuple once_pairs(Offsets offsets, Neighbors neighbors, Shifts shifts, std::int64_t centers,
                      Ids ids, Positions positions, Matrix matrix) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
@@ -499,6 +543,38 @@ nb::tuple compute_tersoff(const calculators::TersoffPotential& potential, Specie
 }
 
 // rows: elements^3 rows of 11 numbers, see StillingerWeberPotential::parameters
+// On one thread, each term once among the processes of MPI: the energies,
+// forces and virials (None without virial) the terms of the first centers
+// atoms give every atom, the two-body terms of the pairs of once_*, the
+// others over the full list. kernel: compute_stillinger_weber_once or
+// compute_tersoff_once.
+template <class Potential, class Kernel>
+nb::tuple three_body_once(const Potential& potential, Kernel kernel, Species species,
+                          Positions positions, Matrix matrix, Offsets offsets,
+                          Neighbors neighbors, Shifts shifts, Offsets once_offsets,
+                          Neighbors once_neighbors, Shifts once_shifts, std::int64_t centers,
+                          bool virial) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    check_input(potential.elements, species, positions, once_offsets, once_neighbors,
+                once_shifts);
+    const std::int64_t c = centres_of(centers, species);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    {
+        nb::gil_scoped_release release;
+        kernel(potential, n, species.data(), positions.data(), matrix.data(), offsets.data(),
+               neighbors.data(), shifts.data(), once_offsets.data(), once_neighbors.data(),
+               once_shifts.data(), c, energies, forces, virials);
+    }
+    return nb::make_tuple(e, f, w);
+}
+
 calculators::StillingerWeberPotential make_stillinger_weber(int elements, Flat rows) {
     const auto count = static_cast<std::size_t>(elements) * static_cast<std::size_t>(elements) *
                        static_cast<std::size_t>(elements);
@@ -951,6 +1027,37 @@ void bind_calculators(nb::module_& m) {
     m.def("make_tersoff", &make_tersoff, nb::arg("elements"), nb::arg("rows"));
     m.def("reverse_pairs", &reverse_pairs, nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"));
+    m.def("build_once", &build_once, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
+          nb::arg("pbc"), nb::arg("cutoff"), nb::arg("centers"), nb::arg("ids"),
+          nb::arg("full"));
+    m.def(
+        "compute_stillinger_weber_once",
+        [](const calculators::StillingerWeberPotential& potential, Species species,
+           Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+           Shifts shifts, Offsets once_offsets, Neighbors once_neighbors, Shifts once_shifts,
+           std::int64_t centers, bool virial) {
+            return three_body_once(potential, &calculators::compute_stillinger_weber_once,
+                                   species, positions, matrix, offsets, neighbors, shifts,
+                                   once_offsets, once_neighbors, once_shifts, centers, virial);
+        },
+        nb::arg("potential"), nb::arg("species"), nb::arg("positions"), nb::arg("matrix"),
+        nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"), nb::arg("once_offsets"),
+        nb::arg("once_neighbors"), nb::arg("once_shifts"), nb::arg("centers"),
+        nb::arg("virial"));
+    m.def(
+        "compute_tersoff_once",
+        [](const calculators::TersoffPotential& potential, Species species, Positions positions,
+           Matrix matrix, Offsets offsets, Neighbors neighbors, Shifts shifts,
+           Offsets once_offsets, Neighbors once_neighbors, Shifts once_shifts,
+           std::int64_t centers, bool virial) {
+            return three_body_once(potential, &calculators::compute_tersoff_once, species,
+                                   positions, matrix, offsets, neighbors, shifts, once_offsets,
+                                   once_neighbors, once_shifts, centers, virial);
+        },
+        nb::arg("potential"), nb::arg("species"), nb::arg("positions"), nb::arg("matrix"),
+        nb::arg("offsets"), nb::arg("neighbors"), nb::arg("shifts"), nb::arg("once_offsets"),
+        nb::arg("once_neighbors"), nb::arg("once_shifts"), nb::arg("centers"),
+        nb::arg("virial"));
     m.def("compute_tersoff", &compute_tersoff, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("progress") = nb::none(),

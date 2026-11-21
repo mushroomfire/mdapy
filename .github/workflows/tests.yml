@@ -140,6 +140,7 @@ jobs:
           mpirun --oversubscribe -np 4 python tests/mpi/check_dynamics.py
           mpirun --oversubscribe -np 3 python tests/mpi/check_pimd.py
           mpirun --oversubscribe -np 4 python tests/mpi/check_minimize.py
+          mpirun --oversubscribe -np 3 python tests/mpi/check_neb.py
 
   # The GPU part, mdapy-cuda12, compiled for one architecture with CUDA 12.9 and
   # GCC, warnings as errors. The runner has no GPU: the module is only loaded.

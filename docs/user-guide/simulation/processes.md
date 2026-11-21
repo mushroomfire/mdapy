@@ -123,7 +123,8 @@ Every ensemble and every control that runs on the processor (see
 [pair potentials](../potentials/pair-potentials.md). Other calculators, as those
 of ASE or [VASP](../potentials/vasp.md), run on one process; a
 [LAMMPS](../potentials/lammps.md) potential runs the dynamics in LAMMPS, which
-splits it itself.
+splits it itself. [`neb`](neb.md#on-many-processes) shares its images among the
+processes, with any calculator.
 
 [Energy minimization](minimize.md) shares the forces in the same way: every process
 keeps every atom and takes the same steps, and computes the forces of the atoms of its

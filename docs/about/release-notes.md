@@ -25,6 +25,9 @@
   processes, each computing the atoms of its brick with their ghosts, every process
   taking the steps of FIRE over every atom: the minimization of one process, with and
   without the box relaxing. See [Energy minimization](../user-guide/simulation/minimize.md).
+- `neb` on many processes shares the images among them, each process computing its own
+  whole: the path of one process, to the last bit, with any calculator. See
+  [Minimum energy paths](../user-guide/simulation/neb.md#on-many-processes).
 - On many processes, a potential on the GPU computes the forces of each process on a
   GPU of its machine, the processes of a machine taking its GPUs in turn, while the
   steps run on the processor. See [With a GPU

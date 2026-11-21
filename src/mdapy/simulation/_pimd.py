@@ -150,7 +150,6 @@ class _RingPolymer:
         self.__run: dict[str, Any] = {}
         self.__temperature: float | None = None  # of the springs, K
         self.__thermostat = False
-        self.__centroids = True
         self.__seed = 0
         self.__draws = 0
 
@@ -331,10 +330,10 @@ class _RingPolymer:
             raise InvalidParameter(
                 f'path-integral dynamics runs "nvt" or "nve", not {ensemble!r}'
             )
-        if ensemble == "nvt" and run["thermostat"] not in ("langevin", "trpmd"):
+        if ensemble == "nvt" and run["thermostat"] != "langevin":
             raise InvalidParameter(
                 'path-integral dynamics at a temperature takes the "langevin" '
-                'thermostat, the PILE_L of the normal modes, or "trpmd"'
+                "thermostat, the PILE_L of the normal modes"
             )
         if run["controls"]:
             raise InvalidParameter("path-integral dynamics takes no controls")
@@ -353,9 +352,8 @@ class _RingPolymer:
         self.__run = run
         self.__temperature = float(t0)
         self.__thermostat = ensemble == "nvt"
-        # thermostatted ring-polymer molecular dynamics: the centroids left
-        # to their dynamics, the other modes thermostatted
-        self.__centroids = run["thermostat"] != "trpmd"
+        # a damping of math.inf leaves the centroids to their dynamics, the
+        # other modes thermostatted: thermostatted ring-polymer dynamics
         self.__damping = float(run["thermostat_damping"])
         self.__dt = self.timestep
         # the time from the start of the run
@@ -397,9 +395,10 @@ class _RingPolymer:
 
     def __pile(self, v: np.ndarray, h: float) -> None:
         """The PILE_L thermostat of the normal modes for a time h, in place:
-        the centroid damped in thermostat_damping, each other mode
-        critically, 2 w_k, with the noise of P times the temperature."""
-        centroid = 1.0 / self.__damping if self.__centroids else 0.0
+        the centroid damped in thermostat_damping, none for math.inf, each
+        other mode critically, 2 w_k, with the noise of P times the
+        temperature."""
+        centroid = 1.0 / self.__damping
         gamma = np.concatenate([[centroid],
                                 2.0 * self.__omega() * self.__frequencies[1:]])  # fmt: skip
         c1 = np.exp(-gamma * h)[:, None, None]

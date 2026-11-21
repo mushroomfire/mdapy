@@ -6,6 +6,7 @@
 """Molecular dynamics: in LAMMPS with a LAMMPS calculator, or in MDAPY itself
 with any other calculator."""
 
+import math
 import os
 import tempfile
 import time
@@ -30,7 +31,7 @@ from mdapy.simulation._pimd import _RingPolymer
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
-_THERMOSTATS = ("nose-hoover", "langevin", "trpmd")
+_THERMOSTATS = ("nose-hoover", "langevin")
 # thermo keywords of LAMMPS and the columns they become
 # the columns of the log: name in thermo, format, width
 _LOG_COLUMNS = (
@@ -426,8 +427,13 @@ create_box {len(potential.elements)} box
         """The fixes of a run, and its setup."""
         ensemble = run["ensemble"]
         langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
-        if ensemble in ("nvt", "npt") and run["thermostat"] == "trpmd":
-            raise InvalidParameter('"trpmd" is a thermostat of path integrals in MDAPY')
+        if ensemble in ("nvt", "npt", "nphug") and math.isinf(
+            run["thermostat_damping"]
+        ):
+            raise InvalidParameter(
+                "thermostat_damping=math.inf frees the centroids of path integrals, "
+                "in MDAPY's own dynamics with beads"
+            )
         fix = ensemble
         if langevin:
             fix = "nve" if ensemble == "nvt" else "nph"
@@ -1331,12 +1337,14 @@ class MolecularDynamics:
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
-        thermostat : {"nose-hoover", "langevin", "trpmd"}, optional
+        thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
-            beads the "langevin" thermostat is PILE_L, and "trpmd" leaves out
-            the centroids. Default "nose-hoover".
+            beads the "langevin" thermostat is PILE_L. Default "nose-hoover".
         thermostat_damping : float64, optional
-            Damping time of the thermostat in ps. Default 100 time steps.
+            Damping time of the thermostat in ps, positive. With beads it is
+            that of the centroids, the other modes damped critically, and
+            math.inf leaves the centroids free, thermostatted ring-polymer
+            molecular dynamics (TRPMD). Default 100 time steps.
         barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
         seed : int32, optional
@@ -1480,12 +1488,14 @@ class MolecularDynamics:
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
-        thermostat : {"nose-hoover", "langevin", "trpmd"}, optional
+        thermostat : {"nose-hoover", "langevin"}, optional
             A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
-            beads the "langevin" thermostat is PILE_L, and "trpmd" leaves out
-            the centroids. Default "nose-hoover".
+            beads the "langevin" thermostat is PILE_L. Default "nose-hoover".
         thermostat_damping : float64, optional
-            Damping time of the thermostat in ps. Default 100 time steps.
+            Damping time of the thermostat in ps, positive. With beads it is
+            that of the centroids, the other modes damped critically, and
+            math.inf leaves the centroids free, thermostatted ring-polymer
+            molecular dynamics (TRPMD). Default 100 time steps.
         barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
         seed : int32, optional
@@ -1650,6 +1660,15 @@ class MolecularDynamics:
         ):
             raise InvalidParameter(
                 "keep_momentum with atoms held or moved: there is no momentum to keep"
+            )
+        if thermostat_damping is not None and not float(thermostat_damping) > 0:
+            raise InvalidParameter(
+                "thermostat_damping must be positive, or math.inf for the free "
+                f"centroids of path integrals, not {thermostat_damping!r}"
+            )
+        if barostat_damping is not None and not 0 < float(barostat_damping) < math.inf:
+            raise InvalidParameter(
+                f"barostat_damping must be positive and finite, not {barostat_damping!r}"
             )
         if int(thermo) < 1 or (save_every is not None and int(save_every) < 1):
             raise InvalidParameter("thermo and save_every must be positive")

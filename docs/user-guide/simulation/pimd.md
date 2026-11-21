@@ -113,8 +113,8 @@ The runs take the options of [Running](running.md), with these:
 |---|---|
 | `ensemble` | `"nvt"`, sampling the quantum canonical ensemble, or `"nve"`, ring-polymer molecular dynamics (RPMD) |
 | `temperature` | one temperature, also of `"nve"`: it sets the springs of the ring polymers |
-| `thermostat` | with `"nvt"`, `"langevin"`: the path-integral Langevin thermostat PILE_L; `"trpmd"`: thermostatted RPMD, PILE_L on every mode but the centroids, which keep their dynamics |
-| `thermostat_damping` | the damping time of the centroids in ps; the other modes are damped critically |
+| `thermostat` | with `"nvt"`, `"langevin"`: the path-integral Langevin thermostat PILE_L |
+| `thermostat_damping` | the damping time of the centroids in ps, the other modes damped critically; `math.inf` leaves the centroids free, thermostatted RPMD (TRPMD) |
 | `seed` | of the random forces of the thermostat |
 
 `md.beads` gives the atoms at each bead, a tuple of `P` systems with the bead in
@@ -162,7 +162,21 @@ BAOAB in the normal modes of the free ring polymer: half a kick of the forces of
 potential, half a step of the free ring polymer, exactly, the thermostat, the other
 half of the free ring polymer, the forces, and the other half kick. PILE_L damps the
 centroid of each atom in `thermostat_damping` and each other mode, of frequency
-$\omega_k = 2 \omega_P \sin(\pi k / P)$, critically, in $1 / 2\omega_k$. The kinetic
+$\omega_k = 2 \omega_P \sin(\pi k / P)$, critically, in $1 / 2\omega_k$.
+
+A damping of `math.inf` gives the centroids no friction and no noise: they move by the
+forces alone, as in RPMD, while the other modes keep the temperature. This is
+thermostatted RPMD, for dynamics such as diffusion and vibrational spectra, in which
+the thermostat damps the spurious vibrations of the ring polymers but not the motion
+of the atoms themselves:
+
+```python
+import math
+
+md.run(10_000, ensemble="nvt", temperature=300, thermostat_damping=math.inf)
+```
+
+The kinetic
 energy of the centroid virial is
 
 $$
@@ -179,7 +193,8 @@ water at 300 K.
 `MolecularDynamics` raises `InvalidParameter` for `beads` that is not a positive
 integer, with a `LAMMPS` calculator or a `movable` column. A run raises it
 for an ensemble other than `"nvt"` and `"nve"`, a thermostat other than `"langevin"`
-or `"trpmd"` with `"nvt"`, no temperature or two, and controls.
+with `"nvt"`, no temperature or two, and controls. A run without beads raises it for a
+`thermostat_damping` of `math.inf`, and every run for one that is not positive.
 
 !!! quote "Please cite"
     [Ceriotti et al. (2010)](../../reference/references.md#ceriotti2010).

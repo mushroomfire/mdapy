@@ -107,36 +107,53 @@ def test_oscillators_at_the_energies_of_the_ring_polymer(beads):
 
 
 def test_trpmd_leaves_the_centroids_alone():
-    """Thermostatted RPMD: free atoms keep the velocities of their
-    centroids exactly, while the other modes take the temperature, the
-    springs holding (P - 1) 3 N P k_B T / 2 on average."""
+    """Thermostatted RPMD, the centroids undamped by a damping time of
+    math.inf: free atoms keep the velocities of their centroids exactly,
+    while the other modes take the temperature, the springs holding
+    (P - 1) 3 N P k_B T / 2 on average."""
     system, _, _ = hydrogen(32)
     free = LennardJones({"H": (0.0, 1.0)}, 3.0)
     beads, temperature = 6, 300.0
     with MolecularDynamics(system, free, timestep=0.0005, beads=beads) as md:
         md.velocities(temperature, seed=1)
         start = md.system["velocities"]
-        md.run(300, ensemble="nvt", thermostat="trpmd", temperature=temperature, seed=3)
-        md.run(3000, ensemble="nvt", thermostat="trpmd", temperature=temperature,
-               seed=4, thermo=10)  # fmt: skip
+        free_centroids = {"ensemble": "nvt", "thermostat": "langevin",
+                          "thermostat_damping": math.inf, "temperature": temperature}  # fmt: skip
+        md.run(300, seed=3, **free_centroids)
+        md.run(3000, seed=4, thermo=10, **free_centroids)
         np.testing.assert_allclose(md.system["velocities"], start, atol=1e-12)
         springs = md.thermo.filter(md.thermo["step"] > 300)["spring_energy"].mean()
     expected = (beads - 1) * 3 * len(system) * beads * KB * temperature / 2
     assert springs == pytest.approx(expected, rel=0.05)
 
 
-def test_trpmd_needs_beads(potentials):  # noqa: F811
+def test_free_centroids_need_beads(potentials):  # noqa: F811
+    """A damping time of math.inf is that of the centroids of path
+    integrals: a classical thermostat and LAMMPS refuse it, as every run a
+    damping that is not positive; "trpmd" is no thermostat."""
     system, springs, _ = hydrogen(8)
     with MolecularDynamics(system, springs) as md:
-        with pytest.raises(InvalidParameter, match="needs beads"):
+        for options in ({"thermostat": "nose-hoover"}, {"thermostat": "langevin"}):
+            with pytest.raises(InvalidParameter, match="needs beads"):
+                md.run(1, ensemble="nvt", temperature=300, thermostat_damping=math.inf,
+                       **options)  # fmt: skip
+        with pytest.raises(InvalidParameter, match="thermostat must be one of"):
             md.run(1, ensemble="nvt", thermostat="trpmd", temperature=300)
+        for damping in (0.0, -0.1, math.nan):
+            with pytest.raises(InvalidParameter, match="thermostat_damping must be"):
+                md.run(1, ensemble="nvt", temperature=300, thermostat_damping=damping)
+        for damping in (0.0, math.inf):
+            with pytest.raises(InvalidParameter, match="barostat_damping must be"):
+                md.run(1, ensemble="npt", temperature=300, pressure=0.0,
+                       barostat_damping=damping)  # fmt: skip
+        md.run(1, ensemble="nve", thermostat_damping=math.inf)
     _, lmp = potentials
     if lmp is not None:
         from simulation.test_controls import slab
 
         with MolecularDynamics(slab()[0], lmp) as md:
-            with pytest.raises(InvalidParameter, match="path integrals in MDAPY"):
-                md.run(1, ensemble="nvt", thermostat="trpmd", temperature=300)
+            with pytest.raises(InvalidParameter, match="beads"):
+                md.run(1, ensemble="nvt", temperature=300, thermostat_damping=math.inf)
 
 
 def test_beads_and_centroids():

@@ -118,8 +118,8 @@ they are, whatever the box, are [`SpatialBinning`](../analysis/spatial-binning.m
 | `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"`, `"nph"` and `"nphug"`, which takes one value |
 | `barostat` | str | `"iso"` | | how the box may change: `"iso"`, `"aniso"`, `"tri"`, `"xy"`, `"x"`, `"y"` or `"z"`: see [Barostats](ensembles.md#barostats) |
 | `thermostat` | str | `"nose-hoover"` | | a chain of Nosé–Hoover thermostats, or `"langevin"` dynamics: see [Thermostats](ensembles.md#thermostats) |
-| `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
-| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
+| `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat, positive; with beads `math.inf` leaves the centroids free: see [Path integrals](pimd.md#parameters) |
+| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat, positive |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that keep the total momentum: see [Thermostats](ensembles.md#thermostats) |
 | `hugoniot`, `shock_velocity`, `msst` | | `None` | | for `"nphug"` and `"msst"`: see [Hugoniostat](hugoniostat.md#parameters) and [Multiscale shock technique](msst.md#parameters) |
@@ -190,7 +190,8 @@ LAMMPS calculator. `velocities` and `thermal_velocities` raise `InvalidParameter
 temperature or a seed that is not positive, and `thermal_velocities` for a
 mask that is not one bool for each atom and `MissingProperty` for a system
 without masses or elements; `run` for a negative number of
-steps, an unknown ensemble, barostat or thermostat, a thermostat without a
+steps, an unknown ensemble, barostat or thermostat, a damping that is not
+positive, `thermostat_damping=math.inf` without beads, a thermostat without a
 positive temperature, a barostat without a pressure, `"aniso"` or `"tri"` in
 a box that is not periodic, `"xy"` in a box not periodic along its first two
 vectors, `"x"`, `"y"` or `"z"` in a box not periodic along that axis or not

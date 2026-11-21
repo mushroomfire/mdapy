@@ -134,13 +134,21 @@ void Atoms::keep_rows(const std::int32_t* rows, std::int64_t count) {
     device_rows(rows, count, a.n, places);
     each_carried(a, [&](auto& buffer, int width) {
         using T = std::remove_reference_t<decltype(*buffer.data())>;
-        Buffer<T> kept(static_cast<std::size_t>(count * width));
-        if (count > 0) {
+        const std::size_t size = static_cast<std::size_t>(count * width);
+        if (size > 0) {
+            // gathered into the room of the atoms, then back, in the memory
+            // the buffer has
+            a.spare.resize(size * sizeof(T));
+            T* kept = reinterpret_cast<T*>(a.spare.data());
             gather_rows<<<blocks(count * width), kBlock>>>(count, width, places.data(),
-                                                           buffer.data(), kept.data());
+                                                           buffer.data(), kept);
             MDAPY_LAUNCHED();
+            buffer.resize(size);
+            MDAPY_CUDA(cudaMemcpy(buffer.data(), kept, size * sizeof(T),
+                                  cudaMemcpyDeviceToDevice));
+        } else {
+            buffer.resize(0);
         }
-        buffer.swap(kept);
     });
     renumbered(a, count);
 }
@@ -179,20 +187,15 @@ template <class T>
 void grown(Buffer<T>& buffer, std::int64_t n, std::int64_t count, int width, const T* host) {
     const std::size_t old = static_cast<std::size_t>(n * width);
     const std::size_t added = static_cast<std::size_t>(count * width);
-    Buffer<T> out(old + added);
-    if (old > 0) {
-        MDAPY_CUDA(cudaMemcpy(out.data(), buffer.data(), old * sizeof(T),
-                              cudaMemcpyDeviceToDevice));
-    }
+    buffer.grow(old + added);
     if (added > 0) {
         if (host != nullptr) {
-            MDAPY_CUDA(cudaMemcpy(out.data() + old, host, added * sizeof(T),
+            MDAPY_CUDA(cudaMemcpy(buffer.data() + old, host, added * sizeof(T),
                                   cudaMemcpyHostToDevice));
         } else {
-            MDAPY_CUDA(cudaMemset(out.data() + old, 0, added * sizeof(T)));
+            MDAPY_CUDA(cudaMemset(buffer.data() + old, 0, added * sizeof(T)));
         }
     }
-    buffer.swap(out);
 }
 
 }  // namespace

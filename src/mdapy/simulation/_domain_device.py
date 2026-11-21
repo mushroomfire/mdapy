@@ -194,12 +194,11 @@ class DomainDeviceAtoms(DeviceAtoms):
             self._bricks,
         )
         potential.compute_stage(0, atoms, neighbors, *sub, energy, virial, heat)
-        width = potential.forwarded_bytes
-        for k, (_, _, destination, source, _, count) in enumerate(self._messages):
-            received = np.empty(count * width, dtype=np.uint8)
-            bricks.swap(exchange.pack_forwarded(potential, k), destination, received,
-                        source)  # fmt: skip
-            exchange.unpack_forwarded(potential, k, received)
+        for k, (_, _, destination, source, _, _) in enumerate(self._messages):
+            # through the pinned memory of each message
+            bricks.swap(exchange.pack_forwarded(potential, k), destination,
+                        exchange.receive_forwarded(potential, k), source)  # fmt: skip
+            exchange.unpack_forwarded(potential, k)
         potential.compute_stage(1, atoms, neighbors, *sub, energy, virial, heat)
 
     def __set_box(self, h: np.ndarray, lo: np.ndarray) -> None:
@@ -270,10 +269,11 @@ class DomainDeviceAtoms(DeviceAtoms):
             raise InvalidParameter(str(error)) from None
         except self._module.NotFinite:
             raise CalculationFailed(_NOT_FINITE) from None
-        exchange = self._exchange
-        exchange.clear()
-        for k, (chosen, _, _, _, start, count) in enumerate(self._messages):
-            exchange.set(atoms, k, chosen, int(start), int(count))
+        self._exchange.set_messages(
+            atoms,
+            [(chosen, int(start), int(count))
+             for chosen, _, _, _, start, count in self._messages],
+        )  # fmt: skip
         self._built = True
 
     def __count(self, sent: int, destination: Any, source: Any) -> int:
@@ -351,13 +351,13 @@ class DomainDeviceAtoms(DeviceAtoms):
         """The positions of the ghosts from those of their atoms, message by
         message, as the borders found them."""
         atoms, exchange, bricks = self._atoms, self._exchange, self._bricks
-        for k, (_, shift, destination, source, _, count) in enumerate(self._messages):
+        for k, (_, shift, destination, source, _, _) in enumerate(self._messages):
+            # through the pinned memory of each message
             sent = exchange.pack_positions(
                 atoms, k, np.ascontiguousarray(shift @ bricks.h)
             )
-            received = np.empty((count, 3))
-            bricks.swap(sent, destination, received, source)
-            exchange.unpack_positions(atoms, k, received)
+            bricks.swap(sent, destination, exchange.receive_positions(k), source)
+            exchange.unpack_positions(atoms, k)
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray

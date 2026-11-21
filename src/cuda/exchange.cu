@@ -9,6 +9,7 @@
 // forces on the ghosts, added to their atoms. The messages are those of the
 // borders of the bricks (simulation/_domain.py), fixed between two builds.
 
+#include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -78,9 +79,34 @@ __global__ void unpack_bytes_kernel(std::int64_t total, std::int64_t bytes,
 
 }  // namespace
 
+// Memory of the host that the device copies to and from at full speed,
+// kept for the messages of the next steps.
+struct Pinned {
+    void* data = nullptr;
+    std::size_t size = 0;
+    Pinned() = default;
+    Pinned(const Pinned&) = delete;
+    Pinned& operator=(const Pinned&) = delete;
+    ~Pinned() {
+        if (data != nullptr) cudaFreeHost(data);
+    }
+    void* reserve(std::size_t n) {
+        if (n > size) {
+            if (data != nullptr) cudaFreeHost(data);
+            data = nullptr;
+            size = 0;
+            MDAPY_CUDA(cudaHostAlloc(&data, n, cudaHostAllocDefault));
+            size = n;
+        }
+        return data;
+    }
+};
+
 struct Exchange::Impl {
     // the places of the rows each message sends, and of those it receives
     std::vector<std::unique_ptr<Buffer<std::int32_t>>> sent, received;
+    // the memory of the host of what each message sends and receives
+    std::vector<std::unique_ptr<Pinned>> outgoing, incoming;
     Buffer<double> scratch;
     Buffer<unsigned char> bytes;
 };
@@ -90,20 +116,34 @@ Exchange::~Exchange() = default;
 
 void Exchange::set(const Atoms& atoms, int k, const std::int32_t* rows, std::int64_t count,
                    std::int64_t start, std::int64_t received) {
-    Impl& e = *impl_;
+    set_all(atoms, {Message{k, rows, count, start, received}});
+}
+
+void Exchange::set_all(const Atoms& atoms, const std::vector<Message>& messages) {
     const Atoms::Impl& a = atoms.impl();
+    // the place of each of the caller's rows, once for all the messages
+    const auto& order = a.order();
+    std::vector<std::int32_t> place(static_cast<std::size_t>(a.n));
+    for (std::int64_t p = 0; p < a.n; ++p) {
+        place[order.empty() ? p : order[p]] = static_cast<std::int32_t>(p);
+    }
+    for (const Message& m : messages) {
+        set_one(a, place, m.k, m.rows, m.count, m.start, m.received);
+    }
+}
+
+void Exchange::set_one(const Atoms::Impl& a, const std::vector<std::int32_t>& place, int k,
+                       const std::int32_t* rows, std::int64_t count, std::int64_t start,
+                       std::int64_t received) {
+    Impl& e = *impl_;
     if (k < 0 || count < 0 || received < 0 || start < 0 || start + received > a.n) {
         throw std::invalid_argument("a message outside the atoms");
     }
     while (static_cast<std::size_t>(k) >= e.sent.size()) {
         e.sent.push_back(std::make_unique<Buffer<std::int32_t>>());
         e.received.push_back(std::make_unique<Buffer<std::int32_t>>());
-    }
-    // the place of each of the caller's rows
-    const auto& order = a.order();
-    std::vector<std::int32_t> place(static_cast<std::size_t>(a.n));
-    for (std::int64_t p = 0; p < a.n; ++p) {
-        place[order.empty() ? p : order[p]] = static_cast<std::int32_t>(p);
+        e.outgoing.push_back(std::make_unique<Pinned>());
+        e.incoming.push_back(std::make_unique<Pinned>());
     }
     std::vector<std::int32_t> out(static_cast<std::size_t>(count));
     for (std::int64_t i = 0; i < count; ++i) {
@@ -121,6 +161,15 @@ void Exchange::set(const Atoms& atoms, int k, const std::int32_t* rows, std::int
 void Exchange::clear() {
     impl_->sent.clear();
     impl_->received.clear();
+}
+
+void* Exchange::host(int k, bool outgoing, std::size_t bytes) {
+    Impl& e = *impl_;
+    auto& all = outgoing ? e.outgoing : e.incoming;
+    if (k < 0 || static_cast<std::size_t>(k) >= all.size()) {
+        throw std::invalid_argument("no such message");
+    }
+    return all[static_cast<std::size_t>(k)]->reserve(std::max<std::size_t>(bytes, 1));
 }
 
 namespace {

@@ -324,7 +324,17 @@ public:
     // After the list was built, the atoms at their places since.
     void set(const Atoms& atoms, int k, const std::int32_t* rows, std::int64_t count,
              std::int64_t start, std::int64_t received);
+    struct Message {
+        int k;
+        const std::int32_t* rows;
+        std::int64_t count, start, received;
+    };
+    // Every message of a build at once.
+    void set_all(const Atoms& atoms, const std::vector<Message>& messages);
     void clear();
+    // Pinned memory of the host for what message k sends (outgoing) or
+    // receives, of bytes at least, kept from step to step.
+    void* host(int k, bool outgoing, std::size_t bytes);
     std::int64_t sent(int k) const;
     std::int64_t received(int k) const;
     // The positions message k sends, plus shift (3,), into out (sent, 3); the
@@ -345,6 +355,9 @@ public:
     struct Impl;
 
 private:
+    void set_one(const Atoms::Impl& a, const std::vector<std::int32_t>& place, int k,
+                 const std::int32_t* rows, std::int64_t count, std::int64_t start,
+                 std::int64_t received);
     std::unique_ptr<Impl> impl_;
 };
 

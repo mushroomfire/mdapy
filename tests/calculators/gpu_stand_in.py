@@ -425,17 +425,20 @@ class Neighbors:
 
 
 class Exchange:
-    """The messages of the borders of the bricks, as the device's: the
-    stand-in keeps its atoms in the caller's order."""
+    """The messages of the borders of the bricks, as the device's, the
+    memory each receives into kept: the stand-in keeps its atoms in the
+    caller's order."""
 
     def __init__(self):
         self.messages = {}
+        self.incoming = {}
 
-    def set(self, atoms, k, rows, start, received):
-        self.messages[k] = (np.array(rows, dtype=np.int64), int(start), int(received))
-
-    def clear(self):
-        self.messages = {}
+    def set_messages(self, atoms, messages):
+        self.messages = {
+            k: (np.array(rows, dtype=np.int64), int(start), int(received))
+            for k, (rows, start, received) in enumerate(messages)
+        }
+        self.incoming = {}
 
     def sent(self, k):
         return len(self.messages[k][0])
@@ -446,28 +449,28 @@ class Exchange:
     def pack_positions(self, atoms, k, shift):
         return atoms.x[self.messages[k][0]] + shift
 
-    def unpack_positions(self, atoms, k, positions):
-        _, start, count = self.messages[k]
-        atoms.x[start : start + count] = positions
+    def receive_positions(self, k):
+        self.incoming[k] = np.empty((self.received(k), 3))
+        return self.incoming[k]
 
-    def pack_forces(self, atoms, k):
+    def unpack_positions(self, atoms, k):
         _, start, count = self.messages[k]
-        return np.array(atoms.result[1][start : start + count])
-
-    def add_forces(self, atoms, k, forces):
-        e, f, w = atoms.result
-        f = np.array(f)
-        f[self.messages[k][0]] += forces
-        atoms.result = (e, f, w)
+        atoms.x[start : start + count] = self.incoming[k]
 
     def pack_forwarded(self, potential, k):
         return np.ascontiguousarray(potential.values[self.messages[k][0]]).view(
             np.uint8
         )
 
-    def unpack_forwarded(self, potential, k, values):
+    def receive_forwarded(self, potential, k):
+        self.incoming[k] = np.empty(
+            self.received(k) * potential.forwarded_bytes, np.uint8
+        )
+        return self.incoming[k]
+
+    def unpack_forwarded(self, potential, k):
         _, start, count = self.messages[k]
-        potential.values[start : start + count] = np.asarray(values).view(np.float64)
+        potential.values[start : start + count] = self.incoming[k].view(np.float64)
 
 
 class Stopping:

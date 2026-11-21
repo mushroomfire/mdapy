@@ -21,6 +21,8 @@ struct Atoms::Impl {
     // The index among all the atoms of the atom at each place, by which it
     // draws its noise; empty while that is its index in the caller's order.
     Buffer<std::int64_t> ids;
+    // Room for the rows kept at a build under MPI (simulation/_domain_device.py).
+    Buffer<unsigned char> spare;
     // positions in double precision, the species of each atom as w
     Buffer<double4a> x;
     // the same in single precision for mixed precision, made from x when

@@ -484,23 +484,51 @@ NB_MODULE(_cuda, m) {
         .def("sent", &Exchange::sent, nb::arg("k"))
         .def("received", &Exchange::received, nb::arg("k"))
         .def(
+            "set_messages",
+            [](Exchange& e, const Atoms& a, nb::list messages) {
+                std::vector<Exchange::Message> all;
+                std::vector<nb::object> kept;  // the rows, alive while they are read
+                int k = 0;
+                for (nb::handle item : messages) {
+                    nb::tuple t = nb::cast<nb::tuple>(item);
+                    Rows rows = nb::cast<Rows>(t[0]);
+                    kept.push_back(nb::borrow(t[0]));
+                    all.push_back(Exchange::Message{k++, rows.data(),
+                                                    static_cast<std::int64_t>(rows.shape(0)),
+                                                    nb::cast<std::int64_t>(t[1]),
+                                                    nb::cast<std::int64_t>(t[2])});
+                }
+                e.clear();
+                e.set_all(a, all);
+            },
+            nb::arg("atoms"), nb::arg("messages"))
+        .def(
             "pack_positions",
-            [](const Exchange& e, const Atoms& a, int k, Vector shift) {
-                double* data;
-                nb::object out = new_array({static_cast<std::size_t>(e.sent(k)), 3}, data);
+            [](Exchange& e, const Atoms& a, int k, Vector shift) {
+                const auto count = static_cast<std::size_t>(e.sent(k));
+                auto* data = static_cast<double*>(e.host(k, true, 3 * count * sizeof(double)));
                 e.pack_positions(a, k, shift.data(), data);
-                return out;
+                const std::size_t shape[2] = {count, 3};
+                return nb::ndarray<nb::numpy, double>(data, 2, shape, nb::find(e));
             },
             nb::arg("atoms"), nb::arg("k"), nb::arg("shift"))
         .def(
-            "unpack_positions",
-            [](const Exchange& e, Atoms& a, int k, Positions in) {
-                if (static_cast<std::int64_t>(in.shape(0)) != e.received(k)) {
-                    throw std::invalid_argument("the positions of every ghost of the message");
-                }
-                e.unpack_positions(a, k, in.data());
+            "receive_positions",
+            [](Exchange& e, int k) {
+                const auto count = static_cast<std::size_t>(e.received(k));
+                auto* data = static_cast<double*>(e.host(k, false, 3 * count * sizeof(double)));
+                const std::size_t shape[2] = {count, 3};
+                return nb::ndarray<nb::numpy, double>(data, 2, shape, nb::find(e));
             },
-            nb::arg("atoms"), nb::arg("k"), nb::arg("positions"))
+            nb::arg("k"))
+        .def(
+            "unpack_positions",
+            [](Exchange& e, Atoms& a, int k) {
+                const auto count = static_cast<std::size_t>(e.received(k));
+                e.unpack_positions(
+                    a, k, static_cast<double*>(e.host(k, false, 3 * count * sizeof(double))));
+            },
+            nb::arg("atoms"), nb::arg("k"))
         .def(
             "pack_forces",
             [](const Exchange& e, const Atoms& a, int k) {
@@ -521,26 +549,39 @@ NB_MODULE(_cuda, m) {
             nb::arg("atoms"), nb::arg("k"), nb::arg("forces"))
         .def(
             "pack_forwarded",
-            [](const Exchange& e, Potential& p, int k) {
+            [](Exchange& e, Potential& p, int k) {
                 std::size_t bytes = 0;
                 const void* values = p.forwarded(&bytes);
-                unsigned char* data;
-                nb::object out = new_array({static_cast<std::size_t>(e.sent(k)) * bytes}, data);
+                const std::size_t size = static_cast<std::size_t>(e.sent(k)) * bytes;
+                auto* data = static_cast<unsigned char*>(e.host(k, true, size));
                 if (values != nullptr) e.pack_values(values, bytes, k, data);
-                return out;
+                const std::size_t shape[1] = {size};
+                return nb::ndarray<nb::numpy, unsigned char>(data, 1, shape, nb::find(e));
+            },
+            nb::arg("potential"), nb::arg("k"))
+        .def(
+            "receive_forwarded",
+            [](Exchange& e, Potential& p, int k) {
+                std::size_t bytes = 0;
+                p.forwarded(&bytes);
+                const std::size_t size = static_cast<std::size_t>(e.received(k)) * bytes;
+                auto* data = static_cast<unsigned char*>(e.host(k, false, size));
+                const std::size_t shape[1] = {size};
+                return nb::ndarray<nb::numpy, unsigned char>(data, 1, shape, nb::find(e));
             },
             nb::arg("potential"), nb::arg("k"))
         .def(
             "unpack_forwarded",
-            [](const Exchange& e, Potential& p, int k, Bytes in) {
+            [](Exchange& e, Potential& p, int k) {
                 std::size_t bytes = 0;
                 void* values = p.forwarded(&bytes);
-                if (in.shape(0) != static_cast<std::size_t>(e.received(k)) * bytes) {
-                    throw std::invalid_argument("the values of every ghost of the message");
+                const std::size_t size = static_cast<std::size_t>(e.received(k)) * bytes;
+                if (values != nullptr) {
+                    e.unpack_values(values, bytes, k,
+                                    static_cast<unsigned char*>(e.host(k, false, size)));
                 }
-                if (values != nullptr) e.unpack_values(values, bytes, k, in.data());
             },
-            nb::arg("potential"), nb::arg("k"), nb::arg("values"));
+            nb::arg("potential"), nb::arg("k"));
 
     nb::class_<mdapy::cuda::Stopping>(m, "Stopping")
         .def(

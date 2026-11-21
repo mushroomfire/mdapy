@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 #include <cuda_runtime.h>
 
 #include <cstddef>
@@ -37,20 +39,47 @@ public:
     Buffer(const Buffer&) = delete;
     Buffer& operator=(const Buffer&) = delete;
 
-    // Its contents are lost when the size changes.
+    // Its contents are lost when the size changes; the memory stays when
+    // it holds the new size.
     void resize(std::size_t n) {
-        if (n == size_) {
+        if (n <= capacity_) {
+            size_ = n;
             return;
         }
         if (data_ != nullptr) {
             cudaFree(data_);
         }
         data_ = nullptr;
-        size_ = 0;
+        size_ = capacity_ = 0;
         if (n > 0) {
             MDAPY_CUDA(cudaMalloc(reinterpret_cast<void**>(&data_), n * sizeof(T)));
-            size_ = n;
+            size_ = capacity_ = n;
         }
+    }
+    // A size of n keeping the contents of the first, with room to grow by
+    // half again when the memory is too small.
+    void grow(std::size_t n) {
+        if (n <= capacity_) {
+            size_ = n;
+            return;
+        }
+        const std::size_t room = std::max(n, capacity_ + capacity_ / 2);
+        T* more = nullptr;
+        MDAPY_CUDA(cudaMalloc(reinterpret_cast<void**>(&more), room * sizeof(T)));
+        if (data_ != nullptr) {
+            if (size_ > 0) {
+                const cudaError_t copied =
+                    cudaMemcpy(more, data_, size_ * sizeof(T), cudaMemcpyDeviceToDevice);
+                if (copied != cudaSuccess) {
+                    cudaFree(more);
+                    MDAPY_CUDA(copied);
+                }
+            }
+            cudaFree(data_);
+        }
+        data_ = more;
+        size_ = n;
+        capacity_ = room;
     }
     void upload(const T* host, std::size_t n) {
         resize(n);
@@ -70,6 +99,9 @@ public:
         const std::size_t s = size_;
         size_ = other.size_;
         other.size_ = s;
+        const std::size_t c = capacity_;
+        capacity_ = other.capacity_;
+        other.capacity_ = c;
     }
     void zero() {
         if (size_ > 0) {
@@ -83,6 +115,7 @@ public:
 private:
     T* data_ = nullptr;
     std::size_t size_ = 0;
+    std::size_t capacity_ = 0;
 };
 
 constexpr int kBlock = 128;

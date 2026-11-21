@@ -170,7 +170,7 @@ def cases(device="cpu"):
     matrix[2, 2] -= 3.0
     outside = open_z.with_box(mdapy.Box(matrix, pbc=(True, True, False)))
     half = crystal.box.matrix[0, 0] / 2
-    return {
+    out = {
         "nve": (crystal, eam, {}, 4),
         # bricks thinner than the reach of the ghosts
         "small": (copper(3), eam, {"ensemble": "npt", "temperature": 300,
@@ -223,14 +223,16 @@ def cases(device="cpu"):
         "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {}, 4),
         "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {},
                              8),
-        # computed whole on each process, with ghosts twice the cutoff thick:
-        # its calculators of other elements
-        "overlay whole": (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0, **gpu)]), {},
-                          4),
         "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02)]}, 8),
     }  # fmt: skip
+    if device == "cpu":
+        # computed whole on each process, with ghosts twice the cutoff thick:
+        # its calculators of other elements, which the GPU does not add
+        out["overlay whole"] = (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)]), {},
+                                4)  # fmt: skip
+    return out
 
 
 CASES = cases()
@@ -413,6 +415,86 @@ def test_restart_files_do_not_depend_on_the_processes(monkeypatch, tmp_path, cas
         4, lambda rank: finish(path, potential), monkeypatch
     ):
         same(continued, whole)
+
+
+@pytest.mark.parametrize("case", ["langevin", "hnemd convective", "groups"])
+def test_restart_files_on_gpus_do_not_depend_on_the_processes(monkeypatch, tmp_path,
+                                                              case):  # fmt: skip
+    """Written by two processes on their GPUs, read by two and by one."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal, potential, options, _ = cases("cuda")[case]
+    whole = run(crystal, potential, options)
+    path, copy = tmp_path / "md.restart", tmp_path / "copy.restart"
+    processes.run(2, lambda rank: stop(crystal, potential, options, path), monkeypatch)
+    shutil.copy(path, copy)
+    for continued in processes.run(
+        2, lambda rank: finish(path, potential), monkeypatch
+    ):
+        same(continued, whole)
+    same(finish(copy, potential), whole)
+
+
+def test_what_the_gpus_refuse(monkeypatch):
+    """A box thinner along a vector cut into bricks than the reach of the
+    ghosts, a Switch to a potential of a longer reach than the box holds,
+    and positions gone wrong, which every process raises together."""
+    from mdapy.errors import CalculationFailed
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    eam = EAM.zhou(["Cu"], device="cuda", precision="double")
+    refused(monkeypatch, 2, lambda: MolecularDynamics(copper(1), eam, timestep=0.002),
+            "fewer processes")  # fmt: skip
+
+    def squeezed():
+        with MolecularDynamics(copper(2), eam, timestep=0.002) as md:
+            md.run(30, controls=[Deform(zz=-1.5)])
+
+    refused(monkeypatch, 2, squeezed, "fewer processes")
+
+    def switched():
+        small = build_crystal("fcc", 3.2, elements="Cu", repeat=(2, 2, 2))
+        lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0, device="cuda", precision="double")
+        with MolecularDynamics(small, lj, timestep=0.002) as md:
+            md.run(10, controls=[Switch(eam)])
+
+    refused(monkeypatch, 2, switched, "fewer processes")
+
+    def lost(rank):
+        with MolecularDynamics(copper(), eam, timestep=0.002) as md:
+            md.run(2)
+            if rank == 0:  # a position of one process alone gone wrong
+                atoms = md._MolecularDynamics__engine._Native__atoms
+                atoms._atoms.x[0] = np.nan
+            with pytest.raises(CalculationFailed, match="not finite"):
+                md.run(5)
+        return True
+
+    assert processes.run(2, lost, monkeypatch) == [True, True]
+
+
+def test_velocities_given_on_gpus(monkeypatch):
+    """Velocities given to the dynamics go to the device rows of each
+    process, and come back in the order of the atoms."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal = copper()
+    eam = EAM.zhou(["Cu"], device="cuda", precision="double")
+    v = np.random.default_rng(1).normal(0.0, 3.0, (len(crystal), 3))
+
+    def task(rank):
+        with MolecularDynamics(crystal.with_columns(velocities=v), eam,
+                               timestep=0.002) as md:  # fmt: skip
+            md.run(1)
+            given = md.system["velocities"]
+            forces = (
+                md.system["forces"] if "forces" in md.system.table.columns else None
+            )
+            md.run(3)
+            return given, forces, md.system["positions"]
+
+    alone = task(None)
+    for split in processes.run(2, task, monkeypatch):
+        np.testing.assert_allclose(split[0], alone[0], atol=1e-9)
+        np.testing.assert_allclose(split[2], alone[2], atol=1e-9)
 
 
 def test_one_process_cancelled_stops_them_all(monkeypatch):

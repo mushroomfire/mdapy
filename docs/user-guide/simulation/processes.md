@@ -1,6 +1,6 @@
 # On many processes
 
-<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · the forces on a [GPU](gpu.md) for each process · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
+<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · a [GPU](gpu.md) for each process · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
 
 A script of molecular dynamics started with `mpirun` runs on all its processes
 together: each process owns the atoms in a brick of the box and keeps copies of
@@ -167,15 +167,22 @@ brick with the ghosts it finds among them.
 
 ## With a GPU each
 
-A potential with `device="cuda"` computes the forces of each process on a GPU:
-the steps run on the processor, and each process sends its atoms and the ghosts to
-its GPU at each step and takes their forces back. The processes on a machine share
-its GPUs in turn, the first process of the machine taking the first GPU, the
-second the second, and so on, round again when there are more processes than
-GPUs, as the launcher numbers them (`OMPI_COMM_WORLD_LOCAL_RANK` of Open MPI,
-`MPI_LOCALRANKID` of MPICH, `SLURM_LOCALID` of Slurm). A many-body potential takes
-ghosts within twice its cutoff and the skin, so that the GPU computes every atom of
-the process from all its neighbors. On a cluster of nodes with 4 GPUs each:
+With a potential of `device="cuda"`, each process keeps its atoms and their ghosts
+on a GPU, and the steps of the dynamics run there, as on [one GPU](gpu.md). At each
+step only the positions of the atoms that other processes keep as ghosts go out,
+and the few sums that the thermostats and the barostat need. Between two builds of
+the neighbor list nothing else leaves the GPUs. A build, when an atom of any process
+has moved half the skin or the box has changed, moves the atoms to the processes of
+their bricks and finds the ghosts again.
+
+A many-body potential takes ghosts within twice its cutoff and the skin, so that
+each GPU computes the atoms of its process from all their neighbors.
+
+The processes on a machine share its GPUs in turn: the first process of the
+machine takes the first GPU, the second the second, and so on, starting again from
+the first when there are more processes than GPUs. The launcher numbers the
+processes (`OMPI_COMM_WORLD_LOCAL_RANK` of Open MPI, `MPI_LOCALRANKID` of MPICH,
+`SLURM_LOCALID` of Slurm). On a cluster of nodes with 4 GPUs each:
 
 ```bash
 srun -N 2 --ntasks-per-node=4 --gpus-per-node=4 --mpi=pmix python heat.py

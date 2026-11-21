@@ -149,19 +149,28 @@ class DeviceAtoms:
 
     def state(self) -> dict[str, Any]:
         """What a restart keeps of the atoms on the device, besides their
-        positions and velocities: the forces of the last step too, those of
-        the atoms before a deformation carried them, which the next step
-        uses."""
+        velocities: the forces of the last step too, those of the atoms
+        before a deformation carried them, which the next step uses, and the
+        positions unwrapped, for the boxes each atom crossed, which the
+        wrapped positions of the system do not tell."""
         kept = {k: v for k, v in vars(self).items() if k not in self._TRANSIENT}
         kept["forces"] = self.forces
+        kept["positions"] = self.positions
         return kept
 
     def restore(self, state: dict[str, Any]) -> None:
-        """The counters, baths and controls as a restart kept them, and the
-        forces; the controls of a run are set on the device by its start."""
+        """The counters, baths and controls as a restart kept them, the
+        forces and the unwrapped positions, which the device wraps at its
+        next build; the controls of a run are set on the device by its
+        start."""
         state = dict(state)
         forces = state.pop("forces")
+        positions = state.pop("positions", None)
         vars(self).update({k: v for k, v in state.items() if k not in self._TRANSIENT})
+        if positions is not None:
+            self._atoms.set_positions(
+                np.ascontiguousarray(self._rows_of(positions), dtype=np.float64)
+            )
         self._atoms.set_forces(
             np.ascontiguousarray(self._rows_of(forces), dtype=np.float64)
         )

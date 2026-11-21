@@ -191,6 +191,7 @@ def test_a_run_finished_from_its_restart_is_the_run(tmp_path, case):
     crystal, options = CASES[case]
     (a, ta), (b, tb) = continued(tmp_path, crystal, options)
     np.testing.assert_allclose(b["positions"], a["positions"], rtol=0, atol=1e-11)
+    np.testing.assert_array_equal(b["image"], a["image"])  # the boxes crossed
     np.testing.assert_allclose(b["velocities"], a["velocities"], rtol=0, atol=1e-11)
     np.testing.assert_allclose(b.box.matrix, a.box.matrix, rtol=0, atol=1e-11)
     assert tb.columns == ta.columns and tb.height == ta.height

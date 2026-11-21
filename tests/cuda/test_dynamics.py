@@ -899,6 +899,8 @@ def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
     assert again.step == 50
     again.resume()
     np.testing.assert_allclose(again.system["positions"], whole["positions"], atol=1e-8)
+    # the boxes each atom crossed before the restart and after
+    np.testing.assert_array_equal(again.system["image"], whole["image"])
     np.testing.assert_allclose(
         again.system["velocities"], whole["velocities"], atol=1e-8
     )

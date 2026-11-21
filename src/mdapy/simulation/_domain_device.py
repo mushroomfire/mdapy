@@ -326,8 +326,19 @@ class DomainDeviceAtoms(DeviceAtoms):
     )
 
     def restore(self, state: dict[str, Any]) -> None:
-        """As on one process, the forces of all the atoms taken for those of
-        this process's; the atoms, given again with the system, are moved to
-        the device's rows at the next computation."""
-        super().restore(state)
+        """As on one process: the forces of all the atoms taken for those of
+        this process's, and the boxes each crossed from its unwrapped
+        position; the atoms, given again with the system, go to the rows of
+        the device at the next computation."""
+        state = dict(state)
+        forces = state.pop("forces")
+        positions = state.pop("positions", None)
+        vars(self).update({k: v for k, v in state.items() if k not in self._TRANSIENT})
+        if positions is not None:
+            here = self._atoms.positions()[: self._local]
+            crossed = (np.asarray(positions)[self._ids] - here) @ self._bricks.inverse
+            self._image = np.rint(crossed).astype(np.int64)
+        self._atoms.set_forces(
+            np.ascontiguousarray(self._rows_of(forces), dtype=np.float64)
+        )
         self._built = False

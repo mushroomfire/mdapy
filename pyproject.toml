@@ -34,7 +34,7 @@ pymatgen = ["pymatgen-core>=2026.2.24"]
 # the GPU part, the package mdapy-cuda12 at the version of MDAPY (cuda12/); only
 # for Linux on x86-64 and ARM, elsewhere MDAPY is built with the CUDA toolkit
 cuda12 = [
-    "mdapy-cuda12==2.2.0rc1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+    "mdapy-cuda12==2.2.0; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]
 dev = [
     "pytest>=8",

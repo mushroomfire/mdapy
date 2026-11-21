@@ -84,6 +84,35 @@ public:
     // The index among all the atoms of each, (n,) in the caller's order, by
     // which it draws its noise; null for its index in the caller's order.
     void set_ids(const std::int64_t* ids);
+    // The ids in the caller's order, (n,).
+    void get_ids(std::int64_t* ids) const;
+
+    // A build of the bricks under MPI (simulation/_domain_device.py), the
+    // rows those of the places of the atoms on the device, which settle makes
+    // the caller's order. What each atom carries: its position and species,
+    // its images, mass, id, velocity and force; keep_rows keeps those rows in
+    // their order and drops the others, pack_rows packs what they carry,
+    // row_bytes each, which append_rows adds after the atoms, and
+    // append_ghosts adds ghosts at positions (count, 3) with their species
+    // and ids. Each drops what the controls of a run set on the atoms, which
+    // the caller gives again, and the energies and virials computed.
+    void settle();
+    void keep_rows(const std::int32_t* rows, std::int64_t count);
+    std::vector<unsigned char> pack_rows(const std::int32_t* rows, std::int64_t count) const;
+    static std::size_t row_bytes();
+    void append_rows(const unsigned char* bytes, std::size_t size, std::int64_t count);
+    void append_ghosts(const double* positions, const std::int32_t* species,
+                       const std::int64_t* ids, std::int64_t count);
+    // The first owned atoms into the box h (3, 3) of origin lo (3,) along the
+    // periodic directions, their images counted.
+    void wrap(const double* h, const double* lo, const bool* pbc);
+    // The fractional coordinate along vector d of the box of the rows from
+    // begin to end, into out (end - begin,).
+    void fractions(int d, const double* h, const double* lo, std::int64_t begin,
+                   std::int64_t end, double* out) const;
+    // The positions of rows (count,), plus shift (3,), into out (count, 3).
+    void gather_positions(const std::int32_t* rows, std::int64_t count, const double* shift,
+                          double* out) const;
     void set_species(const std::int32_t* species);  // (n,)
     void set_positions(const double* positions);    // (n, 3)
     // In the box along its periodic directions after a neighbor list was

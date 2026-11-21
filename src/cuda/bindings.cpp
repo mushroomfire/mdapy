@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -40,6 +41,7 @@ using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
 using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Rows = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Bytes = nb::ndarray<const unsigned char, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Movable = nb::ndarray<const bool, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
@@ -99,6 +101,74 @@ NB_MODULE(_cuda, m) {
             },
             nb::arg("ids"))
         .def("clear_ids", [](Atoms& a) { a.set_ids(nullptr); })
+        .def("ids",
+             [](const Atoms& a) {
+                 std::int64_t* data;
+                 nb::object out = new_array({static_cast<std::size_t>(a.size())}, data);
+                 a.get_ids(data);
+                 return out;
+             })
+        .def("settle", &Atoms::settle)
+        .def(
+            "keep_rows", [](Atoms& a, Rows rows) {
+                a.keep_rows(rows.data(), static_cast<std::int64_t>(rows.shape(0)));
+            },
+            nb::arg("rows"))
+        .def(
+            "pack_rows",
+            [](const Atoms& a, Rows rows) {
+                std::vector<unsigned char> bytes =
+                    a.pack_rows(rows.data(), static_cast<std::int64_t>(rows.shape(0)));
+                unsigned char* data;
+                nb::object out = new_array({bytes.size()}, data);
+                if (!bytes.empty()) std::memcpy(data, bytes.data(), bytes.size());
+                return out;
+            },
+            nb::arg("rows"))
+        .def_static("row_bytes", &Atoms::row_bytes)
+        .def(
+            "append_rows",
+            [](Atoms& a, Bytes bytes, std::int64_t count) {
+                a.append_rows(bytes.data(), bytes.shape(0), count);
+            },
+            nb::arg("bytes"), nb::arg("count"))
+        .def(
+            "append_ghosts",
+            [](Atoms& a, Positions positions, Species species, Ids ids) {
+                const auto count = static_cast<std::int64_t>(positions.shape(0));
+                if (static_cast<std::int64_t>(species.shape(0)) != count ||
+                    static_cast<std::int64_t>(ids.shape(0)) != count) {
+                    throw std::invalid_argument("a species and an id for each ghost");
+                }
+                a.append_ghosts(positions.data(), species.data(), ids.data(), count);
+            },
+            nb::arg("positions"), nb::arg("species"), nb::arg("ids"))
+        .def(
+            "wrap",
+            [](Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                a.wrap(h.data(), lo.data(), pbc.data());
+            },
+            nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
+        .def(
+            "fractions",
+            [](const Atoms& a, int d, Matrix h, Vector lo, std::int64_t begin,
+               std::int64_t end) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(end - begin)}, data);
+                a.fractions(d, h.data(), lo.data(), begin, end, data);
+                return out;
+            },
+            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("begin"), nb::arg("end"))
+        .def(
+            "gather_positions",
+            [](const Atoms& a, Rows rows, Vector shift) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(rows.shape(0)), 3}, data);
+                a.gather_positions(rows.data(), static_cast<std::int64_t>(rows.shape(0)),
+                                   shift.data(), data);
+                return out;
+            },
+            nb::arg("rows"), nb::arg("shift"))
         .def(
             "set_species",
             [](Atoms& a, Species species) {

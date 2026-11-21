@@ -282,6 +282,12 @@ class Bricks:
             x[chosen] += back
         return x[: self.local]
 
+    def neighbors_along(self, d: int, side: int) -> tuple[int | None, int | None]:
+        """The process this one sends to on a side along a box vector, and the
+        one it receives from on the other; None at a boundary that is not
+        periodic."""
+        return self.__neighbors(d, side)
+
     @property
     def messages(self) -> list:
         """The messages of the last ``borders``: (rows sent, the box vectors

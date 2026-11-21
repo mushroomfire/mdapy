@@ -19,6 +19,11 @@ class NotFinite(RuntimeError):
     pass
 
 
+# what each atom carries from process to process, as the device packs it
+_CARRIED = np.dtype([("x", "f8", 3), ("species", "i4"), ("image", "i4", 3),
+                     ("mass", "f8"), ("id", "i8"), ("v", "f8", 3), ("f", "f8", 3)])  # fmt: skip
+
+
 class Atoms:
     """The atoms, as mdapy._cuda.Atoms holds them, in NumPy arrays."""
 
@@ -26,7 +31,8 @@ class Atoms:
         self.size = n
         self.species = self.x = self.v = self.masses = self.result = None
         self.m = n  # the atoms of the process, the first
-        self.ids = np.arange(n, dtype=np.int64)
+        self.index = np.arange(n, dtype=np.int64)
+        self.image = np.zeros((n, 3), dtype=np.int32)  # the boxes wrap moved them by
 
     def set_owned(self, owned):
         self.m = owned if owned > 0 else self.size
@@ -36,10 +42,10 @@ class Atoms:
         return self.m
 
     def set_ids(self, ids):
-        self.ids = np.array(ids, dtype=np.int64)
+        self.index = np.array(ids, dtype=np.int64)
 
     def clear_ids(self):
-        self.ids = np.arange(self.size, dtype=np.int64)
+        self.index = np.arange(self.size, dtype=np.int64)
 
     def set_species(self, species):
         self.species = np.array(species)
@@ -49,6 +55,7 @@ class Atoms:
 
     def set_positions(self, positions):
         self.x = np.array(positions)
+        self.image = np.zeros((self.size, 3), dtype=np.int32)
 
     def set_velocities(self, velocities):
         self.v = np.array(velocities)
@@ -56,8 +63,74 @@ class Atoms:
     def positions(self):
         return self.x.copy()
 
-    def images(self):  # the stand-in never wraps
-        return np.zeros((self.size, 3), dtype=np.int32)
+    def images(self):  # the stand-in wraps only under MPI, at a build
+        return self.image.copy()
+
+    # -- a build of the bricks under MPI, rows the caller's order ------------
+
+    def ids(self):
+        return self.index.copy()
+
+    def settle(self):
+        pass
+
+    def __renumbered(self, n, forces):
+        self.size = self.m = n
+        self.movable = self.prescribed = self.added = self.groups = None
+        self.sites = self.constants = None
+        self.result = (np.zeros(n), forces, np.zeros((n, 3, 3)))
+
+    def keep_rows(self, rows):
+        forces = self.forces()[rows]
+        self.x, self.v = self.x[rows], self.v[rows]
+        self.species, self.masses = self.species[rows], self.masses[rows]
+        self.index, self.image = self.index[rows], self.image[rows]
+        self.__renumbered(len(rows), forces)
+
+    @staticmethod
+    def row_bytes():
+        return _CARRIED.itemsize
+
+    def pack_rows(self, rows):
+        out = np.empty(len(rows), dtype=_CARRIED)
+        out["x"], out["species"], out["image"] = self.x[rows], self.species[rows], self.image[rows]
+        out["mass"], out["id"], out["v"] = self.masses[rows], self.index[rows], self.v[rows]
+        out["f"] = self.forces()[rows]
+        return out.view(np.uint8)
+
+    def __appended(self, x, species, image, masses, ids, v, f):
+        self.x = np.concatenate([self.x, x])
+        self.species = np.concatenate([self.species, species])
+        self.image = np.concatenate([self.image, image])
+        self.masses = np.concatenate([self.masses, masses])
+        self.index = np.concatenate([self.index, ids])
+        self.v = np.concatenate([self.v, v])
+        self.__renumbered(len(self.x), np.concatenate([self.forces(), f]))
+
+    def append_rows(self, data, count):
+        rows = np.asarray(data, dtype=np.uint8).view(_CARRIED)
+        assert len(rows) == count
+        self.__appended(rows["x"], rows["species"], rows["image"], rows["mass"],
+                        rows["id"], rows["v"], rows["f"])  # fmt: skip
+
+    def append_ghosts(self, positions, species, ids):
+        n = len(positions)
+        zeros = np.zeros((n, 3))
+        self.__appended(np.array(positions), np.array(species), np.zeros((n, 3), np.int32),
+                        np.zeros(n), np.array(ids), zeros, zeros)  # fmt: skip
+
+    def wrap(self, h, lo, pbc):
+        m = self.m
+        s = (self.x[:m] - lo) @ np.linalg.inv(h)
+        whole = np.where(np.array(pbc) & np.isfinite(s), np.floor(s), 0.0)
+        self.x[:m] -= whole @ h
+        self.image[:m] += whole.astype(np.int32)
+
+    def fractions(self, d, h, lo, begin, end):
+        return ((self.x[begin:end] - lo) @ np.linalg.inv(h))[:, d]
+
+    def gather_positions(self, rows, shift):
+        return self.x[rows] + shift
 
     def velocities(self):
         return self.v.copy()
@@ -154,7 +227,7 @@ class Atoms:
 
     def __noise(self, c2, kt, seed, counter):
         m = self.m
-        g = _core.core.normals(self.ids[:m], seed, 0, counter)
+        g = _core.core.normals(self.index[:m], seed, 0, counter)
         return c2 * np.sqrt(kt / self.masses[:m])[:, None] * g
 
     def langevin(self, c1, c2, kt, seed, counter, keep=False):
@@ -306,7 +379,7 @@ class Atoms:
         v = self.v[:n]
         mask = (self.groups[:n] >> bit) & 1 == 1
         g = np.zeros_like(v)
-        g[mask] = _core.core.normals(self.ids[:n][mask], seed, 1, counter)
+        g[mask] = _core.core.normals(self.index[:n][mask], seed, 1, counter)
         g = self.__restricted(g)
         m = self.masses[:n][mask]
         before = np.einsum("i,ij,ij->", m, v[mask], v[mask])

@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The atoms of one MPI process of MPI on its GPU, as LAMMPS's KOKKOS holds
+"""The atoms of one process of MPI on its GPU, as LAMMPS's KOKKOS holds
 them: those of its brick of the box and, after them, the ghosts within the
 reach of the potential and the skin, all on the device, where the steps of
 the integrator go through the atoms of the brick. Each step sends the
@@ -11,9 +11,11 @@ positions of the atoms other processes keep as ghosts, gathered and
 scattered on the device, and sums the few numbers the thermostats and the
 barostat need over the processes; between two builds of the neighbor list
 nothing else leaves the device. A build, when an atom has moved half the
-skin or the box has changed, brings the atoms of the brick back, moves them
-to the processes of their bricks and finds the ghosts again, as
-simulation/_domain.py does on the processor."""
+skin or the box has changed, is done on the device too, as the bricks of
+simulation/_domain.py do it on the processor: the ghosts dropped, the atoms
+wrapped into the box, those that left the brick sent with all they carry to
+the process of the next brick, then the ghosts found again; only the atoms
+that go from process to process pass through the processor."""
 
 from typing import Any
 
@@ -57,16 +59,21 @@ class DomainDeviceAtoms(DeviceAtoms):
         self._exchange: Any = None
         self._built = False
         self._sub_box: tuple | None = None  # (h, lo, pbc) of the atoms and the ghosts
+        # the messages of the last build: (rows sent, box vectors added to
+        # them, destination, source, the row the ghosts come in at, their number)
+        self._messages: list = []
         super().__init__(calculator, system, x_local, v_local, masses, skin, movable,
                          rotation)  # fmt: skip
+        self._atoms.set_ids(self._sub_ids)
         self._h = np.array(box.matrix, dtype=np.float64)
         self._exchange = self._module.Exchange()
 
     def __distribute(
         self, x: np.ndarray, v: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray]:
-        """This process's atoms of arrays of all the atoms: their rows, wrapped
-        positions and images, and velocities."""
+        """This process's atoms of arrays of all the atoms, their positions as
+        given: the device wraps them at the first build and counts the boxes
+        it moves them by."""
         bricks = self._bricks
         s = bricks.fractional(x)
         whole = np.where(bricks.pbc, np.floor(s), 0.0)
@@ -78,8 +85,7 @@ class DomainDeviceAtoms(DeviceAtoms):
         self._local = len(mine)
         self._ids = mine.astype(np.int64)  # this process's atoms among all
         self._sub_ids = self._ids  # those of the rows on the device
-        self._image = whole[mine].astype(np.int64)
-        return x[mine] - whole[mine] @ bricks.h, np.array(v[mine], dtype=float)
+        return np.array(x[mine], dtype=float), np.array(v[mine], dtype=float)
 
     # -- the rows on the device, and the sums over the processes ------------
 
@@ -103,18 +109,15 @@ class DomainDeviceAtoms(DeviceAtoms):
             out[ids] = part
         return out
 
-    def __mine(self) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        """This process's atoms from the device: wrapped positions, their
-        images with those of the device, velocities and forces."""
+    def __unwrapped(self) -> np.ndarray:
+        """This process's atoms from the device, unwrapped by the boxes the
+        device moved them by."""
         m, atoms = self._local, self._atoms
-        x = atoms.positions()[:m]
-        image = self._image + atoms.images()[:m].astype(np.int64)
-        return x, image, atoms.velocities()[:m], atoms.forces()[:m]
+        return atoms.positions()[:m] + atoms.images()[:m] @ self._h
 
     @property
     def positions(self) -> np.ndarray:
-        x, image, _, _ = self.__mine()
-        return self.__gather(x + image @ self._h)
+        return self.__gather(self.__unwrapped())
 
     @property
     def velocities(self) -> np.ndarray:
@@ -139,8 +142,7 @@ class DomainDeviceAtoms(DeviceAtoms):
         return float(np.min(self._comm.allgather(float(mine))))
 
     def extent(self, lo: np.ndarray, h: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        x, image, _, _ = self.__mine()
-        s = (x + image @ self._h - lo) @ np.linalg.inv(h)
+        s = (self.__unwrapped() - lo) @ np.linalg.inv(h)
         low = s.min(axis=0) if len(s) else np.full(3, np.inf)
         high = s.max(axis=0) if len(s) else np.full(3, -np.inf)
         parts = self._comm.allgather((low, high))
@@ -179,34 +181,56 @@ class DomainDeviceAtoms(DeviceAtoms):
         self._built = False
 
     def __build(self) -> None:
-        """The atoms moved to the processes of their bricks, the ghosts found,
-        and the atoms and the ghosts given to the device, with what the
-        controls of the run set on them; the neighbor list built."""
-        bricks = self._bricks
-        x, image, v, f = self.__mine()
-        # every process raises together, or the others would wait for ever
-        bad = not (np.isfinite(x).all() and np.isfinite(v).all())
-        if bricks.maximum(float(bad)) > 0.0:
-            raise CalculationFailed(_NOT_FINITE)
-        fields = bricks.migrate(
-            {"positions": x, "velocities": v, "image": image, "id": self._ids,
-             "forces": f}
-        )  # fmt: skip
-        self._local = bricks.local
-        self._ids = fields["id"]
-        self._image = fields["image"]
-        ghosts, ids = bricks.borders(fields["positions"], self._ids)
-        self._sub_ids = np.ascontiguousarray(ids, dtype=np.int64)
-        n, m = len(ghosts), self._local
-        velocities = np.zeros((n, 3))
-        velocities[:m] = fields["velocities"]
-        forces = np.zeros((n, 3))
-        forces[:m] = fields["forces"]
-        self._new_atoms(ghosts, velocities)
-        atoms = self._atoms
-        atoms.set_owned(m)
-        atoms.set_ids(self._sub_ids)
-        atoms.set_forces(forces)
+        """On the device: the ghosts dropped, the atoms wrapped into the box
+        along its periodic directions, moved brick to brick along x, y and z
+        with all they carry, then the ghosts of the bricks around found and
+        added; what the controls of the run set given again, and the neighbor
+        list built."""
+        bricks, atoms = self._bricks, self._atoms
+        h, lo = np.ascontiguousarray(bricks.h), np.ascontiguousarray(bricks.lo)
+        atoms.settle()
+        atoms.keep_rows(np.arange(self._local, dtype=np.int32))
+        atoms.wrap(h, lo, tuple(bool(p) for p in bricks.pbc))
+        size = self._module.Atoms.row_bytes()
+        for d in range(3):
+            if bricks.counts[d] == 1:
+                continue
+            s = atoms.fractions(d, h, lo, 0, atoms.size)
+            brick = np.floor(s * bricks.counts[d])
+            step = np.clip(np.nan_to_num(brick, nan=0.0), 0, bricks.counts[d] - 1)
+            step = step.astype(np.int64) - bricks.at[d]
+            if bricks.pbc[d]:  # the nearer way round, across the boundary
+                half = bricks.counts[d] // 2
+                step = (step + half) % bricks.counts[d] - half
+            # every process raises together, or the others would wait for ever:
+            # 3 for a position gone wrong, else how many bricks an atom moved
+            lost = not np.isfinite(s).all()
+            worst = bricks.maximum(3.0 if lost else float(np.abs(step).max(initial=0)))
+            if worst >= 3.0:
+                raise CalculationFailed(_NOT_FINITE)
+            if worst > 1.0:
+                raise InvalidParameter(
+                    "an atom moved farther than a brick between two builds of the "
+                    "neighbor lists: the time step may be too long"
+                )
+            arrived = []
+            for side in (-1, 1):
+                rows = np.flatnonzero(step == side).astype(np.int32)
+                destination, source = bricks.neighbors_along(d, side)
+                count = self.__count(len(rows), destination, source)
+                received = np.empty(count * size, dtype=np.uint8)
+                bricks.swap(atoms.pack_rows(rows), destination, received, source)
+                arrived.append((received, count))
+            atoms.keep_rows(np.flatnonzero(step == 0).astype(np.int32))
+            for received, count in arrived:
+                atoms.append_rows(received, count)
+        owned = atoms.size
+        self._sub_ids = np.asarray(atoms.ids(), dtype=np.int64)
+        self.__borders(h, lo)
+        self._local = owned
+        self._ids = self._sub_ids[:owned]
+        atoms.set_owned(owned)
+        self._set_free(self._free)
         self._set_run_arrays()
         if self._sites is not None:
             self._set_springs()
@@ -219,10 +243,65 @@ class DomainDeviceAtoms(DeviceAtoms):
             raise CalculationFailed(_NOT_FINITE) from None
         exchange = self._exchange
         exchange.clear()
-        for k, (chosen, _, _, _, start, count) in enumerate(bricks.messages):
-            exchange.set(atoms, k, np.ascontiguousarray(chosen, dtype=np.int32),
-                         int(start), int(count))  # fmt: skip
+        for k, (chosen, _, _, _, start, count) in enumerate(self._messages):
+            exchange.set(atoms, k, chosen, int(start), int(count))
         self._built = True
+
+    def __count(self, sent: int, destination: Any, source: Any) -> int:
+        """How many rows come from source while sent go to destination."""
+        received = np.zeros(1, dtype=np.int64)
+        self._bricks.swap(
+            np.array([sent], dtype=np.int64), destination, received, source
+        )
+        return int(received[0])
+
+    def __borders(self, h: np.ndarray, lo: np.ndarray) -> None:
+        """The ghosts of the bricks around added after the atoms, along x, y
+        and z in turn, as Bricks.borders finds them: first the atoms and the
+        ghosts of the directions before, which carry the corners, then, when
+        the bricks are thinner than the reach, those that came the hop before
+        from the other side, passed on; _sub_ids gets their ids."""
+        bricks, atoms = self._bricks, self._atoms
+        lower = bricks.at / bricks.counts
+        upper = (bricks.at + 1) / bricks.counts
+        self._messages = []
+        for d in range(3):
+            if bricks.counts[d] == 1:
+                continue
+            before = atoms.size
+            came = {-1: (0, before), 1: (0, before)}
+            for _ in range(int(bricks.hops[d])):
+                for side in (-1, 1):
+                    begin, end = came[side]
+                    t = atoms.fractions(d, h, lo, begin, end)
+                    if side < 0:
+                        near = (t >= lower[d]) & (t < lower[d] + bricks.fraction[d])
+                        edge = bricks.at[d] == 0
+                    else:
+                        near = (t < upper[d]) & (t >= upper[d] - bricks.fraction[d])
+                        edge = bricks.at[d] == bricks.counts[d] - 1
+                    chosen = (begin + np.flatnonzero(near)).astype(np.int32)
+                    if edge and not bricks.pbc[d]:
+                        chosen = chosen[:0]
+                    shift = np.zeros(3)
+                    if edge:
+                        shift[d] = -side  # in box vectors, added to what is sent
+                    destination, source = bricks.neighbors_along(d, side)
+                    count = self.__count(len(chosen), destination, source)
+                    positions = np.empty((count, 3))
+                    bricks.swap(atoms.gather_positions(chosen, np.ascontiguousarray(shift @ h)),
+                                destination, positions, source)  # fmt: skip
+                    got_ids = np.empty(count, dtype=np.int64)
+                    bricks.swap(np.ascontiguousarray(self._sub_ids[chosen]),
+                                destination, got_ids, source)  # fmt: skip
+                    start = atoms.size
+                    atoms.append_ghosts(positions,
+                                        np.ascontiguousarray(self._species[got_ids]),
+                                        got_ids)  # fmt: skip
+                    self._sub_ids = np.concatenate([self._sub_ids, got_ids])
+                    self._messages.append((chosen, shift, destination, source, start,
+                                           count))  # fmt: skip
+                    came[side] = (start, start + count)
 
     def __sub_box(self) -> tuple:
         """The box of the atoms and the ghosts: along a vector cut into
@@ -243,24 +322,13 @@ class DomainDeviceAtoms(DeviceAtoms):
         """The positions of the ghosts from those of their atoms, message by
         message, as the borders found them."""
         atoms, exchange, bricks = self._atoms, self._exchange, self._bricks
-        for k, (_, shift, destination, source, _, count) in enumerate(bricks.messages):
+        for k, (_, shift, destination, source, _, count) in enumerate(self._messages):
             sent = exchange.pack_positions(
                 atoms, k, np.ascontiguousarray(shift @ bricks.h)
             )
             received = np.empty((count, 3))
             bricks.swap(sent, destination, received, source)
             exchange.unpack_positions(atoms, k, received)
-
-    def _set_springs(self) -> None:
-        """Springs to sites of the unwrapped positions: the device unwraps
-        by its own images alone, so the sites of each atom take back the
-        boxes it was moved by on the processor."""
-        sites, constants = self._sites
-        rows = np.array(sites[self._sub_ids], dtype=np.float64)
-        rows[: self._local] -= self._image @ self._h
-        self._atoms.set_springs(
-            np.ascontiguousarray(rows), np.ascontiguousarray(constants[self._sub_ids])
-        )
 
     def remap(
         self, old_lo: np.ndarray, old: np.ndarray, lo: np.ndarray, new: np.ndarray
@@ -321,24 +389,12 @@ class DomainDeviceAtoms(DeviceAtoms):
         "_local",
         "_ids",
         "_sub_ids",
-        "_image",
-        "_carried",
+        "_messages",
     )
 
     def restore(self, state: dict[str, Any]) -> None:
-        """As on one process: the forces of all the atoms taken for those of
-        this process's, and the boxes each crossed from its unwrapped
-        position; the atoms, given again with the system, go to the rows of
-        the device at the next computation."""
-        state = dict(state)
-        forces = state.pop("forces")
-        positions = state.pop("positions", None)
-        vars(self).update({k: v for k, v in state.items() if k not in self._TRANSIENT})
-        if positions is not None:
-            here = self._atoms.positions()[: self._local]
-            crossed = (np.asarray(positions)[self._ids] - here) @ self._bricks.inverse
-            self._image = np.rint(crossed).astype(np.int64)
-        self._atoms.set_forces(
-            np.ascontiguousarray(self._rows_of(forces), dtype=np.float64)
-        )
+        """As on one process, the unwrapped positions and the forces of all
+        the atoms taken for those of this process's; the device wraps them
+        at the next build, which counts the boxes they crossed."""
+        super().restore(state)
         self._built = False

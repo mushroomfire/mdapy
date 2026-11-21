@@ -10405,10 +10405,10 @@ in liquid argon and silicon NEMD gave four times theirs.</p>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">production</span><span class="o">=</span><span class="mi">250000</span><span class="p">,</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">every</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">result</span>  <span class="c1"># NEMD(0.5434 ± 0.0078 W/(m K) at 40.0334 K over 84.48 Å)</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">result</span>  <span class="c1"># NEMD(0.6024 ± 0.018 W/(m K) at 40.0055 K over 84.48 Å)</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="n">result</span><span class="o">.</span><span class="n">flux</span><span class="p">,</span> <span class="n">result</span><span class="o">.</span><span class="n">gradient</span>  <span class="c1"># eV/(ps Å²) and K/Å</span>
 </code></pre></div>
-<p>The 302 500 steps, 1.2 ns, run in MDAPY in 4 minutes on 8 cores. The temperature of
+<p>The 302 500 steps, 1.2 ns, run in MDAPY in 8 minutes on 8 cores. The temperature of
 the slabs, and the heat the baths exchanged during the measurement:</p>
 <!-- skip-test -->
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
@@ -10434,10 +10434,12 @@ the slabs, and the heat the baths exchanged during the measurement:</p>
 </code></pre></div>
 <p><img alt="The temperature of the slabs of solid argon between a cold and a hot bath, and the heat the baths exchanged" src="../images/nemd.png" /></p>
 <p><em>a: The cold bath at the ends of the box and the hot one in its middle; between them
-the temperature falls linearly, by 0.12 K/Å on both sides, with jumps at the baths,
+the temperature falls linearly, by 0.11 K/Å on both sides, with jumps at the baths,
 where the atoms are thermalized by force. The lines are the fits whose slopes give the
-gradient. b: The heat the hot bath gave and the cold one took grow at one rate, 0.146
-eV/ps, all through the measurement: the steady state holds from its start, after the
+gradient, of the slabs but those next to the baths, which stand off them by 0.1 to
+0.3 K, alike on the two sides of a bath. Each point is at the mean position of the atoms
+of its slab, which holds one or two of the atomic planes, 2.64 Å apart. b: The heat
+the hot bath gave and the cold one took grow at one rate, 0.152 eV/ps, all through the measurement: the steady state holds from its start, after the
 200 ps of <code>relaxation</code>. The flux is that rate over twice the section of the box, as the
 heat flows from the hot bath both ways.</em></p>
 <table>
@@ -10579,7 +10581,7 @@ each length on one GPU gave</p>
 <tbody>
 <tr>
 <td>4.2 nm</td>
-<td>0.40 ± 0.02</td>
+<td>0.40 ± 0.01</td>
 </tr>
 <tr>
 <td>8.4 nm</td>
@@ -10591,19 +10593,23 @@ each length on one GPU gave</p>
 </tr>
 <tr>
 <td>33.8 nm</td>
-<td>0.79 ± 0.01</td>
+<td>0.76 ± 0.02</td>
 </tr>
 </tbody>
 </table>
-<p>and a line of 1/κ against 1/L reaches 0.91 ± 0.02 W/(m K) at an infinite length.
-The three runs at 8.4 nm spread from 0.566 to 0.595 W/(m K), and three on the
-processor, the one above among them, from 0.543 to 0.576, as the errors of single runs
-from their blocks, 0.008 to 0.03 W/(m K), allow. Take the mean of runs with different
-seeds, and compare boxes of growing length. The <a href="../green-kubo/">Green–Kubo relation</a>
-and <a href="../hnemd/">HNEMD</a> need no such length.</p>
-<p><strong>The baths.</strong> The atoms of the first slab along the axis are the cold bath and those of
-the slab in the middle the hot one, as they are at the start: groups that do not
-change, for crystals whose atoms stay in their slabs. The rest run at constant energy.
+<p>and a line of 1/κ against 1/L reaches 0.90 ± 0.03 W/(m K) at an infinite length.
+The three runs at 8.4 nm spread from 0.566 to 0.597 W/(m K), and the one above, on the
+processor, gave 0.602, as the errors of single runs from their blocks, 0.015 to
+0.025 W/(m K), allow. Take the mean of runs with different seeds, and compare boxes
+of growing length. The <a href="../green-kubo/">Green–Kubo relation</a> and <a href="../hnemd/">HNEMD</a> need
+no such length.</p>
+<p><strong>The slabs and the baths.</strong> Each slab is the group of the atoms in it at the start,
+for the temperatures as for the baths: groups that do not change, for crystals whose
+atoms stay in their slabs. The atoms of the first slab along the axis are the cold bath
+and those of the slab in the middle the hot one; the rest run at constant energy. An
+atom of a bath that vibrates across the edge of its slab thus stays out of the
+temperature of the next slab, which it would heat or cool, more on one side of the bath
+than on the other, if the slabs were taken where the atoms are at each sample.
 A larger <code>difference</code> gives a smaller error, as long as the gradient stays linear.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>nemd</code> returns an <code>NEMD</code>; every array is read-only.</p>
@@ -10651,13 +10657,13 @@ A larger <code>difference</code> gives a smaller error, as long as the gradient 
 <td><code>positions</code></td>
 <td>(B,) float64</td>
 <td>Å</td>
-<td>the middle of each slab along the axis</td>
+<td>the mean position along the axis of the atoms of each slab at the start</td>
 </tr>
 <tr>
 <td><code>temperatures</code></td>
 <td>(B,) float64</td>
 <td>K</td>
-<td>the mean temperature of each slab</td>
+<td>the mean temperature of the atoms of each slab</td>
 </tr>
 <tr>
 <td><code>times</code></td>

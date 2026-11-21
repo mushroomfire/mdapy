@@ -12188,7 +12188,9 @@ samples: its potential part, or with <code>convective</code> the whole flux.</p>
 nonequilibrium molecular dynamics (NEMD): the box cut into slabs across
 the vector, Langevin baths in the slab at its start, cold, and in the
 middle one, hot, the rest at constant energy; the heat the baths drive
-through each half over the gradient of temperature there.</p>
+through each half over the gradient of temperature there. A slab is the
+group of the atoms in it at the start, for the baths and for the
+temperatures alike.</p>
 
 
 <p><span class="doc-section-title">Parameters:</span></p>
@@ -12634,8 +12636,8 @@ atoms, or the errors of <code>MolecularDynamics</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>(B,) float64 the middle of each slab along the axis in Å, from the
-middle of the cold bath.</p>
+                <p>(B,) float64 the mean position along the axis in Å of the atoms of
+each slab at the start, from the start of the box.</p>
               </div>
             </td>
           </tr>
@@ -12646,7 +12648,7 @@ middle of the cold bath.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>(B,) float64 the mean temperature of each slab in K.</p>
+                <p>(B,) float64 the mean temperature of the atoms of each slab in K.</p>
               </div>
             </td>
           </tr>

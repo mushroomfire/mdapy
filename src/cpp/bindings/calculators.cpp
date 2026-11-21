@@ -609,6 +609,83 @@ nb::tuple adp_forces(const calculators::AdpPotential& potential, Species species
     return nb::make_tuple(e, f, w);
 }
 
+// On one thread, each pair once among the processes of MPI: the sums
+// (n, 10) the pairs of the first centers atoms give every atom, its density,
+// dipole and quadrupole.
+nb::object adp_densities_once(const calculators::AdpPotential& potential, Species species,
+                              Positions positions, Matrix matrix, Offsets offsets,
+                              Neighbors neighbors, Shifts shifts, std::int64_t centers) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    double* sums;
+    const std::size_t shape[2] = {species.shape(0), calculators::kState};
+    nb::object out = new_array(2, shape, sums);
+    std::fill(sums, sums + calculators::kState * species.shape(0), 0.0);
+    {
+        nb::gil_scoped_release release;
+        calculators::adp_densities_once(potential, c, species.data(), positions.data(),
+                                        matrix.data(), offsets.data(), neighbors.data(),
+                                        shifts.data(), sums);
+    }
+    return out;
+}
+
+// The energies and states (c, 10) of the first atoms, one for each row of
+// whole sums.
+nb::tuple adp_embedding(const calculators::AdpPotential& potential, Species species,
+                        States sums) {
+    const auto c = static_cast<std::int64_t>(sums.shape(0));
+    if (c > static_cast<std::int64_t>(species.shape(0))) {
+        throw std::invalid_argument("more sums than atoms");
+    }
+    for (std::int64_t i = 0; i < c; ++i) {
+        if (species.data()[i] < 0 || species.data()[i] >= potential.elements) {
+            throw std::invalid_argument("a species index is outside the potential");
+        }
+    }
+    double *energies, *state;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(c)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(c), calculators::kState};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object s = new_array(2, shape2, state);
+    calculators::adp_embedding(potential, c, species.data(), sums.data(), energies, state);
+    return nb::make_tuple(e, s);
+}
+
+// On one thread, each pair once among the processes of MPI: the pair
+// energies, forces and virials (None without virial) the pairs of the first
+// centers atoms give every atom, from the states of every atom.
+nb::tuple adp_forces_once(const calculators::AdpPotential& potential, Species species,
+                          Positions positions, Matrix matrix, Offsets offsets,
+                          Neighbors neighbors, Shifts shifts, std::int64_t centers,
+                          States state, bool virial) {
+    check_input(potential.elements, species, positions, offsets, neighbors, shifts);
+    const std::int64_t c = centres_of(centers, species);
+    if (state.shape(0) != species.shape(0)) {
+        throw std::invalid_argument("a state for each atom");
+    }
+    const std::size_t n = species.shape(0);
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {n};
+    const std::size_t shape2[2] = {n, 3};
+    const std::size_t shape3[3] = {n, 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    std::fill(energies, energies + n, 0.0);
+    std::fill(forces, forces + 3 * n, 0.0);
+    if (virials != nullptr) {
+        std::fill(virials, virials + 9 * n, 0.0);
+    }
+    {
+        nb::gil_scoped_release release;
+        calculators::adp_forces_once(potential, c, species.data(), positions.data(),
+                                     matrix.data(), offsets.data(), neighbors.data(),
+                                     shifts.data(), state.data(), energies, forces, virials);
+    }
+    return nb::make_tuple(e, f, w);
+}
+
 nb::tuple compute_adp(const calculators::AdpPotential& potential, Species species,
                       Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
                       Shifts shifts, nb::handle progress, const CancelToken* cancel, bool virial) {
@@ -844,6 +921,14 @@ void bind_calculators(nb::module_& m) {
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr,
           nb::arg("virial") = true);
+    m.def("adp_densities_once", &adp_densities_once, nb::arg("potential"),
+          nb::arg("species"), nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"),
+          nb::arg("neighbors"), nb::arg("shifts"), nb::arg("centers"));
+    m.def("adp_embedding", &adp_embedding, nb::arg("potential"), nb::arg("species"),
+          nb::arg("sums"));
+    m.def("adp_forces_once", &adp_forces_once, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("centers"), nb::arg("state"), nb::arg("virial"));
     m.def("adp_densities", &adp_densities, nb::arg("potential"), nb::arg("species"),
           nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
           nb::arg("shifts"), nb::arg("centers"));

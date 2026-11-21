@@ -40,17 +40,6 @@ Spline::Spline(const double* values, int n, double delta)
     }
 }
 
-void Spline::evaluate(double x, double& value, double& derivative) const {
-    double p = x * inverse_delta_ + 1.0;
-    int m = static_cast<int>(p);
-    m = std::max(1, std::min(m, n_ - 1));
-    p -= m;
-    p = std::min(p, 1.0);
-    const auto& c = coefficients_[static_cast<std::size_t>(m)];
-    value = ((c[3] * p + c[4]) * p + c[5]) * p + c[6];
-    derivative = (c[0] * p + c[1]) * p + c[2];
-}
-
 EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
                                 const double* density, int densities, const double* pair,
                                 int pairs, int nr, double drho, double dr, double cutoff,
@@ -79,16 +68,6 @@ EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
         potential.pair.emplace_back(pair + static_cast<std::size_t>(k) * nr, nr, dr);
     }
     return potential;
-}
-
-double Spline::value(double x) const {
-    double p = x * inverse_delta_ + 1.0;
-    int m = static_cast<int>(p);
-    m = std::max(1, std::min(m, n_ - 1));
-    p -= m;
-    p = std::min(p, 1.0);
-    const auto& c = coefficients_[static_cast<std::size_t>(m)];
-    return ((c[3] * p + c[4]) * p + c[5]) * p + c[6];
 }
 
 void eam_densities(const EamPotential& potential, std::int64_t centers,

@@ -19,6 +19,7 @@ from mdapy.calculators._base import (
     CalculatorResult,
     _element_indices,
     _Part,
+    _reversed_part,
 )
 from mdapy.calculators._eam import _Numbers
 from mdapy.core.system import System
@@ -132,6 +133,8 @@ class ADP(Calculator):
     """
 
     _takes_wider_lists = True
+    # on one thread under MPI, each pair once among the processes
+    _pairs_once = True
 
     def __init__(
         self,
@@ -253,6 +256,20 @@ class ADP(Calculator):
             neighbors.j,
             neighbors.shifts,
         )
+        if once is not None:
+            # on one thread each pair once among the processes, those given,
+            # as LAMMPS's newton on: the sums of the ghosts back to their
+            # atoms, the states to the ghosts, the forces on the ghosts back
+            pairs = (*arrays[:3], *once)
+            sums = _native.adp_densities_once(self.__potential, *pairs, owned)
+            sums = np.ascontiguousarray(reverse(sums))
+            embedding, state = _native.adp_embedding(self.__potential, arrays[0], sums)
+            state = np.ascontiguousarray(forward(state))
+            energies, forces, virials = _native.adp_forces_once(
+                self.__potential, *pairs, owned, state, virial
+            )
+            energies[:owned] += embedding
+            return _reversed_part(energies, forces, virials, properties, reverse)
         with neighbors._reading():
             given, state = _native.adp_densities(self.__potential, *arrays, owned)
             state = np.ascontiguousarray(forward(state))

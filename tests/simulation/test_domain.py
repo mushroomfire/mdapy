@@ -153,13 +153,16 @@ def test_the_grid_has_the_least_surface():
 # -- runs ----------------------------------------------------------------------
 
 
-def cases():
+def cases(device="cpu"):
+    """The runs on many processes; device="cuda", the potentials on the
+    GPU, which must stand in for it first."""
+    gpu = {"device": "cuda", "precision": "double"} if device == "cuda" else {}
     crystal = copper()
     z = crystal["positions"][:, 2]
     bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
     middle = ~(bottom | top)
-    eam = EAM.zhou(["Cu"])
-    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
+    eam = EAM.zhou(["Cu"], **gpu)
+    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0, **gpu)
     springs = Springs(crystal["positions"], np.full(len(crystal), 2.0))
     open_z = copper(pbc=(True, True, False))
     # the top layers outside the box, which grows to hold them
@@ -217,11 +220,13 @@ def cases():
             min_energy=0.02, mask=middle)]}, 4),
         # split as its calculators, of the same elements, one thread each
         # computing each pair once among the processes
-        "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0)]), {}, 4),
-        "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0)]), {}, 8),
+        "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {}, 4),
+        "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {},
+                             8),
         # computed whole on each process, with ghosts twice the cutoff thick:
         # its calculators of other elements
-        "overlay whole": (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)]), {}, 4),
+        "overlay whole": (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0, **gpu)]), {},
+                          4),
         "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02)]}, 8),
@@ -257,6 +262,25 @@ def same(a, b):
 @pytest.mark.parametrize("case", list(CASES))
 def test_a_split_run_is_the_run_of_one_process(monkeypatch, case):
     crystal, potential, options, size = CASES[case]
+    alone = run(crystal, potential, options)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+# the GPU takes boxes thicker than twice the cutoff and the skin along each
+# periodic direction, and an overlay of the same elements
+ON_GPUS = [c for c in CASES if c not in ("small", "thin", "overlay whole")]
+
+
+@pytest.mark.parametrize("case", ON_GPUS)
+def test_a_run_on_gpus_is_the_run_of_one_gpu(monkeypatch, case):
+    """Each process holds its atoms and their ghosts on its GPU, stood in for
+    on the processor, where the steps run, the ghosts brought each step and
+    the sums summed over the processes: the run of one GPU, to the
+    rounding."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal, potential, options, size = cases("cuda")[case]
     alone = run(crystal, potential, options)
     for split in processes.run(size, lambda rank: run(crystal, potential, options),
                                monkeypatch):  # fmt: skip

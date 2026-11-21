@@ -75,6 +75,15 @@ public:
     Atoms& operator=(const Atoms&) = delete;
 
     std::int64_t size() const;
+    // Under MPI: the atoms of this process are the first owned of the
+    // caller's, its ghosts after them; the steps of the integrator and every
+    // sum over the atoms take the first owned alone, and a neighbor list keeps
+    // them first. 0 for all, as by default. owned() gives their number.
+    void set_owned(std::int64_t owned);
+    std::int64_t owned() const;
+    // The index among all the atoms of each, (n,) in the caller's order, by
+    // which it draws its noise; null for its index in the caller's order.
+    void set_ids(const std::int64_t* ids);
     void set_species(const std::int32_t* species);  // (n,)
     void set_positions(const double* positions);    // (n, 3)
     // In the box along its periodic directions after a neighbor list was
@@ -108,6 +117,12 @@ public:
     // all the noise, as fix langevin zero yes, so that the momentum is kept
     void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter,
                   bool keep = false);
+    // The two halves of langevin with keep, for a share of the momentum of
+    // the noise of every process: draw_noise draws it and gives the sum of
+    // m dv, (3,); keep_noise then sets v = c1 v + dv - share / m.
+    void draw_noise(double c2, double kt, std::uint64_t seed, std::uint64_t counter,
+                    double* total);
+    void keep_noise(double c1, const double* share);
     void kinetic(double* tensor) const;  // (3, 3), the sum of m v v
     // The directions in which each atom may move, (n, 3) in the axes of the
     // system, whose vectors are those of the atoms times rotation (3, 3)
@@ -152,6 +167,10 @@ public:
     // W_i^T field, W_i its virial, less the mean of the pushes; after a
     // computation of the virials of each atom.
     void drive(const double* field);
+    // Its two halves, for the mean of every process: push gives the sum of
+    // the pushes, (3,), pushed adds them less a mean, (3,).
+    void push(const double* field, double* total);
+    void pushed(const double* mean);
     // (3,) the potential part of the heat flux times the volume, sum_i W_i v_i.
     void heat_flux(double* flux) const;
     // With the energies each atom carries, after drive: each atom pushed by
@@ -159,6 +178,10 @@ public:
     // own energy and its kinetic energy at the velocity v + kick f / m;
     // mvv2e: amu Å^2/ps^2 in eV.
     void convect(const double* field, double kick, double mvv2e);
+    // Its two halves: carried gives the sum of the energies, convected
+    // pushes the atoms by the field times their energies less a mean.
+    double carried(double kick, double mvv2e);
+    void convected(const double* field, double mean);
     // (3,) the part of the heat flux times the volume that the atoms carry,
     // sum_i E_i v_i, of their own energies and velocities now.
     void energy_flux(double mvv2e, double* flux) const;
@@ -208,6 +231,12 @@ public:
     // direction, where the minimum image would miss pairs.
     // Building wraps the atoms into the box along its periodic directions.
     bool update(Atoms& atoms, const Box& box);
+    // The two halves of update, for processes that build together: whether
+    // it would build, and the build itself. Under MPI the atoms of the
+    // process come first in the list and the ghosts after them, the atoms
+    // given just before, in the caller's order.
+    bool stale(Atoms& atoms, const Box& box);
+    void build(Atoms& atoms, const Box& box);
     double cutoff() const;
     double skin() const;
     std::int64_t builds() const;
@@ -244,6 +273,40 @@ public:
     // (2,): the sum of S |v| and the number of them beyond the last energy.
     void apply(Atoms& atoms, Neighbors& neighbors, const Box& box, double least, int needed,
                double cutoff, int bit, double mvv2e, double* out) const;
+
+    struct Impl;
+
+private:
+    std::unique_ptr<Impl> impl_;
+};
+
+// Under MPI, the messages of the borders of the bricks of the processes
+// (simulation/_domain.py), fixed between two builds of the neighbor list:
+// message k sends the atoms at rows of the caller's order and receives
+// ghosts into the rows from start on. Positions go out shifted across a
+// periodic boundary; the forces on the ghosts come back, added to their atoms.
+class Exchange {
+public:
+    Exchange();
+    ~Exchange();
+    Exchange(const Exchange&) = delete;
+    Exchange& operator=(const Exchange&) = delete;
+
+    // After the list was built, the atoms at their places since.
+    void set(const Atoms& atoms, int k, const std::int32_t* rows, std::int64_t count,
+             std::int64_t start, std::int64_t received);
+    void clear();
+    std::int64_t sent(int k) const;
+    std::int64_t received(int k) const;
+    // The positions message k sends, plus shift (3,), into out (sent, 3); the
+    // positions it received, in (received, 3), into the ghosts.
+    void pack_positions(const Atoms& atoms, int k, const double* shift, double* out) const;
+    void unpack_positions(Atoms& atoms, int k, const double* in) const;
+    // The forces on the ghosts message k received, into out (received, 3),
+    // and those that come back for the atoms it sent, in (sent, 3), added to
+    // theirs.
+    void pack_forces(const Atoms& atoms, int k, double* out) const;
+    void add_forces(Atoms& atoms, int k, const double* in) const;
 
     struct Impl;
 

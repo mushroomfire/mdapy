@@ -13,6 +13,14 @@ namespace mdapy::cuda {
 
 struct Atoms::Impl {
     std::int64_t n = 0;
+    // Under MPI the atoms of this process come first, then its ghosts: the
+    // steps of the integrator and the sums over the atoms go through the
+    // first owned; 0 while every atom is this process's.
+    std::int64_t owned = 0;
+    std::int64_t active() const { return owned > 0 ? owned : n; }
+    // The index among all the atoms of the atom at each place, by which it
+    // draws its noise; empty while that is its index in the caller's order.
+    Buffer<std::int64_t> ids;
     // positions in double precision, the species of each atom as w
     Buffer<double4a> x;
     // the same in single precision for mixed precision, made from x when

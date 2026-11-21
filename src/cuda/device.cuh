@@ -167,6 +167,9 @@ __device__ inline void add_step(const Real* table, std::uint32_t code, Real& x, 
 // Sums of columns: out[k] = sum over i of data[k * n + i] for k < columns,
 // on the host, in an order that does not change from run to run.
 void sum_columns(const double* data, int columns, std::int64_t n, double* out);
+// The sums of the first n of each column of pitch elements.
+void sum_columns(const double* data, int columns, std::int64_t n, std::int64_t pitch,
+                 double* out);
 
 // The largest of values (n,), NaN if any is NaN.
 double largest(const double* values, std::int64_t n);

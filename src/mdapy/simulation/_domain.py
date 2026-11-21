@@ -282,6 +282,23 @@ class Bricks:
             x[chosen] += back
         return x[: self.local]
 
+    @property
+    def messages(self) -> list:
+        """The messages of the last ``borders``: (rows sent, the box vectors
+        added to them, destination, source, the row the ghosts come in at,
+        their number)."""
+        return list(self.__sends)
+
+    def swap(
+        self,
+        sent: np.ndarray,
+        destination: int | None,
+        received: np.ndarray,
+        source: int | None,
+    ) -> None:
+        """Rows sent one way, the rows of received filled from the other."""
+        self.__swap(sent, destination, received, source)
+
     def __swap(
         self,
         sent: np.ndarray,

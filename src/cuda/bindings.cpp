@@ -38,6 +38,8 @@ using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::c
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
+using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Rows = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Movable = nb::ndarray<const bool, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
@@ -85,6 +87,18 @@ NB_MODULE(_cuda, m) {
     nb::class_<Atoms>(m, "Atoms")
         .def(nb::init<std::int64_t>(), nb::arg("n"))
         .def_prop_ro("size", &Atoms::size)
+        .def("set_owned", &Atoms::set_owned, nb::arg("owned"))
+        .def_prop_ro("owned", &Atoms::owned)
+        .def(
+            "set_ids",
+            [](Atoms& a, Ids ids) {
+                if (static_cast<std::int64_t>(ids.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one id per atom");
+                }
+                a.set_ids(ids.data());
+            },
+            nb::arg("ids"))
+        .def("clear_ids", [](Atoms& a) { a.set_ids(nullptr); })
         .def(
             "set_species",
             [](Atoms& a, Species species) {
@@ -180,6 +194,18 @@ NB_MODULE(_cuda, m) {
             nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
         .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
              nb::arg("seed"), nb::arg("counter"), nb::arg("keep") = false)
+        .def(
+            "draw_noise",
+            [](Atoms& a, double c2, double kt, std::uint64_t seed, std::uint64_t counter) {
+                double* data;
+                nb::object out = new_array({3}, data);
+                a.draw_noise(c2, kt, seed, counter, data);
+                return out;
+            },
+            nb::arg("c2"), nb::arg("kt"), nb::arg("seed"), nb::arg("counter"))
+        .def(
+            "keep_noise", [](Atoms& a, double c1, Vector share) { a.keep_noise(c1, share.data()); },
+            nb::arg("c1"), nb::arg("share"))
         .def("stash_forces", &Atoms::stash_forces)
         .def("mix_forces", &Atoms::mix_forces, nb::arg("weight"), nb::arg("other"))
         .def(
@@ -195,6 +221,21 @@ NB_MODULE(_cuda, m) {
         .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
         .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
         .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def(
+            "push",
+            [](Atoms& a, Vector field) {
+                double* data;
+                nb::object out = new_array({3}, data);
+                a.push(field.data(), data);
+                return out;
+            },
+            nb::arg("field"))
+        .def("pushed", [](Atoms& a, Vector mean) { a.pushed(mean.data()); }, nb::arg("mean"))
+        .def("carried", &Atoms::carried, nb::arg("kick"), nb::arg("mvv2e"))
+        .def(
+            "convected",
+            [](Atoms& a, Vector field, double mean) { a.convected(field.data(), mean); },
+            nb::arg("field"), nb::arg("mean"))
         .def(
             "convect",
             [](Atoms& a, Vector field, double kick, double mvv2e) {
@@ -324,6 +365,22 @@ NB_MODULE(_cuda, m) {
                 return l.update(a, box);
             },
             nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
+        .def(
+            "stale",
+            [](Neighbors& l, Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                return l.stale(a, box);
+            },
+            nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
+        .def(
+            "build",
+            [](Neighbors& l, Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                l.build(a, box);
+            },
+            nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
         .def_prop_ro("cutoff", &Neighbors::cutoff)
         .def_prop_ro("skin", &Neighbors::skin)
         .def_prop_ro("builds", &Neighbors::builds)
@@ -340,6 +397,58 @@ NB_MODULE(_cuda, m) {
             l.get(a, counts, indices, images);
             return nb::make_tuple(c, i, g);
         });
+
+    using mdapy::cuda::Exchange;
+    nb::class_<Exchange>(m, "Exchange")
+        .def(nb::init<>())
+        .def(
+            "set",
+            [](Exchange& e, const Atoms& a, int k, Rows rows, std::int64_t start,
+               std::int64_t received) {
+                e.set(a, k, rows.data(), static_cast<std::int64_t>(rows.shape(0)), start,
+                      received);
+            },
+            nb::arg("atoms"), nb::arg("k"), nb::arg("rows"), nb::arg("start"),
+            nb::arg("received"))
+        .def("clear", &Exchange::clear)
+        .def("sent", &Exchange::sent, nb::arg("k"))
+        .def("received", &Exchange::received, nb::arg("k"))
+        .def(
+            "pack_positions",
+            [](const Exchange& e, const Atoms& a, int k, Vector shift) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(e.sent(k)), 3}, data);
+                e.pack_positions(a, k, shift.data(), data);
+                return out;
+            },
+            nb::arg("atoms"), nb::arg("k"), nb::arg("shift"))
+        .def(
+            "unpack_positions",
+            [](const Exchange& e, Atoms& a, int k, Positions in) {
+                if (static_cast<std::int64_t>(in.shape(0)) != e.received(k)) {
+                    throw std::invalid_argument("the positions of every ghost of the message");
+                }
+                e.unpack_positions(a, k, in.data());
+            },
+            nb::arg("atoms"), nb::arg("k"), nb::arg("positions"))
+        .def(
+            "pack_forces",
+            [](const Exchange& e, const Atoms& a, int k) {
+                double* data;
+                nb::object out = new_array({static_cast<std::size_t>(e.received(k)), 3}, data);
+                e.pack_forces(a, k, data);
+                return out;
+            },
+            nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "add_forces",
+            [](const Exchange& e, Atoms& a, int k, Positions in) {
+                if (static_cast<std::int64_t>(in.shape(0)) != e.sent(k)) {
+                    throw std::invalid_argument("the forces of every atom of the message");
+                }
+                e.add_forces(a, k, in.data());
+            },
+            nb::arg("atoms"), nb::arg("k"), nb::arg("forces"));
 
     nb::class_<mdapy::cuda::Stopping>(m, "Stopping")
         .def(

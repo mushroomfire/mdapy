@@ -25,16 +25,24 @@ namespace {
 constexpr std::uint64_t kThermostatStream = 0;
 constexpr std::uint64_t kBathStream = 1;
 
-// The index of the atom at place i in the caller's order.
-__device__ inline std::uint64_t caller_index(std::int64_t i, const std::int32_t* original) {
-    return original != nullptr ? static_cast<std::uint64_t>(original[i])
-                               : static_cast<std::uint64_t>(i);
+// The index of the atom at each place by which it draws its noise: its index
+// among all the atoms when they are set, under MPI, else in the caller's
+// order; original none while the order is the caller's.
+struct Indices {
+    const std::int32_t* original;
+    const std::int64_t* ids;
+};
+
+__device__ inline std::uint64_t caller_index(std::int64_t i, Indices at) {
+    if (at.ids != nullptr) return static_cast<std::uint64_t>(at.ids[i]);
+    return at.original != nullptr ? static_cast<std::uint64_t>(at.original[i])
+                                  : static_cast<std::uint64_t>(i);
 }
 
-// The index in the caller's order of the atom at each place, none while the
-// order is the caller's.
-const std::int32_t* original_of(const Atoms::Impl& a) {
-    return a.original.size() == static_cast<std::size_t>(a.n) ? a.original.data() : nullptr;
+Indices original_of(const Atoms::Impl& a) {
+    const auto n = static_cast<std::size_t>(a.n);
+    return {a.original.size() == n ? a.original.data() : nullptr,
+            a.ids.size() == n ? a.ids.data() : nullptr};
 }
 
 // A box, its vectors in rows.
@@ -210,7 +218,7 @@ __global__ void remap_kernel(std::int64_t n, Affine t, double4a* x) {
 // Gaussian numbers of a counter-based generator: atom i, call counter.
 __global__ void langevin_kernel(std::int64_t n, double c1, double c2, double kt,
                                 std::uint64_t seed, std::uint64_t counter,
-                                const std::int32_t* original, const double* m, double* v) {
+                                Indices original, const double* m, double* v) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     double g[3];
@@ -225,7 +233,7 @@ __global__ void langevin_kernel(std::int64_t n, double c1, double c2, double kt,
 // sigma g of each atom, the same numbers as langevin_kernel, and m dv in
 // three columns for their sum.
 __global__ void noise_kernel(std::int64_t n, double c2, double kt, std::uint64_t seed,
-                             std::uint64_t counter, const std::int32_t* original, const double* m,
+                             std::uint64_t counter, Indices original, const double* m,
                              double* dv, double* momenta) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -277,13 +285,14 @@ __global__ void springs_kernel(std::int64_t n, Cell box, const double4a* x, cons
 
 // The push of the field through the virial of each atom, in three columns:
 // push_b = sum_a field_a W_ab, W in 9 columns xx xy xz yx yy yz zx zy zz.
-__global__ void push_kernel(std::int64_t n, double3 field, const double* w, double* push) {
+__global__ void push_kernel(std::int64_t n, std::int64_t pitch, double3 field, const double* w,
+                            double* push) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     const double e[3] = {field.x, field.y, field.z};
     for (int b = 0; b < 3; ++b) {
         double sum = 0.0;
-        for (int a = 0; a < 3; ++a) sum += e[a] * w[(3 * a + b) * n + i];
+        for (int a = 0; a < 3; ++a) sum += e[a] * w[(3 * a + b) * pitch + i];
         push[b * n + i] = sum;
     }
 }
@@ -298,12 +307,13 @@ __global__ void pushed_kernel(std::int64_t n, double3 mean, const double* push, 
 }
 
 // W_i v_i of each atom in three columns.
-__global__ void flux_kernel(std::int64_t n, const double* w, const double* v, double* out) {
+__global__ void flux_kernel(std::int64_t n, std::int64_t pitch, const double* w, const double* v,
+                            double* out) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
     for (int a = 0; a < 3; ++a) {
         double sum = 0.0;
-        for (int b = 0; b < 3; ++b) sum += w[(3 * a + b) * n + i] * v[3 * i + b];
+        for (int b = 0; b < 3; ++b) sum += w[(3 * a + b) * pitch + i] * v[3 * i + b];
         out[a * n + i] = sum;
     }
 }
@@ -405,7 +415,7 @@ __global__ void free_kinetic_kernel(std::int64_t n, Rotation t, const std::int32
 // each atom in out, zero for the others.
 __global__ void bath_kernel(std::int64_t n, int bit, const std::int32_t* groups, double c1,
                             double c2, double kt, std::uint64_t seed, std::uint64_t counter,
-                            const std::int32_t* original, Rotation t,
+                            Indices original, Rotation t,
                             const std::int32_t* movable, const double* m, double* v,
                             double* out) {
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -465,14 +475,16 @@ void Atoms::get_velocities(double* velocities) const {
 
 void Atoms::kick(double c) {
     Impl& a = *impl_;
-    kick_kernel<<<blocks(3 * a.n), kBlock>>>(3 * a.n, c, a.forces.data(), a.masses.data(),
+    const std::int64_t m = a.active();
+    kick_kernel<<<blocks(3 * m), kBlock>>>(3 * m, c, a.forces.data(), a.masses.data(),
                                              a.velocities.data());
     MDAPY_LAUNCHED();
 }
 
 void Atoms::kick_drift(double c, double dt) {
     Impl& a = *impl_;
-    kick_drift_kernel<<<blocks(a.n), kBlock>>>(a.n, c, dt, a.forces.data(), a.masses.data(),
+    const std::int64_t m = a.active();
+    kick_drift_kernel<<<blocks(m), kBlock>>>(m, c, dt, a.forces.data(), a.masses.data(),
                                                a.velocities.data(), a.x.data());
     MDAPY_LAUNCHED();
     ++a.version;
@@ -480,14 +492,16 @@ void Atoms::kick_drift(double c, double dt) {
 
 void Atoms::drift(double dt) {
     Impl& a = *impl_;
-    drift_kernel<<<blocks(a.n), kBlock>>>(a.n, dt, a.velocities.data(), a.x.data());
+    const std::int64_t m = a.active();
+    drift_kernel<<<blocks(m), kBlock>>>(m, dt, a.velocities.data(), a.x.data());
     MDAPY_LAUNCHED();
     ++a.version;
 }
 
 void Atoms::reflect(const double* normal, double offset, double speed) {
     Impl& a = *impl_;
-    reflect_kernel<<<blocks(a.n), kBlock>>>(a.n, make_double3(normal[0], normal[1], normal[2]),
+    const std::int64_t m = a.active();
+    reflect_kernel<<<blocks(m), kBlock>>>(m, make_double3(normal[0], normal[1], normal[2]),
                                             offset, speed, a.x.data(), a.velocities.data());
     MDAPY_LAUNCHED();
     ++a.version;
@@ -496,55 +510,61 @@ void Atoms::reflect(const double* normal, double offset, double speed) {
 void Atoms::indent(int kind, int axis, double sign, double k, double radius, const double* at,
                    const double* h, const bool* pbc, double* out) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     Cell box;
     for (int c = 0; c < 9; ++c) box.h[c] = h[c];
     a.scratch.resize(static_cast<std::size_t>(4 * a.n));
-    indent_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, kind, axis, sign, k, radius, make_double3(at[0], at[1], at[2]), box,
+    indent_kernel<<<blocks(m), kBlock>>>(
+        m, kind, axis, sign, k, radius, make_double3(at[0], at[1], at[2]), box,
         make_int3(pbc[0] ? 1 : 0, pbc[1] ? 1 : 0, pbc[2] ? 1 : 0), a.x.data(), a.forces.data(),
         a.scratch.data());
     MDAPY_LAUNCHED();
-    sum_columns(a.scratch.data(), 4, a.n, out);
+    sum_columns(a.scratch.data(), 4, m, out);
 }
 
 double Atoms::speed_squares() const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(a.n));
-    squares_kernel<<<blocks(a.n), kBlock>>>(a.n, a.velocities.data(), a.scratch.data());
+    squares_kernel<<<blocks(m), kBlock>>>(m, a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     double out = 0.0;
-    sum_columns(a.scratch.data(), 1, a.n, &out);
+    sum_columns(a.scratch.data(), 1, m, &out);
     return out;
 }
 
 double Atoms::msst_kick(double half, double base, double axial, int axis, bool trial,
                         double ftm2v) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(a.n));
-    msst_kernel<<<blocks(a.n), kBlock>>>(a.n, half, base, axial, axis, trial, ftm2v,
+    msst_kernel<<<blocks(m), kBlock>>>(m, half, base, axial, axis, trial, ftm2v,
                                          a.forces.data(), a.masses.data(), a.velocities.data(),
                                          a.scratch.data());
     MDAPY_LAUNCHED();
     double out = 0.0;
-    sum_columns(a.scratch.data(), 1, a.n, &out);
+    sum_columns(a.scratch.data(), 1, m, &out);
     return out;
 }
 
 void Atoms::scale(double fx, double fy, double fz) {
     Impl& a = *impl_;
-    scale_kernel<<<blocks(a.n), kBlock>>>(a.n, make_double3(fx, fy, fz), a.velocities.data());
+    const std::int64_t m = a.active();
+    scale_kernel<<<blocks(m), kBlock>>>(m, make_double3(fx, fy, fz), a.velocities.data());
     MDAPY_LAUNCHED();
 }
 
 void Atoms::shear(double half, double yz, double xz, double xy) {
     Impl& a = *impl_;
-    shear_kernel<<<blocks(a.n), kBlock>>>(a.n, half, yz, xz, xy, a.velocities.data());
+    const std::int64_t m = a.active();
+    shear_kernel<<<blocks(m), kBlock>>>(m, half, yz, xz, xy, a.velocities.data());
     MDAPY_LAUNCHED();
 }
 
 void Atoms::remap(const double* old_lo, const double* old_inverse, const double* lo,
                   const double* h) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     Affine t{};
     for (int k = 0; k < 3; ++k) {
         t.old_lo[k] = old_lo[k];
@@ -554,7 +574,7 @@ void Atoms::remap(const double* old_lo, const double* old_inverse, const double*
         t.inverse[k] = old_inverse[k];
         t.h[k] = h[k];
     }
-    remap_kernel<<<blocks(a.n), kBlock>>>(a.n, t, a.x.data());
+    remap_kernel<<<blocks(m), kBlock>>>(m, t, a.x.data());
     MDAPY_LAUNCHED();
     ++a.version;
 }
@@ -562,23 +582,37 @@ void Atoms::remap(const double* old_lo, const double* old_inverse, const double*
 void Atoms::langevin(double c1, double c2, double kt, std::uint64_t seed,
                      std::uint64_t counter, bool keep) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (!keep) {
-        langevin_kernel<<<blocks(a.n), kBlock>>>(a.n, c1, c2, kt, seed, counter, original_of(a),
+        langevin_kernel<<<blocks(m), kBlock>>>(m, c1, c2, kt, seed, counter, original_of(a),
                                                  a.masses.data(), a.velocities.data());
         MDAPY_LAUNCHED();
         return;
     }
+    double total[3];
+    draw_noise(c2, kt, seed, counter, total);
+    const double inverse = 1.0 / static_cast<double>(m);
+    const double share[3] = {total[0] * inverse, total[1] * inverse, total[2] * inverse};
+    keep_noise(c1, share);
+}
+
+void Atoms::draw_noise(double c2, double kt, std::uint64_t seed, std::uint64_t counter,
+                       double* total) {
+    Impl& a = *impl_;
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
     a.stash.resize(static_cast<std::size_t>(3 * a.n));  // the noise, until it is added
-    noise_kernel<<<blocks(a.n), kBlock>>>(a.n, c2, kt, seed, counter, original_of(a),
-                                          a.masses.data(), a.stash.data(), a.scratch.data());
+    noise_kernel<<<blocks(m), kBlock>>>(m, c2, kt, seed, counter, original_of(a),
+                                        a.masses.data(), a.stash.data(), a.scratch.data());
     MDAPY_LAUNCHED();
-    double total[3];
-    sum_columns(a.scratch.data(), 3, a.n, total);
-    const double inverse = 1.0 / static_cast<double>(a.n);
-    keep_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, c1, make_double3(total[0] * inverse, total[1] * inverse, total[2] * inverse),
-        a.masses.data(), a.stash.data(), a.velocities.data());
+    sum_columns(a.scratch.data(), 3, m, total);
+}
+
+void Atoms::keep_noise(double c1, const double* share) {
+    Impl& a = *impl_;
+    const std::int64_t m = a.active();
+    keep_kernel<<<blocks(m), kBlock>>>(m, c1, make_double3(share[0], share[1], share[2]),
+                                       a.masses.data(), a.stash.data(), a.velocities.data());
     MDAPY_LAUNCHED();
 }
 
@@ -592,7 +626,8 @@ void Atoms::stash_forces() {
 
 void Atoms::mix_forces(double weight, bool other) {
     Impl& a = *impl_;
-    mix_kernel<<<blocks(3 * a.n), kBlock>>>(3 * a.n, weight, other ? a.stash.data() : nullptr,
+    const std::int64_t m = a.active();
+    mix_kernel<<<blocks(3 * m), kBlock>>>(3 * m, weight, other ? a.stash.data() : nullptr,
                                             a.forces.data());
     MDAPY_LAUNCHED();
 }
@@ -614,6 +649,7 @@ void Atoms::set_springs(const double* sites, const double* constants) {
 
 double Atoms::springs(const double* h) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (a.sites.size() != static_cast<std::size_t>(3 * a.n)) {
         throw std::logic_error("the atoms have no springs");
     }
@@ -622,79 +658,104 @@ double Atoms::springs(const double* h) {
     a.forces.resize(static_cast<std::size_t>(3 * a.n));
     a.energies.resize(static_cast<std::size_t>(a.n));
     const bool wrapped = a.images.size() == static_cast<std::size_t>(a.n);
-    springs_kernel<<<blocks(a.n), kBlock>>>(a.n, box, a.x.data(),
+    springs_kernel<<<blocks(m), kBlock>>>(m, box, a.x.data(),
                                             wrapped ? a.images.data() : nullptr,
                                             a.sites.data(), a.spring_constants.data(),
                                             a.forces.data(), a.energies.data());
     MDAPY_LAUNCHED();
     a.has_energies = true;
     double out = 0.0;
-    sum_columns(a.energies.data(), 1, a.n, &out);
+    sum_columns(a.energies.data(), 1, m, a.n, &out);
     return out;
 }
 
 void Atoms::drive(const double* field) {
+    double total[3];
+    push(field, total);
+    const double inverse = 1.0 / static_cast<double>(impl_->active());
+    const double mean[3] = {total[0] * inverse, total[1] * inverse, total[2] * inverse};
+    pushed(mean);
+}
+
+void Atoms::push(const double* field, double* total) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (!a.has_virials || a.virials.size() != static_cast<std::size_t>(9 * a.n)) {
         throw std::logic_error("the field needs the virials of each atom");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    push_kernel<<<blocks(a.n), kBlock>>>(a.n, make_double3(field[0], field[1], field[2]),
-                                         a.virials.data(), a.scratch.data());
+    push_kernel<<<blocks(m), kBlock>>>(m, a.n, make_double3(field[0], field[1], field[2]),
+                                       a.virials.data(), a.scratch.data());
     MDAPY_LAUNCHED();
-    double total[3];
-    sum_columns(a.scratch.data(), 3, a.n, total);
-    const double inverse = 1.0 / static_cast<double>(a.n);
-    pushed_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, make_double3(total[0] * inverse, total[1] * inverse, total[2] * inverse),
-        a.scratch.data(), a.forces.data());
+    sum_columns(a.scratch.data(), 3, m, total);
+}
+
+void Atoms::pushed(const double* mean) {
+    Impl& a = *impl_;
+    const std::int64_t m = a.active();
+    pushed_kernel<<<blocks(m), kBlock>>>(m, make_double3(mean[0], mean[1], mean[2]),
+                                         a.scratch.data(), a.forces.data());
     MDAPY_LAUNCHED();
 }
 
 void Atoms::heat_flux(double* flux) const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (!a.has_virials || a.virials.size() != static_cast<std::size_t>(9 * a.n)) {
         throw std::logic_error("the heat flux needs the virials of each atom");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    flux_kernel<<<blocks(a.n), kBlock>>>(a.n, a.virials.data(), a.velocities.data(),
-                                         a.scratch.data());
+    flux_kernel<<<blocks(m), kBlock>>>(m, a.n, a.virials.data(), a.velocities.data(),
+                                       a.scratch.data());
     MDAPY_LAUNCHED();
-    sum_columns(a.scratch.data(), 3, a.n, flux);
+    sum_columns(a.scratch.data(), 3, m, flux);
 }
 
 void Atoms::convect(const double* field, double kick, double mvv2e) {
+    const double total = carried(kick, mvv2e);
+    convected(field, total / static_cast<double>(impl_->active()));
+}
+
+double Atoms::carried(double kick, double mvv2e) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (!a.has_energies || a.energies.size() != static_cast<std::size_t>(a.n)) {
         throw std::logic_error("the energies each atom carries need the energy of each atom");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    carried_kernel<<<blocks(a.n), kBlock>>>(a.n, kick, mvv2e, a.energies.data(),
-                                            a.masses.data(), a.velocities.data(),
-                                            a.forces.data(), a.scratch.data());
+    carried_kernel<<<blocks(m), kBlock>>>(m, kick, mvv2e, a.energies.data(), a.masses.data(),
+                                          a.velocities.data(), a.forces.data(),
+                                          a.scratch.data());
     MDAPY_LAUNCHED();
     double total = 0.0;
-    sum_columns(a.scratch.data(), 1, a.n, &total);
-    convected_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, make_double3(field[0], field[1], field[2]), total / static_cast<double>(a.n),
-        a.scratch.data(), a.forces.data());
+    sum_columns(a.scratch.data(), 1, m, &total);
+    return total;
+}
+
+void Atoms::convected(const double* field, double mean) {
+    Impl& a = *impl_;
+    const std::int64_t m = a.active();
+    convected_kernel<<<blocks(m), kBlock>>>(m, make_double3(field[0], field[1], field[2]), mean,
+                                            a.scratch.data(), a.forces.data());
     MDAPY_LAUNCHED();
 }
 
 void Atoms::energy_flux(double mvv2e, double* flux) const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (!a.has_energies || a.energies.size() != static_cast<std::size_t>(a.n)) {
         throw std::logic_error("the energies each atom carries need the energy of each atom");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    energy_flux_kernel<<<blocks(a.n), kBlock>>>(a.n, mvv2e, a.energies.data(), a.masses.data(),
+    energy_flux_kernel<<<blocks(m), kBlock>>>(m, mvv2e, a.energies.data(), a.masses.data(),
                                                 a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
-    sum_columns(a.scratch.data(), 3, a.n, flux);
+    sum_columns(a.scratch.data(), 3, m, flux);
 }
 
 void Atoms::set_movable(const bool* movable, const double* rotation) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     std::vector<std::int32_t> bits(static_cast<std::size_t>(a.n));
     for (std::int64_t i = 0; i < a.n; ++i) {
         bits[i] = (movable[3 * i] ? 1 : 0) | (movable[3 * i + 1] ? 2 : 0) |
@@ -720,8 +781,9 @@ Rotation rotation_of(const Atoms::Impl& a) {
 
 void restricted(Atoms::Impl& a, double* vectors, const double* prescribed) {
     if (moves_freely(a)) return;  // every atom moves
-    restrict_kernel<<<blocks(a.n), kBlock>>>(a.n, rotation_of(a), a.movable.data(), prescribed,
-                                             vectors);
+    const std::int64_t m = a.active();
+    restrict_kernel<<<blocks(m), kBlock>>>(m, rotation_of(a), a.movable.data(), prescribed,
+                                           vectors);
     MDAPY_LAUNCHED();
 }
 
@@ -756,8 +818,9 @@ void Atoms::set_added(const double* forces) { placed_triples(*impl_, forces, imp
 
 void Atoms::add_forces() {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (a.added.size() != static_cast<std::size_t>(3 * a.n)) return;
-    add_kernel<<<blocks(3 * a.n), kBlock>>>(3 * a.n, a.added.data(), a.forces.data());
+    add_kernel<<<blocks(3 * m), kBlock>>>(3 * m, a.added.data(), a.forces.data());
     MDAPY_LAUNCHED();
 }
 
@@ -774,54 +837,58 @@ void Atoms::set_groups(const std::int32_t* bits) {
 
 void Atoms::group_forces(int count, double* sums) const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (a.groups.size() != static_cast<std::size_t>(a.n)) {
         throw std::logic_error("the atoms have no groups");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
     for (int g = 0; g < count; ++g) {
-        group_force_kernel<<<blocks(a.n), kBlock>>>(a.n, g, a.groups.data(), a.forces.data(),
+        group_force_kernel<<<blocks(m), kBlock>>>(m, g, a.groups.data(), a.forces.data(),
                                                     a.scratch.data());
         MDAPY_LAUNCHED();
-        sum_columns(a.scratch.data(), 3, a.n, sums + 3 * g);
+        sum_columns(a.scratch.data(), 3, m, sums + 3 * g);
     }
 }
 
 double Atoms::kinetic_free() const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    free_kinetic_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(), a.masses.data(),
+    free_kinetic_kernel<<<blocks(m), kBlock>>>(
+        m, rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(), a.masses.data(),
         a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     double out = 0.0;
-    sum_columns(a.scratch.data(), 1, a.n, &out);
+    sum_columns(a.scratch.data(), 1, m, &out);
     return out;
 }
 
 double Atoms::bath(int bit, double c1, double c2, double kt, std::uint64_t seed,
                    std::uint64_t counter) {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     if (a.groups.size() != static_cast<std::size_t>(a.n)) {
         throw std::logic_error("the atoms have no groups");
     }
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    bath_kernel<<<blocks(a.n), kBlock>>>(a.n, bit, a.groups.data(), c1, c2, kt, seed, counter,
+    bath_kernel<<<blocks(m), kBlock>>>(m, bit, a.groups.data(), c1, c2, kt, seed, counter,
                                          original_of(a), rotation_of(a), moves_freely(a) ? nullptr : a.movable.data(),
                                          a.masses.data(), a.velocities.data(), a.scratch.data());
     MDAPY_LAUNCHED();
     double out = 0.0;
-    sum_columns(a.scratch.data(), 1, a.n, &out);
+    sum_columns(a.scratch.data(), 1, m, &out);
     return out;
 }
 
 void Atoms::kinetic(double* tensor) const {
     Impl& a = *impl_;
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(6 * a.n));
-    kinetic_kernel<<<blocks(a.n), kBlock>>>(a.n, a.masses.data(), a.velocities.data(),
+    kinetic_kernel<<<blocks(m), kBlock>>>(m, a.masses.data(), a.velocities.data(),
                                             a.scratch.data());
     MDAPY_LAUNCHED();
     double s[6];
-    sum_columns(a.scratch.data(), 6, a.n, s);
+    sum_columns(a.scratch.data(), 6, m, s);
     const int at[3][3] = {{0, 5, 4}, {5, 1, 3}, {4, 3, 2}};
     for (int r = 0; r < 3; ++r) {
         for (int c = 0; c < 3; ++c) {

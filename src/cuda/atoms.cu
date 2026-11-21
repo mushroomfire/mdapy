@@ -109,6 +109,8 @@ void Atoms::Impl::permute(const std::int32_t* order) {
     gathered(n, order, groups, g2);
     Buffer<double> k2;
     gathered(n, order, spring_constants, k2);
+    Buffer<std::int64_t> i2;
+    gathered(n, order, ids, i2);
     // three doubles of each atom
     const auto triples = [&](Buffer<double>& buffer) {
         if (buffer.size() != static_cast<std::size_t>(3 * n)) return;
@@ -254,7 +256,7 @@ double Atoms::total_energy() const {
         throw std::logic_error("no energies were computed");
     }
     double out = 0.0;
-    sum_columns(impl_->energies.data(), 1, impl_->n, &out);
+    sum_columns(impl_->energies.data(), 1, impl_->active(), impl_->n, &out);
     return out;
 }
 
@@ -263,7 +265,29 @@ void Atoms::total_virial(double* virial) const {
     if (!a.has_virials) {
         throw std::logic_error("no virial was computed");
     }
-    sum_columns(a.virials.data(), 9, a.n, virial);
+    sum_columns(a.virials.data(), 9, a.active(), a.n, virial);
+}
+
+void Atoms::set_owned(std::int64_t owned) {
+    Impl& a = *impl_;
+    if (owned < 0 || owned > a.n) {
+        throw std::invalid_argument("owned must be between 0 and the number of atoms");
+    }
+    a.owned = owned;
+}
+
+std::int64_t Atoms::owned() const { return impl_->active(); }
+
+void Atoms::set_ids(const std::int64_t* ids) {
+    Impl& a = *impl_;
+    if (ids == nullptr) {
+        a.ids.resize(0);
+        return;
+    }
+    const auto& o = a.order();
+    std::vector<std::int64_t> placed(static_cast<std::size_t>(a.n));
+    for (std::int64_t p = 0; p < a.n; ++p) placed[p] = ids[o.empty() ? p : o[p]];
+    a.ids.upload(placed.data(), placed.size());
 }
 
 }  // namespace mdapy::cuda

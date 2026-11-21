@@ -905,13 +905,21 @@ class _Native:
         from mdapy.simulation import _domain
 
         self.__comm = comm  # of the processes it is split among, or None
-        if self.__comm is None and getattr(calculator, "device", "cpu") == "cuda":
+        on_gpu = getattr(calculator, "device", "cpu") == "cuda"
+        if self.__comm is None and on_gpu:
             self.__atoms: Any = _device.DeviceAtoms(
                 calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation
             )
+        elif on_gpu:
+            # on many processes with a GPU each, the atoms of each process
+            # and its ghosts on its GPU, where the steps run
+            from mdapy.simulation._domain_device import DomainDeviceAtoms
+
+            self.__atoms = DomainDeviceAtoms(
+                self.__comm, calculator, system, x, v, masses, _SKIN, self.__movable,
+                self.__rotation, self.__box(),
+            )  # fmt: skip
         elif self.__comm is not None:
-            # on many processes the steps run on the processor, and the
-            # forces of a potential on the GPU on the GPU of each process
             self.__atoms = _domain.DomainAtoms(
                 self.__comm, calculator, x, v, masses, self.__restrict, self.__box(),
                 _SKIN,

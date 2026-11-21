@@ -109,15 +109,37 @@
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
 
-## 2.2.0rc2
+## 2.2.0
 
-The second release candidate of MDAPY 2.2: fixes since 2.2.0rc1. The API of 2.2.0rc1
-holds. Until 2.2.0 only fixes and documentation follow.
+MDAPY 2.2: its own molecular dynamics engine, on the processor and on NVIDIA GPUs, made
+for materials and machine-learned potentials, with the controls of mechanical and thermal
+loading and of shock; the GPU part as a package of its own,
+`pip install "mdapy[cuda12]"`; the classic potentials of LAMMPS as native calculators; the
+thermal conductivity by Green–Kubo, HNEMD and NEMD in MDAPY; minimum energy paths by the
+nudged elastic band; the coverage of descriptor space and generated training sets; and the
+API in layers. What 2.2 holds is in the notes of 2.2.0rc1 below. Code written for 2.1
+keeps working: the names that moved warn until 2.4, and the API of 2.2.0, its additions
+included, holds in every later 2.x release. Since 2.2.0rc1:
 
 - With an `Indenter`, MDAPY's own dynamics on the processor took the energy of the last
   indenter for the virial of the atoms, so that the pressure and the stress of `thermo`,
   and a barostat, were wrong while an indenter was there; on the GPU and in LAMMPS they
   were right. See [Indentation](../user-guide/simulation/indentation.md).
+- `nemd` takes the temperature of each slab from the atoms in it at the start, as it
+  takes the baths, and places the slab at their mean position. The atoms of a bath on
+  the edge of its slab vibrated across it and warmed or cooled the next slab, by up to
+  1 K in solid argon at 40 K, on one side of the bath only. The conductivity, fitted
+  without the slabs next to the baths, moved within its errors. See
+  [NEMD](../user-guide/properties/nemd.md).
+- Examples run again, larger and longer: [Deformation](../user-guide/simulation/deformation.md)
+  draws the stresses of copper as they are and adds graphene pulled along its two
+  directions; [NEMD](../user-guide/properties/nemd.md) shows the heat of the baths and its
+  table of lengths with three seeds; [Indentation](../user-guide/simulation/indentation.md)
+  presses a film 36 nm thick and draws its dislocation lines; the wave diagram of
+  [shock and spall](../examples/shock.md) leaves the slabs without atoms white. Graphene in
+  [Sheets](../user-guide/properties/sheets.md) and
+  [Elastic constants of graphene](../examples/graphene-elastic.md) takes the NEP model of
+  carbon in place of LCBOP.
 
 ## 2.2.0rc1
 

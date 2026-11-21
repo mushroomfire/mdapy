@@ -5,25 +5,28 @@
 molecular dynamics](md-elastic.md) and [molecular dynamics](../simulation/running.md) of
 two-dimensional materials such as graphene. A box that is periodic along two
 vectors in the x-y plane and not along a third along z makes a system a sheet;
-nothing else changes in the calls.
+nothing else changes in the calls. Graphene here takes the
+[NEP model of carbon](../../examples/graphene-polycrystal.md#the-boundaries-settle) of
+the graphene polycrystal: download [`nep.txt`](../../examples/carbon/nep.txt) into the
+working directory.
 
 <!-- skip-test -->
 ```python
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import LAMMPS
+from mdapy.calculators import NEP
 from mdapy.properties.elastic import elastic_constants
 from mdapy.properties.phonons import phonons
 from mdapy.simulation import minimize
 
-potential = LAMMPS("pair_style lcbop\npair_coeff * * C.lcbop C", elements=["C"])
+potential = NEP("nep.txt")
 crystal = build_crystal("graphene", 2.46, c=20.0, elements="C")
 sheet = crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False)))
 sheet = minimize(sheet, potential, cell="full", max_stress=1e-3).system
 
 elastic = elastic_constants(sheet, potential)
-elastic.constants  # (3, 3) N/m: 331, 73 and 129
-elastic.young_modulus(), elastic.poisson_ratio()  # 315 N/m, 0.22
+elastic.constants  # (3, 3) N/m: 359, 51 and 154
+elastic.young_modulus(), elastic.poisson_ratio()  # 352 N/m, 0.14
 
 result = phonons(sheet, potential)
 bands = result.band_structure("hexagonal")  # Γ-M-K-Γ
@@ -48,7 +51,7 @@ with plot.style():
 
 ![Phonons of graphene](images/sheets.png)
 
-*Graphene with the LCBOP potential of LAMMPS. The lowest branch near Γ, the
+*Graphene with the NEP model of carbon. The lowest branch near Γ, the
 vibration across the sheet, is quadratic; the two above it are linear.*
 
 The height of the box does not matter and the atoms need no vacuum around
@@ -105,15 +108,12 @@ height of its box kept, and returns a `SheetQuasiHarmonicResult`:
 
 <!-- skip-test -->
 ```python
-import numpy as np
 from mdapy.properties.thermodynamics import quasi_harmonic
 
-qha = quasi_harmonic(
-    sheet, potential, [0, 100, 300], volumes=np.linspace(1.0, 1.025, 6), mesh=100
-)
-qha.area  # Å² per atom: 2.641, 2.639, 2.630, the relaxed sheet 2.619
-qha.thermal_expansion  # 1/K: 0, -1.1e-5, -2.3e-5, as the sheet shrinks
-qha.area_modulus  # N/m: 191, 178, 134
+qha = quasi_harmonic(sheet, potential, [0, 100, 300], mesh=100)
+qha.area  # Å² per atom: 2.594, 2.593, 2.590, the relaxed sheet 2.581
+qha.thermal_expansion  # 1/K: 0, -4.4e-6, -6.3e-6, as the sheet shrinks
+qha.area_modulus  # N/m: 194, 191, 183
 ```
 
 `volumes` gives the areas, as ratios to the area of `sheet`, and
@@ -123,10 +123,9 @@ its plane bends: its vibrations across the plane, quadratic in the wave
 vector, have imaginary frequencies under any compression the mesh can
 resolve, and `quasi_harmonic` then raises `InvalidParameter`. A sheet that
 shrinks on heating, as graphene, can therefore be followed only while its
-equilibrium area stays above that of the relaxed sheet: with LCBOP up to some
-400 K, its zero-point vibrations stretching it by 0.8 %. A tension, through
-`pressure`, keeps it stretched. The long-range part of LCBOP reaches its
-cutoff between the default areas, so the example takes fewer.
+equilibrium area stays above that of the relaxed sheet: with this model up to some
+950 K, its zero-point vibrations stretching it by 0.5 %. A tension, through
+`pressure`, keeps it stretched.
 
 | Attribute | Type | Meaning |
 |---|---|---|
@@ -173,13 +172,13 @@ hot.constants, hot.errors  # (3, 3) N/m
 A sheet takes the fluctuations, as a strain that compresses it wrinkles it:
 the sheet bends out of its plane rather than shorten, and resists less than
 under a stretch. With `method="strain"`, the strains of +1 % and −1 % average
-the two responses. On 16 × 16 cells of graphene with LCBOP at 100 K they give
-C11 217 N/m along x and 176 N/m along y, which the symmetry makes equal,
-against 274 N/m for both from the fluctuations. Near 0 K, where the sheet
+the two responses. On 16 × 16 cells of graphene at 100 K they give
+C11 298 N/m along x and 247 N/m along y, which the symmetry makes equal,
+against 349 N/m for both from the fluctuations. Near 0 K, where the sheet
 hardly ripples, the strains still hold.
 
 The fluctuations need long runs, as the vibrations across the sheet change
-slowly: a million steps of 0.5 fs give errors of a few N/m on 512 atoms. The
+slowly: a million steps of 0.5 fs give errors of 1 to 3 N/m on 512 atoms. The
 constants of a free sheet depend on its size, as its ripples grow with it;
 [Elastic constants of graphene](../../examples/graphene-elastic.md) compares
 molecular dynamics with the quasi-harmonic approximation from 100 to 1000 K
@@ -190,7 +189,7 @@ and on sheets of 128 to 2048 atoms.
 A sheet has no thickness of its own, so its constants are in N/m. With a thickness
 $h$ chosen by convention, such as the 3.35 Å between the layers of graphite, the
 constants of a material of that thickness are $C[\mathrm{GPa}] = 10\, C[\mathrm{N/m}]
-/ h[\text{Å}]$: 331 N/m is 988 GPa.
+/ h[\text{Å}]$: 359 N/m is 1072 GPa.
 
 ## Molecular dynamics
 

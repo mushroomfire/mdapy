@@ -1299,6 +1299,10 @@ class _Native:
             ensemble in ("nvt", "npt") and run["thermostat"] == "nose-hoover"
         )
         langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
+        if ensemble in ("nvt", "npt") and run["thermostat"] == "trpmd":
+            raise InvalidParameter(
+                '"trpmd" is a thermostat of path integrals: it needs beads'
+            )
         barostat = ensemble in ("npt", "nph", "nphug")
         if barostat and "virial" not in self.__properties:
             raise InvalidParameter(

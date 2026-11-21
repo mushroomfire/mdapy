@@ -20,6 +20,7 @@ from mdapy.calculators import LennardJones, Springs, _gpu
 from mdapy.errors import InvalidParameter
 from mdapy.simulation import MolecularDynamics, _pimd
 from mdapy.simulation.controls import Hold
+from simulation.test_controls import potentials  # noqa: F401
 
 from calculators.gpu_stand_in import stand_in
 
@@ -103,6 +104,39 @@ def test_oscillators_at_the_energies_of_the_ring_polymer(beads):
     for column in ("potential_energy", "kinetic_energy", "primitive_kinetic_energy"):
         assert th[column].mean() == pytest.approx(expected, rel=0.03), column
     assert th["temperature"].mean() == pytest.approx(temperature, rel=0.03)
+
+
+def test_trpmd_leaves_the_centroids_alone():
+    """Thermostatted RPMD: free atoms keep the velocities of their
+    centroids exactly, while the other modes take the temperature, the
+    springs holding (P - 1) 3 N P k_B T / 2 on average."""
+    system, _, _ = hydrogen(32)
+    free = LennardJones({"H": (0.0, 1.0)}, 3.0)
+    beads, temperature = 6, 300.0
+    with MolecularDynamics(system, free, timestep=0.0005, beads=beads) as md:
+        md.velocities(temperature, seed=1)
+        start = md.system["velocities"]
+        md.run(300, ensemble="nvt", thermostat="trpmd", temperature=temperature, seed=3)
+        md.run(3000, ensemble="nvt", thermostat="trpmd", temperature=temperature,
+               seed=4, thermo=10)  # fmt: skip
+        np.testing.assert_allclose(md.system["velocities"], start, atol=1e-12)
+        springs = md.thermo.filter(md.thermo["step"] > 300)["spring_energy"].mean()
+    expected = (beads - 1) * 3 * len(system) * beads * KB * temperature / 2
+    assert springs == pytest.approx(expected, rel=0.05)
+
+
+def test_trpmd_needs_beads(potentials):  # noqa: F811
+    system, springs, _ = hydrogen(8)
+    with MolecularDynamics(system, springs) as md:
+        with pytest.raises(InvalidParameter, match="needs beads"):
+            md.run(1, ensemble="nvt", thermostat="trpmd", temperature=300)
+    _, lmp = potentials
+    if lmp is not None:
+        from simulation.test_controls import slab
+
+        with MolecularDynamics(slab()[0], lmp) as md:
+            with pytest.raises(InvalidParameter, match="path integrals in MDAPY"):
+                md.run(1, ensemble="nvt", thermostat="trpmd", temperature=300)
 
 
 def test_beads_and_centroids():

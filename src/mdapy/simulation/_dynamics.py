@@ -30,7 +30,7 @@ from mdapy.simulation._pimd import _RingPolymer
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
-_THERMOSTATS = ("nose-hoover", "langevin")
+_THERMOSTATS = ("nose-hoover", "langevin", "trpmd")
 # thermo keywords of LAMMPS and the columns they become
 # the columns of the log: name in thermo, format, width
 _LOG_COLUMNS = (
@@ -426,6 +426,8 @@ create_box {len(potential.elements)} box
         """The fixes of a run, and its setup."""
         ensemble = run["ensemble"]
         langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
+        if ensemble in ("nvt", "npt") and run["thermostat"] == "trpmd":
+            raise InvalidParameter('"trpmd" is a thermostat of path integrals in MDAPY')
         fix = ensemble
         if langevin:
             fix = "nve" if ensemble == "nvt" else "nph"
@@ -1329,9 +1331,10 @@ class MolecularDynamics:
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
-        thermostat : {"nose-hoover", "langevin"}, optional
-            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
-            "nose-hoover".
+        thermostat : {"nose-hoover", "langevin", "trpmd"}, optional
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
+            beads the "langevin" thermostat is PILE_L, and "trpmd" leaves out
+            the centroids. Default "nose-hoover".
         thermostat_damping : float64, optional
             Damping time of the thermostat in ps. Default 100 time steps.
         barostat_damping : float64, optional
@@ -1477,9 +1480,10 @@ class MolecularDynamics:
             along that axis. "nphug" takes "iso", "aniso" and "tri" under
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
-        thermostat : {"nose-hoover", "langevin"}, optional
-            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
-            "nose-hoover".
+        thermostat : {"nose-hoover", "langevin", "trpmd"}, optional
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
+            beads the "langevin" thermostat is PILE_L, and "trpmd" leaves out
+            the centroids. Default "nose-hoover".
         thermostat_damping : float64, optional
             Damping time of the thermostat in ps. Default 100 time steps.
         barostat_damping : float64, optional

@@ -113,7 +113,7 @@ The runs take the options of [Running](running.md), with these:
 |---|---|
 | `ensemble` | `"nvt"`, sampling the quantum canonical ensemble, or `"nve"`, ring-polymer molecular dynamics (RPMD) |
 | `temperature` | one temperature, also of `"nve"`: it sets the springs of the ring polymers |
-| `thermostat` | `"langevin"` with `"nvt"`: the path-integral Langevin thermostat PILE_L |
+| `thermostat` | with `"nvt"`, `"langevin"`: the path-integral Langevin thermostat PILE_L; `"trpmd"`: thermostatted RPMD, PILE_L on every mode but the centroids, which keep their dynamics |
 | `thermostat_damping` | the damping time of the centroids in ps; the other modes are damped critically |
 | `seed` | of the random forces of the thermostat |
 
@@ -179,7 +179,7 @@ water at 300 K.
 `MolecularDynamics` raises `InvalidParameter` for `beads` that is not a positive
 integer, with a `LAMMPS` calculator or a `movable` column. A run raises it
 for an ensemble other than `"nvt"` and `"nve"`, a thermostat other than `"langevin"`
-with `"nvt"`, no temperature or two, and controls.
+or `"trpmd"` with `"nvt"`, no temperature or two, and controls.
 
 !!! quote "Please cite"
     [Ceriotti et al. (2010)](../../reference/references.md#ceriotti2010).

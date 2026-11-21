@@ -256,6 +256,29 @@ __device__ inline Real4<Real> four(double x, double y, double z) {
     return out;
 }
 
+// A row that is the centre of no term, a ghost under MPI: the derivatives of
+// its pairs, its shares and its own force, energy and virial zero, so that
+// the gather gives it the forces of the terms of the atoms around.
+template <class Real, bool Energy, bool Virial, bool Atomic>
+__device__ inline void ghost_terms(std::int64_t n, std::int64_t plane, std::int64_t i, int count,
+                                   Real4<Real>* derivative, double* own_force,
+                                   double* share_energy, double* share_virial, double* energies,
+                                   double* virials) {
+    for (int a = 0; a < count; ++a) {
+        const std::int64_t pa = static_cast<std::int64_t>(a) * n + i;
+        derivative[pa] = four<Real>(0.0, 0.0, 0.0);
+        if (Atomic && Energy) share_energy[pa] = 0.0;
+        if (Atomic && Virial) {
+            for (int c = 0; c < 9; ++c) share_virial[c * plane + pa] = 0.0;
+        }
+    }
+    for (int c = 0; c < 3; ++c) own_force[3 * i + c] = 0.0;
+    if (Energy) energies[i] = 0.0;
+    if (Virial) {
+        for (int c = 0; c < 9; ++c) virials[static_cast<std::int64_t>(c) * n + i] = 0.0;
+    }
+}
+
 // Adds a vector to the derivative of a pair.
 template <class Real>
 __device__ inline void add_to(Real4<Real>* derivative, std::int64_t p, Real x, Real y, Real z) {

@@ -39,7 +39,9 @@
   their ghosts on a GPU of its machine and runs the steps there, as LAMMPS's KOKKOS
   does: each step sends only the positions of the ghosts and the sums of the
   thermostats and barostat, in every ensemble and with every control. The processes
-  of a machine take its GPUs in turn. See [With a GPU
+  of a machine take its GPUs in turn. What they send goes to MPI in the memory of the
+  GPU when MPI moves it, as Open MPI built with CUDA tells, or as
+  `MDAPY_GPU_AWARE_MPI` says. See [With a GPU
   each](../user-guide/simulation/processes.md#with-a-gpu-each).
 - A restart of molecular dynamics on the GPU keeps the boxes each atom crossed, its
   `image`, which the run after a restart counted again from zero.

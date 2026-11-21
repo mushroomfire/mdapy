@@ -81,7 +81,7 @@ class Atoms:
         self.sites = self.constants = None
         self.result = (np.zeros(n), forces, np.zeros((n, 3, 3)))
 
-    def keep_rows(self, rows):
+    def _keep(self, rows):
         forces = self.forces()[rows]
         self.x, self.v = self.x[rows], self.v[rows]
         self.species, self.masses = self.species[rows], self.masses[rows]
@@ -92,7 +92,7 @@ class Atoms:
     def row_bytes():
         return _CARRIED.itemsize
 
-    def pack_rows(self, rows):
+    def _pack(self, rows):
         out = np.empty(len(rows), dtype=_CARRIED)
         out["x"], out["species"], out["image"] = (
             self.x[rows],
@@ -116,13 +116,12 @@ class Atoms:
         self.v = np.concatenate([self.v, v])
         self.__renumbered(len(self.x), np.concatenate([self.forces(), f]))
 
-    def append_rows(self, data, count):
+    def _append(self, data):
         rows = np.asarray(data, dtype=np.uint8).view(_CARRIED)
-        assert len(rows) == count
         self.__appended(rows["x"], rows["species"], rows["image"], rows["mass"],
                         rows["id"], rows["v"], rows["f"])  # fmt: skip
 
-    def append_ghosts(self, positions, species, ids):
+    def _append_ghosts(self, positions, species, ids):
         n = len(positions)
         zeros = np.zeros((n, 3))
         self.__appended(np.array(positions), np.array(species), np.zeros((n, 3), np.int32),
@@ -135,14 +134,14 @@ class Atoms:
         self.x[:m] -= whole @ h
         self.image[:m] += whole.astype(np.int32)
 
-    def __fractions(self, d, h, lo, begin, end):
+    def _fractions(self, d, h, lo, begin, end):
         return ((self.x[begin:end] - lo) @ np.linalg.inv(h))[:, d]
 
     def truncate(self, count):
-        self.keep_rows(np.arange(count))
+        self._keep(np.arange(count))
 
-    def steps(self, d, h, lo, counts, at, periodic):
-        s = self.__fractions(d, h, lo, 0, self.size)
+    def _steps(self, d, h, lo, counts, at, periodic):
+        s = self._fractions(d, h, lo, 0, self.size)
         with np.errstate(invalid="ignore"):
             brick = np.clip(np.floor(np.nan_to_num(s, nan=0.0) * counts), 0, counts - 1)
         step = brick.astype(np.int64) - at
@@ -152,13 +151,6 @@ class Atoms:
         step = np.clip(step, -100, 100).astype(np.int8)
         step[~np.isfinite(s)] = 127
         return step
-
-    def slab(self, d, h, lo, low, high, begin, end):
-        t = self.__fractions(d, h, lo, begin, end)
-        return ((t >= low) & (t < high)).astype(np.uint8)
-
-    def gather_positions(self, rows, shift):
-        return self.x[rows] + shift
 
     def velocities(self):
         return self.v.copy()
@@ -443,53 +435,142 @@ class Neighbors:
         self.built = atoms.x.copy()
 
 
+# a ghost, as the stand-in sends it
+_GHOST = np.dtype([("x", "f8", 3), ("species", "f8"), ("id", "i8")])
+
+
 class Exchange:
-    """The messages of the borders of the bricks, as the device's, the
-    memory each receives into kept: the stand-in keeps its atoms in the
-    caller's order."""
+    """What the processes pass to each other, as the device's Exchange: the
+    stand-in keeps its atoms in the caller's order, and its views are its
+    arrays, of the host, with the device as without."""
 
     def __init__(self):
-        self.messages = {}
-        self.incoming = {}
+        self.device = False
+        self.__slots = []  # each message: its rows, first ghost, ghosts, memory
+        self.__step = None
+        self.__arrived = [None, None]
 
-    def set_messages(self, atoms, messages):
-        self.messages = {
-            k: (np.array(rows, dtype=np.int64), int(start), int(received))
-            for k, (rows, start, received) in enumerate(messages)
-        }
-        self.incoming = {}
+    def set_device(self, device):
+        self.device = bool(device)
+
+    def clear(self):
+        self.__slots = []
+
+    @property
+    def messages(self):
+        return len(self.__slots)
+
+    @staticmethod
+    def ghost_bytes():
+        return _GHOST.itemsize
+
+    # -- a build -----------------------------------------------------------
+
+    def leaving(self, atoms, d, h, lo, counts, at, periodic):
+        step = self.__step = atoms._steps(d, h, lo, counts, at, periodic)
+        worst = 127 if (step == 127).any() else int(np.abs(step).max(initial=0))
+        return int((step == -1).sum()), int((step == 1).sum()), worst
+
+    def pack_leaving(self, atoms, side):
+        return atoms._pack(np.flatnonzero(self.__step == 2 * side - 1))
+
+    def receive_arriving(self, side, count):
+        self.__arrived[side] = np.empty(count * _CARRIED.itemsize, np.uint8)
+        return self.__arrived[side]
+
+    def migrate(self, atoms):
+        atoms._keep(np.flatnonzero(self.__step == 0))
+        for side in (0, 1):
+            atoms._append(self.__arrived[side])
+        self.__arrived = [None, None]
+
+    def border(self, atoms, d, h, lo, low, high, begin, end, none, shift):
+        t = atoms._fractions(d, h, lo, begin, end)
+        rows = begin + np.flatnonzero((t >= low) & (t < high))
+        if none:
+            rows = rows[:0]
+        out = np.empty(len(rows), dtype=_GHOST)
+        out["x"], out["species"], out["id"] = (
+            atoms.x[rows] + shift,
+            atoms.species[rows],
+            atoms.index[rows],
+        )
+        self.__slots.append({"rows": rows, "start": 0, "count": 0,
+                             "out": out.view(np.uint8), "in": None})  # fmt: skip
+        return len(rows)
+
+    def border_out(self, k):
+        return self.__slots[k]["out"]
+
+    def border_in(self, k, count):
+        slot = self.__slots[k]
+        slot["count"], slot["in"] = count, np.empty(count * _GHOST.itemsize, np.uint8)
+        return slot["in"]
+
+    def append_border(self, atoms, k):
+        slot = self.__slots[k]
+        got = slot["in"].view(_GHOST)
+        slot["start"] = atoms.size
+        atoms._append_ghosts(got["x"], got["species"].astype(np.int32), got["id"])
+
+    def place(self, atoms):
+        pass  # the rows stay the caller's
+
+    # -- each step ---------------------------------------------------------
 
     def sent(self, k):
-        return len(self.messages[k][0])
+        return len(self.__slots[k]["rows"])
 
     def received(self, k):
-        return self.messages[k][2]
+        return self.__slots[k]["count"]
+
+    def __ghosts(self, k):
+        slot = self.__slots[k]
+        return slice(slot["start"], slot["start"] + slot["count"])
 
     def pack_positions(self, atoms, k, shift):
-        return atoms.x[self.messages[k][0]] + shift
+        return atoms.x[self.__slots[k]["rows"]] + shift
 
     def receive_positions(self, k):
-        self.incoming[k] = np.empty((self.received(k), 3))
-        return self.incoming[k]
+        self.__slots[k]["in"] = np.empty((self.received(k), 3))
+        return self.__slots[k]["in"]
 
     def unpack_positions(self, atoms, k):
-        _, start, count = self.messages[k]
-        atoms.x[start : start + count] = self.incoming[k]
+        atoms.x[self.__ghosts(k)] = self.__slots[k]["in"]
+
+    def pack_forces(self, atoms, k):
+        return atoms.result[1][self.__ghosts(k)].copy()
+
+    def receive_forces(self, k):
+        self.__slots[k]["in"] = np.empty((self.sent(k), 3))
+        return self.__slots[k]["in"]
+
+    def add_forces(self, atoms, k):
+        atoms.result[1][self.__slots[k]["rows"]] += self.__slots[k]["in"]
+
+    def pack_virials(self, atoms, k):
+        return atoms.result[2][self.__ghosts(k)].copy()
+
+    def receive_virials(self, k):
+        self.__slots[k]["in"] = np.empty((self.sent(k), 3, 3))
+        return self.__slots[k]["in"]
+
+    def add_virials(self, atoms, k):
+        atoms.result[2][self.__slots[k]["rows"]] += self.__slots[k]["in"]
 
     def pack_forwarded(self, potential, k):
-        return np.ascontiguousarray(potential.values[self.messages[k][0]]).view(
+        return np.ascontiguousarray(potential.values[self.__slots[k]["rows"]]).view(
             np.uint8
         )
 
     def receive_forwarded(self, potential, k):
-        self.incoming[k] = np.empty(
+        self.__slots[k]["in"] = np.empty(
             self.received(k) * potential.forwarded_bytes, np.uint8
         )
-        return self.incoming[k]
+        return self.__slots[k]["in"]
 
     def unpack_forwarded(self, potential, k):
-        _, start, count = self.messages[k]
-        potential.values[start : start + count] = self.incoming[k].view(np.float64)
+        potential.values[self.__ghosts(k)] = self.__slots[k]["in"].view(np.float64)
 
 
 class Stopping:
@@ -529,12 +610,14 @@ class Potential:
     """A potential of the stand-in: the kernels of the processor. thin: it
     computes the atoms of a process alone from ghosts within its cutoff;
     staged, EAM in two stages, the slopes of the embedding functions sent to
-    the ghosts between them, by the kernels of EAM on many processes."""
+    the ghosts between them, by the kernels of EAM on many processes;
+    reverse, the three-body potentials, whose terms are those of the atoms of
+    the process, the forces on the ghosts sent back."""
 
-    def __init__(self, made, compute, thin=False, staged=False):
+    def __init__(self, made, compute, thin=False, staged=False, reverse=False):
         self.native, self.compute_native = made, compute
         self.asked = []
-        self.thin = thin
+        self.thin, self.reverse = thin or reverse, reverse
         self.stages = 2 if staged else 1
         self.forwarded_bytes = 8 if staged else 0
         # what a stage leaves for the next, of each process: the threads that
@@ -559,10 +642,12 @@ class Potential:
 
     def compute_stage(self, stage, atoms, neighbors, h, lo, pbc, energy, virial, heat):
         if self.stages == 1:
+            centers = atoms.m if self.reverse else None
             if heat:
-                self.compute_heat(atoms, neighbors, h, lo, pbc)
+                self.compute_heat(atoms, neighbors, h, lo, pbc, centers)
             else:
-                self.compute(atoms, neighbors, h, lo, pbc, energy, virial, False)
+                self.compute(atoms, neighbors, h, lo, pbc, energy, virial, False,
+                             centers=centers)  # fmt: skip
             return
         system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
         nl = NeighborList.build(system, neighbors.cutoff)
@@ -587,18 +672,28 @@ class Potential:
             atoms.result = (rows(parts[0], ()), rows(parts[1], (3,)),
                             rows(parts[2], (3, 3)))  # fmt: skip
 
-    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False,
+                centers=None):  # fmt: skip
+        """centers: the first atoms alone the centres of the three-body terms."""
         self.asked.append((energy, virial, atomic))
         system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
         nl = NeighborList.build(system, neighbors.cutoff)
         # the kernels of three-body terms take heat, the others need none
         extra = (heat,) if heat else ()
+        options = {} if centers is None else {"centers": centers}
         atoms.result = self.compute_native(
             self.native, atoms.species, np.ascontiguousarray(atoms.x), h,
-            nl.offsets, nl.j, nl.shifts, None, None, *extra,
+            nl.offsets, nl.j, nl.shifts, None, None, *extra, **options,
         )  # fmt: skip
+        if centers is not None and not heat:
+            # the device keeps the terms of a centre with it: the shares the
+            # processor gave the ghosts are the process's, its totals the same
+            energies, forces, virials = atoms.result
+            energies[0] += energies[centers:].sum()
+            virials[0] += virials[centers:].sum(axis=0)
+            energies[centers:], virials[centers:] = 0.0, 0.0
 
-    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+    def compute_heat(self, atoms, neighbors, h, lo, pbc, centers=None):
         """The energies and virials of the heat flux: those of the kernels
         with heat for EAM and the three-body terms, as the device's
         compute_heat."""
@@ -607,13 +702,13 @@ class Potential:
             _core.calculators.compute_tersoff,
             _core.calculators.compute_eam,
         )
-        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat)
+        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat, centers)
 
 
 class Overlay:
     """Potentials of the stand-in added together, as the device's."""
 
-    thin, stages, forwarded_bytes = False, 1, 0
+    thin, reverse, stages, forwarded_bytes = False, False, 1, 0
 
     def __init__(self, parts):
         self.parts = list(parts)
@@ -659,11 +754,11 @@ def stand_in(found=True):
 
     def make_stillinger_weber(elements, rows, precision):
         made = native.make_stillinger_weber(elements, rows)
-        return Potential(made, native.compute_stillinger_weber)
+        return Potential(made, native.compute_stillinger_weber, reverse=True)
 
     def make_tersoff(elements, rows, precision):
         made = native.make_tersoff(elements, rows)
-        return Potential(made, native.compute_tersoff)
+        return Potential(made, native.compute_tersoff, reverse=True)
 
     def make_meam(element, ebound, cmin, cmax, tables, options, numbers, precision):
         made = native.make_meam(element, ebound, cmin, cmax, tables, options, numbers)

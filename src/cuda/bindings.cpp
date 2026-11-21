@@ -40,8 +40,6 @@ using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cp
 using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
 using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Rows = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
-using Bytes = nb::ndarray<const unsigned char, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Movable = nb::ndarray<const bool, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
@@ -62,6 +60,12 @@ Box make_box(Matrix h, Vector lo, std::array<bool, 3> pbc) {
     }
     return box;
 }
+
+// Memory of the device that MPI reads or writes, not owned.
+struct DeviceBytes {
+    std::uintptr_t data;
+    std::size_t bytes;
+};
 
 Precision precision_of(const std::string& name) {
     if (name == "mixed") return Precision::Mixed;
@@ -110,77 +114,13 @@ NB_MODULE(_cuda, m) {
              })
         .def("settle", &Atoms::settle)
         .def("truncate", &Atoms::truncate, nb::arg("count"))
-        .def(
-            "steps",
-            [](const Atoms& a, int d, Matrix h, Vector lo, int counts, int at, bool periodic) {
-                std::int8_t* data;
-                nb::object out = new_array({static_cast<std::size_t>(a.size())}, data);
-                a.steps(d, h.data(), lo.data(), counts, at, periodic, data);
-                return out;
-            },
-            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("counts"), nb::arg("at"),
-            nb::arg("periodic"))
-        .def(
-            "slab",
-            [](const Atoms& a, int d, Matrix h, Vector lo, double low, double high,
-               std::int64_t begin, std::int64_t end) {
-                std::uint8_t* data;
-                nb::object out = new_array({static_cast<std::size_t>(end - begin)}, data);
-                a.slab(d, h.data(), lo.data(), low, high, begin, end, data);
-                return out;
-            },
-            nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("low"), nb::arg("high"),
-            nb::arg("begin"), nb::arg("end"))
-        .def(
-            "keep_rows", [](Atoms& a, Rows rows) {
-                a.keep_rows(rows.data(), static_cast<std::int64_t>(rows.shape(0)));
-            },
-            nb::arg("rows"))
-        .def(
-            "pack_rows",
-            [](const Atoms& a, Rows rows) {
-                std::vector<unsigned char> bytes =
-                    a.pack_rows(rows.data(), static_cast<std::int64_t>(rows.shape(0)));
-                unsigned char* data;
-                nb::object out = new_array({bytes.size()}, data);
-                if (!bytes.empty()) std::memcpy(data, bytes.data(), bytes.size());
-                return out;
-            },
-            nb::arg("rows"))
         .def_static("row_bytes", &Atoms::row_bytes)
-        .def(
-            "append_rows",
-            [](Atoms& a, Bytes bytes, std::int64_t count) {
-                a.append_rows(bytes.data(), bytes.shape(0), count);
-            },
-            nb::arg("bytes"), nb::arg("count"))
-        .def(
-            "append_ghosts",
-            [](Atoms& a, Positions positions, Species species, Ids ids) {
-                const auto count = static_cast<std::int64_t>(positions.shape(0));
-                if (static_cast<std::int64_t>(species.shape(0)) != count ||
-                    static_cast<std::int64_t>(ids.shape(0)) != count) {
-                    throw std::invalid_argument("a species and an id for each ghost");
-                }
-                a.append_ghosts(positions.data(), species.data(), ids.data(), count);
-            },
-            nb::arg("positions"), nb::arg("species"), nb::arg("ids"))
         .def(
             "wrap",
             [](Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
                 a.wrap(h.data(), lo.data(), pbc.data());
             },
             nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
-        .def(
-            "gather_positions",
-            [](const Atoms& a, Rows rows, Vector shift) {
-                double* data;
-                nb::object out = new_array({static_cast<std::size_t>(rows.shape(0)), 3}, data);
-                a.gather_positions(rows.data(), static_cast<std::int64_t>(rows.shape(0)),
-                                   shift.data(), data);
-                return out;
-            },
-            nb::arg("rows"), nb::arg("shift"))
         .def(
             "set_species",
             [](Atoms& a, Species species) {
@@ -481,105 +421,122 @@ NB_MODULE(_cuda, m) {
         });
 
     using mdapy::cuda::Exchange;
+    // Memory of the device for MPI, as __cuda_array_interface__ gives it.
+    nb::class_<DeviceBytes>(m, "DeviceBytes")
+        .def_ro("nbytes", &DeviceBytes::bytes)
+        .def_prop_ro("__cuda_array_interface__", [](const DeviceBytes& d) {
+            nb::dict out;
+            out["shape"] = nb::make_tuple(d.bytes);
+            out["typestr"] = "|u1";
+            out["data"] = nb::make_tuple(d.data, false);
+            out["strides"] = nb::none();
+            out["version"] = 3;
+            out["stream"] = nb::none();
+            return out;
+        });
+    // what MPI is given of a view: pinned memory of the host as an array of
+    // bytes, or memory of the device; alive while the exchange is
+    const auto view = [](Exchange& e, const Exchange::View& v) -> nb::object {
+        if (v.device) {
+            return nb::cast(DeviceBytes{reinterpret_cast<std::uintptr_t>(v.data), v.bytes});
+        }
+        const std::size_t shape[1] = {v.bytes};
+        return nb::ndarray<nb::numpy, unsigned char>(v.data, 1, shape, nb::find(e)).cast();
+    };
     nb::class_<Exchange>(m, "Exchange")
         .def(nb::init<>())
-        .def(
-            "set",
-            [](Exchange& e, const Atoms& a, int k, Rows rows, std::int64_t start,
-               std::int64_t received) {
-                e.set(a, k, rows.data(), static_cast<std::int64_t>(rows.shape(0)), start,
-                      received);
-            },
-            nb::arg("atoms"), nb::arg("k"), nb::arg("rows"), nb::arg("start"),
-            nb::arg("received"))
+        .def("set_device", &Exchange::set_device, nb::arg("device"))
+        .def_prop_ro("device", &Exchange::device)
         .def("clear", &Exchange::clear)
+        .def_prop_ro("messages", &Exchange::messages)
+        .def_static("ghost_bytes", &Exchange::ghost_bytes)
         .def("sent", &Exchange::sent, nb::arg("k"))
         .def("received", &Exchange::received, nb::arg("k"))
         .def(
-            "set_messages",
-            [](Exchange& e, const Atoms& a, nb::list messages) {
-                std::vector<Exchange::Message> all;
-                std::vector<nb::object> kept;  // the rows, alive while they are read
-                int k = 0;
-                for (nb::handle item : messages) {
-                    nb::tuple t = nb::cast<nb::tuple>(item);
-                    Rows rows = nb::cast<Rows>(t[0]);
-                    kept.push_back(nb::borrow(t[0]));
-                    all.push_back(Exchange::Message{k++, rows.data(),
-                                                    static_cast<std::int64_t>(rows.shape(0)),
-                                                    nb::cast<std::int64_t>(t[1]),
-                                                    nb::cast<std::int64_t>(t[2])});
-                }
-                e.clear();
-                e.set_all(a, all);
+            "leaving",
+            [](Exchange& e, const Atoms& a, int d, Matrix h, Vector lo, int counts, int at,
+               bool periodic) {
+                const auto out = e.leaving(a, d, h.data(), lo.data(), counts, at, periodic);
+                return nb::make_tuple(out[0], out[1], out[2]);
             },
-            nb::arg("atoms"), nb::arg("messages"))
+            nb::arg("atoms"), nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("counts"),
+            nb::arg("at"), nb::arg("periodic"))
+        .def(
+            "pack_leaving",
+            [view](Exchange& e, const Atoms& a, int side) {
+                return view(e, e.pack_leaving(a, side));
+            },
+            nb::arg("atoms"), nb::arg("side"))
+        .def(
+            "receive_arriving",
+            [view](Exchange& e, int side, std::int64_t count) {
+                return view(e, e.receive_arriving(side, count));
+            },
+            nb::arg("side"), nb::arg("count"))
+        .def("migrate", &Exchange::migrate, nb::arg("atoms"))
+        .def(
+            "border",
+            [](Exchange& e, const Atoms& a, int d, Matrix h, Vector lo, double low, double high,
+               std::int64_t begin, std::int64_t end, bool none, Vector shift) {
+                return e.border(a, d, h.data(), lo.data(), low, high, begin, end, none,
+                                shift.data());
+            },
+            nb::arg("atoms"), nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("low"),
+            nb::arg("high"), nb::arg("begin"), nb::arg("end"), nb::arg("none"),
+            nb::arg("shift"))
+        .def(
+            "border_out", [view](Exchange& e, int k) { return view(e, e.border_out(k)); },
+            nb::arg("k"))
+        .def(
+            "border_in",
+            [view](Exchange& e, int k, std::int64_t count) {
+                return view(e, e.border_in(k, count));
+            },
+            nb::arg("k"), nb::arg("count"))
+        .def("append_border", &Exchange::append_border, nb::arg("atoms"), nb::arg("k"))
+        .def("place", &Exchange::place, nb::arg("atoms"))
         .def(
             "pack_positions",
-            [](Exchange& e, const Atoms& a, int k, Vector shift) {
-                const auto count = static_cast<std::size_t>(e.sent(k));
-                auto* data = static_cast<double*>(e.host(k, true, 3 * count * sizeof(double)));
-                e.pack_positions(a, k, shift.data(), data);
-                const std::size_t shape[2] = {count, 3};
-                return nb::ndarray<nb::numpy, double>(data, 2, shape, nb::find(e));
+            [view](Exchange& e, const Atoms& a, int k, Vector shift) {
+                return view(e, e.pack_positions(a, k, shift.data()));
             },
             nb::arg("atoms"), nb::arg("k"), nb::arg("shift"))
         .def(
             "receive_positions",
-            [](Exchange& e, int k) {
-                const auto count = static_cast<std::size_t>(e.received(k));
-                auto* data = static_cast<double*>(e.host(k, false, 3 * count * sizeof(double)));
-                const std::size_t shape[2] = {count, 3};
-                return nb::ndarray<nb::numpy, double>(data, 2, shape, nb::find(e));
-            },
+            [view](Exchange& e, int k) { return view(e, e.receive_positions(k)); },
             nb::arg("k"))
-        .def(
-            "unpack_positions",
-            [](Exchange& e, Atoms& a, int k) {
-                const auto count = static_cast<std::size_t>(e.received(k));
-                e.unpack_positions(
-                    a, k, static_cast<double*>(e.host(k, false, 3 * count * sizeof(double))));
-            },
-            nb::arg("atoms"), nb::arg("k"))
+        .def("unpack_positions", &Exchange::unpack_positions, nb::arg("atoms"), nb::arg("k"))
         .def(
             "pack_forces",
-            [](const Exchange& e, const Atoms& a, int k) {
-                double* data;
-                nb::object out = new_array({static_cast<std::size_t>(e.received(k)), 3}, data);
-                e.pack_forces(a, k, data);
-                return out;
-            },
+            [view](Exchange& e, const Atoms& a, int k) { return view(e, e.pack_forces(a, k)); },
             nb::arg("atoms"), nb::arg("k"))
         .def(
-            "add_forces",
-            [](const Exchange& e, Atoms& a, int k, Positions in) {
-                if (static_cast<std::int64_t>(in.shape(0)) != e.sent(k)) {
-                    throw std::invalid_argument("the forces of every atom of the message");
-                }
-                e.add_forces(a, k, in.data());
-            },
-            nb::arg("atoms"), nb::arg("k"), nb::arg("forces"))
+            "receive_forces", [view](Exchange& e, int k) { return view(e, e.receive_forces(k)); },
+            nb::arg("k"))
+        .def("add_forces", &Exchange::add_forces, nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "pack_virials",
+            [view](Exchange& e, const Atoms& a, int k) { return view(e, e.pack_virials(a, k)); },
+            nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "receive_virials",
+            [view](Exchange& e, int k) { return view(e, e.receive_virials(k)); }, nb::arg("k"))
+        .def("add_virials", &Exchange::add_virials, nb::arg("atoms"), nb::arg("k"))
         .def(
             "pack_forwarded",
-            [](Exchange& e, Potential& p, int k) {
+            [view](Exchange& e, Potential& p, int k) {
                 std::size_t bytes = 0;
                 const void* values = p.forwarded(&bytes);
-                const std::size_t size = static_cast<std::size_t>(e.sent(k)) * bytes;
-                auto* data = static_cast<unsigned char*>(e.host(k, true, size));
-                if (values != nullptr) e.pack_values(values, bytes, k, data);
-                const std::size_t shape[1] = {size};
-                return nb::ndarray<nb::numpy, unsigned char>(data, 1, shape, nb::find(e));
+                if (values == nullptr) throw std::logic_error("the potential forwards nothing");
+                return view(e, e.pack_values(values, bytes, k));
             },
             nb::arg("potential"), nb::arg("k"))
         .def(
             "receive_forwarded",
-            [](Exchange& e, Potential& p, int k) {
+            [view](Exchange& e, Potential& p, int k) {
                 std::size_t bytes = 0;
                 p.forwarded(&bytes);
-                const std::size_t size = static_cast<std::size_t>(e.received(k)) * bytes;
-                auto* data = static_cast<unsigned char*>(e.host(k, false, size));
-                const std::size_t shape[1] = {size};
-                return nb::ndarray<nb::numpy, unsigned char>(data, 1, shape, nb::find(e));
+                return view(e, e.receive_values(bytes, k));
             },
             nb::arg("potential"), nb::arg("k"))
         .def(
@@ -587,11 +544,8 @@ NB_MODULE(_cuda, m) {
             [](Exchange& e, Potential& p, int k) {
                 std::size_t bytes = 0;
                 void* values = p.forwarded(&bytes);
-                const std::size_t size = static_cast<std::size_t>(e.received(k)) * bytes;
-                if (values != nullptr) {
-                    e.unpack_values(values, bytes, k,
-                                    static_cast<unsigned char*>(e.host(k, false, size)));
-                }
+                if (values == nullptr) throw std::logic_error("the potential forwards nothing");
+                e.unpack_values(values, bytes, k);
             },
             nb::arg("potential"), nb::arg("k"));
 
@@ -626,6 +580,7 @@ NB_MODULE(_cuda, m) {
         .def_prop_ro("cutoff", &Potential::cutoff)
         .def_prop_ro("species", &Potential::species)
         .def_prop_ro("thin", &Potential::thin)
+        .def_prop_ro("reverse", &Potential::reverse)
         .def_prop_ro("stages", &Potential::stages)
         .def_prop_ro("forwarded_bytes",
                      [](Potential& p) {

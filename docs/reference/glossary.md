@@ -239,6 +239,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | restart file | the whole state of molecular dynamics at a step, from which `MolecularDynamics.load` and `resume` go on after a crash; `restart`, `restart_every` |
 | brick, ghost | of molecular dynamics on many processes: the part of the box whose atoms a process owns, and a copy on that process of an atom within the reach of its brick, of another process or a periodic image |
 | communicator | of MPI: a group of processes that work together, as mpi4py's `MPI.COMM_WORLD`, every process started, and `MPI.COMM_SELF`, each process alone; `comm` |
+| GPU-aware MPI | an MPI that sends and receives the memory of a GPU itself, between the GPUs of a machine over NVLink or PCIe, without a copy through the memory of the host; also called CUDA-aware; `MDAPY_GPU_AWARE_MPI` |
 | form factor | how strongly an atom scatters X-rays at a wave number, about its number of electrons at q = 0 and falling with q; `xray_form_factors` |
 | scattering length | how strongly a nucleus scatters neutrons, in fm, the same at every q, different for each isotope and negative for some, as H and Ti; `neutron_scattering_lengths` |
 | total scattering | the structure factor S(q) and the pair distribution function G(r) that X-rays or neutrons measure, each pair of elements weighted by their form factors or scattering lengths; `TotalScattering` |

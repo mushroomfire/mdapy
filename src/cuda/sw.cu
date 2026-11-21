@@ -81,8 +81,11 @@ __device__ inline void sw_two(const SwEntry<Real>& e, Real rsq, Real& energy, Re
 // pair k of atom i. Atomic: the energy (1 plane of plane values) and the
 // virial (9 planes) of each pair's share, by pair; else the
 // shares stay with the centre.
+// Only the first centers atoms, those of the process under MPI, are centres:
+// the terms of the others are left to their own processes.
 template <class Real, bool Energy, bool Virial, bool Atomic>
-__global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
+__global__ void sw_terms(std::int64_t n, std::int64_t centers, std::int64_t plane,
+                         const Real4<Real>* x,
                          Images<Real> images, const std::int32_t* indices,
                          const std::int32_t* counts, SwTables<Real> t, Real4<Real>* derivative,
                          double* own_force, double* share_energy, double* share_virial,
@@ -91,6 +94,11 @@ __global__ void sw_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* 
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
+    if (i >= centers) {
+        ghost_terms<Real, Energy, Virial, Atomic>(n, plane, i, counts[i], derivative, own_force,
+                                                  share_energy, share_virial, energies, virials);
+        return;
+    }
     const Real third = Real(1) / Real(3);
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
@@ -295,21 +303,36 @@ public:
 
     double cutoff() const override { return cutoff_; }
     int species() const override { return elements_; }
+    // Under MPI the atoms of the process alone are the centres, the forces
+    // on the ghosts sent back; compute and compute_heat take every atom, as
+    // the parts of an overlay, whose ghosts reach twice the cutoff.
+    bool thin() const override { return true; }
+    bool reverse() const override { return true; }
+    void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                       bool energy, bool virial, bool heat) override {
+        if (stage != 0) return;
+        if (heat) {
+            evaluate(atoms, neighbors, box, true, false, false, true, true);
+        } else {
+            evaluate(atoms, neighbors, box, energy, virial, false, false, true);
+        }
+    }
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
                  bool atomic) override {
-        evaluate(atoms, neighbors, box, energy, virial, atomic, false);
+        evaluate(atoms, neighbors, box, energy, virial, atomic, false, false);
     }
 
     // without atomic each term stays whole with its centre, and the
     // derivatives give the virials of the heat flux
     void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) override {
-        evaluate(atoms, neighbors, box, true, false, false, true);
+        evaluate(atoms, neighbors, box, true, false, false, true, false);
     }
 
 private:
+    // centred: the first owned atoms alone are centres
     void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
-                  bool atomic, bool heat) {
+                  bool atomic, bool heat, bool centred) {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
@@ -328,7 +351,8 @@ private:
         if (atomic && virial) at_least(share_virial_, static_cast<std::size_t>(9 * plane));
         const SwTables<Real> t{entries_.data(), same2_.data(), same3_.data(), elements_};
         own_force_.resize(static_cast<std::size_t>(3 * n));
-        Args args{n, plane, x, b, pairs_.indices(), pairs_.counts(), t, derivative_.data(),
+        Args args{n, centred ? a.active() : n, plane, x, b, pairs_.indices(), pairs_.counts(), t,
+                  derivative_.data(),
                   own_force_.data(), share_energy_.data(), share_virial_.data(),
                   a.energies.data(), a.virials.data()};
         if (atomic) {
@@ -345,7 +369,7 @@ private:
     }
 
     struct Args {
-        std::int64_t n, plane;
+        std::int64_t n, centers, plane;
         const Real4<Real>* x;
         Images<Real> images;
         const std::int32_t* indices;
@@ -362,7 +386,8 @@ private:
     template <bool Energy, bool Virial, bool Atomic>
     static void terms(const Args& r) {
         sw_terms<Real, Energy, Virial, Atomic><<<blocks(r.n), kBlock>>>(
-            r.n, r.plane, r.x, r.images, r.indices, r.counts, r.t, r.derivative, r.own_force,
+            r.n, r.centers, r.plane, r.x, r.images, r.indices, r.counts, r.t, r.derivative,
+            r.own_force,
             r.share_energy, r.share_virial, r.energies, r.virials);
         MDAPY_LAUNCHED();
     }

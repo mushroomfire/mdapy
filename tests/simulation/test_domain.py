@@ -289,6 +289,103 @@ def test_a_run_on_gpus_is_the_run_of_one_gpu(monkeypatch, case):
         same(split, alone)
 
 
+def test_a_run_on_gpus_through_gpu_aware_mpi(monkeypatch):
+    """With an MPI that moves the memory of the GPU, what the processes send
+    stays on the device (the stand-in's own arrays): the same run."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "1")
+    crystal, potential, options, size = cases("cuda")["nve"]
+    alone = run(crystal, potential, options)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+class _Gathered:
+    """A communicator whose processes said values, this one the first."""
+
+    def __init__(self, *others):
+        self.others = others
+
+    def allgather(self, value):
+        return [value, *self.others]
+
+
+def test_gpu_aware_mpi_as_the_environment_or_open_mpi_says(monkeypatch):
+    from mdapy.simulation import _domain_device
+
+    aware = _domain_device._gpu_aware
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "1")
+    assert aware(_Gathered())
+    assert not aware(_Gathered(False))  # the same on every process
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", " 0 ")
+    assert not aware(_Gathered())
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "yes")
+    with pytest.raises(InvalidParameter, match="1 or 0, not 'yes'"):
+        aware(_Gathered())
+    monkeypatch.delenv("MDAPY_GPU_AWARE_MPI")
+    monkeypatch.setattr(_domain_device, "_open_mpi_aware", lambda: True)
+    assert aware(_Gathered(True))
+
+
+def test_open_mpi_tells_whether_it_moves_gpu_memory(monkeypatch, tmp_path):
+    from mdapy.simulation import _domain_device
+
+    aware = _domain_device._open_mpi_aware
+    assert not aware(str(tmp_path / "missing"))  # no maps of the process
+    maps = tmp_path / "maps"
+    maps.write_text(
+        "7f00-7f01 r-xp 00000000 00:00 0 /nowhere/libmpi.so.40.30.6\n"
+        "7f01-7f02 r-xp 00000000 00:00 0 /nowhere/libmpi_mpifh.so.40\n"
+        "7f02-7f03 rw-p 00000000 00:00 0\n"
+    )
+    assert not aware(str(maps))  # a library that cannot be loaded
+    loaded = []
+
+    def library(answer):
+        def load(path):
+            loaded.append(path)
+            if answer is None:
+                return types.SimpleNamespace()  # another MPI: no query
+            return types.SimpleNamespace(MPIX_Query_cuda_support=lambda: answer)
+
+        return load
+
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(1))
+    assert aware(str(maps))
+    assert loaded == ["/nowhere/libmpi.so.40.30.6"]
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(0))
+    assert not aware(str(maps))
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(None))
+    assert not aware(str(maps))
+
+
+def test_memory_of_a_gpu_goes_to_mpi_as_it_is():
+    class Device:
+        __cuda_array_interface__ = {"shape": (8,), "typestr": "|u1",
+                                    "data": (0, False), "version": 3}  # fmt: skip
+
+    given = []
+
+    class Comm:
+        def Get_size(self):  # noqa: N802
+            return 2
+
+        def Get_rank(self):  # noqa: N802
+            return 0
+
+        def Sendrecv(self, sent, dest=None, recvbuf=None, source=None):  # noqa: N802
+            given.append((sent, recvbuf))
+
+    bricks = _domain.Bricks(Comm(), np.diag([40.0, 20.0, 20.0]), np.zeros(3),
+                            (True, True, True), 2.0)  # fmt: skip
+    sent, received = Device(), Device()
+    bricks.swap(sent, 1, received, 1)
+    assert given[0][0] is sent and given[0][1] is received
+    bricks.swap([1.0, 2.0], 1, np.empty(2), 1)
+    assert isinstance(given[1][0], np.ndarray)
+
+
 def potentials(tmp_path):
     """Each of MDAPY's potentials, with a crystal two bricks can split."""
     from mdapy.calculators import (
@@ -340,6 +437,32 @@ def test_every_potential_of_mdapy_splits(monkeypatch, tmp_path, name):
     options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
     alone = run(system, potential, options)
     for split in processes.run(2, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber"])
+@pytest.mark.parametrize("heat", [False, True])
+def test_three_body_potentials_on_gpus(monkeypatch, tmp_path, name, heat):
+    """On a GPU each the atoms of each process are the centres of the terms,
+    with ghosts within the cutoff, and the forces on the ghosts, with their
+    virials for the heat flux, go back to their atoms: the run of one GPU."""
+    from mdapy.calculators import StillingerWeber, Tersoff
+
+    from calculators.potential_files import write_sw, write_tersoff
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    gpu = {"device": "cuda", "precision": "double"}
+    if name == "Tersoff":
+        potential = Tersoff(write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C")), **gpu)
+    else:
+        potential = StillingerWeber(write_sw(tmp_path / "SiGe.sw", ("Si", "Ge")), **gpu)
+    system = potentials(tmp_path)[name][1]
+    options = {"ensemble": "nvt", "temperature": 600}
+    if heat:
+        options["controls"] = [_HeatField((2e-4, 0.0, 1e-4))]
+    alone = run(system, potential, options)
+    for split in processes.run(3, lambda rank: run(system, potential, options),
                                monkeypatch):  # fmt: skip
         same(split, alone)
 

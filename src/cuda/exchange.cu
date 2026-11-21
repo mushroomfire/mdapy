@@ -5,17 +5,17 @@
 //
 // What the processes of MPI exchange each step, gathered on the device into
 // messages and scattered from them: the positions of the atoms that are the
-// ghosts of other processes, shifted across periodic boundaries, and the
-// forces on the ghosts, added to their atoms. The messages are those of the
-// borders of the bricks (simulation/_domain.py), fixed between two builds.
+// ghosts of other processes, shifted across periodic boundaries, values of
+// the atoms a potential needs on its ghosts, and the forces on the ghosts,
+// added to their atoms. The messages are those of the borders of the bricks
+// (domain.cu), fixed between two builds.
 
 #include <algorithm>
 #include <memory>
 #include <stdexcept>
 #include <vector>
 
-#include "cuda/atoms.cuh"
-#include "cuda/cuda.h"
+#include "cuda/exchange.cuh"
 
 namespace mdapy::cuda {
 
@@ -49,8 +49,7 @@ __global__ void pack_triples_kernel(std::int64_t count, const std::int32_t* plac
     for (int c = 0; c < 3; ++c) out[3 * k + c] = values[3 * at + c];
 }
 
-// in the order of the message, so that an atom sent twice in one message
-// would add in a fixed order; the rows of one message are distinct
+// the rows of one message are distinct
 __global__ void add_triples_kernel(std::int64_t count, const std::int32_t* places,
                                    const double* in, double* values) {
     const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
@@ -77,197 +76,180 @@ __global__ void unpack_bytes_kernel(std::int64_t total, std::int64_t bytes,
     values[static_cast<std::int64_t>(places[row]) * bytes + b] = in[k];
 }
 
+// the 9 columns, of pitch n, of the rows at places
+__global__ void pack_columns_kernel(std::int64_t count, std::int64_t n, const std::int32_t* places,
+                                    const double* values, double* out) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= count) return;
+    const std::int64_t at = places[k];
+    for (int c = 0; c < 9; ++c) out[9 * k + c] = values[c * n + at];
+}
+
+__global__ void add_columns_kernel(std::int64_t count, std::int64_t n, const std::int32_t* places,
+                                   const double* in, double* values) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= count) return;
+    const std::int64_t at = places[k];
+    for (int c = 0; c < 9; ++c) values[c * n + at] += in[9 * k + c];
+}
+
+void check_virials(const Atoms::Impl& a) {
+    if (a.virials.size() != static_cast<std::size_t>(9 * a.n)) {
+        throw std::logic_error("no virials of the atoms were computed");
+    }
+}
+
 }  // namespace
-
-// Memory of the host that the device copies to and from at full speed,
-// kept for the messages of the next steps.
-struct Pinned {
-    void* data = nullptr;
-    std::size_t size = 0;
-    Pinned() = default;
-    Pinned(const Pinned&) = delete;
-    Pinned& operator=(const Pinned&) = delete;
-    ~Pinned() {
-        if (data != nullptr) cudaFreeHost(data);
-    }
-    void* reserve(std::size_t n) {
-        if (n > size) {
-            if (data != nullptr) cudaFreeHost(data);
-            data = nullptr;
-            size = 0;
-            MDAPY_CUDA(cudaHostAlloc(&data, n, cudaHostAllocDefault));
-            size = n;
-        }
-        return data;
-    }
-};
-
-struct Exchange::Impl {
-    // the places of the rows each message sends, and of those it receives
-    std::vector<std::unique_ptr<Buffer<std::int32_t>>> sent, received;
-    // the memory of the host of what each message sends and receives
-    std::vector<std::unique_ptr<Pinned>> outgoing, incoming;
-    Buffer<double> scratch;
-    Buffer<unsigned char> bytes;
-};
 
 Exchange::Exchange() : impl_(std::make_unique<Impl>()) {}
 Exchange::~Exchange() = default;
 
-void Exchange::set(const Atoms& atoms, int k, const std::int32_t* rows, std::int64_t count,
-                   std::int64_t start, std::int64_t received) {
-    set_all(atoms, {Message{k, rows, count, start, received}});
-}
+void Exchange::set_device(bool device) { impl_->device = device; }
+bool Exchange::device() const { return impl_->device; }
 
-void Exchange::set_all(const Atoms& atoms, const std::vector<Message>& messages) {
-    const Atoms::Impl& a = atoms.impl();
-    // the place of each of the caller's rows, once for all the messages
-    const auto& order = a.order();
-    std::vector<std::int32_t> place(static_cast<std::size_t>(a.n));
-    for (std::int64_t p = 0; p < a.n; ++p) {
-        place[order.empty() ? p : order[p]] = static_cast<std::int32_t>(p);
-    }
-    for (const Message& m : messages) {
-        set_one(a, place, m.k, m.rows, m.count, m.start, m.received);
-    }
-}
-
-void Exchange::set_one(const Atoms::Impl& a, const std::vector<std::int32_t>& place, int k,
-                       const std::int32_t* rows, std::int64_t count, std::int64_t start,
-                       std::int64_t received) {
-    Impl& e = *impl_;
-    if (k < 0 || count < 0 || received < 0 || start < 0 || start + received > a.n) {
-        throw std::invalid_argument("a message outside the atoms");
-    }
-    while (static_cast<std::size_t>(k) >= e.sent.size()) {
-        e.sent.push_back(std::make_unique<Buffer<std::int32_t>>());
-        e.received.push_back(std::make_unique<Buffer<std::int32_t>>());
-        e.outgoing.push_back(std::make_unique<Pinned>());
-        e.incoming.push_back(std::make_unique<Pinned>());
-    }
-    std::vector<std::int32_t> out(static_cast<std::size_t>(count));
-    for (std::int64_t i = 0; i < count; ++i) {
-        if (rows[i] < 0 || rows[i] >= a.n) {
-            throw std::invalid_argument("a row of a message outside the atoms");
-        }
-        out[i] = place[rows[i]];
-    }
-    e.sent[k]->upload(out.data(), out.size());
-    std::vector<std::int32_t> in(static_cast<std::size_t>(received));
-    for (std::int64_t i = 0; i < received; ++i) in[i] = place[start + i];
-    e.received[k]->upload(in.data(), in.size());
-}
-
-void Exchange::clear() {
-    impl_->sent.clear();
-    impl_->received.clear();
-}
-
-void* Exchange::host(int k, bool outgoing, std::size_t bytes) {
-    Impl& e = *impl_;
-    auto& all = outgoing ? e.outgoing : e.incoming;
-    if (k < 0 || static_cast<std::size_t>(k) >= all.size()) {
-        throw std::invalid_argument("no such message");
-    }
-    return all[static_cast<std::size_t>(k)]->reserve(std::max<std::size_t>(bytes, 1));
-}
-
-namespace {
-
-const Buffer<std::int32_t>& message(
-    const std::vector<std::unique_ptr<Buffer<std::int32_t>>>& all, int k) {
-    if (k < 0 || static_cast<std::size_t>(k) >= all.size()) {
-        throw std::invalid_argument("no such message");
-    }
-    return *all[static_cast<std::size_t>(k)];
-}
-
-}  // namespace
+void Exchange::clear() { impl_->used = 0; }
+int Exchange::messages() const { return impl_->used; }
 
 std::int64_t Exchange::sent(int k) const {
-    return static_cast<std::int64_t>(message(impl_->sent, k).size());
+    return static_cast<std::int64_t>(impl_->at(k).sent.size());
 }
 
 std::int64_t Exchange::received(int k) const {
-    return static_cast<std::int64_t>(message(impl_->received, k).size());
+    return static_cast<std::int64_t>(impl_->at(k).received.size());
 }
 
-void Exchange::pack_positions(const Atoms& atoms, int k, const double* shift,
-                              double* out) const {
+Exchange::View Exchange::pack_positions(const Atoms& atoms, int k, const double* shift) {
     Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.sent, k);
-    const auto count = static_cast<std::int64_t>(places.size());
-    if (count == 0) return;
-    e.scratch.resize(static_cast<std::size_t>(3 * count));
-    pack_positions_kernel<<<blocks(count), kBlock>>>(
-        count, places.data(), atoms.impl().x.data(), make_double3(shift[0], shift[1], shift[2]),
-        e.scratch.data());
-    MDAPY_LAUNCHED();
-    e.scratch.download(out, static_cast<std::size_t>(3 * count));
+    Impl::Slot& s = e.at(k);
+    const auto count = static_cast<std::int64_t>(s.sent.size());
+    const auto bytes = static_cast<std::size_t>(count) * 3 * sizeof(double);
+    s.out.resize(bytes);
+    if (count > 0) {
+        pack_positions_kernel<<<blocks(count), kBlock>>>(
+            count, s.sent.data(), atoms.impl().x.data(), make_double3(shift[0], shift[1], shift[2]),
+            reinterpret_cast<double*>(s.out.data()));
+        MDAPY_LAUNCHED();
+    }
+    return e.staged(s, bytes);
 }
 
-void Exchange::unpack_positions(Atoms& atoms, int k, const double* in) const {
+Exchange::View Exchange::receive_positions(int k) {
+    Impl::Slot& s = impl_->at(k);
+    return impl_->receive(s, s.received.size() * 3 * sizeof(double));
+}
+
+void Exchange::unpack_positions(Atoms& atoms, int k) {
     Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.received, k);
-    const auto count = static_cast<std::int64_t>(places.size());
+    Impl::Slot& s = e.at(k);
+    const auto count = static_cast<std::int64_t>(s.received.size());
+    const unsigned char* in =
+        e.arrived(s, static_cast<std::size_t>(count) * 3 * sizeof(double));
     if (count == 0) return;
-    e.scratch.resize(static_cast<std::size_t>(3 * count));
-    e.scratch.upload(in, static_cast<std::size_t>(3 * count));
     Atoms::Impl& a = atoms.impl();
-    unpack_positions_kernel<<<blocks(count), kBlock>>>(count, places.data(), e.scratch.data(),
-                                                       a.x.data());
+    unpack_positions_kernel<<<blocks(count), kBlock>>>(
+        count, s.received.data(), reinterpret_cast<const double*>(in), a.x.data());
     MDAPY_LAUNCHED();
     ++a.version;
 }
 
-void Exchange::pack_forces(const Atoms& atoms, int k, double* out) const {
+Exchange::View Exchange::pack_values(const void* values, std::size_t bytes, int k) {
     Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.received, k);
-    const auto count = static_cast<std::int64_t>(places.size());
-    if (count == 0) return;
-    e.scratch.resize(static_cast<std::size_t>(3 * count));
-    pack_triples_kernel<<<blocks(count), kBlock>>>(count, places.data(),
-                                                   atoms.impl().forces.data(), e.scratch.data());
-    MDAPY_LAUNCHED();
-    e.scratch.download(out, static_cast<std::size_t>(3 * count));
+    Impl::Slot& s = e.at(k);
+    const auto total = static_cast<std::int64_t>(s.sent.size() * bytes);
+    s.out.resize(static_cast<std::size_t>(total));
+    if (total > 0) {
+        pack_bytes_kernel<<<blocks(total), kBlock>>>(
+            total, static_cast<std::int64_t>(bytes), s.sent.data(),
+            static_cast<const unsigned char*>(values), s.out.data());
+        MDAPY_LAUNCHED();
+    }
+    return e.staged(s, static_cast<std::size_t>(total));
 }
 
-void Exchange::pack_values(const void* values, std::size_t bytes, int k,
-                           unsigned char* out) const {
-    Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.sent, k);
-    const auto total = static_cast<std::int64_t>(places.size() * bytes);
-    if (total == 0) return;
-    e.bytes.resize(static_cast<std::size_t>(total));
-    pack_bytes_kernel<<<blocks(total), kBlock>>>(
-        total, static_cast<std::int64_t>(bytes), places.data(),
-        static_cast<const unsigned char*>(values), e.bytes.data());
-    MDAPY_LAUNCHED();
-    e.bytes.download(out, static_cast<std::size_t>(total));
+Exchange::View Exchange::receive_values(std::size_t bytes, int k) {
+    Impl::Slot& s = impl_->at(k);
+    return impl_->receive(s, s.received.size() * bytes);
 }
 
-void Exchange::unpack_values(void* values, std::size_t bytes, int k,
-                             const unsigned char* in) const {
+void Exchange::unpack_values(void* values, std::size_t bytes, int k) {
     Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.received, k);
-    const auto total = static_cast<std::int64_t>(places.size() * bytes);
+    Impl::Slot& s = e.at(k);
+    const auto total = static_cast<std::int64_t>(s.received.size() * bytes);
+    const unsigned char* in = e.arrived(s, static_cast<std::size_t>(total));
     if (total == 0) return;
-    e.bytes.upload(in, static_cast<std::size_t>(total));
     unpack_bytes_kernel<<<blocks(total), kBlock>>>(total, static_cast<std::int64_t>(bytes),
-                                                   places.data(), e.bytes.data(),
+                                                   s.received.data(), in,
                                                    static_cast<unsigned char*>(values));
     MDAPY_LAUNCHED();
 }
 
-void Exchange::add_forces(Atoms& atoms, int k, const double* in) const {
+Exchange::View Exchange::pack_forces(const Atoms& atoms, int k) {
     Impl& e = *impl_;
-    const Buffer<std::int32_t>& places = message(e.sent, k);
-    const auto count = static_cast<std::int64_t>(places.size());
+    Impl::Slot& s = e.at(k);
+    const auto count = static_cast<std::int64_t>(s.received.size());
+    const auto bytes = static_cast<std::size_t>(count) * 3 * sizeof(double);
+    s.out.resize(bytes);
+    if (count > 0) {
+        pack_triples_kernel<<<blocks(count), kBlock>>>(count, s.received.data(),
+                                                       atoms.impl().forces.data(),
+                                                       reinterpret_cast<double*>(s.out.data()));
+        MDAPY_LAUNCHED();
+    }
+    return e.staged(s, bytes);
+}
+
+Exchange::View Exchange::receive_forces(int k) {
+    Impl::Slot& s = impl_->at(k);
+    return impl_->receive(s, s.sent.size() * 3 * sizeof(double));
+}
+
+void Exchange::add_forces(Atoms& atoms, int k) {
+    Impl& e = *impl_;
+    Impl::Slot& s = e.at(k);
+    const auto count = static_cast<std::int64_t>(s.sent.size());
+    const unsigned char* in =
+        e.arrived(s, static_cast<std::size_t>(count) * 3 * sizeof(double));
     if (count == 0) return;
-    e.scratch.resize(static_cast<std::size_t>(3 * count));
-    e.scratch.upload(in, static_cast<std::size_t>(3 * count));
-    add_triples_kernel<<<blocks(count), kBlock>>>(count, places.data(), e.scratch.data(),
+    add_triples_kernel<<<blocks(count), kBlock>>>(count, s.sent.data(),
+                                                  reinterpret_cast<const double*>(in),
                                                   atoms.impl().forces.data());
+    MDAPY_LAUNCHED();
+}
+
+Exchange::View Exchange::pack_virials(const Atoms& atoms, int k) {
+    Impl& e = *impl_;
+    Impl::Slot& s = e.at(k);
+    const Atoms::Impl& a = atoms.impl();
+    check_virials(a);
+    const auto count = static_cast<std::int64_t>(s.received.size());
+    const auto bytes = static_cast<std::size_t>(count) * 9 * sizeof(double);
+    s.out.resize(bytes);
+    if (count > 0) {
+        pack_columns_kernel<<<blocks(count), kBlock>>>(count, a.n, s.received.data(),
+                                                       a.virials.data(),
+                                                       reinterpret_cast<double*>(s.out.data()));
+        MDAPY_LAUNCHED();
+    }
+    return e.staged(s, bytes);
+}
+
+Exchange::View Exchange::receive_virials(int k) {
+    Impl::Slot& s = impl_->at(k);
+    return impl_->receive(s, s.sent.size() * 9 * sizeof(double));
+}
+
+void Exchange::add_virials(Atoms& atoms, int k) {
+    Impl& e = *impl_;
+    Impl::Slot& s = e.at(k);
+    Atoms::Impl& a = atoms.impl();
+    check_virials(a);
+    const auto count = static_cast<std::int64_t>(s.sent.size());
+    const unsigned char* in =
+        e.arrived(s, static_cast<std::size_t>(count) * 9 * sizeof(double));
+    if (count == 0) return;
+    add_columns_kernel<<<blocks(count), kBlock>>>(count, a.n, s.sent.data(),
+                                                  reinterpret_cast<const double*>(in),
+                                                  a.virials.data());
     MDAPY_LAUNCHED();
 }
 

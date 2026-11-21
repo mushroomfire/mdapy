@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -89,35 +90,17 @@ public:
 
     // A build of the bricks under MPI (simulation/_domain_device.py), the
     // rows those of the places of the atoms on the device, which settle makes
-    // the caller's order. What each atom carries: its position and species,
-    // its images, mass, id, velocity and force; keep_rows keeps those rows in
-    // their order and drops the others, pack_rows packs what they carry,
-    // row_bytes each, which append_rows adds after the atoms, and
-    // append_ghosts adds ghosts at positions (count, 3) with their species
-    // and ids. Each drops what the controls of a run set on the atoms, which
-    // the caller gives again, and the energies and virials computed.
+    // the caller's order; the Exchange moves the atoms and adds the ghosts.
+    // What each atom carries: its position and species, its images, mass, id,
+    // velocity and force, row_bytes each. Each drops what the controls of a
+    // run set on the atoms, which the caller gives again, and the energies
+    // and virials computed.
     void settle();
     void truncate(std::int64_t count);  // the first count rows kept
-    // The brick of each atom along vector d, of counts, as a step from at,
-    // the nearer way round when periodic; 127 for a position not finite.
-    void steps(int d, const double* h, const double* lo, int counts, int at, bool periodic,
-               std::int8_t* out) const;
-    // 1 for each row from begin to end of a fractional coordinate along
-    // vector d in [low, high), else 0.
-    void slab(int d, const double* h, const double* lo, double low, double high,
-              std::int64_t begin, std::int64_t end, std::uint8_t* out) const;
-    void keep_rows(const std::int32_t* rows, std::int64_t count);
-    std::vector<unsigned char> pack_rows(const std::int32_t* rows, std::int64_t count) const;
     static std::size_t row_bytes();
-    void append_rows(const unsigned char* bytes, std::size_t size, std::int64_t count);
-    void append_ghosts(const double* positions, const std::int32_t* species,
-                       const std::int64_t* ids, std::int64_t count);
     // The first owned atoms into the box h (3, 3) of origin lo (3,) along the
     // periodic directions, their images counted.
     void wrap(const double* h, const double* lo, const bool* pbc);
-    // The positions of rows (count,), plus shift (3,), into out (count, 3).
-    void gather_positions(const std::int32_t* rows, std::int64_t count, const double* shift,
-                          double* out) const;
     void set_species(const std::int32_t* species);  // (n,)
     void set_positions(const double* positions);    // (n, 3)
     // In the box along its periodic directions after a neighbor list was
@@ -314,11 +297,16 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
-// Under MPI, the messages of the borders of the bricks of the processes
-// (simulation/_domain.py), fixed between two builds of the neighbor list:
-// message k sends the atoms at rows of the caller's order and receives
-// ghosts into the rows from start on. Positions go out shifted across a
-// periodic boundary; the forces on the ghosts come back, added to their atoms.
+// Under MPI, what the processes of the bricks (simulation/_domain.py) pass
+// to each other, packed and unpacked on the device: at a build the atoms that
+// move to the brick next to theirs, with all they carry, and the ghosts, each
+// message of the borders sending atoms of the caller's order and receiving
+// ghosts after the atoms; at each step the positions of the ghosts, shifted
+// across a periodic boundary, values of the atoms that a potential needs on
+// its ghosts, and the forces on the ghosts, which come back to their atoms.
+// What MPI sends and receives is a View: memory of the device itself for an
+// MPI that moves it (set_device), else pinned memory of the host, the copy
+// of the device's; each is kept from build to build.
 class Exchange {
 public:
     Exchange();
@@ -326,43 +314,69 @@ public:
     Exchange(const Exchange&) = delete;
     Exchange& operator=(const Exchange&) = delete;
 
-    // After the list was built, the atoms at their places since.
-    void set(const Atoms& atoms, int k, const std::int32_t* rows, std::int64_t count,
-             std::int64_t start, std::int64_t received);
-    struct Message {
-        int k;
-        const std::int32_t* rows;
-        std::int64_t count, start, received;
+    struct View {
+        void* data;
+        std::size_t bytes;
+        bool device;
     };
-    // Every message of a build at once.
-    void set_all(const Atoms& atoms, const std::vector<Message>& messages);
+    void set_device(bool device);
+    bool device() const;
+
+    // -- a build: messages added from 0 after clear ----------------------
     void clear();
-    // Pinned memory of the host for what message k sends (outgoing) or
-    // receives, of bytes at least, kept from step to step.
-    void* host(int k, bool outgoing, std::size_t bytes);
+    int messages() const;
+    // The brick of each atom along vector d, counts of them, as a step from
+    // at, the nearer way round when periodic: {the atoms that step down, up,
+    // the largest step}, 127 for a position that is not finite.
+    std::array<std::int64_t, 3> leaving(const Atoms& atoms, int d, const double* h,
+                                        const double* lo, int counts, int at, bool periodic);
+    // What the atoms that step down (side 0) or up (1) carry, row_bytes each;
+    // the memory for count atoms that come from the brick the other way.
+    View pack_leaving(const Atoms& atoms, int side);
+    View receive_arriving(int side, std::int64_t count);
+    // The atoms that stay, then those that came, side 0 first.
+    void migrate(Atoms& atoms);
+    // Message messages(): the rows from begin to end with a fractional
+    // coordinate along d in [low, high), none when none, their positions plus
+    // shift (3,) and ids packed, ghost_bytes each; its count.
+    std::int64_t border(const Atoms& atoms, int d, const double* h, const double* lo,
+                        double low, double high, std::int64_t begin, std::int64_t end,
+                        bool none, const double* shift);
+    View border_out(int k) const;
+    View border_in(int k, std::int64_t count);
+    // The ghosts message k received added after the atoms.
+    void append_border(Atoms& atoms, int k);
+    static std::size_t ghost_bytes();
+    // After the neighbor list sorted the atoms: the places of the rows each
+    // message sends and receives.
+    void place(const Atoms& atoms);
+
+    // -- each step ---------------------------------------------------------
     std::int64_t sent(int k) const;
     std::int64_t received(int k) const;
-    // The positions message k sends, plus shift (3,), into out (sent, 3); the
-    // positions it received, in (received, 3), into the ghosts.
-    void pack_positions(const Atoms& atoms, int k, const double* shift, double* out) const;
-    void unpack_positions(Atoms& atoms, int k, const double* in) const;
-    // The forces on the ghosts message k received, into out (received, 3),
-    // and those that come back for the atoms it sent, in (sent, 3), added to
-    // theirs.
-    void pack_forces(const Atoms& atoms, int k, double* out) const;
-    void add_forces(Atoms& atoms, int k, const double* in) const;
+    // The positions message k sends, plus shift (3,), (sent, 3); the memory
+    // for those it receives, unpacked into its ghosts.
+    View pack_positions(const Atoms& atoms, int k, const double* shift);
+    View receive_positions(int k);
+    void unpack_positions(Atoms& atoms, int k);
     // Values of bytes each at values on the device: those of the atoms
-    // message k sends, into out (sent * bytes), and those of the ghosts it
-    // received from in (received * bytes).
-    void pack_values(const void* values, std::size_t bytes, int k, unsigned char* out) const;
-    void unpack_values(void* values, std::size_t bytes, int k, const unsigned char* in) const;
+    // message k sends, (sent * bytes); those of its ghosts it receives.
+    View pack_values(const void* values, std::size_t bytes, int k);
+    View receive_values(std::size_t bytes, int k);
+    void unpack_values(void* values, std::size_t bytes, int k);
+    // The forces on the ghosts message k received, (received, 3), sent back;
+    // those that come back for the atoms it sent, added to theirs.
+    View pack_forces(const Atoms& atoms, int k);
+    View receive_forces(int k);
+    void add_forces(Atoms& atoms, int k);
+    // The same of the virials of the atoms, (received, 9) and (sent, 9).
+    View pack_virials(const Atoms& atoms, int k);
+    View receive_virials(int k);
+    void add_virials(Atoms& atoms, int k);
 
     struct Impl;
 
 private:
-    void set_one(const Atoms::Impl& a, const std::vector<std::int32_t>& place, int k,
-                 const std::int32_t* rows, std::int64_t count, std::int64_t start,
-                 std::int64_t received);
     std::unique_ptr<Impl> impl_;
 };
 
@@ -392,6 +406,9 @@ public:
     // ghosts after the first; heat, those of compute_heat. One that does not
     // needs ghosts within twice its cutoff.
     virtual bool thin() const { return false; }
+    // Whether such a potential leaves forces on the ghosts, and with heat
+    // their virials, which go back to their atoms.
+    virtual bool reverse() const { return false; }
     virtual int stages() const { return 1; }
     virtual void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
                                bool energy, bool virial, bool heat) {

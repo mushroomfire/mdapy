@@ -175,8 +175,26 @@ the neighbor list nothing else leaves the GPUs. A build, when an atom of any pro
 has moved half the skin or the box has changed, moves the atoms to the processes of
 their bricks and finds the ghosts again.
 
-A many-body potential takes ghosts within twice its cutoff and the skin, so that
-each GPU computes the atoms of its process from all their neighbors.
+The pair potentials, EAM, Stillinger-Weber and Tersoff take ghosts within their
+cutoff and the skin, as KOKKOS does. EAM sends the slopes of the embedding functions
+of the atoms to their ghosts at each step, between its densities and its forces.
+The terms of Stillinger-Weber and Tersoff are those of the atoms of the process, and
+the forces they leave on the ghosts go back to their atoms, with their virials under
+a heat field. ADP, MEAM and NEP take ghosts within twice their cutoff and the skin,
+so that each GPU computes the atoms of its process from all their neighbors.
+
+What the processes send each other goes to MPI in the memory of the GPU itself
+when MPI moves that memory (an MPI built with CUDA, often called GPU-aware or
+CUDA-aware), over NVLink or PCIe between the GPUs of a machine; otherwise through
+the memory of the host, which takes longer. MDAPY asks Open MPI whether it moves
+the memory of the GPU (`MPIX_Query_cuda_support`). For another MPI, or to decide,
+set `MDAPY_GPU_AWARE_MPI` to `1` or `0` on every process:
+
+```bash
+MDAPY_GPU_AWARE_MPI=1 srun -n 4 --gpus-per-task=1 --mpi=pmix python heat.py
+```
+
+With `1` and an MPI that does not move the memory of the GPU, the processes crash.
 
 The processes on a machine share its GPUs in turn: the first process of the
 machine takes the first GPU, the second the second, and so on, starting again from

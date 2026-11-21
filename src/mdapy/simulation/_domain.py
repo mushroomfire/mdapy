@@ -313,10 +313,13 @@ class Bricks:
         source: int | None,
     ) -> None:
         """Rows sent one way, the rows of received filled from the other, of
-        known numbers, without pickles; nothing where there is no process."""
+        known numbers, without pickles; nothing where there is no process.
+        Memory of a GPU goes to MPI as it is."""
         null = self.__null
         self.comm.Sendrecv(
-            np.ascontiguousarray(sent),
+            sent
+            if hasattr(sent, "__cuda_array_interface__")
+            else np.ascontiguousarray(sent),
             dest=null if destination is None else destination,
             recvbuf=received,
             source=null if source is None else source,

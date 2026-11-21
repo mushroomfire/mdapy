@@ -7,6 +7,7 @@
 with any other calculator."""
 
 import os
+import tempfile
 import time
 import weakref
 from collections.abc import Iterator
@@ -205,6 +206,9 @@ class _Lammps:
                 f"{list(potential.elements)}"
             )
         self.__n = len(system)
+        self.__elements = tuple(potential.elements)  # of each type
+        self.__numbers = numbers  # the element of each atom, as SYMBOLS has them
+        self.__stopping: str | None = None  # the fix of an ElectronicStopping
         self.__cmdargs = tuple(potential.cmdargs or ())
         # what the dynamics changes, or leaves out of date, is left out
         moving = (
@@ -389,6 +393,8 @@ create_box {len(potential.elements)} box
         for name, fix in self.__baths:
             # the tally of LAMMPS is the energy the bath took away
             row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
+        if self.__stopping is not None:  # the energy the electrons took in the run
+            row["electronic_loss"] = float(lmp.extract_fix(self.__stopping, 0, 0))
         for name, fix in self.__indented:  # the vector and the scalar of fix indent
             row[f"{name}_force"] = [
                 float(lmp.extract_fix(fix, 0, 1, k)) for k in range(3)
@@ -533,6 +539,7 @@ create_box {len(potential.elements)} box
         self.__fixes, self.__computes, self.__groups = [], [], []
         self.__variables = []
         self.__indented = ()
+        self.__stopping = None
         if self.__holder and self.__piston:
             flags = " ".join("p" if p else "m" for p in self.__pbc)
             self.command(f"change_box all boundary {flags}")
@@ -546,6 +553,35 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+
+    def __electron_stopping(self, name: str, control: Any) -> None:
+        """Fix electron/stopping, its table with a column for each type: the
+        stopping of its element, zero for a type of no atom that feels it."""
+        mask = control.mask
+        numbers = self.__numbers if mask is None else self.__numbers[mask]
+        missing = sorted({SYMBOLS[z] for z in numbers} - set(control.stopping))
+        if missing:
+            raise InvalidParameter(
+                f"the stopping has no table for {', '.join(missing)}"
+            )
+        columns = [
+            control.stopping.get(e, np.zeros_like(control.energies))
+            for e in self.__elements
+        ]
+        group = "all" if mask is None else self.__group(name, mask)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "stopping.txt")
+            with open(path, "w") as out:
+                for k, energy in enumerate(control.energies):
+                    out.write(" ".join(repr(float(v)) for v in
+                                       (energy, *(c[k] for c in columns))) + "\n")  # fmt: skip
+            # LAMMPS reads the table when the fix is made
+            self.command(
+                f"fix {name} {group} electron/stopping {control.min_energy!r} {path} "
+                f"minneigh {control.min_neighbors}"
+            )
+        self.__fixes.append(name)
+        self.__stopping = name
 
     def __indenter(self, name: str, indenter: Any, aligned: bool) -> None:
         """A virtual indenter as fix indent, its moving coordinates variables
@@ -668,6 +704,7 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+        self.__stopping = None
         if not controls:
             return "all", None
         if len(controls) > 24:
@@ -747,6 +784,8 @@ create_box {len(potential.elements)} box
                 self.__fixes.append(name)
             elif isinstance(control, _controls.Wall):
                 self.__wall(name, control, aligned)
+            elif isinstance(control, _controls.ElectronicStopping):
+                self.__electron_stopping(name, control)
             elif isinstance(control, _controls._HeatField):
                 raise InvalidParameter(
                     "HNEMD needs MDAPY's own dynamics, with a calculator other than "

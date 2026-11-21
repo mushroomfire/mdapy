@@ -29,6 +29,7 @@ from mdapy.simulation.controls import (
     AdaptiveTimestep,
     AddForce,
     Deform,
+    ElectronicStopping,
     Hold,
     Indenter,
     Langevin,
@@ -210,6 +211,13 @@ def cases():
         "hnemd convective": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
                                             "controls": [_HeatField((1e-4, 0, 0), True)]},
                              2),
+        # the atoms of the middle of 0.02 eV or more slowed, with a neighbor
+        "stopping": (crystal, eam, {"controls": [ElectronicStopping(
+            {"Cu": (np.geomspace(0.01, 10.0, 20), 0.5 * np.geomspace(0.1, 3.0, 20))},
+            min_energy=0.02, mask=middle)]}, 4),
+        "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
+            {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
+            min_energy=0.02)]}, 8),
     }  # fmt: skip
 
 
@@ -496,7 +504,7 @@ def test_an_atom_too_fast(monkeypatch):
     processes.run(4, task, monkeypatch)
 
 
-@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones"])
+@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones", "stopping"])
 def test_processes_with_a_gpu_each(monkeypatch, name):
     """Each process computes the forces of its atoms and ghosts on its GPU,
     stood in for on the processor, the steps on the processor: the run of one
@@ -508,6 +516,12 @@ def test_processes_with_a_gpu_each(monkeypatch, name):
             EAM.zhou(["Cu"], device="cuda", precision="double"),
         )
         options = {"ensemble": "npt", "temperature": 300, "pressure": 0.0}
+    elif name == "stopping":  # its neighbors counted on the processor
+        crystal, potential = (
+            copper(),
+            EAM.zhou(["Cu"], device="cuda", precision="double"),
+        )
+        options = CASES["stopping"][2]
     else:
         crystal = copper(5)
         potential = LennardJones({"Cu": (0.4, 2.3)}, 5.0, device="cuda",
@@ -520,7 +534,8 @@ def test_processes_with_a_gpu_each(monkeypatch, name):
 
 
 @pytest.mark.parametrize("case", ["nve", "npt tri", "groups", "hnemd convective",
-                                  "small", "outside", "lj", "switch to eam"])  # fmt: skip
+                                  "small", "outside", "lj", "switch to eam",
+                                  "stopping", "stopping lj"])  # fmt: skip
 def test_processes_of_one_thread(monkeypatch, case):
     """On one thread a process computes each pair of its own atoms once, as
     LAMMPS: the run of one process too, to the rounding."""

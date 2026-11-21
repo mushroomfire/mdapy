@@ -67,6 +67,12 @@ class DeviceAtoms:
         self.__set_free(movable)
         self.__watched = 0  # groups whose forces are summed: bits 0 to this
         self.__baths: list = []  # (bit, seed, [counter]) of each bath
+        self.__masks: list = []  # the masks of the groups of the controls
+        # the electronic stopping of a run: its table on the device, and
+        # (least, needed, cutoff, bit of its group or -1) as set_stopping makes them
+        self.__stopper: Any = None
+        self.__stopping: Any = None
+        self.electronic_power = 0.0
         self.sums: list = []
         self.__cutoff, self.__skin = on.cutoff, skin
         self.__neighbors = module.Neighbors(on.cutoff, skin)
@@ -95,6 +101,7 @@ class DeviceAtoms:
         "potential",
         "other",
         "target",
+        "stopper",
     )
 
     def state(self) -> dict[str, Any]:
@@ -187,6 +194,18 @@ class DeviceAtoms:
                 kind, axis, sign, k, radius, where, np.ascontiguousarray(h), pbc
             )
             self.indented.append((float(out[0]), np.asarray(out[1:], dtype=float)))
+        if self.__stopping is not None:
+            least, needed, cutoff, bit, last = self.__stopping
+            power, beyond = self.__stopper.apply(
+                self.__atoms, self.__neighbors, h, lo, pbc, least, needed, cutoff, bit,
+                _MVV2E,
+            )  # fmt: skip
+            if beyond:
+                raise CalculationFailed(
+                    "an atom is faster than the stopping table reaches: its kinetic "
+                    f"energy is beyond {last!r} eV, the last energy of the table"
+                )
+            self.electronic_power = float(power)
         self.__atoms.add_forces()
         if self.__held:
             self.__atoms.restrict_forces()
@@ -365,16 +384,10 @@ class DeviceAtoms:
             atoms.clear_added()
         else:
             atoms.set_added(np.ascontiguousarray(added, dtype=np.float64))
-        masks = [*watched, *(mask for mask, _ in baths)]
-        if len(masks) > 31:
+        self.__masks = [*watched, *(mask for mask, _ in baths)]
+        if len(self.__masks) > 31:
             raise InvalidParameter("the GPU takes at most 31 groups moved or bathed")
-        if masks:
-            bits = np.zeros(len(masks[0]), dtype=np.int32)
-            for k, mask in enumerate(masks):
-                bits[mask] |= np.int32(1 << k)
-            atoms.set_groups(bits)
-        else:
-            atoms.clear_groups()
+        self.__set_groups()
         self.__watched = len(watched)
         self.__baths = [
             (len(watched) + k, int(seed) % (1 << 63), [0])
@@ -382,12 +395,59 @@ class DeviceAtoms:
         ]
         self.sums = []
 
+    def __set_groups(self) -> None:
+        """The bits of the groups of the controls on the device, and after
+        them that of the atoms an electronic stopping may slow."""
+        masks = list(self.__masks)
+        if self.__stopping is not None and self.__stopping[3] >= 0:
+            masks.append(self.__stopping_mask)
+        if masks:
+            bits = np.zeros(len(masks[0]), dtype=np.int32)
+            for k, mask in enumerate(masks):
+                bits[mask] |= np.int32(1 << k)
+            self.__atoms.set_groups(bits)
+        else:
+            self.__atoms.clear_groups()
+
+    def set_stopping(self, spec: Any) -> None:
+        """The electronic stopping of a run, as _HostAtoms.set_stopping takes
+        it, or None: the table of each species of the potential that of the
+        element of its atoms."""
+        had = self.__stopping is not None
+        self.__stopper = self.__stopping = None
+        self.electronic_power = 0.0
+        if spec is None:
+            if had:
+                self.__set_groups()
+            return
+        energies, values, kinds, least, needed, mask, cutoff = spec
+        species = self.__species
+        table = np.zeros((int(species.max(initial=0)) + 1, len(energies)))
+        feel = np.ones(len(species), dtype=bool) if mask is None else mask
+        # MDAPY's potentials give each element its own species
+        first = np.unique(species[feel], return_index=True)
+        table[first[0]] = values[kinds[np.flatnonzero(feel)[first[1]]]]
+        self.__stopper = self.__module.Stopping(
+            np.ascontiguousarray(energies, dtype=np.float64),
+            np.ascontiguousarray(table),
+        )
+        if mask is not None and len(self.__masks) > 30:
+            raise InvalidParameter(
+                "the GPU takes at most 31 groups moved, bathed or stopped"
+            )
+        self.__stopping_mask = mask
+        bit = -1 if mask is None else len(self.__masks)
+        self.__stopping = (float(least), int(needed), float(cutoff), bit,
+                           float(energies[-1]))  # fmt: skip
+        self.__set_groups()
+
     def clear_controls(self) -> None:
         atoms = self.__atoms
         self.__set_free(self.__movable)
         atoms.clear_prescribed()
         atoms.clear_added()
-        atoms.clear_groups()
+        self.__masks = []
+        self.__set_groups()
         self.__watched = 0
         self.__baths = []
         self.sums = []

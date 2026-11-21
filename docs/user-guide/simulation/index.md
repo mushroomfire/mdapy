@@ -82,6 +82,7 @@ each part of them.
 | drive a shock with a piston, or reflect the atoms at a still wall | [`Wall`](walls.md) | ✓ | ✓ | ✓ |
 | find states on the Hugoniot of a shock | [`ensemble="nphug"`](hugoniostat.md) | ✓ | ✓ | ✓ |
 | follow the matter behind a steady shock | [`ensemble="msst"`](msst.md) | ✓ | ✓ | ✓ |
+| slow fast atoms by the friction of the electrons, in cascades of radiation damage | [`ElectronicStopping`](electronic-stopping.md) | ✓ | ✓ | ✓ |
 
 [Choosing a method](shock.md) compares the three ways of a shock. On the GPU, MDAPY
 needs to be built with CUDA: see [On the GPU](gpu.md).

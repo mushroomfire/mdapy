@@ -9,8 +9,9 @@ a group, an (N,) bool mask over the atoms of the system, and lasts for the
 run it is given to, through `controls` of `run` or `iterate`. Others act on the
 whole run: a [`Deform`](deformation.md) deforms the box, an
 [`AdaptiveTimestep`](adaptive-timestep.md) sets the time step, a
-[`Switch`](switching.md) turns the potential into another, and a [`Wall`](walls.md) or
-an [`Indenter`](indentation.md) pushes the atoms that reach it. All of them act in
+[`Switch`](switching.md) turns the potential into another, a [`Wall`](walls.md) or
+an [`Indenter`](indentation.md) pushes the atoms that reach it, and an
+[`ElectronicStopping`](electronic-stopping.md) slows the fast atoms. All of them act in
 MDAPY, on the processor and on the [GPU](gpu.md); all but the `Switch` act in LAMMPS
 too. They live in their own module, beside `MolecularDynamics`:
 `from mdapy.simulation.controls import Hold, Move`.
@@ -90,6 +91,7 @@ the force at one step, which the vibrations of the atoms shake.*
 | `Switch(target, *, start=0.0, stop=1.0, name=None)` | the potential turned into another along the run, for thermodynamic integration: see [Switching between potentials](switching.md) |
 | `Wall(axis="z", *, side="low", position=None, velocity=0.0)` | a flat wall that reflects the atoms, still or moving as a piston: see [Walls](walls.md) |
 | `Indenter(shape="sphere", *, center=None, radius=None, axis=None, position=None, side=None, stiffness=10.0, velocity=None, name=None)` | a virtual indenter that pushes the atoms out of a sphere, a cylinder or the region beyond a plane, the force on it recorded: see [Indentation](indentation.md) |
+| `ElectronicStopping(stopping, *, min_energy=10.0, min_neighbors=1, mask=None)` | the friction of the electrons on the atoms faster than an energy, the energy it took recorded: see [Electronic stopping](electronic-stopping.md) |
 
 | Parameter | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -107,7 +109,8 @@ the force at one step, which the vibrations of the atoms shake.*
 - The order of the controls in `controls` does not matter. In each step, after the
   atoms move, the [walls](walls.md) put back the atoms that passed them; then come the
   forces of the potential, the force on each named `Move` group is recorded, the
-  [indenters](indentation.md) and `AddForce` add theirs, and last `Hold` and `Move`
+  [indenters](indentation.md), the [electronic stopping](electronic-stopping.md) and
+  `AddForce` add theirs, and last `Hold` and `Move`
   set the velocities of their atoms. The baths act at each half step, as the
   thermostat does. In LAMMPS the indenters and the added forces are defined first,
   as LAMMPS applies its fixes in the order they are defined.
@@ -148,11 +151,12 @@ the force at one step, which the vibrations of the atoms shake.*
 ## Errors
 
 `run` and `iterate` raise `InvalidParameter` for a control that is not a
-`Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch`, `Wall` or `Indenter`, a group of another number of atoms,
+`Hold`, `Move`, `AddForce`, `Langevin`, `Deform`, `AdaptiveTimestep`, `Switch`, `Wall`,
+`Indenter` or `ElectronicStopping`, a group of another number of atoms,
 an atom both held and moved, moved by two controls, moved and in a bath, or
 in two baths, two controls of one name, held or moved atoms with a barostat or a `Deform`,
 a bath with the thermostat of `"nvt"` or `"npt"`, on the GPU more than 31
-groups moved with a name or bathed, and, in LAMMPS, more than 24 controls or
+groups moved with a name, bathed or slowed by an `ElectronicStopping` with a `mask`, and, in LAMMPS, more than 24 controls or
 atoms held along some directions in a box not in the form of LAMMPS. The controls raise it for a mask that is not
 (N,) bool, `directions` other than some of x, y and z, a velocity or force
 that is not three finite numbers, a temperature that is not positive, a

@@ -334,6 +334,11 @@ target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
 Eigenfrequenzen, *Phys. Z.* **11**, 609 (1910).
 { #lindemann1910 }
 
+**Lindhard and Scharff (1961).** J. Lindhard and M. Scharff, Energy dissipation
+by ions in the keV region, *Phys. Rev.* **124**, 128 (1961).
+[doi:10.1103/PhysRev.124.128](https://doi.org/10.1103/PhysRev.124.128)
+{ #lindhard1961 }
+
 **Lindsay and Broido (2010).** L. Lindsay and D. A. Broido, Optimized Tersoff
 and Brenner empirical potential parameters for lattice dynamics and phonon
 thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 205441

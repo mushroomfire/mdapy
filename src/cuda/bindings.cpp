@@ -341,6 +341,33 @@ NB_MODULE(_cuda, m) {
             return nb::make_tuple(c, i, g);
         });
 
+    nb::class_<mdapy::cuda::Stopping>(m, "Stopping")
+        .def(
+            "__init__",
+            [](mdapy::cuda::Stopping* self, Flat energies, Table values) {
+                if (values.shape(1) != energies.shape(0)) {
+                    throw std::invalid_argument("a stopping value for each energy");
+                }
+                new (self) mdapy::cuda::Stopping(
+                    energies.data(), static_cast<int>(energies.shape(0)), values.data(),
+                    static_cast<int>(values.shape(0)));
+            },
+            nb::arg("energies"), nb::arg("values"))
+        .def(
+            "apply",
+            [](const mdapy::cuda::Stopping& s, Atoms& a, Neighbors& l, Matrix h, Vector lo,
+               std::array<bool, 3> pbc, double least, int needed, double cutoff, int bit,
+               double mvv2e) {
+                const Box box = make_box(h, lo, pbc);
+                double* data;
+                nb::object out = new_array({2}, data);
+                s.apply(a, l, box, least, needed, cutoff, bit, mvv2e, data);
+                return out;
+            },
+            nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"),
+            nb::arg("least"), nb::arg("needed"), nb::arg("cutoff"), nb::arg("bit"),
+            nb::arg("mvv2e"));
+
     nb::class_<Potential>(m, "Potential")
         .def_prop_ro("cutoff", &Potential::cutoff)
         .def_prop_ro("species", &Potential::species)

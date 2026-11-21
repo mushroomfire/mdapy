@@ -289,6 +289,29 @@ _THERMOSTAT_STREAM = 0
 _BATH_STREAM = 1
 
 
+def _counted(
+    wide: NeighborList,
+    x: np.ndarray,
+    matrix: np.ndarray,
+    which: np.ndarray,
+    cutoff: float,
+) -> np.ndarray:
+    """The pairs of the atoms of those indices in a list of the atoms at x
+    that are closer than cutoff, the shifts in the box of that matrix."""
+    starts = wide.offsets[which]
+    lengths = wide.offsets[which + 1] - starts
+    # the indices of their pairs, atom by atom
+    at = np.repeat(starts - np.cumsum(lengths) + lengths, lengths) + np.arange(
+        int(lengths.sum())
+    )
+    centre = np.repeat(which, lengths)
+    d = x[wide.j[at]] - x[centre] + wide.shifts[at] @ matrix
+    close = np.einsum("ij,ij->i", d, d) < cutoff * cutoff
+    return np.bincount(
+        np.repeat(np.arange(len(which)), lengths), weights=close, minlength=len(which)
+    )
+
+
 class _HostAtoms:
     """The atoms of MDAPY's dynamics on the processor: NumPy arrays of the
     positions, velocities and forces in the frame of LAMMPS, and the steps
@@ -342,6 +365,10 @@ class _HostAtoms:
         self.watched: tuple = ()
         self.sums: list = []
         self.__baths: list = []
+        # the electronic stopping of a run, as set_stopping takes it, and the
+        # energy the atoms lose to it in a unit of time at the last computation
+        self.stopping: Any = None
+        self.electronic_power = 0.0
 
     # the rows of this process's atoms in arrays of all the atoms: all of them
     _rows: Any = slice(None)
@@ -432,6 +459,13 @@ class _HostAtoms:
         """A list of the pairs within the cutoff and the skin."""
         return NeighborList.build(current, float(calculator.cutoff) + _SKIN)
 
+    def _neighbor_counts(self, which: np.ndarray, cutoff: float) -> np.ndarray:
+        """The number of neighbors closer than cutoff, at their places now,
+        of this process's atoms of those indices: from the list of the
+        potential, which holds every pair within its cutoff."""
+        wide = self._lists["potential"]
+        return _counted(wide, self._x, wide.system.box.matrix, which, cutoff)
+
     def _evaluate(
         self, slot: str, calculator: Any, table: pl.DataFrame, box: Box, wanted: tuple
     ) -> tuple[float, np.ndarray, np.ndarray, Any]:
@@ -496,12 +530,17 @@ class _HostAtoms:
             pushed, energy_on, on = _indented(self._x, box.matrix, box.pbc, spec, at)
             forces = forces + pushed
             indented.append(np.concatenate([[energy_on], on]))
+        stopped = []
+        if self.stopping is not None:
+            forces, power, beyond = self.__stopped(forces)
+            stopped.append(np.array([power, beyond]))
         # what sums over the processes, in one sum: the energies, the forces
-        # that are not finite, the virials, the forces on the watched groups
-        # and the energies of the indenters and their forces
+        # that are not finite, the virials, the forces on the watched groups,
+        # the energies of the indenters and their forces, and the power of the
+        # electronic stopping with the atoms too fast for its table
         bad = 0.0 if np.isfinite(forces).all() else 1.0
         parts = [np.array([energy, other, bad]), np.ravel(work), np.ravel(push)]
-        totals = self._total(np.concatenate(parts + sums + indented))
+        totals = self._total(np.concatenate(parts + sums + indented + stopped))
         energy, other, bad = float(totals[0]), float(totals[1]), totals[2]
         work, push = totals[3:12].reshape(3, 3), totals[12:21].reshape(3, 3)
         if not np.isfinite(energy) or bad:
@@ -517,6 +556,14 @@ class _HostAtoms:
         for _ in indented:
             self.indented.append((float(totals[at]), totals[at + 1 : at + 4]))
             at += 4
+        if stopped:
+            if totals[at + 1]:
+                raise CalculationFailed(
+                    "an atom is faster than the stopping table reaches: its kinetic "
+                    f"energy is beyond {self.stopping[0][-1]!r} eV, the last energy "
+                    "of the table"
+                )
+            self.electronic_power = float(totals[at])
         if self._target is not False:
             # (1 - λ) times the potential plus λ times the target, the target
             # giving no virial where it computes none; the energies of the two
@@ -531,6 +578,44 @@ class _HostAtoms:
             forces = forces + self.added[rows]
         self._forces = self._restrict(forces, rows)
         return energy, work
+
+    def set_stopping(self, spec: Any) -> None:
+        """The electronic stopping of a run, or None: (energies, (K, G) the
+        stopping of each kind at them, (N,) the kind of each atom, the least
+        energy, the least number of neighbors, (N,) the atoms that may feel
+        it or None for all, the cutoff within which neighbors count)."""
+        self.stopping = spec
+        self.electronic_power = 0.0
+
+    def __stopped(self, forces: np.ndarray) -> tuple[np.ndarray, float, float]:
+        """The forces with the friction of the electrons on the atoms fast
+        enough, as LAMMPS's fix electron/stopping; the energy they lose in a
+        unit of time, and how many are too fast for the table."""
+        energies, values, kinds, least, needed, mask, cutoff = self.stopping
+        rows, v = self._rows, self._v
+        e = 0.5 * _MVV2E * self._masses * np.einsum("ij,ij->i", v, v)
+        fast = e >= max(least, energies[0])
+        if mask is not None:
+            fast &= mask[rows]
+        which = np.flatnonzero(fast)
+        if needed > 0 and len(which):
+            which = which[self._neighbor_counts(which, cutoff) >= needed]
+        if not len(which):
+            return forces, 0.0, 0.0
+        e = e[which]
+        beyond = float((e > energies[-1]).sum())
+        # linear between the energies about it, as the bisection of LAMMPS
+        up = np.clip(np.searchsorted(energies, e, side="left"), 1, len(energies) - 1)
+        down = up - 1
+        kind = kinds[rows][which]
+        low, high = values[kind, down], values[kind, up]
+        drag = (high - low) / (energies[up] - energies[down]) * (
+            e - energies[down]
+        ) + low
+        speed = np.sqrt(np.einsum("ij,ij->i", v[which], v[which]))
+        forces = np.array(forces, dtype=float)
+        forces[which] -= (drag / speed)[:, None] * v[which]
+        return forces, float((drag * speed).sum()), beyond
 
     def __switched(
         self, table: pl.DataFrame, box: Box, forces: np.ndarray
@@ -800,6 +885,8 @@ class _Native:
         self.__baths: tuple = ()  # (control, seed, damping) of each bath
         self.__prescribed = False  # whether controls set velocities
         self.__heat: list = []  # the heat each gave since the run began, eV
+        self.__stopping: Any = None  # the ElectronicStopping of the run
+        self.__electronic_loss = 0.0  # the energy it took since the run began, eV
         self.timestep = float(timestep)
         self.__step = 0
         self.__time = 0.0
@@ -1006,7 +1093,7 @@ class _Native:
             f"{bath.name}_energy": heat
             for (bath, _, _), heat in zip(self.__baths, self.__heat)
             if bath.name is not None
-        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record() | self.__msst_record() | self.__indenter_record()  # fmt: skip
+        } | self.__switch_record() | self.__field_record() | self.__hugoniot_record() | self.__msst_record() | self.__indenter_record() | self.__stopping_record()  # fmt: skip
 
     def __field_record(self) -> dict[str, Any]:
         """The potential part of the heat flux times the volume of a run of
@@ -1064,6 +1151,45 @@ class _Native:
             specs.append((kind, axis, sign, indenter.stiffness, indenter.radius or 0.0))
         self.__indenters = indenters
         self.__atoms.indenters = tuple(specs)
+
+    def __set_stopping(self, control: Any) -> None:
+        """The electronic stopping of a run, for the atoms of the elements of
+        its tables."""
+        self.__stopping, self.__electronic_loss = None, 0.0
+        self.__atoms.set_stopping(None)
+        if control is None:
+            return
+        if "element" not in self.__table.columns:
+            raise InvalidParameter(
+                "electronic stopping needs the elements of the atoms: an element column"
+            )
+        elements = self.__table["element"].cast(pl.String).to_numpy()
+        names = sorted(control.stopping)
+        mask = control.mask
+        missing = sorted(set(elements if mask is None else elements[mask]) - set(names))
+        if missing:
+            raise InvalidParameter(
+                f"the stopping has no table for {', '.join(missing)}"
+            )
+        cutoff = float(self.__calculator.cutoff)
+        if control.min_neighbors > 0 and not 0.0 < cutoff < np.inf:
+            raise InvalidParameter(
+                "min_neighbors counts the neighbors within the cutoff of the "
+                f"potential, which {type(self.__calculator).__name__} has not: give "
+                "min_neighbors=0"
+            )
+        kinds = np.searchsorted(names, elements).clip(0, len(names) - 1)
+        values = np.stack([control.stopping[e] for e in names])
+        self.__atoms.set_stopping((
+            control.energies, values, kinds.astype(np.int64), control.min_energy,
+            control.min_neighbors, mask, cutoff,
+        ))  # fmt: skip
+        self.__stopping = control
+
+    def __stopping_record(self) -> dict[str, float]:
+        if self.__stopping is None:
+            return {}
+        return {"electronic_loss": float(self.__electronic_loss)}
 
     def __indenter_record(self) -> dict[str, Any]:
         out: dict[str, Any] = {}
@@ -1157,6 +1283,8 @@ class _Native:
             self.__energy = energy
         if "virial" in self.__properties and pressure:
             self.__virial = virial
+        if self.__stopping is not None:
+            self.__electronic_loss += self.__atoms.electronic_power * self.__dt
         self.__computed = True
 
     # -- a run ---------------------------------------------------------------------
@@ -1211,6 +1339,12 @@ class _Native:
                     "to keep"
                 )
         self.__compute()
+        # after the forces of the setup, which LAMMPS's fix electron/stopping
+        # leaves alone
+        self.__set_stopping(
+            next((c for c in controls if isinstance(c, _controls.ElectronicStopping)),
+                 None)
+        )  # fmt: skip
         self.__adaptive = next(
             (c for c in controls if isinstance(c, _controls.AdaptiveTimestep)), None
         )
@@ -1564,6 +1698,7 @@ class _Native:
                     _controls.Switch,
                     _controls.Wall,
                     _controls.Indenter,
+                    _controls.ElectronicStopping,
                     _controls._HeatField,
                 ),
             ):
@@ -1629,6 +1764,9 @@ class _Native:
         if self.__heating:
             self.__atoms.set_field(None)
             self.__heating = False
+        if self.__stopping is not None:
+            self.__atoms.set_stopping(None)
+            self.__stopping = None
         if self.__controlled:
             self.__reset_controls()
 

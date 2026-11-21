@@ -24,6 +24,12 @@
   GPU of its machine, the processes of a machine taking its GPUs in turn, while the
   steps run on the processor. See [With a GPU
   each](../user-guide/simulation/processes.md#with-a-gpu-each).
+- `ElectronicStopping`, a control of molecular dynamics: the friction of the electrons
+  on the atoms faster than an energy, from a table of the stopping power of each
+  element, for cascades of radiation damage, the energy the electrons took recorded
+  as `electronic_loss`; as LAMMPS's `fix electron/stopping`, the same runs step by
+  step, on the processor, on many processes, on the GPU and in LAMMPS. See
+  [Electronic stopping](../user-guide/simulation/electronic-stopping.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

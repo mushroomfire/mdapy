@@ -36,7 +36,7 @@ from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
 from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
-from mdapy.simulation._integrator import _HostAtoms
+from mdapy.simulation._integrator import _counted, _HostAtoms
 
 
 def grid(processes: int, h: np.ndarray, pbc: np.ndarray) -> tuple[int, int, int]:
@@ -746,6 +746,20 @@ class DomainAtoms(_HostAtoms):
             work,
             SimpleNamespace(atomic_energies=energies, atomic_virials=virials),
         )
+
+    def _neighbor_counts(self, which: np.ndarray, cutoff: float) -> np.ndarray:
+        """From the list of the potential over this process's atoms and the
+        ghosts, or for a potential on the GPU a list of the processor's own,
+        kept until the next build."""
+        kept = self.__kept.get("potential")
+        wide = kept[0] if kept is not None else self._lists.get("potential")
+        if wide is None:
+            wide = self.__kept.get("stopping")
+            if wide is None:
+                wide = self.__kept["stopping"] = NeighborList.build(
+                    self.__built_system(), cutoff + self.__skin
+                )
+        return _counted(wide, self.__ghosts, self.__matrix, which, cutoff)
 
     def set_switch(self, target: Any) -> None:
         super().set_switch(target)

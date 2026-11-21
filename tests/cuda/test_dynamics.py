@@ -903,3 +903,56 @@ def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
         again.system["velocities"], whole["velocities"], atol=1e-8
     )
     np.testing.assert_allclose(again.system.box.matrix, whole.box.matrix, atol=1e-10)
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+def test_electronic_stopping_as_on_the_processor(precision):
+    """Atoms of a few hundred eV slowed by the electrons in a group with a
+    Langevin bath and the watched forces of a moved layer on the GPU: in
+    double precision the run of the processor, the energy lost to the
+    electrons that of the processor in mixed precision too, to the chaos of
+    a short cascade; the atom of a table too short stops the run."""
+    from mdapy.simulation.controls import ElectronicStopping, Langevin, Move
+
+    system = crystal(8)
+    z = system["positions"][:, 2]
+    bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
+    v = np.zeros((len(system), 3))
+    v[[40, 900, 1500]] = [
+        [250.0, 90.0, -40.0],
+        [-120.0, 180.0, 70.0],
+        [50.0, -60.0, 220.0],
+    ]
+    system = system.with_columns(velocities=v)
+    energies = np.geomspace(1.0, 3000.0, 50)
+    stopping = ElectronicStopping(
+        {"Cu": (energies, 0.15 * np.sqrt(energies)),
+         "Ni": (energies, 0.12 * np.sqrt(energies))},
+        min_energy=10.0, mask=~bottom,
+    )  # fmt: skip
+    controls = [Move(bottom, (0.0, 0.0, 0.0), name="base"),
+                Langevin(top, 300.0, damping=0.1, seed=3), stopping]  # fmt: skip
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.0005) as md:
+            md.run(200, thermo=50, controls=controls)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    lost = tb["electronic_loss"].to_numpy()
+    assert lost[-1] > 1.0
+    rtol = 1e-9 if precision == "double" else 1e-3
+    np.testing.assert_allclose(ta["electronic_loss"].to_numpy(), lost, rtol=rtol)
+    if precision == "double":
+        d = (a["positions"] - b["positions"]) @ np.linalg.inv(a.box.matrix)
+        d = (d - np.round(d)) @ a.box.matrix
+        assert np.abs(d).max() < 1e-7
+        np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    short = ElectronicStopping({"Cu": (energies[:5], energies[:5]),
+                                "Ni": (energies[:5], energies[:5])})  # fmt: skip
+    with MolecularDynamics(system, EAM.zhou(["Cu", "Ni"], device="cuda"),
+                           timestep=0.0005) as md:  # fmt: skip
+        with pytest.raises(CalculationFailed, match="faster than the stopping table"):
+            md.run(5, controls=[short])

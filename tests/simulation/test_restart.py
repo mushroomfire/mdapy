@@ -25,6 +25,7 @@ from mdapy.simulation.controls import (
     AdaptiveTimestep,
     AddForce,
     Deform,
+    ElectronicStopping,
     Hold,
     Indenter,
     Langevin,
@@ -109,6 +110,23 @@ def runs():
             {"ensemble": "nvt", "temperature": 300, "controls": [Deform(xx=1e-3)]},
         ),  # fmt: skip
         "adaptive": (crystal, {"controls": [AdaptiveTimestep(0.02)]}),
+        "stopping": (
+            crystal,
+            {
+                "controls": [
+                    ElectronicStopping(
+                        {
+                            "Cu": (
+                                np.geomspace(0.01, 10.0, 20),
+                                np.geomspace(0.1, 3.0, 20),
+                            )
+                        },
+                        min_energy=0.02,
+                        mask=middle,
+                    )
+                ]
+            },
+        ),  # fmt: skip
         "wall": (
             crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=(True, True, False))),
             {"controls": [Wall("z", side="low", velocity=0.5)]},

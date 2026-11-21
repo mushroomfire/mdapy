@@ -263,6 +263,39 @@ class Neighbors:
         return True
 
 
+class Stopping:
+    """Electronic stopping: atom by atom, as the kernel of the device."""
+
+    def __init__(self, energies, values):
+        self.energies, self.values = np.array(energies), np.array(values)
+
+    def apply(self, atoms, neighbors, h, lo, pbc, least, needed, cutoff, bit, mvv2e):
+        system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
+        nl = NeighborList.build(system, cutoff)
+        energies, forces, virials = atoms.result
+        forces = np.array(forces)
+        power = beyond = 0.0
+        table = self.energies
+        for i in range(atoms.size):
+            if bit >= 0 and not (atoms.groups[i] >> bit) & 1:
+                continue
+            v = atoms.v[i]
+            e = 0.5 * mvv2e * atoms.masses[i] * float(v @ v)
+            if e < least or e < table[0] or nl.counts[i] < needed:
+                continue
+            beyond += e > table[-1]
+            up = min(max(int(np.searchsorted(table, e)), 1), len(table) - 1)
+            low, high = self.values[atoms.species[i], [up - 1, up]]
+            drag = low + (high - low) * (e - table[up - 1]) / (
+                table[up] - table[up - 1]
+            )
+            speed = float(np.sqrt(v @ v))
+            forces[i] -= drag * v / speed
+            power += drag * speed
+        atoms.result = (energies, forces, virials)
+        return np.array([power, beyond])
+
+
 class Potential:
     """A potential of the stand-in: the kernels of the processor."""
 
@@ -347,7 +380,8 @@ def stand_in(found=True):
         }
 
     return types.SimpleNamespace(
-        Atoms=Atoms, Neighbors=Neighbors, make_eam=make_eam, make_pair=make_pair,
+        Atoms=Atoms, Neighbors=Neighbors, Stopping=Stopping, make_eam=make_eam,
+        make_pair=make_pair,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
         device_name=device_name, device_properties=device_properties,

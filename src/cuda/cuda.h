@@ -226,6 +226,30 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// Electronic stopping, as LAMMPS's fix electron/stopping: the stopping power
+// of each species at energies in eV, ascending, linear in between.
+class Stopping {
+public:
+    // energies (count,), values (species, count) in eV/Å.
+    Stopping(const double* energies, int count, const double* values, int species);
+    ~Stopping();
+    Stopping(const Stopping&) = delete;
+    Stopping& operator=(const Stopping&) = delete;
+
+    // Each atom of group bit (every atom for -1) with a kinetic energy
+    // m v^2 mvv2e / 2 of least and of the first energy or more, and with
+    // needed neighbors or more closer than cutoff in the list, which must be
+    // up to date, slowed by -S v / |v|, S of its species at its energy; out
+    // (2,): the sum of S |v| and the number of them beyond the last energy.
+    void apply(Atoms& atoms, Neighbors& neighbors, const Box& box, double least, int needed,
+               double cutoff, int bit, double mvv2e, double* out) const;
+
+    struct Impl;
+
+private:
+    std::unique_ptr<Impl> impl_;
+};
+
 // A potential on the device.
 class Potential {
 public:

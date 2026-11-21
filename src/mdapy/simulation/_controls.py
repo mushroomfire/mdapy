@@ -594,6 +594,140 @@ class Indenter:
         )
 
 
+class ElectronicStopping:
+    """Electronic stopping for a run: each atom fast enough slowed by a
+    friction force against its velocity, F = -S_e(E) v / |v|, its stopping
+    power at its kinetic energy E, the energy it loses to the electrons per
+    unit length, as LAMMPS's fix electron/stopping. ``thermo`` records
+    ``electronic_loss``, the energy in eV the atoms lost to the electrons
+    since the run began, the sum over the steps of S_e |v| dt.
+
+    Parameters
+    ----------
+    stopping : mapping
+        For each element of the atoms, (energies, values): the kinetic
+        energies in eV, positive and ascending, the same for every element,
+        and the stopping power in eV/Å at each, as SRIM tabulates it; linear
+        in between. An atom slower than the first energy feels none; one faster
+        than the last stops the run.
+    min_energy : float64, optional
+        The kinetic energy in eV below which an atom feels none. Default
+        10.
+    min_neighbors : int32, optional
+        The neighbors an atom needs within the cutoff of the potential to
+        feel it, so that atoms that left the material feel none. Default 1.
+    mask : numpy.ndarray, optional
+        (N,) bool, the atoms that may feel it. Default every atom.
+    """
+
+    def __init__(
+        self,
+        stopping: Any,
+        *,
+        min_energy: float = 10.0,
+        min_neighbors: int = 1,
+        mask: Any = None,
+    ):
+        if not isinstance(stopping, dict) or not stopping:
+            raise InvalidParameter(
+                "stopping must map each element to (energies, values)"
+            )
+        energies = None
+        self.stopping = {}
+        for element, table in stopping.items():
+            try:
+                grid, values = (np.asarray(a, dtype=float) for a in table)
+            except (TypeError, ValueError):
+                raise InvalidParameter(
+                    f"the stopping of {element} must be (energies, values)"
+                ) from None
+            if (
+                grid.ndim != 1
+                or grid.shape != values.shape
+                or len(grid) < 2
+                or not (np.isfinite(grid).all() and np.isfinite(values).all())
+                or not (np.diff(grid) > 0).all()
+                or grid[0] <= 0
+                or (values < 0).any()
+            ):
+                raise InvalidParameter(
+                    f"the stopping of {element} needs two or more positive ascending "
+                    "energies and as many values that are not negative"
+                )
+            if energies is None:
+                energies = grid
+            elif not np.array_equal(grid, energies):
+                raise InvalidParameter(
+                    "the stopping of every element must be at the same energies"
+                )
+            grid.flags.writeable = values.flags.writeable = False
+            self.stopping[str(element)] = values
+        energies.flags.writeable = False
+        self.energies = energies
+        if not (np.isfinite(min_energy) and min_energy >= 0):
+            raise InvalidParameter(
+                f"min_energy must not be negative, not {min_energy!r}"
+            )
+        self.min_energy = float(min_energy)
+        if isinstance(min_neighbors, bool) or int(min_neighbors) != min_neighbors or (
+            min_neighbors < 0
+        ):  # fmt: skip
+            raise InvalidParameter(
+                f"min_neighbors must be an integer that is not negative, not "
+                f"{min_neighbors!r}"
+            )
+        self.min_neighbors = int(min_neighbors)
+        self.mask = None if mask is None else _mask(mask)
+
+    @classmethod
+    def read(cls, path: Any, elements: Any, **options: Any) -> "ElectronicStopping":
+        """The stopping of a table of LAMMPS's fix electron/stopping: a line
+        for each energy in eV, followed by the stopping power in eV/Å of each
+        element in turn; lines from # on are comments.
+
+        Parameters
+        ----------
+        path : str or os.PathLike
+            The file.
+        elements : sequence of str
+            The element of each column after the energy.
+        **options
+            min_energy, min_neighbors and mask, as ElectronicStopping takes
+            them.
+
+        Returns
+        -------
+        ElectronicStopping
+            The stopping of the table.
+
+        Raises
+        ------
+        InvalidParameter
+            For a file that cannot be read, or not a column for each element.
+        """
+        elements = [str(e) for e in elements]
+        try:
+            table = np.loadtxt(path, comments="#", ndmin=2)
+        except (OSError, ValueError) as error:
+            raise InvalidParameter(f"cannot read the stopping table: {error}") from None
+        if table.shape[1] != len(elements) + 1:
+            raise InvalidParameter(
+                f"the stopping table has {table.shape[1] - 1} columns after the "
+                f"energies, not one for each of {len(elements)} elements"
+            )
+        return cls(
+            {e: (table[:, 0], table[:, k + 1]) for k, e in enumerate(elements)},
+            **options,
+        )
+
+    def __repr__(self) -> str:
+        span = f"{float(self.energies[0])!r} to {float(self.energies[-1])!r} eV"
+        return (
+            f"ElectronicStopping({sorted(self.stopping)}, {span}, "
+            f"min_energy={self.min_energy!r}, min_neighbors={self.min_neighbors})"
+        )
+
+
 class _HeatField:
     """The driving field of homogeneous nonequilibrium molecular dynamics
     (HNEMD) for a run: each atom pushed by the field through its virial, the
@@ -621,6 +755,7 @@ CONTROLS = (
     Switch,
     Wall,
     Indenter,
+    ElectronicStopping,
     _HeatField,
 )
 
@@ -637,7 +772,7 @@ def checked(controls: Any, n: int) -> tuple:
     moved = np.zeros(n, dtype=bool)
     held = np.zeros(n, dtype=bool)
     bathed = np.zeros(n, dtype=bool)
-    deforms = adaptive = switches = fields = 0
+    deforms = adaptive = switches = fields = stopping = 0
     walls: set = set()
     moving_walls = False
     indenters = moving_indenters = 0
@@ -645,7 +780,8 @@ def checked(controls: Any, n: int) -> tuple:
         if not isinstance(control, CONTROLS):
             raise InvalidParameter(
                 "a control must be one of Hold, Move, AddForce, Langevin, Deform, "
-                f"AdaptiveTimestep, Switch, Wall or Indenter, not {control!r}"
+                "AdaptiveTimestep, Switch, Wall, Indenter or ElectronicStopping, "
+                f"not {control!r}"
             )
         if isinstance(control, Deform):
             if deforms:
@@ -677,6 +813,15 @@ def checked(controls: Any, n: int) -> tuple:
             if fields:
                 raise InvalidParameter("a run takes one heat field")
             fields += 1
+            continue
+        if isinstance(control, ElectronicStopping):
+            if stopping:
+                raise InvalidParameter("a run takes one ElectronicStopping")
+            stopping += 1
+            if control.mask is not None and len(control.mask) != n:
+                raise InvalidParameter(
+                    f"a group must have one value for each of the {n} atoms"
+                )
             continue
         if isinstance(control, Switch):
             if switches:

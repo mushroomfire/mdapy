@@ -27,14 +27,15 @@ struct PairTables {
 };
 
 template <class Real, PairStyle Style, bool Energy, bool Virial>
-__global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
+__global__ void pair_force(std::int64_t count_of, std::int64_t n, const Real4<Real>* x,
+                           Images<Real> images,
                            const std::int32_t* indices, const std::int32_t* counts,
                            PairTables<Real> t, double* forces, double* energies,
                            double* virials) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
+    if (i >= count_of) return;
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
     double f[3] = {0.0, 0.0, 0.0};
@@ -139,6 +140,7 @@ public:
 
     double cutoff() const override { return cutoff_; }
     int species() const override { return species_; }
+    bool thin() const override { return true; }
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                  bool virial, bool atomic) override {
@@ -171,23 +173,25 @@ private:
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
         PairTables<Real> t{coefficients_.data(), cutsq_.data(), offset_.data(), species_};
-        const unsigned g = blocks(n);
+        // the atoms of the process alone under MPI, whose neighbors are all there
+        const std::int64_t m = a.active();
+        const unsigned g = blocks(m);
         double* e = energy ? a.energies.data() : nullptr;
         double* w = virial ? a.virials.data() : nullptr;
         const auto* idx = l.indices.data();
         const auto* cnt = l.counts.data();
         if (energy && virial) {
             pair_force<Real, Style, true, true>
-                <<<g, kBlock>>>(n, x, b, idx, cnt, t, a.forces.data(), e, w);
+                <<<g, kBlock>>>(m, n, x, b, idx, cnt, t, a.forces.data(), e, w);
         } else if (energy) {
             pair_force<Real, Style, true, false>
-                <<<g, kBlock>>>(n, x, b, idx, cnt, t, a.forces.data(), e, w);
+                <<<g, kBlock>>>(m, n, x, b, idx, cnt, t, a.forces.data(), e, w);
         } else if (virial) {
             pair_force<Real, Style, false, true>
-                <<<g, kBlock>>>(n, x, b, idx, cnt, t, a.forces.data(), e, w);
+                <<<g, kBlock>>>(m, n, x, b, idx, cnt, t, a.forces.data(), e, w);
         } else {
             pair_force<Real, Style, false, false>
-                <<<g, kBlock>>>(n, x, b, idx, cnt, t, a.forces.data(), e, w);
+                <<<g, kBlock>>>(m, n, x, b, idx, cnt, t, a.forces.data(), e, w);
         }
         MDAPY_LAUNCHED();
     }

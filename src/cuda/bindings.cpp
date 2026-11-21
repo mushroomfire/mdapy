@@ -518,7 +518,29 @@ NB_MODULE(_cuda, m) {
                 }
                 e.add_forces(a, k, in.data());
             },
-            nb::arg("atoms"), nb::arg("k"), nb::arg("forces"));
+            nb::arg("atoms"), nb::arg("k"), nb::arg("forces"))
+        .def(
+            "pack_forwarded",
+            [](const Exchange& e, Potential& p, int k) {
+                std::size_t bytes = 0;
+                const void* values = p.forwarded(&bytes);
+                unsigned char* data;
+                nb::object out = new_array({static_cast<std::size_t>(e.sent(k)) * bytes}, data);
+                if (values != nullptr) e.pack_values(values, bytes, k, data);
+                return out;
+            },
+            nb::arg("potential"), nb::arg("k"))
+        .def(
+            "unpack_forwarded",
+            [](const Exchange& e, Potential& p, int k, Bytes in) {
+                std::size_t bytes = 0;
+                void* values = p.forwarded(&bytes);
+                if (in.shape(0) != static_cast<std::size_t>(e.received(k)) * bytes) {
+                    throw std::invalid_argument("the values of every ghost of the message");
+                }
+                if (values != nullptr) e.unpack_values(values, bytes, k, in.data());
+            },
+            nb::arg("potential"), nb::arg("k"), nb::arg("values"));
 
     nb::class_<mdapy::cuda::Stopping>(m, "Stopping")
         .def(
@@ -550,6 +572,25 @@ NB_MODULE(_cuda, m) {
     nb::class_<Potential>(m, "Potential")
         .def_prop_ro("cutoff", &Potential::cutoff)
         .def_prop_ro("species", &Potential::species)
+        .def_prop_ro("thin", &Potential::thin)
+        .def_prop_ro("stages", &Potential::stages)
+        .def_prop_ro("forwarded_bytes",
+                     [](Potential& p) {
+                         std::size_t bytes = 0;
+                         p.forwarded(&bytes);
+                         return bytes;
+                     })
+        .def(
+            "compute_stage",
+            [](Potential& p, int stage, Atoms& a, Neighbors& l, Matrix h, Vector lo,
+               std::array<bool, 3> pbc, bool energy, bool virial, bool heat) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                p.compute_stage(stage, a, l, box, energy, virial, heat);
+            },
+            nb::arg("stage"), nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"),
+            nb::arg("lo"), nb::arg("pbc"), nb::arg("energy"), nb::arg("virial"),
+            nb::arg("heat"))
         .def(
             "compute",
             [](Potential& p, Atoms& a, Neighbors& l, Matrix h, Vector lo,

@@ -32,13 +32,14 @@ struct Tables {
 };
 
 template <class Real, bool Energy>
-__global__ void density(std::int64_t n, const Real4<Real>* x, Images<Real> images,
+__global__ void density(std::int64_t count_of, std::int64_t n, const Real4<Real>* x,
+                        Images<Real> images,
                         const std::int32_t* indices, const std::int32_t* counts,
                         Tables<Real> t, Real* fp, double* energies) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
+    if (i >= count_of) return;
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
     double rho = 0.0;
@@ -66,14 +67,15 @@ __global__ void density(std::int64_t n, const Real4<Real>* x, Images<Real> image
 // heat: the virials of the heat flux, r_ij (x) dU_j/dr_i of Fan et al.
 // (2015), instead of the pair forces split in halves
 template <class Real, bool Energy, bool Virial>
-__global__ void force(std::int64_t n, const Real4<Real>* x, Images<Real> images,
+__global__ void force(std::int64_t count_of, std::int64_t n, const Real4<Real>* x,
+                      Images<Real> images,
                       const std::int32_t* indices, const std::int32_t* counts, Tables<Real> t,
                       const Real* fp, double* forces, double* energies, double* virials,
                       bool heat) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
+    if (i >= count_of) return;
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
     const Real fpi = fp[i];
@@ -166,56 +168,104 @@ public:
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
                  bool virial, bool atomic) override {
-        evaluate(atoms, neighbors, box, energy, virial || atomic, false);
+        // the densities of every atom, the forces of those of the process
+        densities(atoms, neighbors, box, energy, atoms.impl().n);
+        forces(atoms, neighbors, box, energy, virial || atomic, false);
     }
 
     // the energies of each atom, and the virials of the heat flux
     void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) override {
-        evaluate(atoms, neighbors, box, true, true, true);
+        densities(atoms, neighbors, box, true, atoms.impl().n);
+        forces(atoms, neighbors, box, true, true, true);
+    }
+
+    // Under MPI with ghosts within the cutoff and the skin: the densities of
+    // the atoms of the process, their slopes sent to the ghosts, then the
+    // forces of the atoms of the process.
+    bool thin() const override { return true; }
+    int stages() const override { return 2; }
+    void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                       bool energy, bool virial, bool heat) override {
+        if (stage == 0) {
+            densities(atoms, neighbors, box, energy || heat, atoms.impl().active());
+        } else {
+            forces(atoms, neighbors, box, energy || heat, virial || heat, heat);
+        }
+    }
+    void* forwarded(std::size_t* bytes) override {
+        *bytes = sizeof(Real);
+        return fp_.data();
     }
 
 private:
-    void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
-                  bool virial, bool heat) {
-        Atoms::Impl& a = atoms.impl();
-        Neighbors::Impl& l = neighbors.impl();
+    void check(const Atoms::Impl& a, const Neighbors::Impl& l) const {
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
             throw std::logic_error("the neighbor list does not fit the atoms or the cutoff");
         }
+    }
+
+    Tables<Real> tables() const {
+        return Tables<Real>{pairs_.view(), embedding_.view(), density_.data(), pair_.data(),
+                            elements_, static_cast<Real>(cutoff_ * cutoff_), rho_max_};
+    }
+
+    // the densities and slopes of the first count atoms, the embedding
+    // energies too with energy
+    void densities(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy,
+                   std::int64_t count) {
+        Atoms::Impl& a = atoms.impl();
+        Neighbors::Impl& l = neighbors.impl();
+        check(a, l);
         const std::int64_t n = a.n;
         fp_.resize(static_cast<std::size_t>(n));
+        const Real4<Real>* x = l.local<Real>(a, box);
+        const Images<Real> b = l.steps<Real>(box);
+        const Tables<Real> t = tables();
+        if (count == 0) return;
+        const unsigned g = blocks(count);
+        if (energy) {
+            density<Real, true><<<g, kBlock>>>(count, n, x, b, l.indices.data(),
+                                               l.counts.data(), t, fp_.data(),
+                                               a.energies.data());
+        } else {
+            density<Real, false><<<g, kBlock>>>(count, n, x, b, l.indices.data(),
+                                                l.counts.data(), t, fp_.data(), nullptr);
+        }
+        MDAPY_LAUNCHED();
+    }
+
+    // the forces of the atoms of the process, from the slopes of all
+    void forces(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
+                bool heat) {
+        Atoms::Impl& a = atoms.impl();
+        Neighbors::Impl& l = neighbors.impl();
+        check(a, l);
+        const std::int64_t n = a.n, m = a.active();
         if (virial) a.virials.resize(static_cast<std::size_t>(9 * n));
         const Real4<Real>* x = l.local<Real>(a, box);
         const Images<Real> b = l.steps<Real>(box);
-        Tables<Real> t{pairs_.view(), embedding_.view(), density_.data(), pair_.data(),
-                       elements_, static_cast<Real>(cutoff_ * cutoff_), rho_max_};
-        const unsigned g = blocks(n);
-        if (energy) {
-            density<Real, true><<<g, kBlock>>>(n, x, b, l.indices.data(), l.counts.data(), t,
-                                               fp_.data(), a.energies.data());
-        } else {
-            density<Real, false><<<g, kBlock>>>(n, x, b, l.indices.data(), l.counts.data(), t,
-                                                fp_.data(), nullptr);
-        }
-        MDAPY_LAUNCHED();
+        const Tables<Real> t = tables();
         double* e = energy ? a.energies.data() : nullptr;
         double* w = virial ? a.virials.data() : nullptr;
         const auto* idx = l.indices.data();
         const auto* cnt = l.counts.data();
-        if (energy && virial) {
-            force<Real, true, true><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                   a.forces.data(), e, w, heat);
-        } else if (energy) {
-            force<Real, true, false><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                    a.forces.data(), e, w, heat);
-        } else if (virial) {
-            force<Real, false, true><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                    a.forces.data(), e, w, heat);
-        } else {
-            force<Real, false, false><<<g, kBlock>>>(n, x, b, idx, cnt, t, fp_.data(),
-                                                     a.forces.data(), e, w, heat);
+        if (m > 0) {
+            const unsigned g = blocks(m);
+            if (energy && virial) {
+                force<Real, true, true><<<g, kBlock>>>(m, n, x, b, idx, cnt, t, fp_.data(),
+                                                       a.forces.data(), e, w, heat);
+            } else if (energy) {
+                force<Real, true, false><<<g, kBlock>>>(m, n, x, b, idx, cnt, t, fp_.data(),
+                                                        a.forces.data(), e, w, heat);
+            } else if (virial) {
+                force<Real, false, true><<<g, kBlock>>>(m, n, x, b, idx, cnt, t, fp_.data(),
+                                                        a.forces.data(), e, w, heat);
+            } else {
+                force<Real, false, false><<<g, kBlock>>>(m, n, x, b, idx, cnt, t, fp_.data(),
+                                                         a.forces.data(), e, w, heat);
+            }
+            MDAPY_LAUNCHED();
         }
-        MDAPY_LAUNCHED();
         a.has_energies = energy;
         a.has_virials = virial;
     }

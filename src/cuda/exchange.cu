@@ -58,12 +58,31 @@ __global__ void add_triples_kernel(std::int64_t count, const std::int32_t* place
     for (int c = 0; c < 3; ++c) values[3 * at + c] += in[3 * k + c];
 }
 
+__global__ void pack_bytes_kernel(std::int64_t total, std::int64_t bytes,
+                                  const std::int32_t* places, const unsigned char* values,
+                                  unsigned char* out) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= total) return;
+    const std::int64_t row = k / bytes, b = k % bytes;
+    out[k] = values[static_cast<std::int64_t>(places[row]) * bytes + b];
+}
+
+__global__ void unpack_bytes_kernel(std::int64_t total, std::int64_t bytes,
+                                    const std::int32_t* places, const unsigned char* in,
+                                    unsigned char* values) {
+    const std::int64_t k = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
+    if (k >= total) return;
+    const std::int64_t row = k / bytes, b = k % bytes;
+    values[static_cast<std::int64_t>(places[row]) * bytes + b] = in[k];
+}
+
 }  // namespace
 
 struct Exchange::Impl {
     // the places of the rows each message sends, and of those it receives
     std::vector<std::unique_ptr<Buffer<std::int32_t>>> sent, received;
     Buffer<double> scratch;
+    Buffer<unsigned char> bytes;
 };
 
 Exchange::Exchange() : impl_(std::make_unique<Impl>()) {}
@@ -162,6 +181,33 @@ void Exchange::pack_forces(const Atoms& atoms, int k, double* out) const {
                                                    atoms.impl().forces.data(), e.scratch.data());
     MDAPY_LAUNCHED();
     e.scratch.download(out, static_cast<std::size_t>(3 * count));
+}
+
+void Exchange::pack_values(const void* values, std::size_t bytes, int k,
+                           unsigned char* out) const {
+    Impl& e = *impl_;
+    const Buffer<std::int32_t>& places = message(e.sent, k);
+    const auto total = static_cast<std::int64_t>(places.size() * bytes);
+    if (total == 0) return;
+    e.bytes.resize(static_cast<std::size_t>(total));
+    pack_bytes_kernel<<<blocks(total), kBlock>>>(
+        total, static_cast<std::int64_t>(bytes), places.data(),
+        static_cast<const unsigned char*>(values), e.bytes.data());
+    MDAPY_LAUNCHED();
+    e.bytes.download(out, static_cast<std::size_t>(total));
+}
+
+void Exchange::unpack_values(void* values, std::size_t bytes, int k,
+                             const unsigned char* in) const {
+    Impl& e = *impl_;
+    const Buffer<std::int32_t>& places = message(e.received, k);
+    const auto total = static_cast<std::int64_t>(places.size() * bytes);
+    if (total == 0) return;
+    e.bytes.upload(in, static_cast<std::size_t>(total));
+    unpack_bytes_kernel<<<blocks(total), kBlock>>>(total, static_cast<std::int64_t>(bytes),
+                                                   places.data(), e.bytes.data(),
+                                                   static_cast<unsigned char*>(values));
+    MDAPY_LAUNCHED();
 }
 
 void Exchange::add_forces(Atoms& atoms, int k, const double* in) const {

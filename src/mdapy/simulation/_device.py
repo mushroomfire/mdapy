@@ -219,12 +219,8 @@ class DeviceAtoms:
         self._h = h
         sub = self._update(box, h, lo, pbc)
         driven = self._field is not None
-        if driven:  # the energies and virials of the heat flux
-            self._potential.compute_heat(self._atoms, self._neighbors, *sub)
-        else:
-            self._potential.compute(
-                self._atoms, self._neighbors, *sub, energy, virial, False
-            )
+        # with the field, the energies and virials of the heat flux
+        self._evaluate(self._potential, sub, energy, virial, driven)
         self._finish_forces()
         if driven:
             self._drive(self._field)
@@ -275,6 +271,15 @@ class DeviceAtoms:
             raise CalculationFailed(_NOT_FINITE)
         return e, w
 
+    def _evaluate(
+        self, potential: Any, sub: tuple, energy: bool, virial: bool, heat: bool
+    ) -> None:
+        """A potential on the device computes the atoms."""
+        if heat:
+            potential.compute_heat(self._atoms, self._neighbors, *sub)
+        else:
+            potential.compute(self._atoms, self._neighbors, *sub, energy, virial, False)
+
     def _drive(self, field: np.ndarray) -> None:
         self._atoms.drive(field)
 
@@ -302,9 +307,7 @@ class DeviceAtoms:
             if self._other_species is not None:
                 atoms.set_species(self._rows_of(self._other_species))
             with_virial = virial and "virial" in self._target.implemented
-            self._other.potential.compute(
-                atoms, self._neighbors, *sub, energy, with_virial, False
-            )
+            self._evaluate(self._other.potential, sub, energy, with_virial, False)
             self._finish_forces()
             other = self._total(atoms.total_energy()) if energy else math.nan
             if with_virial:

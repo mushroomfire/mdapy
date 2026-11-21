@@ -5,6 +5,7 @@ noise is that of the device and of the processor, of the counter-based
 generator by the index of each atom (core/philox.h); under MPI the steps and
 the sums go through the first owned atoms, those of the process."""
 
+import threading
 import types
 
 import numpy as np
@@ -93,8 +94,16 @@ class Atoms:
 
     def pack_rows(self, rows):
         out = np.empty(len(rows), dtype=_CARRIED)
-        out["x"], out["species"], out["image"] = self.x[rows], self.species[rows], self.image[rows]
-        out["mass"], out["id"], out["v"] = self.masses[rows], self.index[rows], self.v[rows]
+        out["x"], out["species"], out["image"] = (
+            self.x[rows],
+            self.species[rows],
+            self.image[rows],
+        )
+        out["mass"], out["id"], out["v"] = (
+            self.masses[rows],
+            self.index[rows],
+            self.v[rows],
+        )
         out["f"] = self.forces()[rows]
         return out.view(np.uint8)
 
@@ -451,6 +460,15 @@ class Exchange:
         f[self.messages[k][0]] += forces
         atoms.result = (e, f, w)
 
+    def pack_forwarded(self, potential, k):
+        return np.ascontiguousarray(potential.values[self.messages[k][0]]).view(
+            np.uint8
+        )
+
+    def unpack_forwarded(self, potential, k, values):
+        _, start, count = self.messages[k]
+        potential.values[start : start + count] = np.asarray(values).view(np.float64)
+
 
 class Stopping:
     """Electronic stopping: atom by atom, as the kernel of the device."""
@@ -486,11 +504,66 @@ class Stopping:
 
 
 class Potential:
-    """A potential of the stand-in: the kernels of the processor."""
+    """A potential of the stand-in: the kernels of the processor. thin: it
+    computes the atoms of a process alone from ghosts within its cutoff;
+    staged, EAM in two stages, the slopes of the embedding functions sent to
+    the ghosts between them, by the kernels of EAM on many processes."""
 
-    def __init__(self, made, compute):
+    def __init__(self, made, compute, thin=False, staged=False):
         self.native, self.compute_native = made, compute
         self.asked = []
+        self.thin = thin
+        self.stages = 2 if staged else 1
+        self.forwarded_bytes = 8 if staged else 0
+        # what a stage leaves for the next, of each process: the threads that
+        # stand in for processes share the potential, the device's are their own
+        self.__here = threading.local()
+
+    @property
+    def values(self):
+        return self.__here.values
+
+    @values.setter
+    def values(self, values):
+        self.__here.values = values
+
+    @property
+    def embedding(self):
+        return self.__here.embedding
+
+    @embedding.setter
+    def embedding(self, embedding):
+        self.__here.embedding = embedding
+
+    def compute_stage(self, stage, atoms, neighbors, h, lo, pbc, energy, virial, heat):
+        if self.stages == 1:
+            if heat:
+                self.compute_heat(atoms, neighbors, h, lo, pbc)
+            else:
+                self.compute(atoms, neighbors, h, lo, pbc, energy, virial, False)
+            return
+        system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
+        nl = NeighborList.build(system, neighbors.cutoff)
+        arrays = (atoms.species, np.ascontiguousarray(atoms.x), np.ascontiguousarray(h),
+                  nl.offsets, nl.j, nl.shifts)  # fmt: skip
+        native = _core.calculators
+        if stage == 0:
+            self.embedding, slopes = native.eam_densities(self.native, *arrays, atoms.m)
+            self.values = np.zeros(atoms.size)
+            self.values[: atoms.m] = slopes
+        else:
+            parts = native.eam_forces(
+                self.native, *arrays, self.values, self.embedding, virial or heat, heat
+            )
+
+            def rows(values, shape):  # of the atoms of the process, then the ghosts
+                out = np.zeros((atoms.size, *shape))
+                if values is not None:
+                    out[: len(values)] = values
+                return out
+
+            atoms.result = (rows(parts[0], ()), rows(parts[1], (3,)),
+                            rows(parts[2], (3, 3)))  # fmt: skip
 
     def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
         self.asked.append((energy, virial, atomic))
@@ -517,6 +590,8 @@ class Potential:
 
 class Overlay:
     """Potentials of the stand-in added together, as the device's."""
+
+    thin, stages, forwarded_bytes = False, 1, 0
 
     def __init__(self, parts):
         self.parts = list(parts)
@@ -550,7 +625,7 @@ def stand_in(found=True):
         made = native.make_eam(
             embedding, density, pair, drho, dr, cutoff, rho_max=rho_max
         )
-        return Potential(made, native.compute_eam)
+        return Potential(made, native.compute_eam, thin=True, staged=True)
 
     def make_adp(
         embedding, density, pair, dipole, quadrupole, drho, dr, cutoff, precision
@@ -580,7 +655,7 @@ def stand_in(found=True):
 
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)
-        return Potential(made, native.compute_pair)
+        return Potential(made, native.compute_pair, thin=True)
 
     def device_name():
         if not found:

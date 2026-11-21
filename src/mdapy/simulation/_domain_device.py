@@ -50,7 +50,11 @@ class DomainDeviceAtoms(DeviceAtoms):
     ):
         try:
             self._bricks = Bricks(
-                comm, box.matrix, box.origin, box.pbc, _reach(calculator)[0] + skin
+                comm,
+                box.matrix,
+                box.origin,
+                box.pbc,
+                _reach(calculator, staged=True)[0] + skin,
             )
         except ValueError as error:
             raise InvalidParameter(str(error)) from None
@@ -172,6 +176,31 @@ class DomainDeviceAtoms(DeviceAtoms):
         else:
             self.__forward()
         return self._sub_box
+
+    def _evaluate(
+        self, potential: Any, sub: tuple, energy: bool, virial: bool, heat: bool
+    ) -> None:
+        """A potential that computes the atoms of the process alone in two
+        stages, with ghosts within its cutoff: the values of each atom of the
+        first, such as the slopes of the embedding functions of EAM, sent to
+        the ghosts, message by message, before the second."""
+        if potential.stages == 1:
+            super()._evaluate(potential, sub, energy, virial, heat)
+            return
+        atoms, neighbors, exchange, bricks = (
+            self._atoms,
+            self._neighbors,
+            self._exchange,
+            self._bricks,
+        )
+        potential.compute_stage(0, atoms, neighbors, *sub, energy, virial, heat)
+        width = potential.forwarded_bytes
+        for k, (_, _, destination, source, _, count) in enumerate(self._messages):
+            received = np.empty(count * width, dtype=np.uint8)
+            bricks.swap(exchange.pack_forwarded(potential, k), destination, received,
+                        source)  # fmt: skip
+            exchange.unpack_forwarded(potential, k, received)
+        potential.compute_stage(1, atoms, neighbors, *sub, energy, virial, heat)
 
     def __set_box(self, h: np.ndarray, lo: np.ndarray) -> None:
         try:
@@ -347,7 +376,7 @@ class DomainDeviceAtoms(DeviceAtoms):
         farther."""
         super().set_switch(target)
         if target:
-            reach = _reach(target, target=True)[0] + self._skin
+            reach = _reach(target, target=True, staged=True)[0] + self._skin
             if reach > self._bricks.reach:
                 try:
                     self._bricks.set_reach(reach)

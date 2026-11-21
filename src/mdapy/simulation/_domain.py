@@ -487,14 +487,18 @@ def agree(comm: Any, what: str, *values: Any) -> None:
         )
 
 
-def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
+def _reach(
+    calculator: Any, target: bool = False, staged: bool = False
+) -> tuple[float, float]:
     """How far from the brick a process needs ghosts, and those whose
     neighbors it needs too: the cutoff, and none, for the potentials that
     compute the atoms of a process alone (``_split``), sending what each atom
     has of its neighbors to the ghosts or the forces on the ghosts back, and
     the pair potentials; for MEAM, whose screening reaches the neighbors of
     the neighbors, twice the cutoff and the cutoff. The springs of a Switch
-    tie each atom to its site alone."""
+    tie each atom to its site alone. staged: for the GPU of a process, where
+    a potential that computes the atoms of the process alone in stages (EAM,
+    the pair potentials) needs the cutoff, and the others twice it."""
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._overlay import Overlay
     from mdapy.calculators._pair import _PairCalculator
@@ -518,6 +522,8 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
                 (c, 0.0) if isinstance(part, _PairCalculator) else (2.0 * c, c)
             )
         return max(r for r, _ in reaches), max(c for _, c in reaches)
+    if staged and _on_gpu(calculator) and calculator._on_device.potential.thin:
+        return float(calculator.cutoff), 0.0
     if isinstance(calculator, MEAM) or (
         _on_gpu(calculator) and not pair
     ):  # fmt: skip

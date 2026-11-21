@@ -336,6 +336,11 @@ public:
     // theirs.
     void pack_forces(const Atoms& atoms, int k, double* out) const;
     void add_forces(Atoms& atoms, int k, const double* in) const;
+    // Values of bytes each at values on the device: those of the atoms
+    // message k sends, into out (sent * bytes), and those of the ghosts it
+    // received from in (received * bytes).
+    void pack_values(const void* values, std::size_t bytes, int k, unsigned char* out) const;
+    void unpack_values(void* values, std::size_t bytes, int k, const unsigned char* in) const;
 
     struct Impl;
 
@@ -362,6 +367,27 @@ public:
     // virials of Fan et al., PRB 92, 094301 (2015).
     virtual void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) {
         compute(atoms, neighbors, box, true, true, true);
+    }
+    // Under MPI: whether the potential computes the atoms of the process, the
+    // first owned, from ghosts within its cutoff and the skin alone, in
+    // stages() stages, the values of each atom of forwarded() sent to the
+    // ghosts after the first; heat, those of compute_heat. One that does not
+    // needs ghosts within twice its cutoff.
+    virtual bool thin() const { return false; }
+    virtual int stages() const { return 1; }
+    virtual void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                               bool energy, bool virial, bool heat) {
+        if (stage != 0) return;
+        if (heat) {
+            compute_heat(atoms, neighbors, box);
+        } else {
+            compute(atoms, neighbors, box, energy, virial, false);
+        }
+    }
+    // The values of each atom on the device and their bytes; null for none.
+    virtual void* forwarded(std::size_t* bytes) {
+        *bytes = 0;
+        return nullptr;
     }
 };
 

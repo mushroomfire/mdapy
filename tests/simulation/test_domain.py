@@ -449,7 +449,9 @@ def test_what_the_gpus_refuse(monkeypatch):
         with MolecularDynamics(copper(2), eam, timestep=0.002) as md:
             md.run(30, controls=[Deform(zz=-1.5)])
 
-    refused(monkeypatch, 2, squeezed, "fewer processes")
+    # the ghosts of EAM within its cutoff and the skin: thinner than twice
+    # those along a direction the box is periodic in, which the GPU refuses
+    refused(monkeypatch, 2, squeezed, "fewer processes|too thin")
 
     def switched():
         small = build_crystal("fcc", 3.2, elements="Cu", repeat=(2, 2, 2))

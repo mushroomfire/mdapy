@@ -297,7 +297,8 @@ class DomainDeviceAtoms(DeviceAtoms):
         added; what the controls of the run set given again, and the neighbor
         list built."""
         bricks, atoms, exchange = self._bricks, self._atoms, self._exchange
-        h, lo = np.ascontiguousarray(bricks.h), np.ascontiguousarray(bricks.lo)
+        # the origin of the fractional coordinates of the bricks
+        h, lo = np.ascontiguousarray(bricks.h), np.ascontiguousarray(bricks.origin)
         atoms.settle()
         atoms.truncate(self._local)  # the atoms of the process come first
         atoms.wrap(h, lo, tuple(bool(p) for p in bricks.pbc))
@@ -413,9 +414,9 @@ class DomainDeviceAtoms(DeviceAtoms):
         bricks = self._bricks
         h, lo = np.array(bricks.h), np.array(bricks.lo)
         cut = bricks.counts > 1
-        low = np.where(cut, bricks.at / bricks.counts - bricks.fraction - 1e-9, 0.0)
+        low = np.where(cut, bricks.at / bricks.counts - bricks.fraction - 1e-8, 0.0)
         high = np.where(
-            cut, (bricks.at + 1) / bricks.counts + bricks.fraction + 1e-9, 1.0
+            cut, (bricks.at + 1) / bricks.counts + bricks.fraction + 1e-8, 1.0
         )
         matrix = np.ascontiguousarray(h * (high - low)[:, None])
         origin = np.ascontiguousarray(lo + low @ h)

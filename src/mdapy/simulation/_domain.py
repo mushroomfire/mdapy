@@ -39,6 +39,12 @@ from mdapy.errors import InvalidParameter
 from mdapy.neighbor import NeighborList
 from mdapy.simulation._integrator import _counted, _HostAtoms
 
+# Added to the fractional coordinates by which the atoms go to the bricks, so
+# that the atoms of a lattice plane on a face of a brick all go to the brick
+# above it, however their coordinates round, and the bricks of a crystal hold
+# as many atoms each.
+_TIE = 1e-9
+
 
 def grid(processes: int, h: np.ndarray, pbc: np.ndarray) -> tuple[int, int, int]:
     """The bricks along each box vector: the factors of the number of
@@ -136,7 +142,14 @@ class Bricks:
         )
 
     def fractional(self, x: np.ndarray) -> np.ndarray:
-        return (x - self.lo) @ self.inverse
+        """The fractional coordinates by which the atoms go to the bricks,
+        measured from origin."""
+        return (x - self.lo) @ self.inverse + _TIE
+
+    @property
+    def origin(self) -> np.ndarray:
+        """Where fractional measures from: lo moved by the tie."""
+        return self.lo - _TIE * self.h.sum(axis=0)
 
     def migrate(self, fields: dict[str, np.ndarray]) -> dict[str, np.ndarray]:
         """The local atoms after each went to the process of its brick:
@@ -1025,7 +1038,7 @@ class SharedForces:
                 "is cut along: fewer processes"
             )
         x = np.asarray(system["positions"], dtype=float)
-        s = (x - lo) @ inverse
+        s = (x - lo) @ inverse + _TIE
         whole = np.where(pbc, np.floor(s), 0.0)
         s -= whole
         brick = np.clip(np.floor(s * counts), 0, counts - 1).astype(np.int64)

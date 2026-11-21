@@ -1,0 +1,82 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""Run under mpirun on a machine with a GPU: each process computes the forces
+of its atoms and ghosts on a GPU, the steps on the processor, and gives the
+run of one process on the GPU, to the rounding of the forces. The first
+process runs each case again alone and compares. Prints "ok" on the first
+process, or raises.
+
+    MDAPY_NUM_THREADS=1 mpirun -np 2 python tests/mpi/check_gpu.py
+"""
+
+import numpy as np
+from mpi4py import MPI
+
+import mdapy
+from mdapy.build import build_crystal
+from mdapy.calculators import EAM, LennardJones
+from mdapy.simulation import MolecularDynamics, _domain
+from mdapy.simulation.controls import Deform, Hold, Langevin, Move
+
+comm = MPI.COMM_WORLD
+rank = comm.Get_rank()
+world = _domain.world
+
+
+def copper(repeat=10, pbc=(True, True, True)):
+    crystal = build_crystal("fcc", 3.615, elements="Cu", repeat=(repeat,) * 3)
+    return crystal.with_box(mdapy.Box(crystal.box.matrix, pbc=pbc))
+
+
+crystal = copper()
+z = crystal["positions"][:, 2]
+bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
+eam = EAM.zhou(["Cu"], device="cuda", precision="double")
+lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0, device="cuda", precision="double")
+CASES = {
+    "nve": (crystal, eam, {}),
+    "npt": (crystal, eam, {"ensemble": "npt", "temperature": 300, "pressure": 1.0}),
+    "langevin": (crystal, eam, {"ensemble": "nvt", "temperature": 400,
+                                "thermostat": "langevin", "seed": 5,
+                                "keep_momentum": True}),
+    "groups": (crystal, eam, {"controls": [Hold(bottom), Move(top, (0, 0, 0.5)),
+                                           Langevin(~(bottom | top), 300.0, seed=9)]}),
+    "deform": (crystal, eam, {"ensemble": "nvt", "temperature": 300,
+                              "controls": [Deform(xx=1e-3)]}),
+    "lj": (crystal, lj, {"ensemble": "nvt", "temperature": 300}),
+}  # fmt: skip
+
+
+def run(crystal, potential, options):
+    with MolecularDynamics(crystal, potential, timestep=0.002) as md:
+        md.velocities(300, seed=1)
+        md.run(40, thermo=10, **options)
+        return md.system, md.thermo
+
+
+def compare(a, b, name):
+    (sa, ta), (sb, tb) = a, b
+    d = (sa["positions"] - sb["positions"]) @ np.linalg.inv(sb.box.matrix)
+    d -= np.round(d)
+    assert np.abs(d @ sb.box.matrix).max() < 1e-7, name
+    np.testing.assert_allclose(sa["velocities"], sb["velocities"], atol=1e-6, err_msg=name)
+    np.testing.assert_allclose(sa.box.matrix, sb.box.matrix, atol=1e-8, err_msg=name)
+    for column in ("temperature", "potential_energy", "pressure", "volume"):
+        np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8,
+                                   err_msg=f"{name} {column}")  # fmt: skip
+
+
+for name, (system, potential, options) in CASES.items():
+    split = run(system, potential, options)
+    if rank == 0:
+        _domain.world = lambda: None
+        try:
+            compare(split, run(system, potential, options), name)
+        finally:
+            _domain.world = world
+    comm.Barrier()
+if rank == 0:
+    print("ok", comm.Get_size(), "processes")

@@ -20,6 +20,10 @@
   mpi4py. A process of one thread computes each pair once among the processes. See
   [On many processes](../user-guide/simulation/processes.md), and its times on 1 to 40
   processes in [Performance](../performance/mpi.md).
+- On many processes, a potential on the GPU computes the forces of each process on a
+  GPU of its machine, the processes of a machine taking its GPUs in turn, while the
+  steps run on the processor. See [With a GPU
+  each](../user-guide/simulation/processes.md#with-a-gpu-each).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

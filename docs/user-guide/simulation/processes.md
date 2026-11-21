@@ -1,6 +1,6 @@
 # On many processes
 
-<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · not the [GPU](gpu.md) yet · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
+<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · the forces on a [GPU](gpu.md) for each process · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
 
 A script of molecular dynamics started with `mpirun` runs on all its processes
 together: each process owns the atoms in a brick of the box and keeps copies of
@@ -125,10 +125,29 @@ of ASE or [VASP](../potentials/vasp.md), run on one process; a
 [LAMMPS](../potentials/lammps.md) potential runs the dynamics in LAMMPS, which
 splits it itself.
 
+## With a GPU each
+
+A potential with `device="cuda"` computes the forces of each process on a GPU:
+the steps run on the processor, and each process sends its atoms and the ghosts to
+its GPU at each step and takes their forces back. The processes on a machine share
+its GPUs in turn, the first process of the machine taking the first GPU, the
+second the second, and so on, round again when there are more processes than
+GPUs, as the launcher numbers them (`OMPI_COMM_WORLD_LOCAL_RANK` of Open MPI,
+`MPI_LOCALRANKID` of MPICH, `SLURM_LOCALID` of Slurm). A many-body potential takes
+ghosts within twice its cutoff and the skin, so that the GPU computes every atom of
+the process from all its neighbors. On a cluster of nodes with 4 GPUs each:
+
+```bash
+srun -N 2 --ntasks-per-node=4 --gpus-per-node=4 --mpi=pmix python heat.py
+```
+
+One process on its GPU, with the whole dynamics there, is the faster on one
+machine with one GPU: see [On the GPU](gpu.md).
+
 ## Errors
 
 `MolecularDynamics` under MPI raises `InvalidParameter` for a calculator other
-than MDAPY's own potentials, a potential on the GPU, a box thinner than the
+than MDAPY's own potentials, a box thinner than the
 reach of the ghosts along a vector it is cut along, and when mpi4py is not
 installed. A run raises it when the box shrinks until it is that thin, when a
 `Switch` turns to a potential of a longer reach than the box holds, and when an

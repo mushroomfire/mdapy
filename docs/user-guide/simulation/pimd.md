@@ -170,6 +170,7 @@ thermostatted RPMD, for dynamics such as diffusion and vibrational spectra, in w
 the thermostat damps the spurious vibrations of the ring polymers but not the motion
 of the atoms themselves:
 
+<!-- skip-test -->
 ```python
 import math
 

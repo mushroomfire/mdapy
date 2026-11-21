@@ -16,6 +16,12 @@ included, holds in every later 2.x release. Since 2.2.0rc1:
   indenter for the virial of the atoms, so that the pressure and the stress of `thermo`,
   and a barostat, were wrong while an indenter was there; on the GPU and in LAMMPS they
   were right. See [Indentation](../user-guide/simulation/indentation.md).
+- `nemd` takes the temperature of each slab from the atoms in it at the start, as it
+  takes the baths, and places the slab at their mean position. The atoms of a bath on
+  the edge of its slab vibrated across it and warmed or cooled the next slab, by up to
+  1 K in solid argon at 40 K, on one side of the bath only. The conductivity, fitted
+  without the slabs next to the baths, moved within its errors. See
+  [NEMD](../user-guide/properties/nemd.md).
 - Examples run again, larger and longer: [Deformation](../user-guide/simulation/deformation.md)
   draws the stresses of copper as they are and adds graphene pulled along its two
   directions; [NEMD](../user-guide/properties/nemd.md) shows the heat of the baths and its

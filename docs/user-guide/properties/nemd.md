@@ -33,11 +33,11 @@ result = nemd(
     production=250000,
     every=50,
 )
-result  # NEMD(0.5434 ± 0.0078 W/(m K) at 40.0334 K over 84.48 Å)
+result  # NEMD(0.6024 ± 0.018 W/(m K) at 40.0055 K over 84.48 Å)
 result.flux, result.gradient  # eV/(ps Å²) and K/Å
 ```
 
-The 302 500 steps, 1.2 ns, run in MDAPY in 4 minutes on 8 cores. The temperature of
+The 302 500 steps, 1.2 ns, run in MDAPY in 8 minutes on 8 cores. The temperature of
 the slabs, and the heat the baths exchanged during the measurement:
 
 <!-- skip-test -->
@@ -67,10 +67,12 @@ with plot.style():
 ![The temperature of the slabs of solid argon between a cold and a hot bath, and the heat the baths exchanged](images/nemd.png)
 
 *a: The cold bath at the ends of the box and the hot one in its middle; between them
-the temperature falls linearly, by 0.12 K/Å on both sides, with jumps at the baths,
+the temperature falls linearly, by 0.11 K/Å on both sides, with jumps at the baths,
 where the atoms are thermalized by force. The lines are the fits whose slopes give the
-gradient. b: The heat the hot bath gave and the cold one took grow at one rate, 0.146
-eV/ps, all through the measurement: the steady state holds from its start, after the
+gradient, of the slabs but those next to the baths, which stand off them by 0.1 to
+0.3 K, alike on the two sides of a bath. Each point is at the mean position of the atoms
+of its slab, which holds one or two of the atomic planes, 2.64 Å apart. b: The heat
+the hot bath gave and the cold one took grow at one rate, 0.152 eV/ps, all through the measurement: the steady state holds from its start, after the
 200 ps of `relaxation`. The flux is that rate over twice the section of the box, as the
 heat flows from the hot bath both ways.*
 
@@ -100,21 +102,25 @@ each length on one GPU gave
 
 | Length | κ (W/(m K)) |
 |---|---|
-| 4.2 nm | 0.40 ± 0.02 |
+| 4.2 nm | 0.40 ± 0.01 |
 | 8.4 nm | 0.58 ± 0.01 |
 | 16.9 nm | 0.69 ± 0.02 |
-| 33.8 nm | 0.79 ± 0.01 |
+| 33.8 nm | 0.76 ± 0.02 |
 
-and a line of 1/κ against 1/L reaches 0.91 ± 0.02 W/(m K) at an infinite length.
-The three runs at 8.4 nm spread from 0.566 to 0.595 W/(m K), and three on the
-processor, the one above among them, from 0.543 to 0.576, as the errors of single runs
-from their blocks, 0.008 to 0.03 W/(m K), allow. Take the mean of runs with different
-seeds, and compare boxes of growing length. The [Green–Kubo relation](green-kubo.md)
-and [HNEMD](hnemd.md) need no such length.
+and a line of 1/κ against 1/L reaches 0.90 ± 0.03 W/(m K) at an infinite length.
+The three runs at 8.4 nm spread from 0.566 to 0.597 W/(m K), and the one above, on the
+processor, gave 0.602, as the errors of single runs from their blocks, 0.015 to
+0.025 W/(m K), allow. Take the mean of runs with different seeds, and compare boxes
+of growing length. The [Green–Kubo relation](green-kubo.md) and [HNEMD](hnemd.md) need
+no such length.
 
-**The baths.** The atoms of the first slab along the axis are the cold bath and those of
-the slab in the middle the hot one, as they are at the start: groups that do not
-change, for crystals whose atoms stay in their slabs. The rest run at constant energy.
+**The slabs and the baths.** Each slab is the group of the atoms in it at the start,
+for the temperatures as for the baths: groups that do not change, for crystals whose
+atoms stay in their slabs. The atoms of the first slab along the axis are the cold bath
+and those of the slab in the middle the hot one; the rest run at constant energy. An
+atom of a bath that vibrates across the edge of its slab thus stays out of the
+temperature of the next slab, which it would heat or cool, more on one side of the bath
+than on the other, if the slabs were taken where the atoms are at each sample.
 A larger `difference` gives a smaller error, as long as the gradient stays linear.
 
 ## Results
@@ -128,8 +134,8 @@ A larger `difference` gives a smaller error, as long as the gradient stays linea
 | `error` | float64 | W/(m K) | its standard error, from blocks of the measurement |
 | `flux` | float64 | eV/(ps Å²) | the heat flux through each half of the box |
 | `gradient` | float64 | K/Å | the gradient of temperature, the mean of the two halves |
-| `positions` | (B,) float64 | Å | the middle of each slab along the axis |
-| `temperatures` | (B,) float64 | K | the mean temperature of each slab |
+| `positions` | (B,) float64 | Å | the mean position along the axis of the atoms of each slab at the start |
+| `temperatures` | (B,) float64 | K | the mean temperature of the atoms of each slab |
 | `times` | (S,) float64 | ps | the time of each record of the measurement |
 | `hot`, `cold` | (S,) float64 | eV | the heat the hot and the cold bath gave since the baths began, the cold one negative |
 | `length` | float64 | Å | the length of the box normal to the slabs |

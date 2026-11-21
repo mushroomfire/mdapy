@@ -39,6 +39,46 @@ inline void uhlenbeck_ford(const double* c, double offset, double r2, double& en
     energy = -c[2] * std::log(1.0 - expuf) - offset;
 }
 
+// The universal screening function of Ziegler, Biersack and Littmark: the
+// weights of its four terms.
+constexpr double kZblWeights[4] = {0.02817, 0.28022, 0.50986, 0.18175};
+
+// The screened repulsion, switched off from the inner cutoff c[9] to the
+// cutoff by a + b t added to its derivative and a t^3 / 3 + b t^4 / 4 to
+// its energy, t = r - inner; the offset takes off its energy at the cutoff.
+inline void zbl(const double* c, double offset, double r2, double& energy, double& fpair) {
+    const double r = std::sqrt(r2);
+    const double rinv = 1.0 / r;
+    double sum = 0.0, slope = 0.0;
+    for (int k = 0; k < 4; ++k) {
+        const double term = kZblWeights[k] * std::exp(-c[k] * r);
+        sum += term;
+        slope -= c[k] * term;
+    }
+    double e = c[4] * sum * rinv;
+    double de = c[4] * (slope - sum * rinv) * rinv;
+    if (r2 > c[10]) {
+        const double t = r - c[9];
+        de += t * t * (c[5] + c[6] * t);
+        e += t * t * t * (c[7] + c[8] * t);
+    }
+    fpair = -de * rinv;
+    energy = e - offset;
+}
+
+template <PairStyle Style>
+inline void pair_term(const double* c, double offset, double r2, double& e, double& fpair) {
+    if constexpr (Style == PairStyle::LennardJones) {
+        lennard_jones(c, offset, r2, e, fpair);
+    } else if constexpr (Style == PairStyle::Morse) {
+        morse(c, offset, r2, e, fpair);
+    } else if constexpr (Style == PairStyle::UhlenbeckFord) {
+        uhlenbeck_ford(c, offset, r2, e, fpair);
+    } else {
+        zbl(c, offset, r2, e, fpair);
+    }
+}
+
 template <PairStyle Style, bool kVirial>
 void compute(const PairPotential& potential, std::int64_t n, const std::int32_t* species,
              const double* positions, const double* matrix, const std::int64_t* offsets,
@@ -64,16 +104,11 @@ void compute(const PairPotential& potential, std::int64_t n, const std::int32_t*
                     if (!(r2 < potential.cutsq[static_cast<std::size_t>(k)])) {
                         continue;
                     }
-                    const double* c = potential.coefficients.data() + 4 * k;
+                    const double* c =
+                        potential.coefficients.data() + pair_width(Style) * k;
                     const double offset = potential.offset[static_cast<std::size_t>(k)];
                     double e, fpair;
-                    if constexpr (Style == PairStyle::LennardJones) {
-                        lennard_jones(c, offset, r2, e, fpair);
-                    } else if constexpr (Style == PairStyle::Morse) {
-                        morse(c, offset, r2, e, fpair);
-                    } else {
-                        uhlenbeck_ford(c, offset, r2, e, fpair);
-                    }
+                    pair_term<Style>(c, offset, r2, e, fpair);
                     for (int a = 0; a < 3; ++a) {
                         f[a] += del[a] * fpair;
                         if constexpr (kVirial) {
@@ -139,16 +174,10 @@ void compute_once(const PairPotential& potential, std::int64_t n, std::int64_t c
             if (!(r2 < potential.cutsq[static_cast<std::size_t>(k)])) {
                 continue;
             }
-            const double* c = potential.coefficients.data() + 4 * k;
+            const double* c = potential.coefficients.data() + pair_width(Style) * k;
             const double offset = potential.offset[static_cast<std::size_t>(k)];
             double e, fpair;
-            if constexpr (Style == PairStyle::LennardJones) {
-                lennard_jones(c, offset, r2, e, fpair);
-            } else if constexpr (Style == PairStyle::Morse) {
-                morse(c, offset, r2, e, fpair);
-            } else {
-                uhlenbeck_ford(c, offset, r2, e, fpair);
-            }
+            pair_term<Style>(c, offset, r2, e, fpair);
             for (int a = 0; a < 3; ++a) {
                 forces[3 * i + a] += del[a] * fpair;
                 forces[3 * j + a] -= del[a] * fpair;
@@ -178,7 +207,8 @@ PairPotential make_pair_potential(PairStyle style, int species, const double* cu
     const auto t = static_cast<std::size_t>(species);
     potential.cutsq.assign(cutsq, cutsq + t * t);
     potential.offset.assign(offset, offset + t * t);
-    potential.coefficients.assign(coefficients, coefficients + 4 * t * t);
+    potential.coefficients.assign(
+        coefficients, coefficients + static_cast<std::size_t>(pair_width(style)) * t * t);
     for (const double c2 : potential.cutsq) {
         if (!(c2 >= 0.0)) {
             throw std::invalid_argument("cutoffs must not be negative");
@@ -198,10 +228,13 @@ void compute_pair(const PairPotential& potential, std::int64_t n, const std::int
     } else if (potential.style == PairStyle::Morse) {
         compute_style<PairStyle::Morse>(potential, n, species, positions, matrix, offsets, neighbors,
                                   shifts, energies, forces, virials, control);
-    } else {
+    } else if (potential.style == PairStyle::UhlenbeckFord) {
         compute_style<PairStyle::UhlenbeckFord>(potential, n, species, positions, matrix, offsets,
                                           neighbors, shifts, energies, forces, virials,
                                           control);
+    } else {
+        compute_style<PairStyle::ZBL>(potential, n, species, positions, matrix, offsets,
+                                      neighbors, shifts, energies, forces, virials, control);
     }
 }
 
@@ -219,10 +252,13 @@ void compute_pair_once(const PairPotential& potential, std::int64_t n, std::int6
         compute_once<PairStyle::Morse>(potential, n, centers, species, positions, matrix,
                                        offsets, neighbors, shifts, energies, forces,
                                        virials);
-    } else {
+    } else if (potential.style == PairStyle::UhlenbeckFord) {
         compute_once<PairStyle::UhlenbeckFord>(potential, n, centers, species, positions,
                                                matrix, offsets, neighbors, shifts,
                                                energies, forces, virials);
+    } else {
+        compute_once<PairStyle::ZBL>(potential, n, centers, species, positions, matrix,
+                                     offsets, neighbors, shifts, energies, forces, virials);
     }
 }
 

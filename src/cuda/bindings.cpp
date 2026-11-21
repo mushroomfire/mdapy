@@ -509,14 +509,13 @@ NB_MODULE(_cuda, m) {
         nb::arg("b0"), nb::arg("w1"), nb::arg("b1"), nb::arg("c_radial"), nb::arg("c_angular"),
         nb::arg("q_scaler"), nb::arg("zbl"), nb::arg("precision"));
     m.def(
+        "make_overlay",
+        [](std::vector<Potential*> parts) { return mdapy::cuda::make_overlay(std::move(parts)); },
+        nb::arg("parts"), nb::keep_alive<0, 1>());
+    m.def(
         "make_pair",
         [](const std::string& style, int species, Flat cutsq, Flat offset, Flat coefficients,
            const std::string& precision) {
-            const auto t = static_cast<std::size_t>(species);
-            if (species < 1 || cutsq.shape(0) != t * t || offset.shape(0) != t * t ||
-                coefficients.shape(0) != 4 * t * t) {
-                throw std::invalid_argument("inconsistent pair tables");
-            }
             mdapy::calculators::PairStyle kind;
             if (style == "lj/cut") {
                 kind = mdapy::calculators::PairStyle::LennardJones;
@@ -524,8 +523,16 @@ NB_MODULE(_cuda, m) {
                 kind = mdapy::calculators::PairStyle::Morse;
             } else if (style == "ufm") {
                 kind = mdapy::calculators::PairStyle::UhlenbeckFord;
+            } else if (style == "zbl") {
+                kind = mdapy::calculators::PairStyle::ZBL;
             } else {
                 throw std::invalid_argument("unknown pair style");
+            }
+            const auto t = static_cast<std::size_t>(species);
+            const auto width = static_cast<std::size_t>(mdapy::calculators::pair_width(kind));
+            if (species < 1 || cutsq.shape(0) != t * t || offset.shape(0) != t * t ||
+                coefficients.shape(0) != width * t * t) {
+                throw std::invalid_argument("inconsistent pair tables");
             }
             const auto potential = mdapy::calculators::make_pair_potential(
                 kind, species, cutsq.data(), offset.data(), coefficients.data());

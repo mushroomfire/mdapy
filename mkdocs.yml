@@ -276,7 +276,8 @@ nav:
           - ADP: user-guide/potentials/adp.md
           - Tersoff: user-guide/potentials/tersoff.md
           - Stillinger–Weber: user-guide/potentials/stillinger-weber.md
-          - Lennard-Jones and Morse: user-guide/potentials/pair-potentials.md
+          - Pair potentials and ZBL: user-guide/potentials/pair-potentials.md
+          - Overlaid potentials: user-guide/potentials/overlay.md
           - NEP: user-guide/potentials/nep.md
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md

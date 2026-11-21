@@ -1,4 +1,4 @@
-# Lennard-Jones and Morse
+# Pair potentials
 
 ```python
 from mdapy.calculators import LennardJones, Morse
@@ -118,6 +118,45 @@ from mdapy.calculators import UhlenbeckFord
 model = UhlenbeckFord((1.29, 1.5), 6.0)  # ε = 50 kT at 300 K, σ = 1.5 Å
 ```
 
+## The ZBL repulsion
+
+`ZBL(elements, inner, cutoff)` is the universal screened repulsion of two nuclei of
+[Ziegler et al. (1985)](../../reference/references.md#ziegler1985), as LAMMPS's
+`pair_style zbl`:
+
+$$
+E_{ZBL}(r) = \frac{Z_i Z_j e^2}{4 \pi \varepsilon_0 r}\, \phi(r / a), \qquad
+a = \frac{0.46850\ \text{Å}}{Z_i^{0.23} + Z_j^{0.23}},
+$$
+
+$$
+\phi(x) = 0.18175\, e^{-3.19980 x} + 0.50986\, e^{-0.94229 x}
++ 0.28022\, e^{-0.40290 x} + 0.02817\, e^{-0.20162 x},
+$$
+
+with $Z_i$ and $Z_j$ the atomic numbers of the elements. From `inner` to `cutoff`
+a polynomial in $r - r_\text{inner}$ added to it brings its energy and its first
+two derivatives to zero at the cutoff. It is the repulsion of atoms that come much
+closer than in a solid, a few tenths of an ångström apart in a cascade of radiation
+damage, where most potentials are not fitted: [overlaid](overlay.md) on a potential
+it gives the close collisions, its `cutoff` below the nearest neighbors of the
+crystal.
+
+```python
+from mdapy.calculators import ZBL
+
+zbl = ZBL(["Cu", "Ni"], 1.0, 2.0)  # switched off between 1 and 2 Å
+```
+
+| Parameter | Type | Unit | Meaning |
+|---|---|---|---|
+| `elements` | sequence of str | | the elements, whose atomic numbers are the charges of the nuclei |
+| `inner` | float64 | Å | the distance from which it is switched off |
+| `cutoff` | float64 | Å | the distance beyond which it is zero, greater than `inner` |
+| `device`, `precision` | str | | as for the others |
+
+Its attributes are `elements`, `inner`, `cutoffs` and `cutoff`.
+
 ## Errors
 
 The calculators raise `InvalidParameter` for parameters that are not a
@@ -125,8 +164,11 @@ mapping with an entry, a key that is not an element or a pair of elements,
 numbers of the wrong count or not finite, a negative ε or D0, a σ, α or r0
 that is not positive, a cutoff that is not positive, an unknown mixing rule,
 a pair given twice with other numbers, a pair of elements without numbers,
-and atoms of an element they have no numbers for.
+and atoms of an element they have no numbers for. `ZBL` raises it for
+elements that are not a sequence of different elements, and an `inner` that is not
+positive and less than the cutoff.
 
 !!! quote "Please cite"
-    [Jones (1924)](../../reference/references.md#jones1924) or
-    [Morse (1929)](../../reference/references.md#morse1929), and the paper of the parameters.
+    [Jones (1924)](../../reference/references.md#jones1924),
+    [Morse (1929)](../../reference/references.md#morse1929) or
+    [Ziegler et al. (1985)](../../reference/references.md#ziegler1985), and the paper of the parameters.

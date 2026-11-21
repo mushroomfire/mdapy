@@ -336,3 +336,42 @@ def test_too_fast_on_the_gpu(monkeypatch):
             md.run(10, controls=[ElectronicStopping(
                 {"Al": (e * 10, e), "Cu": (e * 10, e)})])  # fmt: skip
         md.run(5, controls=[stopping()])  # it goes on after
+
+
+def test_a_cascade_with_zbl_as_in_lammps(tmp_path, lammps_constants):  # noqa: F811
+    """A knock-on atom of 1 keV with EAM and ZBL overlaid and electronic
+    stopping, in MDAPY and in LAMMPS with pair_style hybrid/overlay: the same
+    run step by step, its closest collisions within the ZBL."""
+    pytest.importorskip("lammps")
+    from mdapy.calculators import LAMMPS, ZBL, Overlay
+
+    path = tmp_path / "AlCu.eam.alloy"
+    EAM.zhou(["Al", "Cu"]).write(path)
+    lmp = LAMMPS(
+        f"pair_style hybrid/overlay eam/alloy zbl 1.0 2.0\n"
+        f"pair_coeff * * eam/alloy {path} Al Cu\n"
+        "pair_coeff 1 1 zbl 13 13\npair_coeff 1 2 zbl 13 29\npair_coeff 2 2 zbl 29 29",
+        ["Al", "Cu"],
+    )
+    overlay = Overlay([EAM(path), ZBL(["Al", "Cu"], 1.0, 2.0)])
+    system, *_ = slab()
+    mass = MASSES[system["element"][50]]
+    direction = np.array([0.2, 0.3, 0.93]) / np.linalg.norm([0.2, 0.3, 0.93])
+    speed = np.sqrt(2 * 1000.0 / (mass * _integrator._MVV2E))
+    system = fast(system, [50], [speed * direction])
+    out = []
+    for potential in (lmp, overlay):
+        with MolecularDynamics(system, potential, timestep=0.0002) as md:
+            md.run(150, thermo=25, controls=[stopping(min_energy=10.0)])
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    dx, dv = gap(a, b)
+    assert dx < 1e-8 and dv < 1e-7
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )
+    np.testing.assert_allclose(
+        ta["electronic_loss"], tb["electronic_loss"], rtol=1e-9, atol=1e-12
+    )
+    # the knock-on atom came within the ZBL's inner cutoff of another
+    assert tb["potential_energy"].max() - tb["potential_energy"][0] > 50.0

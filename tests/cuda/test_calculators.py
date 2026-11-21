@@ -13,8 +13,10 @@ from mdapy.calculators import (
     EAM,
     MEAM,
     NEP,
+    ZBL,
     LennardJones,
     Morse,
+    Overlay,
     StillingerWeber,
     Tersoff,
     UhlenbeckFord,
@@ -275,6 +277,21 @@ def test_pair_potentials(precision):
         close,
         precision,
     )
+    # the ZBL repulsion of atoms squeezed together, and on an EAM
+    squeezed = shaken(2.6, ("Cu", "Ni"), 6, tilt=0.2, jitter=0.2)
+    compare(
+        ZBL(["Cu", "Ni"], 1.0, 2.0, device="cuda", precision=precision),
+        ZBL(["Cu", "Ni"], 1.0, 2.0),
+        squeezed,
+        precision,
+    )
+    compare(
+        Overlay([EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+                 ZBL(["Cu", "Ni"], 1.0, 2.0, device="cuda", precision=precision)]),
+        Overlay([EAM.zhou(["Cu", "Ni"]), ZBL(["Cu", "Ni"], 1.0, 2.0)]),
+        squeezed,
+        precision,
+    )  # fmt: skip
 
 
 def test_atoms_on_the_faces_of_the_box():

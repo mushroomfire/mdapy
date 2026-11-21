@@ -17,7 +17,10 @@
 
 namespace mdapy::calculators {
 
-enum class PairStyle { LennardJones, Morse, UhlenbeckFord };
+enum class PairStyle { LennardJones, Morse, UhlenbeckFord, ZBL };
+
+// The coefficients of each pair: 12 for ZBL, 4 for the others.
+constexpr int pair_width(PairStyle style) { return style == PairStyle::ZBL ? 12 : 4; }
 
 struct PairPotential {
     PairStyle style = PairStyle::LennardJones;
@@ -25,9 +28,11 @@ struct PairPotential {
     double cutoff = 0.0;          // the largest cutoff, in Å
     std::vector<double> cutsq;    // species x species, squared cutoffs
     std::vector<double> offset;   // species x species, energies taken off
-    // species x species x 4: Lennard-Jones 48 e s^12, 24 e s^6, 4 e s^12,
-    // 4 e s^6; Morse D0, alpha, r0, 2 D0 alpha; Uhlenbeck-Ford 2 e / s^2,
-    // 1 / s^2, e, 0
+    // species x species x pair_width(style): Lennard-Jones 48 e s^12,
+    // 24 e s^6, 4 e s^12, 4 e s^6; Morse D0, alpha, r0, 2 D0 alpha;
+    // Uhlenbeck-Ford 2 e / s^2, 1 / s^2, e, 0; ZBL the exponents of its four
+    // terms over the screening length, Z_i Z_j e^2, the coefficients a, b,
+    // a / 3 and b / 4 of the switch, the inner cutoff and its square, 0
     std::vector<double> coefficients;
 };
 

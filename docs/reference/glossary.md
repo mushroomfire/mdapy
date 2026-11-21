@@ -221,6 +221,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | wall | of `Wall`: a plane across an axis that reflects the atoms that pass it, each put back by as far as it passed with its velocity across the plane turned to 2u − v, u that of the wall; a still wall is a momentum mirror, a moving one a piston |
 | piston, momentum mirror | a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston |
 | electronic stopping | of `ElectronicStopping`: the energy a fast atom loses to the electrons it passes through, as a friction F = −S_e(E) v/|v| on the atoms of a kinetic energy E above a threshold, S_e the stopping power in eV/Å, from a table of each element as LAMMPS's `fix electron/stopping`; `electronic_loss` is the energy the electrons took |
+| ZBL | the universal screened repulsion of two nuclei of Ziegler, Biersack and Littmark, Z_i Z_j e²/r φ(r/a); `ZBL` switches it off between `inner` and `cutoff`, as LAMMPS's `pair_style zbl` |
+| overlay | of `Overlay`: calculators added together, their energies, forces and virials summed, as LAMMPS's `pair_style hybrid/overlay` |
 | primary knock-on atom, PKA | the atom a neutron or an ion strikes first, which starts a cascade of collisions in the crystal |
 | indenter | of `Indenter`: a sphere, a cylinder or the region beyond a plane that pushes the atoms inside it out with a force K d², d how far inside, as LAMMPS's `fix indent`; the force of the atoms on it is the load of an indentation |
 | Hugoniot | the states a steady shock wave can leave behind it from a reference state of energy E₀, volume V₀ and pressure P₀: those with E − E₀ = ½(P + P₀)(V₀ − V) |

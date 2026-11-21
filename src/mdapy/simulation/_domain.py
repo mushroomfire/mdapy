@@ -384,9 +384,22 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
     the neighbors, twice the cutoff and the cutoff. The springs of a Switch
     tie each atom to its site alone."""
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
+    from mdapy.calculators._overlay import Overlay
     from mdapy.calculators._pair import _PairCalculator
 
     pair = isinstance(calculator, _PairCalculator)
+    if isinstance(calculator, Overlay) and not _on_gpu(calculator):
+        # computed whole, the atoms and the ghosts: a pair potential needs
+        # ghosts within its cutoff, a many-body one within twice its cutoff,
+        # with the neighbors of those within its cutoff
+        reaches = []
+        for part in calculator.calculators:
+            _reach(part)  # each one that splits
+            c = float(part.cutoff)
+            reaches.append(
+                (c, 0.0) if isinstance(part, _PairCalculator) else (2.0 * c, c)
+            )
+        return max(r for r, _ in reaches), max(c for _, c in reaches)
     if isinstance(calculator, MEAM) or (
         _on_gpu(calculator) and not pair
     ):  # fmt: skip
@@ -665,7 +678,10 @@ class DomainAtoms(_HostAtoms):
         if inner > 0.0:
             centers += int(np.searchsorted(self.__far, inner + self.__skin, "right"))
         full = NeighborList.build(current, float(calculator.cutoff) + self.__skin)
-        symmetric = isinstance(calculator, (MEAM, NEP, StillingerWeber, Tersoff))
+        parts = getattr(calculator, "calculators", (calculator,))
+        symmetric = any(
+            isinstance(p, (MEAM, NEP, StillingerWeber, Tersoff)) for p in parts
+        )
         return _centered(full, centers, symmetric)
 
     def _evaluate(

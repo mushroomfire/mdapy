@@ -4,7 +4,9 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """Pair potentials of a formula with coefficients for each pair of elements:
-Lennard-Jones and Morse, as LAMMPS pair_style lj/cut and morse."""
+Lennard-Jones, Morse, Uhlenbeck-Ford and the screened nuclear repulsion of
+Ziegler, Biersack and Littmark, as LAMMPS pair_style lj/cut, morse, ufm and
+zbl."""
 
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -572,4 +574,125 @@ class Morse(_PairCalculator):
         return (
             f"Morse(elements={self.elements}, cutoff={self.cutoff}, "
             f"shift={self.shift}{_where(self)})"
+        )
+
+
+# the universal screening function of Ziegler, Biersack and Littmark: the
+# weights and the exponents of its four terms, and the screening length
+_ZBL_WEIGHTS = (0.02817, 0.28022, 0.50986, 0.18175)
+_ZBL_EXPONENTS = (0.20162, 0.40290, 0.94229, 3.19980)
+_ZBL_LENGTH = 0.46850  # Å
+_ZBL_POWER = 0.23
+_E2 = 14.399645  # e^2 / (4 pi eps0) in eV Å, as LAMMPS's metal units
+
+
+def _zbl(r: float, z: float, inverse_length: float) -> tuple[float, float, float]:
+    """The energy of the screened repulsion of a pair at r and its first two
+    derivatives, z = Z_i Z_j e^2."""
+    e = d = dd = 0.0
+    for c, k in zip(_ZBL_WEIGHTS, _ZBL_EXPONENTS):
+        a = k * inverse_length
+        x = c * np.exp(-a * r)
+        e += x
+        d -= a * x
+        dd += a * a * x
+    energy = z * e / r
+    first = z * (d - e / r) / r
+    second = z * (dd - 2.0 * d / r + 2.0 * e / (r * r)) / r
+    return energy, first, second
+
+
+class ZBL(_PairCalculator):
+    """The screened nuclear repulsion of Ziegler, Biersack and Littmark, the
+    universal repulsion of two nuclei at short distances, brought smoothly to
+    zero between an inner cutoff and the cutoff, as LAMMPS ``pair_style zbl``
+    computes it. Overlaid on a potential, it gives the close collisions of a
+    cascade of radiation damage.
+
+    Parameters
+    ----------
+    elements : sequence of str
+        The elements of the atoms, whose atomic numbers are the charges of
+        the nuclei.
+    inner : float64
+        Distance in Å from which the repulsion is switched off, its energy
+        and its first two derivatives going to zero at the cutoff.
+    cutoff : float64
+        Distance in Å beyond which it is zero, greater than inner.
+    device : {"cpu", "cuda"}, optional
+        Where it computes: on the processor, or on an NVIDIA GPU with a
+        neighbor list of its own. Default "cpu".
+    precision : {"mixed", "double"}, optional
+        On the GPU: single precision for the terms of each pair and double
+        for the positions and the sums, or double throughout. Default
+        "mixed" on the GPU, "double" on the processor, which has no other.
+
+    Attributes
+    ----------
+    elements : tuple of str
+        The elements.
+    inner : float64
+        The inner cutoff in Å.
+    cutoffs : numpy.ndarray
+        (E, E) float64 cutoff of each pair of elements in Å.
+    cutoff : float64
+        The cutoff in Å.
+    """
+
+    _style = "zbl"
+    _name = "ZBL"
+
+    def __init__(
+        self,
+        elements: Sequence[str],
+        inner: float,
+        cutoff: float,
+        *,
+        device: str = "cpu",
+        precision: str | None = None,
+    ):
+        self.device, self.precision = _gpu.resolve(device, precision)
+        if isinstance(elements, str) or not isinstance(elements, Sequence):
+            raise InvalidParameter(
+                f"elements must be a sequence of elements, not {elements!r}"
+            )
+        names = tuple(_element(e) for e in elements)
+        if not names or len(set(names)) != len(names):
+            raise InvalidParameter(
+                f"elements must be one or more different elements, not {elements!r}"
+            )
+        inner, outer = _cutoff(inner, "inner"), _cutoff(cutoff)
+        if not inner < outer:
+            raise InvalidParameter(
+                f"inner must be less than the cutoff, not {inner!r} and {outer!r}"
+            )
+        e = len(names)
+        numbers = np.array([SYMBOLS.index(n) for n in names], dtype=float)
+        table = np.zeros((e, e, 12))
+        offset = np.zeros((e, e))
+        span = outer - inner
+        for i in range(e):
+            for j in range(e):
+                zi, zj = numbers[i], numbers[j]
+                inverse = (zi**_ZBL_POWER + zj**_ZBL_POWER) / _ZBL_LENGTH
+                z = zi * zj * _E2
+                energy, first, second = _zbl(outer, z, inverse)
+                # a + b t and their integrals, t = r - inner, added to the
+                # derivative and the energy beyond inner, so that both and
+                # the second derivative go to zero at the cutoff
+                a = (-3.0 * first + span * second) / span**2
+                b = (2.0 * first - span * second) / span**3
+                shift = -energy + span / 2.0 * first - span**2 / 12.0 * second
+                table[i, j, :4] = np.array(_ZBL_EXPONENTS) * inverse
+                table[i, j, 4] = z
+                table[i, j, 5:9] = (a, b, a / 3.0, b / 4.0)
+                table[i, j, 9:11] = (inner, inner * inner)
+                offset[i, j] = -shift
+        self.inner = inner
+        self._build(names, np.full((e, e), outer), offset, table)
+
+    def __repr__(self) -> str:
+        return (
+            f"ZBL(elements={self.elements}, inner={self.inner}, "
+            f"cutoff={self.cutoff}{_where(self)})"
         )

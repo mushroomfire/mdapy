@@ -13,6 +13,7 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "calculators/adp.h"
 #include "calculators/eam.h"
@@ -271,6 +272,10 @@ public:
         compute(atoms, neighbors, box, true, true, true);
     }
 };
+
+// Potentials added together: each computes in turn, its forces, energies
+// and virials added to those of the ones before; the parts must outlive it.
+std::unique_ptr<Potential> make_overlay(std::vector<Potential*> parts);
 
 std::unique_ptr<Potential> make_eam(const calculators::EamPotential& potential,
                                     Precision precision);

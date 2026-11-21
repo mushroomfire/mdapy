@@ -30,6 +30,13 @@
   as `electronic_loss`; as LAMMPS's `fix electron/stopping`, the same runs step by
   step, on the processor, on many processes, on the GPU and in LAMMPS. See
   [Electronic stopping](../user-guide/simulation/electronic-stopping.md).
+- `ZBL`, the screened nuclear repulsion of Ziegler, Biersack and Littmark switched off
+  between two distances, as LAMMPS's `pair_style zbl`, on the processor and the GPU.
+  See [Pair potentials](../user-guide/potentials/pair-potentials.md#the-zbl-repulsion).
+- `Overlay`, calculators added together, as LAMMPS's `pair_style hybrid/overlay`: a
+  ZBL on an EAM for the close collisions of a cascade, the same as LAMMPS atom by atom
+  and in a cascade with electronic stopping step by step; on the processor, on many
+  processes and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

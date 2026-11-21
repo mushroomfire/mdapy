@@ -21,7 +21,7 @@ import pytest
 
 import mdapy
 from mdapy.build import build_crystal
-from mdapy.calculators import EAM, LennardJones, Springs, _gpu
+from mdapy.calculators import EAM, ZBL, LennardJones, Overlay, Springs, _gpu
 from mdapy.errors import InvalidParameter
 from mdapy.simulation import MolecularDynamics, _domain
 from mdapy.simulation._controls import _HeatField
@@ -215,6 +215,9 @@ def cases():
         "stopping": (crystal, eam, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), 0.5 * np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02, mask=middle)]}, 4),
+        # computed whole on each process, with ghosts twice the cutoff thick
+        "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0)]), {}, 4),
+        "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0)]), {}, 8),
         "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02)]}, 8),
@@ -504,7 +507,7 @@ def test_an_atom_too_fast(monkeypatch):
     processes.run(4, task, monkeypatch)
 
 
-@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones", "stopping"])
+@pytest.mark.parametrize("name", ["EAM", "Lennard-Jones", "stopping", "overlay"])
 def test_processes_with_a_gpu_each(monkeypatch, name):
     """Each process computes the forces of its atoms and ghosts on its GPU,
     stood in for on the processor, the steps on the processor: the run of one
@@ -516,6 +519,11 @@ def test_processes_with_a_gpu_each(monkeypatch, name):
             EAM.zhou(["Cu"], device="cuda", precision="double"),
         )
         options = {"ensemble": "npt", "temperature": 300, "pressure": 0.0}
+    elif name == "overlay":
+        crystal, potential = copper(), Overlay([
+            EAM.zhou(["Cu"], device="cuda", precision="double"),
+            ZBL(["Cu"], 1.0, 2.0, device="cuda", precision="double")])  # fmt: skip
+        options = {"ensemble": "nvt", "temperature": 300}
     elif name == "stopping":  # its neighbors counted on the processor
         crystal, potential = (
             copper(),

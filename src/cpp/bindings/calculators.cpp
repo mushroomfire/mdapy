@@ -274,8 +274,9 @@ nb::tuple compute_eam(const calculators::EamPotential& potential, Species specie
 }
 
 
-// style: "lj/cut", "morse" or "ufm"; cutsq and offset: (species, species);
-// coefficients: (species, species, 4), see PairPotential.
+// style: "lj/cut", "morse", "ufm" or "zbl"; cutsq and offset: (species,
+// species); coefficients: (species, species, pair_width(style)), see
+// PairPotential.
 calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat offset,
                                      Flat coefficients) {
     calculators::PairStyle kind;
@@ -285,12 +286,15 @@ calculators::PairPotential make_pair(const std::string& style, Flat cutsq, Flat 
         kind = calculators::PairStyle::Morse;
     } else if (style == "ufm") {
         kind = calculators::PairStyle::UhlenbeckFord;
+    } else if (style == "zbl") {
+        kind = calculators::PairStyle::ZBL;
     } else {
         throw std::invalid_argument("unknown pair style");
     }
     const auto t = static_cast<std::size_t>(std::llround(std::sqrt(double(cutsq.shape(0)))));
+    const auto width = static_cast<std::size_t>(calculators::pair_width(kind));
     if (t == 0 || t * t != cutsq.shape(0) || offset.shape(0) != t * t ||
-        coefficients.shape(0) != 4 * t * t) {
+        coefficients.shape(0) != width * t * t) {
         throw std::invalid_argument("inconsistent pair tables");
     }
     return calculators::make_pair_potential(kind, static_cast<int>(t), cutsq.data(),

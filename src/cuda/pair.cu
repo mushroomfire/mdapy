@@ -3,8 +3,8 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Pair potentials on the device, Lennard-Jones and Morse, as
-// calculators/pair.cpp computes them, from a full neighbor list.
+// Pair potentials on the device, Lennard-Jones, Morse, Uhlenbeck-Ford and
+// ZBL, as calculators/pair.cpp computes them, from a full neighbor list.
 
 #include <stdexcept>
 #include <vector>
@@ -20,7 +20,7 @@ using calculators::PairStyle;
 
 template <class Real>
 struct PairTables {
-    const Real4<Real>* coefficients;  // species x species
+    const Real4<Real>* coefficients;  // species x species x (pair_width / 4)
     const Real* cutsq;
     const Real* offset;
     int species;
@@ -50,7 +50,8 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> im
         const Real r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
         const int pair = si * t.species + static_cast<int>(xj.w);
         if (!(r2 < t.cutsq[pair])) continue;
-        const Real4<Real> c = t.coefficients[pair];
+        constexpr int kFours = Style == PairStyle::ZBL ? 3 : 1;
+        const Real4<Real> c = t.coefficients[pair * kFours];
         Real fpair, e;
         if (Style == PairStyle::LennardJones) {
             const Real r2inv = Real(1) / r2;
@@ -62,10 +63,32 @@ __global__ void pair_force(std::int64_t n, const Real4<Real>* x, Images<Real> im
             const Real dexp = exp(-c.y * (r - c.z));
             fpair = c.w * (dexp * dexp - dexp) / r;
             e = c.x * (dexp * dexp - Real(2) * dexp) - t.offset[pair];
-        } else {
+        } else if (Style == PairStyle::UhlenbeckFord) {
             const Real expuf = exp(-r2 * c.y);
             fpair = c.x * expuf / (Real(1) - expuf);
             e = -c.z * log(Real(1) - expuf) - t.offset[pair];
+        } else {
+            // the exponents in c; Z_i Z_j e^2, a, b and a / 3 in c1; b / 4,
+            // the inner cutoff and its square in c2 (calculators/pair.h)
+            const Real4<Real> c1 = t.coefficients[pair * kFours + 1];
+            const Real4<Real> c2 = t.coefficients[pair * kFours + 2];
+            const Real r = sqrt(r2);
+            const Real rinv = Real(1) / r;
+            const Real t1 = Real(0.02817) * exp(-c.x * r);
+            const Real t2 = Real(0.28022) * exp(-c.y * r);
+            const Real t3 = Real(0.50986) * exp(-c.z * r);
+            const Real t4 = Real(0.18175) * exp(-c.w * r);
+            const Real sum = t1 + t2 + t3 + t4;
+            const Real slope = -(c.x * t1 + c.y * t2 + c.z * t3 + c.w * t4);
+            Real energy_r = c1.x * sum * rinv;
+            Real de = c1.x * (slope - sum * rinv) * rinv;
+            if (r2 > c2.z) {
+                const Real s = r - c2.y;
+                de += s * s * (c1.y + c1.z * s);
+                energy_r += s * s * s * (c1.w + c2.x * s);
+            }
+            fpair = -de * rinv;
+            e = energy_r - t.offset[pair];
         }
         for (int a = 0; a < 3; ++a) {
             f[a] += static_cast<double>(del[a] * fpair);
@@ -96,13 +119,16 @@ public:
     explicit Pair(const calculators::PairPotential& p)
         : style_(p.style), species_(p.species), cutoff_(p.cutoff) {
         const auto t = static_cast<std::size_t>(p.species);
-        std::vector<Real4<Real>> coefficients(t * t);
+        // the coefficients of each pair as pair_width / 4 groups of four
+        std::vector<Real4<Real>> coefficients(p.coefficients.size() / 4);
+        for (std::size_t q = 0; q < coefficients.size(); ++q) {
+            coefficients[q].x = static_cast<Real>(p.coefficients[4 * q]);
+            coefficients[q].y = static_cast<Real>(p.coefficients[4 * q + 1]);
+            coefficients[q].z = static_cast<Real>(p.coefficients[4 * q + 2]);
+            coefficients[q].w = static_cast<Real>(p.coefficients[4 * q + 3]);
+        }
         std::vector<Real> cutsq(t * t), offset(t * t);
         for (std::size_t k = 0; k < t * t; ++k) {
-            coefficients[k].x = static_cast<Real>(p.coefficients[4 * k]);
-            coefficients[k].y = static_cast<Real>(p.coefficients[4 * k + 1]);
-            coefficients[k].z = static_cast<Real>(p.coefficients[4 * k + 2]);
-            coefficients[k].w = static_cast<Real>(p.coefficients[4 * k + 3]);
             cutsq[k] = static_cast<Real>(p.cutsq[k]);
             offset[k] = static_cast<Real>(p.offset[k]);
         }
@@ -128,8 +154,10 @@ public:
             launch<PairStyle::LennardJones>(a, l, box, energy, virial);
         } else if (style_ == PairStyle::Morse) {
             launch<PairStyle::Morse>(a, l, box, energy, virial);
-        } else {
+        } else if (style_ == PairStyle::UhlenbeckFord) {
             launch<PairStyle::UhlenbeckFord>(a, l, box, energy, virial);
+        } else {
+            launch<PairStyle::ZBL>(a, l, box, energy, virial);
         }
         a.has_energies = energy;
         a.has_virials = virial;

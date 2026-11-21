@@ -326,6 +326,33 @@ class Potential:
         self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat)
 
 
+class Overlay:
+    """Potentials of the stand-in added together, as the device's."""
+
+    def __init__(self, parts):
+        self.parts = list(parts)
+
+    def __run(self, atoms, compute):
+        total = None
+        for part in self.parts:
+            compute(part)
+            if total is None:
+                total = atoms.result
+            else:
+                total = tuple(
+                    None if a is None or b is None else a + b
+                    for a, b in zip(total, atoms.result)
+                )
+        atoms.result = total
+
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
+        self.__run(atoms, lambda p: p.compute(atoms, neighbors, h, lo, pbc, energy,
+                                              virial, atomic))  # fmt: skip
+
+    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+        self.__run(atoms, lambda p: p.compute_heat(atoms, neighbors, h, lo, pbc))
+
+
 def stand_in(found=True):
     """A module with the names of mdapy._cuda."""
     native = _core.calculators
@@ -381,6 +408,7 @@ def stand_in(found=True):
 
     return types.SimpleNamespace(
         Atoms=Atoms, Neighbors=Neighbors, Stopping=Stopping, make_eam=make_eam,
+        make_overlay=Overlay,
         make_pair=make_pair,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,

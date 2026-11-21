@@ -956,3 +956,29 @@ def test_electronic_stopping_as_on_the_processor(precision):
                            timestep=0.0005) as md:  # fmt: skip
         with pytest.raises(CalculationFailed, match="faster than the stopping table"):
             md.run(5, controls=[short])
+
+
+def test_overlay_as_on_the_processor():
+    """EAM and ZBL added together on the GPU in a knock-on run: in double
+    precision the run of the processor."""
+    from mdapy.calculators import ZBL, Overlay
+
+    system = crystal(8)
+    v = np.zeros((len(system), 3))
+    v[40] = [300.0, 120.0, -60.0]
+    system = system.with_columns(velocities=v)
+    out = []
+    for device in ("cuda", "cpu"):
+        overlay = Overlay([EAM.zhou(["Cu", "Ni"], device=device, precision="double"),
+                           ZBL(["Cu", "Ni"], 1.0, 2.0, device=device,
+                               precision="double")])  # fmt: skip
+        with MolecularDynamics(system, overlay, timestep=0.0005) as md:
+            md.run(200, thermo=50)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = (a["positions"] - b["positions"]) @ np.linalg.inv(a.box.matrix)
+    d = (d - np.round(d)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )

@@ -68,11 +68,13 @@ records, kept = [], {}
 def record(frame, start):
     t = round(frame.info["time"] - start, 3)
     frame = copper.compute(frame, ("atomic_virials",)).attach(frame)
+    moving = velocity.compute(frame)
     records.append(
         {
             "time": t,
             "stress": stress.compute(frame).values[:, 2, 2],
-            "velocity": velocity.compute(frame).values[:, 2],
+            "velocity": moving.values[:, 2],
+            "counts": moving.counts,  # atoms in each slab
             "surface": frame["velocities"][surface, 2].mean(),
         }
     )
@@ -98,14 +100,22 @@ velocity of the free surface:
 <!-- skip-test -->
 ```python
 import numpy as np
+from matplotlib.colors import TwoSlopeNorm
+
 from mdapy.visualization import plot
 
 time = np.array([r["time"] for r in records])
 waves = np.array([r["stress"] for r in records])  # GPa, tension > 0
+waves[np.array([r["counts"] for r in records]) == 0] = np.nan  # no atoms, no color
 with plot.style():
     fig, (a, b) = plot.figure("double", 70, ncols=2, width_ratios=(1.6, 1))
     mesh = a.pcolormesh(
-        z / 10, time, waves, cmap="RdBu_r", vmin=-50, vmax=50, shading="nearest"
+        z / 10,
+        time,
+        waves,
+        cmap="RdYlBu_r",
+        norm=TwoSlopeNorm(0.0, vmin=-50.0, vmax=20.0),  # the pull in full red
+        shading="nearest",
     )
     fig.colorbar(mesh, ax=a, label="Stress along z (GPa), tension > 0")
     a.set(xlabel="z (nm)", ylabel="Time (ps)", xlim=(-5, 105))
@@ -118,8 +128,9 @@ with plot.style():
 
 ![The stress along z of the copper against its place and time, and the velocity of its free surface](images/shock-spall-wave.png)
 
-*a: The piston drives a shock of 51 GPa (blue) at 5.2 km/s. At 5 ps it stops, and a
-release follows the shock and wears it down. At 14 ps the shock reaches the free
+*a: The slabs without atoms are left white. The piston drives a shock of 51 GPa
+(blue) at 5.2 km/s. At 5 ps it stops, and a release follows the shock and wears it
+down. At 14 ps the shock reaches the free
 surface at 73 nm and comes back as a release. The two releases meet near 66 nm at
 20 ps, where they pull the copper by 19.5 GPa (red): it spalls there, and the layer
 beyond, the scab, rings between its two new surfaces. b: The free surface jumps to

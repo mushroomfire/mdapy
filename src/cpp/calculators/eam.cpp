@@ -207,6 +207,7 @@ void eam_densities_once(const EamPotential& potential, std::int64_t centers,
     const double cutoff2 = potential.cutoff * potential.cutoff;
     for (std::int64_t i = 0; i < centers; ++i) {
         const int si = species[i];
+        double rho_i = 0.0;  // the density its pairs give i, added once
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
             double r[3];
@@ -220,9 +221,10 @@ void eam_densities_once(const EamPotential& potential, std::int64_t centers,
             const Spline& takes = potential.density_of(sj, si);
             const Spline& gives = potential.density_of(si, sj);
             const double to_i = takes.value(distance);
-            rho[i] += to_i;
+            rho_i += to_i;
             rho[j] += &gives == &takes ? to_i : gives.value(distance);
         }
+        rho[i] += rho_i;
     }
 }
 
@@ -248,6 +250,10 @@ void eam_forces_once(const EamPotential& potential, std::int64_t centers,
     const double cutoff2 = potential.cutoff * potential.cutoff;
     for (std::int64_t i = 0; i < centers; ++i) {
         const int si = species[i];
+        // what the pairs of i give it, summed here and added once
+        double fi[3] = {0.0, 0.0, 0.0}, ei = 0.0;
+        double wi[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+        const double slope_i = slope[i];
         for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
             const auto j = static_cast<std::int64_t>(neighbors[p]);
             double v[3];
@@ -272,13 +278,13 @@ void eam_forces_once(const EamPotential& potential, std::int64_t centers,
             const double recip = 1.0 / r;
             const double phi = z2 * recip;
             const double phip = z2p * recip - phi * recip;
-            const double psip = slope[i] * rho_jp + slope[j] * rho_ip + phip;
+            const double psip = slope_i * rho_jp + slope[j] * rho_ip + phip;
             const double fpair = -psip * recip;
             for (int a = 0; a < 3; ++a) {
-                forces[3 * i + a] += del[a] * fpair;
+                fi[a] += del[a] * fpair;
                 forces[3 * j + a] -= del[a] * fpair;
             }
-            energies[i] += 0.5 * phi;
+            ei += 0.5 * phi;
             energies[j] += 0.5 * phi;
             if (virials != nullptr) {
                 // as the two rows of the pair give them: halves of the pair
@@ -286,15 +292,20 @@ void eam_forces_once(const EamPotential& potential, std::int64_t centers,
                 const double to_i =
                     heat ? -(slope[j] * rho_ip + 0.5 * phip) * recip : 0.5 * fpair;
                 const double to_j =
-                    heat ? -(slope[i] * rho_jp + 0.5 * phip) * recip : 0.5 * fpair;
+                    heat ? -(slope_i * rho_jp + 0.5 * phip) * recip : 0.5 * fpair;
                 for (int a = 0; a < 3; ++a) {
                     for (int b = 0; b < 3; ++b) {
                         const double dd = del[a] * del[b];
-                        virials[9 * i + 3 * a + b] += dd * to_i;
+                        wi[3 * a + b] += dd * to_i;
                         virials[9 * j + 3 * a + b] += dd * to_j;
                     }
                 }
             }
+        }
+        for (int a = 0; a < 3; ++a) forces[3 * i + a] += fi[a];
+        energies[i] += ei;
+        if (virials != nullptr) {
+            for (int a = 0; a < 9; ++a) virials[9 * i + a] += wi[a];
         }
     }
 }

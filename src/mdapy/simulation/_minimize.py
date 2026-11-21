@@ -365,12 +365,28 @@ def minimize(
         )
 
     lists = _Neighbors(calculator)
+    # under MPI, the forces of MDAPY's potentials shared among the processes,
+    # every process taking the same steps over every atom
+    from mdapy.simulation import _domain
+
+    comm = _domain.world()
+    shared = None
+    if comm is not None:
+        try:
+            shared = _domain.SharedForces(comm, calculator, _SKIN)
+        except InvalidParameter:  # one that does not split, as LAMMPS
+            shared = None
 
     def evaluate(variables: np.ndarray):
         # the result, the largest force, the stress, the forces on the
         # variables and the largest deviation of the stress from its target
         current = place(variables)
-        result = calculator.compute(current, properties, neighbors=lists.of(current))
+        if shared is not None:
+            result = shared.compute(current, properties)
+        else:
+            result = calculator.compute(
+                current, properties, neighbors=lists.of(current)
+            )
         if not (np.isfinite(result.energy) and np.isfinite(result.forces).all()):
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
@@ -418,7 +434,7 @@ def minimize(
 
     if save_every is not None:
         save()
-    writer = _Log(log)
+    writer = _Log(log, active=comm is None or comm.Get_rank() == 0)
     if writer.on:
         lengths = " ".join(f"{v:.4f}" for v in np.linalg.norm(box0.matrix, axis=1))
         relax = (

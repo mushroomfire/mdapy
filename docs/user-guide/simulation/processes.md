@@ -125,6 +125,10 @@ of ASE or [VASP](../potentials/vasp.md), run on one process; a
 [LAMMPS](../potentials/lammps.md) potential runs the dynamics in LAMMPS, which
 splits it itself.
 
+[Energy minimization](minimize.md) shares the forces in the same way: every process
+keeps every atom and takes the same steps, and computes the forces of the atoms of its
+brick with the ghosts it finds among them.
+
 ## With a GPU each
 
 A potential with `device="cuda"` computes the forces of each process on a GPU:

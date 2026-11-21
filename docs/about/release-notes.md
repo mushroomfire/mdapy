@@ -20,6 +20,10 @@
   mpi4py. A process of one thread computes each pair once among the processes. See
   [On many processes](../user-guide/simulation/processes.md), and its times on 1 to 40
   processes in [Performance](../performance/mpi.md).
+- `minimize` under `mpirun` shares the forces of MDAPY's potentials among the
+  processes, each computing the atoms of its brick with their ghosts, every process
+  taking the steps of FIRE over every atom: the minimization of one process, with and
+  without the box relaxing. See [Energy minimization](../user-guide/simulation/minimize.md).
 - On many processes, a potential on the GPU computes the forces of each process on a
   GPU of its machine, the processes of a machine taking its GPUs in turn, while the
   steps run on the processor. See [With a GPU

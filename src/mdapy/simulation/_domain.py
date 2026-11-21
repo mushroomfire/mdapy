@@ -798,3 +798,188 @@ class DomainAtoms(_HostAtoms):
         for name in ("_HostAtoms__virials", "_HostAtoms__energies"):
             if state.get(name) is not None:
                 vars(self)[name] = state[name][self._ids]
+
+
+class SharedForces:
+    """The forces of a calculator on many processes for a computation that
+    every process takes whole, as a minimization: every process has every
+    atom, and computes the atoms of its brick with the ghosts within the
+    reach of the calculator and the skin, found from the atoms it has; what
+    a many-body potential sends to the ghosts or back goes through all the
+    atoms at once. The results, of all the atoms, are the same on every
+    process, so that the steps that use them are too."""
+
+    def __init__(self, comm: Any, calculator: Calculator, skin: float):
+        self.comm = comm
+        self.calculator = calculator
+        self.__skin = float(skin)
+        reach, inner = _reach(calculator)
+        self.__reach, self.__inner = reach + self.__skin, inner
+        # a potential on the GPU computes the atoms and the ghosts whole there
+        self.__split = (
+            None if _on_gpu(calculator) else getattr(calculator, "_split", None)
+        )
+        self.__kept: Any = None  # of the last build, while it serves
+
+    def __build(self, system: System) -> None:
+        """This process's atoms and ghosts: the atom and the shift of each,
+        local ones first, their neighbor list and species."""
+        comm, box = self.comm, system.box
+        h, lo = np.asarray(box.matrix, dtype=float), np.asarray(box.origin, dtype=float)
+        pbc = np.asarray(box.pbc, dtype=bool)
+        counts = np.array(grid(comm.Get_size(), h, pbc))
+        rank = comm.Get_rank()
+        at = np.array([rank // (counts[1] * counts[2]), (rank // counts[2]) % counts[1],
+                       rank % counts[2]])  # fmt: skip
+        inverse = np.linalg.inv(h)
+        thick = 1.0 / np.linalg.norm(inverse, axis=0)
+        split = counts > 1
+        if (split & (thick <= self.__reach)).any():
+            raise InvalidParameter(
+                "the box is thinner than the reach of the ghosts along a vector it "
+                "is cut along: fewer processes"
+            )
+        x = np.asarray(system["positions"], dtype=float)
+        s = (x - lo) @ inverse
+        whole = np.where(pbc, np.floor(s), 0.0)
+        s -= whole
+        brick = np.clip(np.floor(s * counts), 0, counts - 1).astype(np.int64)
+        lower = np.where(~pbc & (at == 0), -np.inf, at / counts)
+        upper = np.where(~pbc & (at == counts - 1), np.inf, (at + 1) / counts)
+        mine = np.flatnonzero((brick == at).all(axis=1))
+        # the atoms and their images across the periodic vectors cut into
+        # bricks, within the reach of the brick
+        steps = [(-1, 0, 1) if (pbc[d] and split[d]) else (0,) for d in range(3)]
+        ghosts, shifts = [], []
+        for a in steps[0]:
+            for b in steps[1]:
+                for c in steps[2]:
+                    f = s + np.array([a, b, c])
+                    out = np.maximum(np.maximum(lower - f, f - upper), 0.0)
+                    far = (out * thick).max(axis=1)
+                    near = np.flatnonzero(far <= self.__reach)
+                    if (a, b, c) == (0, 0, 0):
+                        near = np.setdiff1d(near, mine, assume_unique=True)
+                    ghosts.append((near, far[near]))
+                    shifts.append(np.repeat([[a, b, c]], len(near), axis=0))
+        far = np.concatenate([g[1] for g in ghosts])
+        order = np.argsort(far, kind="stable")  # the nearest first
+        ids = np.concatenate([mine, np.concatenate([g[0] for g in ghosts])[order]])
+        shift = np.concatenate(
+            [np.zeros((len(mine), 3)), np.concatenate(shifts)[order].astype(float)]
+        )
+        # the places of the atoms are those they have, wrapped, and shifted
+        offsets = (shift - whole[ids]) @ h
+        sub_box = Box(h, origin=lo, pbc=pbc & ~split)
+        positions = x[ids] + offsets
+        sub = System(table=system.table[ids].with_columns(
+            pl.Series("positions", positions, dtype=pl.Array(pl.Float64, 3))
+        ), box=sub_box)  # fmt: skip
+        calculator = self.calculator
+        centers = len(mine)
+        if self.__inner > 0.0:
+            centers += int(
+                np.searchsorted(far[order], self.__inner + self.__skin, "right")
+            )
+        from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
+
+        symmetric = isinstance(calculator, (MEAM, NEP, StillingerWeber, Tersoff))
+        full = (
+            None
+            if _on_gpu(calculator)
+            else NeighborList.build(sub, float(calculator.cutoff) + self.__skin)
+        )
+        self.__kept = SimpleNamespace(
+            x=x.copy(), h=h.copy(), lo=lo.copy(), pbc=pbc, ids=ids,
+            mine=mine, offsets=offsets, sub=sub,
+            neighbors=None if full is None else _centered(full, centers, symmetric),
+            species=np.ascontiguousarray(calculator._species(sub))
+            if self.__split is not None else None,
+        )  # fmt: skip
+
+    def __fresh(self, system: System) -> None:
+        kept, box = self.__kept, system.box
+        if kept is not None and (
+            np.array_equal(kept.h, box.matrix)
+            and np.array_equal(kept.lo, box.origin)
+            and np.array_equal(kept.pbc, box.pbc)
+        ):
+            step = np.asarray(system["positions"], dtype=float) - kept.x
+            moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+            if 2.0 * moved < self.__skin:
+                return
+        self.__build(system)
+
+    def __gathered(self, values: np.ndarray, n: int) -> np.ndarray:
+        """The values of this process's atoms as an array of all."""
+        out = np.zeros((n,) + values.shape[1:], dtype=values.dtype)
+        for ids, part in self.comm.allgather((self.__kept.mine, values)):
+            out[ids] = part
+        return out
+
+    def compute(self, system: System, properties: tuple) -> Any:
+        """What calculator.compute gives, of all the atoms, on every
+        process."""
+        from mdapy.calculators._base import CalculatorResult
+
+        self.__fresh(system)
+        kept, comm, n = self.__kept, self.comm, len(system)
+        local = len(kept.mine)
+        positions = np.ascontiguousarray(
+            np.asarray(system["positions"], dtype=float)[kept.ids] + kept.offsets
+        )
+        if self.__split is not None:
+
+            def forward(values: np.ndarray) -> np.ndarray:
+                return self.__gathered(values, n)[kept.ids]
+
+            def reverse(values: np.ndarray) -> np.ndarray:
+                every = np.zeros((n,) + values.shape[1:])
+                np.add.at(every, kept.ids, values)
+                total = np.empty_like(every)
+                comm.Allreduce(every, total, op=_sum_of(comm))
+                return total[kept.mine]
+
+            part = self.__split(
+                (kept.species, positions, np.ascontiguousarray(kept.h)),
+                tuple(properties), kept.neighbors, local, forward, reverse,
+                np.ascontiguousarray(kept.ids, dtype=np.int64),
+            )  # fmt: skip
+            energy, forces, virial = part.energy, part.forces, part.virial
+            energies, virials = part.atomic_energies, part.atomic_virials
+        else:  # whole, the atoms and the ghosts
+            calculator = self.calculator
+            current = kept.sub.with_columns(positions=positions)
+            # the list of the build with the atoms where they are now, which
+            # MDAPY's potentials take with its skin; on the GPU one of its own
+            neighbors = (
+                None
+                if kept.neighbors is None
+                else kept.neighbors._reuse(current, float(calculator.cutoff))
+            )
+            extra = ("atomic_energies", "atomic_virials")
+            wanted = tuple(properties) + tuple(p for p in extra if p not in properties)
+            result = calculator.compute(current, wanted, neighbors=neighbors)
+            energies = np.asarray(result.atomic_energies, dtype=float)[:local]
+            virials = np.asarray(result.atomic_virials, dtype=float)[:local]
+            energy, forces = float(energies.sum()), np.asarray(result.forces)[:local]
+            virial = virials.sum(axis=0)
+        sums = comm.allreduce(
+            np.concatenate([[energy], np.ravel(np.asarray(virial, dtype=float))])
+        )
+        return CalculatorResult(
+            energy=float(sums[0]),
+            forces=self.__gathered(np.asarray(forces, dtype=float), n),
+            virial=sums[1:].reshape(3, 3) if "virial" in properties else None,
+            atomic_energies=self.__gathered(energies, n)
+            if "atomic_energies" in properties else None,
+            atomic_virials=self.__gathered(virials, n)
+            if "atomic_virials" in properties else None,
+            volume=system.box.volume,
+        )  # fmt: skip
+
+
+def _sum_of(comm: Any) -> Any:
+    """The sum of mpi4py's MPI, or named for others, as Bricks takes it."""
+    mpi = sys.modules.get("mpi4py.MPI")
+    return mpi.SUM if mpi is not None and isinstance(comm, mpi.Comm) else "sum"

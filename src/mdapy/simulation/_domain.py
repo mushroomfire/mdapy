@@ -30,6 +30,7 @@ import numpy as np
 import polars as pl
 
 from mdapy._core import calculators as _native_calculators
+from mdapy._core import core as _native_core
 from mdapy.calculators._base import HEAT_FLUX_TERMS, WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
@@ -284,12 +285,13 @@ class Bricks:
             self.__swap(sent, destination, x[start : start + count], source)
         return x
 
-    def reverse(self, values: np.ndarray) -> np.ndarray:
+    def reverse(self, values: np.ndarray, copy: bool = True) -> np.ndarray:
         """Values of the local atoms and the ghosts, (all, ...), the values of
         each ghost added to those of its atom: the values of the local atoms.
         The lists of the last ``borders`` are gone through backwards, so that
-        the ghosts of ghosts come back through them."""
-        x = np.array(values)
+        the ghosts of ghosts come back through them. copy=False adds into
+        values, an array of the caller's own."""
+        x = np.array(values) if copy else values
         for chosen, _, destination, source, start, count in reversed(self.__sends):
             back = np.empty((len(chosen),) + x.shape[1:], dtype=x.dtype)
             self.__swap(x[start : start + count], source, back, destination)
@@ -759,8 +761,10 @@ class DomainAtoms(_HostAtoms):
         ):
             self.__set_box(box.matrix, box.origin)
         if self.__built is not None:
-            step = self._x - self.__built
-            moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
+            moved = math.sqrt(_native_core.largest_step(
+                np.ascontiguousarray(self._x, dtype=np.float64),
+                np.ascontiguousarray(self.__built, dtype=np.float64),
+            ))  # fmt: skip
             if not 2.0 * bricks.maximum(moved) < self.__skin:
                 self.__built = None
         if self.__built is None:
@@ -817,7 +821,7 @@ class DomainAtoms(_HostAtoms):
         the ghosts' added."""
         ordered = np.empty_like(values)
         ordered[self.__order] = values
-        return self.__bricks.reverse(ordered)
+        return self.__bricks.reverse(ordered, copy=False)
 
     def __beyond(self, x: np.ndarray) -> np.ndarray:
         """How far atoms are from the brick, in Å across its faces; the end

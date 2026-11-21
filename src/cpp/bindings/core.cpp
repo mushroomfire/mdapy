@@ -7,8 +7,10 @@
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/string.h>
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <stdexcept>
 
 #include "bindings/control.h"
 #include "core/buffer.h"
@@ -80,9 +82,77 @@ nb::object normal_noise(Indices indices, std::uint64_t seed, std::uint64_t strea
     return array;
 }
 
+using Triples = nb::ndarray<double, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
+using Masses = nb::ndarray<const double, nb::shape<-1>, nb::c_contig, nb::device::cpu>;
+
+// The steps of the velocity Verlet integrator, atom by atom as NumPy computes
+// them, in one pass: velocities += (c forces) / masses, and with dt
+// positions += dt velocities after.
+void kick_drift(Triples velocities, Positions forces, Masses masses, double c, Triples* positions,
+                double dt) {
+    const auto n = static_cast<std::int64_t>(velocities.shape(0));
+    if (forces.shape(0) != velocities.shape(0) || masses.shape(0) != velocities.shape(0) ||
+        (positions != nullptr && positions->shape(0) != velocities.shape(0))) {
+        throw std::invalid_argument("the arrays of the atoms differ in length");
+    }
+    double* v = velocities.data();
+    const double* f = forces.data();
+    const double* m = masses.data();
+    double* x = positions != nullptr ? positions->data() : nullptr;
+    nb::gil_scoped_release release;
+    parallel_for(n, 0, [&](std::int64_t begin, std::int64_t end) {
+        for (std::int64_t i = begin; i < end; ++i) {
+            for (int k = 0; k < 3; ++k) {
+                v[3 * i + k] += (c * f[3 * i + k]) / m[i];
+                if (x != nullptr) x[3 * i + k] += dt * v[3 * i + k];
+            }
+        }
+    });
+}
+
+// The largest over the atoms of the square of how far each moved from built,
+// as NumPy sums the squares of an atom and takes the largest.
+double largest_step(Positions positions, Positions built) {
+    if (positions.shape(0) != built.shape(0)) {
+        throw std::invalid_argument("the arrays of the atoms differ in length");
+    }
+    const auto n = static_cast<std::int64_t>(positions.shape(0));
+    const double* x = positions.data();
+    const double* b = built.data();
+    nb::gil_scoped_release release;
+    return parallel_reduce(
+        n, 0, 0.0,
+        [&](std::int64_t begin, std::int64_t end) {
+            double most = 0.0;
+            for (std::int64_t i = begin; i < end; ++i) {
+                const double d0 = x[3 * i] - b[3 * i], d1 = x[3 * i + 1] - b[3 * i + 1],
+                             d2 = x[3 * i + 2] - b[3 * i + 2];
+                const double r2 = d0 * d0 + d1 * d1 + d2 * d2;
+                // a step that is not a number wins, as NumPy's max gives it
+                if (std::isnan(r2)) return r2;
+                if (r2 > most) most = r2;
+            }
+            return most;
+        },
+        [](double a, double b2) { return std::isnan(a) || std::isnan(b2) ? a + b2 : (b2 > a ? b2 : a); });
+}
+
 }  // namespace
 
 void bind_core(nb::module_& m) {
+    m.def(
+        "kick", [](Triples v, Positions f, Masses masses, double c) {
+            kick_drift(v, f, masses, c, nullptr, 0.0);
+        },
+        nb::arg("velocities"), nb::arg("forces"), nb::arg("masses"), nb::arg("c"));
+    m.def(
+        "kick_drift",
+        [](Triples v, Positions f, Masses masses, double c, Triples x, double dt) {
+            kick_drift(v, f, masses, c, &x, dt);
+        },
+        nb::arg("velocities"), nb::arg("forces"), nb::arg("masses"), nb::arg("c"),
+        nb::arg("positions"), nb::arg("dt"));
+    m.def("largest_step", &largest_step, nb::arg("positions"), nb::arg("built"));
     m.def("philox", &philox_block, nb::arg("c0"), nb::arg("c1"), nb::arg("c2"), nb::arg("c3"),
           nb::arg("k0"), nb::arg("k1"));
     m.def("normals", &normal_noise, nb::arg("indices"), nb::arg("seed"), nb::arg("stream"),

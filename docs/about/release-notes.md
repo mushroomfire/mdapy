@@ -36,7 +36,7 @@
 - `Overlay`, calculators added together, as LAMMPS's `pair_style hybrid/overlay`: a
   ZBL on an EAM for the close collisions of a cascade, the same as LAMMPS atom by atom
   and in a cascade with electronic stopping step by step; on the processor, on many
-  processes and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
+  processes, split as its calculators, and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

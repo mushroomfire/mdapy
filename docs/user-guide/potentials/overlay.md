@@ -84,9 +84,10 @@ with MolecularDynamics(crystal, overlay, timestep=0.0005) as md:
 - On the [GPU](../simulation/gpu.md) the calculators must be MDAPY's potentials with
   `device="cuda"` and the same elements in the same order: they compute in turn on
   the device, with one neighbor list.
-- On [many processes](../simulation/processes.md) each process computes its atoms and
-  their ghosts whole: ghosts within the cutoff of a pair potential, within twice the
-  cutoff of a many-body one.
+- On [many processes](../simulation/processes.md), MDAPY's potentials of the same
+  elements in the same order split as each of them splits, with ghosts within the
+  largest cutoff; others are computed whole on each process, its atoms and their
+  ghosts, with ghosts within twice the cutoff of a many-body potential.
 - In [LAMMPS](lammps.md) it is `pair_style hybrid/overlay`, which a `LAMMPS`
   calculator gives; the energies, forces and virials of an `Overlay` of `EAM` and `ZBL`
   are those of `hybrid/overlay eam/alloy zbl`, atom by atom, and so are the runs of a

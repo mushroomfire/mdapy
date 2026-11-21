@@ -16,6 +16,7 @@ from mdapy.calculators._base import (
     PROPERTIES,
     Calculator,
     CalculatorResult,
+    _Part,
 )
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
@@ -77,6 +78,16 @@ class Overlay(Calculator):
         )
         self._heat_flux = all(p._heat_flux for p in parts)
         self._takes_wider_lists = all(p._takes_wider_lists for p in parts)
+        # on many processes, the parts of each process added, when every
+        # calculator splits and they share their elements, so their species
+        self._split = (
+            self.__split
+            if self.device == "cpu"
+            and all(callable(getattr(p, "_split", None)) for p in parts)
+            and len({p.elements for p in parts}) == 1
+            else None
+        )
+        self._pairs_once = all(getattr(p, "_pairs_once", False) for p in parts)
         self.__gpu: _gpu.OnDevice | None = None
         if self.device == "cuda":
             on = [getattr(p, "_on_device", None) for p in parts]
@@ -99,8 +110,31 @@ class Overlay(Calculator):
         return self.__gpu
 
     def _species(self, system: System) -> np.ndarray:
-        """On the GPU, the species of the atoms, the same for every one."""
+        """On the GPU or split among processes, the species of the atoms,
+        the same for every calculator."""
         return self.calculators[0]._species(system)
+
+    def __split(
+        self, atoms: tuple, properties: tuple, *rest: Any, **options: Any
+    ) -> _Part:
+        """The parts of a process of MPI of every calculator, added."""
+        parts = [
+            p._split(atoms, properties, *rest, **options) for p in self.calculators
+        ]
+
+        def total(name: str) -> Any:
+            values = [getattr(part, name) for part in parts]
+            if any(v is None for v in values):
+                return None
+            return sum(values[1:], values[0])
+
+        return _Part(
+            float(total("energy")),
+            total("forces"),
+            total("virial"),
+            total("atomic_energies"),
+            total("atomic_virials"),
+        )
 
     def __neighbors(
         self, part: Calculator, neighbors: NeighborList | None

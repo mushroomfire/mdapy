@@ -207,7 +207,7 @@ __device__ inline Real mean(const Real* a, int ti, int tj) {
 }
 
 template <class Real, int N, int L>
-__global__ void nep_descriptors(std::int64_t n, const Real4<Real>* x,
+__global__ void nep_descriptors(std::int64_t n, std::int64_t centers, const Real4<Real>* x,
                                 Images<Real> images, const std::int32_t* indices,
                                 const std::int32_t* counts, NepTables<Real> t, NepWork<Real> w,
                                 double* energies) {
@@ -219,6 +219,16 @@ __global__ void nep_descriptors(std::int64_t n, const Real4<Real>* x,
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
+    if (i >= centers) {
+        // a ghost under MPI, the centre of no energy here: no angular pairs,
+        // its slopes zero, so that the forces take only the energies of the
+        // atoms of the process
+        for (int k = 0; k < counts[i]; ++k) w.angular_of[static_cast<std::int64_t>(k) * n + i] = -1;
+        w.angular_counts[i] = 0;
+        for (int d = 0; d < t.dim; ++d) w.q[i * t.dim + d] = Real(0);
+        energies[i] = 0.0;
+        return;
+    }
     const Real4<Real> xi = x[i];
     const int ti = static_cast<int>(xi.w);
     const int nr = t.nr, na = t.na, l_max = t.l_max, H = t.harmonics;
@@ -312,13 +322,13 @@ __global__ void nep_descriptors(std::int64_t n, const Real4<Real>* x,
 
 // An atom on a warp: the lanes over the neurons, then over the descriptors.
 template <class Real>
-__global__ void nep_network(std::int64_t n, const Real4<Real>* x, NepTables<Real> t, Real* q,
-                            double* energies) {
+__global__ void nep_network(std::int64_t n, std::int64_t centers, const Real4<Real>* x,
+                            NepTables<Real> t, Real* q, double* energies) {
     extern __shared__ __align__(16) unsigned char raw[];
     const int lane = static_cast<int>(threadIdx.x) % kWarp;
     const int warp = static_cast<int>(threadIdx.x) / kWarp;
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * (blockDim.x / kWarp) + warp;
-    if (i >= n) return;  // the whole warp
+    if (i >= centers) return;  // the whole warp
     const int dim = t.dim, neurons = t.neurons;
     Real* descriptors = reinterpret_cast<Real*>(raw) + warp * (dim + neurons);
     Real* factor = descriptors + dim;
@@ -350,8 +360,9 @@ __global__ void nep_network(std::int64_t n, const Real4<Real>* x, NepTables<Real
 }
 
 template <class Real, int N, int L>
-__global__ void nep_angular(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
-                            Images<Real> images, NepTables<Real> t, NepWork<Real> w) {
+__global__ void nep_angular(std::int64_t n, std::int64_t centers, std::int64_t plane,
+                            const Real4<Real>* x, Images<Real> images, NepTables<Real> t,
+                            NepWork<Real> w) {
     constexpr int kH = (L + 1) * (L + 1) - 1;
     const Real alpha = Real(0.11952286093343936);
     const Real beta = Real(0.6210590034081188);
@@ -359,7 +370,7 @@ __global__ void nep_angular(std::int64_t n, std::int64_t plane, const Real4<Real
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
+    if (i >= centers) return;
     const Real4<Real> xi = x[i];
     const int ti = static_cast<int>(xi.w);
     const int nr = t.nr, na = t.na, l_max = t.l_max, H = t.harmonics;
@@ -437,8 +448,11 @@ __global__ void nep_angular(std::int64_t n, std::int64_t plane, const Real4<Real
 // The force on each atom: the radial terms of its pairs from both ends, the
 // ZBL ones, and the angular derivatives of its pairs and of their reverses;
 // its virial from the derivatives of its neighbors' energies.
+// Under MPI only the first centers atoms have energies here: the forces of
+// the energies of the ghosts come back from their processes.
 template <class Real, int N, bool Virial>
-__global__ void nep_forces(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
+__global__ void nep_forces(std::int64_t n, std::int64_t centers, std::int64_t plane,
+                           const Real4<Real>* x,
                            Images<Real> images, const std::int32_t* indices,
                            const std::int32_t* counts, const std::int32_t* reverse,
                            NepTables<Real> t, NepWork<Real> w, double* forces, double* virials) {
@@ -489,8 +503,8 @@ __global__ void nep_forces(std::int64_t n, std::int64_t plane, const Real4<Real>
         if (angular && t.zbl) {
             Real e, de;  // the rows of i j and of j i are the same
             zbl_pair(t.zbl_rows + (ti * t.types + tj) * 12, p.r, e, de);
-            along_ij += Real(0.5) * de;
-            along_ji += Real(0.5) * de;
+            if (i < centers) along_ij += Real(0.5) * de;
+            if (p.j < centers) along_ji += Real(0.5) * de;
         }
         Real tij[3], tji[3];
         for (int a = 0; a < 3; ++a) {
@@ -500,9 +514,12 @@ __global__ void nep_forces(std::int64_t n, std::int64_t plane, const Real4<Real>
         if (angular) {
             // the reverse is angular too, unless rounding put its length
             // on the other side of the cutoff
-            const std::int64_t own = static_cast<std::int64_t>(w.angular_of[slot]) * n + i;
+            const int mine = w.angular_of[slot];  // -1 for a ghost
             const int back = w.angular_of[static_cast<std::int64_t>(reverse[slot]) * n + p.j];
-            for (int a = 0; a < 3; ++a) tij[a] += w.derivative[a * plane + own];
+            if (mine >= 0) {
+                const std::int64_t own = static_cast<std::int64_t>(mine) * n + i;
+                for (int a = 0; a < 3; ++a) tij[a] += w.derivative[a * plane + own];
+            }
             if (back >= 0) {
                 const std::int64_t place = static_cast<std::int64_t>(back) * n + p.j;
                 for (int a = 0; a < 3; ++a) tji[a] += w.derivative[a * plane + place];
@@ -558,11 +575,29 @@ public:
 
     double cutoff() const override { return cutoff_; }
     int species() const override { return model_.types; }
+    // Under MPI the atoms of the process alone have energies, from ghosts
+    // within the cutoff; the forces on the ghosts, and the virials, which each
+    // atom gathers from the energies of its neighbors, go back to their atoms.
+    bool thin() const override { return true; }
+    bool reverse() const override { return true; }
+    bool gathered() const override { return true; }
+    void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                       bool energy, bool virial, bool heat) override {
+        (void)energy;
+        if (stage == 0) evaluate(atoms, neighbors, box, virial || heat, true);
+    }
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
                  bool atomic) override {
         (void)energy;  // the energies come with the derivatives
         (void)atomic;  // the virial of each atom is that of the processor
+        evaluate(atoms, neighbors, box, virial, false);
+    }
+
+private:
+    // centred: the first owned atoms alone have energies
+    void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool virial,
+                  bool centred) {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
@@ -607,7 +642,8 @@ public:
                                 coefficients_.data()};
         const NepWork<Real> w{q_.data(),           s_.data(),           angular_.data(),
                               angular_counts_.data(), angular_of_.data(), derivative_.data()};
-        const Launch launch{n, plane, x, b, l, reverse, t, w, a, virial};
+        const Launch launch{n, centred ? a.active() : n, plane, x, b, l, reverse, t, w, a,
+                            virial};
         const bool few = std::max(model_.n_radial, model_.n_angular) < 8;
         const bool low = model_.l_max <= 4;
         if (few && low) {
@@ -623,7 +659,6 @@ public:
         a.has_virials = virial;
     }
 
-private:
     static constexpr int kPerBlock = kBlock / kWarp;  // atoms of a block of the network
 
     static std::size_t network_shared(const calculators::NepModel& m) {
@@ -631,7 +666,7 @@ private:
     }
 
     struct Launch {
-        std::int64_t n, plane;
+        std::int64_t n, centers, plane;
         const Real4<Real>* x;
         Images<Real> b;
         Neighbors::Impl& l;
@@ -648,22 +683,22 @@ private:
         const auto* idx = r.l.indices.data();
         const auto* cnt = r.l.counts.data();
         nep_descriptors<Real, N, L>
-            <<<g, kBlock>>>(r.n, r.x, r.b, idx, cnt, r.t, r.w, r.a.energies.data());
+            <<<g, kBlock>>>(r.n, r.centers, r.x, r.b, idx, cnt, r.t, r.w, r.a.energies.data());
         MDAPY_LAUNCHED();
         const auto network_blocks = static_cast<unsigned>((r.n + kPerBlock - 1) / kPerBlock);
         nep_network<Real><<<network_blocks, kBlock, network_shared(model_)>>>(
-            r.n, r.x, r.t, r.w.q, r.a.energies.data());
+            r.n, r.centers, r.x, r.t, r.w.q, r.a.energies.data());
         MDAPY_LAUNCHED();
-        nep_angular<Real, N, L><<<g, kBlock>>>(r.n, r.plane, r.x, r.b, r.t, r.w);
+        nep_angular<Real, N, L><<<g, kBlock>>>(r.n, r.centers, r.plane, r.x, r.b, r.t, r.w);
         MDAPY_LAUNCHED();
         if (r.virial) {
-            nep_forces<Real, N, true><<<g, kBlock>>>(r.n, r.plane, r.x, r.b, idx, cnt, r.reverse,
-                                                     r.t, r.w, r.a.forces.data(),
+            nep_forces<Real, N, true><<<g, kBlock>>>(r.n, r.centers, r.plane, r.x, r.b, idx, cnt,
+                                                     r.reverse, r.t, r.w, r.a.forces.data(),
                                                      r.a.virials.data());
         } else {
-            nep_forces<Real, N, false><<<g, kBlock>>>(r.n, r.plane, r.x, r.b, idx, cnt,
-                                                      r.reverse, r.t, r.w, r.a.forces.data(),
-                                                      nullptr);
+            nep_forces<Real, N, false><<<g, kBlock>>>(r.n, r.centers, r.plane, r.x, r.b, idx,
+                                                      cnt, r.reverse, r.t, r.w,
+                                                      r.a.forces.data(), nullptr);
         }
         MDAPY_LAUNCHED();
     }

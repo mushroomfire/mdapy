@@ -1,6 +1,6 @@
 # On many processes
 
-<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · the forces on a [GPU](gpu.md) for each process · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
+<p class="runs-on" markdown>**Runs on** the processor, on many processes with MPI · a [GPU](gpu.md) for each process · [LAMMPS](in-lammps.md) splits its own runs: see [LAMMPS on many processes](../../examples/mpi.md)</p>
 
 A script of molecular dynamics started with `mpirun` runs on all its processes
 together: each process owns the atoms in a brick of the box and keeps copies of
@@ -167,15 +167,41 @@ brick with the ghosts it finds among them.
 
 ## With a GPU each
 
-A potential with `device="cuda"` computes the forces of each process on a GPU:
-the steps run on the processor, and each process sends its atoms and the ghosts to
-its GPU at each step and takes their forces back. The processes on a machine share
-its GPUs in turn, the first process of the machine taking the first GPU, the
-second the second, and so on, round again when there are more processes than
-GPUs, as the launcher numbers them (`OMPI_COMM_WORLD_LOCAL_RANK` of Open MPI,
-`MPI_LOCALRANKID` of MPICH, `SLURM_LOCALID` of Slurm). A many-body potential takes
-ghosts within twice its cutoff and the skin, so that the GPU computes every atom of
-the process from all its neighbors. On a cluster of nodes with 4 GPUs each:
+With a potential of `device="cuda"`, each process keeps its atoms and their ghosts
+on a GPU, and the steps of the dynamics run there, as on [one GPU](gpu.md). At each
+step only the positions of the atoms that other processes keep as ghosts go out,
+and the few sums that the thermostats and the barostat need. Between two builds of
+the neighbor list nothing else leaves the GPUs. A build, when an atom of any process
+has moved half the skin or the box has changed, moves the atoms to the processes of
+their bricks and finds the ghosts again.
+
+The pair potentials, EAM, Stillinger-Weber, Tersoff and NEP take ghosts within their
+cutoff and the skin, as KOKKOS does. EAM sends the slopes of the embedding functions
+of the atoms to their ghosts at each step, between its densities and its forces.
+The terms of Stillinger-Weber and Tersoff, and the energies of NEP, are those of the
+atoms of the process, and the forces they leave on the ghosts go back to their
+atoms, with their virials under a heat field, and with NEP whenever virials are
+computed. ADP and MEAM take ghosts within twice their cutoff and the skin, so that
+each GPU computes the atoms of its process from all their neighbors.
+
+What the processes send each other goes to MPI in the memory of the GPU itself
+when MPI moves that memory (an MPI built with CUDA, often called GPU-aware or
+CUDA-aware), over NVLink or PCIe between the GPUs of a machine; otherwise through
+the memory of the host, which takes longer. MDAPY asks Open MPI whether it moves
+the memory of the GPU (`MPIX_Query_cuda_support`). For another MPI, or to decide,
+set `MDAPY_GPU_AWARE_MPI` to `1` or `0` on every process:
+
+```bash
+MDAPY_GPU_AWARE_MPI=1 srun -n 4 --gpus-per-task=1 --mpi=pmix python heat.py
+```
+
+With `1` and an MPI that does not move the memory of the GPU, the processes crash.
+
+The processes on a machine share its GPUs in turn: the first process of the
+machine takes the first GPU, the second the second, and so on, starting again from
+the first when there are more processes than GPUs. The launcher numbers the
+processes (`OMPI_COMM_WORLD_LOCAL_RANK` of Open MPI, `MPI_LOCALRANKID` of MPICH,
+`SLURM_LOCALID` of Slurm). On a cluster of nodes with 4 GPUs each:
 
 ```bash
 srun -N 2 --ntasks-per-node=4 --gpus-per-node=4 --mpi=pmix python heat.py

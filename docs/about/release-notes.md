@@ -35,10 +35,16 @@
 - `neb` on many processes shares the images among them, each process computing its own
   whole: the path of one process, to the last bit, with any calculator. See
   [Minimum energy paths](../user-guide/simulation/neb.md#on-many-processes).
-- On many processes, a potential on the GPU computes the forces of each process on a
-  GPU of its machine, the processes of a machine taking its GPUs in turn, while the
-  steps run on the processor. See [With a GPU
+- On many processes with a potential on the GPU, each process keeps its atoms and
+  their ghosts on a GPU of its machine and runs the steps there, as LAMMPS's KOKKOS
+  does: each step sends only the positions of the ghosts and the sums of the
+  thermostats and barostat, in every ensemble and with every control. The processes
+  of a machine take its GPUs in turn. What they send goes to MPI in the memory of the
+  GPU when MPI moves it, as Open MPI built with CUDA tells, or as
+  `MDAPY_GPU_AWARE_MPI` says. See [With a GPU
   each](../user-guide/simulation/processes.md#with-a-gpu-each).
+- A restart of molecular dynamics on the GPU keeps the boxes each atom crossed, its
+  `image`, which the run after a restart counted again from zero.
 - `ElectronicStopping`, a control of molecular dynamics: the friction of the electrons
   on the atoms faster than an energy, from a table of the stopping power of each
   element, for cascades of radiation damage, the energy the electrons took recorded

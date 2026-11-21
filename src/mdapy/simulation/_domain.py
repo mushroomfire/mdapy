@@ -107,6 +107,7 @@ class Bricks:
         # the operations of the sums, of mpi4py's MPI, or named for others
         self.__sum = mpi.SUM if real else "sum"
         self.__max = mpi.MAX if real else "max"
+        self.__waitall = mpi.Request.Waitall if real else None
 
     def rank_of(self, at: np.ndarray) -> int:
         at = np.asarray(at) % self.counts
@@ -282,6 +283,29 @@ class Bricks:
             x[chosen] += back
         return x[: self.local]
 
+    def neighbors_along(self, d: int, side: int) -> tuple[int | None, int | None]:
+        """The process this one sends to on a side along a box vector, and the
+        one it receives from on the other; None at a boundary that is not
+        periodic."""
+        return self.__neighbors(d, side)
+
+    @property
+    def messages(self) -> list:
+        """The messages of the last ``borders``: (rows sent, the box vectors
+        added to them, destination, source, the row the ghosts come in at,
+        their number)."""
+        return list(self.__sends)
+
+    def swap(
+        self,
+        sent: np.ndarray,
+        destination: int | None,
+        received: np.ndarray,
+        source: int | None,
+    ) -> None:
+        """Rows sent one way, the rows of received filled from the other."""
+        self.__swap(sent, destination, received, source)
+
     def __swap(
         self,
         sent: np.ndarray,
@@ -290,14 +314,37 @@ class Bricks:
         source: int | None,
     ) -> None:
         """Rows sent one way, the rows of received filled from the other, of
-        known numbers, without pickles; nothing where there is no process."""
+        known numbers, without pickles; nothing where there is no process.
+        Memory of a GPU goes to MPI as it is."""
         null = self.__null
         self.comm.Sendrecv(
-            np.ascontiguousarray(sent),
+            _buffer(sent),
             dest=null if destination is None else destination,
             recvbuf=received,
             source=null if source is None else source,
         )
+
+    def swap_all(self, messages: list) -> None:
+        """Messages that do not depend on each other, (sent, destination,
+        received, source) each as swap takes them, sent and received at once,
+        each told by its place in the list."""
+        null = self.__null
+        waiting = []
+        for tag, (_, _, received, source) in enumerate(messages):
+            source = null if source is None else source
+            if source is not None:
+                waiting.append(self.comm.Irecv(received, source=source, tag=tag))
+        for tag, (sent, destination, _, _) in enumerate(messages):
+            destination = null if destination is None else destination
+            if destination is not None:
+                waiting.append(
+                    self.comm.Isend(_buffer(sent), dest=destination, tag=tag)
+                )
+        if self.__waitall is not None:
+            self.__waitall(waiting)
+        else:
+            for request in waiting:
+                request.Wait()
 
     def set_reach(self, reach: float) -> None:
         self.reach = float(reach)
@@ -317,6 +364,13 @@ class Bricks:
         out = np.empty(1)
         self.comm.Allreduce(np.array([float(value)]), out, op=self.__max)
         return float(out[0])
+
+
+def _buffer(values: Any) -> Any:
+    """What MPI sends of values: memory of a GPU as it is, else an array."""
+    if hasattr(values, "__cuda_array_interface__"):
+        return values
+    return np.ascontiguousarray(values)
 
 
 def _exchange(
@@ -464,14 +518,18 @@ def agree(comm: Any, what: str, *values: Any) -> None:
         )
 
 
-def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
+def _reach(
+    calculator: Any, target: bool = False, staged: bool = False
+) -> tuple[float, float]:
     """How far from the brick a process needs ghosts, and those whose
     neighbors it needs too: the cutoff, and none, for the potentials that
     compute the atoms of a process alone (``_split``), sending what each atom
     has of its neighbors to the ghosts or the forces on the ghosts back, and
     the pair potentials; for MEAM, whose screening reaches the neighbors of
     the neighbors, twice the cutoff and the cutoff. The springs of a Switch
-    tie each atom to its site alone."""
+    tie each atom to its site alone. staged: for the GPU of a process, where
+    a potential that computes the atoms of the process alone in stages (EAM,
+    the pair potentials) needs the cutoff, and the others twice it."""
     from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._overlay import Overlay
     from mdapy.calculators._pair import _PairCalculator
@@ -495,6 +553,8 @@ def _reach(calculator: Any, target: bool = False) -> tuple[float, float]:
                 (c, 0.0) if isinstance(part, _PairCalculator) else (2.0 * c, c)
             )
         return max(r for r, _ in reaches), max(c for _, c in reaches)
+    if staged and _on_gpu(calculator) and calculator._on_device.potential.thin:
+        return float(calculator.cutoff), 0.0
     if isinstance(calculator, MEAM) or (
         _on_gpu(calculator) and not pair
     ):  # fmt: skip

@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <stdexcept>
@@ -75,6 +76,31 @@ public:
     Atoms& operator=(const Atoms&) = delete;
 
     std::int64_t size() const;
+    // Under MPI: the atoms of this process are the first owned of the
+    // caller's, its ghosts after them; the steps of the integrator and every
+    // sum over the atoms take the first owned alone, and a neighbor list keeps
+    // them first. 0 for all, as by default. owned() gives their number.
+    void set_owned(std::int64_t owned);
+    std::int64_t owned() const;
+    // The index among all the atoms of each, (n,) in the caller's order, by
+    // which it draws its noise; null for its index in the caller's order.
+    void set_ids(const std::int64_t* ids);
+    // The ids in the caller's order, (n,).
+    void get_ids(std::int64_t* ids) const;
+
+    // A build of the bricks under MPI (simulation/_domain_device.py), the
+    // rows those of the places of the atoms on the device, which settle makes
+    // the caller's order; the Exchange moves the atoms and adds the ghosts.
+    // What each atom carries: its position and species, its images, mass, id,
+    // velocity and force, row_bytes each. Each drops what the controls of a
+    // run set on the atoms, which the caller gives again, and the energies
+    // and virials computed.
+    void settle();
+    void truncate(std::int64_t count);  // the first count rows kept
+    static std::size_t row_bytes();
+    // The first owned atoms into the box h (3, 3) of origin lo (3,) along the
+    // periodic directions, their images counted.
+    void wrap(const double* h, const double* lo, const bool* pbc);
     void set_species(const std::int32_t* species);  // (n,)
     void set_positions(const double* positions);    // (n, 3)
     // In the box along its periodic directions after a neighbor list was
@@ -108,6 +134,12 @@ public:
     // all the noise, as fix langevin zero yes, so that the momentum is kept
     void langevin(double c1, double c2, double kt, std::uint64_t seed, std::uint64_t counter,
                   bool keep = false);
+    // The two halves of langevin with keep, for a share of the momentum of
+    // the noise of every process: draw_noise draws it and gives the sum of
+    // m dv, (3,); keep_noise then sets v = c1 v + dv - share / m.
+    void draw_noise(double c2, double kt, std::uint64_t seed, std::uint64_t counter,
+                    double* total);
+    void keep_noise(double c1, const double* share);
     void kinetic(double* tensor) const;  // (3, 3), the sum of m v v
     // The directions in which each atom may move, (n, 3) in the axes of the
     // system, whose vectors are those of the atoms times rotation (3, 3)
@@ -152,6 +184,10 @@ public:
     // W_i^T field, W_i its virial, less the mean of the pushes; after a
     // computation of the virials of each atom.
     void drive(const double* field);
+    // Its two halves, for the mean of every process: push gives the sum of
+    // the pushes, (3,), pushed adds them less a mean, (3,).
+    void push(const double* field, double* total);
+    void pushed(const double* mean);
     // (3,) the potential part of the heat flux times the volume, sum_i W_i v_i.
     void heat_flux(double* flux) const;
     // With the energies each atom carries, after drive: each atom pushed by
@@ -159,6 +195,10 @@ public:
     // own energy and its kinetic energy at the velocity v + kick f / m;
     // mvv2e: amu Å^2/ps^2 in eV.
     void convect(const double* field, double kick, double mvv2e);
+    // Its two halves: carried gives the sum of the energies, convected
+    // pushes the atoms by the field times their energies less a mean.
+    double carried(double kick, double mvv2e);
+    void convected(const double* field, double mean);
     // (3,) the part of the heat flux times the volume that the atoms carry,
     // sum_i E_i v_i, of their own energies and velocities now.
     void energy_flux(double mvv2e, double* flux) const;
@@ -208,6 +248,12 @@ public:
     // direction, where the minimum image would miss pairs.
     // Building wraps the atoms into the box along its periodic directions.
     bool update(Atoms& atoms, const Box& box);
+    // The two halves of update, for processes that build together: whether
+    // it would build, and the build itself. Under MPI the atoms of the
+    // process come first in the list and the ghosts after them, the atoms
+    // given just before, in the caller's order.
+    bool stale(Atoms& atoms, const Box& box);
+    void build(Atoms& atoms, const Box& box);
     double cutoff() const;
     double skin() const;
     std::int64_t builds() const;
@@ -251,6 +297,89 @@ private:
     std::unique_ptr<Impl> impl_;
 };
 
+// Under MPI, what the processes of the bricks (simulation/_domain.py) pass
+// to each other, packed and unpacked on the device: at a build the atoms that
+// move to the brick next to theirs, with all they carry, and the ghosts, each
+// message of the borders sending atoms of the caller's order and receiving
+// ghosts after the atoms; at each step the positions of the ghosts, shifted
+// across a periodic boundary, values of the atoms that a potential needs on
+// its ghosts, and the forces on the ghosts, which come back to their atoms.
+// What MPI sends and receives is a View: memory of the device itself for an
+// MPI that moves it (set_device), else pinned memory of the host, the copy
+// of the device's; each is kept from build to build.
+class Exchange {
+public:
+    Exchange();
+    ~Exchange();
+    Exchange(const Exchange&) = delete;
+    Exchange& operator=(const Exchange&) = delete;
+
+    struct View {
+        void* data;
+        std::size_t bytes;
+        bool device;
+    };
+    void set_device(bool device);
+    bool device() const;
+
+    // -- a build: messages added from 0 after clear ----------------------
+    void clear();
+    int messages() const;
+    // The brick of each atom along vector d, counts of them, as a step from
+    // at, the nearer way round when periodic: {the atoms that step down, up,
+    // the largest step}, 127 for a position that is not finite.
+    std::array<std::int64_t, 3> leaving(const Atoms& atoms, int d, const double* h,
+                                        const double* lo, int counts, int at, bool periodic);
+    // What the atoms that step down (side 0) or up (1) carry, row_bytes each;
+    // the memory for count atoms that come from the brick the other way.
+    View pack_leaving(const Atoms& atoms, int side);
+    View receive_arriving(int side, std::int64_t count);
+    // The atoms that stay, then those that came, side 0 first.
+    void migrate(Atoms& atoms);
+    // Message messages(): the rows from begin to end with a fractional
+    // coordinate along d in [low, high), none when none, their positions plus
+    // shift (3,) and ids packed, ghost_bytes each; its count.
+    std::int64_t border(const Atoms& atoms, int d, const double* h, const double* lo,
+                        double low, double high, std::int64_t begin, std::int64_t end,
+                        bool none, const double* shift);
+    View border_out(int k) const;
+    View border_in(int k, std::int64_t count);
+    // The ghosts message k received added after the atoms.
+    void append_border(Atoms& atoms, int k);
+    static std::size_t ghost_bytes();
+    // After the neighbor list sorted the atoms: the places of the rows each
+    // message sends and receives.
+    void place(const Atoms& atoms);
+
+    // -- each step ---------------------------------------------------------
+    std::int64_t sent(int k) const;
+    std::int64_t received(int k) const;
+    // The positions message k sends, plus shift (3,), (sent, 3); the memory
+    // for those it receives, unpacked into its ghosts.
+    View pack_positions(const Atoms& atoms, int k, const double* shift);
+    View receive_positions(int k);
+    void unpack_positions(Atoms& atoms, int k);
+    // Values of bytes each at values on the device: those of the atoms
+    // message k sends, (sent * bytes); those of its ghosts it receives.
+    View pack_values(const void* values, std::size_t bytes, int k);
+    View receive_values(std::size_t bytes, int k);
+    void unpack_values(void* values, std::size_t bytes, int k);
+    // The forces on the ghosts message k received, (received, 3), sent back;
+    // those that come back for the atoms it sent, added to theirs.
+    View pack_forces(const Atoms& atoms, int k);
+    View receive_forces(int k);
+    void add_forces(Atoms& atoms, int k);
+    // The same of the virials of the atoms, (received, 9) and (sent, 9).
+    View pack_virials(const Atoms& atoms, int k);
+    View receive_virials(int k);
+    void add_virials(Atoms& atoms, int k);
+
+    struct Impl;
+
+private:
+    std::unique_ptr<Impl> impl_;
+};
+
 // A potential on the device.
 class Potential {
 public:
@@ -270,6 +399,34 @@ public:
     // virials of Fan et al., PRB 92, 094301 (2015).
     virtual void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) {
         compute(atoms, neighbors, box, true, true, true);
+    }
+    // Under MPI: whether the potential computes the atoms of the process, the
+    // first owned, from ghosts within its cutoff and the skin alone, in
+    // stages() stages, the values of each atom of forwarded() sent to the
+    // ghosts after the first; heat, those of compute_heat. One that does not
+    // needs ghosts within twice its cutoff.
+    virtual bool thin() const { return false; }
+    // Whether such a potential leaves forces on the ghosts, and with heat
+    // their virials, which go back to their atoms.
+    virtual bool reverse() const { return false; }
+    // Whether the virial of each atom is gathered from the energies of its
+    // neighbors, so that the ghosts hold some of those of the process, which
+    // go back whenever virials are computed.
+    virtual bool gathered() const { return false; }
+    virtual int stages() const { return 1; }
+    virtual void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                               bool energy, bool virial, bool heat) {
+        if (stage != 0) return;
+        if (heat) {
+            compute_heat(atoms, neighbors, box);
+        } else {
+            compute(atoms, neighbors, box, energy, virial, false);
+        }
+    }
+    // The values of each atom on the device and their bytes; null for none.
+    virtual void* forwarded(std::size_t* bytes) {
+        *bytes = 0;
+        return nullptr;
     }
 };
 

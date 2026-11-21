@@ -153,13 +153,16 @@ def test_the_grid_has_the_least_surface():
 # -- runs ----------------------------------------------------------------------
 
 
-def cases():
+def cases(device="cpu"):
+    """The runs on many processes; device="cuda", the potentials on the
+    GPU, which must stand in for it first."""
+    gpu = {"device": "cuda", "precision": "double"} if device == "cuda" else {}
     crystal = copper()
     z = crystal["positions"][:, 2]
     bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
     middle = ~(bottom | top)
-    eam = EAM.zhou(["Cu"])
-    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0)
+    eam = EAM.zhou(["Cu"], **gpu)
+    lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0, **gpu)
     springs = Springs(crystal["positions"], np.full(len(crystal), 2.0))
     open_z = copper(pbc=(True, True, False))
     # the top layers outside the box, which grows to hold them
@@ -167,7 +170,7 @@ def cases():
     matrix[2, 2] -= 3.0
     outside = open_z.with_box(mdapy.Box(matrix, pbc=(True, True, False)))
     half = crystal.box.matrix[0, 0] / 2
-    return {
+    out = {
         "nve": (crystal, eam, {}, 4),
         # bricks thinner than the reach of the ghosts
         "small": (copper(3), eam, {"ensemble": "npt", "temperature": 300,
@@ -217,15 +220,19 @@ def cases():
             min_energy=0.02, mask=middle)]}, 4),
         # split as its calculators, of the same elements, one thread each
         # computing each pair once among the processes
-        "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0)]), {}, 4),
-        "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0)]), {}, 8),
-        # computed whole on each process, with ghosts twice the cutoff thick:
-        # its calculators of other elements
-        "overlay whole": (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)]), {}, 4),
+        "overlay": (crystal, Overlay([eam, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {}, 4),
+        "overlay of pairs": (copper(5), Overlay([lj, ZBL(["Cu"], 1.0, 2.0, **gpu)]), {},
+                             8),
         "stopping lj": (copper(5), lj, {"controls": [ElectronicStopping(
             {"Cu": (np.geomspace(0.01, 10.0, 20), np.geomspace(0.1, 3.0, 20))},
             min_energy=0.02)]}, 8),
     }  # fmt: skip
+    if device == "cpu":
+        # computed whole on each process, with ghosts twice the cutoff thick:
+        # its calculators of other elements, which the GPU does not add
+        out["overlay whole"] = (crystal, Overlay([eam, ZBL(["Ni", "Cu"], 1.0, 2.0)]), {},
+                                4)  # fmt: skip
+    return out
 
 
 CASES = cases()
@@ -261,6 +268,122 @@ def test_a_split_run_is_the_run_of_one_process(monkeypatch, case):
     for split in processes.run(size, lambda rank: run(crystal, potential, options),
                                monkeypatch):  # fmt: skip
         same(split, alone)
+
+
+# the GPU takes boxes thicker than twice the cutoff and the skin along each
+# periodic direction, and an overlay of the same elements
+ON_GPUS = [c for c in CASES if c not in ("small", "thin", "overlay whole")]
+
+
+@pytest.mark.parametrize("case", ON_GPUS)
+def test_a_run_on_gpus_is_the_run_of_one_gpu(monkeypatch, case):
+    """Each process holds its atoms and their ghosts on its GPU, stood in for
+    on the processor, where the steps run, the ghosts brought each step and
+    the sums summed over the processes: the run of one GPU, to the
+    rounding."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal, potential, options, size = cases("cuda")[case]
+    alone = run(crystal, potential, options)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+def test_a_run_on_gpus_through_gpu_aware_mpi(monkeypatch):
+    """With an MPI that moves the memory of the GPU, what the processes send
+    stays on the device (the stand-in's own arrays): the same run."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "1")
+    crystal, potential, options, size = cases("cuda")["nve"]
+    alone = run(crystal, potential, options)
+    for split in processes.run(size, lambda rank: run(crystal, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+class _Gathered:
+    """A communicator whose processes said values, this one the first."""
+
+    def __init__(self, *others):
+        self.others = others
+
+    def allgather(self, value):
+        return [value, *self.others]
+
+
+def test_gpu_aware_mpi_as_the_environment_or_open_mpi_says(monkeypatch):
+    from mdapy.simulation import _domain_device
+
+    aware = _domain_device._gpu_aware
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "1")
+    assert aware(_Gathered())
+    assert not aware(_Gathered(False))  # the same on every process
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", " 0 ")
+    assert not aware(_Gathered())
+    monkeypatch.setenv("MDAPY_GPU_AWARE_MPI", "yes")
+    with pytest.raises(InvalidParameter, match="1 or 0, not 'yes'"):
+        aware(_Gathered())
+    monkeypatch.delenv("MDAPY_GPU_AWARE_MPI")
+    monkeypatch.setattr(_domain_device, "_open_mpi_aware", lambda: True)
+    assert aware(_Gathered(True))
+
+
+def test_open_mpi_tells_whether_it_moves_gpu_memory(monkeypatch, tmp_path):
+    from mdapy.simulation import _domain_device
+
+    aware = _domain_device._open_mpi_aware
+    assert not aware(str(tmp_path / "missing"))  # no maps of the process
+    maps = tmp_path / "maps"
+    maps.write_text(
+        "7f00-7f01 r-xp 00000000 00:00 0 /nowhere/libmpi.so.40.30.6\n"
+        "7f01-7f02 r-xp 00000000 00:00 0 /nowhere/libmpi_mpifh.so.40\n"
+        "7f02-7f03 rw-p 00000000 00:00 0\n"
+    )
+    assert not aware(str(maps))  # a library that cannot be loaded
+    loaded = []
+
+    def library(answer):
+        def load(path):
+            loaded.append(path)
+            if answer is None:
+                return types.SimpleNamespace()  # another MPI: no query
+            return types.SimpleNamespace(MPIX_Query_cuda_support=lambda: answer)
+
+        return load
+
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(1))
+    assert aware(str(maps))
+    assert loaded == ["/nowhere/libmpi.so.40.30.6"]
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(0))
+    assert not aware(str(maps))
+    monkeypatch.setattr(_domain_device.ctypes, "CDLL", library(None))
+    assert not aware(str(maps))
+
+
+def test_memory_of_a_gpu_goes_to_mpi_as_it_is():
+    class Device:
+        __cuda_array_interface__ = {"shape": (8,), "typestr": "|u1",
+                                    "data": (0, False), "version": 3}  # fmt: skip
+
+    given = []
+
+    class Comm:
+        def Get_size(self):  # noqa: N802
+            return 2
+
+        def Get_rank(self):  # noqa: N802
+            return 0
+
+        def Sendrecv(self, sent, dest=None, recvbuf=None, source=None):  # noqa: N802
+            given.append((sent, recvbuf))
+
+    bricks = _domain.Bricks(Comm(), np.diag([40.0, 20.0, 20.0]), np.zeros(3),
+                            (True, True, True), 2.0)  # fmt: skip
+    sent, received = Device(), Device()
+    bricks.swap(sent, 1, received, 1)
+    assert given[0][0] is sent and given[0][1] is received
+    bricks.swap([1.0, 2.0], 1, np.empty(2), 1)
+    assert isinstance(given[1][0], np.ndarray)
 
 
 def potentials(tmp_path):
@@ -314,6 +437,37 @@ def test_every_potential_of_mdapy_splits(monkeypatch, tmp_path, name):
     options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
     alone = run(system, potential, options)
     for split in processes.run(2, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)
+
+
+@pytest.mark.parametrize("name", ["Tersoff", "Stillinger-Weber", "NEP"])
+@pytest.mark.parametrize("heat", [False, True])
+def test_many_body_potentials_of_centres_on_gpus(monkeypatch, tmp_path, name, heat):
+    """On a GPU each the atoms of each process are the centres of the terms,
+    with ghosts within the cutoff, and the forces on the ghosts go back to
+    their atoms, with their virials for the heat flux, and for the pressure
+    with NEP, whose atoms gather their virials: the run of one GPU."""
+    from mdapy.calculators import NEP, StillingerWeber, Tersoff
+
+    from calculators.nep_files import write_nep
+    from calculators.potential_files import write_sw, write_tersoff
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    gpu = {"device": "cuda", "precision": "double"}
+    if name == "Tersoff":
+        potential = Tersoff(write_tersoff(tmp_path / "SiC.tersoff", ("Si", "C")), **gpu)
+    elif name == "NEP":
+        potential = NEP(write_nep(tmp_path / "nep.txt", zbl="universal"), **gpu)
+    else:
+        potential = StillingerWeber(write_sw(tmp_path / "SiGe.sw", ("Si", "Ge")), **gpu)
+    system = potentials(tmp_path)[name][1]
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    if heat:
+        options = {"ensemble": "nvt", "temperature": 600,
+                   "controls": [_HeatField((2e-4, 0.0, 1e-4))]}  # fmt: skip
+    alone = run(system, potential, options)
+    for split in processes.run(3, lambda rank: run(system, potential, options),
                                monkeypatch):  # fmt: skip
         same(split, alone)
 
@@ -389,6 +543,88 @@ def test_restart_files_do_not_depend_on_the_processes(monkeypatch, tmp_path, cas
         4, lambda rank: finish(path, potential), monkeypatch
     ):
         same(continued, whole)
+
+
+@pytest.mark.parametrize("case", ["langevin", "hnemd convective", "groups"])
+def test_restart_files_on_gpus_do_not_depend_on_the_processes(monkeypatch, tmp_path,
+                                                              case):  # fmt: skip
+    """Written by two processes on their GPUs, read by two and by one."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal, potential, options, _ = cases("cuda")[case]
+    whole = run(crystal, potential, options)
+    path, copy = tmp_path / "md.restart", tmp_path / "copy.restart"
+    processes.run(2, lambda rank: stop(crystal, potential, options, path), monkeypatch)
+    shutil.copy(path, copy)
+    for continued in processes.run(
+        2, lambda rank: finish(path, potential), monkeypatch
+    ):
+        same(continued, whole)
+    same(finish(copy, potential), whole)
+
+
+def test_what_the_gpus_refuse(monkeypatch):
+    """A box thinner along a vector cut into bricks than the reach of the
+    ghosts, a Switch to a potential of a longer reach than the box holds,
+    and positions gone wrong, which every process raises together."""
+    from mdapy.errors import CalculationFailed
+
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    eam = EAM.zhou(["Cu"], device="cuda", precision="double")
+    refused(monkeypatch, 2, lambda: MolecularDynamics(copper(1), eam, timestep=0.002),
+            "fewer processes")  # fmt: skip
+
+    def squeezed():
+        with MolecularDynamics(copper(2), eam, timestep=0.002) as md:
+            md.run(30, controls=[Deform(zz=-1.5)])
+
+    # the ghosts of EAM within its cutoff and the skin: thinner than twice
+    # those along a direction the box is periodic in, which the GPU refuses
+    refused(monkeypatch, 2, squeezed, "fewer processes|too thin")
+
+    def switched():
+        small = build_crystal("fcc", 3.2, elements="Cu", repeat=(2, 2, 2))
+        lj = LennardJones({"Cu": (0.4, 2.3)}, 5.0, device="cuda", precision="double")
+        with MolecularDynamics(small, lj, timestep=0.002) as md:
+            md.run(10, controls=[Switch(eam)])
+
+    refused(monkeypatch, 2, switched, "fewer processes")
+
+    def lost(rank):
+        with MolecularDynamics(copper(), eam, timestep=0.002) as md:
+            md.run(2)
+            if rank == 0:  # a position of one process alone gone wrong
+                atoms = md._MolecularDynamics__engine._Native__atoms
+                atoms._atoms.x[0] = np.nan
+            with pytest.raises(CalculationFailed, match="not finite"):
+                md.run(5)
+        return True
+
+    assert processes.run(2, lost, monkeypatch) == [True, True]
+
+
+def test_velocities_given_on_gpus(monkeypatch):
+    """Velocities given to the dynamics go to the device rows of each
+    process, and come back in the order of the atoms."""
+    monkeypatch.setattr(_gpu, "cuda", stand_in)
+    crystal = copper()
+    eam = EAM.zhou(["Cu"], device="cuda", precision="double")
+    v = np.random.default_rng(1).normal(0.0, 3.0, (len(crystal), 3))
+
+    def task(rank):
+        with MolecularDynamics(crystal.with_columns(velocities=v), eam,
+                               timestep=0.002) as md:  # fmt: skip
+            md.run(1)
+            given = md.system["velocities"]
+            forces = (
+                md.system["forces"] if "forces" in md.system.table.columns else None
+            )
+            md.run(3)
+            return given, forces, md.system["positions"]
+
+    alone = task(None)
+    for split in processes.run(2, task, monkeypatch):
+        np.testing.assert_allclose(split[0], alone[0], atol=1e-9)
+        np.testing.assert_allclose(split[2], alone[2], atol=1e-9)
 
 
 def test_one_process_cancelled_stops_them_all(monkeypatch):

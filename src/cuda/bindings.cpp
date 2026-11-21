@@ -15,6 +15,7 @@
 
 #include <array>
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -38,6 +39,7 @@ using Table = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::c
 using Flat = nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Array = nb::ndarray<const double, nb::c_contig, nb::device::cpu>;
 using Masses = Flat;
+using Ids = nb::ndarray<const std::int64_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 using Movable = nb::ndarray<const bool, nb::shape<-1, 3>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
@@ -58,6 +60,12 @@ Box make_box(Matrix h, Vector lo, std::array<bool, 3> pbc) {
     }
     return box;
 }
+
+// Memory of the device that MPI reads or writes, not owned.
+struct DeviceBytes {
+    std::uintptr_t data;
+    std::size_t bytes;
+};
 
 Precision precision_of(const std::string& name) {
     if (name == "mixed") return Precision::Mixed;
@@ -85,6 +93,34 @@ NB_MODULE(_cuda, m) {
     nb::class_<Atoms>(m, "Atoms")
         .def(nb::init<std::int64_t>(), nb::arg("n"))
         .def_prop_ro("size", &Atoms::size)
+        .def("set_owned", &Atoms::set_owned, nb::arg("owned"))
+        .def_prop_ro("owned", &Atoms::owned)
+        .def(
+            "set_ids",
+            [](Atoms& a, Ids ids) {
+                if (static_cast<std::int64_t>(ids.shape(0)) != a.size()) {
+                    throw std::invalid_argument("one id per atom");
+                }
+                a.set_ids(ids.data());
+            },
+            nb::arg("ids"))
+        .def("clear_ids", [](Atoms& a) { a.set_ids(nullptr); })
+        .def("ids",
+             [](const Atoms& a) {
+                 std::int64_t* data;
+                 nb::object out = new_array({static_cast<std::size_t>(a.size())}, data);
+                 a.get_ids(data);
+                 return out;
+             })
+        .def("settle", &Atoms::settle)
+        .def("truncate", &Atoms::truncate, nb::arg("count"))
+        .def_static("row_bytes", &Atoms::row_bytes)
+        .def(
+            "wrap",
+            [](Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                a.wrap(h.data(), lo.data(), pbc.data());
+            },
+            nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
         .def(
             "set_species",
             [](Atoms& a, Species species) {
@@ -180,6 +216,18 @@ NB_MODULE(_cuda, m) {
             nb::arg("old_lo"), nb::arg("old_inverse"), nb::arg("lo"), nb::arg("h"))
         .def("langevin", &Atoms::langevin, nb::arg("c1"), nb::arg("c2"), nb::arg("kt"),
              nb::arg("seed"), nb::arg("counter"), nb::arg("keep") = false)
+        .def(
+            "draw_noise",
+            [](Atoms& a, double c2, double kt, std::uint64_t seed, std::uint64_t counter) {
+                double* data;
+                nb::object out = new_array({3}, data);
+                a.draw_noise(c2, kt, seed, counter, data);
+                return out;
+            },
+            nb::arg("c2"), nb::arg("kt"), nb::arg("seed"), nb::arg("counter"))
+        .def(
+            "keep_noise", [](Atoms& a, double c1, Vector share) { a.keep_noise(c1, share.data()); },
+            nb::arg("c1"), nb::arg("share"))
         .def("stash_forces", &Atoms::stash_forces)
         .def("mix_forces", &Atoms::mix_forces, nb::arg("weight"), nb::arg("other"))
         .def(
@@ -195,6 +243,21 @@ NB_MODULE(_cuda, m) {
         .def("clear_springs", [](Atoms& a) { a.set_springs(nullptr, nullptr); })
         .def("springs", [](Atoms& a, Matrix h) { return a.springs(h.data()); }, nb::arg("h"))
         .def("drive", [](Atoms& a, Vector field) { a.drive(field.data()); }, nb::arg("field"))
+        .def(
+            "push",
+            [](Atoms& a, Vector field) {
+                double* data;
+                nb::object out = new_array({3}, data);
+                a.push(field.data(), data);
+                return out;
+            },
+            nb::arg("field"))
+        .def("pushed", [](Atoms& a, Vector mean) { a.pushed(mean.data()); }, nb::arg("mean"))
+        .def("carried", &Atoms::carried, nb::arg("kick"), nb::arg("mvv2e"))
+        .def(
+            "convected",
+            [](Atoms& a, Vector field, double mean) { a.convected(field.data(), mean); },
+            nb::arg("field"), nb::arg("mean"))
         .def(
             "convect",
             [](Atoms& a, Vector field, double kick, double mvv2e) {
@@ -324,6 +387,22 @@ NB_MODULE(_cuda, m) {
                 return l.update(a, box);
             },
             nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
+        .def(
+            "stale",
+            [](Neighbors& l, Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                return l.stale(a, box);
+            },
+            nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
+        .def(
+            "build",
+            [](Neighbors& l, Atoms& a, Matrix h, Vector lo, std::array<bool, 3> pbc) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                l.build(a, box);
+            },
+            nb::arg("atoms"), nb::arg("h"), nb::arg("lo"), nb::arg("pbc"))
         .def_prop_ro("cutoff", &Neighbors::cutoff)
         .def_prop_ro("skin", &Neighbors::skin)
         .def_prop_ro("builds", &Neighbors::builds)
@@ -340,6 +419,135 @@ NB_MODULE(_cuda, m) {
             l.get(a, counts, indices, images);
             return nb::make_tuple(c, i, g);
         });
+
+    using mdapy::cuda::Exchange;
+    // Memory of the device for MPI, as __cuda_array_interface__ gives it.
+    nb::class_<DeviceBytes>(m, "DeviceBytes")
+        .def_ro("nbytes", &DeviceBytes::bytes)
+        .def_prop_ro("__cuda_array_interface__", [](const DeviceBytes& d) {
+            nb::dict out;
+            out["shape"] = nb::make_tuple(d.bytes);
+            out["typestr"] = "|u1";
+            out["data"] = nb::make_tuple(d.data, false);
+            out["strides"] = nb::none();
+            out["version"] = 3;
+            out["stream"] = nb::none();
+            return out;
+        });
+    // what MPI is given of a view: pinned memory of the host as an array of
+    // bytes, or memory of the device; alive while the exchange is
+    const auto view = [](Exchange& e, const Exchange::View& v) -> nb::object {
+        if (v.device) {
+            return nb::cast(DeviceBytes{reinterpret_cast<std::uintptr_t>(v.data), v.bytes});
+        }
+        const std::size_t shape[1] = {v.bytes};
+        return nb::ndarray<nb::numpy, unsigned char>(v.data, 1, shape, nb::find(e)).cast();
+    };
+    nb::class_<Exchange>(m, "Exchange")
+        .def(nb::init<>())
+        .def("set_device", &Exchange::set_device, nb::arg("device"))
+        .def_prop_ro("device", &Exchange::device)
+        .def("clear", &Exchange::clear)
+        .def_prop_ro("messages", &Exchange::messages)
+        .def_static("ghost_bytes", &Exchange::ghost_bytes)
+        .def("sent", &Exchange::sent, nb::arg("k"))
+        .def("received", &Exchange::received, nb::arg("k"))
+        .def(
+            "leaving",
+            [](Exchange& e, const Atoms& a, int d, Matrix h, Vector lo, int counts, int at,
+               bool periodic) {
+                const auto out = e.leaving(a, d, h.data(), lo.data(), counts, at, periodic);
+                return nb::make_tuple(out[0], out[1], out[2]);
+            },
+            nb::arg("atoms"), nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("counts"),
+            nb::arg("at"), nb::arg("periodic"))
+        .def(
+            "pack_leaving",
+            [view](Exchange& e, const Atoms& a, int side) {
+                return view(e, e.pack_leaving(a, side));
+            },
+            nb::arg("atoms"), nb::arg("side"))
+        .def(
+            "receive_arriving",
+            [view](Exchange& e, int side, std::int64_t count) {
+                return view(e, e.receive_arriving(side, count));
+            },
+            nb::arg("side"), nb::arg("count"))
+        .def("migrate", &Exchange::migrate, nb::arg("atoms"))
+        .def(
+            "border",
+            [](Exchange& e, const Atoms& a, int d, Matrix h, Vector lo, double low, double high,
+               std::int64_t begin, std::int64_t end, bool none, Vector shift) {
+                return e.border(a, d, h.data(), lo.data(), low, high, begin, end, none,
+                                shift.data());
+            },
+            nb::arg("atoms"), nb::arg("d"), nb::arg("h"), nb::arg("lo"), nb::arg("low"),
+            nb::arg("high"), nb::arg("begin"), nb::arg("end"), nb::arg("none"),
+            nb::arg("shift"))
+        .def(
+            "border_out", [view](Exchange& e, int k) { return view(e, e.border_out(k)); },
+            nb::arg("k"))
+        .def(
+            "border_in",
+            [view](Exchange& e, int k, std::int64_t count) {
+                return view(e, e.border_in(k, count));
+            },
+            nb::arg("k"), nb::arg("count"))
+        .def("append_border", &Exchange::append_border, nb::arg("atoms"), nb::arg("k"))
+        .def("place", &Exchange::place, nb::arg("atoms"))
+        .def(
+            "pack_positions",
+            [view](Exchange& e, const Atoms& a, int k, Vector shift) {
+                return view(e, e.pack_positions(a, k, shift.data()));
+            },
+            nb::arg("atoms"), nb::arg("k"), nb::arg("shift"))
+        .def(
+            "receive_positions",
+            [view](Exchange& e, int k) { return view(e, e.receive_positions(k)); },
+            nb::arg("k"))
+        .def("unpack_positions", &Exchange::unpack_positions, nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "pack_forces",
+            [view](Exchange& e, const Atoms& a, int k) { return view(e, e.pack_forces(a, k)); },
+            nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "receive_forces", [view](Exchange& e, int k) { return view(e, e.receive_forces(k)); },
+            nb::arg("k"))
+        .def("add_forces", &Exchange::add_forces, nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "pack_virials",
+            [view](Exchange& e, const Atoms& a, int k) { return view(e, e.pack_virials(a, k)); },
+            nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "receive_virials",
+            [view](Exchange& e, int k) { return view(e, e.receive_virials(k)); }, nb::arg("k"))
+        .def("add_virials", &Exchange::add_virials, nb::arg("atoms"), nb::arg("k"))
+        .def(
+            "pack_forwarded",
+            [view](Exchange& e, Potential& p, int k) {
+                std::size_t bytes = 0;
+                const void* values = p.forwarded(&bytes);
+                if (values == nullptr) throw std::logic_error("the potential forwards nothing");
+                return view(e, e.pack_values(values, bytes, k));
+            },
+            nb::arg("potential"), nb::arg("k"))
+        .def(
+            "receive_forwarded",
+            [view](Exchange& e, Potential& p, int k) {
+                std::size_t bytes = 0;
+                p.forwarded(&bytes);
+                return view(e, e.receive_values(bytes, k));
+            },
+            nb::arg("potential"), nb::arg("k"))
+        .def(
+            "unpack_forwarded",
+            [](Exchange& e, Potential& p, int k) {
+                std::size_t bytes = 0;
+                void* values = p.forwarded(&bytes);
+                if (values == nullptr) throw std::logic_error("the potential forwards nothing");
+                e.unpack_values(values, bytes, k);
+            },
+            nb::arg("potential"), nb::arg("k"));
 
     nb::class_<mdapy::cuda::Stopping>(m, "Stopping")
         .def(
@@ -371,6 +579,27 @@ NB_MODULE(_cuda, m) {
     nb::class_<Potential>(m, "Potential")
         .def_prop_ro("cutoff", &Potential::cutoff)
         .def_prop_ro("species", &Potential::species)
+        .def_prop_ro("thin", &Potential::thin)
+        .def_prop_ro("reverse", &Potential::reverse)
+        .def_prop_ro("gathered", &Potential::gathered)
+        .def_prop_ro("stages", &Potential::stages)
+        .def_prop_ro("forwarded_bytes",
+                     [](Potential& p) {
+                         std::size_t bytes = 0;
+                         p.forwarded(&bytes);
+                         return bytes;
+                     })
+        .def(
+            "compute_stage",
+            [](Potential& p, int stage, Atoms& a, Neighbors& l, Matrix h, Vector lo,
+               std::array<bool, 3> pbc, bool energy, bool virial, bool heat) {
+                const Box box = make_box(h, lo, pbc);
+                nb::gil_scoped_release release;
+                p.compute_stage(stage, a, l, box, energy, virial, heat);
+            },
+            nb::arg("stage"), nb::arg("atoms"), nb::arg("neighbors"), nb::arg("h"),
+            nb::arg("lo"), nb::arg("pbc"), nb::arg("energy"), nb::arg("virial"),
+            nb::arg("heat"))
         .def(
             "compute",
             [](Potential& p, Atoms& a, Neighbors& l, Matrix h, Vector lo,

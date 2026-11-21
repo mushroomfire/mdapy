@@ -26,7 +26,10 @@ struct StoppingTable {
     double mvv2e;
 };
 
-__global__ void stopping_kernel(std::int64_t n, StoppingTable t, const double4a* x,
+// The first n atoms, those of the process under MPI; pitch the rows of the
+// neighbor list, all the atoms.
+__global__ void stopping_kernel(std::int64_t n, std::int64_t pitch, StoppingTable t,
+                                const double4a* x,
                                 Images<double> images, const std::int32_t* indices,
                                 const std::int32_t* counts, const double* masses,
                                 const double* v, const std::int32_t* groups, double* f,
@@ -48,7 +51,7 @@ __global__ void stopping_kernel(std::int64_t n, StoppingTable t, const double4a*
         const int count = counts[i];
         for (int k = 0; k < count; ++k) {
             const auto packed =
-                static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * n + i]);
+                static_cast<std::uint32_t>(indices[static_cast<std::int64_t>(k) * pitch + i]);
             const double4a xj = x[packed & kIndexMask];
             double d[3] = {xj.x - xi.x, xj.y - xi.y, xj.z - xi.z};
             add_step(steps, packed >> kIndexBits, d[0], d[1], d[2]);
@@ -116,13 +119,14 @@ void Stopping::apply(Atoms& atoms, Neighbors& neighbors, const Box& box, double 
                           cutoff * cutoff, bit, mvv2e};
     const double4a* x = l.local<double>(a, box);
     const Images<double> images = l.steps<double>(box);
+    const std::int64_t m = a.active();
     a.scratch.resize(static_cast<std::size_t>(2 * a.n));
-    stopping_kernel<<<blocks(a.n), kBlock>>>(
-        a.n, t, x, images, l.indices.data(), l.counts.data(), a.masses.data(),
+    stopping_kernel<<<blocks(m), kBlock>>>(
+        m, a.n, t, x, images, l.indices.data(), l.counts.data(), a.masses.data(),
         a.velocities.data(), bit >= 0 ? a.groups.data() : nullptr, a.forces.data(),
         a.scratch.data());
     MDAPY_LAUNCHED();
-    sum_columns(a.scratch.data(), 2, a.n, out);
+    sum_columns(a.scratch.data(), 2, m, out);
 }
 
 }  // namespace mdapy::cuda

@@ -25,8 +25,25 @@ class _World:
     def __init__(self, size: int):
         self.size = size
         self.mail = {(a, b): queue.Queue() for a in range(size) for b in range(size)}
+        # the messages of buffers of each tag, apart from the others
+        self.tagged: dict = {}
+        self.lock = threading.Lock()
         self.barrier = threading.Barrier(size, timeout=TIMEOUT)
         self.slots: list = [None] * size
+
+    def box(self, source: int, dest: int, tag: int) -> queue.Queue:
+        with self.lock:
+            return self.tagged.setdefault((source, dest, tag), queue.Queue())
+
+
+class _Done:
+    """A request of mpi4py's that is done when it is waited for."""
+
+    def __init__(self, wait: Callable[[], None] = lambda: None):
+        self.__wait = wait
+
+    def Wait(self) -> None:  # noqa: N802
+        self.__wait()
 
 
 class Comm:
@@ -61,6 +78,20 @@ class Comm:
             self.send(np.array(sendbuf), dest)
         if source is not None:
             recvbuf[...] = self.recv(source)
+
+    def Isend(self, sendbuf: Any, dest: int, tag: int = 0) -> _Done:  # noqa: N802
+        """As mpi4py's: sent at once, through the box of its tag."""
+        self.__world.box(self.__rank, dest, tag).put(pickle.dumps(np.array(sendbuf)))
+        return _Done()
+
+    def Irecv(self, recvbuf: Any, source: int, tag: int = 0) -> _Done:  # noqa: N802
+        """As mpi4py's: received when waited for."""
+        box = self.__world.box(source, self.__rank, tag)
+
+        def wait() -> None:
+            recvbuf[...] = pickle.loads(box.get(timeout=TIMEOUT))
+
+        return _Done(wait)
 
     def Allreduce(self, sendbuf: Any, recvbuf: Any, op: str) -> None:  # noqa: N802
         """As mpi4py's, of buffers, the operation "sum" or "max"."""

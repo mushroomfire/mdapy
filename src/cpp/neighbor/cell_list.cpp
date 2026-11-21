@@ -300,20 +300,18 @@ CellGrid::CellGrid(const double* positions, std::int64_t n, const double* matrix
 
 NeighborPairs build(const double* positions, std::int64_t n, const double* matrix,
                     const double* origin, const bool* pbc, double cutoff,
-                    const Control& control, std::int64_t rows) {
+                    const Control& control) {
     const CellGrid grid(positions, n, matrix, origin, pbc, cutoff);
-    const std::int64_t first = rows < 0 || rows > n ? n : rows;
     NeighborPairs result;
     result.offsets.resize(static_cast<std::size_t>(n) + 1);
     result.offsets[0] = 0;
     // Count the pairs of each atom, then search again and write them where
-    // they belong; the atoms from first on have none.
+    // they belong.
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t t = begin; t < end; ++t) {
-                const auto i = static_cast<std::int64_t>(grid.atom(t));
-                result.offsets[i + 1] = i < first ? grid.count(t) : 0;
+                result.offsets[static_cast<std::int64_t>(grid.atom(t)) + 1] = grid.count(t);
             }
         },
         stage(control, 0, 2));
@@ -326,7 +324,6 @@ NeighborPairs build(const double* positions, std::int64_t n, const double* matri
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t t = begin; t < end; ++t) {
-                if (static_cast<std::int64_t>(grid.atom(t)) >= first) continue;
                 auto at = static_cast<std::size_t>(result.offsets[grid.atom(t)]);
                 grid.visit(t, [&](index_t j, const std::int32_t* shift, double r2) {
                     result.neighbors[at] = j;

@@ -76,9 +76,20 @@ struct OncePairs {
     std::vector<std::int64_t> offsets;  // n + 1
     std::vector<index_t> neighbors;
     std::vector<std::int8_t> shifts;  // 3 per pair
+    std::vector<double> distances;    // of each pair, when kept
 };
 OncePairs once_pairs(std::int64_t n, std::int64_t centers, const std::int64_t* offsets,
                      const index_t* neighbors, const std::int8_t* shifts,
                      const std::int64_t* ids, const double* positions, const double* matrix);
+
+// The same pairs, found by one search of the cells on one thread for the
+// first centers atoms of positions (n x 3) in the box (matrix, origin, pbc),
+// closer than cutoff, as once_pairs keeps them of the full list of
+// neighbor::build, in its order, with their distances; full, when given, gets
+// every pair of those atoms too, the full list with its rows of the others
+// empty.
+OncePairs build_once(const double* positions, std::int64_t n, const double* matrix,
+                     const double* origin, const bool* pbc, double cutoff, std::int64_t centers,
+                     const std::int64_t* ids, OncePairs* full);
 
 }  // namespace mdapy::calculators

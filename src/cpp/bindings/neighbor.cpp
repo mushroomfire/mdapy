@@ -69,13 +69,13 @@ void check_pairs(std::int64_t n, Offsets offsets, Neighbors neighbors, Shifts sh
 }
 
 nb::tuple build(Positions positions, Matrix matrix, Vector3 origin, Flags pbc, double cutoff,
-                nb::handle progress, const CancelToken* cancel, std::int64_t rows) {
+                nb::handle progress, const CancelToken* cancel) {
     const auto n = static_cast<std::int64_t>(positions.shape(0));
     neighbor::NeighborPairs pairs;
     run_released(
         [&](const Control& control) {
             pairs = neighbor::build(positions.data(), n, matrix.data(), origin.data(), pbc.data(),
-                                    cutoff, control, rows);
+                                    cutoff, control);
         },
         progress, cancel);
     return to_arrays(std::move(pairs));
@@ -267,7 +267,7 @@ nb::tuple tree_nearest(const neighbor::KdTree& tree, Positions points, int k, nb
 void bind_neighbor(nb::module_& m) {
     m.def("build", &build, nb::arg("positions"), nb::arg("matrix"), nb::arg("origin"),
           nb::arg("pbc"), nb::arg("cutoff"), nb::arg("progress") = nb::none(),
-          nb::arg("cancel").none() = nullptr, nb::arg("rows") = -1);
+          nb::arg("cancel").none() = nullptr);
     m.def("closest_pairs", &closest_pairs, nb::arg("starts"), nb::arg("positions"),
           nb::arg("matrices"), nb::arg("origins"), nb::arg("pbc"), nb::arg("radii"),
           nb::arg("close"), nb::arg("progress") = nb::none(), nb::arg("cancel").none() = nullptr);

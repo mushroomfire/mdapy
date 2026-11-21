@@ -30,7 +30,6 @@ import numpy as np
 import polars as pl
 
 from mdapy._core import calculators as _native_calculators
-from mdapy._core import neighbor as _native_neighbor
 from mdapy.calculators._base import HEAT_FLUX_TERMS, WITHOUT_VIRIAL, Calculator
 from mdapy.calculators._springs import Springs
 from mdapy.core.box import Box
@@ -836,27 +835,12 @@ class DomainAtoms(_HostAtoms):
         thick = 1.0 / np.linalg.norm(bricks.inverse, axis=0)
         return (out * thick).max(axis=1, initial=0.0)
 
-    def _wide(
-        self, current: System, calculator: Any, mine: bool = False
-    ) -> NeighborList:
+    def _wide(self, current: System, calculator: Any) -> NeighborList:
         """The pairs of the atoms whose neighbors the calculator needs: this
         process's atoms, and for a many-body potential the ghosts within its
-        cutoff and the skin of the brick; mine: those of this process's atoms
-        alone, as the kernels of one thread need them."""
+        cutoff and the skin of the brick."""
         from mdapy.calculators import MEAM, NEP, StillingerWeber, Tersoff
 
-        if mine:
-            box = current.box
-            cutoff = float(calculator.cutoff) + self.__skin
-            offsets, j, shifts, distances = _native_neighbor.build(
-                np.ascontiguousarray(current["positions"]),
-                np.ascontiguousarray(box.matrix),
-                np.ascontiguousarray(box.origin),
-                np.ascontiguousarray(box.pbc),
-                cutoff,
-                rows=self.__bricks.local,
-            )
-            return NeighborList(current, cutoff, offsets, j, shifts, distances)
         centers = self.__bricks.local
         inner = _reach(calculator, target=True)[1]
         if inner > 0.0:
@@ -912,19 +896,30 @@ class DomainAtoms(_HostAtoms):
             kept = self.__kept.get(slot)
             if kept is None:
                 built = self.__built_system()
-                wide = self._wide(built, calculator, mine=alone)
                 once = None
                 if alone:
-                    once = _native_calculators.once_pairs(
-                        wide.offsets, wide.j, wide.shifts, n, self.__sub_ids,
+                    # one search for the pairs computed once, and for the
+                    # three-body terms every pair of this process's atoms
+                    rows = getattr(calculator, "_once_with_rows", False)
+                    box = built.box
+                    cutoff = float(calculator.cutoff) + self.__skin
+                    lists = _native_calculators.build_once(
                         np.ascontiguousarray(self.__ghosts), self.__matrix,
+                        np.ascontiguousarray(box.origin), np.ascontiguousarray(box.pbc),
+                        cutoff, n, self.__sub_ids, rows,
                     )  # fmt: skip
+                    pairs, full = lists if rows else (lists, lists)
+                    wide = NeighborList(built, cutoff, *full)
+                    once = pairs[:3]
+                else:
+                    wide = self._wide(built, calculator)
                 kept = self.__kept[slot] = (
                     wide,
                     np.ascontiguousarray(calculator._species(built)),
                     once,
+                    once is None or getattr(calculator, "_once_with_rows", False),
                 )
-            neighbors, species, once = kept
+            neighbors, species, once, _ = kept
             atoms = (species, np.ascontiguousarray(self.__ghosts), self.__matrix)
             part = split(atoms, tuple(wanted), neighbors, n, self.__forward,
                          self.__reverse, self.__sub_ids, once)  # fmt: skip
@@ -963,7 +958,9 @@ class DomainAtoms(_HostAtoms):
         ghosts, or for a potential on the GPU a list of the processor's own,
         kept until the next build."""
         kept = self.__kept.get("potential", self.__kept.get("potential alone"))
-        wide = kept[0] if kept is not None else self._lists.get("potential")
+        # the list of the potential where it has every pair of the atoms
+        full = kept is not None and kept[3]
+        wide = kept[0] if full else self._lists.get("potential")
         if wide is None:
             wide = self.__kept.get("stopping")
             if wide is None:

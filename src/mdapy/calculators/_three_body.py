@@ -127,6 +127,7 @@ class _ThreeBody(Calculator):
     # on one thread each process of MPI computes each term once; the virials
     # of the heat flux gather the terms of the ghosts' pairs too
     _pairs_once = True
+    _once_with_rows = True
     _heat_needs_ghosts = True
 
     _name: str

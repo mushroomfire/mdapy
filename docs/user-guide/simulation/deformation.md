@@ -143,7 +143,7 @@ armchair direction and at 125 GPa and 22.2 % along the zigzag one, and the stres
 rings about zero. Suspended sheets indented by a tip gave a Young's modulus of 1.0 TPa
 and a strength of 130 ± 10 GPa ([Lee et al. 2008](../../reference/references.md#lee2008)).*
 
-The runs take about 3 minutes for copper and 2 for graphene on 8 cores. The rate,
+The runs take about 2 minutes for copper and 3.5 for graphene on 8 cores. The rate,
 2 % of the length every ps or 2 × 10¹⁰ per second, is one of molecular dynamics,
 billions of times that of a test in a laboratory: the elastic part of the curves
 does not depend on it, the stress where the crystal gives way does.

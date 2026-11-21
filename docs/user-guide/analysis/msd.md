@@ -66,6 +66,32 @@ away from where it started moves with the box by that many times the change.
 With `unwrap=False`, for positions already unwrapped, such as `xu yu zu` of a
 LAMMPS dump, the positions are used as they are.
 
+## From molecular dynamics
+
+Each frame that [`MolecularDynamics`](../simulation/records.md) keeps or gives has
+the `image` column, the boxes each atom has crossed since the start, in MDAPY, on
+the GPU and in LAMMPS alike, so that the atoms are followed exactly however far
+they move between two frames:
+
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import LennardJones
+from mdapy.simulation import MolecularDynamics
+
+liquid = build_crystal("fcc", 5.26, elements="Ar", repeat=(3, 3, 3))
+argon = LennardJones((0.0104, 3.40), 8.0)
+with MolecularDynamics(liquid, argon, timestep=0.005) as md:
+    md.velocities(600, seed=1)
+    md.run(2000, save_every=50, ensemble="nvt", temperature=600)
+    result = MeanSquaredDisplacement().compute(md.frames)  # lag in frames of 0.25 ps
+```
+
+[`mdapy.io.write`](../../basics/io.md) keeps the `image` column in the files it
+writes, extended XYZ, LAMMPS dumps (`ix iy iz`) and MDAPY's own, so that frames
+written as a long run goes, with [`iterate`](../simulation/records.md#frames-in-files),
+and read back with [`read_trajectory`](../../basics/trajectory.md) give the same
+displacement.
+
 ## Results
 
 A `DisplacementResult`:

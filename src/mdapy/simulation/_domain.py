@@ -107,6 +107,7 @@ class Bricks:
         # the operations of the sums, of mpi4py's MPI, or named for others
         self.__sum = mpi.SUM if real else "sum"
         self.__max = mpi.MAX if real else "max"
+        self.__waitall = mpi.Request.Waitall if real else None
 
     def rank_of(self, at: np.ndarray) -> int:
         at = np.asarray(at) % self.counts
@@ -339,8 +340,11 @@ class Bricks:
                 waiting.append(
                     self.comm.Isend(_buffer(sent), dest=destination, tag=tag)
                 )
-        for request in waiting:
-            request.Wait()
+        if self.__waitall is not None:
+            self.__waitall(waiting)
+        else:
+            for request in waiting:
+                request.Wait()
 
     def set_reach(self, reach: float) -> None:
         self.reach = float(reach)

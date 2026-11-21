@@ -126,11 +126,28 @@ class DomainDeviceAtoms(DeviceAtoms):
         mine = np.flatnonzero((brick == bricks.at).all(axis=1))
         bricks.local = len(mine)
         self._local = len(mine)
-        self._ids = mine.astype(np.int64)  # this process's atoms among all
-        self._sub_ids = self._ids  # those of the rows on the device
+        self._sub_ids = mine.astype(np.int64)  # this process's atoms among all
         return np.array(x[mine], dtype=float), np.array(v[mine], dtype=float)
 
     # -- the rows on the device, and the sums over the processes ------------
+
+    @property
+    def _sub_ids(self) -> np.ndarray:
+        """The index among all the atoms of each row on the device, the
+        ghosts after the atoms of the process: fetched from the device when
+        first needed after a build."""
+        if self.__rows is None:
+            self.__rows = np.asarray(self._atoms.ids(), dtype=np.int64)
+        return self.__rows
+
+    @_sub_ids.setter
+    def _sub_ids(self, ids: np.ndarray | None) -> None:
+        self.__rows = ids
+
+    @property
+    def _ids(self) -> np.ndarray:
+        """Those of this process's atoms."""
+        return self._sub_ids[: self._local]
 
     def _rows_of(self, values: np.ndarray) -> np.ndarray:
         return np.ascontiguousarray(np.asarray(values)[self._sub_ids])
@@ -311,9 +328,8 @@ class DomainDeviceAtoms(DeviceAtoms):
             exchange.migrate(atoms)
         owned = atoms.size
         self.__borders(h, lo)
-        self._sub_ids = np.asarray(atoms.ids(), dtype=np.int64)
+        self._sub_ids = None  # fetched when needed
         self._local = owned
-        self._ids = self._sub_ids[:owned]
         atoms.set_owned(owned)
         self._set_free(self._free)
         self._set_run_arrays()
@@ -478,8 +494,7 @@ class DomainDeviceAtoms(DeviceAtoms):
         "_built",
         "_sub_box",
         "_local",
-        "_ids",
-        "_sub_ids",
+        "_DomainDeviceAtoms__rows",
         "_messages",
         "_groups",
     )

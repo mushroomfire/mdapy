@@ -130,3 +130,58 @@ LMP_KOKKOS_MIXED=/path/to/kokkos-mixed/lmp LMP_KOKKOS_DOUBLE=/path/to/kokkos/lmp
 python benchmarks/gpu.py table gpu.json
 python benchmarks/gpu.py plot gpu.json gpu.png
 ```
+
+## On several GPUs of a node
+
+MDAPY's own dynamics [on many processes](../user-guide/simulation/processes.md#with-a-gpu-each),
+one process of MPI on each GPU, against LAMMPS with KOKKOS and MPI, on 1, 2 and 4 GPUs
+of one node, in mixed precision, for the largest systems of the cases above.
+
+A node of the Triton cluster of Aalto University with four NVIDIA Tesla
+V100-PCIE-32GB (driver 580.173.02), three pairs of them joined by NVLink and the
+others through PCIe and the host. MDAPY 2.3 in development with mpi4py 4.1.2 on
+OpenMPI 4.1.6, LAMMPS stable_30Sep2026 on OpenMPI 5.0.3, both built with CUDA, so
+that the memory of the GPUs goes to MPI itself, as KOKKOS does by default. The
+processes were started by `srun --mpi=pmix --gpus-per-task=1 --gpu-bind=none`.
+
+| Milliseconds per step | Atoms | 1 GPU, MDAPY | KOKKOS | 2 GPUs, MDAPY | KOKKOS | 4 GPUs, MDAPY | KOKKOS |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Cu, EAM of Zhou et al. | 2,048,000 | 11.47 | 14.71 | 6.90 | 8.31 | 4.28 | 4.86 |
+| Cu, EAM of Zhou et al. | 8,388,608 | 47.59 | 65.94 | 26.43 | 33.83 | 13.94 | 17.65 |
+| Ar, Lennard-Jones | 1,048,576 | 2.34 | 2.82 | 1.71 | 1.79 | 1.29 | 1.18 |
+| Cu, Morse | 2,048,000 | 4.87 | 8.21 | 2.95 | 4.61 | 1.95 | 2.84 |
+| Si, Stillinger–Weber | 2,097,152 | 9.13 | 9.35 | 5.41 | 5.30 | 3.44 | 3.19 |
+| Si, Tersoff | 2,097,152 | 5.83 | 6.35 | 3.89 | 3.69 | 2.62 | 2.38 |
+
+### What they show
+
+- MDAPY is the faster on 1, 2 and 4 GPUs for EAM and Morse, and on 1 and 2 GPUs for
+  Lennard-Jones; on 4 GPUs it is 0.92 times as fast for Lennard-Jones, 0.93 times for
+  Stillinger–Weber and 0.91 times for Tersoff.
+- An MPI that does not move the memory of the GPU sends it through the host:
+  with `MDAPY_GPU_AWARE_MPI=0` the 4 GPUs take 5.21 ms a step for EAM of 2 048 000
+  atoms, 1.81 ms for Lennard-Jones and 3.53 ms for Tersoff.
+- NEP, which KOKKOS does not have: the UNEP-v1 model of Song et al. (2024) for fcc
+  copper takes 88.2, 48.5 and 26.3 ms a step for 864 000 atoms on 1, 2 and 4 GPUs,
+  and 28.2, 15.9 and 9.0 ms for 256 000.
+
+### How it was measured
+
+The runs of the table above, at constant energy, with a skin of 1 Å, 50 steps and
+then 300 timed. KOKKOS ran with full neighbor lists and Newton's third law off for
+EAM, Lennard-Jones and Morse, and with half lists and the law on for
+Stillinger–Weber and Tersoff, which need it. NEP ran 30 steps from 600 K with a
+time step of 2 fs and timed the next 100.
+
+### Running it
+
+`benchmarks/gpus.py` in the source repository runs a case of `benchmarks/gpu.py`
+with MDAPY on the processes it is started on, or writes the input of LAMMPS:
+
+```bash
+srun -n 4 --gpus-per-task=1 --gpu-bind=none --mpi=pmix \
+    python benchmarks/gpus.py mdapy eam 80 mixed potentials
+python benchmarks/gpus.py input eam 80 > in.eam
+srun -n 4 --gpus-per-task=1 --gpu-bind=none --mpi=pmix \
+    lmp -k on g 4 -sf kk -pk kokkos neigh full newton off -in in.eam
+```

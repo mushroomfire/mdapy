@@ -17,7 +17,8 @@
   atoms alone, with ghosts within the cutoff and the skin, sending what the atoms of
   a many-body potential have of their neighbors to the ghosts, or the forces on the
   ghosts back, and bricks thinner than the cutoff pass the ghosts on. It needs
-  mpi4py. A process of one thread computes each pair once among the processes. See
+  mpi4py. A process of one thread computes each pair of EAM, ADP and the pair
+  potentials once among the processes. See
   [On many processes](../user-guide/simulation/processes.md), and its times on 1 to 40
   processes in [Performance](../performance/mpi.md).
 - On many processes, a potential on the GPU computes the forces of each process on a

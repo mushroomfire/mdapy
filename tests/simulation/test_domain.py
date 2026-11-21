@@ -553,3 +553,19 @@ def test_each_process_its_gpu(monkeypatch):
     _gpu.cuda()
     _gpu.cuda()
     assert chosen == [2]
+
+
+@pytest.mark.parametrize("size", [2, 4])
+def test_adp_on_processes_of_one_thread(monkeypatch, tmp_path, size):
+    """ADP on one thread computes each pair once among the processes, its
+    sums sent back from the ghosts and its states to them: the run of one
+    process, to the rounding, with the pressure."""
+    from mdapy.core.threads import set_num_threads
+
+    potential, system = potentials(tmp_path)["ADP"]
+    options = {"ensemble": "npt", "temperature": 600, "pressure": 0.0}
+    alone = run(system, potential, options)
+    set_num_threads(1)
+    for split in processes.run(size, lambda rank: run(system, potential, options),
+                               monkeypatch):  # fmt: skip
+        same(split, alone)

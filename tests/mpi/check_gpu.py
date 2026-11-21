@@ -62,7 +62,9 @@ def compare(a, b, name):
     d = (sa["positions"] - sb["positions"]) @ np.linalg.inv(sb.box.matrix)
     d -= np.round(d)
     assert np.abs(d @ sb.box.matrix).max() < 1e-7, name
-    np.testing.assert_allclose(sa["velocities"], sb["velocities"], atol=1e-6, err_msg=name)
+    np.testing.assert_allclose(
+        sa["velocities"], sb["velocities"], atol=1e-6, err_msg=name
+    )
     np.testing.assert_allclose(sa.box.matrix, sb.box.matrix, atol=1e-8, err_msg=name)
     for column in ("temperature", "potential_energy", "pressure", "volume"):
         np.testing.assert_allclose(ta[column], tb[column], rtol=1e-8, atol=1e-8,

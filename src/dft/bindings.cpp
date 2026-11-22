@@ -26,6 +26,7 @@
 #include "dft/fft/fft.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
+#include "dft/scf/potentials.h"
 #include "dft/xc/xc.h"
 
 namespace nb = nanobind;
@@ -47,6 +48,14 @@ using RealBoxes = nb::ndarray<const double, nb::ndim<4>, nb::c_contig, nb::devic
 using Rows = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 using Grid3 = nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
 using Kinds = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+using Spins = nb::ndarray<const double, nb::ndim<4>, nb::c_contig, nb::device::cpu>;
+
+mdapy::dft::Functional functional_of(const std::string& name) {
+    if (name == "lda_pw") return mdapy::dft::Functional::LdaPw;
+    if (name == "lda_pw_mod") return mdapy::dft::Functional::LdaPwMod;
+    if (name == "pbe") return mdapy::dft::Functional::Pbe;
+    throw std::invalid_argument("no functional named " + name);
+}
 
 template <class T>
 nb::ndarray<nb::numpy, T> new_array(std::initializer_list<std::size_t> dims, T*& data) {
@@ -247,11 +256,7 @@ NB_MODULE(_dft, m) {
     m.def(
         "xc",
         [](const std::string& name, Rows rho, Rows sigma, double threshold) {
-            mdapy::dft::Functional functional;
-            if (name == "lda_pw") functional = mdapy::dft::Functional::LdaPw;
-            else if (name == "lda_pw_mod") functional = mdapy::dft::Functional::LdaPwMod;
-            else if (name == "pbe") functional = mdapy::dft::Functional::Pbe;
-            else throw std::invalid_argument("no functional named " + name);
+            const mdapy::dft::Functional functional = functional_of(name);
             const std::size_t n = rho.shape(0);
             if (rho.shape(1) != 2 || sigma.shape(0) != n || sigma.shape(1) != 3)
                 throw std::invalid_argument("rho is (n, 2) and sigma (n, 3)");
@@ -337,4 +342,29 @@ NB_MODULE(_dft, m) {
             return nb::object(result.cast());
         })
         .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors);
+
+    // the Hartree and exchange-correlation potentials of densities rho (spins,
+    // n1, n2, n3), with a core charge (n1, n2, n3) or None: V_H + V_xc of each
+    // spin and the energies (E_H, E_xc, sum of int V rho)
+    m.def(
+        "potentials",
+        [](Matrix a, double cutoff, const std::string& name, Spins rho, nb::object core,
+           double threshold) {
+            const Int3 g{static_cast<int>(rho.shape(1)), static_cast<int>(rho.shape(2)),
+                         static_cast<int>(rho.shape(3))};
+            const int spins = static_cast<int>(rho.shape(0));
+            mdapy::dft::Potentials pot(lattice_of(a), g, cutoff, functional_of(name), spins, threshold);
+            if (!core.is_none()) pot.set_core(nb::cast<Grid3>(core).data());
+            DeviceArray<double> r, hxc(rho.size());
+            r.upload(rho.data(), rho.size());
+            const auto e = pot.compute(r.data(), hxc.data());
+            double* out = nullptr;
+            auto result = new_array<double>({static_cast<std::size_t>(spins), static_cast<std::size_t>(g[0]),
+                                             static_cast<std::size_t>(g[1]), static_cast<std::size_t>(g[2])},
+                                            out);
+            hxc.download(out, hxc.size());
+            return nb::make_tuple(result, nb::make_tuple(e.hartree, e.xc, e.hxc_density));
+        },
+        nb::arg("a"), nb::arg("cutoff"), nb::arg("functional"), nb::arg("rho"),
+        nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10);
 }

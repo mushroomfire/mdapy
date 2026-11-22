@@ -24,6 +24,7 @@
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/lattice/lattice.h"
+#include "dft/xc/xc.h"
 
 namespace nb = nanobind;
 using mdapy::dft::Complex;
@@ -41,6 +42,7 @@ using Coefficients =
 using ComplexBoxes =
     nb::ndarray<const std::complex<double>, nb::ndim<4>, nb::c_contig, nb::device::cpu>;
 using RealBoxes = nb::ndarray<const double, nb::ndim<4>, nb::c_contig, nb::device::cpu>;
+using Rows = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
 nb::ndarray<nb::numpy, T> new_array(std::initializer_list<std::size_t> dims, T*& data) {
@@ -234,4 +236,34 @@ NB_MODULE(_dft, m) {
         for (std::size_t i = 0; i < b.size(); ++i) out[i] *= scale;
         return result;
     });
+
+    // the exchange-correlation functional at points: rho (n, 2) the spin
+    // densities, sigma (n, 3) the products of their gradients; the energy per
+    // volume, its derivatives by the densities (n, 2) and by sigma (n, 3)
+    m.def(
+        "xc",
+        [](const std::string& name, Rows rho, Rows sigma, double threshold) {
+            mdapy::dft::Functional functional;
+            if (name == "lda_pw") functional = mdapy::dft::Functional::LdaPw;
+            else if (name == "lda_pw_mod") functional = mdapy::dft::Functional::LdaPwMod;
+            else if (name == "pbe") functional = mdapy::dft::Functional::Pbe;
+            else throw std::invalid_argument("no functional named " + name);
+            const std::size_t n = rho.shape(0);
+            if (rho.shape(1) != 2 || sigma.shape(0) != n || sigma.shape(1) != 3)
+                throw std::invalid_argument("rho is (n, 2) and sigma (n, 3)");
+            DeviceArray<double> r, s, f(n), v(2 * n), vs(3 * n);
+            r.upload(rho.data(), 2 * n);
+            s.upload(sigma.data(), 3 * n);
+            mdapy::dft::evaluate_xc(functional, n, r.data(), s.data(), threshold, f.data(),
+                                    v.data(), vs.data());
+            double *fo = nullptr, *vo = nullptr, *so = nullptr;
+            auto f_out = new_array<double>({n}, fo);
+            auto v_out = new_array<double>({n, 2}, vo);
+            auto s_out = new_array<double>({n, 3}, so);
+            f.download(fo, n);
+            v.download(vo, 2 * n);
+            vs.download(so, 3 * n);
+            return nb::make_tuple(f_out, v_out, s_out);
+        },
+        nb::arg("name"), nb::arg("rho"), nb::arg("sigma"), nb::arg("threshold") = 1e-10);
 }

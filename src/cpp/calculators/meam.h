@@ -69,6 +69,7 @@ MeamPotential make_meam_potential(int elements, const double* element, const dou
 void compute_meam(const MeamPotential& potential, std::int64_t n, const std::int32_t* species,
                   const double* positions, const double* matrix, const std::int64_t* offsets,
                   const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                  double* forces, double* virials, const Control& control = {});
+                  double* forces, double* virials, const Control& control = {},
+                  const std::int64_t* reverse = nullptr);
 
 }  // namespace mdapy::calculators

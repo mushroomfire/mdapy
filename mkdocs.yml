@@ -236,13 +236,16 @@ nav:
               - Coordination number: user-guide/analysis/coordination.md
               - Bond angle distribution: user-guide/analysis/bond-angles.md
               - Bond length distribution: user-guide/analysis/bond-lengths.md
-              - Structure factor: user-guide/analysis/structure-factor.md
               - Spatial correlation function: user-guide/analysis/spatial-correlation.md
               - Steinhardt parameters: user-guide/analysis/steinhardt.md
               - Warren–Cowley parameters: user-guide/analysis/warren-cowley.md
               - Voronoi analysis: user-guide/analysis/voronoi.md
               - Ring statistics: user-guide/analysis/rings.md
               - Entropy fingerprint: user-guide/analysis/entropy.md
+          - Scattering and diffraction:
+              - Structure factor: user-guide/analysis/structure-factor.md
+              - Total scattering: user-guide/analysis/total-scattering.md
+              - Powder diffraction: user-guide/analysis/powder-diffraction.md
           - Defects and deformation:
               - Dislocation analysis: user-guide/analysis/dislocations.md
               - Wigner–Seitz analysis: user-guide/analysis/wigner-seitz.md
@@ -276,7 +279,8 @@ nav:
           - ADP: user-guide/potentials/adp.md
           - Tersoff: user-guide/potentials/tersoff.md
           - Stillinger–Weber: user-guide/potentials/stillinger-weber.md
-          - Lennard-Jones and Morse: user-guide/potentials/pair-potentials.md
+          - Pair potentials and ZBL: user-guide/potentials/pair-potentials.md
+          - Overlaid potentials: user-guide/potentials/overlay.md
           - NEP: user-guide/potentials/nep.md
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md
@@ -287,7 +291,9 @@ nav:
               - Ensembles: user-guide/simulation/ensembles.md
               - Records and frames: user-guide/simulation/records.md
               - On the GPU: user-guide/simulation/gpu.md
+              - On many processes: user-guide/simulation/processes.md
               - In LAMMPS: user-guide/simulation/in-lammps.md
+              - Restart files: user-guide/simulation/restart.md
           - Controls:
               - Groups and controls: user-guide/simulation/controls.md
               - Adaptive time step: user-guide/simulation/adaptive-timestep.md
@@ -300,6 +306,10 @@ nav:
               - Walls: user-guide/simulation/walls.md
               - Hugoniostat: user-guide/simulation/hugoniostat.md
               - Multiscale shock technique: user-guide/simulation/msst.md
+          - Quantum nuclei:
+              - Path integrals: user-guide/simulation/pimd.md
+          - Radiation damage:
+              - Electronic stopping: user-guide/simulation/electronic-stopping.md
           - Relaxation and paths:
               - Energy minimization: user-guide/simulation/minimize.md
               - Minimum energy paths: user-guide/simulation/neb.md
@@ -362,6 +372,7 @@ nav:
       - Reading and writing files: performance/files.md
       - Building structures: performance/builders.md
       - Molecular dynamics on the GPU: performance/gpu.md
+      - Molecular dynamics on many processes: performance/mpi.md
   - Reference:
       - Python API:
           - Overview: reference/api/index.md

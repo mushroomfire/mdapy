@@ -1,5 +1,114 @@
 # Release notes
 
+## 2.3.0 (not released)
+
+- MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
+  their neighbor list with the skin as it is between two builds, instead of the pairs
+  within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the
+  same runs to the last bit, 1.3 times as fast with EAM and 2.3 times with
+  Lennard-Jones on one thread. Other calculators get the pairs within their cutoff as
+  before.
+- MDAPY's own dynamics runs on many processes with MPI: started by `mpirun` or `srun`,
+  the processes cut the box into bricks, each owning the atoms in its brick and keeping
+  copies of those within the reach of the potential, and the run is that of one
+  process, to the rounding of the forces; in every ensemble and with every control,
+  with MDAPY's potentials on the processor. Restart files hold the atoms in their own
+  order, whatever the number of processes. As LAMMPS, each process computes its own
+  atoms alone, with ghosts within the cutoff and the skin, sending what the atoms of
+  a many-body potential have of their neighbors to the ghosts, or the forces on the
+  ghosts back, and bricks thinner than the cutoff pass the ghosts on. It needs
+  mpi4py. A process of one thread computes each pair of EAM, ADP and the pair
+  potentials once among the processes. See
+  [On many processes](../user-guide/simulation/processes.md), and its times on 1 to 40
+  processes in [Performance](../performance/mpi.md).
+- `minimize` under `mpirun` shares the forces of MDAPY's potentials among the
+  processes, each computing the atoms of its brick with their ghosts, every process
+  taking the steps of FIRE over every atom: the minimization of one process, with and
+  without the box relaxing. See [Energy minimization](../user-guide/simulation/minimize.md).
+- `comm=`, an mpi4py communicator, for `MolecularDynamics`, `minimize`, `neb` and the
+  `LAMMPS` calculator: `MPI.COMM_SELF` gives each process a simulation of its own, a
+  temperature or a seed on each, and a communicator of a group splits one among the
+  group. The processes of one simulation check that they hold the same system and take
+  the same runs, and all raise when one differs, where a temperature on each process
+  would have run one system made of the atoms of each. See
+  [A simulation on each process](../user-guide/simulation/processes.md#a-simulation-on-each-process).
+- `neb` on many processes shares the images among them, each process computing its own
+  whole: the path of one process, to the last bit, with any calculator. See
+  [Minimum energy paths](../user-guide/simulation/neb.md#on-many-processes).
+- On many processes with a potential on the GPU, each process keeps its atoms and
+  their ghosts on a GPU of its machine and runs the steps there, as LAMMPS's KOKKOS
+  does: each step sends only the positions of the ghosts and the sums of the
+  thermostats and barostat, in every ensemble and with every control. The processes
+  of a machine take its GPUs in turn. What they send goes to MPI in the memory of the
+  GPU when MPI moves it, as Open MPI built with CUDA tells, or as
+  `MDAPY_GPU_AWARE_MPI` says. See [With a GPU
+  each](../user-guide/simulation/processes.md#with-a-gpu-each).
+- On many processes of one thread the processes of a crystal compute as much each:
+  the atoms of a lattice plane on a face of a brick all go to one of its two bricks,
+  and the pairs across a face are shared half and half between them. Stillinger–Weber
+  and Tersoff compute each term once there, as LAMMPS's `newton on`, and the pairs a
+  process computes once are found in one search. See [Molecular dynamics on many
+  processes](../performance/mpi.md).
+- A restart of molecular dynamics on the GPU keeps the boxes each atom crossed, its
+  `image`, which the run after a restart counted again from zero.
+- `ElectronicStopping`, a control of molecular dynamics: the friction of the electrons
+  on the atoms faster than an energy, from a table of the stopping power of each
+  element, for cascades of radiation damage, the energy the electrons took recorded
+  as `electronic_loss`; as LAMMPS's `fix electron/stopping`, the same runs step by
+  step, on the processor, on many processes, on the GPU and in LAMMPS. See
+  [Electronic stopping](../user-guide/simulation/electronic-stopping.md).
+- `ZBL`, the screened nuclear repulsion of Ziegler, Biersack and Littmark switched off
+  between two distances, as LAMMPS's `pair_style zbl`, on the processor and the GPU.
+  See [Pair potentials](../user-guide/potentials/pair-potentials.md#the-zbl-repulsion).
+- `Overlay`, calculators added together, as LAMMPS's `pair_style hybrid/overlay`: a
+  ZBL on an EAM for the close collisions of a cascade, the same as LAMMPS atom by atom
+  and in a cascade with electronic stopping step by step; on the processor, on many
+  processes, split as its calculators, and on the GPU. See [Overlaid potentials](../user-guide/potentials/overlay.md).
+- Path-integral molecular dynamics of quantum nuclei: `MolecularDynamics(..., beads=P)`,
+  each atom a ring polymer of P beads, sampled by BAOAB in the normal modes with the
+  PILE_L thermostat, or run without it as ring-polymer molecular dynamics, or as
+  thermostatted RPMD with the centroids free, `thermostat_damping=math.inf`; `thermo`
+  records the centroid-virial and primitive kinetic energies and the centroid-virial
+  pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
+  of the finite ring polymer in closed form, and neon at 20 K the averages of LAMMPS's
+  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. See
+  [Path integrals](../user-guide/simulation/pimd.md).
+- The dynamics on the processor computes the virial only at the steps that need the
+  pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
+  EAM's densities skip their derivatives and pairs that cross no boundary their
+  shift: with the neighbor lists kept with their skin, EAM runs 1.7 times as fast on
+  one thread as in 2.2 and Lennard-Jones 2.8 times, the same runs to the last bit.
+  Tersoff, Stillinger-Weber, NEP and MEAM find the reverse of each pair once for a
+  neighbor list, not at each call: Stillinger-Weber 1.6 times as fast, Tersoff 1.2
+  times.
+- Restart files of molecular dynamics: `run(..., restart="md.restart",
+  restart_every=1000)` and `iterate` write the state of the dynamics every so many
+  steps and at the end of a run, replacing the last once the new one is whole;
+  `MolecularDynamics.load(path, potential)` reads it, `resume()` finishes the run it
+  stopped in, as if it had not stopped, to the rounding of the forces, and `save(path)`
+  writes one between runs. On the processor and the GPU, in every ensemble and with
+  every control. See [Restart files](../user-guide/simulation/restart.md).
+- The noise of Langevin dynamics and baths is drawn by a counter-based generator,
+  Philox4x64-10, from the seed, the index of each atom and the step, the same on the
+  processor and the GPU, whatever order the GPU keeps its atoms in: a run of a seed
+  on the GPU in double precision is that on the processor. Runs of the same seed draw
+  other numbers than in 2.2.
+- `mdapy.analysis.TotalScattering(radiation, q_max)`: the total structure factor S(q)
+  and F(q) and the reduced pair distribution function G(r) as X-rays or neutrons see
+  them, each pair of elements weighted by the form factors or the scattering lengths;
+  its `TotalScatteringResult` has `transform`, G(r) from S(q) over the range an
+  experiment measures, with the function of Lorch. Against the sum over the wave vectors of the box in NumPy. See
+  [Total scattering](../user-guide/analysis/total-scattering.md).
+- `mdapy.analysis.PowderDiffraction(wavelength, two_theta)`: the X-ray or neutron powder
+  pattern of every wave vector of the box at its own angle, with the Lorentz-polarization
+  factor, a Debye–Waller factor and a broadening, in a `PowderDiffractionResult`; against LAMMPS's `compute xrd` and the
+  reflections of copper. See
+  [Powder diffraction](../user-guide/analysis/powder-diffraction.md).
+- `mdapy.elements.xray_form_factors(elements, q)`, the form factors of the neutral atoms
+  of Waasmaier and Kirfel (1995), and `neutron_scattering_lengths(elements,
+  mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
+  Rauch and Waschkowski (2003).
+
 ## 2.2.0
 
 MDAPY 2.2: its own molecular dynamics engine, on the processor and on NVIDIA GPUs, made

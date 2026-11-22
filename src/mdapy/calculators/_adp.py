@@ -13,7 +13,14 @@ import numpy as np
 
 from mdapy import _core
 from mdapy.calculators import _gpu
-from mdapy.calculators._base import Calculator, CalculatorResult, _element_indices
+from mdapy.calculators._base import (
+    WITHOUT_VIRIAL,
+    Calculator,
+    CalculatorResult,
+    _element_indices,
+    _Part,
+    _reversed_part,
+)
 from mdapy.calculators._eam import _Numbers
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
@@ -125,6 +132,10 @@ class ADP(Calculator):
         Cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+    # on one thread under MPI, each pair once among the processes
+    _pairs_once = True
+
     def __init__(
         self,
         path: str | os.PathLike,
@@ -188,10 +199,13 @@ class ADP(Calculator):
         progress: Any = None,
         cancel: Any = None,
     ) -> CalculatorResult:
+        properties = tuple(properties)
         wanted = self._check_properties(properties)
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted)
+        # the virials unless left out, as the dynamics may
+        virial = WITHOUT_VIRIAL not in properties
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_adp(
@@ -204,14 +218,70 @@ class ADP(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                virial,
             )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,
             forces=forces,
-            virial=virials.sum(axis=0),
+            virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
+        )
+
+    def _split(
+        self,
+        atoms: tuple,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+        ids: np.ndarray,
+        once: tuple | None = None,
+    ) -> _Part:
+        """The part of the first owned atoms, a process's of MPI, of the
+        species, positions and box matrix of atoms (a system with ghosts):
+        their densities, dipoles and quadrupoles, sent with the slopes of their
+        embedding functions to their ghosts by forward, then their forces."""
+        virial = (
+            bool({"virial", "atomic_virials"} & set(properties))
+            and WITHOUT_VIRIAL not in properties
+        )
+        arrays = (
+            atoms[0],
+            atoms[1],
+            atoms[2],
+            neighbors.offsets,
+            neighbors.j,
+            neighbors.shifts,
+        )
+        if once is not None:
+            # on one thread each pair once among the processes, those given,
+            # as LAMMPS's newton on: the sums of the ghosts back to their
+            # atoms, the states to the ghosts, the forces on the ghosts back
+            pairs = (*arrays[:3], *once)
+            sums = _native.adp_densities_once(self.__potential, *pairs, owned)
+            sums = np.ascontiguousarray(reverse(sums))
+            embedding, state = _native.adp_embedding(self.__potential, arrays[0], sums)
+            state = np.ascontiguousarray(forward(state))
+            energies, forces, virials = _native.adp_forces_once(
+                self.__potential, *pairs, owned, state, virial
+            )
+            energies[:owned] += embedding
+            return _reversed_part(energies, forces, virials, properties, reverse)
+        with neighbors._reading():
+            given, state = _native.adp_densities(self.__potential, *arrays, owned)
+            state = np.ascontiguousarray(forward(state))
+            energies, forces, virials = _native.adp_forces(
+                self.__potential, *arrays, state, given, virial
+            )
+        return _Part(
+            float(energies.sum()),
+            forces,
+            virials.sum(axis=0) if virials is not None else np.full((3, 3), np.nan),
+            energies,
+            virials,
         )
 
     def __repr__(self) -> str:

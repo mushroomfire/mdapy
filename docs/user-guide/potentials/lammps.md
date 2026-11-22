@@ -12,7 +12,7 @@ calculator.compute(system, ("energy", "forces", "virial"))
 calculator.close()
 ```
 
-`LAMMPS(pair, elements, *, commands="", cmdargs=(), cutoff=None)` makes any
+`LAMMPS(pair, elements, *, commands="", cmdargs=(), cutoff=None, comm=None)` makes any
 interaction that LAMMPS computes a calculator, through the LAMMPS Python
 module, installed as the
 [LAMMPS documentation](https://docs.lammps.org/Python_install.html)
@@ -31,11 +31,13 @@ describes.
 | `commands` | str | `""` | | LAMMPS commands run before `pair`, such as `newton on` |
 | `cmdargs` | sequence of str | `()` | | command-line arguments of LAMMPS, such as `["-k", "on", "t", "4", "-sf", "kk"]` for Kokkos with four threads |
 | `cutoff` | float64 | `None` | Å | the largest cutoff of the interaction; asked from LAMMPS when not given, which LAMMPS older than 30 Sep 2026 cannot tell |
+| `comm` | mpi4py communicator | `None` | | the processes LAMMPS computes on, such as `MPI.COMM_SELF` for a LAMMPS of its own on each process; by default those of `MPI.COMM_WORLD`: see [On many processes](../simulation/processes.md#a-simulation-on-each-process) |
 
 | Attribute or method | Meaning |
 |---|---|
 | `elements` | the element of each atom type |
 | `cutoff` | the largest cutoff of the interaction in Å |
+| `comm` | the processes LAMMPS computes on, or `None` |
 | `compute(system, properties, *, neighbors=None)` | every property; LAMMPS searches its own neighbors, so `neighbors` is not used |
 | `close()` | closes the LAMMPS instance; the next computation starts a new one |
 
@@ -48,7 +50,8 @@ directions LAMMPS has fixed boundaries around the atoms. With Kokkos, LAMMPS
 is shut down when Python exits.
 
 The constructor raises `InvalidParameter` when LAMMPS rejects the commands,
-with the message of LAMMPS, or cannot tell the cutoff that is not given, and
+with the message of LAMMPS, cannot tell the cutoff that is not given, or cannot run
+on the processes of `comm`, as a LAMMPS without MPI on more than one, and
 `ImportError` without the LAMMPS Python module; `compute` raises
 `InvalidParameter` for atoms of an element that no atom type has.
 

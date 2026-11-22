@@ -74,10 +74,14 @@ std::vector<std::int64_t> reverse_pairs(std::int64_t n, const std::int64_t* offs
 void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
             const index_t* neighbors, const std::int8_t* shifts, double* energies,
             double* forces, double* virials, const Control& control, bool heat,
-            const double* positions, const double* matrix) {
+            const double* positions, const double* matrix, const std::int64_t* given) {
     // the pairs reversed are quick: cancelled, but not in the progress
-    const std::vector<std::int64_t> reverse =
-        reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+    std::vector<std::int64_t> found;
+    if (given == nullptr) {
+        found = reverse_pairs(n, offsets, neighbors, shifts, {control.cancel, {}});
+        given = found.data();
+    }
+    const std::int64_t* reverse = given;
     parallel_for(
         n, 0,
         [&](std::int64_t begin, std::int64_t end) {
@@ -92,7 +96,7 @@ void gather(const Shares& shares, std::int64_t n, const std::int64_t* offsets,
                     }
                 }
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
-                    const auto q = static_cast<std::size_t>(reverse[static_cast<std::size_t>(p)]);
+                    const auto q = static_cast<std::size_t>(reverse[p]);
                     const double* t_ij = &shares.derivative[3 * static_cast<std::size_t>(p)];
                     const double* t_ji = &shares.derivative[3 * q];
                     for (int a = 0; a < 3; ++a) {

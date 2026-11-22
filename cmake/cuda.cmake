@@ -8,8 +8,8 @@
 # toolkit. The kernels and the host code they share with mdapy._core form a
 # static library compiled by nvcc and the host compiler; the bindings are
 # compiled by the host compiler alone, so nvcc never reads nanobind. The CUDA
-# runtime is linked statically, and cuRAND is used on the device through its
-# headers alone: the module needs only the driver.
+# runtime is linked statically: the module needs only the driver. Its random
+# numbers are those of core/philox.h, the processor's.
 # It is installed in the package MDAPY_CUDA_PACKAGE: mdapy, or mdapy_cuda12 for
 # the package mdapy-cuda12.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)

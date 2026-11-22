@@ -41,3 +41,5 @@
 ::: mdapy.simulation.controls.Wall
 
 ::: mdapy.simulation.controls.Indenter
+
+::: mdapy.simulation.controls.ElectronicStopping

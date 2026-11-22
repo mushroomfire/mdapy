@@ -2,7 +2,7 @@
 
 <p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) · [LAMMPS](in-lammps.md)</p>
 
-`mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001)`
+`mdapy.simulation.MolecularDynamics(system, potential, *, timestep=0.001, log=None, beads=1, comm=None)`
 runs molecular dynamics of a system and gives back the thermodynamic state,
 the atoms along the way and the system at the end. With any calculator of MDAPY,
 such as [EAM](../potentials/eam.md), [NEP](../potentials/nep.md) or an
@@ -98,6 +98,8 @@ they are, whatever the box, are [`SpatialBinning`](../analysis/spatial-binning.m
 | `potential` | calculator | | | the interaction: a `LAMMPS` calculator, run in LAMMPS, or any other calculator, run in MDAPY, which needs energies and forces, and the virial for a barostat |
 | `timestep` | float64 | 0.001 | ps | the time step |
 | `log` | str, path or stream | `None` | | writes the runs to this file, which it overwrites, or to this stream, such as `sys.stdout`: see [Log](records.md#log) |
+| `beads` | int32 | 1 | | the beads of the ring polymer of each atom, for quantum nuclei: see [Path integrals](pimd.md) |
+| `comm` | mpi4py communicator | `None` | | the processes that run this dynamics together; `MPI.COMM_SELF` for a dynamics of its own on each process; by default every process MPI started: see [On many processes](processes.md#a-simulation-on-each-process) |
 
 ## Running
 
@@ -117,8 +119,8 @@ they are, whatever the box, are [`SpatialBinning`](../analysis/spatial-binning.m
 | `pressure` | float64 or (float64, float64) | | GPa | the pressure of the barostat, or its values at the start and end; for `"npt"`, `"nph"` and `"nphug"`, which takes one value |
 | `barostat` | str | `"iso"` | | how the box may change: `"iso"`, `"aniso"`, `"tri"`, `"xy"`, `"x"`, `"y"` or `"z"`: see [Barostats](ensembles.md#barostats) |
 | `thermostat` | str | `"nose-hoover"` | | a chain of Nosé–Hoover thermostats, or `"langevin"` dynamics: see [Thermostats](ensembles.md#thermostats) |
-| `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat |
-| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat |
+| `thermostat_damping` | float64 | 100 time steps | ps | the damping time of the thermostat, positive; with beads `math.inf` leaves the centroids free: see [Path integrals](pimd.md#parameters) |
+| `barostat_damping` | float64 | 1000 time steps | ps | the damping time of the barostat, positive |
 | `seed` | int32 | `None` | | seed of the random forces of Langevin dynamics, positive (at most 900000000 in LAMMPS); unpredictable when `None` |
 | `keep_momentum` | bool | `False` | | with Langevin dynamics, random forces that keep the total momentum: see [Thermostats](ensembles.md#thermostats) |
 | `hugoniot`, `shock_velocity`, `msst` | | `None` | | for `"nphug"` and `"msst"`: see [Hugoniostat](hugoniostat.md#parameters) and [Multiscale shock technique](msst.md#parameters) |
@@ -189,7 +191,8 @@ LAMMPS calculator. `velocities` and `thermal_velocities` raise `InvalidParameter
 temperature or a seed that is not positive, and `thermal_velocities` for a
 mask that is not one bool for each atom and `MissingProperty` for a system
 without masses or elements; `run` for a negative number of
-steps, an unknown ensemble, barostat or thermostat, a thermostat without a
+steps, an unknown ensemble, barostat or thermostat, a damping that is not
+positive, `thermostat_damping=math.inf` without beads, a thermostat without a
 positive temperature, a barostat without a pressure, `"aniso"` or `"tri"` in
 a box that is not periodic, `"xy"` in a box not periodic along its first two
 vectors, `"x"`, `"y"` or `"z"` in a box not periodic along that axis or not

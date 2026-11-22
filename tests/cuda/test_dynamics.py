@@ -833,3 +833,154 @@ def test_the_noise_of_successive_steps_is_independent():
         assert first.std() == pytest.approx(1.0, abs=0.01)
         correlations = np.corrcoef(first.T, second.T)[:3, 3:]
         assert np.abs(correlations).max() < 0.02
+
+
+@pytest.mark.parametrize("keep_momentum", [False, True])
+def test_the_noise_of_the_processor_and_the_gpu_is_the_same(keep_momentum):
+    """Both draw the noise of each atom from its index and the step with the
+    same counter-based generator (core/philox.h), whatever order the GPU keeps
+    its atoms in: Langevin dynamics and Langevin baths run alike, in double
+    precision to the rounding of their functions."""
+    from mdapy.simulation.controls import Langevin
+
+    system = crystal()
+    cpu = EAM.zhou(["Cu", "Ni"])
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    z = system["positions"][:, 2]
+    bottom, top = z < z.min() + 4.0, z > z.max() - 4.0
+    runs = []
+    for potential in (gpu, cpu):
+        with MolecularDynamics(system, potential, timestep=0.002) as md:
+            md.velocities(400, seed=1)
+            md.run(
+                200, ensemble="nvt", temperature=400, thermostat="langevin", seed=7,
+                keep_momentum=keep_momentum,
+            )  # fmt: skip
+            md.run(
+                200, ensemble="nve",
+                controls=[Langevin(bottom, 600.0, damping=0.1, seed=3),
+                          Langevin(top, 100.0, damping=0.1, seed=4)],
+            )  # fmt: skip
+            runs.append(md.system)
+    a, b = runs
+    np.testing.assert_allclose(a["positions"], b["positions"], rtol=0, atol=1e-8)
+    np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-8)
+
+
+def test_a_run_on_the_gpu_finished_from_its_restart(tmp_path):
+    """The run that stopped and the run that did not, on the GPU, with a
+    Langevin thermostat, then baths and a deformation: alike to the rounding
+    of forces summed in other orders."""
+    from mdapy.simulation.controls import Deform, Langevin
+
+    system = crystal()
+    gpu = EAM.zhou(["Cu", "Ni"], device="cuda", precision="double")
+    z = system["positions"][:, 2]
+    bath = z < z.min() + 4.0
+    options = {
+        "ensemble": "nve", "thermo": 20,
+        "controls": [Langevin(bath, 600.0, damping=0.1, seed=3), Deform(xx=1e-3)],
+    }  # fmt: skip
+    with MolecularDynamics(system, gpu, timestep=0.002) as md:
+        md.velocities(400, seed=1)
+        md.run(100, **options)
+        whole = md.system
+    path = tmp_path / "gpu.restart"
+    with MolecularDynamics(system, gpu, timestep=0.002) as md:
+        md.velocities(400, seed=1)
+        frames = md.iterate(
+            100, save_every=50, restart=path, restart_every=50, **options
+        )
+        for frame in frames:
+            if frame.info["timestep"] == 100:
+                break
+        frames.close()
+    again = MolecularDynamics.load(path, gpu)
+    assert again.step == 50
+    again.resume()
+    np.testing.assert_allclose(again.system["positions"], whole["positions"], atol=1e-8)
+    # the boxes each atom crossed before the restart and after
+    np.testing.assert_array_equal(again.system["image"], whole["image"])
+    np.testing.assert_allclose(
+        again.system["velocities"], whole["velocities"], atol=1e-8
+    )
+    np.testing.assert_allclose(again.system.box.matrix, whole.box.matrix, atol=1e-10)
+
+
+@pytest.mark.parametrize("precision", ["double", "mixed"])
+def test_electronic_stopping_as_on_the_processor(precision):
+    """Atoms of a few hundred eV slowed by the electrons in a group with a
+    Langevin bath and the watched forces of a moved layer on the GPU: in
+    double precision the run of the processor, the energy lost to the
+    electrons that of the processor in mixed precision too, to the chaos of
+    a short cascade; the atom of a table too short stops the run."""
+    from mdapy.simulation.controls import ElectronicStopping, Langevin, Move
+
+    system = crystal(8)
+    z = system["positions"][:, 2]
+    bottom, top = z < z.min() + 2.0, z > z.max() - 2.0
+    v = np.zeros((len(system), 3))
+    v[[40, 900, 1500]] = [
+        [250.0, 90.0, -40.0],
+        [-120.0, 180.0, 70.0],
+        [50.0, -60.0, 220.0],
+    ]
+    system = system.with_columns(velocities=v)
+    energies = np.geomspace(1.0, 3000.0, 50)
+    stopping = ElectronicStopping(
+        {"Cu": (energies, 0.15 * np.sqrt(energies)),
+         "Ni": (energies, 0.12 * np.sqrt(energies))},
+        min_energy=10.0, mask=~bottom,
+    )  # fmt: skip
+    controls = [Move(bottom, (0.0, 0.0, 0.0), name="base"),
+                Langevin(top, 300.0, damping=0.1, seed=3), stopping]  # fmt: skip
+    out = []
+    for potential in (
+        EAM.zhou(["Cu", "Ni"], device="cuda", precision=precision),
+        EAM.zhou(["Cu", "Ni"]),
+    ):
+        with MolecularDynamics(system, potential, timestep=0.0005) as md:
+            md.run(200, thermo=50, controls=controls)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    lost = tb["electronic_loss"].to_numpy()
+    assert lost[-1] > 1.0
+    rtol = 1e-9 if precision == "double" else 1e-3
+    np.testing.assert_allclose(ta["electronic_loss"].to_numpy(), lost, rtol=rtol)
+    if precision == "double":
+        d = (a["positions"] - b["positions"]) @ np.linalg.inv(a.box.matrix)
+        d = (d - np.round(d)) @ a.box.matrix
+        assert np.abs(d).max() < 1e-7
+        np.testing.assert_allclose(a["velocities"], b["velocities"], rtol=0, atol=1e-6)
+    short = ElectronicStopping({"Cu": (energies[:5], energies[:5]),
+                                "Ni": (energies[:5], energies[:5])})  # fmt: skip
+    with MolecularDynamics(system, EAM.zhou(["Cu", "Ni"], device="cuda"),
+                           timestep=0.0005) as md:  # fmt: skip
+        with pytest.raises(CalculationFailed, match="faster than the stopping table"):
+            md.run(5, controls=[short])
+
+
+def test_overlay_as_on_the_processor():
+    """EAM and ZBL added together on the GPU in a knock-on run: in double
+    precision the run of the processor."""
+    from mdapy.calculators import ZBL, Overlay
+
+    system = crystal(8)
+    v = np.zeros((len(system), 3))
+    v[40] = [300.0, 120.0, -60.0]
+    system = system.with_columns(velocities=v)
+    out = []
+    for device in ("cuda", "cpu"):
+        overlay = Overlay([EAM.zhou(["Cu", "Ni"], device=device, precision="double"),
+                           ZBL(["Cu", "Ni"], 1.0, 2.0, device=device,
+                               precision="double")])  # fmt: skip
+        with MolecularDynamics(system, overlay, timestep=0.0005) as md:
+            md.run(200, thermo=50)
+            out.append((md.system, md.thermo))
+    (a, ta), (b, tb) = out
+    d = (a["positions"] - b["positions"]) @ np.linalg.inv(a.box.matrix)
+    d = (d - np.round(d)) @ a.box.matrix
+    assert np.abs(d).max() < 1e-7
+    np.testing.assert_allclose(
+        ta["potential_energy"], tb["potential_energy"], rtol=1e-9
+    )

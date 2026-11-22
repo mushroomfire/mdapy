@@ -26,6 +26,10 @@
 
 ::: mdapy.calculators.UhlenbeckFord
 
+::: mdapy.calculators.ZBL
+
+::: mdapy.calculators.Overlay
+
 ::: mdapy.calculators.Springs
 
 ::: mdapy.calculators.NEP

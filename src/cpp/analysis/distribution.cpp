@@ -130,10 +130,10 @@ void count_neighbors(const double* positions, std::int64_t n, const double* matr
         control);
 }
 
-void structure_factor(const double* positions, std::int64_t n, const double* matrix,
-                      const std::int32_t* type, int types, double q_max, int bins,
-                      std::vector<double>& sums, std::vector<std::int64_t>& vectors,
-                      std::int64_t block, const Control& control) {
+void wave_densities(const double* positions, std::int64_t n, const double* matrix,
+                    const std::int32_t* type, int types, double q_max,
+                    std::vector<double>& lengths, std::vector<double>& rho_re,
+                    std::vector<double>& rho_im, std::int64_t block, const Control& control) {
     constexpr double kTwoPi = 6.283185307179586476925;
     const double* m = matrix;
     // reciprocal vectors b_i, rows of 2 pi (H^-1)^T
@@ -167,9 +167,10 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
     }
     // the vectors of the half space: h > 0, or h = 0 and k > 0, or h = k = 0, l > 0
     struct Vector {
-        int h, k, l, bin;
+        int h, k, l;
     };
     std::vector<Vector> found;
+    lengths.clear();
     for (int h = 0; h <= reach[0]; ++h) {
         for (int k = (h == 0 ? 0 : -reach[1]); k <= reach[1]; ++k) {
             for (int l = (h == 0 && k == 0 ? 1 : -reach[2]); l <= reach[2]; ++l) {
@@ -179,8 +180,8 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
                 }
                 const double length = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2]);
                 if (length <= q_max) {
-                    const int bin = std::min(static_cast<int>(length / q_max * bins), bins - 1);
-                    found.push_back({h, k, l, bin});
+                    found.push_back({h, k, l});
+                    lengths.push_back(length);
                 }
             }
         }
@@ -210,8 +211,8 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
             order[static_cast<std::size_t>(next[type[i]]++)] = i;
         }
     }
-    std::vector<double> rho_re(static_cast<std::size_t>(count) * types, 0.0);
-    std::vector<double> rho_im(static_cast<std::size_t>(count) * types, 0.0);
+    rho_re.assign(static_cast<std::size_t>(count) * types, 0.0);
+    rho_im.assign(static_cast<std::size_t>(count) * types, 0.0);
     std::vector<double> re[3], im[3];
     for (int d = 0; d < 3; ++d) {
         re[d].resize(static_cast<std::size_t>(block) * width[d]);
@@ -284,6 +285,16 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
             },
             control);
     }
+}
+
+void structure_factor(const double* positions, std::int64_t n, const double* matrix,
+                      const std::int32_t* type, int types, double q_max, int bins,
+                      std::vector<double>& sums, std::vector<std::int64_t>& vectors,
+                      std::int64_t block, const Control& control) {
+    std::vector<double> lengths, rho_re, rho_im;
+    wave_densities(positions, n, matrix, type, types, q_max, lengths, rho_re, rho_im, block,
+                   control);
+    const auto count = static_cast<std::int64_t>(lengths.size());
     // the products by pair of types, summed in bins
     const std::size_t pairs = static_cast<std::size_t>(types) * types;
     using Partial = std::pair<std::vector<double>, std::vector<std::int64_t>>;
@@ -294,17 +305,18 @@ void structure_factor(const double* positions, std::int64_t n, const double* mat
         [&](std::int64_t begin, std::int64_t end) {
             Partial local(std::vector<double>(pairs * bins, 0.0), std::vector<std::int64_t>(bins, 0));
             for (std::int64_t v = begin; v < end; ++v) {
-                const Vector& q = found[static_cast<std::size_t>(v)];
+                const int bin = std::min(
+                    static_cast<int>(lengths[static_cast<std::size_t>(v)] / q_max * bins), bins - 1);
                 const double* sr = &rho_re[static_cast<std::size_t>(v) * types];
                 const double* si = &rho_im[static_cast<std::size_t>(v) * types];
                 for (int a = 0; a < types; ++a) {
                     for (int c = 0; c < types; ++c) {
                         // Re(rho_a conj(rho_c))
-                        local.first[(static_cast<std::size_t>(a) * types + c) * bins + q.bin] +=
+                        local.first[(static_cast<std::size_t>(a) * types + c) * bins + bin] +=
                             sr[a] * sr[c] + si[a] * si[c];
                     }
                 }
-                ++local.second[q.bin];
+                ++local.second[bin];
             }
             return local;
         },

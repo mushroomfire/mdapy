@@ -24,6 +24,15 @@ template <class Shift>
 inline double pair_vector(const double* xi, const double* xj, const Shift* shift,
                           const double* h, double* r) {
     double r2 = 0.0;
+    // most pairs cross no boundary: their shift is left out, which adds
+    // nothing to the difference
+    if ((shift[0] | shift[1] | shift[2]) == 0) {
+        for (int e = 0; e < 3; ++e) {
+            r[e] = xj[e] - xi[e];
+            r2 += r[e] * r[e];
+        }
+        return r2;
+    }
     for (int e = 0; e < 3; ++e) {
         r[e] = xj[e] - xi[e] + shift[0] * h[e] + shift[1] * h[3 + e] + shift[2] * h[6 + e];
         r2 += r[e] * r[e];

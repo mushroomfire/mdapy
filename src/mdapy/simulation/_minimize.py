@@ -114,23 +114,31 @@ def _rows_times(rows: np.ndarray, matrix: np.ndarray) -> np.ndarray:
 class _Neighbors:
     """The neighbor lists of a calculator for configurations that change
     little from one to the next: one search, with a skin, serves until an
-    atom has moved half as far."""
+    atom has moved half as far; as it is for MDAPY's potentials, which pass
+    over the pairs beyond their cutoffs, else the pairs within the cutoff."""
 
-    def __init__(self, cutoff: float):
-        self.__cutoff = float(cutoff)
+    def __init__(self, calculator: Any):
+        self.__cutoff = float(calculator.cutoff)
+        self.__wider = bool(getattr(calculator, "_takes_wider_lists", False))
         self.__wide: NeighborList | None = None
 
     def of(self, system: System) -> NeighborList | None:
-        """The list of system within the cutoff, or None for a calculator
+        """The list of system for the calculator, or None for a calculator
         without a finite cutoff."""
         cutoff = self.__cutoff
         if not 0.0 < cutoff < np.inf:
             return None
+
+        def pairs(wide: NeighborList) -> NeighborList | None:
+            if self.__wider:
+                return wide._reuse(system, cutoff)
+            return wide._follow(system, cutoff)
+
         wide = self.__wide
-        neighbors = wide._follow(system, cutoff) if wide is not None else None
+        neighbors = pairs(wide) if wide is not None else None
         if neighbors is None:
-            self.__wide = NeighborList.build(system, cutoff + _SKIN)
-            neighbors = self.__wide._follow(system, cutoff)
+            self.__wide = wide = NeighborList.build(system, cutoff + _SKIN)
+            neighbors = pairs(wide)
         return neighbors
 
 
@@ -231,6 +239,7 @@ def minimize(
     callback: Any = None,
     log: Any = None,
     log_every: int = 10,
+    comm: Any = None,
 ) -> MinimizeResult:
     """Minimizes the energy over the positions, and optionally the box, with
     FIRE 2.0.
@@ -278,6 +287,11 @@ def minimize(
         reads the rows. Default None, writing none.
     log_every : int32, optional
         Writes a row to the log every this many steps. Default 10.
+    comm : mpi4py communicator, optional
+        The processes that share the forces of this minimization, each
+        holding the same system; ``MPI.COMM_SELF`` minimizes on each
+        process alone. Default None: every process that MPI started. A
+        LAMMPS calculator computes on its own processes.
 
     Returns
     -------
@@ -288,7 +302,9 @@ def minimize(
     ------
     InvalidParameter
         For invalid options, a calculator without the properties needed,
-        or a log that cannot be written.
+        a log that cannot be written, comm that is not a communicator, or
+        processes of one minimization that hold different systems or
+        options.
     MissingProperty
         If the system has neither masses nor elements.
     """
@@ -356,13 +372,41 @@ def minimize(
             positions=origin + _rows_times(variables[:n], deformation.T)
         )
 
-    lists = _Neighbors(calculator.cutoff)
+    lists = _Neighbors(calculator)
+    # under MPI, the forces of MDAPY's potentials shared among the processes,
+    # every process taking the same steps over every atom
+    from mdapy.calculators._lammps import LAMMPS
+    from mdapy.simulation import _domain
+
+    comm = _domain.resolved(comm)
+    # the processes of a LAMMPS that computes on several
+    lammps_comm = (
+        _domain.resolved(calculator.comm)
+        if isinstance(calculator, LAMMPS) and calculator._mpi
+        else None
+    )
+    inputs = (*_domain.of_system(system), max_force, max_steps, max_step, timestep,
+              cell, pressure, max_stress, save_every, log_every,
+              type(calculator).__name__)  # fmt: skip
+    for c in (comm, lammps_comm):
+        _domain.agree(c, "the system or the options of a minimization", *inputs)
+    shared = None
+    if comm is not None:
+        try:
+            shared = _domain.SharedForces(comm, calculator, _SKIN)
+        except InvalidParameter:  # one that does not split, as LAMMPS
+            shared = None
 
     def evaluate(variables: np.ndarray):
         # the result, the largest force, the stress, the forces on the
         # variables and the largest deviation of the stress from its target
         current = place(variables)
-        result = calculator.compute(current, properties, neighbors=lists.of(current))
+        if shared is not None:
+            result = shared.compute(current, properties)
+        else:
+            result = calculator.compute(
+                current, properties, neighbors=lists.of(current)
+            )
         if not (np.isfinite(result.energy) and np.isfinite(result.forces).all()):
             raise CalculationFailed(
                 "the energy or the forces are not finite: atoms may overlap"
@@ -410,7 +454,9 @@ def minimize(
 
     if save_every is not None:
         save()
-    writer = _Log(log)
+    writer = _Log(
+        log, active=all(c is None or c.Get_rank() == 0 for c in (comm, lammps_comm))
+    )
     if writer.on:
         lengths = " ".join(f"{v:.4f}" for v in np.linalg.norm(box0.matrix, axis=1))
         relax = (

@@ -38,6 +38,10 @@ struct Neighbors::Impl {
     // the image of the box, n_k = 1 and l from the corner of the box.
     bool with_cells = false;
     int3 cells{1, 1, 1};
+    // The number of cells; under MPI the ghosts are sorted after the atoms of
+    // the process, by keys of cells offset by it.
+    int total = 1;
+    bool ghosted = false;
     Buffer<float4> local_single;
     Buffer<double4a> local_double;
     std::uint64_t local_version[2] = {0, 0};  // of the atoms they were made from

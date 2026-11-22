@@ -33,7 +33,9 @@ def _finalize_kokkos() -> None:
         _kokkos[-1].finalize()
 
 
-def _lammps(cmdargs: Sequence[str]) -> Any:
+def _lammps(cmdargs: Sequence[str], comm: Any = None) -> Any:
+    """An instance of LAMMPS, on the processes of comm, an mpi4py
+    communicator, or of its own when None; a LAMMPS without MPI on one."""
     try:
         from lammps import lammps
     except ImportError:
@@ -42,7 +44,21 @@ def _lammps(cmdargs: Sequence[str]) -> Any:
             "https://docs.lammps.org/Python_install.html"
         ) from None
     args = list(cmdargs)
-    instance = lammps(cmdargs=_ARGS + args)
+    if comm is None:
+        instance = lammps(cmdargs=_ARGS + args)
+    else:
+        try:
+            instance = lammps(cmdargs=_ARGS + args, comm=comm)
+        except RuntimeError as error:
+            if "MPI" not in str(error):
+                raise
+            # a LAMMPS without MPI, or with another MPI than mpi4py's
+            if comm.Get_size() > 1:
+                raise InvalidParameter(
+                    f"LAMMPS cannot run on the {comm.Get_size()} processes of comm: "
+                    f"{error}"
+                ) from None
+            instance = lammps(cmdargs=_ARGS + args)
     if any(a in ("-k", "-kokkos") for a in args) and not _kokkos:
         atexit.register(_finalize_kokkos)
     if any(a in ("-k", "-kokkos") for a in args):
@@ -89,6 +105,10 @@ class LAMMPS(Calculator):
     cutoff : float64, optional
         The largest cutoff of the interaction in Å; asked from LAMMPS when
         not given, which LAMMPS older than 30 Sep 2026 cannot tell.
+    comm : mpi4py communicator, optional
+        The processes LAMMPS computes on, such as ``MPI.COMM_SELF`` for a
+        LAMMPS of its own on each process. Default None, those of
+        ``MPI.COMM_WORLD``, as LAMMPS takes them.
 
     Attributes
     ----------
@@ -96,12 +116,15 @@ class LAMMPS(Calculator):
         The element of each atom type.
     cutoff : float64
         The largest cutoff of the interaction in Å.
+    comm : mpi4py communicator or None
+        The processes LAMMPS computes on.
 
     Raises
     ------
     InvalidParameter
-        If LAMMPS rejects the commands, or cannot tell the cutoff when it is
-        not given.
+        If LAMMPS rejects the commands, cannot tell the cutoff when it is
+        not given, or cannot run on the processes of comm, as a LAMMPS
+        without MPI on more than one.
     ImportError
         If the LAMMPS Python module is not installed.
     """
@@ -114,6 +137,7 @@ class LAMMPS(Calculator):
         commands: str = "",
         cmdargs: Sequence[str] = (),
         cutoff: float | None = None,
+        comm: Any = None,
     ):
         self.pair = pair
         self.elements = tuple(elements)
@@ -122,6 +146,7 @@ class LAMMPS(Calculator):
             raise InvalidParameter(f"elements must be chemical symbols, not {unknown}")
         self.commands = commands
         self.cmdargs = tuple(cmdargs)
+        self.comm = comm
         self.__holder: list = []
         self.__key: tuple | None = None
         # the box of the system and the box LAMMPS has, which encloses the
@@ -129,7 +154,9 @@ class LAMMPS(Calculator):
         self.__source = self._box = Box(10.0)
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
         # the cutoff, from a box without atoms
-        lmp = _lammps(self.cmdargs)
+        lmp = _lammps(self.cmdargs, comm)
+        # whether this LAMMPS shares its work among processes of MPI
+        self._mpi = bool(lmp.has_mpi_support)
         try:
             self.__setup(lmp, Box(10.0))
             lmp.command("run 0 post no")
@@ -250,7 +277,7 @@ neigh_modify every 1 delay 0 check yes
         if key != self.__key:
             self.close()
             self._box, self.__source = _enclosing(box, system["positions"]), box
-            lmp = _lammps(self.cmdargs)
+            lmp = _lammps(self.cmdargs, self.comm)
             self.__holder.append(lmp)
             self.__setup(lmp, self._box)
             x, _ = self.__frame(system["positions"])

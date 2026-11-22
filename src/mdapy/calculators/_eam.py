@@ -13,7 +13,14 @@ import numpy as np
 
 from mdapy._core import calculators as _native
 from mdapy.calculators import _gpu, _zhou
-from mdapy.calculators._base import HEAT_FLUX_TERMS, Calculator, CalculatorResult
+from mdapy.calculators._base import (
+    HEAT_FLUX_TERMS,
+    WITHOUT_VIRIAL,
+    Calculator,
+    CalculatorResult,
+    _Part,
+    _reversed_part,
+)
 from mdapy.core.system import System
 from mdapy.core.threads import _native_token
 from mdapy.elements import SYMBOLS
@@ -317,6 +324,10 @@ class EAM(Calculator):
         Cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+    # on one thread under MPI, each pair once among the processes
+    _pairs_once = True
+
     # its forces are pairwise, and their virials split in halves
     _heat_flux = True
 
@@ -566,6 +577,8 @@ class EAM(Calculator):
         species = self._species(system)
         if self.__gpu is not None:  # with a neighbor list of its own on the GPU
             return self.__gpu.compute(system, species, wanted, heat=heat)
+        # the virials unless left out, as the dynamics may
+        virial = WITHOUT_VIRIAL not in properties or heat
         neighbors = _given_or_built(system, self.cutoff, neighbors)
         with neighbors._reading():
             energies, forces, virials = _native.compute_eam(
@@ -579,14 +592,72 @@ class EAM(Calculator):
                 progress,
                 _native_token(cancel),
                 heat,
+                virial,
             )
         return CalculatorResult(
             energy=float(energies.sum()),
             atomic_energies=energies,
             forces=forces,
-            virial=virials.sum(axis=0),
+            virial=virials.sum(axis=0) if virials is not None else None,
             atomic_virials=virials,
             volume=system.box.volume,
+        )
+
+    def _split(
+        self,
+        atoms: tuple,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+        ids: np.ndarray,
+        once: tuple | None = None,
+    ) -> _Part:
+        """The part of the first owned atoms, a process's of MPI, of the
+        species, positions and box matrix of atoms (a system with ghosts):
+        their densities, the slopes of their embedding functions sent to
+        their ghosts by forward, then their forces, whose pairs reach the
+        ghosts within the cutoff."""
+        heat = HEAT_FLUX_TERMS in properties
+        virial = (
+            bool({"virial", "atomic_virials"} & set(properties))
+            and WITHOUT_VIRIAL not in properties
+        ) or heat
+        arrays = (
+            atoms[0],
+            atoms[1],
+            atoms[2],
+            neighbors.offsets,
+            neighbors.j,
+            neighbors.shifts,
+        )
+        if once is not None:
+            # on one thread each pair once among the processes, those given,
+            # as LAMMPS's newton on: the densities of the ghosts back to their
+            # atoms, the slopes to the ghosts, the forces on the ghosts back
+            pairs = (*arrays[:3], *once)
+            rho = _native.eam_densities_once(self.__potential, *pairs, owned)
+            rho = np.ascontiguousarray(reverse(rho))
+            embedding, slopes = _native.eam_embedding(self.__potential, arrays[0], rho)
+            slopes = np.ascontiguousarray(forward(slopes))
+            energies, forces, virials = _native.eam_forces_once(
+                self.__potential, *pairs, owned, slopes, virial, heat
+            )
+            energies[:owned] += embedding
+            return _reversed_part(energies, forces, virials, properties, reverse)
+        with neighbors._reading():
+            embedding, slopes = _native.eam_densities(self.__potential, *arrays, owned)
+            slopes = np.ascontiguousarray(forward(slopes))
+            energies, forces, virials = _native.eam_forces(
+                self.__potential, *arrays, slopes, embedding, virial, heat
+            )
+        return _Part(
+            float(energies.sum()),
+            forces,
+            virials.sum(axis=0) if virials is not None else np.full((3, 3), np.nan),
+            energies,
+            virials,
         )
 
     def _species(self, system: System) -> np.ndarray:

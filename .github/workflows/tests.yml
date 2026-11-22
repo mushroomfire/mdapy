@@ -114,6 +114,35 @@ jobs:
           python -c "import mdapy; assert mdapy.index_dtype == 'int64'"
           pytest -q -n auto
 
+  # MDAPY's dynamics split among processes under mpirun, against the run of one
+  # process (tests/mpi); pytest checks the same with threads for processes
+  # (tests/simulation/test_domain.py).
+  mpi:
+    name: pytest — MPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: OpenMPI and mpi4py
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q openmpi-bin libopenmpi-dev
+          pip install mpi4py
+      - name: Install
+        run: pip install . -Ccmake.define.MDAPY_WERROR=ON
+      - name: Under mpirun
+        env:
+          MDAPY_NUM_THREADS: 1
+        run: |
+          for n in 1 2 3 4; do mpirun --oversubscribe -np $n python tests/mpi/check_bricks.py; done
+          mpirun --oversubscribe -np 4 python tests/mpi/check_dynamics.py
+          mpirun --oversubscribe -np 3 python tests/mpi/check_pimd.py
+          mpirun --oversubscribe -np 4 python tests/mpi/check_minimize.py
+          mpirun --oversubscribe -np 3 python tests/mpi/check_neb.py
+          mpirun --oversubscribe -np 4 python tests/mpi/check_comm.py
+
   # The GPU part, mdapy-cuda12, compiled for one architecture with CUDA 12.9 and
   # GCC, warnings as errors. The runner has no GPU: the module is only loaded.
   # Its tests run on a machine with a GPU.
@@ -130,7 +159,7 @@ jobs:
           wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update -q
-          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9 libcurand-dev-12-9
+          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9
           echo /usr/local/cuda-12.9/bin >> "$GITHUB_PATH"
       - name: Build mdapy-cuda12 for one architecture
         run: pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86-real -Ccmake.define.MDAPY_WERROR=ON
@@ -151,7 +180,7 @@ jobs:
         id: lammps
         with:
           path: lammps-wheel
-          key: lammps-stable_30Sep2026-manybody-meam-molecule-extra-compute-extra-fix-extra-pair-shock-voronoi-${{ runner.os }}-py3.13
+          key: lammps-stable_30Sep2026-manybody-meam-molecule-extra-compute-extra-fix-extra-pair-shock-voronoi-diffraction-${{ runner.os }}-py3.13
       - name: Build LAMMPS
         if: steps.lammps.outputs.cache-hit != 'true'
         run: |
@@ -159,7 +188,7 @@ jobs:
           cmake -S lammps/cmake -B lammps-build -D CMAKE_BUILD_TYPE=Release \
             -D BUILD_SHARED_LIBS=on -D BUILD_MPI=no -D BUILD_OMP=no \
             -D PKG_MANYBODY=on -D PKG_MEAM=on -D PKG_MOLECULE=on -D PKG_EXTRA-COMPUTE=on \
-            -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on -D PKG_SHOCK=on \
+            -D PKG_EXTRA-FIX=on -D PKG_EXTRA-PAIR=on -D PKG_SHOCK=on -D PKG_DIFFRACTION=on \
             -D PKG_VORONOI=on -D DOWNLOAD_VORO=on -D Python_EXECUTABLE="$(which python)"
           cmake --build lammps-build -j 4
           cmake --build lammps-build --target install-python
@@ -173,7 +202,7 @@ jobs:
           import lammps
           lmp = lammps.lammps(cmdargs=['-screen', 'none', '-log', 'none'])
           assert lmp.version() == 20260930, lmp.version()
-          missing = {'EXTRA-COMPUTE', 'EXTRA-FIX', 'EXTRA-PAIR', 'MANYBODY', 'MOLECULE', 'SHOCK', 'VORONOI'} - set(lmp.installed_packages)
+          missing = {'DIFFRACTION', 'EXTRA-COMPUTE', 'EXTRA-FIX', 'EXTRA-PAIR', 'MANYBODY', 'MOLECULE', 'SHOCK', 'VORONOI'} - set(lmp.installed_packages)
           assert not missing, missing
           "
       # OVITO for the comparisons with OVITO, at its reference version

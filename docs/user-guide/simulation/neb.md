@@ -1,10 +1,10 @@
 # Minimum energy paths
 
-<p class="runs-on" markdown>**Runs on** the processor · the [GPU](gpu.md) with a potential there · any calculator, each image a calculation of its own</p>
+<p class="runs-on" markdown>**Runs on** the processor, on [many processes](#on-many-processes) · the [GPU](gpu.md) with a potential there · any calculator, each image a calculation of its own</p>
 
 `mdapy.simulation.neb(initial, final, calculator, *, images=5, climb=True,
 spring=1.0, interpolation="linear", max_force=0.01, max_steps=1000,
-max_step=0.1, timestep=0.001, callback=None, log=None, log_every=10)` finds
+max_step=0.1, timestep=0.001, callback=None, log=None, log_every=10, comm=None)` finds
 the minimum energy path between two states with the nudged elastic band
 ([Jónsson et al. (1998)](../../reference/references.md#jonsson1998)): a chain
 of images between them, each pulled down across the path by the forces of the
@@ -74,6 +74,7 @@ with Zhou's EAM.*
 | `callback` | callable | `None` | | called after each step as `callback(step, images, energies, max_force)`, with the band as a tuple of `System`; returning True stops it |
 | `log` | str, path or stream | `None` | | writes the relaxation of the band to this file, which it overwrites, or to this stream, as the [log of molecular dynamics](records.md#log) does: a heading, then `step`, `max_force` (eV/Å), `barrier` (eV), `highest` (the image of highest energy) and `wall` (s) every `log_every` steps and at the last, and how it ended |
 | `log_every` | int32 | 10 | | writes a row to the log every this many steps |
+| `comm` | mpi4py communicator | `None` | | the processes that share the images; `MPI.COMM_SELF` for a band of its own on each process, or with a LAMMPS calculator on several processes; by default every process MPI started: see [On many processes](processes.md#a-simulation-on-each-process) |
 
 It returns an `NEBResult`:
 
@@ -147,6 +148,20 @@ band = neb(initial, final, calculators, images=5, max_force=0.05)
 
 The band of a machine-learned potential is a good start for one of DFT: give
 its images, `images=band.images[1:-1]`, to start the band of VASP near its end.
+
+## On many processes
+
+Started by `mpirun` or `srun`, as [molecular dynamics](processes.md) is, the processes
+share the images: each computes its own whole, image k on process k modulo their
+number, and every process holds the whole band at each step and gets the whole result.
+The path is that of one process, to the last bit. The main process writes the log; a
+`callback` that asks to stop on one process stops them all. With one calculator for
+each image, each process computes its images with theirs.
+
+<!-- skip-test -->
+```bash
+MDAPY_NUM_THREADS=1 mpirun -np 5 python band.py  # one image on each process
+```
 
 `neb` raises `InvalidParameter` for states with other atoms, elements or
 boxes, images that do not fit them, a number of images below 1, an unknown

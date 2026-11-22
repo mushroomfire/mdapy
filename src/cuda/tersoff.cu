@@ -156,13 +156,14 @@ __device__ inline Real vector_of(std::int64_t n, std::int64_t i, int k, const Re
 
 // The bond order b_ij of each bond and -dE/dzeta_ij, in planes of pairs.
 template <class Real>
-__global__ void tersoff_zeta(std::int64_t n, const Real4<Real>* x, Images<Real> images,
+__global__ void tersoff_zeta(std::int64_t n, std::int64_t centers, const Real4<Real>* x,
+                             Images<Real> images,
                              const std::int32_t* indices, const std::int32_t* counts,
                              TersoffTables<Real> t, Real* order, Real* prefactor) {
     __shared__ Real steps[81];
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
-    if (i >= n) return;
+    if (i >= centers) return;  // the centre of no term here
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
     const int e = t.elements;
@@ -220,7 +221,8 @@ __device__ inline void repulsion(const TersoffEntry<Real>& q, Real rsq, Real r, 
 // third atom of again, and its derivative is written once. Atomic: the energy
 // (1 plane of plane values) and the virial (9 planes) of each pair's share.
 template <class Real, bool Energy, bool Virial, bool Atomic>
-__global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Real>* x,
+__global__ void tersoff_terms(std::int64_t n, std::int64_t centers, std::int64_t plane,
+                              const Real4<Real>* x,
                               Images<Real> images, const std::int32_t* indices,
                               const std::int32_t* counts, TersoffTables<Real> t,
                               const Real* order, const Real* prefactor, Real4<Real>* derivative,
@@ -231,6 +233,11 @@ __global__ void tersoff_terms(std::int64_t n, std::int64_t plane, const Real4<Re
     fill_steps(images, steps);
     const std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * blockDim.x + threadIdx.x;
     if (i >= n) return;
+    if (i >= centers) {
+        ghost_terms<Real, Energy, Virial, Atomic>(n, plane, i, counts[i], derivative, own_force,
+                                                  share_energy, share_virial, energies, virials);
+        return;
+    }
     const Real third = Real(1) / Real(3);
     const Real4<Real> xi = x[i];
     const int si = static_cast<int>(xi.w);
@@ -447,21 +454,36 @@ public:
 
     double cutoff() const override { return cutoff_; }
     int species() const override { return elements_; }
+    // Under MPI the atoms of the process alone are the centres, the forces
+    // on the ghosts sent back; compute and compute_heat take every atom, as
+    // the parts of an overlay, whose ghosts reach twice the cutoff.
+    bool thin() const override { return true; }
+    bool reverse() const override { return true; }
+    void compute_stage(int stage, Atoms& atoms, Neighbors& neighbors, const Box& box,
+                       bool energy, bool virial, bool heat) override {
+        if (stage != 0) return;
+        if (heat) {
+            evaluate(atoms, neighbors, box, true, false, false, true, true);
+        } else {
+            evaluate(atoms, neighbors, box, energy, virial, false, false, true);
+        }
+    }
 
     void compute(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
                  bool atomic) override {
-        evaluate(atoms, neighbors, box, energy, virial, atomic, false);
+        evaluate(atoms, neighbors, box, energy, virial, atomic, false, false);
     }
 
     // without atomic each term stays whole with its centre, and the
     // derivatives give the virials of the heat flux
     void compute_heat(Atoms& atoms, Neighbors& neighbors, const Box& box) override {
-        evaluate(atoms, neighbors, box, true, false, false, true);
+        evaluate(atoms, neighbors, box, true, false, false, true, false);
     }
 
 private:
+    // centred: the first owned atoms alone are centres
     void evaluate(Atoms& atoms, Neighbors& neighbors, const Box& box, bool energy, bool virial,
-                  bool atomic, bool heat) {
+                  bool atomic, bool heat, bool centred) {
         Atoms::Impl& a = atoms.impl();
         Neighbors::Impl& l = neighbors.impl();
         if (l.n != a.n || l.builds == 0 || l.cutoff + 1e-12 < cutoff_) {
@@ -485,11 +507,12 @@ private:
         if (atomic && virial) at_least(share_virial_, static_cast<std::size_t>(9 * plane));
         own_force_.resize(static_cast<std::size_t>(3 * n));
         const unsigned g = blocks(n);
-        tersoff_zeta<Real><<<g, kBlock>>>(n, x, b, indices, counts, t, order_.data(),
+        const std::int64_t centers = centred ? a.active() : n;
+        tersoff_zeta<Real><<<g, kBlock>>>(n, centers, x, b, indices, counts, t, order_.data(),
                                           prefactor_.data());
         MDAPY_LAUNCHED();
         const auto terms = [&](auto kernel) {
-            kernel<<<g, kBlock>>>(n, plane, x, b, indices, counts, t, order_.data(),
+            kernel<<<g, kBlock>>>(n, centers, plane, x, b, indices, counts, t, order_.data(),
                                   prefactor_.data(), derivative_.data(), own_force_.data(),
                                   share_energy_.data(), share_virial_.data(), a.energies.data(),
                                   a.virials.data());

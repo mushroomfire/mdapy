@@ -17,6 +17,8 @@ from mdapy.calculators._base import (
     Calculator,
     CalculatorResult,
     _element_indices,
+    _Part,
+    _reversed_part,
 )
 from mdapy.core._frames import Frames
 from mdapy.core.system import System
@@ -282,6 +284,8 @@ class NEP(Calculator):
         The largest cutoff radius in Å.
     """
 
+    _takes_wider_lists = True
+
     # the virial of each atom from the energies of the others, as GPUMD's
     _heat_flux = True
 
@@ -363,6 +367,8 @@ class NEP(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                -1,
+                neighbors._reverse(),
             )
         return CalculatorResult(
             energy=float(energies.sum()),
@@ -372,6 +378,38 @@ class NEP(Calculator):
             atomic_virials=virials,
             volume=system.box.volume,
         )
+
+    def _split(
+        self,
+        atoms: tuple,
+        properties: tuple,
+        neighbors: NeighborList,
+        owned: int,
+        forward: Any,
+        reverse: Any,
+        ids: np.ndarray,
+        once: tuple | None = None,
+    ) -> _Part:
+        """The part of the first owned atoms, a process's of MPI, of the
+        species, positions and box matrix of atoms (a system with ghosts):
+        their energies and the derivatives of them alone, which reach the
+        ghosts within the cutoff, and the forces on the ghosts sent back to
+        their atoms."""
+        with neighbors._reading():
+            energies, forces, virials = _native.compute_nep(
+                self.__model,
+                atoms[0],
+                atoms[1],
+                atoms[2],
+                neighbors.offsets,
+                neighbors.j,
+                neighbors.shifts,
+                None,
+                None,
+                owned,
+                neighbors._reverse(),
+            )
+        return _reversed_part(energies, forces, virials, properties, reverse)
 
     def descriptors(
         self,

@@ -20,6 +20,7 @@ from mdapy.core.result import Result
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter
 from mdapy.neighbor import NeighborList
+from mdapy.simulation import _domain
 from mdapy.simulation._log import _Log, _machine, _on_gpu
 from mdapy.simulation._minimize import _FTM2V, _Fire, _masses, _Neighbors
 
@@ -287,6 +288,7 @@ def neb(
     callback: Any = None,
     log: Any = None,
     log_every: int = 10,
+    comm: Any = None,
 ) -> NEBResult:
     """Finds the minimum energy path between two states with the nudged
     elastic band, its highest image climbing to the saddle point.
@@ -341,6 +343,12 @@ def neb(
         None, writing none.
     log_every : int32, optional
         Writes a row to the log every this many steps. Default 10.
+    comm : mpi4py communicator, optional
+        The processes that share the images of this band, each computing
+        its own; ``MPI.COMM_SELF`` runs the band on each process alone,
+        as with a LAMMPS calculator on several processes, which computes
+        every image on all of them. Default None: every process that MPI
+        started.
 
     Returns
     -------
@@ -351,8 +359,10 @@ def neb(
     ------
     InvalidParameter
         For invalid options, states that differ in their atoms or box,
-        images that do not fit them, or calculators that do not compute
-        energies and forces.
+        images that do not fit them, calculators that do not compute
+        energies and forces, comm that is not a communicator, processes of
+        one band that hold different states or options, or a LAMMPS
+        calculator on several processes while the images are shared.
     MissingProperty
         If the system has neither masses nor elements.
     CalculationFailed
@@ -403,6 +413,28 @@ def neb(
             raise InvalidParameter(
                 f"{type(c).__name__} does not compute energies and forces"
             )
+    from mdapy.calculators._lammps import LAMMPS
+
+    comm = _domain.resolved(comm)
+    # the processes of each LAMMPS that computes on several
+    lammps_comms = [
+        _domain.resolved(c.comm)
+        for c in {id(c): c for c in calculators}.values()
+        if isinstance(c, LAMMPS) and c._mpi
+    ]
+    if comm is not None and any(c is not None for c in lammps_comms):
+        raise InvalidParameter(
+            "neb shares its images among the processes, each computing its own, "
+            "while a LAMMPS calculator on several processes computes every image "
+            "on all of them: give the calculator comm=MPI.COMM_SELF, or neb "
+            "comm=MPI.COMM_SELF"
+        )
+    inputs = (*_domain.of_system(initial), *_domain.of_system(final), count, climb,
+              spring, interpolation, max_force, max_steps, max_step, timestep,
+              log_every, *(type(c).__name__ for c in calculators),
+              *(image["positions"] for image in given or ()))  # fmt: skip
+    for c in (comm, *lammps_comms):
+        _domain.agree(c, "the states, the images or the options of a band", *inputs)
 
     masses = _masses(initial)
     movable = (
@@ -433,8 +465,8 @@ def neb(
     if interpolation == "idpp":
         band = _idpp(band, initial, spring, movable)
 
-    lists = [_Neighbors(c.cutoff) for c in calculators]
-    ends = [_Neighbors(calculators[0].cutoff), _Neighbors(calculators[-1].cutoff)]
+    lists = [_Neighbors(c) for c in calculators]
+    ends = [_Neighbors(calculators[0]), _Neighbors(calculators[-1])]
     # the images that share a calculator compute one after another, the
     # groups at the same time
     groups: dict[int, list[int]] = {}
@@ -454,6 +486,11 @@ def neb(
     last = computed(calculators[-1], initial.with_columns(positions=end), ends[1])
     systems: list[System] = [initial] * count
     results: list[Any] = [None] * count
+    # under MPI, the images shared among the processes, each computing its
+    # own whole, image k on process k modulo their number, every process
+    # then holding the whole band
+    rank, size = (0, 1) if comm is None else (comm.Get_rank(), comm.Get_size())
+    mine = [k for k in range(count) if k % size == rank]
 
     def compute(moving: np.ndarray) -> None:
         for k in range(count):
@@ -464,10 +501,15 @@ def neb(
                 results[k] = computed(calculators[k], systems[k], lists[k])
 
         if pool is None:
-            run(list(range(count)))
+            run(mine)
         else:
-            for done in [pool.submit(run, indices) for indices in groups.values()]:
+            shares = [[k for k in g if k in mine] for g in groups.values()]
+            for done in [pool.submit(run, share) for share in shares if share]:
                 done.result()
+        if comm is not None:
+            for part in comm.allgather({k: results[k] for k in mine}):
+                for k, result in part.items():
+                    results[k] = result
 
     energies = np.empty(count + 2)
     energies[0], energies[-1] = first.energy, last.energy
@@ -491,7 +533,10 @@ def neb(
         return out.reshape(-1, 3)
 
     inverse_mass = np.tile((_FTM2V / masses)[:, None], (count, 1))
-    writer = _Log(log)
+    writer = _Log(
+        log,
+        active=rank == 0 and all(c is None or c.Get_rank() == 0 for c in lammps_comms),
+    )
 
     def band_now() -> tuple[System, ...]:
         states = (first.attach(initial.with_columns(positions=start)),)
@@ -518,6 +563,11 @@ def neb(
                     else []
                 ),
                 f"machine: {_machine()}",
+                *(
+                    [f"{size} processes, the images shared among them"]
+                    if size > 1
+                    else []
+                ),
                 f"spring {spring!r} eV/Å², max_force {max_force!r} eV/Å, "
                 f"max_steps {max_steps}",
                 "",
@@ -528,9 +578,13 @@ def neb(
             fire.advance(evaluate)
             if fire.step % log_every == 0:
                 write()
-            if callback is not None and callback(
-                fire.step, band_now(), energies.copy(), largest
-            ):
+            stop = callback is not None and bool(
+                callback(fire.step, band_now(), energies.copy(), largest)
+            )
+            # every process stops when the callback of one says so
+            if comm is not None:
+                stop = bool(comm.allreduce(int(stop)))
+            if stop:
                 break
         if writer.on:
             if fire.step % log_every != 0:

@@ -10,6 +10,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
@@ -53,5 +54,43 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                  const double* positions, const double* matrix, const std::int64_t* offsets,
                  const index_t* neighbors, const std::int8_t* shifts, double* energies,
                  double* forces, double* virials, const Control& control = {});
+
+// What each atom has of its neighbors in ADP, F'(rho), its dipole (3) and
+// its quadrupole (xx yy zz yz xz xy): kState numbers in a row.
+inline constexpr std::size_t kState = 10;
+
+// The two passes of compute_adp for the first centers atoms, as the processes
+// of MPI split them: their embedding and angular energies and their states;
+// then, given the states of every atom of the neighbor list, the forces on
+// the centres, their pair energies added, and their virials unless null.
+void adp_densities(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, double* energies, double* state,
+                   const Control& control = {});
+void adp_forces(const AdpPotential& potential, std::int64_t centers, const std::int32_t* species,
+                const double* positions, const double* matrix, const std::int64_t* offsets,
+                const index_t* neighbors, const std::int8_t* shifts, const double* state,
+                double* energies, double* forces, double* virials, const Control& control = {});
+
+// The same on one thread, each pair once among the processes of MPI, the
+// pairs given by once_pairs (calculators/once.h), as LAMMPS's newton on: the
+// sums the pairs give every atom of the list, ghosts among them, added to
+// sums (n x kState): its density, dipole and quadrupole; the embedding
+// energies and the states of the centres from their whole sums; the forces,
+// pair energies and virials (unless null) that the pairs give every atom,
+// added to forces (n x 3), energies (n) and virials (n x 9).
+void adp_densities_once(const AdpPotential& potential, std::int64_t centers,
+                        const std::int32_t* species, const double* positions,
+                        const double* matrix, const std::int64_t* offsets,
+                        const index_t* neighbors, const std::int8_t* shifts, double* sums);
+void adp_embedding(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* sums, double* energies,
+                   double* state);
+void adp_forces_once(const AdpPotential& potential, std::int64_t centers,
+                     const std::int32_t* species, const double* positions, const double* matrix,
+                     const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* state, double* energies,
+                     double* forces, double* virials);
 
 }  // namespace mdapy::calculators

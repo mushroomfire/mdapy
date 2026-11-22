@@ -5,6 +5,7 @@
 
 #include "calculators/adp.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -37,26 +38,22 @@ AdpPotential make_adp_potential(const double* embedding, int elements, int nrho,
     return potential;
 }
 
-void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const double* positions, const double* matrix, const std::int64_t* offsets,
-                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                 double* forces, double* virials, const Control& control) {
+void adp_densities(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, double* energies, double* state,
+                   const Control& control) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
-    const auto atoms = static_cast<std::size_t>(n);
-    std::vector<double> slope(atoms, 0.0);  // F'(rho)
-    std::vector<double> mu(3 * atoms, 0.0);
-    // xx yy zz yz xz xy
-    std::vector<double> lambda(6 * atoms, 0.0);
-
+    std::fill(state, state + kState * static_cast<std::size_t>(centers), 0.0);
     // The density, the dipole and the quadrupole at each atom, and its energy
     parallel_for(
-        n, 0,
+        centers, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
                 const int si = species[i];
                 double rho = 0.0;
-                double* m = &mu[3 * static_cast<std::size_t>(i)];
-                double* l = &lambda[6 * static_cast<std::size_t>(i)];
+                double* m = &state[kState * static_cast<std::size_t>(i) + 1];
+                double* l = &state[kState * static_cast<std::size_t>(i) + 4];
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
                     double v[3];
                     const double r2 = neighbor::pair_vector(
@@ -68,12 +65,11 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                     const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
                     const int sj = species[neighbors[p]];
                     const double r = std::sqrt(r2);
-                    double value, derivative, u, w;
-                    potential.density[static_cast<std::size_t>(sj)].evaluate(r, value, derivative);
-                    rho += value;
+                    // the values alone: their derivatives come in the forces
+                    rho += potential.density[static_cast<std::size_t>(sj)].value(r);
                     const std::size_t k = potential.pair_index(si, sj);
-                    potential.dipole[k].evaluate(r, u, derivative);
-                    potential.quadrupole[k].evaluate(r, w, derivative);
+                    const double u = potential.dipole[k].value(r);
+                    const double w = potential.quadrupole[k].value(r);
                     for (int a = 0; a < 3; ++a) {
                         m[a] += u * del[a];
                     }
@@ -85,7 +81,8 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                     l[5] += w * del[0] * del[1];
                 }
                 double embedding;
-                potential.embedding[static_cast<std::size_t>(si)].evaluate(rho, embedding, slope[i]);
+                potential.embedding[static_cast<std::size_t>(si)].evaluate(
+                    rho, embedding, state[kState * static_cast<std::size_t>(i)]);
                 const double nu = l[0] + l[1] + l[2];
                 energies[i] = embedding + 0.5 * (m[0] * m[0] + m[1] * m[1] + m[2] * m[2]) +
                               0.5 * (l[0] * l[0] + l[1] * l[1] + l[2] * l[2]) +
@@ -93,19 +90,30 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                               1.0 / 6.0 * nu * nu;
             }
         },
-        stage(control, 0, 2));
+        control);
 
+}
+
+namespace {
+
+template <bool kVirial>
+void adp_forces_of(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, const double* state, double* energies,
+                   double* forces, double* virials, const Control& control) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
     // Forces, pair energies and virials; each atom gathers from its own pairs.
     parallel_for(
-        n, 0,
+        centers, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
                 const int si = species[i];
                 double f[3] = {0.0, 0.0, 0.0};
                 double w[9] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
                 double pair_energy = 0.0;
-                const double* mi = &mu[3 * static_cast<std::size_t>(i)];
-                const double* li = &lambda[6 * static_cast<std::size_t>(i)];
+                const double* mi = &state[kState * static_cast<std::size_t>(i) + 1];
+                const double* li = &state[kState * static_cast<std::size_t>(i) + 4];
                 for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
                     double v[3];
                     const double r2 = neighbor::pair_vector(
@@ -120,7 +128,11 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                     const double r = std::sqrt(r2);
                     double rho_i, rhoip, rho_j, rhojp, z2, z2p, u2, u2p, w2, w2p;
                     potential.density[static_cast<std::size_t>(si)].evaluate(r, rho_i, rhoip);
-                    potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+                    if (si == sj) {
+                        rhojp = rhoip;
+                    } else {
+                        potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+                    }
                     const std::size_t k = potential.pair_index(si, sj);
                     potential.pair[k].evaluate(r, z2, z2p);
                     potential.dipole[k].evaluate(r, u2, u2p);
@@ -128,10 +140,11 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                     const double recip = 1.0 / r;
                     const double phi = z2 * recip;
                     const double phip = z2p * recip - phi * recip;
-                    const double psip = slope[i] * rhojp + slope[j] * rhoip + phip;
+                    const double psip = state[kState * static_cast<std::size_t>(i)] * rhojp +
+                                        state[kState * static_cast<std::size_t>(j)] * rhoip + phip;
                     const double fpair = -psip * recip;
-                    const double* mj = &mu[3 * static_cast<std::size_t>(j)];
-                    const double* lj = &lambda[6 * static_cast<std::size_t>(j)];
+                    const double* mj = &state[kState * static_cast<std::size_t>(j) + 1];
+                    const double* lj = &state[kState * static_cast<std::size_t>(j) + 4];
                     const double delmux = mi[0] - mj[0], delmuy = mi[1] - mj[1],
                                  delmuz = mi[2] - mj[2];
                     const double trdelmu = delmux * delx + delmuy * dely + delmuz * delz;
@@ -158,8 +171,10 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                     const double del[3] = {delx, dely, delz};
                     for (int a = 0; a < 3; ++a) {
                         f[a] += force[a];
-                        for (int b = 0; b < 3; ++b) {
-                            w[3 * a + b] += 0.5 * del[a] * force[b];
+                        if constexpr (kVirial) {
+                            for (int b = 0; b < 3; ++b) {
+                                w[3 * a + b] += 0.5 * del[a] * force[b];
+                            }
                         }
                     }
                     pair_energy += 0.5 * phi;
@@ -168,12 +183,197 @@ void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32
                 for (int a = 0; a < 3; ++a) {
                     forces[3 * i + a] = f[a];
                 }
-                for (int k = 0; k < 9; ++k) {
-                    virials[9 * i + k] = w[k];
+                if constexpr (kVirial) {
+                    for (int k = 0; k < 9; ++k) {
+                        virials[9 * i + k] = w[k];
+                    }
                 }
             }
         },
-        stage(control, 1, 2));
+        control);
+}
+
+}  // namespace
+
+void adp_forces(const AdpPotential& potential, std::int64_t centers, const std::int32_t* species,
+                const double* positions, const double* matrix, const std::int64_t* offsets,
+                const index_t* neighbors, const std::int8_t* shifts, const double* state,
+                double* energies, double* forces, double* virials, const Control& control) {
+    if (virials != nullptr) {
+        adp_forces_of<true>(potential, centers, species, positions, matrix, offsets, neighbors,
+                            shifts, state, energies, forces, virials, control);
+    } else {
+        adp_forces_of<false>(potential, centers, species, positions, matrix, offsets, neighbors,
+                             shifts, state, energies, forces, virials, control);
+    }
+}
+
+void compute_adp(const AdpPotential& potential, std::int64_t n, const std::int32_t* species,
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                 double* forces, double* virials, const Control& control) {
+    // F'(rho), the dipole and the quadrupole (xx yy zz yz xz xy) of each atom
+    std::vector<double> state(kState * static_cast<std::size_t>(n), 0.0);
+    adp_densities(potential, n, species, positions, matrix, offsets, neighbors, shifts,
+                  energies, state.data(), stage(control, 0, 2));
+    adp_forces(potential, n, species, positions, matrix, offsets, neighbors, shifts,
+               state.data(), energies, forces, virials, stage(control, 1, 2));
+}
+
+namespace {
+
+// The energy of an atom of its embedding, dipole and quadrupole, its state
+// F'(rho), the dipole and the quadrupole, from its sums.
+inline double adp_energy(const AdpPotential& potential, int si, const double* sum,
+                         double* state) {
+    double embedding;
+    potential.embedding[static_cast<std::size_t>(si)].evaluate(sum[0], embedding, state[0]);
+    const double* m = sum + 1;
+    const double* l = sum + 4;
+    for (std::size_t k = 1; k < kState; ++k) {
+        state[k] = sum[k];
+    }
+    const double nu = l[0] + l[1] + l[2];
+    return embedding + 0.5 * (m[0] * m[0] + m[1] * m[1] + m[2] * m[2]) +
+           0.5 * (l[0] * l[0] + l[1] * l[1] + l[2] * l[2]) +
+           1.0 * (l[3] * l[3] + l[4] * l[4] + l[5] * l[5]) - 1.0 / 6.0 * nu * nu;
+}
+
+}  // namespace
+
+void adp_densities_once(const AdpPotential& potential, std::int64_t centers,
+                        const std::int32_t* species, const double* positions,
+                        const double* matrix, const std::int64_t* offsets,
+                        const index_t* neighbors, const std::int8_t* shifts, double* sums) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const int si = species[i];
+        double* own = sums + kState * static_cast<std::size_t>(i);
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            const auto j = static_cast<std::int64_t>(neighbors[p]);
+            double v[3];
+            const double r2 =
+                neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, v);
+            if (!(r2 < cutoff2)) {
+                continue;
+            }
+            const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
+            const int sj = species[j];
+            const double r = std::sqrt(r2);
+            double* other = sums + kState * static_cast<std::size_t>(j);
+            // the values alone, one density of a pair of one element
+            const double to_i = potential.density[static_cast<std::size_t>(sj)].value(r);
+            own[0] += to_i;
+            other[0] += si == sj ? to_i : potential.density[static_cast<std::size_t>(si)].value(r);
+            const std::size_t k = potential.pair_index(si, sj);
+            const double u = potential.dipole[k].value(r);
+            const double w = potential.quadrupole[k].value(r);
+            // the dipole along x_i - x_j at i, along x_j - x_i at j; the
+            // quadrupole, even, the same at both
+            for (int a = 0; a < 3; ++a) {
+                own[1 + a] += u * del[a];
+                other[1 + a] -= u * del[a];
+            }
+            const double q[6] = {w * del[0] * del[0], w * del[1] * del[1], w * del[2] * del[2],
+                                 w * del[1] * del[2], w * del[0] * del[2], w * del[0] * del[1]};
+            for (int a = 0; a < 6; ++a) {
+                own[4 + a] += q[a];
+                other[4 + a] += q[a];
+            }
+        }
+    }
+}
+
+void adp_embedding(const AdpPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* sums, double* energies,
+                   double* state) {
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const std::size_t row = kState * static_cast<std::size_t>(i);
+        energies[i] = adp_energy(potential, species[i], sums + row, state + row);
+    }
+}
+
+void adp_forces_once(const AdpPotential& potential, std::int64_t centers,
+                     const std::int32_t* species, const double* positions, const double* matrix,
+                     const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* state, double* energies,
+                     double* forces, double* virials) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const int si = species[i];
+        const double* mi = &state[kState * static_cast<std::size_t>(i) + 1];
+        const double* li = &state[kState * static_cast<std::size_t>(i) + 4];
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            const auto j = static_cast<std::int64_t>(neighbors[p]);
+            double v[3];
+            const double r2 =
+                neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, v);
+            if (!(r2 < cutoff2)) {
+                continue;
+            }
+            const double delx = -v[0], dely = -v[1], delz = -v[2];
+            const int sj = species[j];
+            const double r = std::sqrt(r2);
+            double rho_i, rhoip, rho_j, rhojp, z2, z2p, u2, u2p, w2, w2p;
+            potential.density[static_cast<std::size_t>(si)].evaluate(r, rho_i, rhoip);
+            if (si == sj) {
+                rhojp = rhoip;
+            } else {
+                potential.density[static_cast<std::size_t>(sj)].evaluate(r, rho_j, rhojp);
+            }
+            const std::size_t k = potential.pair_index(si, sj);
+            potential.pair[k].evaluate(r, z2, z2p);
+            potential.dipole[k].evaluate(r, u2, u2p);
+            potential.quadrupole[k].evaluate(r, w2, w2p);
+            const double recip = 1.0 / r;
+            const double phi = z2 * recip;
+            const double phip = z2p * recip - phi * recip;
+            const double psip = state[kState * static_cast<std::size_t>(i)] * rhojp +
+                                state[kState * static_cast<std::size_t>(j)] * rhoip + phip;
+            const double fpair = -psip * recip;
+            const double* mj = &state[kState * static_cast<std::size_t>(j) + 1];
+            const double* lj = &state[kState * static_cast<std::size_t>(j) + 4];
+            const double delmux = mi[0] - mj[0], delmuy = mi[1] - mj[1], delmuz = mi[2] - mj[2];
+            const double trdelmu = delmux * delx + delmuy * dely + delmuz * delz;
+            const double sxx = li[0] + lj[0], syy = li[1] + lj[1], szz = li[2] + lj[2];
+            const double syz = li[3] + lj[3], sxz = li[4] + lj[4], sxy = li[5] + lj[5];
+            const double tradellam = sxx * delx * delx + syy * dely * dely + szz * delz * delz +
+                                     2.0 * sxy * delx * dely + 2.0 * sxz * delx * delz +
+                                     2.0 * syz * dely * delz;
+            const double nu = sxx + syy + szz;
+            const double adpx = delmux * u2 + trdelmu * u2p * delx * recip +
+                                2.0 * w2 * (sxx * delx + sxy * dely + sxz * delz) +
+                                w2p * delx * recip * tradellam -
+                                1.0 / 3.0 * nu * (w2p * r + 2.0 * w2) * delx;
+            const double adpy = delmuy * u2 + trdelmu * u2p * dely * recip +
+                                2.0 * w2 * (sxy * delx + syy * dely + syz * delz) +
+                                w2p * dely * recip * tradellam -
+                                1.0 / 3.0 * nu * (w2p * r + 2.0 * w2) * dely;
+            const double adpz = delmuz * u2 + trdelmu * u2p * delz * recip +
+                                2.0 * w2 * (sxz * delx + syz * dely + szz * delz) +
+                                w2p * delz * recip * tradellam -
+                                1.0 / 3.0 * nu * (w2p * r + 2.0 * w2) * delz;
+            // the force on i; j, of the pair seen from it, takes the opposite
+            const double force[3] = {delx * fpair - adpx, dely * fpair - adpy,
+                                     delz * fpair - adpz};
+            const double del[3] = {delx, dely, delz};
+            for (int a = 0; a < 3; ++a) {
+                forces[3 * i + a] += force[a];
+                forces[3 * j + a] -= force[a];
+            }
+            energies[i] += 0.5 * phi;
+            energies[j] += 0.5 * phi;
+            if (virials != nullptr) {
+                for (int a = 0; a < 3; ++a) {
+                    for (int b = 0; b < 3; ++b) {
+                        const double half = 0.5 * del[a] * force[b];
+                        virials[9 * i + 3 * a + b] += half;
+                        virials[9 * j + 3 * a + b] += half;
+                    }
+                }
+            }
+        }
+    }
 }
 
 }  // namespace mdapy::calculators

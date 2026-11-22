@@ -709,6 +709,8 @@ class MEAM(Calculator):
         farther away screen a pair.
     """
 
+    _takes_wider_lists = True
+
     def __init__(
         self,
         library: str | os.PathLike,
@@ -838,6 +840,7 @@ class MEAM(Calculator):
                 neighbors.shifts,
                 progress,
                 _native_token(cancel),
+                neighbors._reverse(),
             )
         return CalculatorResult(
             energy=float(energies.sum()),

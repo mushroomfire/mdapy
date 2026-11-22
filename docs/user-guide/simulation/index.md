@@ -71,6 +71,8 @@ each part of them.
 | let the box change in every direction, along each axis, in its plane or along one axis | [`barostat`](ensembles.md#barostats) | ✓ | ✓ | ✓ |
 | start at a temperature, or give part of the atoms one | [`velocities`, `thermal_velocities`](running.md#starting-velocities) | ✓ | ✓ | ✓ |
 | record the state, write a log, keep or stream the atoms | [`thermo`, `log`, `save_every`, `iterate`](records.md) | ✓ | ✓ | ✓ |
+| go on after a crash from a restart file | [`restart`, `load`, `resume`](restart.md) | ✓ | ✓ | — |
+| share a large system among many processes with MPI | [`mpirun`](processes.md) | ✓ | — | ✓ |
 | hold, move or push a group of atoms, and record the force on it | [`Hold`, `Move`, `AddForce`](controls.md) | ✓ | ✓ | ✓ |
 | keep a group at a temperature, a heat bath | [`Langevin`](controls.md) | ✓ | ✓ | ✓ |
 | take smaller steps when atoms move fast | [`AdaptiveTimestep`](adaptive-timestep.md) | ✓ | ✓ | ✓ |
@@ -80,6 +82,8 @@ each part of them.
 | drive a shock with a piston, or reflect the atoms at a still wall | [`Wall`](walls.md) | ✓ | ✓ | ✓ |
 | find states on the Hugoniot of a shock | [`ensemble="nphug"`](hugoniostat.md) | ✓ | ✓ | ✓ |
 | follow the matter behind a steady shock | [`ensemble="msst"`](msst.md) | ✓ | ✓ | ✓ |
+| treat light atoms or cold crystals as quantum nuclei, with path integrals | [`beads`](pimd.md) | ✓ | forces | — |
+| slow fast atoms by the friction of the electrons, in cascades of radiation damage | [`ElectronicStopping`](electronic-stopping.md) | ✓ | ✓ | ✓ |
 
 [Choosing a method](shock.md) compares the three ways of a shock. On the GPU, MDAPY
 needs to be built with CUDA: see [On the GPU](gpu.md).
@@ -103,7 +107,8 @@ they run.
 
 [Running molecular dynamics](running.md), [Ensembles](ensembles.md) and
 [Records and frames](records.md) cover what every simulation needs;
-[On the GPU](gpu.md) takes it to millions of atoms. The other pages each describe one
+[On the GPU](gpu.md) and [On many processes](processes.md) take it to millions of
+atoms. The other pages each describe one
 feature. The examples run whole studies in MDAPY:
 [a copper cluster melting](../../examples/cluster-melting.md),
 [a collision cascade in tungsten](../../examples/radiation-cascade.md) and

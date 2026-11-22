@@ -40,17 +40,6 @@ Spline::Spline(const double* values, int n, double delta)
     }
 }
 
-void Spline::evaluate(double x, double& value, double& derivative) const {
-    double p = x * inverse_delta_ + 1.0;
-    int m = static_cast<int>(p);
-    m = std::max(1, std::min(m, n_ - 1));
-    p -= m;
-    p = std::min(p, 1.0);
-    const auto& c = coefficients_[static_cast<std::size_t>(m)];
-    value = ((c[3] * p + c[4]) * p + c[5]) * p + c[6];
-    derivative = (c[0] * p + c[1]) * p + c[2];
-}
-
 EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
                                 const double* density, int densities, const double* pair,
                                 int pairs, int nr, double drho, double dr, double cutoff,
@@ -81,16 +70,14 @@ EamPotential make_eam_potential(const double* embedding, int elements, int nrho,
     return potential;
 }
 
-void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
-                 const double* positions, const double* matrix, const std::int64_t* offsets,
-                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
-                 double* forces, double* virials, const Control& control, bool heat) {
+void eam_densities(const EamPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* positions, const double* matrix,
+                   const std::int64_t* offsets, const index_t* neighbors,
+                   const std::int8_t* shifts, double* energies, double* slopes,
+                   const Control& control) {
     const double cutoff2 = potential.cutoff * potential.cutoff;
-    std::vector<double> slope(static_cast<std::size_t>(n), 0.0);  // F'(rho)
-
-    // Electron density at each atom, from the density function of each neighbor.
     parallel_for(
-        n, 0,
+        centers, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
                 double sum = 0.0;
@@ -100,25 +87,33 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                         positions + 3 * i, positions + 3 * static_cast<std::int64_t>(neighbors[p]),
                         shifts + 3 * p, matrix, r);
                     if (r2 < cutoff2) {
-                        double value, derivative;
-                        potential.density_of(species[neighbors[p]], species[i])
-                            .evaluate(std::sqrt(r2), value, derivative);
-                        sum += value;
+                        sum += potential.density_of(species[neighbors[p]], species[i])
+                                   .value(std::sqrt(r2));
                     }
                 }
                 double embedding;
-                potential.embedding[species[i]].evaluate(sum, embedding, slope[i]);
+                potential.embedding[species[i]].evaluate(sum, embedding, slopes[i]);
                 if (sum > potential.rho_max) {
-                    embedding += slope[i] * (sum - potential.rho_max);
+                    embedding += slopes[i] * (sum - potential.rho_max);
                 }
                 energies[i] = embedding;
             }
         },
-        stage(control, 0, 2));
+        control);
+}
 
-    // Forces, pair energies and virials; each atom gathers from its own pairs.
+namespace {
+
+// The forces of the first centers atoms, with their virials when wanted.
+template <bool kVirial>
+void forces_of(const EamPotential& potential, std::int64_t centers, const std::int32_t* species,
+               const double* positions, const double* matrix, const std::int64_t* offsets,
+               const index_t* neighbors, const std::int8_t* shifts, const double* slope,
+               double* energies, double* forces, double* virials, const Control& control,
+               bool heat) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
     parallel_for(
-        n, 0,
+        centers, 0,
         [&](std::int64_t begin, std::int64_t end) {
             for (std::int64_t i = begin; i < end; ++i) {
                 const int si = species[i];
@@ -139,25 +134,37 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                     const index_t j = neighbors[p];
                     const int sj = species[j];
                     const double r = std::sqrt(r2);
-                    // rho_ip: of the density i gives j; rho_jp: j gives i
+                    // rho_ip: of the density i gives j; rho_jp: j gives i; one
+                    // function for both between atoms of one element
                     double rho_i, rho_ip, rho_j, rho_jp, z2, z2p;
-                    potential.density_of(si, sj).evaluate(r, rho_i, rho_ip);
-                    potential.density_of(sj, si).evaluate(r, rho_j, rho_jp);
+                    const Spline& gives = potential.density_of(si, sj);
+                    const Spline& takes = potential.density_of(sj, si);
+                    gives.evaluate(r, rho_i, rho_ip);
+                    if (&takes == &gives) {
+                        rho_jp = rho_ip;
+                    } else {
+                        takes.evaluate(r, rho_j, rho_jp);
+                    }
                     potential.pair_of(si, sj).evaluate(r, z2, z2p);
                     const double recip = 1.0 / r;
                     const double phi = z2 * recip;
                     const double phip = z2p * recip - phi * recip;
                     const double psip = slope[i] * rho_jp + slope[j] * rho_ip + phip;
                     const double fpair = -psip * recip;
-                    // the virial: the pair force split in halves, as LAMMPS; or
-                    // for the heat flux r_ij (x) dU_j/dr_i of Fan et al. (2015),
-                    // U_j = F(rho_j) + phi / 2 over its pairs
-                    const double share =
-                        heat ? -(slope[j] * rho_ip + 0.5 * phip) * recip : 0.5 * fpair;
                     for (int a = 0; a < 3; ++a) {
                         f[a] += del[a] * fpair;
-                        for (int b = 0; b < 3; ++b) {
-                            w[3 * a + b] += del[a] * del[b] * share;
+                    }
+                    if constexpr (kVirial) {
+                        // the virial: the pair force split in halves, as
+                        // LAMMPS; or for the heat flux r_ij (x) dU_j/dr_i of
+                        // Fan et al. (2015), U_j = F(rho_j) + phi / 2 over its
+                        // pairs
+                        const double share =
+                            heat ? -(slope[j] * rho_ip + 0.5 * phip) * recip : 0.5 * fpair;
+                        for (int a = 0; a < 3; ++a) {
+                            for (int b = 0; b < 3; ++b) {
+                                w[3 * a + b] += del[a] * del[b] * share;
+                            }
                         }
                     }
                     pair_energy += 0.5 * phi;
@@ -166,14 +173,155 @@ void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32
                 for (int a = 0; a < 3; ++a) {
                     forces[3 * i + a] = f[a];
                 }
-                if (virials != nullptr) {
+                if constexpr (kVirial) {
                     for (int k = 0; k < 9; ++k) {
                         virials[9 * i + k] = w[k];
                     }
                 }
             }
         },
-        stage(control, 1, 2));
+        control);
+}
+
+}  // namespace
+
+void eam_forces(const EamPotential& potential, std::int64_t centers, const std::int32_t* species,
+                const double* positions, const double* matrix, const std::int64_t* offsets,
+                const index_t* neighbors, const std::int8_t* shifts, const double* slopes,
+                double* energies, double* forces, double* virials, const Control& control,
+                bool heat) {
+    if (virials != nullptr) {
+        forces_of<true>(potential, centers, species, positions, matrix, offsets, neighbors,
+                        shifts, slopes, energies, forces, virials, control, heat);
+    } else {
+        forces_of<false>(potential, centers, species, positions, matrix, offsets, neighbors,
+                         shifts, slopes, energies, forces, virials, control, heat);
+    }
+}
+
+void eam_densities_once(const EamPotential& potential, std::int64_t centers,
+                        const std::int32_t* species, const double* positions,
+                        const double* matrix, const std::int64_t* offsets,
+                        const index_t* neighbors, const std::int8_t* shifts,
+                        double* rho) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const int si = species[i];
+        double rho_i = 0.0;  // the density its pairs give i, added once
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            const auto j = static_cast<std::int64_t>(neighbors[p]);
+            double r[3];
+            const double r2 =
+                neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, r);
+            if (!(r2 < cutoff2)) {
+                continue;
+            }
+            const int sj = species[j];
+            const double distance = std::sqrt(r2);
+            const Spline& takes = potential.density_of(sj, si);
+            const Spline& gives = potential.density_of(si, sj);
+            const double to_i = takes.value(distance);
+            rho_i += to_i;
+            rho[j] += &gives == &takes ? to_i : gives.value(distance);
+        }
+        rho[i] += rho_i;
+    }
+}
+
+void eam_embedding(const EamPotential& potential, std::int64_t centers,
+                   const std::int32_t* species, const double* rho, double* energies,
+                   double* slopes) {
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const double sum = rho[i];
+        double embedding;
+        potential.embedding[species[i]].evaluate(sum, embedding, slopes[i]);
+        if (sum > potential.rho_max) {
+            embedding += slopes[i] * (sum - potential.rho_max);
+        }
+        energies[i] = embedding;
+    }
+}
+
+void eam_forces_once(const EamPotential& potential, std::int64_t centers,
+                     const std::int32_t* species, const double* positions, const double* matrix,
+                     const std::int64_t* offsets, const index_t* neighbors,
+                     const std::int8_t* shifts, const double* slope,
+                     double* energies, double* forces, double* virials, bool heat) {
+    const double cutoff2 = potential.cutoff * potential.cutoff;
+    for (std::int64_t i = 0; i < centers; ++i) {
+        const int si = species[i];
+        // what the pairs of i give it, summed here and added once
+        double fi[3] = {0.0, 0.0, 0.0}, ei = 0.0;
+        double wi[9] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+        const double slope_i = slope[i];
+        for (std::int64_t p = offsets[i]; p < offsets[i + 1]; ++p) {
+            const auto j = static_cast<std::int64_t>(neighbors[p]);
+            double v[3];
+            neighbor::pair_vector(positions + 3 * i, positions + 3 * j, shifts + 3 * p, matrix, v);
+            const double del[3] = {-v[0], -v[1], -v[2]};  // x_i - x_j
+            const double r2 = del[0] * del[0] + del[1] * del[1] + del[2] * del[2];
+            if (!(r2 < cutoff2)) {
+                continue;
+            }
+            const int sj = species[j];
+            const double r = std::sqrt(r2);
+            double rho_i, rho_ip, rho_j, rho_jp, z2, z2p;
+            const Spline& gives = potential.density_of(si, sj);
+            const Spline& takes = potential.density_of(sj, si);
+            gives.evaluate(r, rho_i, rho_ip);
+            if (&takes == &gives) {
+                rho_jp = rho_ip;
+            } else {
+                takes.evaluate(r, rho_j, rho_jp);
+            }
+            potential.pair_of(si, sj).evaluate(r, z2, z2p);
+            const double recip = 1.0 / r;
+            const double phi = z2 * recip;
+            const double phip = z2p * recip - phi * recip;
+            const double psip = slope_i * rho_jp + slope[j] * rho_ip + phip;
+            const double fpair = -psip * recip;
+            for (int a = 0; a < 3; ++a) {
+                fi[a] += del[a] * fpair;
+                forces[3 * j + a] -= del[a] * fpair;
+            }
+            ei += 0.5 * phi;
+            energies[j] += 0.5 * phi;
+            if (virials != nullptr) {
+                // as the two rows of the pair give them: halves of the pair
+                // force, or the shares of the heat flux of each end
+                const double to_i =
+                    heat ? -(slope[j] * rho_ip + 0.5 * phip) * recip : 0.5 * fpair;
+                const double to_j =
+                    heat ? -(slope_i * rho_jp + 0.5 * phip) * recip : 0.5 * fpair;
+                for (int a = 0; a < 3; ++a) {
+                    for (int b = 0; b < 3; ++b) {
+                        const double dd = del[a] * del[b];
+                        wi[3 * a + b] += dd * to_i;
+                        virials[9 * j + 3 * a + b] += dd * to_j;
+                    }
+                }
+            }
+        }
+        for (int a = 0; a < 3; ++a) forces[3 * i + a] += fi[a];
+        energies[i] += ei;
+        if (virials != nullptr) {
+            for (int a = 0; a < 9; ++a) virials[9 * i + a] += wi[a];
+        }
+    }
+}
+
+void compute_eam(const EamPotential& potential, std::int64_t n, const std::int32_t* species,
+                 const double* positions, const double* matrix, const std::int64_t* offsets,
+                 const index_t* neighbors, const std::int8_t* shifts, double* energies,
+                 double* forces, double* virials, const Control& control, bool heat) {
+    std::vector<double> slopes(static_cast<std::size_t>(n), 0.0);  // F'(rho)
+    // Electron density at each atom, from the density function of each
+    // neighbor; then the forces, pair energies and virials, each atom
+    // gathering from its own pairs.
+    eam_densities(potential, n, species, positions, matrix, offsets, neighbors, shifts,
+                  energies, slopes.data(), stage(control, 0, 2));
+    eam_forces(potential, n, species, positions, matrix, offsets, neighbors, shifts,
+               slopes.data(), energies, forces, virials, stage(control, 1, 2), heat);
 }
 
 }  // namespace mdapy::calculators

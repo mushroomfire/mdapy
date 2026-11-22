@@ -41,6 +41,41 @@ def test_check_calculator(tmp_path):
     check_calculator(adp, alloy(seed=1, repeat=2, jitter=0.1), displacement=1e-5)
 
 
+@pytest.mark.parametrize("name", ["tersoff", "sw"])
+def test_each_term_once_on_one_thread(tmp_path, name):
+    """The kernel of one thread under MPI, each term once and its forces put
+    on its atoms: the energies, forces and virials of every atom of the one
+    that gathers them; without virials, none."""
+    from mdapy import _core
+    from mdapy.neighbor import NeighborList
+
+    native = _core.calculators
+    elements = ("Si", "C", "Ge")
+    if name == "tersoff":
+        potential = Tersoff(write_tersoff(tmp_path / "a.tersoff", elements))
+        system = diamond(elements, repeat=3, jitter=0.15)
+    else:
+        potential = StillingerWeber(write_sw(tmp_path / "a.sw", elements))
+        system = diamond(elements, a=5.4, repeat=3, jitter=0.15)
+    full = NeighborList.build(system, potential.cutoff + 1.0)
+    n = len(system)
+    ids = np.arange(n, dtype=np.int64)
+    arrays = (potential._potential, potential._species(system),
+              np.ascontiguousarray(system["positions"]),
+              np.ascontiguousarray(system.box.matrix))  # fmt: skip
+    lists = (full.offsets, full.j, full.shifts)
+    once = native.once_pairs(*lists, n, ids, arrays[2], arrays[3])
+    e, f, w = type(potential)._compute(*arrays, *lists, None, None, False, n)
+    e1, f1, w1 = type(potential)._compute_once(*arrays, *lists, *once, n, True)
+    np.testing.assert_allclose(e1, e, rtol=0, atol=1e-12)
+    np.testing.assert_allclose(f1, f, rtol=0, atol=1e-11)
+    np.testing.assert_allclose(w1, w, rtol=0, atol=1e-11)
+    e2, f2, w2 = type(potential)._compute_once(*arrays, *lists, *once, n, False)
+    np.testing.assert_array_equal(f2, f1)
+    np.testing.assert_array_equal(e2, e1)
+    assert w2 is None
+
+
 def test_the_bond_order_of_a_lone_pair_is_one(tmp_path):
     # two atoms: no third atom, zeta = 0, b = 1: the energy is f_R + f_A
     tersoff = Tersoff(write_tersoff(tmp_path / "a.tersoff", ("Si",)))

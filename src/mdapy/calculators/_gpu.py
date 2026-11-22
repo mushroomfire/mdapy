@@ -6,6 +6,7 @@
 """Calculators on an NVIDIA GPU: the potential on the device, with the atoms
 and the neighbor list of its last computation kept there."""
 
+import os
 import threading
 from collections.abc import Set
 from typing import Any
@@ -56,13 +57,41 @@ def module() -> Any:
     return _cuda
 
 
+def _local_rank() -> int | None:
+    """The rank of this process among those of MPI on its node, as mpirun or
+    srun give it; None outside MPI."""
+    for name in (
+        "OMPI_COMM_WORLD_LOCAL_RANK",
+        "MPI_LOCALRANKID",
+        "MV2_COMM_WORLD_LOCAL_RANK",
+        "SLURM_LOCALID",
+    ):
+        value = os.environ.get(name)
+        if value is not None:
+            try:
+                return int(value)
+            except ValueError:
+                continue
+    return None
+
+
+_chosen: list = []  # whether the device of this process was chosen
+
+
 def cuda() -> Any:
-    """The GPU part, with a device to run on."""
+    """The GPU part, with a device to run on: under MPI, the device of this
+    process among those of its node, by its rank there, chosen before the
+    first allocation."""
     found = module()
     if found is None:
         raise InvalidParameter(_NO_GPU_PART)
     try:
         found.device_name()
+        if not _chosen:
+            _chosen.append(True)
+            rank, count = _local_rank(), int(found.device_count())
+            if rank is not None and count > 1:
+                found.use_device(rank % count)
     except RuntimeError as error:
         raise InvalidParameter(str(error)) from None
     return found

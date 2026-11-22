@@ -6,7 +6,9 @@
 """Molecular dynamics: in LAMMPS with a LAMMPS calculator, or in MDAPY itself
 with any other calculator."""
 
+import math
 import os
+import tempfile
 import time
 import weakref
 from collections.abc import Iterator
@@ -22,9 +24,10 @@ from mdapy.core.system import System
 from mdapy.core.threads import CancelToken
 from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
-from mdapy.simulation import _controls
+from mdapy.simulation import _controls, _domain, _restart
 from mdapy.simulation._integrator import _Native
 from mdapy.simulation._log import _Log, _machine
+from mdapy.simulation._pimd import _RingPolymer
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
 _BAROSTATS = ("iso", "aniso", "tri", "xy", "x", "y", "z")
@@ -180,7 +183,9 @@ def _read_written(lmp: Any, path: str | os.PathLike) -> np.ndarray:
 class _Lammps:
     """The state of the dynamics in LAMMPS and its steps."""
 
-    def __init__(self, system: System, potential: LAMMPS, timestep: float):
+    def __init__(
+        self, system: System, potential: LAMMPS, timestep: float, comm: Any = None
+    ):
         self.__timestep = float(timestep)
         self.__adaptive = False  # whether a run changes the time step
         if "element" not in system.table.columns:
@@ -205,6 +210,9 @@ class _Lammps:
                 f"{list(potential.elements)}"
             )
         self.__n = len(system)
+        self.__elements = tuple(potential.elements)  # of each type
+        self.__numbers = numbers  # the element of each atom, as SYMBOLS has them
+        self.__stopping: str | None = None  # the fix of an ElectronicStopping
         self.__cmdargs = tuple(potential.cmdargs or ())
         # what the dynamics changes, or leaves out of date, is left out
         moving = (
@@ -242,7 +250,7 @@ class _Lammps:
         self.__indented: tuple = ()  # (name, fix) of each named indenter
         self.__piston = False  # whether a wall/piston shrink-wraps the low side of z
         self.__finalizer = weakref.finalize(self, _close, self.__holder)
-        lmp = _lammps(potential.cmdargs)
+        lmp = _lammps(potential.cmdargs, comm)
         self.__holder.append(lmp)
         pbc = box.pbc[[0, 2, 1]] if self.__swapped else box.pbc
         lengths = lammps_box.hi - lammps_box.lo
@@ -322,6 +330,11 @@ create_box {len(potential.elements)} box
         """Whether this process writes the log: the main one under MPI."""
         return int(self.lammps.extract_setting("world_rank")) == 0
 
+    @staticmethod
+    def anywhere(flag: bool) -> bool:
+        """Whether a process has the flag: this one's."""
+        return flag
+
     # -- reading the state ----------------------------------------------
 
     @property
@@ -384,6 +397,8 @@ create_box {len(potential.elements)} box
         for name, fix in self.__baths:
             # the tally of LAMMPS is the energy the bath took away
             row[f"{name}_energy"] = -float(lmp.extract_fix(fix, 0, 0))
+        if self.__stopping is not None:  # the energy the electrons took in the run
+            row["electronic_loss"] = float(lmp.extract_fix(self.__stopping, 0, 0))
         for name, fix in self.__indented:  # the vector and the scalar of fix indent
             row[f"{name}_force"] = [
                 float(lmp.extract_fix(fix, 0, 1, k)) for k in range(3)
@@ -414,6 +429,13 @@ create_box {len(potential.elements)} box
         """The fixes of a run, and its setup."""
         ensemble = run["ensemble"]
         langevin = ensemble in ("nvt", "npt") and run["thermostat"] == "langevin"
+        if ensemble in ("nvt", "npt", "nphug") and math.isinf(
+            run["thermostat_damping"]
+        ):
+            raise InvalidParameter(
+                "thermostat_damping=math.inf frees the centroids of path integrals, "
+                "in MDAPY's own dynamics with beads"
+            )
         fix = ensemble
         if langevin:
             fix = "nve" if ensemble == "nvt" else "nph"
@@ -528,6 +550,7 @@ create_box {len(potential.elements)} box
         self.__fixes, self.__computes, self.__groups = [], [], []
         self.__variables = []
         self.__indented = ()
+        self.__stopping = None
         if self.__holder and self.__piston:
             flags = " ".join("p" if p else "m" for p in self.__pbc)
             self.command(f"change_box all boundary {flags}")
@@ -541,6 +564,35 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+
+    def __electron_stopping(self, name: str, control: Any) -> None:
+        """Fix electron/stopping, its table with a column for each type: the
+        stopping of its element, zero for a type of no atom that feels it."""
+        mask = control.mask
+        numbers = self.__numbers if mask is None else self.__numbers[mask]
+        missing = sorted({SYMBOLS[z] for z in numbers} - set(control.stopping))
+        if missing:
+            raise InvalidParameter(
+                f"the stopping has no table for {', '.join(missing)}"
+            )
+        columns = [
+            control.stopping.get(e, np.zeros_like(control.energies))
+            for e in self.__elements
+        ]
+        group = "all" if mask is None else self.__group(name, mask)
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, "stopping.txt")
+            with open(path, "w") as out:
+                for k, energy in enumerate(control.energies):
+                    out.write(" ".join(repr(float(v)) for v in
+                                       (energy, *(c[k] for c in columns))) + "\n")  # fmt: skip
+            # LAMMPS reads the table when the fix is made
+            self.command(
+                f"fix {name} {group} electron/stopping {control.min_energy!r} {path} "
+                f"minneigh {control.min_neighbors}"
+            )
+        self.__fixes.append(name)
+        self.__stopping = name
 
     def __indenter(self, name: str, indenter: Any, aligned: bool) -> None:
         """A virtual indenter as fix indent, its moving coordinates variables
@@ -663,6 +715,7 @@ create_box {len(potential.elements)} box
         self.__moves = ()
         self.__baths = ()
         self.__temperature = None
+        self.__stopping = None
         if not controls:
             return "all", None
         if len(controls) > 24:
@@ -742,6 +795,8 @@ create_box {len(potential.elements)} box
                 self.__fixes.append(name)
             elif isinstance(control, _controls.Wall):
                 self.__wall(name, control, aligned)
+            elif isinstance(control, _controls.ElectronicStopping):
+                self.__electron_stopping(name, control)
             elif isinstance(control, _controls._HeatField):
                 raise InvalidParameter(
                     "HNEMD needs MDAPY's own dynamics, with a calculator other than "
@@ -833,6 +888,16 @@ class MolecularDynamics:
         rows of numbers start with #, so that ``numpy.loadtxt`` reads the
         rows of every run as one table. Under MPI the main process writes.
         Default None, writing none.
+    beads : int32, optional
+        The beads of the ring polymer of each atom, for path-integral
+        molecular dynamics of the quantum nuclei; 1, classical. Default 1.
+    comm : mpi4py communicator, optional
+        The processes that run this dynamics together, split among them,
+        each holding the same system and taking the same runs; with a
+        LAMMPS calculator, the processes of LAMMPS. ``MPI.COMM_SELF`` runs
+        it on each process alone, for a simulation of its own on each.
+        Default None: every process that MPI started, as ``mpirun`` or
+        ``srun`` start them; with a LAMMPS calculator, its own.
 
     Attributes
     ----------
@@ -844,7 +909,8 @@ class MolecularDynamics:
     InvalidParameter
         If the potential is not a calculator, the time step is not
         positive, an element has no atom type, LAMMPS rejects the
-        commands, or the log cannot be written.
+        commands, the log cannot be written, comm is not a communicator,
+        or the processes of comm hold different systems.
     MissingProperty
         If the system has no ``element`` column (with LAMMPS), or neither
         a ``mass`` nor an ``element`` column.
@@ -860,9 +926,13 @@ class MolecularDynamics:
         *,
         timestep: float = 0.001,
         log: Any = None,
+        beads: int = 1,
+        comm: Any = None,
     ):
         if not timestep > 0:
             raise InvalidParameter(f"timestep must be positive, not {timestep!r}")
+        if isinstance(beads, bool) or int(beads) != beads or beads < 1:
+            raise InvalidParameter(f"beads must be a positive integer, not {beads!r}")
         self.timestep = float(timestep)
         self.__n = len(system)
         self.__pbc = system.box.pbc
@@ -871,10 +941,36 @@ class MolecularDynamics:
         self.__saved: int | None = None  # the step of the last frame kept or given
         self.__reading: Any = None  # the frames of an iterate not read to the end
         self.__runs = 0
+        self.__potential = potential
+        # a run a restart file stopped in: its settings and the steps it ran
+        self.__pending: tuple[dict[str, Any], int] | None = None
+        # the processes of this dynamics hold the same atoms, or it would run
+        # one system made of the atoms of each
         if isinstance(potential, LAMMPS):
-            self.__engine: _Lammps | _Native = _Lammps(system, potential, timestep)
+            if comm is None:
+                comm = potential.comm
+            shared = _domain.resolved(comm) if potential._mpi else None
         else:
-            self.__engine = _Native(system, potential, timestep)
+            shared = _domain.resolved(comm)
+        _domain.agree(shared, "the system, the time step or the beads",
+                      *_domain.of_system(system), float(timestep), int(beads),
+                      type(potential).__name__)  # fmt: skip
+        self.__comm = shared
+        if isinstance(potential, LAMMPS):
+            if beads > 1:
+                raise InvalidParameter(
+                    "path-integral dynamics runs in MDAPY, with a calculator other "
+                    "than LAMMPS"
+                )
+            self.__engine: _Lammps | _Native | _RingPolymer = _Lammps(
+                system, potential, timestep, comm
+            )
+        elif beads > 1:
+            self.__engine = _RingPolymer(
+                system, potential, timestep, int(beads), shared
+            )
+        else:
+            self.__engine = _Native(system, potential, timestep, shared)
         try:
             self.__log = _Log(log, active=self.__engine.writes)
         except InvalidParameter:
@@ -965,6 +1061,17 @@ class MolecularDynamics:
         return self.__engine.system
 
     @property
+    def beads(self) -> tuple[System, ...]:
+        """The atoms at each bead of their ring polymers, the bead in
+        ``info["bead"]``, of path-integral dynamics; the atoms alone
+        otherwise."""
+        self.__open()
+        engine = self.__engine
+        if isinstance(engine, _RingPolymer):
+            return tuple(engine.bead_systems())
+        return (engine.system,)
+
+    @property
     def thermo(self) -> pl.DataFrame:
         """The thermodynamic state every ``thermo`` steps of the runs: step,
         time (ps), temperature (K), potential, kinetic and total energy
@@ -1009,6 +1116,173 @@ class MolecularDynamics:
                 "or close them first"
             )
 
+    # -- restarts ---------------------------------------------------------
+
+    @staticmethod
+    def __restart_settings(
+        restart: str | os.PathLike | None, every: int | None
+    ) -> tuple[str, int] | None:
+        if restart is None:
+            if every is not None:
+                raise InvalidParameter("restart_every needs restart, the file")
+            return None
+        if every is None:
+            every = 1000
+        if isinstance(every, bool) or not isinstance(every, int) or every < 1:
+            raise InvalidParameter(
+                f"restart_every must be a positive integer, not {every!r}"
+            )
+        if not isinstance(restart, (str, os.PathLike)):
+            raise InvalidParameter(f"restart must be a path, not {restart!r}")
+        return os.fspath(restart), every
+
+    def __native_only(self) -> None:
+        if not isinstance(self.__engine, (_Native, _RingPolymer)):
+            raise InvalidParameter(
+                "restart files keep runs in MDAPY; LAMMPS writes its own, with "
+                "md.command('write_restart file')"
+            )
+
+    def __state(self, pending: tuple[dict[str, Any], int] | None) -> dict[str, Any]:
+        self.__native_only()
+        engine = self.__engine
+        return {
+            "timestep": self.timestep,
+            "beads": getattr(engine, "beads", 1),
+            "system": engine.system,
+            "engine": engine.state(),
+            "rows": self.__rows,
+            "runs": self.__runs,
+            "saved": self.__saved,
+            "pending": pending,
+        }
+
+    def __write_restart(
+        self, path: str, pending: tuple[dict[str, Any], int] | None
+    ) -> None:
+        # every process gathers the state, the main one writes it, and all
+        # learn whether it could
+        state = self.__state(pending)
+        engine = self.__engine
+        error = None
+        if engine.writes:
+            try:
+                _restart.write(path, state, first=self.__potential)
+            except InvalidParameter as failed:
+                error = failed
+        error = engine.shared(error)
+        if error is not None:
+            raise error
+
+    def save(self, path: str | os.PathLike) -> None:
+        """Writes the state of the dynamics to a restart file, between runs,
+        for ``load`` to go on from.
+
+        Parameters
+        ----------
+        path : str or os.PathLike
+            The file, replaced once the new one is whole.
+
+        Raises
+        ------
+        InvalidParameter
+            While the frames of an ``iterate`` are being read, for a
+            LAMMPS calculator, or if the file cannot be written.
+        """
+        self.__idle()
+        self.__write_restart(os.fspath(path), self.__pending)
+
+    @classmethod
+    def load(
+        cls,
+        path: str | os.PathLike,
+        potential: Any,
+        *,
+        others: Any = (),
+        log: Any = None,
+        comm: Any = None,
+    ) -> "MolecularDynamics":
+        """The dynamics of a restart file, to go on from where it was written.
+
+        Parameters
+        ----------
+        path : str or os.PathLike
+            A restart file that this version of MDAPY wrote.
+        potential : Calculator
+            The potential of the dynamics, as given when it began.
+        others : sequence of Calculator, optional
+            The other potentials its runs use, those of ``Switch`` controls,
+            in the order they first came. Default none.
+        log : str, os.PathLike or stream, optional
+            The log, added to rather than overwritten. Default None.
+        comm : mpi4py communicator, optional
+            The processes that run it, as for ``MolecularDynamics``.
+
+        Returns
+        -------
+        MolecularDynamics
+            At the step the file was written, with the thermodynamic state
+            recorded so far; ``resume`` finishes a run the file stopped in.
+
+        Raises
+        ------
+        InvalidParameter
+            For a file that is not a restart file of this version of MDAPY,
+            a potential of another kind than the file's, or too few others.
+        """
+        state, names = _restart.read(path, [potential, *others])
+        if names and not names[0].startswith(type(potential).__name__ + "("):
+            raise InvalidParameter(
+                f"this restart file ran with {names[0]}, not a {type(potential).__name__}"
+            )
+        md = cls(
+            state["system"],
+            potential,
+            timestep=state["timestep"],
+            beads=state.get("beads", 1),
+            comm=comm,
+        )
+        if state["pending"] is not None:
+            # the controls of the run set up, on the GPU too, as at its start;
+            # its variables then as the file kept them
+            md.__engine.start(state["pending"][0])
+        md.__engine.restore(state["engine"])
+        md.__rows = list(state["rows"])
+        md.__runs = state["runs"]
+        md.__saved = state["saved"]
+        md.__pending = state["pending"]
+        md.__log = _Log(log, active=md.__engine.writes, append=True)
+        if md.__log.on:
+            md.__log.comment("", f"continued from {os.fspath(path)} at step {md.step}")
+        return md
+
+    def resume(
+        self, *, progress: Any = None, cancel: CancelToken | None = None
+    ) -> None:
+        """Finishes the run that a restart file stopped in, with its settings,
+        controls and restart files, as if it had not stopped.
+
+        Parameters
+        ----------
+        progress : callable, optional
+            Called as ``progress(done, total)`` with the steps of the run.
+        cancel : CancelToken, optional
+            Stops the run, which raises ``mdapy.errors.Cancelled``.
+
+        Raises
+        ------
+        InvalidParameter
+            If no run was stopped: the file was written between runs.
+        """
+        if self.__pending is None:
+            raise InvalidParameter(
+                "no run to resume: the restart file was written between runs"
+            )
+        self.__idle()
+        spec, done = self.__pending
+        self.__pending = None
+        self.__frames.extend(self.__steps(spec, progress, cancel, resumed=done))
+
     # -- running ----------------------------------------------------------
 
     def velocities(self, temperature: float, *, seed: int) -> None:
@@ -1036,6 +1310,7 @@ class MolecularDynamics:
             raise InvalidParameter(f"seed must be positive, not {seed!r}")
         self.__open()
         self.__idle()
+        _domain.agree(self.__comm, "the velocities", float(temperature), int(seed))
         self.__engine.velocities(float(temperature), int(seed))
 
     def run(
@@ -1059,6 +1334,8 @@ class MolecularDynamics:
         controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
+        restart: str | os.PathLike | None = None,
+        restart_every: int | None = None,
     ) -> None:
         """Runs molecular dynamics.
 
@@ -1091,10 +1368,13 @@ class MolecularDynamics:
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
-            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
-            "nose-hoover".
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
+            beads the "langevin" thermostat is PILE_L. Default "nose-hoover".
         thermostat_damping : float64, optional
-            Damping time of the thermostat in ps. Default 100 time steps.
+            Damping time of the thermostat in ps, positive. With beads it is
+            that of the centroids, the other modes damped critically, and
+            math.inf leaves the centroids free, thermostatted ring-polymer
+            molecular dynamics (TRPMD). Default 100 time steps.
         barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
         seed : int32, optional
@@ -1136,6 +1416,13 @@ class MolecularDynamics:
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
             Stops the run, which raises ``mdapy.errors.Cancelled``.
+        restart : str or os.PathLike, optional
+            Writes the state of the run to this file every ``restart_every``
+            steps and at its end, each time replacing the last whole, for
+            ``MolecularDynamics.load`` to go on from; in MDAPY only. Default
+            None, writing none.
+        restart_every : int32, optional
+            Steps between restart files. Default 1000 with ``restart``.
 
         Raises
         ------
@@ -1165,6 +1452,9 @@ class MolecularDynamics:
             shock_velocity,
             msst,
         )
+        spec["restart"] = self.__restart_settings(restart, restart_every)
+        if spec["restart"] is not None:
+            self.__native_only()
         self.__idle()
         self.__frames.extend(self.__steps(spec, progress, cancel))
 
@@ -1189,6 +1479,8 @@ class MolecularDynamics:
         controls: Any = None,
         progress: Any = None,
         cancel: CancelToken | None = None,
+        restart: str | os.PathLike | None = None,
+        restart_every: int | None = None,
     ) -> Iterator[System]:
         """Runs molecular dynamics as ``run`` does, giving the atoms every
         save_every steps as the run reaches them instead of keeping them: the
@@ -1227,10 +1519,13 @@ class MolecularDynamics:
             the same pressure along every axis, or one axis for a uniaxial
             compression; "msst" the axis of the shock. Default "iso".
         thermostat : {"nose-hoover", "langevin"}, optional
-            A chain of Nosé-Hoover thermostats, or Langevin dynamics. Default
-            "nose-hoover".
+            A chain of Nosé-Hoover thermostats, or Langevin dynamics; with
+            beads the "langevin" thermostat is PILE_L. Default "nose-hoover".
         thermostat_damping : float64, optional
-            Damping time of the thermostat in ps. Default 100 time steps.
+            Damping time of the thermostat in ps, positive. With beads it is
+            that of the centroids, the other modes damped critically, and
+            math.inf leaves the centroids free, thermostatted ring-polymer
+            molecular dynamics (TRPMD). Default 100 time steps.
         barostat_damping : float64, optional
             Damping time of the barostat in ps. Default 1000 time steps.
         seed : int32, optional
@@ -1269,7 +1564,10 @@ class MolecularDynamics:
             Called as ``progress(done, total)`` with the steps run.
         cancel : CancelToken, optional
             Stops the run, which raises ``mdapy.errors.Cancelled``.
-
+        restart : str or os.PathLike, optional
+            Writes a restart file, as ``run`` does. Default None.
+        restart_every : int32, optional
+            Steps between restart files. Default 1000 with ``restart``.
 
         Returns
         -------
@@ -1308,6 +1606,9 @@ class MolecularDynamics:
             shock_velocity,
             msst,
         )
+        spec["restart"] = self.__restart_settings(restart, restart_every)
+        if spec["restart"] is not None:
+            self.__native_only()
         return self.__read(spec, progress, cancel)
 
     def __read(
@@ -1390,6 +1691,15 @@ class MolecularDynamics:
             raise InvalidParameter(
                 "keep_momentum with atoms held or moved: there is no momentum to keep"
             )
+        if thermostat_damping is not None and not float(thermostat_damping) > 0:
+            raise InvalidParameter(
+                "thermostat_damping must be positive, or math.inf for the free "
+                f"centroids of path integrals, not {thermostat_damping!r}"
+            )
+        if barostat_damping is not None and not 0 < float(barostat_damping) < math.inf:
+            raise InvalidParameter(
+                f"barostat_damping must be positive and finite, not {barostat_damping!r}"
+            )
         if int(thermo) < 1 or (save_every is not None and int(save_every) < 1):
             raise InvalidParameter("thermo and save_every must be positive")
         if seed is not None and int(seed) < 1:
@@ -1463,38 +1773,61 @@ class MolecularDynamics:
             "save_every": None if save_every is None else int(save_every),
             "controls": checked,
         }
+        _domain.agree(
+            self.__comm,
+            "the settings of a run",
+            *(value for key, value in spec.items() if key != "controls"),
+            *checked,
+        )
         return spec
 
     def __steps(
-        self, spec: dict[str, Any], progress: Any, cancel: CancelToken | None
+        self,
+        spec: dict[str, Any],
+        progress: Any,
+        cancel: CancelToken | None,
+        resumed: int | None = None,
     ) -> Iterator[System]:
         """Runs, recording the thermodynamic state, and gives the atoms every
-        save_every steps; the run ends where the frames stop being read."""
+        save_every steps; the run ends where the frames stop being read. A
+        run resumed from a restart goes on from the steps it had run."""
         engine = self.__engine
         steps, thermo, every = spec["steps"], spec["thermo"], spec["save_every"]
-        done = 0
+        restart, restart_every = spec.get("restart") or (None, None)
+        done = 0 if resumed is None else resumed
         finished = False
         log = self.__log
-        self.__runs += 1
+        if resumed is None:
+            self.__runs += 1
         if log.on:
-            log.comment("", self.__settings(self.__runs, spec))
+            if resumed is None:
+                log.comment("", self.__settings(self.__runs, spec))
+            else:
+                log.comment(
+                    "", f"run {self.__runs} resumed after {resumed} of {steps} steps"
+                )
             log.columns(_LOG_COLUMNS)
         began = time.perf_counter()
         try:
-            engine.start(spec)
-            start = engine.step
-            if not self.__rows or self.__rows[-1]["step"] != start:
-                self.__record()
+            if resumed is None:
+                engine.start(spec)
+                start = engine.step
+                if not self.__rows or self.__rows[-1]["step"] != start:
+                    self.__record()
+                if every is not None and self.__saved != start:
+                    self.__saved = start
+                    yield engine.system
             time0 = self.__rows[-1]["time"]
-            if every is not None and self.__saved != start:
-                self.__saved = start
-                yield engine.system
             stops = set(range(thermo, steps, thermo)) | {steps}
             if every is not None:
                 stops |= set(range(every, steps + 1, every))
+            if restart is not None:
+                stops |= set(range(restart_every, steps, restart_every))
+            stops = {s for s in stops if s > done} | ({0} if steps == 0 else set())
             stops.discard(0)  # a run of no steps: the start only, once
             for stop in sorted(stops):
-                if cancel is not None and cancel.cancelled:
+                # every process stops when one is cancelled
+                if engine.anywhere(cancel is not None and cancel.cancelled):
                     raise Cancelled("molecular dynamics cancelled")
                 engine.advance(stop - done)
                 done = stop
@@ -1505,10 +1838,14 @@ class MolecularDynamics:
                 if every is not None and done % every == 0:
                     self.__saved = engine.step
                     yield engine.system
+                if restart is not None and done % restart_every == 0 and done < steps:
+                    self.__write_restart(restart, (spec, done))
             finished = True
         finally:
             if not engine.closed:
                 engine.finish()
+            if finished and restart is not None:
+                self.__write_restart(restart, None)
             if log.on:
                 seconds = time.perf_counter() - began
                 if not finished:

@@ -217,9 +217,16 @@ column of fixed-size arrays of length 3 and use the plural name.
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
-| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, `AdaptiveTimestep`, how long the steps are, `Switch`, the potential turned into another, and `Wall`, flat walls that reflect the atoms, given by `controls` of `run` or `iterate` |
+| controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, `AdaptiveTimestep`, how long the steps are, `Switch`, the potential turned into another, `Wall`, flat walls that reflect the atoms, `Indenter`, indenters that push them, and `ElectronicStopping`, the friction of the electrons on the fast atoms, given by `controls` of `run` or `iterate` |
 | wall | of `Wall`: a plane across an axis that reflects the atoms that pass it, each put back by as far as it passed with its velocity across the plane turned to 2u − v, u that of the wall; a still wall is a momentum mirror, a moving one a piston |
 | piston, momentum mirror | a wall that moves into a crystal and drives a shock wave into it, and a still wall that a crystal moving towards it hits, the same shock seen from the piston |
+| electronic stopping | of `ElectronicStopping`: the energy a fast atom loses to the electrons it passes through, as a friction F = −S_e(E) v/|v| on the atoms of a kinetic energy E above a threshold, S_e the stopping power in eV/Å, from a table of each element as LAMMPS's `fix electron/stopping`; `electronic_loss` is the energy the electrons took |
+| ZBL | the universal screened repulsion of two nuclei of Ziegler, Biersack and Littmark, Z_i Z_j e²/r φ(r/a); `ZBL` switches it off between `inner` and `cutoff`, as LAMMPS's `pair_style zbl` |
+| overlay | of `Overlay`: calculators added together, their energies, forces and virials summed, as LAMMPS's `pair_style hybrid/overlay` |
+| beads, ring polymer | of path-integral molecular dynamics: each atom a ring of P beads joined by springs of frequency P k_B T/ħ, each feeling the whole potential, whose averages are those of quantum nuclei as P grows; `beads` of `MolecularDynamics` |
+| centroid | the mean place of the beads of an atom; `md.system` gives the centroids |
+| centroid-virial estimator | the kinetic energy of quantum nuclei from the forces on the beads and their distances from the centroids, 3Nk_BT/2 − Σ(q−q_c)·F/2P; `kinetic_energy` of path integrals |
+| primary knock-on atom, PKA | the atom a neutron or an ion strikes first, which starts a cascade of collisions in the crystal |
 | indenter | of `Indenter`: a sphere, a cylinder or the region beyond a plane that pushes the atoms inside it out with a force K d², d how far inside, as LAMMPS's `fix indent`; the force of the atoms on it is the load of an indentation |
 | Hugoniot | the states a steady shock wave can leave behind it from a reference state of energy E₀, volume V₀ and pressure P₀: those with E − E₀ = ½(P + P₀)(V₀ − V) |
 | Hugoniostat, `"nphug"` | molecular dynamics at a pressure, along one axis or alike along every axis, whose thermostat drives the energy to the Hugoniot, as LAMMPS's `fix nphug`: a point of the Hugoniot without a shock wave |
@@ -229,6 +236,15 @@ column of fixed-size arrays of length 3 and use the plural name.
 | shock velocity, particle velocity | of a steady shock to a state of strain ε = 1 − V/V₀: the speed of its front, √((P − P₀)/(ρ₀ε)), and that of the matter behind it, ε times the first |
 | strain rate | of `Deform`: in 1/ps, how fast a length of the box grows, as a part of its length at the start every ps (`"engineering"`) or of its length now (`"true"`); of a tilt, as a part of the length it grows across |
 | NEMD | nonequilibrium molecular dynamics: a hot and a cold bath drive heat through a crystal, and the heat flux over the gradient of temperature between them is the thermal conductivity, `nemd` |
+| restart file | the whole state of molecular dynamics at a step, from which `MolecularDynamics.load` and `resume` go on after a crash; `restart`, `restart_every` |
+| brick, ghost | of molecular dynamics on many processes: the part of the box whose atoms a process owns, and a copy on that process of an atom within the reach of its brick, of another process or a periodic image |
+| communicator | of MPI: a group of processes that work together, as mpi4py's `MPI.COMM_WORLD`, every process started, and `MPI.COMM_SELF`, each process alone; `comm` |
+| GPU-aware MPI | an MPI that sends and receives the memory of a GPU itself, between the GPUs of a machine over NVLink or PCIe, without a copy through the memory of the host; also called CUDA-aware; `MDAPY_GPU_AWARE_MPI` |
+| form factor | how strongly an atom scatters X-rays at a wave number, about its number of electrons at q = 0 and falling with q; `xray_form_factors` |
+| scattering length | how strongly a nucleus scatters neutrons, in fm, the same at every q, different for each isotope and negative for some, as H and Ti; `neutron_scattering_lengths` |
+| total scattering | the structure factor S(q) and the pair distribution function G(r) that X-rays or neutrons measure, each pair of elements weighted by their form factors or scattering lengths; `TotalScattering` |
+| reduced pair distribution function | G(r) = 4πρr[g(r) − 1], the Fourier transform of q[S(q) − 1], as total scattering experiments report it |
+| powder diffraction | the intensity scattered by a powder of crystals at each angle 2θ, λ = 2d sin θ, with its Lorentz-polarization factor; `PowderDiffraction` |
 | NEB | the nudged elastic band: images between two states, pulled down across the band by the forces of the potential and kept apart along it by springs, which relax to the minimum energy path; `neb` |
 | minimum energy path | the path between two minima of the energy along which the force has no part across it; its highest point is a saddle point |
 | saddle point | a stationary point of the energy that is a maximum along one direction and a minimum along all others; the barrier is its energy above the initial state |

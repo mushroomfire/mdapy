@@ -47,12 +47,12 @@ def _on_gpu(calculator: Any) -> str | None:
 
 
 class _Log:
-    """Where the lines go: a file of a path, opened here, overwritten and
-    closed by close; or a stream, such as sys.stdout, that stays open. A
-    process that does not write (the others of LAMMPS under MPI) passes
-    active=False."""
+    """Where the lines go: a file of a path, opened here, overwritten (or
+    added to, for a run continued from a restart) and closed by close; or a
+    stream, such as sys.stdout, that stays open. A process that does not
+    write (the others of LAMMPS under MPI) passes active=False."""
 
-    def __init__(self, target: Any, *, active: bool = True):
+    def __init__(self, target: Any, *, active: bool = True, append: bool = False):
         self.__owned = False
         self.__stream: TextIO | None = None
         self.__columns: tuple = ()
@@ -61,7 +61,7 @@ class _Log:
             return
         if isinstance(target, (str, os.PathLike)):
             try:
-                self.__stream = open(target, "w", encoding="utf-8")
+                self.__stream = open(target, "a" if append else "w", encoding="utf-8")
             except OSError as error:
                 raise InvalidParameter(f"cannot write the log: {error}") from None
             self.__owned = True

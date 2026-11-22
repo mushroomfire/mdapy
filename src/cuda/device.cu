@@ -43,6 +43,23 @@ DeviceProperties device_properties() {
 
 std::string device_name() { return device_properties().name; }
 
+int device_count() {
+    int count = 0;
+    if (cudaGetDeviceCount(&count) != cudaSuccess) {
+        return 0;
+    }
+    return count;
+}
+
+void use_device(int device) {
+    const int count = device_count();
+    if (device < 0 || device >= count) {
+        throw std::invalid_argument("no CUDA device " + std::to_string(device) + " of " +
+                                    std::to_string(count));
+    }
+    MDAPY_CUDA(cudaSetDevice(device));
+}
+
 template <class Real>
 DeviceBox<Real> device_box(const Box& box) {
     const double* h = box.h;
@@ -112,10 +129,11 @@ __device__ double block_reduce(double value, double* shared) {
 // First pass: block b of column k reduces the elements b * kBlock + t +
 // m * kGrid * kBlock of the column into partial[k * kGrid + b].
 template <class Op>
-__global__ void reduce_first(const double* data, std::int64_t n, double* partial) {
+__global__ void reduce_first(const double* data, std::int64_t n, std::int64_t pitch,
+                             double* partial) {
     __shared__ double shared[kBlock];
     const Op op;
-    const double* column = data + static_cast<std::int64_t>(blockIdx.y) * n;
+    const double* column = data + static_cast<std::int64_t>(blockIdx.y) * pitch;
     double value = Op::identity;
     const std::int64_t stride = static_cast<std::int64_t>(kGrid) * kBlock;
     for (std::int64_t i = static_cast<std::int64_t>(blockIdx.x) * kBlock + threadIdx.x; i < n;
@@ -146,7 +164,7 @@ __global__ void reduce_second(const double* partial, double* out) {
 std::mutex scratch_mutex;
 
 template <class Op>
-void reduce(const double* data, int columns, std::int64_t n, double* out) {
+void reduce(const double* data, int columns, std::int64_t n, std::int64_t pitch, double* out) {
     const std::lock_guard<std::mutex> lock(scratch_mutex);
     static Buffer<double> partial;
     static Buffer<double> result;
@@ -154,7 +172,7 @@ void reduce(const double* data, int columns, std::int64_t n, double* out) {
     if (result.size() < static_cast<std::size_t>(columns)) {
         result.resize(static_cast<std::size_t>(columns));
     }
-    reduce_first<Op><<<dim3(kGrid, columns), kBlock>>>(data, n, partial.data());
+    reduce_first<Op><<<dim3(kGrid, columns), kBlock>>>(data, n, pitch, partial.data());
     MDAPY_LAUNCHED();
     reduce_second<Op><<<columns, kBlock>>>(partial.data(), result.data());
     MDAPY_LAUNCHED();
@@ -164,12 +182,17 @@ void reduce(const double* data, int columns, std::int64_t n, double* out) {
 }  // namespace
 
 void sum_columns(const double* data, int columns, std::int64_t n, double* out) {
-    reduce<Add>(data, columns, n, out);
+    reduce<Add>(data, columns, n, n, out);
+}
+
+void sum_columns(const double* data, int columns, std::int64_t n, std::int64_t pitch,
+                 double* out) {
+    reduce<Add>(data, columns, n, pitch, out);
 }
 
 double largest(const double* values, std::int64_t n) {
     double out = -INFINITY;
-    reduce<Largest>(values, 1, n, &out);
+    reduce<Largest>(values, 1, n, n, &out);
     return out;
 }
 

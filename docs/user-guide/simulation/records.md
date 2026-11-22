@@ -25,6 +25,8 @@ of each run, and at its start and end.
 | `rayleigh`, `lagrangian_position`, `msst_energy` | float64 | GPa, Å, eV | with `"msst"`: see [Multiscale shock technique](msst.md#parameters) |
 | `<name>_force` | (3,) float64 | eV/Å | with a named [`Move`](controls.md), the force of the potential on its atoms; with a named [`Indenter`](indentation.md#parameters), the force of the atoms on it |
 | `<name>_energy` | float64 | eV | with a named [`Langevin`](controls.md), the heat it gave its group since the run began, negative when it took heat away; with a named `Indenter`, its energy |
+| `primitive_kinetic_energy`, `spring_energy`, `ring_polymer_energy` | float64 | eV | with `beads`: see [Path integrals](pimd.md#results), whose energies, temperature and pressure are those of the quantum estimators |
+| `electronic_loss` | float64 | eV | with an [`ElectronicStopping`](electronic-stopping.md), the energy the atoms gave the electrons since the run began |
 | `<name>_lambda` | float64 | | with a named [`Switch`](switching.md), λ |
 | `<name>_difference` | float64 | eV | with a named `Switch`, the energy of the target less that of the potential |
 

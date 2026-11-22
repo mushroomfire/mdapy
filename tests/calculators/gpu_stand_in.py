@@ -1,7 +1,11 @@
 """A stand-in for mdapy._cuda that computes on the processor with NumPy and
 the kernels of mdapy._core: what calls the GPU module can be tested where
-there is no GPU. tests/cuda compares the GPU itself with the processor."""
+there is no GPU. tests/cuda compares the GPU itself with the processor. Its
+noise is that of the device and of the processor, of the counter-based
+generator by the index of each atom (core/philox.h); under MPI the steps and
+the sums go through the first owned atoms, those of the process."""
 
+import threading
 import types
 
 import numpy as np
@@ -16,12 +20,33 @@ class NotFinite(RuntimeError):
     pass
 
 
+# what each atom carries from process to process, as the device packs it
+_CARRIED = np.dtype([("x", "f8", 3), ("species", "i4"), ("image", "i4", 3),
+                     ("mass", "f8"), ("id", "i8"), ("v", "f8", 3), ("f", "f8", 3)])  # fmt: skip
+
+
 class Atoms:
     """The atoms, as mdapy._cuda.Atoms holds them, in NumPy arrays."""
 
     def __init__(self, n):
         self.size = n
         self.species = self.x = self.v = self.masses = self.result = None
+        self.m = n  # the atoms of the process, the first
+        self.index = np.arange(n, dtype=np.int64)
+        self.image = np.zeros((n, 3), dtype=np.int32)  # the boxes wrap moved them by
+
+    def set_owned(self, owned):
+        self.m = owned if owned > 0 else self.size
+
+    @property
+    def owned(self):
+        return self.m
+
+    def set_ids(self, ids):
+        self.index = np.array(ids, dtype=np.int64)
+
+    def clear_ids(self):
+        self.index = np.arange(self.size, dtype=np.int64)
 
     def set_species(self, species):
         self.species = np.array(species)
@@ -31,6 +56,7 @@ class Atoms:
 
     def set_positions(self, positions):
         self.x = np.array(positions)
+        self.image = np.zeros((self.size, 3), dtype=np.int32)
 
     def set_velocities(self, velocities):
         self.v = np.array(velocities)
@@ -38,14 +64,107 @@ class Atoms:
     def positions(self):
         return self.x.copy()
 
-    def images(self):  # the stand-in never wraps
-        return np.zeros((self.size, 3), dtype=np.int32)
+    def images(self):  # the stand-in wraps only under MPI, at a build
+        return self.image.copy()
+
+    # -- a build of the bricks under MPI, rows the caller's order ------------
+
+    def ids(self):
+        return self.index.copy()
+
+    def settle(self):
+        pass
+
+    def __renumbered(self, n, forces):
+        self.size = self.m = n
+        self.movable = self.prescribed = self.added = self.groups = None
+        self.sites = self.constants = None
+        self.result = (np.zeros(n), forces, np.zeros((n, 3, 3)))
+
+    def _keep(self, rows):
+        forces = self.forces()[rows]
+        self.x, self.v = self.x[rows], self.v[rows]
+        self.species, self.masses = self.species[rows], self.masses[rows]
+        self.index, self.image = self.index[rows], self.image[rows]
+        self.__renumbered(len(rows), forces)
+
+    @staticmethod
+    def row_bytes():
+        return _CARRIED.itemsize
+
+    def _pack(self, rows):
+        out = np.empty(len(rows), dtype=_CARRIED)
+        out["x"], out["species"], out["image"] = (
+            self.x[rows],
+            self.species[rows],
+            self.image[rows],
+        )
+        out["mass"], out["id"], out["v"] = (
+            self.masses[rows],
+            self.index[rows],
+            self.v[rows],
+        )
+        out["f"] = self.forces()[rows]
+        return out.view(np.uint8)
+
+    def __appended(self, x, species, image, masses, ids, v, f):
+        self.x = np.concatenate([self.x, x])
+        self.species = np.concatenate([self.species, species])
+        self.image = np.concatenate([self.image, image])
+        self.masses = np.concatenate([self.masses, masses])
+        self.index = np.concatenate([self.index, ids])
+        self.v = np.concatenate([self.v, v])
+        self.__renumbered(len(self.x), np.concatenate([self.forces(), f]))
+
+    def _append(self, data):
+        rows = np.asarray(data, dtype=np.uint8).view(_CARRIED)
+        self.__appended(rows["x"], rows["species"], rows["image"], rows["mass"],
+                        rows["id"], rows["v"], rows["f"])  # fmt: skip
+
+    def _append_ghosts(self, positions, species, ids):
+        n = len(positions)
+        zeros = np.zeros((n, 3))
+        self.__appended(np.array(positions), np.array(species), np.zeros((n, 3), np.int32),
+                        np.zeros(n), np.array(ids), zeros, zeros)  # fmt: skip
+
+    def wrap(self, h, lo, pbc):
+        m = self.m
+        s = (self.x[:m] - lo) @ np.linalg.inv(h)
+        whole = np.where(np.array(pbc) & np.isfinite(s), np.floor(s), 0.0)
+        self.x[:m] -= whole @ h
+        self.image[:m] += whole.astype(np.int32)
+
+    def _fractions(self, d, h, lo, begin, end):
+        return ((self.x[begin:end] - lo) @ np.linalg.inv(h))[:, d]
+
+    def truncate(self, count):
+        self._keep(np.arange(count))
+
+    def _steps(self, d, h, lo, counts, at, periodic):
+        s = self._fractions(d, h, lo, 0, self.size)
+        with np.errstate(invalid="ignore"):
+            brick = np.clip(np.floor(np.nan_to_num(s, nan=0.0) * counts), 0, counts - 1)
+        step = brick.astype(np.int64) - at
+        if periodic:
+            half = counts // 2
+            step = (step + half) % counts - half
+        step = np.clip(step, -100, 100).astype(np.int8)
+        step[~np.isfinite(s)] = 127
+        return step
 
     def velocities(self):
         return self.v.copy()
 
     def forces(self):
+        if self.result is None:  # zero on a new device, as there
+            return np.zeros((self.size, 3))
         return self.result[1]
+
+    def set_forces(self, forces):
+        if self.result is None:
+            self.result = (np.zeros(self.size), None, np.zeros((self.size, 3, 3)))
+        energies, _, virials = self.result
+        self.result = (energies, np.array(forces, dtype=float), virials)
 
     def energies(self):
         return self.result[0]
@@ -54,16 +173,18 @@ class Atoms:
         return self.result[2]
 
     def total_energy(self):
-        return float(self.result[0].sum())
+        return float(self.result[0][: self.m].sum())
 
     def total_virial(self):
-        return self.result[2].sum(axis=0)
+        return self.result[2][: self.m].sum(axis=0)
 
     def kick(self, c):
-        self.v += c * self.result[1] / self.masses[:, None]
+        m = self.m
+        self.v[:m] += c * self.result[1][:m] / self.masses[:m, None]
 
     def drift(self, dt):
-        self.x += dt * self.v
+        m = self.m
+        self.x[:m] += dt * self.v[:m]
 
     def kick_drift(self, c, dt):
         self.kick(c)
@@ -74,55 +195,75 @@ class Atoms:
 
         where = at[0] if kind == 2 else np.asarray(at)
         push, energy, on = _indented(
-            self.x, np.asarray(h), pbc, (kind, axis, sign, k, radius), where
+            self.x[: self.m], np.asarray(h), pbc, (kind, axis, sign, k, radius), where
         )
         energies, forces, virials = self.result
-        self.result = (energies, forces + push, virials)
+        forces = np.array(forces)
+        forces[: self.m] += push
+        self.result = (energies, forces, virials)
         return np.array([energy, *on])
 
     def speed_squares(self):
-        return float((self.v * self.v).sum())
+        v = self.v[: self.m]
+        return float((v * v).sum())
 
     def msst_kick(self, half, base, axial, axis, trial, ftm2v):
-        m = self.masses[:, None]
-        c = self.result[1] * ftm2v / m
+        n = self.m
+        m = self.masses[:n, None]
+        c = self.result[1][:n] * ftm2v / m
         d = np.repeat(base / m, 3, axis=1)
         d[:, axis] -= axial
-        v = self.v
+        v = self.v[:n]
         with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
             e = np.exp(d * half)
             exact = e * (c + d * v - c / e) / d
         small = v + (c + d * v) * half + 0.5 * (d * d * v + c * d) * half * half
         new = np.where(np.abs(half * d) > 1.0e-06, exact, small)
         if not trial:
-            self.v = new
+            self.v[:n] = new
         return float((new * new).sum())
 
     def reflect(self, normal, offset, speed):
-        depth = self.x @ normal - offset
+        m = self.m
+        x, v = self.x[:m], self.v[:m]
+        depth = x @ normal - offset
         past = depth < 0.0
-        self.x[past] -= 2.0 * depth[past, None] * normal
-        self.v[past] += 2.0 * (speed - self.v[past] @ normal)[:, None] * normal
+        x[past] -= 2.0 * depth[past, None] * normal
+        v[past] += 2.0 * (speed - v[past] @ normal)[:, None] * normal
 
     def scale(self, fx, fy, fz):
-        self.v *= np.array([fx, fy, fz])
+        self.v[: self.m] *= np.array([fx, fy, fz])
 
     def shear(self, half, yz, xz, xy):
-        v = self.v
+        v = self.v[: self.m]
         v[:, 0] -= half * (v[:, 1] * xy + v[:, 2] * xz)
         v[:, 1] -= half * v[:, 2] * yz
 
     def remap(self, old_lo, old_inverse, lo, h):
-        self.x = lo + np.einsum(
-            "ij,jk->ik", np.einsum("ij,jk->ik", self.x - old_lo, old_inverse), h
+        m = self.m
+        self.x[:m] = lo + np.einsum(
+            "ij,jk->ik", np.einsum("ij,jk->ik", self.x[:m] - old_lo, old_inverse), h
         )
 
+    def __noise(self, c2, kt, seed, counter):
+        m = self.m
+        g = _core.core.normals(self.index[:m], seed, 0, counter)
+        return c2 * np.sqrt(kt / self.masses[:m])[:, None] * g
+
     def langevin(self, c1, c2, kt, seed, counter, keep=False):
-        g = np.random.default_rng([seed, counter]).normal(size=self.v.shape)
-        noise = c2 * np.sqrt(kt / self.masses)[:, None] * g
+        m = self.m
+        noise = self.__noise(c2, kt, seed, counter)
         if keep:  # less an equal share of the momentum of the noise
-            noise -= (self.masses @ noise) / len(noise) / self.masses[:, None]
-        self.v = c1 * self.v + noise
+            noise -= (self.masses[:m] @ noise) / m / self.masses[:m, None]
+        self.v[:m] = c1 * self.v[:m] + noise
+
+    def draw_noise(self, c2, kt, seed, counter):
+        self.noise = self.__noise(c2, kt, seed, counter)
+        return self.masses[: self.m] @ self.noise
+
+    def keep_noise(self, c1, share):
+        m = self.m
+        self.v[:m] = c1 * self.v[:m] + self.noise - share / self.masses[:m, None]
 
     stash = sites = constants = None
 
@@ -148,30 +289,51 @@ class Atoms:
         d = self.x - self.sites  # the stand-in never wraps
         energies = 0.5 * self.constants * (d * d).sum(axis=1)
         self.result = (energies, -self.constants[:, None] * d, self.result[2])
-        return float(energies.sum())
+        return float(energies[: self.m].sum())
+
+    def push(self, field):
+        self.pushes = np.einsum("a,iab->ib", field, self.result[2][: self.m])
+        return self.pushes.sum(axis=0)
+
+    def pushed(self, mean):
+        energies, forces, virials = self.result
+        forces = np.array(forces)
+        forces[: self.m] += self.pushes - mean
+        self.result = (energies, forces, virials)
 
     def drive(self, field):
-        push = np.einsum("a,iab->ib", field, self.result[2])
-        energies, forces, virials = self.result
-        self.result = (energies, forces + push - push.mean(axis=0), virials)
+        self.pushed(self.push(field) / self.m)
 
     def heat_flux(self):
-        return np.einsum("iab,ib->a", self.result[2], self.v)
+        m = self.m
+        return np.einsum("iab,ib->a", self.result[2][:m], self.v[:m])
 
     def __energies_with(self, v, mvv2e):
-        return self.result[0] + 0.5 * self.masses * (v * v).sum(axis=1) * mvv2e
+        m = self.m
+        return self.result[0][:m] + 0.5 * self.masses[:m] * (v * v).sum(axis=1) * mvv2e
+
+    def carried(self, kick, mvv2e):
+        m = self.m
+        ahead = self.v[:m] + kick * self.result[1][:m] / self.masses[:m, None]
+        self.energies_carried = self.__energies_with(ahead, mvv2e)
+        return float(self.energies_carried.sum())
+
+    def convected(self, field, mean):
+        energies, forces, virials = self.result
+        forces = np.array(forces)
+        forces[: self.m] += np.outer(self.energies_carried - mean, field)
+        self.result = (energies, forces, virials)
 
     def convect(self, field, kick, mvv2e):
-        energies, forces, virials = self.result
-        ahead = self.v + kick * forces / self.masses[:, None]
-        e = self.__energies_with(ahead, mvv2e)
-        self.result = (energies, forces + np.outer(e - e.mean(), field), virials)
+        self.convected(field, self.carried(kick, mvv2e) / self.m)
 
     def energy_flux(self, mvv2e):
-        return self.__energies_with(self.v, mvv2e) @ self.v
+        v = self.v[: self.m]
+        return self.__energies_with(v, mvv2e) @ v
 
     def kinetic(self):
-        return np.einsum("i,ij,ik->jk", self.masses, self.v, self.v)
+        m = self.m
+        return np.einsum("i,ij,ik->jk", self.masses[:m], self.v[:m], self.v[:m])
 
     movable = rotation = prescribed = added = groups = None
 
@@ -182,19 +344,23 @@ class Atoms:
         self.movable = None
 
     def __restricted(self, vectors):
+        """Those of the first atoms, of the process."""
         if self.movable is None:
             return vectors
         r = self.rotation
-        return ((vectors @ r.T) * self.movable) @ r
+        return ((vectors @ r.T) * self.movable[: len(vectors)]) @ r
 
     def restrict_forces(self):
         e, f, w = self.result
-        self.result = (e, self.__restricted(f), w)
+        f = np.array(f)
+        f[: self.m] = self.__restricted(f[: self.m])
+        self.result = (e, f, w)
 
     def restrict_velocities(self):
-        self.v = self.__restricted(self.v)
+        m = self.m
+        self.v[:m] = self.__restricted(self.v[:m])
         if self.prescribed is not None:
-            self.v = self.v + self.prescribed
+            self.v[:m] = self.v[:m] + self.prescribed[:m]
 
     def set_prescribed(self, velocities):
         self.prescribed = np.array(velocities)
@@ -220,35 +386,45 @@ class Atoms:
         self.groups = None
 
     def group_forces(self, count):
-        f = self.result[1]
-        return np.array(
-            [f[(self.groups >> g) & 1 == 1].sum(axis=0) for g in range(count)]
-        )
+        f, groups = self.result[1][: self.m], self.groups[: self.m]
+        return np.array([f[(groups >> g) & 1 == 1].sum(axis=0) for g in range(count)])
 
     def kinetic_free(self):
-        v = self.__restricted(self.v)
-        return float(np.einsum("i,ij,ij->", self.masses, v, v))
+        m = self.m
+        v = self.__restricted(self.v[:m])
+        return float(np.einsum("i,ij,ij->", self.masses[:m], v, v))
 
     def bath(self, bit, c1, c2, kt, seed, counter):
-        mask = (self.groups >> bit) & 1 == 1
-        g = np.zeros_like(self.v)
-        g[mask] = np.random.default_rng([seed, counter]).normal(
-            size=(int(mask.sum()), 3)
-        )
+        n = self.m
+        v = self.v[:n]
+        mask = (self.groups[:n] >> bit) & 1 == 1
+        g = np.zeros_like(v)
+        g[mask] = _core.core.normals(self.index[:n][mask], seed, 1, counter)
         g = self.__restricted(g)
-        m = self.masses[mask]
-        before = np.einsum("i,ij,ij->", m, self.v[mask], self.v[mask])
-        self.v[mask] = c1 * self.v[mask] + c2 * np.sqrt(kt / m)[:, None] * g[mask]
-        return 0.5 * float(
-            np.einsum("i,ij,ij->", m, self.v[mask], self.v[mask]) - before
-        )
+        m = self.masses[:n][mask]
+        before = np.einsum("i,ij,ij->", m, v[mask], v[mask])
+        v[mask] = c1 * v[mask] + c2 * np.sqrt(kt / m)[:, None] * g[mask]
+        return 0.5 * float(np.einsum("i,ij,ij->", m, v[mask], v[mask]) - before)
 
 
 class Neighbors:
     def __init__(self, cutoff, skin):
         self.cutoff, self.skin = cutoff, skin
+        self.built = None  # the positions of the last build
 
     def update(self, atoms, h, lo, pbc):
+        self.build(atoms, h, lo, pbc)
+        return True
+
+    def stale(self, atoms, h, lo, pbc):
+        if not np.isfinite(atoms.x).all():
+            raise NotFinite("the positions are not finite")
+        if self.built is None or len(self.built) != atoms.size:
+            return True
+        moved = np.sqrt(((atoms.x - self.built) ** 2).sum(axis=1).max(initial=0.0))
+        return bool(2.0 * moved > self.skin)
+
+    def build(self, atoms, h, lo, pbc):
         if not np.isfinite(atoms.x).all():
             raise NotFinite("the positions are not finite")
         thick = np.abs(np.linalg.det(h)) / np.linalg.norm(
@@ -256,28 +432,270 @@ class Neighbors:
         )
         if (np.array(pbc) & (thick <= 2 * (self.cutoff + self.skin))).any():
             raise ValueError("the box is too thin: thicker than twice the cutoff")
-        return True
+        self.built = atoms.x.copy()
+
+
+# a ghost, as the stand-in sends it
+_GHOST = np.dtype([("x", "f8", 3), ("species", "f8"), ("id", "i8")])
+
+
+class Exchange:
+    """What the processes pass to each other, as the device's Exchange: the
+    stand-in keeps its atoms in the caller's order, and its views are its
+    arrays, of the host, with the device as without."""
+
+    def __init__(self):
+        self.device = False
+        self.__slots = []  # each message: its rows, first ghost, ghosts, memory
+        self.__step = None
+        self.__arrived = [None, None]
+
+    def set_device(self, device):
+        self.device = bool(device)
+
+    def clear(self):
+        self.__slots = []
+
+    @property
+    def messages(self):
+        return len(self.__slots)
+
+    @staticmethod
+    def ghost_bytes():
+        return _GHOST.itemsize
+
+    # -- a build -----------------------------------------------------------
+
+    def leaving(self, atoms, d, h, lo, counts, at, periodic):
+        step = self.__step = atoms._steps(d, h, lo, counts, at, periodic)
+        worst = 127 if (step == 127).any() else int(np.abs(step).max(initial=0))
+        return int((step == -1).sum()), int((step == 1).sum()), worst
+
+    def pack_leaving(self, atoms, side):
+        return atoms._pack(np.flatnonzero(self.__step == 2 * side - 1))
+
+    def receive_arriving(self, side, count):
+        self.__arrived[side] = np.empty(count * _CARRIED.itemsize, np.uint8)
+        return self.__arrived[side]
+
+    def migrate(self, atoms):
+        atoms._keep(np.flatnonzero(self.__step == 0))
+        for side in (0, 1):
+            atoms._append(self.__arrived[side])
+        self.__arrived = [None, None]
+
+    def border(self, atoms, d, h, lo, low, high, begin, end, none, shift):
+        t = atoms._fractions(d, h, lo, begin, end)
+        rows = begin + np.flatnonzero((t >= low) & (t < high))
+        if none:
+            rows = rows[:0]
+        out = np.empty(len(rows), dtype=_GHOST)
+        out["x"], out["species"], out["id"] = (
+            atoms.x[rows] + shift,
+            atoms.species[rows],
+            atoms.index[rows],
+        )
+        self.__slots.append({"rows": rows, "start": 0, "count": 0,
+                             "out": out.view(np.uint8), "in": None})  # fmt: skip
+        return len(rows)
+
+    def border_out(self, k):
+        return self.__slots[k]["out"]
+
+    def border_in(self, k, count):
+        slot = self.__slots[k]
+        slot["count"], slot["in"] = count, np.empty(count * _GHOST.itemsize, np.uint8)
+        return slot["in"]
+
+    def append_border(self, atoms, k):
+        slot = self.__slots[k]
+        got = slot["in"].view(_GHOST)
+        slot["start"] = atoms.size
+        atoms._append_ghosts(got["x"], got["species"].astype(np.int32), got["id"])
+
+    def place(self, atoms):
+        pass  # the rows stay the caller's
+
+    # -- each step ---------------------------------------------------------
+
+    def sent(self, k):
+        return len(self.__slots[k]["rows"])
+
+    def received(self, k):
+        return self.__slots[k]["count"]
+
+    def __ghosts(self, k):
+        slot = self.__slots[k]
+        return slice(slot["start"], slot["start"] + slot["count"])
+
+    def pack_positions(self, atoms, k, shift):
+        return atoms.x[self.__slots[k]["rows"]] + shift
+
+    def receive_positions(self, k):
+        self.__slots[k]["in"] = np.empty((self.received(k), 3))
+        return self.__slots[k]["in"]
+
+    def unpack_positions(self, atoms, k):
+        atoms.x[self.__ghosts(k)] = self.__slots[k]["in"]
+
+    def pack_forces(self, atoms, k):
+        return atoms.result[1][self.__ghosts(k)].copy()
+
+    def receive_forces(self, k):
+        self.__slots[k]["in"] = np.empty((self.sent(k), 3))
+        return self.__slots[k]["in"]
+
+    def add_forces(self, atoms, k):
+        atoms.result[1][self.__slots[k]["rows"]] += self.__slots[k]["in"]
+
+    def pack_virials(self, atoms, k):
+        return atoms.result[2][self.__ghosts(k)].copy()
+
+    def receive_virials(self, k):
+        self.__slots[k]["in"] = np.empty((self.sent(k), 3, 3))
+        return self.__slots[k]["in"]
+
+    def add_virials(self, atoms, k):
+        atoms.result[2][self.__slots[k]["rows"]] += self.__slots[k]["in"]
+
+    def pack_forwarded(self, potential, k):
+        return np.ascontiguousarray(potential.values[self.__slots[k]["rows"]]).view(
+            np.uint8
+        )
+
+    def receive_forwarded(self, potential, k):
+        self.__slots[k]["in"] = np.empty(
+            self.received(k) * potential.forwarded_bytes, np.uint8
+        )
+        return self.__slots[k]["in"]
+
+    def unpack_forwarded(self, potential, k):
+        potential.values[self.__ghosts(k)] = self.__slots[k]["in"].view(np.float64)
+
+
+class Stopping:
+    """Electronic stopping: atom by atom, as the kernel of the device."""
+
+    def __init__(self, energies, values):
+        self.energies, self.values = np.array(energies), np.array(values)
+
+    def apply(self, atoms, neighbors, h, lo, pbc, least, needed, cutoff, bit, mvv2e):
+        system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
+        nl = NeighborList.build(system, cutoff)
+        energies, forces, virials = atoms.result
+        forces = np.array(forces)
+        power = beyond = 0.0
+        table = self.energies
+        for i in range(atoms.m):
+            if bit >= 0 and not (atoms.groups[i] >> bit) & 1:
+                continue
+            v = atoms.v[i]
+            e = 0.5 * mvv2e * atoms.masses[i] * float(v @ v)
+            if e < least or e < table[0] or nl.counts[i] < needed:
+                continue
+            beyond += e > table[-1]
+            up = min(max(int(np.searchsorted(table, e)), 1), len(table) - 1)
+            low, high = self.values[atoms.species[i], [up - 1, up]]
+            drag = low + (high - low) * (e - table[up - 1]) / (
+                table[up] - table[up - 1]
+            )
+            speed = float(np.sqrt(v @ v))
+            forces[i] -= drag * v / speed
+            power += drag * speed
+        atoms.result = (energies, forces, virials)
+        return np.array([power, beyond])
 
 
 class Potential:
-    """A potential of the stand-in: the kernels of the processor."""
+    """A potential of the stand-in: the kernels of the processor. thin: it
+    computes the atoms of a process alone from ghosts within its cutoff;
+    staged, EAM in two stages, the slopes of the embedding functions sent to
+    the ghosts between them, by the kernels of EAM on many processes;
+    reverse, the three-body potentials, whose terms are those of the atoms of
+    the process, the forces on the ghosts sent back."""
 
-    def __init__(self, made, compute):
+    def __init__(self, made, compute, thin=False, staged=False, reverse=False,
+                 gathered=False):  # fmt: skip
         self.native, self.compute_native = made, compute
         self.asked = []
+        self.thin, self.reverse, self.gathered = thin or reverse, reverse, gathered
+        self.stages = 2 if staged else 1
+        self.forwarded_bytes = 8 if staged else 0
+        # what a stage leaves for the next, of each process: the threads that
+        # stand in for processes share the potential, the device's are their own
+        self.__here = threading.local()
 
-    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
+    @property
+    def values(self):
+        return self.__here.values
+
+    @values.setter
+    def values(self, values):
+        self.__here.values = values
+
+    @property
+    def embedding(self):
+        return self.__here.embedding
+
+    @embedding.setter
+    def embedding(self, embedding):
+        self.__here.embedding = embedding
+
+    def compute_stage(self, stage, atoms, neighbors, h, lo, pbc, energy, virial, heat):
+        if self.stages == 1:
+            centers = atoms.m if self.reverse else None
+            if heat:
+                self.compute_heat(atoms, neighbors, h, lo, pbc, centers)
+            else:
+                self.compute(atoms, neighbors, h, lo, pbc, energy, virial, False,
+                             centers=centers)  # fmt: skip
+            return
+        system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
+        nl = NeighborList.build(system, neighbors.cutoff)
+        arrays = (atoms.species, np.ascontiguousarray(atoms.x), np.ascontiguousarray(h),
+                  nl.offsets, nl.j, nl.shifts)  # fmt: skip
+        native = _core.calculators
+        if stage == 0:
+            self.embedding, slopes = native.eam_densities(self.native, *arrays, atoms.m)
+            self.values = np.zeros(atoms.size)
+            self.values[: atoms.m] = slopes
+        else:
+            parts = native.eam_forces(
+                self.native, *arrays, self.values, self.embedding, virial or heat, heat
+            )
+
+            def rows(values, shape):  # of the atoms of the process, then the ghosts
+                out = np.zeros((atoms.size, *shape))
+                if values is not None:
+                    out[: len(values)] = values
+                return out
+
+            atoms.result = (rows(parts[0], ()), rows(parts[1], (3,)),
+                            rows(parts[2], (3, 3)))  # fmt: skip
+
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False,
+                centers=None):  # fmt: skip
+        """centers: the first atoms alone the centres of the terms, as under
+        MPI."""
         self.asked.append((energy, virial, atomic))
         system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
         nl = NeighborList.build(system, neighbors.cutoff)
         # the kernels of three-body terms take heat, the others need none
         extra = (heat,) if heat else ()
+        options = {} if centers is None else {"centers": centers}
         atoms.result = self.compute_native(
             self.native, atoms.species, np.ascontiguousarray(atoms.x), h,
-            nl.offsets, nl.j, nl.shifts, None, None, *extra,
+            nl.offsets, nl.j, nl.shifts, None, None, *extra, **options,
         )  # fmt: skip
+        if centers is not None and not heat and not self.gathered:
+            # the device keeps the terms of a centre with it: the shares the
+            # processor gave the ghosts are the process's, its totals the same
+            energies, forces, virials = atoms.result
+            energies[0] += energies[centers:].sum()
+            virials[0] += virials[centers:].sum(axis=0)
+            energies[centers:], virials[centers:] = 0.0, 0.0
 
-    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+    def compute_heat(self, atoms, neighbors, h, lo, pbc, centers=None):
         """The energies and virials of the heat flux: those of the kernels
         with heat for EAM and the three-body terms, as the device's
         compute_heat."""
@@ -286,7 +704,36 @@ class Potential:
             _core.calculators.compute_tersoff,
             _core.calculators.compute_eam,
         )
-        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat)
+        self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat, centers)
+
+
+class Overlay:
+    """Potentials of the stand-in added together, as the device's."""
+
+    thin, reverse, gathered, stages, forwarded_bytes = False, False, False, 1, 0
+
+    def __init__(self, parts):
+        self.parts = list(parts)
+
+    def __run(self, atoms, compute):
+        total = None
+        for part in self.parts:
+            compute(part)
+            if total is None:
+                total = atoms.result
+            else:
+                total = tuple(
+                    None if a is None or b is None else a + b
+                    for a, b in zip(total, atoms.result)
+                )
+        atoms.result = total
+
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
+        self.__run(atoms, lambda p: p.compute(atoms, neighbors, h, lo, pbc, energy,
+                                              virial, atomic))  # fmt: skip
+
+    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+        self.__run(atoms, lambda p: p.compute_heat(atoms, neighbors, h, lo, pbc))
 
 
 def stand_in(found=True):
@@ -297,7 +744,7 @@ def stand_in(found=True):
         made = native.make_eam(
             embedding, density, pair, drho, dr, cutoff, rho_max=rho_max
         )
-        return Potential(made, native.compute_eam)
+        return Potential(made, native.compute_eam, thin=True, staged=True)
 
     def make_adp(
         embedding, density, pair, dipole, quadrupole, drho, dr, cutoff, precision
@@ -309,11 +756,11 @@ def stand_in(found=True):
 
     def make_stillinger_weber(elements, rows, precision):
         made = native.make_stillinger_weber(elements, rows)
-        return Potential(made, native.compute_stillinger_weber)
+        return Potential(made, native.compute_stillinger_weber, reverse=True)
 
     def make_tersoff(elements, rows, precision):
         made = native.make_tersoff(elements, rows)
-        return Potential(made, native.compute_tersoff)
+        return Potential(made, native.compute_tersoff, reverse=True)
 
     def make_meam(element, ebound, cmin, cmax, tables, options, numbers, precision):
         made = native.make_meam(element, ebound, cmin, cmax, tables, options, numbers)
@@ -323,11 +770,11 @@ def stand_in(found=True):
         if max(arguments[0][1:5]) + 1 > 20:  # functions of each kind
             raise ValueError("on the GPU, NEP takes at most 20 functions of each kind")
         made = native.make_nep(*arguments[:-1])
-        return Potential(made, native.compute_nep)
+        return Potential(made, native.compute_nep, reverse=True, gathered=True)
 
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)
-        return Potential(made, native.compute_pair)
+        return Potential(made, native.compute_pair, thin=True)
 
     def device_name():
         if not found:
@@ -343,9 +790,12 @@ def stand_in(found=True):
         }
 
     return types.SimpleNamespace(
-        Atoms=Atoms, Neighbors=Neighbors, make_eam=make_eam, make_pair=make_pair,
+        Atoms=Atoms, Neighbors=Neighbors, Stopping=Stopping, Exchange=Exchange,
+        make_eam=make_eam,
+        make_overlay=Overlay,
+        make_pair=make_pair,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
         device_name=device_name, device_properties=device_properties,
-        NotFinite=NotFinite,
+        NotFinite=NotFinite, device_count=lambda: 1, use_device=lambda device: None,
     )  # fmt: skip

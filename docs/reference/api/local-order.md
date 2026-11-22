@@ -34,6 +34,18 @@
 
 ::: mdapy.analysis.StructureFactorResult
 
+## Total scattering
+
+::: mdapy.analysis.TotalScattering
+
+::: mdapy.analysis.TotalScatteringResult
+
+## Powder diffraction
+
+::: mdapy.analysis.PowderDiffraction
+
+::: mdapy.analysis.PowderDiffractionResult
+
 ## Spatial correlation
 
 ::: mdapy.analysis.SpatialCorrelation

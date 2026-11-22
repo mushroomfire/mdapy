@@ -463,7 +463,8 @@ NB_MODULE(_dft, m) {
            int spins, int bands, double electrons, const std::string& functional, const std::string& smearing,
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
-           int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis) {
+           int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
+           nb::object state) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -523,10 +524,11 @@ NB_MODULE(_dft, m) {
             opt.davidson_iterations = davidson_iterations;
             opt.davidson_basis = davidson_basis;
             opt.seed = seed;
+            mdapy::dft::ScfState* kept = state.is_none() ? nullptr : nb::cast<mdapy::dft::ScfState*>(state);
             mdapy::dft::ScfResult r;
             {
                 nb::gil_scoped_release release;
-                r = mdapy::dft::run_scf(in, opt);
+                r = mdapy::dft::run_scf(in, opt, kept);
             }
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
@@ -543,6 +545,7 @@ NB_MODULE(_dft, m) {
             const std::size_t ns = r.steps.size();
             nb::dict out;
             out["converged"] = r.converged;
+            out["restarted"] = r.restarted;
             out["iterations"] = r.iterations;
             out["energy"] = r.energy;
             out["band"] = r.band;
@@ -583,5 +586,11 @@ NB_MODULE(_dft, m) {
         nb::arg("magnetic_beta"), nb::arg("history"),
         nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
-        nb::arg("basis").none() = nb::none());
+        nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none());
+
+    // what a run of the self-consistent field leaves for the next one
+    nb::class_<mdapy::dft::ScfState>(m, "State")
+        .def(nb::init<>())
+        .def_prop_ro("valid", [](const mdapy::dft::ScfState& s) { return s.valid; })
+        .def("clear", [](mdapy::dft::ScfState& s) { s = mdapy::dft::ScfState(); });
 }

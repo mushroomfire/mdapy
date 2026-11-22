@@ -109,6 +109,20 @@ __global__ void spin_densities(std::size_t points, int spins, const double* rho,
     }
 }
 
+// out = a + b, count components
+__global__ void add_components(std::size_t count, const Complex* a, const Complex* b, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < count) out[i] = make_cuDoubleComplex(a[i].x + b[i].x, a[i].y + b[i].y);
+}
+
+// the spin densities interleaved (2 per point) apart, (spin, point)
+__global__ void apart_kernel(std::size_t points, const double* interleaved, double* apart) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= points) return;
+    apart[i] = interleaved[2 * i];
+    apart[points + i] = interleaved[2 * i + 1];
+}
+
 // sigma of the gradients, grads (spin, component, point)
 __global__ void sigma_kernel(std::size_t points, const double* grads, double* sigma) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
@@ -238,17 +252,14 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     DeviceArray<double> sum(1);
     // the total density on the sphere, and the Hartree potential
     work_.resize(points * 4);
+    components_.reserve(2 * n);
     if (spins_ == 2) {
-        // rho_up + rho_down into work_
-        DeviceArray<Complex> both(2 * n);
-        to_sphere(rho, both.data(), 2);
-        std::vector<Complex> host(2 * n);
-        both.download(host.data(), 2 * n);
-        for (std::size_t i = 0; i < n; ++i)
-            host[i] = make_cuDoubleComplex(host[i].x + host[n + i].x, host[i].y + host[n + i].y);
-        components_.upload(host.data(), n);
+        // rho_up + rho_down
+        spare_.reserve(2 * n);
+        to_sphere(rho, spare_.data(), 2);
+        add_components<<<blocks(n), kThreads>>>(n, spare_.data(), spare_.data() + n, components_.data());
+        launched("the total density");
     } else {
-        components_.resize(n);
         to_sphere(rho, components_.data(), 1);
     }
     DeviceArray<Complex> vh(n);
@@ -268,23 +279,19 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     const bool gga = functional_ == Functional::Pbe || functional_ == Functional::PbePw;
     if (gga) {
         // n_up and n_down apart, on the sphere, and the 3 components of each gradient
-        DeviceArray<double> apart(2 * points);
-        std::vector<double> interleaved(2 * points), separate(2 * points);
-        rho_.download(interleaved.data(), 2 * points);
-        for (std::size_t i = 0; i < points; ++i) {
-            separate[i] = interleaved[2 * i];
-            separate[points + i] = interleaved[2 * i + 1];
-        }
-        apart.upload(separate.data(), 2 * points);
-        DeviceArray<Complex> dens(2 * n), comp(n);
-        to_sphere(apart.data(), dens.data(), 2);
+        apart_.reserve(2 * points);
+        apart_kernel<<<blocks(points), kThreads>>>(points, rho_.data(), apart_.data());
+        launched("the spin densities apart");
+        spare_.reserve(3 * n);
+        Complex* dens = spare_.data();
+        Complex* comp = spare_.data() + 2 * n;
+        to_sphere(apart_.data(), dens, 2);
         grads_.resize(6 * points);
         for (int s = 0; s < 2; ++s)
             for (int j = 0; j < 3; ++j) {
-                times_ig<<<blocks(n), kThreads>>>(n, j, g_.data(), dens.data() + static_cast<std::size_t>(s) * n,
-                                                  comp.data());
+                times_ig<<<blocks(n), kThreads>>>(n, j, g_.data(), dens + static_cast<std::size_t>(s) * n, comp);
                 launched("a gradient");
-                from_sphere(comp.data(), grads_.data() + static_cast<std::size_t>(3 * s + j) * points, 1);
+                from_sphere(comp, grads_.data() + static_cast<std::size_t>(3 * s + j) * points, 1);
             }
         sigma_kernel<<<blocks(points), kThreads>>>(points, grads_.data(), sigma_.data());
         launched("sigma");

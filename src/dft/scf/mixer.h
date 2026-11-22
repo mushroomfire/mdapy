@@ -28,9 +28,9 @@
 namespace mdapy::dft {
 
 struct MixingOptions {
-    double beta = 0.4;           // the share of the residual taken
-    double kerker = 1.0;         // q0 in 1/bohr; 0 for none
-    double minimum = 0.1;        // the least share of any component with Kerker
+    double beta = 0.7;           // the share of the residual taken
+    double kerker = 0.8;         // q0 in 1/bohr; 0 for none
+    double minimum = 0.0;        // the least share of any component with Kerker
     double magnetic_beta = 0.4;  // the share of the residual of the magnetization
     int history = 8;             // steps kept
     double metric_weight = 20.0;  // w at the shortest G; 1 for the plain norm

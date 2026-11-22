@@ -8,9 +8,11 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <random>
+#include <unordered_map>
 #include <stdexcept>
 
 #include "dft/core/device.h"
@@ -62,9 +64,47 @@ void to_spins(std::vector<Complex>& c, std::size_t n) {
     }
 }
 
+// the index of each Miller index of `to` in `from`, -1 where it is missing
+std::vector<std::int64_t> match(const std::vector<Int3>& from, const std::vector<Int3>& to) {
+    auto key = [](const Int3& m) {
+        return (static_cast<std::int64_t>(m[0] + 4096) << 26) | (static_cast<std::int64_t>(m[1] + 4096) << 13) |
+               static_cast<std::int64_t>(m[2] + 4096);
+    };
+    std::unordered_map<std::int64_t, std::int64_t> where;
+    where.reserve(from.size());
+    for (std::size_t i = 0; i < from.size(); ++i) where.emplace(key(from[i]), static_cast<std::int64_t>(i));
+    std::vector<std::int64_t> out(to.size(), -1);
+    for (std::size_t i = 0; i < to.size(); ++i) {
+        const auto found = where.find(key(to[i]));
+        if (found != where.end()) out[i] = found->second;
+    }
+    return out;
+}
+
+// column b of out (n, count) is column b of in (m, count) at the rows index,
+// zero where the index is -1
+__global__ void match_kernel(std::size_t n, std::size_t m, int count, const std::int64_t* index, const Complex* in,
+                             Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * count) return;
+    const std::size_t b = i / n, g = i % n;
+    const std::int64_t from = index[g];
+    out[i] = from < 0 ? make_cuDoubleComplex(0.0, 0.0) : in[b * m + static_cast<std::size_t>(from)];
+}
+
+bool fits(const ScfState* state, const ScfInput& input, int spins, int bands) {
+    if (state == nullptr || !state->valid || state->atoms != input.atoms.size() || state->spins != spins ||
+        state->bands != bands || state->kpoints.size() != input.kpoints.size())
+        return false;
+    for (std::size_t k = 0; k < input.kpoints.size(); ++k)
+        for (std::size_t d = 0; d < 3; ++d)
+            if (std::abs(state->kpoints[k][d] - input.kpoints[k][d]) > 1e-12) return false;
+    return true;
+}
+
 }  // namespace
 
-ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
+ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
     const std::size_t points =
         static_cast<std::size_t>(input.grid[0]) * input.grid[1] * input.grid[2];
     const std::size_t nk = input.kpoints.size();
@@ -103,9 +143,26 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     // start and the same for both spins, so that a density without
     // magnetization keeps none
     std::vector<DeviceArray<Complex>> psi(spins * nk);
+    const bool restart = fits(state, input, ns, nb);
+    std::vector<std::vector<Int3>> millers(nk);
     for (std::size_t k = 0; k < nk; ++k) {
         h.set_k(input.kpoints[k]);
         if (bands > h.plane_waves()) throw std::invalid_argument("more bands than plane waves at a k-point");
+        millers[k] = h.sphere().miller;
+        if (restart) {
+            // the bands of the last run on these plane waves
+            const auto index = match(state->millers[k], millers[k]);
+            DeviceArray<std::int64_t> where;
+            where.upload(index.data(), index.size());
+            const std::size_t n = h.plane_waves(), m = state->millers[k].size();
+            for (std::size_t s = 0; s < spins; ++s) {
+                psi[s * nk + k].resize(n * bands);
+                match_kernel<<<blocks(n * bands), kThreads>>>(n, m, nb, where.data(), state->psi[s * nk + k].data(),
+                                                              psi[s * nk + k].data());
+                check_cuda(cudaGetLastError(), "the bands of the last run");
+            }
+            continue;
+        }
         const auto start = random_bands(h.sphere().kinetic, nb, options.seed * 1000003ULL + k);
         for (std::size_t s = 0; s < spins; ++s) psi[s * nk + k].upload(start.data(), start.size());
     }
@@ -120,7 +177,27 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     pot.to_sphere(rho_in.data(), components.data(), ns);
     components.download(in_g.data(), in_g.size());
     if (ns == 2) to_total(in_g, ng);
+    const std::vector<Complex> atoms_g = in_g;  // of the free atoms where they are
+    if (restart) {
+        // the last output density less its free atoms plus these
+        const auto index = match(state->density_miller, pot.sphere().miller);
+        const std::size_t m = state->density_miller.size();
+        for (std::size_t c = 0; c < spins; ++c)
+            for (std::size_t g = 0; g < ng; ++g) {
+                const std::int64_t from = index[g];
+                if (from < 0) continue;
+                const Complex old = state->density[c * m + static_cast<std::size_t>(from)];
+                const Complex free = state->atoms_density[c * m + static_cast<std::size_t>(from)];
+                in_g[c * ng + g] = make_cuDoubleComplex(in_g[c * ng + g].x + old.x - free.x,
+                                                        in_g[c * ng + g].y + old.y - free.y);
+            }
+        std::vector<Complex> start = in_g;
+        if (ns == 2) to_spins(start, ng);
+        components.upload(start.data(), start.size());
+        pot.from_sphere(components.data(), rho_in.data(), ns);
+    }
     ScfResult result;
+    result.restarted = restart;
     result.ewald = input.ewald;
     // the k-points of each spin, their weights and eigenvalues
     std::vector<double> weights(spins * nk), eigenvalues(spins * nk * bands), values, w(bands);
@@ -354,6 +431,18 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
         }
         result.has_strain = true;
         result.strain = st;
+    }
+    if (state != nullptr) {
+        state->valid = result.converged;
+        state->atoms = input.atoms.size();
+        state->spins = ns;
+        state->bands = nb;
+        state->kpoints = input.kpoints;
+        state->millers = std::move(millers);
+        state->psi = std::move(psi);
+        state->density_miller = pot.sphere().miller;
+        state->density = out_g;
+        state->atoms_density = atoms_g;
     }
     result.density.resize(spins * points);
     rho_out.download(result.density.data(), result.density.size());

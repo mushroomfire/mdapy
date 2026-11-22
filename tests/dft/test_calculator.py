@@ -91,6 +91,16 @@ def test_kspacing_as_vasp(folder):
     dft.compute(silicon())
     b = 2 * np.pi * np.linalg.norm(np.linalg.inv(silicon_cell()).T, axis=1)
     assert dft.last["kpoints"] == tuple(int(np.ceil(x / 0.5)) for x in b)
+    provenance = dft.last["provenance"]
+    assert (
+        provenance["pseudopotentials"]["Si"]
+        == read_upf(espresso.pseudo("Si_std.upf")).digest
+    )
+    assert (
+        provenance["kpoints"] == dft.last["kpoints"]
+        and provenance["functional"] == "pbe_pw"
+    )
+    assert provenance["encut"] == 12 * HARTREE and provenance["spins"] == 1
 
 
 def test_spin(folder):
@@ -137,3 +147,23 @@ def test_errors(folder, tmp_path):
         calculator(folder).compute(
             mdapy.System(FRACTIONS @ silicon_cell(), mdapy.Box(silicon_cell()))
         )
+
+
+def test_restart(folder):
+    dft = calculator(folder, restart=True, tolerance=1e-8)
+    cold = calculator(folder, tolerance=1e-8)
+    first = dft.compute(silicon())
+    assert not dft.last["restarted"]
+    steps = dft.last["iterations"]
+    moved = silicon(fractions=FRACTIONS + [[0.003, 0.0, -0.002], [0.0, 0.004, 0.001]])
+    warm = dft.compute(moved)
+    assert dft.last["restarted"] and dft.last["iterations"] < steps
+    reference = cold.compute(moved)
+    assert warm.energy == pytest.approx(reference.energy, abs=1e-7)
+    np.testing.assert_allclose(warm.forces, reference.forces, atol=1e-5)
+    assert first.energy != warm.energy
+    # another number of atoms starts cold
+    bigger = mdapy.System(np.vstack([FRACTIONS, FRACTIONS + 0.5]) @ silicon_cell(),
+                          mdapy.Box(2 * silicon_cell()), elements=["Si"] * 4)  # fmt: skip
+    dft.compute(bigger)
+    assert not dft.last["restarted"]

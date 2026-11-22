@@ -107,9 +107,9 @@ def run(
     bands: int | None = None,
     density_cutoff: float | None = None,
     grid=None,
-    beta: float = 0.4,
-    kerker: float = 0.0,
-    minimum: float = 0.1,
+    beta: float = 0.7,
+    kerker: float = 0.8,
+    minimum: float = 0.0,
     history: int = 8,
     metric_weight: float = 20.0,
     energy_tolerance: float = 1e-8,
@@ -124,6 +124,7 @@ def run(
     stress: bool = True,
     basis_cell=None,
     correct_forces: bool = True,
+    state=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -134,7 +135,9 @@ def run(
     strain_derivative is dE/d epsilon (3, 3) of a homogeneous strain at fixed
     Miller indices, hartree; basis_cell chooses the plane waves (and the
     sphere of the density), the cell by default, for differences of the energy
-    at a fixed basis. With magmoms, the first
+    at a fixed basis; state, a mdapy_dft_cuda12._dft.State, starts the run
+    from the last one kept in it when they fit and keeps this one. With
+    magmoms, the first
     moments of the atoms in Bohr magnetons, the spins are collinear; the
     eigenvalues and occupations are then (2, K, bands) and the density (2, n1,
     n2, n3), up and down."""
@@ -198,6 +201,7 @@ def run(
         energy_tolerance, density_tolerance, max_iterations, davidson_iterations,
         davidson_basis, seed,
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
+        state,
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):

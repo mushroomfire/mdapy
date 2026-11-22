@@ -37,6 +37,7 @@
 #include <array>
 #include <vector>
 
+#include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
 #include "dft/scf/mixer.h"
@@ -98,6 +99,7 @@ struct ScfStep {
 
 struct ScfResult {
     bool converged = false;
+    bool restarted = false;  // from the state of a last run
     int iterations = 0;
     double energy = 0.0;  // the free energy F
     double band = 0.0, one_electron = 0.0, hartree = 0.0, xc = 0.0, ewald = 0.0, entropy = 0.0;
@@ -115,6 +117,32 @@ struct ScfResult {
     std::vector<ScfStep> steps;
 };
 
-ScfResult run_scf(const ScfInput& input, const ScfOptions& options);
+// What one run leaves for the next of nearby atoms (a step of a relaxation or
+// of molecular dynamics): the bands of each spin and k-point with the Miller
+// indices of their plane waves, and the output density and the density of
+// the free atoms on the sphere of the density with its Miller indices. The
+// next run starts from the bands, matched by Miller index, and from the
+// density less the free atoms where they were plus the free atoms where they
+// are. A state of other k-points, bands, spins or atoms is not taken.
+struct ScfState {
+    ScfState() = default;
+    ScfState(const ScfState&) = delete;  // the bands on the GPU move, never copy
+    ScfState& operator=(const ScfState&) = delete;
+    ScfState(ScfState&&) = default;
+    ScfState& operator=(ScfState&&) = default;
+
+    bool valid = false;
+    std::size_t atoms = 0;
+    int spins = 0, bands = 0;
+    std::vector<Vec3> kpoints;
+    std::vector<std::vector<Int3>> millers;  // of each k-point
+    std::vector<DeviceArray<Complex>> psi;   // (s, k) at s nk + k
+    std::vector<Int3> density_miller;
+    std::vector<Complex> density, atoms_density;  // (total, magnetization) on that sphere
+};
+
+// state, when given, starts the run from the last one when it fits, and
+// keeps this one for the next.
+ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state = nullptr);
 
 }  // namespace mdapy::dft

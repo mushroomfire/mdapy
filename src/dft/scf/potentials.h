@@ -81,7 +81,8 @@ private:
     DeviceArray<double> g_;   // (n, 3) the Cartesian G of the sphere
     DeviceArray<double> core_;
     DeviceArray<Complex> boxes_, components_;
-    DeviceArray<double> work_, rho_, sigma_, f_, v_, vs_, grads_;
+    DeviceArray<double> work_, rho_, sigma_, f_, v_, vs_, grads_, apart_;
+    DeviceArray<Complex> spare_;  // components of the spins and of the gradients
 };
 
 }  // namespace mdapy::dft

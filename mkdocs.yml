@@ -284,6 +284,7 @@ nav:
           - NEP: user-guide/potentials/nep.md
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md
+          - Plane-wave DFT: user-guide/potentials/dft.md
       - Simulation:
           - user-guide/simulation/index.md
           - Running:

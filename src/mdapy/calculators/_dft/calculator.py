@@ -89,26 +89,36 @@ class DFT(Calculator):
         The steps of the self-consistent field before it fails. Default 100.
     mixing : float64, optional
         The share of the residual of the density taken at each step. Default
-        0.4.
+        0.7.
     kerker : float64, optional
         The wave vector of Kerker's preconditioner of the mixing in 1/Å, 0
-        for none (default).
+        for none. Default 1.5: 32 atoms of aluminium converge in half the
+        steps, 64 of silicon in as many.
     bands : int32, optional
         Bands per k-point and spin. Default as Quantum ESPRESSO: four or 10 %
         more than the occupied ones for fixed occupations, else the larger
         of 1.2 N/2 and N/2 + 4 for N electrons.
     seed : int32, optional
         Seed of the random first bands. Default 0.
+    restart : bool, optional
+        Start each computation from the bands and the density of the last,
+        for the steps of a relaxation or of molecular dynamics. Default
+        False: each computation starts cold, as the labels of a training set
+        should.
 
     Attributes
     ----------
     cutoff : float64
         0: the calculator needs no neighbor list.
     last : dict
-        Of the last computation: ``iterations``, ``fermi`` (eV),
+        Of the last computation: ``iterations``, ``restarted`` (from the
+        one before), ``fermi`` (eV),
         ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
         spin), ``net_force`` (eV/Å, taken out of the forces), ``kpoints``
-        (the mesh) and ``grid`` (the FFT grid).
+        (the mesh), ``grid`` (the FFT grid) and ``provenance``: what makes
+        the labels of a set comparable, the SHA-256 of each pseudopotential,
+        the cutoff, the mesh, the smearing and its width, the functional, the
+        spins, the grid and the bands.
 
     Notes
     -----
@@ -136,10 +146,11 @@ class DFT(Calculator):
         functional: str | None = None,
         tolerance: float = 1e-6,
         max_iterations: int = 100,
-        mixing: float = 0.4,
-        kerker: float = 0.0,
+        mixing: float = 0.7,
+        kerker: float = 1.5,
         bands: int | None = None,
         seed: int = 0,
+        restart: bool = False,
     ):
         if not encut > 0:
             raise InvalidParameter("encut must be positive")
@@ -192,6 +203,8 @@ class DFT(Calculator):
         self.kerker = float(kerker)
         self.bands = bands
         self.seed = int(seed)
+        self.restart = bool(restart)
+        self.__state = None
         self.cutoff = 0.0
         self.elements = None
         self.last: dict[str, Any] = {}
@@ -214,6 +227,15 @@ class DFT(Calculator):
                 )
             self.__read[element] = pp
         return self.__read[element]
+
+    def __restart_state(self):
+        if not self.restart:
+            return None
+        if self.__state is None:
+            from mdapy_dft_cuda12 import _dft
+
+            self.__state = _dft.State()
+        return self.__state
 
     def __mesh(self, cell: np.ndarray) -> tuple[int, int, int]:
         if self.kpoints is not None:
@@ -294,7 +316,7 @@ class DFT(Calculator):
             density_tolerance=self.tolerance / HARTREE,
             max_iterations=self.max_iterations, seed=self.seed,
             functional=self.functional, magmoms=self.__moments(elements),
-            stress="virial" in wanted,
+            stress="virial" in wanted, state=self.__restart_state(),
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])
@@ -308,10 +330,22 @@ class DFT(Calculator):
             )
         self.last = {
             "iterations": int(r["iterations"]),
+            "restarted": bool(r["restarted"]),
             "fermi": float(r["fermi"]) * HARTREE,
             "net_force": r["net_force"] * HARTREE / BOHR,
             "kpoints": mesh,
             "grid": tuple(r["grid"]),
+            "provenance": {
+                "pseudopotentials": {e: pp.digest for e, pp in zip(species, pseudos)},
+                "encut": self.encut,
+                "kpoints": mesh,
+                "smearing": self.smearing,
+                "sigma": self.sigma,
+                "functional": self.functional or scf.functional_of(pseudos),
+                "spins": int(r["spins"]),
+                "grid": tuple(r["grid"]),
+                "bands": int(r["bands"]),
+            },
         }
         if r["spins"] == 2:
             self.last["magnetization"] = float(r["magnetization"])

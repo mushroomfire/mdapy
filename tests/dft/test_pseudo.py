@@ -319,3 +319,54 @@ def test_functional_of_headers():
         of("PBE", "PW")
     with pytest.raises(ValueError, match="no functional"):
         of("B3LYP")
+
+
+def test_ewald_of_the_extension():
+    """The Ewald sum of the extension, whose split grows with the atoms,
+    against the NumPy one: a small triclinic cell and 64 atoms."""
+    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+    rng = np.random.default_rng(11)
+    for count, cell in [
+        (4, np.array([[6.0, 0.3, 0.0], [0.5, 7.0, 0.2], [0.0, -0.4, 6.5]])),
+        (64, np.eye(3) * 20.5 + rng.normal(0, 0.3, (3, 3))),
+    ]:
+        positions = rng.uniform(0, 1, (count, 3)) @ cell
+        charges = rng.uniform(1, 4, count)
+        energy, forces, strain = ewald(cell, positions, charges, True, True)
+        e, f, s = _dft.ewald(cell, np.ascontiguousarray(positions), charges)
+        assert e == pytest.approx(energy, rel=1e-12, abs=1e-12)
+        np.testing.assert_allclose(f, forces, rtol=0, atol=1e-10)
+        np.testing.assert_allclose(s, strain, rtol=0, atol=1e-9)
+
+
+def test_first_density_on_the_gpu(tmp_path):
+    """The density and magnetization of the free atoms on the sphere, summed
+    over the atoms on the GPU, against NumPy."""
+    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+    if _dft.device_count() == 0:
+        pytest.skip("no GPU")
+    from mdapy.calculators._dft import scf
+
+    cell = np.array([[7.0, 0.2, 0.0], [0.0, 6.5, 0.3], [0.4, 0.0, 8.0]])
+    rng = np.random.default_rng(5)
+    positions = rng.uniform(0, 1, (5, 3))
+    kinds = [0, 1, 1, 0, 1]
+    pseudos = [
+        read_upf(write_upf(tmp_path / "X.upf")),
+        read_upf(write_upf(tmp_path / "Y.upf", core="F")),
+    ]
+    magmoms = [0.5, -0.2, 0.1, 0.3, 0.0]
+    miller, _, _, _ = _dft.sphere(
+        cell, [0.0, 0.0, 0.0], 20.0, _dft.fft_grid(cell, 20.0)
+    )
+    _, _, atom, moment = scf.radial_parts(
+        cell, positions, kinds, pseudos, miller, magmoms
+    )
+    _, _, factors = scf.form_factors(cell, pseudos, miller)
+    gpu_atom, gpu_moment = scf.first_density(
+        factors, positions, kinds, pseudos, miller, magmoms
+    )
+    np.testing.assert_allclose(gpu_atom, atom, rtol=0, atol=1e-12 * np.abs(atom).max())
+    np.testing.assert_allclose(
+        gpu_moment, moment, rtol=0, atol=1e-12 * np.abs(atom).max()
+    )

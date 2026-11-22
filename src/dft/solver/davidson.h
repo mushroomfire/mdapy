@@ -20,7 +20,9 @@
 // taken as it is; at a restart H in the basis of the Ritz vectors is
 // diag(e). Only the bands still open have their residuals computed; a
 // band that converges is checked again with all the others before a restart
-// and at the end, and opened again if it no longer is.
+// and at the end, and opened again if it no longer is. With the real bands of
+// Gamma (Hamiltonian::gamma) the products, the subspace and the projections
+// are real (dft/hamiltonian/gamma.h).
 
 #pragma once
 
@@ -72,6 +74,13 @@ private:
     // the eigenvalues (ascending, into values_) and eigenvectors (into a) of
     // the Hermitian n x n matrix a, of which the upper triangle is read
     void eigh(Complex* a, int n);
+    // the same of a real symmetric matrix, at Gamma
+    void eigh_real(double* a, int n);
+    // column c of the projections p, Complex or real
+    Complex* projection(Complex* p, std::size_t c) const;
+
+    bool gamma_ = false;  // real bands of Gamma
+    int projectors_ = 0;
 
     cublasHandle_t blas_ = nullptr;
     cusolverDnHandle_t solver_ = nullptr;

@@ -12,6 +12,10 @@
 // points as QE does, and Y_lm the real spherical harmonics of l up to 3, m
 // from -l to l, in the order of the projectors of the species and then of m.
 // The overlap S is 1. Hartree atomic units.
+// With set_gamma(true), the k-point is Gamma and the bands are real: half a
+// sphere of plane waves (dft/hamiltonian/gamma.h), real transforms, and real
+// projections p, (projectors, count) doubles at the start of a buffer of
+// Complex, wherever a projection is taken or given.
 
 #pragma once
 
@@ -74,6 +78,10 @@ public:
     Hamiltonian(const Hamiltonian&) = delete;
     Hamiltonian& operator=(const Hamiltonian&) = delete;
 
+    // Real bands of Gamma from the next set_k on, which then takes Gamma only.
+    void set_gamma(bool on) noexcept { gamma_mode_ = on; }
+    // Whether the bands of the k-point are real.
+    bool gamma() const noexcept { return gamma_; }
     // The plane waves of k (fractions of the reciprocal vectors) and their
     // projectors.
     void set_k(const Vec3& k);
@@ -155,7 +163,11 @@ private:
     DeviceArray<Complex> beta_;     // (plane waves, projectors)
     DeviceArray<Complex> dmatrix_;  // (projectors, projectors), block diagonal
     DeviceArray<Complex> qmatrix_;  // the overlaps, likewise
+    DeviceArray<double> dreal_, qreal_;  // the same, real, for Gamma
     bool has_overlap_ = false;
+    bool gamma_mode_ = false, gamma_ = false;
+    DeviceArray<std::int64_t> partner_;  // of the half sphere, for the real transforms
+    DeviceArray<double> values_;         // real boxes
     // the potential and the work arrays
     DeviceArray<double> potential_;
     DeviceArray<Complex> boxes_, projections_, scaled_;

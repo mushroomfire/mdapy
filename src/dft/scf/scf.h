@@ -69,6 +69,14 @@ struct ScfInput {
     std::vector<Atom> atoms;
     std::vector<Vec3> kpoints;  // fractions of the reciprocal vectors
     std::vector<double> weights;  // adding up to one
+    bool gamma = false;           // real bands of the one k-point Gamma
+    // Pools of processes (one GPU each): the pairs (spin, k-point) p = s nk + k
+    // with p % ranks == rank are this one's; allreduce sums count doubles over
+    // the pools in place (the densities, the occupations of the projectors,
+    // the eigenvalues, the band energy, the forces and the stress of the
+    // bands, and whether each has converged). One pool without it.
+    int rank = 0, ranks = 1;
+    std::function<void(double*, std::size_t)> allreduce;
     // the form factors of each species on the sphere of the density, (species,
     // n): of V_loc, and of rho_core or empty without core charges
     std::vector<double> local_factors, core_factors;
@@ -163,7 +171,8 @@ struct ScfResult {
 // the free atoms on the sphere of the density with its Miller indices. The
 // next run starts from the bands, matched by Miller index, and from the
 // density less the free atoms where they were plus the free atoms where they
-// are. A state of other k-points, bands, spins or atoms is not taken.
+// are. A state of other k-points, bands, spins or atoms, or of complex bands
+// for real ones (and back), is not taken.
 struct ScfState {
     ScfState() = default;
     ScfState(const ScfState&) = delete;  // the bands on the GPU move, never copy
@@ -174,6 +183,8 @@ struct ScfState {
     bool valid = false;
     std::size_t atoms = 0;
     int spins = 0, bands = 0;
+    bool gamma = false;
+    int rank = 0, ranks = 1;  // the bands kept are those of this pool
     std::vector<Vec3> kpoints;
     std::vector<std::vector<Int3>> millers;  // of each k-point
     std::vector<DeviceArray<Complex>> psi;   // (s, k) at s nk + k

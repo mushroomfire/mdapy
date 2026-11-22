@@ -50,7 +50,7 @@ def test_against_qe(case, dual):
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
     qe = espresso.run(
         cell, positions, [case] * len(positions), files, cutoff, kpoints, weights, smearing,
-        0.01, conv_thr=1e-13 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
+        0.01, conv_thr=1e-12 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
         maxstep=400, extra=f", ecutrho = {2 * dual * cutoff:.10f}",
     )  # fmt: skip
     r = scf.run(

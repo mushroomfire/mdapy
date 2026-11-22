@@ -48,8 +48,9 @@ struct Clock {
     }
 };
 
-// random bands decaying as 1 / (1 + |k+G|^2 / 2)
-std::vector<Complex> random_bands(const std::vector<double>& kinetic, int bands, unsigned long long seed) {
+// random bands decaying as 1 / (1 + |k+G|^2 / 2); real at Gamma, Im c_0 = 0
+std::vector<Complex> random_bands(const std::vector<double>& kinetic, int bands, unsigned long long seed,
+                                  bool gamma) {
     std::mt19937_64 engine(seed);
     std::uniform_real_distribution<double> uniform(-1.0, 1.0);
     std::vector<Complex> psi(kinetic.size() * static_cast<std::size_t>(bands));
@@ -57,7 +58,8 @@ std::vector<Complex> random_bands(const std::vector<double>& kinetic, int bands,
         for (std::size_t g = 0; g < kinetic.size(); ++g) {
             const double scale = 1.0 / (1.0 + kinetic[g]);
             const double re = uniform(engine), im = uniform(engine);
-            psi[static_cast<std::size_t>(b) * kinetic.size() + g] = make_cuDoubleComplex(scale * re, scale * im);
+            psi[static_cast<std::size_t>(b) * kinetic.size() + g] =
+                make_cuDoubleComplex(scale * re, gamma && g == 0 ? 0.0 : scale * im);
         }
     return psi;
 }
@@ -146,7 +148,8 @@ void add_packed(const double* packed, int w, double* block) {
 
 bool fits(const ScfState* state, const ScfInput& input, int spins, int bands) {
     if (state == nullptr || !state->valid || state->atoms != input.atoms.size() || state->spins != spins ||
-        state->bands != bands || state->kpoints.size() != input.kpoints.size())
+        state->bands != bands || state->gamma != input.gamma || state->rank != input.rank ||
+        state->ranks != input.ranks || state->kpoints.size() != input.kpoints.size())
         return false;
     for (std::size_t k = 0; k < input.kpoints.size(); ++k)
         for (std::size_t d = 0; d < 3; ++d)
@@ -166,6 +169,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     if (nk == 0 || input.weights.size() != nk) throw std::invalid_argument("k-points and their weights");
     if (input.density.size() != spins * points) throw std::invalid_argument("rho_in of each spin on the grid");
     if (nb < 1) throw std::invalid_argument("at least one band");
+    if (input.ranks < 1 || input.rank < 0 || input.rank >= input.ranks || (input.ranks > 1 && !input.allreduce))
+        throw std::invalid_argument("a pool of the pools, and their sum");
+    // the pairs (s, k) of this pool, and the k-points with any of them
+    auto mine = [&](std::size_t s, std::size_t k) {
+        return static_cast<int>((s * nk + k) % static_cast<std::size_t>(input.ranks)) == input.rank;
+    };
+    auto any_mine = [&](std::size_t k) { return mine(0, k) || (ns == 2 && mine(1, k)); };
+    auto sum = [&](double* x, std::size_t count) {
+        if (input.ranks > 1 && count > 0) input.allreduce(x, count);
+    };
     if (options.max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const double f_max = ns == 2 ? 1.0 : 2.0;
     const Lattice* basis = input.has_basis ? &input.basis : nullptr;
@@ -176,6 +189,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     const bool two_grids = smooth != input.grid;
     const std::size_t points_s = static_cast<std::size_t>(smooth[0]) * smooth[1] * smooth[2];
     Hamiltonian h(input.lattice, smooth, input.cutoff, input.species, input.atoms, basis);
+    if (input.gamma) {
+        const Vec3& k = input.kpoints.front();
+        if (nk != 1 || k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0)
+            throw std::invalid_argument("real bands take the one k-point Gamma");
+        h.set_gamma(true);
+    }
     Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold,
                    basis);
     std::unique_ptr<Potentials> pot_s;
@@ -322,6 +341,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     const bool restart = fits(state, input, ns, nb);
     std::vector<std::vector<Int3>> millers(nk);
     for (std::size_t k = 0; k < nk; ++k) {
+        if (!any_mine(k)) continue;
         h.set_k(input.kpoints[k]);
         if (bands > h.plane_waves()) throw std::invalid_argument("more bands than plane waves at a k-point");
         millers[k] = h.sphere().miller;
@@ -332,6 +352,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             where.upload(index.data(), index.size());
             const std::size_t n = h.plane_waves(), m = state->millers[k].size();
             for (std::size_t s = 0; s < spins; ++s) {
+                if (!mine(s, k)) continue;
                 psi[s * nk + k].resize(n * bands);
                 match_kernel<<<blocks(n * bands), kThreads>>>(n, m, nb, where.data(), state->psi[s * nk + k].data(),
                                                               psi[s * nk + k].data());
@@ -339,8 +360,9 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
             continue;
         }
-        const auto start = random_bands(h.sphere().kinetic, nb, options.seed * 1000003ULL + k);
-        for (std::size_t s = 0; s < spins; ++s) psi[s * nk + k].upload(start.data(), start.size());
+        const auto start = random_bands(h.sphere().kinetic, nb, options.seed * 1000003ULL + k, input.gamma);
+        for (std::size_t s = 0; s < spins; ++s)
+            if (mine(s, k)) psi[s * nk + k].upload(start.data(), start.size());
     }
     // the mixer of (total, magnetization) on the sphere of the density
     std::vector<double> g2(ng);
@@ -438,8 +460,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         ScfStep step;
         step.tolerance = tolerance;
         for (std::size_t k = 0; k < nk; ++k) {
+            if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
+                if (!mine(s, k)) continue;
                 add_kernel<<<blocks(points), kThreads>>>(points, local.data(), hxc.data() + s * points, veff.data());
                 check_cuda(cudaGetLastError(), "the effective potential");
                 set_potential(veff);
@@ -457,6 +481,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands));
             }
         }
+        if (input.ranks > 1) {  // the eigenvalues of every pool
+            for (std::size_t s = 0; s < spins; ++s)
+                for (std::size_t k = 0; k < nk; ++k)
+                    if (!mine(s, k))
+                        std::fill_n(eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands), bands, 0.0);
+            sum(eigenvalues.data(), eigenvalues.size());
+            double count = step.davidson;
+            sum(&count, 1);
+            step.davidson = static_cast<int>(std::lround(count));
+        }
         result.times.bands += clock.lap();
         const Occupation occ =
             occupy(eigenvalues, weights, nb, options.electrons, f_max, options.smearing, options.sigma);
@@ -467,8 +501,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             for (auto& b : becsum) b.assign(pair_offsets.back(), 0.0);
         double band = 0.0;
         for (std::size_t k = 0; k < nk; ++k) {
+            if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
+                if (!mine(s, k)) continue;
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) {
                     w[b] = weights[s * nk + k] * f_max * occ.f[row + b];
@@ -478,6 +514,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                               two_grids ? rho_s.data() + s * points_s : rho_out.data() + s * points);
                 if (ultrasoft) h.add_becsum(psi[s * nk + k].data(), nb, w.data(), becsum[s]);
             }
+        }
+        if (input.ranks > 1) {  // the densities and occupations of every pool
+            sum(&band, 1);
+            DeviceArray<double>& partial = two_grids ? rho_s : rho_out;
+            std::vector<double> host(spins * (two_grids ? points_s : points));
+            partial.download(host.data(), host.size());
+            sum(host.data(), host.size());
+            partial.upload(host.data(), host.size());
+            if (ultrasoft)
+                for (auto& b : becsum) sum(b.data(), b.size());
         }
         const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy + paw_energy;
         if (two_grids) {
@@ -520,7 +566,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         result.lowest_empty = occ.lowest_empty;
         result.eigenvalues = eigenvalues;
         result.occupations = occ.f;
-        const bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
+        bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
+        if (input.ranks > 1) {  // all pools stop together, when every one has converged
+            double count = done ? 1.0 : 0.0;
+            sum(&count, 1);
+            done = count > input.ranks - 0.5;
+        }
         previous = energy;
         if (done) {
             result.converged = true;
@@ -590,15 +641,20 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 const auto f = aug.forces(veff_g.data(), becsum[s]);
                 for (std::size_t i = 0; i < f.size(); ++i) result.forces[i] += f[i];
             }
+        std::vector<double> nonlocal(result.forces.size(), 0.0);
         for (std::size_t k = 0; k < nk; ++k) {
+            if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
+                if (!mine(s, k)) continue;
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
                 if (ultrasoft) h.set_strengths(strengths[s]);
-                h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), result.forces, eigenvalues.data() + row);
+                h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), nonlocal, eigenvalues.data() + row);
             }
         }
+        sum(nonlocal.data(), nonlocal.size());
+        for (std::size_t i = 0; i < nonlocal.size(); ++i) result.forces[i] += nonlocal[i];
     }
     result.times.forces += clock.lap();
     // V_Hxc of rho_out, for the correction of the forces and the stress (the
@@ -724,15 +780,20 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         }
         // the kinetic energy and the projectors of the bands
+        std::array<double, 6> of_bands{};
         for (std::size_t k = 0; k < nk; ++k) {
+            if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
+                if (!mine(s, k)) continue;
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
                 if (ultrasoft) h.set_strengths(strengths[s]);
-                h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), st, eigenvalues.data() + row);
+                h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), of_bands, eigenvalues.data() + row);
             }
         }
+        sum(of_bands.data(), of_bands.size());
+        for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += of_bands[static_cast<std::size_t>(d)];
         result.has_strain = true;
         result.strain = st;
     }
@@ -742,6 +803,9 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         state->atoms = input.atoms.size();
         state->spins = ns;
         state->bands = nb;
+        state->gamma = input.gamma;
+        state->rank = input.rank;
+        state->ranks = input.ranks;
         state->kpoints = input.kpoints;
         state->millers = std::move(millers);
         state->psi = std::move(psi);

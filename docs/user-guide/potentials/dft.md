@@ -34,7 +34,7 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=0.7, magnetic_mixing=1.6, kerker=1.5, bands=None, seed=0,
-gpu=None, restart=False, symmetry=None)` computes the
+gpu=None, restart=False, symmetry=None, comm=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
@@ -62,6 +62,7 @@ CUDA 12 for GPUs from the V100 on.
 | `seed` | int32 | 0 | | seed of the random first bands |
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
 | `restart` | bool | `False` | | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; labels of a training set should start cold |
+| `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 
 | Attribute or method | Meaning |
 |---|---|
@@ -95,12 +96,34 @@ labelled = [dft.compute(s, ("energy", "forces", "virial")).attach(s) for s in mi
 write(f"train-{rank}.xyz", labelled)
 ```
 
+One configuration of many k-points or of two spins can also run on several GPUs:
+with `comm`, the processes share its pairs of spin and k-point, each GPU holding
+the bands of its own, and every process gets the whole result. This pays when a
+configuration has at least as many such pairs as GPUs.
+
+<!-- skip-test -->
+```python
+from mpi4py import MPI
+
+from mdapy.calculators import DFT
+from mdapy.io import read
+
+dft = DFT(600.0, kpoints=(4, 4, 4), magmoms={"Fe": 2.5}, comm=MPI.COMM_WORLD)
+result = dft.compute(read("fe54.xyz"), ("energy", "forces", "virial"))
+if MPI.COMM_WORLD.Get_rank() == 0:
+    print(result.energy)
+```
+
 ## What it computes
 
 - **Plane waves** of kinetic energy up to `encut` at each k-point of the mesh;
   k-points related by time reversal count once. The bands live on the FFT grid
   of four times the cutoff, the density and the potentials on that of
-  `ecutrho`, with 2, 3, 5 and 7 as factors.
+  `ecutrho`, with 2, 3, 5 and 7 as factors. When the mesh is Γ alone, as for
+  large cells, the bands are real: they keep half of the plane waves, the
+  other half being their complex conjugates, with real Fourier transforms and
+  real products of the bands, for the same results in less time and half the
+  memory.
 - **Pseudopotentials:** in UPF 2, norm-conserving, ultrasoft or PAW, with
   their projectors, the core charge of the nonlinear core correction and,
   ultrasoft and PAW, their augmentation charges by angular momentum

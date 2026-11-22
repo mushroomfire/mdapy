@@ -32,7 +32,9 @@
 #include "dft/scf/augmentation.h"
 #include "dft/scf/occupations.h"
 #include "dft/scf/potentials.h"
+#include "dft/scf/ewald.h"
 #include "dft/scf/scf.h"
+#include "dft/scf/structure.h"
 #include "dft/solver/davidson.h"
 #include "dft/xc/xc.h"
 
@@ -217,6 +219,43 @@ NB_MODULE(_dft, m) {
         return nb::make_tuple(out, lattice.volume);
     });
     m.def("good_size", &mdapy::dft::good_size);
+    // the Ewald sum of point charges (atoms,) at Cartesian positions (atoms, 3)
+    // in the cell of rows a, bohr: (energy, forces (atoms, 3), dE/d epsilon
+    // (3, 3)), hartree
+    m.def("ewald", [](Matrix a, Rows positions, nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> z) {
+        if (positions.shape(1) != 3 || positions.shape(0) != z.shape(0))
+            throw std::invalid_argument("positions (atoms, 3) and a charge for each");
+        const auto r = mdapy::dft::ewald(a.data(), std::vector<double>(positions.data(), positions.data() + positions.size()),
+                                         std::vector<double>(z.data(), z.data() + z.size()));
+        const std::size_t n = z.shape(0);
+        return nb::make_tuple(r.energy, array_of(r.forces, {n, 3}),
+                              array_of(std::vector<double>(r.strain.begin(), r.strain.end()), {3, 3}));
+    });
+    // sum_i w_i f_{kind_i}(G) exp(-2 pi i m.tau_i) on the Miller indices m (n, 3)
+    // of fractional positions tau (atoms, 3), factors (species, n): (n,) complex
+    m.def("structure_sum", [](nb::ndarray<const std::int32_t, nb::ndim<2>, nb::c_contig, nb::device::cpu> miller,
+                              Rows positions, Kinds kinds, nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> w,
+                              Rows factors) {
+        const std::size_t n = miller.shape(0), atoms = kinds.shape(0);
+        if (miller.shape(1) != 3 || factors.shape(1) != n || positions.shape(0) != atoms || positions.shape(1) != 3 ||
+            w.shape(0) != atoms)
+            throw std::invalid_argument("miller (n, 3), factors (species, n), positions (atoms, 3), kinds and weights");
+        for (std::size_t i = 0; i < atoms; ++i)
+            if (kinds.data()[i] < 0 || static_cast<std::size_t>(kinds.data()[i]) >= factors.shape(0))
+                throw std::invalid_argument("a kind without its factors");
+        DeviceArray<int> places;
+        places.upload(miller.data(), miller.size());
+        DeviceArray<double> f;
+        f.upload(factors.data(), factors.size());
+        DeviceArray<Complex> out(n);
+        mdapy::dft::structure_sum(places.data(), n, std::vector<double>(positions.data(), positions.data() + positions.size()),
+                                  std::vector<int>(kinds.data(), kinds.data() + atoms),
+                                  std::vector<double>(w.data(), w.data() + atoms), f.data(), out.data());
+        std::complex<double>* host = nullptr;
+        auto result = new_array<std::complex<double>>({n}, host);
+        out.download(reinterpret_cast<Complex*>(host), n);
+        return result;
+    });
     m.def("fft_grid", [](Matrix a, double cutoff) {
         return mdapy::dft::fft_grid(lattice_of(a), cutoff);
     });
@@ -412,11 +451,15 @@ NB_MODULE(_dft, m) {
         .def("__init__",
              [](mdapy::dft::Hamiltonian* self, Matrix a, std::array<int, 3> grid, double cutoff,
                 nb::list tables, nb::list angular, nb::list dij, double dq, Rows positions,
-                Kinds species) {
+                Kinds species, bool gamma) {
                  new (self) mdapy::dft::Hamiltonian(lattice_of(a), grid_of(grid), cutoff,
                                                     species_of(tables, angular, dij, dq),
                                                     atoms_of(positions, species));
-             })
+                 self->set_gamma(gamma);
+             },
+             nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("tables"), nb::arg("angular"), nb::arg("dij"),
+             nb::arg("dq"), nb::arg("positions"), nb::arg("species"), nb::arg("gamma") = false)
+        .def_prop_ro("gamma", &mdapy::dft::Hamiltonian::gamma)
         .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
             h.set_k(Vec3{k[0], k[1], k[2]});
         })
@@ -580,8 +623,31 @@ NB_MODULE(_dft, m) {
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
-           nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry) {
+           nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
+           bool gamma, nb::object pools) {
             mdapy::dft::ScfInput in;
+            in.gamma = gamma;
+            if (!pools.is_none()) {
+                // (rank, ranks, allreduce): allreduce(x) returns the sum over
+                // the pools of the 1-D float64 array x, run with the GIL; its
+                // errors come back as errors of the run
+                nb::tuple t = nb::cast<nb::tuple>(pools);
+                in.rank = nb::cast<int>(t[0]);
+                in.ranks = nb::cast<int>(t[1]);
+                nb::object f = t[2];
+                in.allreduce = [f](double* x, std::size_t count) {
+                    nb::gil_scoped_acquire gil;
+                    try {
+                        std::vector<double> part(x, x + count);
+                        nb::object total = f(array_of(part, {count}));
+                        auto values = nb::cast<nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu>>(total);
+                        if (values.shape(0) != count) throw std::invalid_argument("the sum over the pools has another size");
+                        std::copy(values.data(), values.data() + count, x);
+                    } catch (nb::python_error& error) {
+                        throw std::runtime_error(std::string("the sum over the pools: ") + error.what());
+                    }
+                };
+            }
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
                 in.has_basis = true;
@@ -720,6 +786,7 @@ NB_MODULE(_dft, m) {
             nb::dict out;
             out["converged"] = r.converged;
             out["restarted"] = r.restarted;
+            out["gamma"] = in.gamma;
             nb::dict times;
             times["setup"] = r.times.setup;
             times["potentials"] = r.times.potentials;
@@ -779,7 +846,8 @@ NB_MODULE(_dft, m) {
         nb::arg("magnetic_kerker") = 0.0, nb::arg("augmentation").none() = nb::none(),
         nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
         nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none(),
-        nb::arg("orbitals").none() = nb::none(), nb::arg("symmetry").none() = nb::none());
+        nb::arg("orbitals").none() = nb::none(), nb::arg("symmetry").none() = nb::none(),
+        nb::arg("gamma") = false, nb::arg("pools").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

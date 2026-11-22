@@ -14,7 +14,6 @@ import numpy as np
 
 from . import augmentation, paw, radial
 from . import symmetry as symmetries
-from .ewald import ewald
 
 _FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "lda_pw"}
 
@@ -77,12 +76,33 @@ def form_factors(cell, pseudos, miller, slopes=False):
     return local, core, atom, local_slope, core_slope
 
 
+def first_density(atom_f, positions, kinds, pseudos, miller, magmoms=None):
+    """rho_atom(G) and the magnetization of the atoms (None without magmoms) on
+    the sphere of the density, from the form factors of the free atoms (species,
+    n): each times the structure factor of its atoms on the GPU; the
+    magnetization is the density of each atom times its moment over its
+    valence."""
+    from mdapy_dft_cuda12 import _dft
+
+    tau = np.ascontiguousarray(positions, dtype=float)
+    kinds = np.ascontiguousarray(kinds, dtype=np.int32)
+    m = np.ascontiguousarray(miller, dtype=np.int32)
+    factors = np.ascontiguousarray(atom_f, dtype=float)
+    atom = _dft.structure_sum(m, tau, kinds, np.ones(len(kinds)), factors)
+    moment = None
+    if magmoms is not None:
+        valence = np.array([pseudos[k].valence for k in kinds])
+        weights = np.ascontiguousarray(np.asarray(magmoms, dtype=float) / valence)
+        moment = _dft.structure_sum(m, tau, kinds, weights, factors)
+    return atom, moment
+
+
 def radial_parts(cell, positions, kinds, pseudos, miller, magmoms=None):
     """V_loc(G), rho_core(G) (None without core charges), rho_atom(G) and the
     magnetization of the atoms (None without magmoms) on the sphere of the
     density: the form factors of each species times the structure factor of
     its atoms; the magnetization is the density of each atom times its moment
-    over its valence."""
+    over its valence. In NumPy, the reference of first_density."""
     local_f, core_f, atom_f = form_factors(cell, pseudos, miller)
     phases = np.exp(-2j * math.pi * (miller @ np.asarray(positions, dtype=float).T))
     kinds = np.asarray(kinds)
@@ -134,6 +154,8 @@ def run(
     onecenter=None,
     atomic_start: bool = True,
     symmetry: bool | None = None,
+    gamma: bool | None = None,
+    comm=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -160,7 +182,12 @@ def run(
     (by default when spglib is installed, never with basis_cell) the
     operations of the crystal reduce the k-points and make the density, the
     occupations of the projectors, the forces and the stress symmetric; the
-    result holds their number as operations."""
+    result holds their number as operations. With gamma (by default when the
+    only k-point is Gamma) the bands are real, on half the plane waves; the
+    result says which as gamma. With comm, an mpi4py communicator of several
+    processes (each on its own GPU, chosen before), the pairs of spin and
+    k-point are shared among them as pools, every process taking part with
+    the same arguments; each gets the whole result."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -204,9 +231,7 @@ def run(
         )
     else:
         local_f, core_f, atom_f = form_factors(cell, pseudos, miller)
-    _, _, atom_g, moment_g = radial_parts(
-        cell, positions, kinds, pseudos, miller, magmoms
-    )
+    atom_g, moment_g = first_density(atom_f, positions, kinds, pseudos, miller, magmoms)
     density = on_grid(atom_g, miller, grid)
     scale = electrons / (density.mean() * volume)
     density *= scale
@@ -228,7 +253,11 @@ def run(
     angular = [[p.angular for p in pp.projectors] for pp in pseudos]
     dij = [np.ascontiguousarray(pp.dij, dtype=float) for pp in pseudos]
     charges = np.array([pseudos[s].valence for s in kinds])
-    e_ewald, f_ewald, s_ewald = ewald(cell, positions @ cell, charges, True, True)
+    e_ewald, f_ewald, s_ewald = _dft.ewald(
+        cell,
+        np.ascontiguousarray(positions @ cell),
+        np.ascontiguousarray(charges, dtype=float),
+    )
     ops = None
     wanted = symmetries.available() if symmetry is None else bool(symmetry)
     if wanted and basis_cell is None:
@@ -241,6 +270,11 @@ def run(
         full, _ = _dft.monkhorst_pack(list(kgrid), list(offset), False)
         kpoints, weights = symmetries.irreducible(full, ops.rotations)
         kpoints, weights = np.ascontiguousarray(kpoints), np.ascontiguousarray(weights)
+    at_gamma = len(kpoints) == 1 and not np.any(kpoints[0])
+    if gamma is None:
+        gamma = at_gamma
+    elif gamma and not at_gamma:
+        raise ValueError("real bands take the one k-point Gamma")
     ultrasoft = any(pp.ultrasoft for pp in pseudos)
     augmented = None
     if ultrasoft:
@@ -270,7 +304,7 @@ def run(
         state, magnetic_kerker, augmented,
         None if smooth_grid == grid else list(smooth_grid), callback, becsum,
         data if callback is None else None, orbitals if atomic_start else None,
-        None if ops is None else symmetries.payload(ops),
+        None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
@@ -294,6 +328,22 @@ def run(
         spins=spins, operations=1 if ops is None else len(ops),
     )  # fmt: skip
     return result
+
+
+def _pools(comm):
+    """(rank, ranks, allreduce) of an mpi4py communicator of several
+    processes, allreduce returning the sum of an array over them; None for
+    one."""
+    if comm is None or comm.Get_size() == 1:
+        return None
+    from mpi4py import MPI
+
+    def allreduce(x):
+        out = np.empty_like(x)
+        comm.Allreduce(np.ascontiguousarray(x), out, op=MPI.SUM)
+        return out
+
+    return comm.Get_rank(), comm.Get_size(), allreduce
 
 
 def _paw(pseudos, kinds, paw_atoms, spins, magmoms, functional, onecenter):

@@ -120,6 +120,12 @@ class DFT(Calculator):
         Use the symmetry of the crystal, found by spglib, to keep the
         irreducible k-points alone and make the density, the forces and the
         stress symmetric. Default None: when spglib is installed.
+    comm : mpi4py communicator, optional
+        Processes that compute each configuration together, one GPU each,
+        sharing its k-points and spins: every process calls ``compute`` with
+        the same system and gets the whole result. Without ``gpu``, each takes
+        the GPU of its rank among the processes of its node. Default none: one
+        process.
 
     Attributes
     ----------
@@ -172,6 +178,7 @@ class DFT(Calculator):
         gpu: int | None = None,
         restart: bool = False,
         symmetry: bool | None = None,
+        comm: Any = None,
     ):
         if not encut > 0:
             raise InvalidParameter("encut must be positive")
@@ -235,6 +242,18 @@ class DFT(Calculator):
         if gpu is not None and int(gpu) < 0:
             raise InvalidParameter("gpu must be at least 0")
         self.gpu = None if gpu is None else int(gpu)
+        if comm is not None and not all(
+            callable(getattr(comm, name, None))
+            for name in ("Get_size", "Get_rank", "Allreduce")
+        ):
+            raise InvalidParameter(
+                f"comm must be a communicator of mpi4py, not {comm!r}"
+            )
+        self.comm = comm
+        if comm is not None and gpu is None and comm.Get_size() > 1:
+            from mpi4py import MPI
+
+            self.gpu = comm.Split_type(MPI.COMM_TYPE_SHARED).Get_rank()
         self.__state = None
         self.cutoff = 0.0
         self.elements = None
@@ -331,7 +350,10 @@ class DFT(Calculator):
         if self.gpu is not None:
             from mdapy_dft_cuda12 import _dft
 
-            _dft.set_device(self.gpu)
+            count = _dft.device_count()
+            _dft.set_device(
+                self.gpu % count if self.comm is not None and count > 0 else self.gpu
+            )
         if "element" not in system.table.columns:
             raise MissingProperty("DFT needs the element column")
         if not all(system.box.pbc):
@@ -354,7 +376,7 @@ class DFT(Calculator):
             max_iterations=self.max_iterations, seed=self.seed,
             functional=self.functional, magmoms=self.__moments(elements),
             stress="virial" in wanted, state=self.__restart_state(),
-            symmetry=self.symmetry,
+            symmetry=self.symmetry, comm=self.comm,
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])

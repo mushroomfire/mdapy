@@ -69,7 +69,8 @@ Mixer::Mixer(std::vector<double> g2, double volume, int channels, MixingOptions 
     if (channels < 1 || channels > 2) throw std::invalid_argument("one or two channels of density");
     if (n_ < 2 || g2_[0] != 0.0) throw std::invalid_argument("the sphere of the density starts at G = 0");
     if (!(options_.beta > 0.0) || options_.history < 1 || !(options_.metric_weight >= 1.0) ||
-        options_.kerker < 0.0 || options_.minimum < 0.0 || !(options_.magnetic_beta > 0.0))
+        options_.kerker < 0.0 || options_.minimum < 0.0 || !(options_.magnetic_beta > 0.0) ||
+        options_.magnetic_kerker < 0.0)
         throw std::invalid_argument("mixing: beta and magnetic_beta > 0, history >= 1, metric_weight >= 1, "
                                     "kerker >= 0, minimum >= 0");
     double shortest = 0.0;
@@ -78,6 +79,11 @@ Mixer::Mixer(std::vector<double> g2, double volume, int channels, MixingOptions 
     const double q1 = (options_.metric_weight - 1.0) * shortest;
     metric_.assign(n_ * channels_, 1.0);
     precondition_.assign(n_ * channels_, options_.magnetic_beta);
+    if (channels_ == 2 && options_.magnetic_kerker > 0.0)
+        for (std::size_t g = 1; g < n_; ++g) {
+            const double x = g2_[g], q = options_.magnetic_kerker;
+            precondition_[n_ + g] = options_.magnetic_beta * x / (x + q * q);
+        }
     for (std::size_t g = 0; g < n_; ++g) {
         const double x = g2_[g];
         metric_[g] = g == 0 ? 0.0 : (x + q1) / x;

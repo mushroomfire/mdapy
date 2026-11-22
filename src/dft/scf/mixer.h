@@ -14,7 +14,8 @@
 //   rho_opt = rho_in - sum_i g_i d(rho_in)_i,  R_opt = R - sum_i g_i dR_i,
 //   rho_next = rho_opt + P R_opt,
 // with Kerker's P(G) = max(minimum, beta G^2 / (G^2 + q0^2)) on the total
-// density (beta without q0) and magnetic_beta on the magnetization. The
+// density (beta without q0) and magnetic_beta on the magnetization, in Kerker's
+// form with magnetic_kerker but for its G = 0. The
 // component G = 0 of the total density holds the electrons and is left as it
 // is; that of the magnetization, the total moment, is mixed.
 
@@ -32,6 +33,7 @@ struct MixingOptions {
     double kerker = 0.8;         // q0 in 1/bohr; 0 for none
     double minimum = 0.0;        // the least share of any component with Kerker
     double magnetic_beta = 0.4;  // the share of the residual of the magnetization
+    double magnetic_kerker = 0.0;  // q0 of Kerker's form on the magnetization but at G = 0, 1/bohr; 0 for none
     int history = 8;             // steps kept
     double metric_weight = 20.0;  // w at the shortest G; 1 for the plain norm
 };

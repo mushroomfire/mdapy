@@ -465,7 +465,7 @@ NB_MODULE(_dft, m) {
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
-           nb::object state) {
+           nb::object state, double magnetic_kerker) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -517,6 +517,7 @@ NB_MODULE(_dft, m) {
             opt.mixing.kerker = kerker;
             opt.mixing.minimum = minimum;
             opt.mixing.magnetic_beta = magnetic_beta;
+            opt.mixing.magnetic_kerker = magnetic_kerker;
             opt.mixing.history = history;
             opt.mixing.metric_weight = metric_weight;
             opt.energy_tolerance = energy_tolerance;
@@ -596,7 +597,8 @@ NB_MODULE(_dft, m) {
         nb::arg("magnetic_beta"), nb::arg("history"),
         nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
-        nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none());
+        nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none(),
+        nb::arg("magnetic_kerker") = 0.0);
 
     // what a run of the self-consistent field leaves for the next one
     nb::class_<mdapy::dft::ScfState>(m, "State")

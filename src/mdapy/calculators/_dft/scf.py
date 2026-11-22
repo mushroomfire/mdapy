@@ -125,6 +125,7 @@ def run(
     basis_cell=None,
     correct_forces: bool = True,
     state=None,
+    magnetic_kerker: float = 0.0,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -201,7 +202,7 @@ def run(
         energy_tolerance, density_tolerance, max_iterations, davidson_iterations,
         davidson_basis, seed,
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
-        state,
+        state, magnetic_kerker,
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):

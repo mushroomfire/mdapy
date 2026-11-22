@@ -91,3 +91,25 @@ def test_iron_with_spin():
     assert r["magnetization"] > 3.0
     raw = r["forces"] + r["net_force"]
     np.testing.assert_allclose(raw[1], central(cell, positions, 1, run), atol=1e-6)
+
+
+def test_the_correction_of_a_loose_field():
+    """QE's correction for the change of the input density with the atoms
+    brings the forces of a loosely converged field nearer to those of a tight
+    one."""
+    a = 5.431 / BOHR
+    base = np.array([[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]])
+    positions = np.vstack([base, base + 0.25]) + np.random.default_rng(1).normal(
+        0, 0.01, (8, 3)
+    )
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+
+    def run(tolerance, correct=True):
+        return scf.run(np.diag([a] * 3), positions, [0] * 8, [pp], 15.0, kgrid=(2, 2, 2),
+                       density_tolerance=tolerance, energy_tolerance=tolerance,
+                       correct_forces=correct)["forces"]  # fmt: skip
+
+    tight = run(1e-15)
+    corrected = np.abs(run(1e-5 / 27.2) - tight).max()
+    plain = np.abs(run(1e-5 / 27.2, False) - tight).max()
+    assert corrected < 0.2 * plain

@@ -18,7 +18,11 @@
 // magnetization m = rho_up - rho_down are mixed together.
 // At the end, the forces of the bands on the ions: the local term of rho_out,
 // that of the projectors, and that of the core charge in V_xc of the last
-// rho_in, the derivatives of that energy with the bands fixed. And, with the
+// rho_in, the derivatives of that energy with the bands fixed; with the form
+// factors of the free atoms, plus the correction of Quantum ESPRESSO for the
+// change of rho_in with the atoms, taken as that of free atoms moving with
+// them: -int (V_Hxc[rho_out] - V_Hxc[rho_in]) d rho_atom,I / d tau_I, so that
+// the error of the forces is of second order in rho_out - rho_in. And, with the
 // slopes of the form factors, dE/d epsilon of a homogeneous strain at fixed
 // Miller indices of the energy of Kohn and Sham of the last bands and rho_out
 // (Nielsen and Martin): the kinetic, local, projector, Hartree and
@@ -59,6 +63,9 @@ struct ScfInput {
     std::vector<double> local_factors, core_factors;
     // their slopes d/d|G| at a fixed volume, for the stress; empty for none
     std::vector<double> local_slopes, core_slopes;
+    // the form factors of the free atoms, for the correction of the forces;
+    // empty for none
+    std::vector<double> atom_factors;
     std::vector<double> density;  // the first rho_in(r) on the grid, up then down with spin
     double ewald = 0.0;
 };

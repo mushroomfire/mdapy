@@ -89,6 +89,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     ions.local_components(components.data());
     pot.from_sphere(components.data(), local.data(), 1);
     if (!input.local_slopes.empty()) ions.set_slopes(input.local_slopes, input.core_slopes);
+    if (!input.atom_factors.empty()) ions.set_atom_factors(input.atom_factors);
     if (ions.has_core()) {
         DeviceArray<double> core(points);
         ions.core_components(components.data());
@@ -238,6 +239,28 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
             }
         }
     }
+    // V_Hxc of rho_out, for the correction of the forces and the stress (the
+    // last potentials computed, whose gradients the stress of GGA takes)
+    DeviceArray<double> hxc_out(spins * points);
+    const PotentialEnergies e_out = pot.compute(rho_out.data(), hxc_out.data());
+    if (ions.has_atom_factors()) {
+        // dV = V_Hxc[rho_out] - V_Hxc[rho_in], averaged over the spins
+        std::vector<double> a(spins * points), b(spins * points);
+        hxc_out.download(a.data(), a.size());
+        hxc.download(b.data(), b.size());
+        std::vector<double> dv(points);
+        for (std::size_t i = 0; i < points; ++i) {
+            double x = 0.0;
+            for (std::size_t s = 0; s < spins; ++s) x += a[s * points + i] - b[s * points + i];
+            dv[i] = x / static_cast<double>(spins);
+        }
+        DeviceArray<double> dv_r;
+        dv_r.upload(dv.data(), points);
+        DeviceArray<Complex> dv_g(ng);
+        pot.to_sphere(dv_r.data(), dv_g.data(), 1);
+        const auto correction = ions.correction_forces(dv_g.data());
+        for (std::size_t i = 0; i < correction.size(); ++i) result.forces[i] += correction[i];
+    }
     // the strain derivative of the energy of Kohn and Sham of the last bands
     if (ions.has_slopes()) {
         const auto& sphere = pot.sphere();
@@ -294,8 +317,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
         });
         // exchange and correlation of rho_out: delta [E_xc - int V_xc (rho + rho_core)]
         // - Omega sum Re[conj(V_xc) S c'] G_a G_b / |G| + the gradients of GGA
-        const PotentialEnergies e = pot.compute(rho_out.data(), hxc.data());
-        pot.to_sphere(hxc.data(), components.data(), ns);
+        const PotentialEnergies& e = e_out;
+        pot.to_sphere(hxc_out.data(), components.data(), ns);
         std::vector<Complex> v(spins * ng);
         components.download(v.data(), v.size());
         for (std::size_t g = 0; g < ng; ++g) {

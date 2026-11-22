@@ -458,7 +458,7 @@ NB_MODULE(_dft, m) {
         [](Matrix a, std::array<int, 3> grid, double cutoff, double density_cutoff, nb::list tables,
            nb::list angular, nb::list dij, double dq, Rows positions, Kinds species, Rows kpoints,
            nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Rows local,
-           nb::object core, nb::object local_slopes, nb::object core_slopes,
+           nb::object core, nb::object local_slopes, nb::object core_slopes, nb::object atom_factors,
            nb::ndarray<const double, nb::c_contig, nb::device::cpu> density, double ewald,
            int spins, int bands, double electrons, const std::string& functional, const std::string& smearing,
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
@@ -498,6 +498,10 @@ NB_MODULE(_dft, m) {
             if (!core_slopes.is_none()) {
                 auto c = nb::cast<Rows>(core_slopes);
                 in.core_slopes.assign(c.data(), c.data() + c.size());
+            }
+            if (!atom_factors.is_none()) {
+                auto c = nb::cast<Rows>(atom_factors);
+                in.atom_factors.assign(c.data(), c.data() + c.size());
             }
             in.ewald = ewald;
             mdapy::dft::ScfOptions opt;
@@ -572,7 +576,8 @@ NB_MODULE(_dft, m) {
         nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("density_cutoff"), nb::arg("tables"),
         nb::arg("angular"), nb::arg("dij"), nb::arg("dq"), nb::arg("positions"), nb::arg("species"),
         nb::arg("kpoints"), nb::arg("weights"), nb::arg("local"), nb::arg("core").none(),
-        nb::arg("local_slopes").none(), nb::arg("core_slopes").none(), nb::arg("density"),
+        nb::arg("local_slopes").none(), nb::arg("core_slopes").none(), nb::arg("atom_factors").none(),
+        nb::arg("density"),
         nb::arg("ewald"), nb::arg("spins"), nb::arg("bands"), nb::arg("electrons"), nb::arg("functional"),
         nb::arg("smearing"), nb::arg("sigma"), nb::arg("beta"), nb::arg("kerker"), nb::arg("minimum"),
         nb::arg("magnetic_beta"), nb::arg("history"),

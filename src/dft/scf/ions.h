@@ -41,6 +41,14 @@ public:
     // sum_s S_s(G) dV_s/d|G| and sum_s S_s(G) dc_s/d|G| on the device
     void local_slope_components(Complex* out) const;
     void core_slope_components(Complex* out) const;
+    // the form factors of the free atoms (species, n), for the correction of
+    // the forces
+    void set_atom_factors(const std::vector<double>& atom);
+    bool has_atom_factors() const noexcept { return atom_.size() > 0; }
+    // Omega sum_G Re[i G a_s(G) exp(-i G.tau_I) conj(dV(G))] (atoms, 3): the
+    // forces of a change dV of the potential on densities of free atoms
+    // moving with their atoms
+    std::vector<double> correction_forces(const Complex* dv) const;
     // the forces (atoms, 3) on the host of rho(G) through V_loc and, with core
     // charges, of V_xc(G) through rho_core; both on the device
     std::vector<double> forces(const Complex* rho, const Complex* vxc) const;
@@ -53,7 +61,7 @@ private:
     int atoms_, species_;
     bool has_core_;
     DeviceArray<int> miller_, kinds_;
-    DeviceArray<double> g_, tau_, local_, core_, local_slope_, core_slope_;
+    DeviceArray<double> g_, tau_, local_, core_, local_slope_, core_slope_, atom_;
 };
 
 }  // namespace mdapy::dft

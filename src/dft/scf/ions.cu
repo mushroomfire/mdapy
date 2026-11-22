@@ -131,6 +131,26 @@ void Ions::core_slope_components(Complex* out) const {
     structure(core_slope_, out);
 }
 
+void Ions::set_atom_factors(const std::vector<double>& atom) {
+    if (atom.size() != static_cast<std::size_t>(species_) * n_)
+        throw std::invalid_argument("the form factors of the atoms are (species, the sphere of the density)");
+    atom_.upload(atom.data(), atom.size());
+}
+
+std::vector<double> Ions::correction_forces(const Complex* dv) const {
+    std::vector<double> out(3 * static_cast<std::size_t>(atoms_), 0.0);
+    if (atoms_ == 0) return out;
+    if (!has_atom_factors()) throw std::logic_error("no form factors of the atoms");
+    DeviceArray<double> f(out.size());
+    force_kernel<<<static_cast<unsigned>(atoms_), kThreads>>>(n_, miller_.data(), g_.data(), tau_.data(),
+                                                              kinds_.data(), atom_.data(), dv, nullptr, nullptr,
+                                                              f.data());
+    check_cuda(cudaGetLastError(), "the correction of the forces");
+    f.download(out.data(), out.size());
+    for (double& x : out) x *= lattice_.volume;
+    return out;
+}
+
 std::vector<double> Ions::forces(const Complex* rho, const Complex* vxc) const {
     std::vector<double> out(3 * static_cast<std::size_t>(atoms_), 0.0);
     if (atoms_ == 0) return out;

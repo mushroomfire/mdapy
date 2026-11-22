@@ -123,12 +123,14 @@ def run(
     magnetic_beta: float = 0.4,
     stress: bool = True,
     basis_cell=None,
+    correct_forces: bool = True,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
     (hartree) and the density to density_cutoff (4 cutoff by default) on grid
     (the FFT grid of the density cutoff by default). The forces are in
-    hartree / bohr, their mean taken out and kept as net_force; with stress,
+    hartree / bohr, with correct_forces QE's correction for the change of the
+    input density with the atoms, their mean taken out and kept as net_force; with stress,
     strain_derivative is dE/d epsilon (3, 3) of a homogeneous strain at fixed
     Miller indices, hartree; basis_cell chooses the plane waves (and the
     sphere of the density), the cell by default, for differences of the energy
@@ -165,9 +167,11 @@ def run(
     miller, _, _, _ = _dft.sphere(chooser, [0.0, 0.0, 0.0], density_cutoff, grid)
     local_s = core_s = None
     if stress:
-        local_f, core_f, _, local_s, core_s = form_factors(cell, pseudos, miller, True)
+        local_f, core_f, atom_f, local_s, core_s = form_factors(
+            cell, pseudos, miller, True
+        )
     else:
-        local_f, core_f, _ = form_factors(cell, pseudos, miller)
+        local_f, core_f, atom_f = form_factors(cell, pseudos, miller)
     _, _, atom_g, moment_g = radial_parts(
         cell, positions, kinds, pseudos, miller, magmoms
     )
@@ -187,6 +191,7 @@ def run(
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
+        atom_f if correct_forces else None,
         np.ascontiguousarray(density),
         e_ewald, spins, bands, electrons, functional or functional_of(pseudos),
         smearing, sigma, beta, kerker, minimum, magnetic_beta, history, metric_weight,

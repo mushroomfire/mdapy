@@ -13,7 +13,8 @@ prints the milliseconds of a step on the first process.
     MDAPY_NUM_THREADS=1 srun -n 40 --mpi=pmix python benchmarks/processes.py eam lammps 80 FOLDER
 
 FOLDER holds Cu_zhou.eam.alloy, written by EAM.zhou(["Cu"]).write(path), and
-the Si.sw and Si.tersoff of the potentials folder of LAMMPS.
+the Si.sw, Si.tersoff, Ni.adp, library.meam and Cu.meam of the potentials folder
+of LAMMPS.
 """
 
 import sys
@@ -34,8 +35,10 @@ from mpi4py import MPI  # noqa: E402
 
 from mdapy.build import build_crystal  # noqa: E402
 from mdapy.calculators import (  # noqa: E402
+    ADP,
     EAM,
     LAMMPS,
+    MEAM,
     LennardJones,
     Morse,
     StillingerWeber,
@@ -49,7 +52,8 @@ structure, a, element, _ = case["crystal"]
 system = build_crystal(structure, a, elements=element, repeat=(repeat,) * 3)
 if engine == "lammps":
     text = case["lammps"]
-    for file in ("Si.sw", "Si.tersoff", "Cu_zhou.eam.alloy"):
+    for file in ("Si.sw", "Si.tersoff", "Cu_zhou.eam.alloy", "Ni.adp", "library.meam",
+                 "Cu.meam"):  # fmt: skip
         text = text.replace(file, str(folder / file))
     potential = LAMMPS(text, [element])
 else:
@@ -59,6 +63,8 @@ else:
         "morse": lambda: Morse({"Cu": (0.3429, 1.3588, 2.866)}, 6.5),
         "sw": lambda: StillingerWeber(folder / "Si.sw"),
         "tersoff": lambda: Tersoff(folder / "Si.tersoff"),
+        "adp": lambda: ADP(folder / "Ni.adp"),
+        "meam": lambda: MEAM(folder / "library.meam", ["Cu"], folder / "Cu.meam"),
     }[name]()
 with MolecularDynamics(system, potential, timestep=case["timestep"]) as md:
     md.velocities(case["temperature"], seed=1)

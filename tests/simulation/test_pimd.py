@@ -6,7 +6,8 @@
 """Path-integral molecular dynamics: the normal modes of the free ring
 polymer; the free ring polymer kept exactly and the energy of RPMD kept;
 atoms tied by springs, harmonic oscillators, at the energies of the finite
-ring polymer in closed form, quantum far from the classical; restarts;
+ring polymer in closed form, quantum far from the classical; at a
+pressure, the volume of the classical crystal for heavy atoms; restarts;
 the beads and the centroids; on the GPU stood in; the errors."""
 
 import math
@@ -27,6 +28,7 @@ from calculators.gpu_stand_in import stand_in
 KB, MVV2E = units.BOLTZMANN, units.AMU_A2_PER_PS2_TO_EV
 HBAR = units.PLANCK / (2 * math.pi)
 NVT = {"ensemble": "nvt", "thermostat": "langevin"}
+NPT = {"ensemble": "npt", "thermostat": "langevin", "pressure": 0.0, "barostat": "iso"}
 
 
 def hydrogen(n=64, quantum=0.2, seed=0):
@@ -193,16 +195,24 @@ def test_velocities_are_those_of_the_temperature():
         assert np.abs(md.beads[2]["velocities"]).max() == 0.0
 
 
-def test_a_run_finished_from_its_restart(tmp_path):
-    system, springs, _ = hydrogen(16)
-    options = {"temperature": 300, "seed": 5, "thermo": 10, **NVT}
-    with MolecularDynamics(system, springs, timestep=0.0005, beads=4) as md:
-        md.velocities(300, seed=1)
+def argon(repeat=3):
+    from mdapy.build import build_crystal
+
+    crystal = build_crystal("fcc", 5.30, elements="Ar", repeat=(repeat,) * 3)
+    return crystal, LennardJones({"Ar": (0.0104, 3.405)}, 8.5, shift=True)
+
+
+@pytest.mark.parametrize("ensemble", [NVT, NPT])
+def test_a_run_finished_from_its_restart(tmp_path, ensemble):
+    system, springs = argon()
+    options = {"temperature": 40, "seed": 5, "thermo": 10, **ensemble}
+    with MolecularDynamics(system, springs, timestep=0.004, beads=4) as md:
+        md.velocities(40, seed=1)
         md.run(60, **options)
         whole = md.system, md.thermo
     path = tmp_path / "pimd.restart"
-    with MolecularDynamics(system, springs, timestep=0.0005, beads=4) as md:
-        md.velocities(300, seed=1)
+    with MolecularDynamics(system, springs, timestep=0.004, beads=4) as md:
+        md.velocities(40, seed=1)
         frames = md.iterate(
             60, save_every=30, restart=path, restart_every=30, **options
         )
@@ -219,16 +229,19 @@ def test_a_run_finished_from_its_restart(tmp_path):
     np.testing.assert_allclose(
         again.system["velocities"], whole[0]["velocities"], atol=1e-12
     )
-    for column in ("potential_energy", "kinetic_energy", "pressure"):
+    for column in ("potential_energy", "kinetic_energy", "pressure", "volume"):
         np.testing.assert_allclose(
             again.thermo[column].to_numpy(), whole[1][column].to_numpy(), rtol=1e-12,
             err_msg=column,
         )  # fmt: skip
+    np.testing.assert_allclose(again.system.box.matrix, whole[0].box.matrix,
+                               rtol=1e-12)  # fmt: skip
 
 
-def test_on_the_gpu_stood_in(monkeypatch):
+@pytest.mark.parametrize("ensemble", [NVT, NPT])
+def test_on_the_gpu_stood_in(monkeypatch, ensemble):
     """The forces of each bead on the GPU, the steps on the processor: the
-    run of the processor."""
+    run of the processor, at constant volume or at a pressure."""
     monkeypatch.setattr(_gpu, "cuda", stand_in)
     from mdapy.build import build_crystal
     from mdapy.calculators import EAM
@@ -242,7 +255,7 @@ def test_on_the_gpu_stood_in(monkeypatch):
         log = stream if device == "cuda" else None
         with MolecularDynamics(crystal, eam, timestep=0.002, beads=3, log=log) as md:
             md.velocities(50, seed=1)
-            md.run(30, temperature=50, seed=2, thermo=10, **NVT)
+            md.run(30, temperature=50, seed=2, thermo=10, **ensemble)
             out.append((md.system, md.thermo))
     (a, ta), (b, tb) = out
     assert "path integrals of 3 beads; the forces on the GPU" in stream.getvalue()
@@ -311,8 +324,8 @@ def test_atoms_that_overlap():
             md.run(1, temperature=300, **NVT)
 
 
-@pytest.mark.parametrize("size", [2, 3])
-def test_beads_shared_among_processes(monkeypatch, tmp_path, size):
+@pytest.mark.parametrize(("size", "ensemble"), [(2, NVT), (3, NVT), (2, NPT)])
+def test_beads_shared_among_processes(monkeypatch, tmp_path, size, ensemble):
     """Processes, stood in for by threads, each computing the forces of its
     beads: the run of one process, its restart file and its log too."""
     import io
@@ -328,7 +341,7 @@ def test_beads_shared_among_processes(monkeypatch, tmp_path, size):
         log = io.StringIO()
         with MolecularDynamics(crystal, eam, timestep=0.002, beads=4, log=log) as md:
             md.velocities(50, seed=1)
-            md.run(30, temperature=50, seed=2, thermo=10, **NVT,
+            md.run(30, temperature=50, seed=2, thermo=10, **ensemble,
                    restart=tmp_path / f"{rank}.restart", restart_every=20)  # fmt: skip
             return md.system, md.thermo, log.getvalue()
 
@@ -367,7 +380,8 @@ def test_errors(monkeypatch):
         MolecularDynamics(system, EnergyOnly(system["positions"], np.ones(8)), beads=2)
     with MolecularDynamics(system, springs, beads=2) as md:
         for options, message in (
-            ({"ensemble": "npt", "temperature": 300, "pressure": 0.0}, '"nvt" or "nve"'),
+            ({"ensemble": "nph", "temperature": 300, "pressure": 0.0},
+             '"nvt", "npt" or "nve"'),
             ({"ensemble": "nvt", "temperature": 300}, "PILE_L"),
             ({"ensemble": "nve"}, "needs a temperature"),
             ({"ensemble": "nve", "temperature": (300, 400)}, "one positive temperature"),
@@ -376,3 +390,48 @@ def test_errors(monkeypatch):
         ):  # fmt: skip
             with pytest.raises(InvalidParameter, match=message):
                 md.run(1, **options)
+
+
+def test_the_classical_volume_of_heavy_atoms():
+    """Argon a hundred times as heavy, at a pressure: its quantum effects
+    gone, the ring polymers sample the volume of the classical crystal, of
+    MDAPY's own barostat without beads."""
+    crystal, lj = argon()
+    heavy = crystal.with_columns(mass=np.full(len(crystal), 3994.8))
+    volumes = []
+    for beads in (1, 4):
+        with MolecularDynamics(heavy, lj, timestep=0.04, beads=beads) as md:
+            md.velocities(60, seed=3)
+            options = {"temperature": 60, "seed": 4, "thermo": 20,
+                       "barostat_damping": 2.0, **NPT}  # fmt: skip
+            md.run(1000, **options)
+            md.run(10000, **options)
+            v = md.thermo["volume"].to_numpy()[-500:]
+        blocks = v.reshape(20, -1).mean(axis=1)
+        volumes.append((v.mean(), blocks.std(ddof=1) / np.sqrt(20)))
+    (classical, e1), (quantum, e2) = volumes
+    assert abs(quantum - classical) < 4 * math.hypot(e1, e2)
+    assert quantum > crystal.box.volume  # the crystal at 60 K grew from 5.30 A
+
+
+def test_errors_at_a_pressure():
+    system, springs = argon(2)
+    with MolecularDynamics(system, springs, beads=2) as md:
+        for options, message in (
+            ({"barostat": "aniso"}, '"iso" barostat'),
+            ({"pressure": (0.0, 1.0)}, "one pressure"),
+        ):  # fmt: skip
+            with pytest.raises(InvalidParameter, match=message):
+                md.run(1, temperature=40, **(NPT | options))
+    sheet = system.with_box(mdapy.Box(system.box.matrix, pbc=(True, True, False)))
+    with MolecularDynamics(sheet, springs, beads=2) as md:
+        with pytest.raises(InvalidParameter, match="periodic in every direction"):
+            md.run(1, temperature=40, **NPT)
+
+    class NoVirial(LennardJones):
+        implemented = frozenset({"energy", "forces"})
+
+    plain = NoVirial({"Ar": (0.0104, 3.405)}, 8.5)
+    with MolecularDynamics(system, plain, beads=2) as md:
+        with pytest.raises(InvalidParameter, match="needs the virial"):
+            md.run(1, temperature=40, **NPT)

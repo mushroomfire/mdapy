@@ -95,6 +95,12 @@ using Langevin dynamics, *Phys. Rev. E* **75**, 056707 (2007).
 [doi:10.1103/PhysRevE.75.056707](https://doi.org/10.1103/PhysRevE.75.056707)
 { #bussi2007 }
 
+**Bussi, Zykova-Timan and Parrinello (2009).** G. Bussi, T. Zykova-Timan and M.
+Parrinello, Isothermal-isobaric molecular dynamics using stochastic velocity
+rescaling, *J. Chem. Phys.* **130**, 074101 (2009).
+[doi:10.1063/1.3073889](https://doi.org/10.1063/1.3073889)
+{ #bussi2009 }
+
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
 experiments, molecular dynamics simulations and models for time correlation

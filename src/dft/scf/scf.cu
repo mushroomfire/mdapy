@@ -381,6 +381,31 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     std::vector<double> weights(spins * nk), eigenvalues(spins * nk * bands), values, w(bands);
     for (std::size_t s = 0; s < spins; ++s)
         std::copy(input.weights.begin(), input.weights.end(), weights.begin() + static_cast<std::ptrdiff_t>(s * nk));
+    // the first bands of a cold start: the lowest Ritz vectors of the
+    // pseudo-orbitals of the free atoms in the first potential, with random
+    // bands after them when they are fewer than the bands; the random bands as
+    // they are when the orbitals are more than twice the bands (memory) or
+    // linearly dependent
+    auto start_atomic = [&](std::size_t row) {
+        const std::size_t n = h.plane_waves();
+        const int m = h.atomic_functions(), total = std::max(m, nb);
+        if (m > 2 * nb || static_cast<std::size_t>(total) > n) return;
+        DeviceArray<Complex> start(n * static_cast<std::size_t>(total));
+        h.atomic(start.data());
+        if (m < nb)
+            check_cuda(cudaMemcpy(start.data() + n * static_cast<std::size_t>(m),
+                                  psi[row].data() + n * static_cast<std::size_t>(m),
+                                  n * static_cast<std::size_t>(nb - m) * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
+        try {
+            std::vector<double> e, loose(static_cast<std::size_t>(total), 1e-2);
+            davidson.solve(h, start.data(), total, e, loose, 1, total);
+        } catch (const std::invalid_argument&) {
+            return;
+        }
+        check_cuda(cudaMemcpy(psi[row].data(), start.data(), n * bands * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                   "cudaMemcpy");
+    };
     double tolerance = 1e-2, previous = std::numeric_limits<double>::infinity();
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
@@ -416,6 +441,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
                     limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
                 }
+                if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);
                 const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
                                               options.davidson_iterations, options.davidson_basis * nb);
                 step.davidson += r.iterations;

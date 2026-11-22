@@ -122,8 +122,9 @@ class DFT(Calculator):
     cutoff : float64
         0: the calculator needs no neighbor list.
     last : dict
-        Of the last computation: ``iterations``, ``restarted`` (from the
-        one before), ``fermi`` (eV),
+        Of the last computation: ``iterations``, ``davidson`` (the
+        iterations of the eigensolver over all steps, k-points and spins),
+        ``restarted`` (from the one before), ``fermi`` (eV),
         ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
         spin), ``net_force`` (eV/Å, taken out of the forces), ``kpoints``
         (the mesh), ``grid`` (the FFT grid) and ``provenance``: what makes
@@ -359,6 +360,7 @@ class DFT(Calculator):
             )
         self.last = {
             "iterations": int(r["iterations"]),
+            "davidson": int(np.sum(r["davidson"])),
             "restarted": bool(r["restarted"]),
             "fermi": float(r["fermi"]) * HARTREE,
             "net_force": r["net_force"] * HARTREE / BOHR,

@@ -282,7 +282,8 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     if (count < 1 || count > rows) throw std::invalid_argument("from one band to as many as the plane waves");
     if (tolerances.size() != static_cast<std::size_t>(count)) throw std::invalid_argument("a tolerance for each band");
     if (max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
-    const int most = std::min(std::max(largest_basis, 2 * count), rows);
+    // one Rayleigh-Ritz needs no room to grow
+    const int most = std::min(max_iterations == 1 ? count : std::max(largest_basis, 2 * count), rows);
     const std::size_t n = static_cast<std::size_t>(rows), bands = static_cast<std::size_t>(count);
     // with an overlap, the projections <beta|basis> carry the metric of S and
     // the nonlocal parts of H and S; without, H is applied as it is

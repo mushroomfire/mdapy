@@ -82,9 +82,16 @@ std::size_t points_of(const Int3& g) { return static_cast<std::size_t>(g[0]) * g
 
 const Complex* as_device(const std::complex<double>* p) { return reinterpret_cast<const Complex*>(p); }
 
-std::vector<mdapy::dft::SpeciesProjectors> species_of(nb::list tables, nb::list angular, nb::list dij, double dq) {
+// orbitals, when given: (tables (orbitals, points), angular) of each species
+std::vector<mdapy::dft::SpeciesProjectors> species_of(nb::list tables, nb::list angular, nb::list dij, double dq,
+                                                     nb::object orbitals = nb::none()) {
     if (nb::len(angular) != nb::len(tables) || nb::len(dij) != nb::len(tables))
         throw std::invalid_argument("tables, angular and dij of every species");
+    nb::list chi;
+    if (!orbitals.is_none()) {
+        chi = nb::cast<nb::list>(orbitals);
+        if (nb::len(chi) != nb::len(tables)) throw std::invalid_argument("the orbitals of every species");
+    }
     std::vector<mdapy::dft::SpeciesProjectors> kinds;
     for (std::size_t s = 0; s < nb::len(tables); ++s) {
         auto t = nb::cast<Rows>(tables[s]);
@@ -95,6 +102,14 @@ std::vector<mdapy::dft::SpeciesProjectors> species_of(nb::list tables, nb::list 
         sp.tables.assign(t.data(), t.data() + t.size());
         sp.angular = nb::cast<std::vector<int>>(angular[s]);
         sp.dij.assign(d.data(), d.data() + d.size());
+        if (!orbitals.is_none()) {
+            nb::tuple o = nb::cast<nb::tuple>(chi[s]);
+            auto ot = nb::cast<Rows>(o[0]);
+            if (ot.shape(0) > 0 && ot.shape(1) != t.shape(1))
+                throw std::invalid_argument("the orbitals take the points of the projectors");
+            sp.orbital_tables.assign(ot.data(), ot.data() + ot.size());
+            sp.orbital_angular = nb::cast<std::vector<int>>(o[1]);
+        }
         kinds.push_back(std::move(sp));
     }
     return kinds;
@@ -565,7 +580,7 @@ NB_MODULE(_dft, m) {
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
-           nb::object onecenter, nb::object becsum, nb::object paw) {
+           nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -575,7 +590,7 @@ NB_MODULE(_dft, m) {
             in.grid = grid_of(grid);
             in.cutoff = cutoff;
             in.density_cutoff = density_cutoff;
-            in.species = species_of(tables, angular, dij, dq);
+            in.species = species_of(tables, angular, dij, dq, orbitals);
             in.atoms = atoms_of(positions, species);
             if (kpoints.shape(1) != 3 || weights.shape(0) != kpoints.shape(0))
                 throw std::invalid_argument("k-points (K, 3) and weights (K,)");
@@ -740,7 +755,8 @@ NB_MODULE(_dft, m) {
         nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none(),
         nb::arg("magnetic_kerker") = 0.0, nb::arg("augmentation").none() = nb::none(),
         nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
-        nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none());
+        nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none(),
+        nb::arg("orbitals").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

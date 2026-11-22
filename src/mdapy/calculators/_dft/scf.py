@@ -131,6 +131,7 @@ def run(
     magnetic_kerker: float = 0.0,
     smooth_grid=None,
     onecenter=None,
+    atomic_start: bool = True,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -151,7 +152,9 @@ def run(
     n2, n3), up and down. With PAW datasets, onecenter(data, becsum) gives E^1
     and D (spins, pairs) of an atom of paw.onecenter data from its
     occupations; the result then holds onecenter (E^1) and becsum, the
-    occupations of all atoms (spins, pairs)."""
+    occupations of all atoms (spins, pairs). With atomic_start the first
+    bands are those of the pseudo-orbitals of the free atoms in the first
+    potential (random ones fill up to the bands), else random."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -206,6 +209,16 @@ def run(
         density = np.stack([0.5 * (density + moment), 0.5 * (density - moment)])
     qmax = math.sqrt(2 * cutoff) + 1.0
     tables = [radial.projector_table(pp, qmax, volume) for pp in pseudos]
+    # the pseudo-orbitals of the free atoms, for the first bands
+    orbitals = [
+        (
+            np.ascontiguousarray(radial.orbital_table(pp, qmax, volume)),
+            [o.angular for o in pp.orbitals],
+        )
+        if pp.orbitals
+        else (np.zeros((0, tables[i].shape[1])), [])
+        for i, pp in enumerate(pseudos)
+    ]
     angular = [[p.angular for p in pp.projectors] for pp in pseudos]
     dij = [np.ascontiguousarray(pp.dij, dtype=float) for pp in pseudos]
     charges = np.array([pseudos[s].valence for s in kinds])
@@ -239,7 +252,7 @@ def run(
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
         state, magnetic_kerker, augmented,
         None if smooth_grid == grid else list(smooth_grid), callback, becsum,
-        data if callback is None else None,
+        data if callback is None else None, orbitals if atomic_start else None,
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):

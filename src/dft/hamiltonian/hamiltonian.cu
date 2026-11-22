@@ -352,6 +352,19 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
         all.insert(all.end(), s.tables.begin(), s.tables.end());
     }
     tables_.upload(all.data(), all.size());
+    // the pseudo-orbitals, likewise
+    std::vector<double> orbitals;
+    for (const auto& s : species_) {
+        if (s.orbital_angular.size() * static_cast<std::size_t>(s.points) != s.orbital_tables.size())
+            throw std::invalid_argument("the tables and angular momenta of the orbitals of a species disagree");
+        for (const int l : s.orbital_angular)
+            if (l < 0 || l > 3) throw std::invalid_argument("orbitals of l from 0 to 3 only");
+        orbitals.insert(orbitals.end(), s.orbital_tables.begin(), s.orbital_tables.end());
+    }
+    orbital_tables_.upload(orbitals.data(), orbitals.size());
+    for (const Atom& a : atoms_)
+        if (a.species >= 0 && a.species < static_cast<int>(species_.size()))
+            for (const int l : species_[static_cast<std::size_t>(a.species)].orbital_angular) atomic_ += 2 * l + 1;
     // the projectors of every atom and D, block diagonal
     for (const Atom& a : atoms_) {
         if (a.species < 0 || a.species >= static_cast<int>(species_.size()))
@@ -410,12 +423,21 @@ void Hamiltonian::set_k(const Vec3& k) {
             q[3 * g + static_cast<std::size_t>(d)] = x;
         }
     q_.assign(q.data(), q.size());
-    if (projectors_ == 0 || n == 0) return;
     std::vector<int> miller(3 * n);
     for (std::size_t g = 0; g < n; ++g)
         for (int i = 0; i < 3; ++i) miller[3 * g + i] = sphere_.miller[g][i];
     DeviceArray<int>& m = miller_;
     m.assign(miller.data(), miller.size());
+    for (int i = 0; i < 3; ++i) {
+        for (int j = 0; j < 3; ++j)
+            reciprocal_.b[3 * i + j] = lattice_.b[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)];
+        reciprocal_.k[i] = k[static_cast<std::size_t>(i)];
+    }
+    if (!species_.empty()) {
+        reciprocal_.dq = species_.front().dq;
+        reciprocal_.points = species_.front().points;
+    }
+    if (projectors_ == 0 || n == 0) return;
     std::vector<Column> columns;
     std::vector<std::int64_t> starts;  // of the tables of each species
     std::int64_t offset = 0;
@@ -454,6 +476,35 @@ void Hamiltonian::set_k(const Vec3& k) {
         n, static_cast<int>(columns.size()), m.data(), rc, cols.data(), tables_.data(), beta_.data());
     check_cuda(cudaGetLastError(), "the projectors");
     reciprocal_ = rc;
+}
+
+void Hamiltonian::atomic(Complex* out) const {
+    const std::size_t n = sphere_.size();
+    if (atomic_ == 0 || n == 0) return;
+    std::vector<Column> columns;
+    std::vector<std::int64_t> starts;
+    std::int64_t offset = 0;
+    for (const auto& s : species_) {
+        starts.push_back(offset);
+        offset += static_cast<std::int64_t>(s.orbital_tables.size());
+    }
+    for (const Atom& a : atoms_) {
+        const auto& s = species_[static_cast<std::size_t>(a.species)];
+        for (std::size_t o = 0; o < s.orbital_angular.size(); ++o) {
+            const int l = s.orbital_angular[o];
+            for (int mm = -l; mm <= l; ++mm)
+                columns.push_back({starts[static_cast<std::size_t>(a.species)] + static_cast<std::int64_t>(o) * s.points,
+                                   l, mm, {a.position[0], a.position[1], a.position[2]}});
+        }
+    }
+    const double reach = (reciprocal_.points - 4) * reciprocal_.dq;
+    if (!(std::sqrt(2.0 * *std::max_element(sphere_.kinetic.begin(), sphere_.kinetic.end())) <= reach))
+        throw std::invalid_argument("the tables of the orbitals stop short of the sphere");
+    DeviceArray<Column> cols;
+    cols.assign(columns.data(), columns.size());
+    projector_kernel<<<blocks(n * columns.size()), kThreads>>>(n, static_cast<int>(columns.size()), miller_.data(),
+                                                              reciprocal_, cols.data(), orbital_tables_.data(), out);
+    check_cuda(cudaGetLastError(), "the atomic orbitals");
 }
 
 void Hamiltonian::set_potential(const double* potential) {

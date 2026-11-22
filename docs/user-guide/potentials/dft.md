@@ -119,7 +119,8 @@ write(f"train-{rank}.xyz", labelled)
   spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the constants
   of their paper, as Quantum ESPRESSO's PBE. `"pbe"` uses those of libxc; the two
   differ by about 1e-6 of the correlation energy.
-- **The self-consistent field:** the bands by block Davidson, the density mixed
+- **The self-consistent field:** the bands by block Davidson, from the
+  pseudo-orbitals of the free atoms at the start, the density mixed
   by Pulay's method in the metric of Kresse and Furthmüller with Kerker's
   preconditioner. A run that does not converge raises. With `restart`, a run
   starts from the bands of the last, plane wave by plane wave, and from its

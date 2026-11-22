@@ -36,6 +36,10 @@ struct SpeciesProjectors {
     std::vector<double> tables;       // (projectors, points)
     std::vector<int> angular;         // (projectors)
     std::vector<double> dij;          // (projectors, projectors)
+    // the pseudo-orbitals of the free atom tabulated likewise, with the same
+    // steps and points, for the first bands; empty for none
+    std::vector<double> orbital_tables;  // (orbitals, points)
+    std::vector<int> orbital_angular;    // (orbitals)
 };
 
 struct Atom {
@@ -125,6 +129,10 @@ public:
     int projectors() const noexcept { return projectors_; }
     const DeviceArray<Complex>& beta() const noexcept { return beta_; }
     const DeviceArray<double>& kinetic() const noexcept { return kinetic_; }
+    // The pseudo-orbitals of every atom at the k-point, (plane waves,
+    // atomic_functions()) on the device, as the projectors are built.
+    int atomic_functions() const noexcept { return atomic_; }
+    void atomic(Complex* out) const;
 
 private:
     int batch() const noexcept;  // bands per batch of FFTs
@@ -152,7 +160,8 @@ private:
     DeviceArray<double> potential_;
     DeviceArray<Complex> boxes_, projections_, scaled_;
     // the tables of every species on the device, and where each starts
-    DeviceArray<double> tables_;
+    DeviceArray<double> tables_, orbital_tables_;
+    int atomic_ = 0;
     // the block of D of each atom, (first, width)
     std::vector<int> blocks_;
     DeviceArray<int> blocks_device_;

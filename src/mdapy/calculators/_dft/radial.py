@@ -235,6 +235,21 @@ def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
     return 4 * math.pi / math.sqrt(volume) * table
 
 
+def orbital_table(pp, qmax: float, volume: float) -> np.ndarray:
+    """(orbitals, nq) the transforms of the pseudo-orbitals of the free atom,
+    (4 pi / sqrt(Omega)) int r^2 chi(r) j_l(qr) dr up to the reach of the local
+    parts, on the steps of projector_table; for the first bands."""
+    nq = int(qmax / DQ) + 4
+    q = DQ * np.arange(nq)
+    n = reach(pp.r)
+    r, rab = pp.r[:n], pp.rab[:n]
+    table = np.empty((len(pp.orbitals), nq))
+    for i, o in enumerate(pp.orbitals):
+        rc = o.r_chi[:n]
+        table[i] = [simpson(rc * r * bessel(o.angular, qi * r), rab) for qi in q]
+    return 4 * math.pi / math.sqrt(volume) * table
+
+
 def interpolate(table: np.ndarray, q: np.ndarray) -> np.ndarray:
     """The values of a table every DQ at the moduli q, by Lagrange polynomials
     of the four points from the one at or below q on: (P, len(q))."""

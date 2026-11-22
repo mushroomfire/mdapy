@@ -4,8 +4,9 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The verification of MDAPY's plane-wave DFT against the all-electron
-equations of state of Bosoni et al., Nat. Rev. Phys. 6, 45 (2024), with
-their protocol (verification-PBE-v1): PBE without spin, Fermi-Dirac smearing
+equations of state of Bosoni et al., Nat. Rev. Phys. 6, 45 (2024), of the
+unaries (FCC, BCC, SC, Diamond) and of the oxides (X2O, XO, X2O3, XO2, X2O5,
+XO3), with their protocol (verification-PBE-v1): PBE without spin, Fermi-Dirac smearing
 of 0.0045 Ry, the free energy at 7 volumes from 94 % to 106 % of the central
 one, a Gamma-centered mesh of at most 0.06 1/Å (with 2 pi) between k-points
 on the smallest volume, the same mesh for all; the Birch-Murnaghan fit of the
@@ -15,9 +16,9 @@ pseudopotentials (PseudoDojo 0.4, PBE, scalar relativistic, standard), at the
 high cutoff of their hints.
 
     python benchmarks/dft_verification.py prepare FOLDER
-    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe FCC ...] [--cutoff HA]
+    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe XO ...] [--cutoff HA]
     python benchmarks/dft_verification.py report FOLDER [OUTPUT.md]
-    python benchmarks/dft_verification.py figure FOLDER IMAGE
+    python benchmarks/dft_verification.py figure FOLDER IMAGE [unaries|oxides]
 
 prepare downloads into FOLDER the data and scripts of the paper from the
 Materials Cloud Archive (doi:10.24435/materialscloud:s4-3h, CC BY 4.0) and
@@ -25,8 +26,10 @@ the PseudoDojo table with its hints; run writes FOLDER/results/El-CONF.json,
 the free energies of the volumes and what they were computed with (with
 --cutoff, at that cutoff in hartree into FOLDER/results-HA, for the tests of
 convergence); report fits them and prints the table of the comparisons
-(markdown); figure draws nu of each structure against QE and against the
-all-electron codes beside QE's from FOLDER/summary.json.
+(markdown); figure draws nu of each structure (of one family, or all)
+against QE and against the all-electron codes beside QE's from
+FOLDER/summary.json. The cutoff of an oxide is the higher of the hints of
+its two elements.
 """
 
 import hashlib
@@ -50,6 +53,8 @@ SCALES = (0.94, 0.96, 0.98, 1.00, 1.02, 1.04, 1.06)
 SPACING = 0.06  # 1/Å, with 2 pi
 SMEARING = 0.0045 / 2  # hartree, 0.0045 Ry
 CONFIGURATIONS = ("FCC", "BCC", "SC", "Diamond")
+OXIDES = ("X2O", "XO", "X2O3", "XO2", "X2O5", "XO3")
+FAMILIES = {"unaries": CONFIGURATIONS, "oxides": OXIDES}
 
 
 def download(url: str, path: Path) -> Path:
@@ -69,7 +74,9 @@ def prepare(folder: Path) -> None:
             keep = (
                 "reference-dataset/" in name
                 or "code-data/results-unaries" in name
+                or "code-data/results-oxides" in name
                 or "xsfs-unaries-verification-PBE-v1/" in name
+                or "xsfs-oxides-verification-PBE-v1/" in name
             ) and not name.startswith("__MACOSX")
             if keep and not name.endswith("/"):
                 target = folder / "acwf" / Path(name).name
@@ -89,7 +96,9 @@ def prepare(folder: Path) -> None:
 
 
 def read_xsf(path: Path):
-    """The cell (rows, Å), the atomic numbers and the fractional positions."""
+    """The cell (rows, Å), the species of the atoms as written (atomic numbers
+    in the files of the unaries, symbols in those of the oxides) and the
+    fractional positions."""
     lines = [line.split() for line in path.read_text().splitlines() if line.strip()]
     tags = [row[0] for row in lines]
     i = tags.index("PRIMVEC")
@@ -97,9 +106,9 @@ def read_xsf(path: Path):
     j = tags.index("PRIMCOORD")
     n = int(lines[j + 1][0])
     rows = lines[j + 2 : j + 2 + n]
-    numbers = [int(r[0]) for r in rows]
+    species = [r[0] for r in rows]
     cart = np.array([[float(x) for x in r[1:4]] for r in rows])
-    return cell, numbers, cart @ np.linalg.inv(cell)
+    return cell, species, cart @ np.linalg.inv(cell)
 
 
 def mesh_of(cell: np.ndarray) -> tuple[int, int, int]:
@@ -116,24 +125,27 @@ def run(
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
 
-    cell, numbers, fractions = read_xsf(
+    cell, species, fractions = read_xsf(
         folder / "acwf" / f"{element}-{configuration}.xsf"
     )
-    path = folder / "pseudo-dojo" / f"{element}.upf"
-    pp = read_upf(path)
+    # one pseudopotential per species, in the order they first appear
+    names = [element if s.isdigit() else s for s in dict.fromkeys(species)]
+    kinds = [names.index(element if s.isdigit() else s) for s in species]
+    paths = [folder / "pseudo-dojo" / f"{name}.upf" for name in names]
+    pseudos = [read_upf(path) for path in paths]
     hints = json.loads((folder / "pseudo-dojo" / "standard.djson").read_text())[
         "pseudos_metadata"
     ]
     results = folder / ("results" if cutoff is None else f"results-{cutoff:g}")
-    if cutoff is None:
-        cutoff = float(hints[element]["hints"]["high"]["ecut"])  # hartree
+    if cutoff is None:  # hartree
+        cutoff = max(float(hints[name]["hints"]["high"]["ecut"]) for name in names)
     volume = abs(np.linalg.det(cell))
     mesh = mesh_of(cell * SCALES[0] ** (1 / 3))
     out = {
-        "element": element, "configuration": configuration, "atoms": len(numbers),
+        "element": element, "configuration": configuration, "atoms": len(species),
         "cutoff_hartree": cutoff, "mesh": mesh, "smearing": "fermi-dirac", "sigma_hartree": SMEARING,
-        "functional": "pbe_pw", "pseudopotential": path.name,
-        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "functional": "pbe_pw", "pseudopotentials": [path.name for path in paths],
+        "sha256": [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths],
         "central_volume": volume, "volumes": [], "free_energies_ev": [], "steps": [], "seconds": [],
         "operations": [], "kpoints": [],
     }  # fmt: skip
@@ -143,9 +155,9 @@ def run(
     for scale in SCALES:
         start = time.time()
         r = scf.run(
-            cell * scale ** (1 / 3) / BOHR, fractions, [0] * len(numbers), [pp], cutoff, kgrid=mesh,
+            cell * scale ** (1 / 3) / BOHR, fractions, kinds, pseudos, cutoff, kgrid=mesh,
             smearing="fermi-dirac", sigma=SMEARING, functional="pbe_pw",
-            energy_tolerance=1e-9 * len(numbers), density_tolerance=1e-11, max_iterations=200, stress=False,
+            energy_tolerance=1e-9 * len(species), density_tolerance=1e-11, max_iterations=200, stress=False,
         )  # fmt: skip
         if not r["converged"]:
             raise RuntimeError(f"{element} {configuration} at {scale}: no convergence")
@@ -210,24 +222,30 @@ def epsilon(a, b) -> float:
 
 def report(folder: Path, output: Path | None = None, results: str = "results") -> None:
     acwf = folder / "acwf"
-    reference = json.loads(
-        (acwf / "results-unaries-verification-PBE-v1-AE-average.json").read_text()
-    )
-    espresso = json.loads(
-        (
-            acwf
-            / "results-unaries-verification-PBE-v1-quantum_espresso-PseudoDojo-0.4-PBE-SR-standard-upf.json"
-        ).read_text()
-    )
+
+    def data(family: str, code: str) -> dict:
+        path = acwf / f"results-{family}-verification-PBE-v1-{code}.json"
+        return json.loads(path.read_text())["BM_fit_data"] if path.exists() else {}
+
+    dojo = "quantum_espresso-PseudoDojo-0.4-PBE-SR-standard-upf"
+    references = {f: data(f, "AE-average") for f in FAMILIES}
+    espressos = {f: data(f, dojo) for f in FAMILIES}
     rows, summary = [], []
     for path in sorted((folder / results).glob("*.json")):
         r = json.loads(path.read_text())
-        key = f"{r['element']}-X/{r['configuration']}"
+        oxide = r["configuration"] in OXIDES
+        family = "oxides" if oxide else "unaries"
+        key = (
+            f"{r['element']}-{r['configuration']}"
+            if oxide
+            else f"{r['element']}-X/{r['configuration']}"
+        )
+        reference, espresso = references[family], espressos[family]
         v0, _, b0, b1 = fit(r["volumes"], r["free_energies_ev"])
         ours = (v0, b0, b1)
-        ae = reference["BM_fit_data"][key]
+        ae = reference[key]
         ae = (ae["min_volume"], ae["bulk_modulus_ev_ang3"], ae["bulk_deriv"])
-        qe = espresso["BM_fit_data"].get(key)
+        qe = espresso.get(key)
         qe = (
             None
             if qe is None
@@ -261,16 +279,25 @@ def report(folder: Path, output: Path | None = None, results: str = "results") -
         output.write_text(text)
 
 
-def figure(folder: Path, image: Path) -> None:
+def figure(folder: Path, image: Path, family: str | None = None) -> None:
     from mdapy.visualization import plot
 
     summary = json.loads((folder / "summary.json").read_text())
-    order = {c: i for i, c in enumerate(CONFIGURATIONS)}
-    markers = {"FCC": "o", "BCC": "s", "SC": "^", "Diamond": "D"}
+    shapes = "os^Dvp"
+    markers = {
+        c: shapes[i % len(shapes)]
+        for configurations in FAMILIES.values()
+        for i, c in enumerate(configurations)
+    }
+    wanted = FAMILIES[family] if family else CONFIGURATIONS + OXIDES
     with plot.style():
         fig, (left, right) = plot.figure("double", 70, nrows=1, ncols=2)
-        for conf in sorted(markers, key=order.get):
-            rows = [x for x in summary if x["key"].endswith("/" + conf)]
+        for conf in wanted:
+            rows = [
+                x for x in summary if x["key"].split("/")[-1].split("-")[-1] == conf
+            ]
+            if not rows:
+                continue
             left.plot([x["epsilon_qe"] for x in rows], [x["nu_qe"] for x in rows], markers[conf],
                       ms=3, mfc="none", label=conf)  # fmt: skip
             right.plot([x["qe_nu_ae"] for x in rows], [x["nu_ae"] for x in rows], markers[conf],
@@ -308,6 +335,6 @@ if __name__ == "__main__":
     elif command == "report":
         report(folder, Path(sys.argv[3]) if len(sys.argv) > 3 else None)
     elif command == "figure":
-        figure(folder, Path(sys.argv[3]))
+        figure(folder, Path(sys.argv[3]), sys.argv[4] if len(sys.argv) > 4 else None)
     else:
         raise SystemExit(__doc__)

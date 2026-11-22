@@ -153,7 +153,7 @@ when the self-consistent field does not converge, with its last energies.
 
 ## How the results compare with Quantum ESPRESSO
 
-The [verification](dft-verification.md) adds the equations of state of 49 metals against
+The [verification](dft-verification.md) adds the equations of state of 72 elements against
 all-electron codes.
 
 Quantum ESPRESSO 7.6 (`pw.x`) runs on the same cells, PseudoDojo files, cutoff,

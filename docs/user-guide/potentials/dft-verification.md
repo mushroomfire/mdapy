@@ -6,8 +6,9 @@ A density functional code is only as useful as it is right. MDAPY's
 1. against its own derivatives and invariances;
 2. against [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 (`pw.x`), run
    on the same input;
-3. against all-electron equations of state of 49 metals in four crystal structures,
-   by the protocol of [Bosoni et al. (2024)](../../reference/references.md#bosoni2024).
+3. against all-electron equations of state of 72 elements, from hydrogen to radon, in
+   four crystal structures, by the protocol of
+   [Bosoni et al. (2024)](../../reference/references.md#bosoni2024).
 
 The first two show that MDAPY solves the equations it means to solve. The third
 measures its results against the exact solution of density functional theory with
@@ -76,29 +77,39 @@ minima, over the root of the product of their variances. Below 0.1 for ν or 0.0
 
 | Structure | ν against Quantum ESPRESSO, median | largest | ν against all-electron, median | of Quantum ESPRESSO |
 |---|---:|---:|---:|---:|
-| FCC | 0.0013 | 0.030 | 0.120 | 0.120 |
-| BCC | 0.0009 | 0.090 | 0.136 | 0.121 |
-| SC | 0.0013 | 0.100 | 0.111 | 0.118 |
-| Diamond | 0.0011 | 0.236 | 0.168 | 0.168 |
+| FCC | 0.0017 | 0.970 | 0.132 | 0.134 |
+| BCC | 0.0013 | 3.394 | 0.137 | 0.138 |
+| SC | 0.0023 | 0.171 | 0.124 | 0.133 |
+| Diamond | 0.0013 | 5.418 | 0.148 | 0.147 |
 
 ![ν and ε of MDAPY against Quantum ESPRESSO, and ν of MDAPY against the all-electron codes beside that of Quantum ESPRESSO](images/dft-verification.png)
 
-*a: MDAPY against Quantum ESPRESSO on the same pseudopotentials, each of the 196
-structures (49 metals in four structures); the dashed lines are the paper's bounds of
-excellent agreement. b: MDAPY against the all-electron codes, beside Quantum ESPRESSO
+*a: MDAPY against Quantum ESPRESSO on the same pseudopotentials, each of the 288
+structures (the 72 elements of PseudoDojo's table in four structures); the dashed
+lines are the paper's bounds of excellent agreement. b: MDAPY against the all-electron codes, beside Quantum ESPRESSO
 against them, on the same pseudopotentials; the line is their equality.*
 
-- **The code.** Against Quantum ESPRESSO, 194 of the 196 structures agree to
-  ν < 0.1, half of them to 0.001. The largest differences, sodium and magnesium, have
-  equations of state so flat (a bulk modulus of 3 to 8 GPa for sodium) that a few
-  tenths of a meV between the energies of the volumes change B1 by 10 %; the energies
-  of sodium agree volume by volume to 0.3 meV, and Quantum ESPRESSO took the "normal"
-  cutoff of 44 hartree where MDAPY takes the "high" 48.
+- **The code.** Against Quantum ESPRESSO, 282 of the 288 structures agree to
+  ν < 0.1, 113 of them to 0.001, and 284 to ε < 0.06. The six others have
+  equations of state so flat that tenths of a meV between the energies of the volumes
+  decide B1:
+    - Neon (ν 1.0 to 5.4 in FCC, BCC and diamond): its curves span 0.4 meV from 94 % to
+      106 %. The energies of the two codes differ by steps of 0.1 to 0.2 meV, from one
+      volume to the next, where one of them changes its FFT grid: in diamond the step
+      is where MDAPY's grid grows from 54 to 56 points, in FCC and BCC its grid stays
+      and the steps are Quantum ESPRESSO's.
+    - Helium in SC (ν 0.17), as flat.
+    - Sodium in diamond and SC (0.24 and 0.10; a bulk modulus of 3 and 6 GPa):
+      Quantum ESPRESSO took the "normal" cutoff of 44 hartree, MDAPY the "high" 48. At
+      44 hartree, sodium in SC agrees to ν < 0.001; in diamond, the softest structure
+      of the set, B1 moves from 4.0 to 3.2 and 1.3 between 44, 48 and 60 hartree, so
+      that ν = 0.24 lies within what the cutoff alone changes.
 - **The pseudopotentials.** Against the all-electron codes MDAPY and Quantum ESPRESSO
-  agree with each other structure by structure (b): 75 of the 196 structures within
-  ν < 0.1 for both, 159 and 160 within 0.33. The largest differences, barium in
-  diamond (3.0), copper (2.0 to 2.3) and zinc (1.2 to 2.2), are those of the
-  pseudopotentials of PseudoDojo 0.4 for these elements, the same in both codes.
+  agree with each other structure by structure (b): 103 of the 288 structures within
+  ν < 0.1 for both, 220 within 0.33 for each. The largest differences, barium in
+  diamond (3.0), copper (2.0 to 2.3), zinc (1.2 to 2.2) and radon (1.4 to 1.5), are
+  those of the pseudopotentials of PseudoDojo 0.4 for these elements, the same in both
+  codes; neon is the one structure apart, as above.
 
 ε is computed as the paper defines it; the scripts of the paper take the mean energy
 of the first curve where the definition has that of the second, which changes ε by
@@ -118,7 +129,7 @@ python benchmarks/dft_verification.py report verification table.md
 python benchmarks/dft_verification.py figure verification verification.png
 ```
 
-The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
+The 288 structures took 42 GPU-hours, mostly on V100 GPUs, 20 to 60 minutes each.
 
 ??? note "Every structure"
 
@@ -132,10 +143,22 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Al | BCC | 16.868 | 69.3 | 4.46 | 0.010 | 0.005 | 0.347 | 0.338 |
     | Al | SC | 20.108 | 57.1 | 4.42 | 0.010 | 0.006 | 0.236 | 0.226 |
     | Al | Diamond | 55.184 | 37.4 | 4.17 | 0.005 | 0.003 | 0.135 | 0.130 |
+    | Ar | FCC | 51.836 | 0.8 | 7.22 | 0.011 | 0.005 | 0.878 | 0.880 |
+    | Ar | BCC | 52.835 | 0.8 | 7.29 | 0.022 | 0.007 | 1.022 | 1.037 |
+    | Ar | SC | 64.743 | 0.5 | 7.23 | 0.096 | 0.021 | 0.797 | 0.720 |
+    | Ar | Diamond | 195.958 | 0.2 | 7.35 | 0.030 | 0.008 | 0.655 | 0.675 |
+    | As | FCC | 19.325 | 79.1 | 4.30 | 0.001 | 0.000 | 0.042 | 0.041 |
+    | As | BCC | 19.061 | 81.3 | 4.28 | 0.001 | 0.000 | 0.048 | 0.048 |
+    | As | SC | 20.379 | 77.9 | 4.30 | 0.005 | 0.002 | 0.055 | 0.059 |
+    | As | Diamond | 57.054 | 46.3 | 3.79 | 0.001 | 0.000 | 0.036 | 0.037 |
     | Au | FCC | 17.924 | 140.6 | 5.95 | 0.001 | 0.000 | 0.310 | 0.309 |
     | Au | BCC | 17.988 | 137.9 | 5.98 | 0.001 | 0.001 | 0.305 | 0.304 |
     | Au | SC | 20.707 | 106.6 | 5.61 | 0.001 | 0.000 | 0.306 | 0.306 |
     | Au | Diamond | 58.354 | 53.2 | 5.88 | 0.001 | 0.001 | 0.323 | 0.322 |
+    | B | FCC | 5.901 | 271.0 | 3.75 | 0.002 | 0.000 | 0.163 | 0.163 |
+    | B | BCC | 6.154 | 228.1 | 4.86 | 0.005 | 0.001 | 0.232 | 0.230 |
+    | B | SC | 6.699 | 233.6 | 3.64 | 0.004 | 0.003 | 0.025 | 0.021 |
+    | B | Diamond | 16.602 | 176.9 | 3.53 | 0.002 | 0.001 | 0.144 | 0.145 |
     | Ba | FCC | 64.338 | 8.2 | 2.57 | 0.000 | 0.000 | 0.353 | 0.352 |
     | Ba | BCC | 63.521 | 8.8 | 2.95 | 0.000 | 0.000 | 0.344 | 0.344 |
     | Ba | SC | 62.234 | 7.4 | 3.69 | 0.003 | 0.001 | 1.019 | 1.021 |
@@ -148,6 +171,14 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Bi | BCC | 31.628 | 52.2 | 4.64 | 0.000 | 0.000 | 0.026 | 0.026 |
     | Bi | SC | 35.178 | 46.3 | 4.71 | 0.000 | 0.000 | 0.080 | 0.080 |
     | Bi | Diamond | 96.813 | 28.8 | 4.39 | 0.000 | 0.000 | 0.094 | 0.094 |
+    | Br | FCC | 26.372 | 27.7 | 5.56 | 0.001 | 0.000 | 0.176 | 0.176 |
+    | Br | BCC | 26.740 | 28.0 | 5.54 | 0.002 | 0.001 | 0.166 | 0.165 |
+    | Br | SC | 29.783 | 29.2 | 5.52 | 0.001 | 0.001 | 0.153 | 0.153 |
+    | Br | Diamond | 86.044 | 15.0 | 5.20 | 0.002 | 0.001 | 0.148 | 0.146 |
+    | C | FCC | 7.358 | 150.2 | 3.60 | 0.012 | 0.007 | 0.495 | 0.507 |
+    | C | BCC | 6.720 | 181.1 | 4.40 | 0.009 | 0.004 | 0.513 | 0.508 |
+    | C | SC | 5.602 | 328.0 | 4.29 | 0.009 | 0.005 | 0.346 | 0.356 |
+    | C | Diamond | 11.397 | 432.3 | 3.70 | 0.003 | 0.002 | 0.053 | 0.050 |
     | Ca | FCC | 42.178 | 17.4 | 3.27 | 0.002 | 0.001 | 0.039 | 0.041 |
     | Ca | BCC | 42.125 | 16.6 | 2.75 | 0.002 | 0.001 | 0.060 | 0.062 |
     | Ca | SC | 43.571 | 10.7 | 3.26 | 0.005 | 0.003 | 0.033 | 0.037 |
@@ -156,6 +187,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Cd | BCC | 23.543 | 35.4 | 6.38 | 0.000 | 0.000 | 0.532 | 0.532 |
     | Cd | SC | 27.055 | 29.5 | 5.94 | 0.000 | 0.000 | 0.496 | 0.496 |
     | Cd | Diamond | 75.615 | 13.7 | 6.45 | 0.000 | 0.000 | 0.964 | 0.964 |
+    | Cl | FCC | 21.261 | 30.4 | 5.44 | 0.006 | 0.003 | 0.130 | 0.135 |
+    | Cl | BCC | 21.428 | 31.2 | 5.43 | 0.008 | 0.004 | 0.127 | 0.119 |
+    | Cl | SC | 23.441 | 33.7 | 5.36 | 0.005 | 0.001 | 0.098 | 0.101 |
+    | Cl | Diamond | 67.445 | 17.9 | 5.05 | 0.001 | 0.001 | 0.105 | 0.104 |
     | Co | FCC | 10.317 | 254.3 | 4.75 | 0.002 | 0.001 | 0.081 | 0.083 |
     | Co | BCC | 10.550 | 238.6 | 4.76 | 0.001 | 0.001 | 0.053 | 0.054 |
     | Co | SC | 11.904 | 183.2 | 4.64 | 0.000 | 0.000 | 0.089 | 0.089 |
@@ -172,6 +207,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Cu | BCC | 11.787 | 184.7 | 5.37 | 0.000 | 0.000 | 2.312 | 2.312 |
     | Cu | SC | 14.184 | 87.4 | 11.86 | 0.009 | 0.003 | 1.955 | 1.947 |
     | Cu | Diamond | 38.873 | 57.4 | 6.87 | 0.001 | 0.001 | 1.368 | 1.369 |
+    | F | FCC | 10.120 | 50.8 | 5.66 | 0.002 | 0.001 | 0.275 | 0.276 |
+    | F | BCC | 10.059 | 53.3 | 5.60 | 0.003 | 0.002 | 0.253 | 0.250 |
+    | F | SC | 10.504 | 61.9 | 5.44 | 0.018 | 0.007 | 0.165 | 0.181 |
+    | F | Diamond | 28.963 | 38.6 | 5.33 | 0.001 | 0.000 | 0.148 | 0.148 |
     | Fe | FCC | 10.252 | 286.2 | 4.59 | 0.004 | 0.003 | 0.079 | 0.075 |
     | Fe | BCC | 10.488 | 268.6 | 4.63 | 0.003 | 0.002 | 0.118 | 0.115 |
     | Fe | SC | 11.646 | 208.1 | 4.44 | 0.005 | 0.003 | 0.046 | 0.042 |
@@ -180,6 +219,18 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Ga | BCC | 19.213 | 47.8 | 5.06 | 0.004 | 0.002 | 0.039 | 0.043 |
     | Ga | SC | 20.135 | 46.2 | 4.90 | 0.002 | 0.001 | 0.088 | 0.087 |
     | Ga | Diamond | 50.926 | 35.7 | 5.09 | 0.003 | 0.002 | 0.174 | 0.176 |
+    | Ge | FCC | 19.567 | 63.1 | 4.32 | 0.001 | 0.001 | 0.081 | 0.080 |
+    | Ge | BCC | 19.260 | 64.1 | 4.60 | 0.001 | 0.001 | 0.049 | 0.048 |
+    | Ge | SC | 19.945 | 67.5 | 4.67 | 0.001 | 0.000 | 0.021 | 0.021 |
+    | Ge | Diamond | 47.880 | 59.0 | 4.86 | 0.002 | 0.001 | 0.111 | 0.113 |
+    | H | FCC | 2.961 | 108.3 | 3.26 | 0.009 | 0.005 | 0.135 | 0.142 |
+    | H | BCC | 2.963 | 108.1 | 3.26 | 0.006 | 0.002 | 0.132 | 0.130 |
+    | H | SC | 3.082 | 102.2 | 3.23 | 0.003 | 0.001 | 0.151 | 0.153 |
+    | H | Diamond | 6.821 | 91.5 | 3.17 | 0.011 | 0.004 | 0.150 | 0.154 |
+    | He | FCC | 17.678 | 0.9 | 6.52 | 0.019 | 0.006 | 0.549 | 0.562 |
+    | He | BCC | 17.944 | 0.8 | 6.48 | 0.026 | 0.013 | 0.503 | 0.478 |
+    | He | SC | 21.361 | 0.6 | 6.66 | 0.171 | 0.050 | 0.588 | 0.665 |
+    | He | Diamond | 64.023 | 0.3 | 6.84 | 0.053 | 0.020 | 0.302 | 0.332 |
     | Hf | FCC | 22.577 | 103.0 | 3.35 | 0.001 | 0.000 | 0.081 | 0.081 |
     | Hf | BCC | 22.334 | 101.1 | 3.30 | 0.000 | 0.000 | 0.152 | 0.153 |
     | Hf | SC | 24.840 | 73.5 | 3.45 | 0.002 | 0.001 | 0.238 | 0.237 |
@@ -188,6 +239,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Hg | BCC | 29.038 | 9.8 | 10.90 | 0.005 | 0.002 | 0.721 | 0.725 |
     | Hg | SC | 29.671 | 14.1 | 11.11 | 0.006 | 0.002 | 0.644 | 0.638 |
     | Hg | Diamond | 111.640 | 1.8 | 3.27 | 0.003 | 0.002 | 0.841 | 0.843 |
+    | I | FCC | 35.174 | 23.4 | 5.66 | 0.014 | 0.009 | 0.199 | 0.213 |
+    | I | BCC | 36.032 | 23.0 | 5.61 | 0.015 | 0.010 | 0.126 | 0.141 |
+    | I | SC | 41.581 | 22.4 | 5.63 | 0.006 | 0.004 | 0.046 | 0.050 |
+    | I | Diamond | 121.289 | 10.9 | 5.23 | 0.006 | 0.004 | 0.119 | 0.124 |
     | In | FCC | 27.468 | 35.7 | 5.09 | 0.003 | 0.002 | 0.153 | 0.150 |
     | In | BCC | 27.741 | 34.3 | 5.32 | 0.003 | 0.002 | 0.143 | 0.141 |
     | In | SC | 29.522 | 31.0 | 5.38 | 0.002 | 0.001 | 0.100 | 0.099 |
@@ -200,6 +255,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | K | BCC | 73.794 | 3.6 | 3.78 | 0.001 | 0.001 | 0.020 | 0.019 |
     | K | SC | 79.365 | 2.8 | 3.77 | 0.001 | 0.000 | 0.014 | 0.013 |
     | K | Diamond | 223.802 | 1.2 | 3.24 | 0.000 | 0.000 | 0.002 | 0.002 |
+    | Kr | FCC | 65.556 | 0.7 | 7.18 | 0.042 | 0.022 | 0.768 | 0.809 |
+    | Kr | BCC | 66.898 | 0.6 | 7.32 | 0.099 | 0.050 | 0.878 | 0.781 |
+    | Kr | SC | 82.145 | 0.4 | 7.50 | 0.052 | 0.026 | 0.654 | 0.605 |
+    | Kr | Diamond | 248.294 | 0.2 | 7.62 | 0.033 | 0.013 | 0.596 | 0.565 |
     | La | FCC | 36.906 | 24.5 | 2.58 | 0.002 | 0.001 | 0.112 | 0.110 |
     | La | BCC | 37.780 | 26.2 | 2.83 | 0.002 | 0.001 | 0.101 | 0.099 |
     | La | SC | 36.655 | 23.7 | 3.59 | 0.003 | 0.002 | 0.247 | 0.245 |
@@ -224,6 +283,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Mo | BCC | 15.814 | 258.8 | 4.21 | 0.000 | 0.000 | 0.136 | 0.136 |
     | Mo | SC | 17.622 | 189.2 | 4.20 | 0.000 | 0.000 | 0.144 | 0.144 |
     | Mo | Diamond | 46.088 | 106.6 | 4.12 | 0.000 | 0.000 | 0.175 | 0.175 |
+    | N | FCC | 7.629 | 178.9 | 4.17 | 0.001 | 0.000 | 0.366 | 0.366 |
+    | N | BCC | 7.264 | 186.9 | 4.02 | 0.001 | 0.000 | 0.407 | 0.407 |
+    | N | SC | 6.528 | 206.9 | 3.51 | 0.001 | 0.000 | 0.744 | 0.744 |
+    | N | Diamond | 18.437 | 157.1 | 3.41 | 0.000 | 0.000 | 0.458 | 0.458 |
     | Na | FCC | 37.160 | 7.7 | 3.67 | 0.002 | 0.001 | 0.164 | 0.165 |
     | Na | BCC | 37.067 | 7.7 | 2.74 | 0.090 | 0.022 | 0.166 | 0.120 |
     | Na | SC | 39.778 | 6.1 | 4.56 | 0.100 | 0.038 | 0.095 | 0.157 |
@@ -232,14 +295,26 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Nb | BCC | 18.168 | 169.4 | 3.68 | 0.000 | 0.000 | 0.145 | 0.145 |
     | Nb | SC | 20.137 | 129.6 | 3.87 | 0.001 | 0.000 | 0.111 | 0.111 |
     | Nb | Diamond | 51.648 | 66.6 | 4.30 | 0.000 | 0.000 | 0.168 | 0.168 |
+    | Ne | FCC | 24.026 | 1.3 | 6.98 | 0.970 | 0.531 | 1.196 | 1.973 |
+    | Ne | BCC | 24.344 | 1.3 | 7.19 | 3.394 | 0.146 | 1.558 | 3.381 |
+    | Ne | SC | 29.365 | 0.9 | 7.33 | 0.010 | 0.003 | 1.306 | 1.302 |
+    | Ne | Diamond | 90.027 | 0.4 | -8.78 | 5.418 | 0.805 | 3.802 | 0.905 |
     | Ni | FCC | 10.847 | 200.8 | 4.88 | 0.001 | 0.001 | 0.119 | 0.119 |
     | Ni | BCC | 10.905 | 196.9 | 4.91 | 0.001 | 0.001 | 0.099 | 0.100 |
     | Ni | SC | 12.575 | 146.0 | 4.85 | 0.000 | 0.000 | 0.131 | 0.131 |
     | Ni | Diamond | 33.054 | 91.0 | 4.82 | 0.001 | 0.001 | 0.136 | 0.137 |
+    | O | FCC | 7.993 | 140.7 | 4.75 | 0.006 | 0.003 | 0.076 | 0.081 |
+    | O | BCC | 7.781 | 151.6 | 4.69 | 0.002 | 0.001 | 0.065 | 0.064 |
+    | O | SC | 7.951 | 172.1 | 4.56 | 0.001 | 0.000 | 0.035 | 0.035 |
+    | O | Diamond | 21.360 | 118.7 | 4.41 | 0.002 | 0.001 | 0.015 | 0.016 |
     | Os | FCC | 14.314 | 390.7 | 4.80 | 0.000 | 0.000 | 0.190 | 0.189 |
     | Os | BCC | 14.753 | 352.8 | 4.79 | 0.000 | 0.000 | 0.191 | 0.191 |
     | Os | SC | 16.703 | 271.7 | 4.68 | 0.000 | 0.000 | 0.165 | 0.165 |
     | Os | Diamond | 42.829 | 205.3 | 4.62 | 0.000 | 0.000 | 0.168 | 0.168 |
+    | P | FCC | 14.568 | 92.4 | 3.96 | 0.004 | 0.003 | 0.031 | 0.035 |
+    | P | BCC | 14.239 | 97.2 | 3.89 | 0.005 | 0.003 | 0.065 | 0.069 |
+    | P | SC | 14.677 | 108.8 | 4.89 | 0.003 | 0.002 | 0.142 | 0.144 |
+    | P | Diamond | 41.382 | 43.3 | 2.61 | 0.002 | 0.001 | 0.157 | 0.159 |
     | Pb | FCC | 31.996 | 39.7 | 4.74 | 0.001 | 0.001 | 0.120 | 0.120 |
     | Pb | BCC | 31.937 | 39.0 | 4.77 | 0.001 | 0.000 | 0.107 | 0.107 |
     | Pb | SC | 34.437 | 35.5 | 4.87 | 0.001 | 0.001 | 0.117 | 0.118 |
@@ -268,14 +343,34 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Rh | BCC | 14.502 | 232.4 | 5.16 | 0.001 | 0.000 | 0.195 | 0.195 |
     | Rh | SC | 16.341 | 183.1 | 5.08 | 0.001 | 0.001 | 0.221 | 0.222 |
     | Rh | Diamond | 42.002 | 128.4 | 5.16 | 0.000 | 0.000 | 0.242 | 0.241 |
+    | Rn | FCC | 91.799 | 0.6 | 7.20 | 0.010 | 0.005 | 1.514 | 1.506 |
+    | Rn | BCC | 94.137 | 0.5 | 7.26 | 0.019 | 0.006 | 1.416 | 1.419 |
+    | Rn | SC | 116.581 | 0.4 | 7.62 | 0.054 | 0.016 | 0.971 | 0.923 |
+    | Rn | Diamond | 350.520 | 0.2 | 7.56 | 0.012 | 0.007 | 1.020 | 1.008 |
     | Ru | FCC | 13.862 | 305.3 | 4.87 | 0.000 | 0.000 | 0.180 | 0.180 |
     | Ru | BCC | 14.266 | 278.6 | 4.87 | 0.001 | 0.000 | 0.214 | 0.214 |
     | Ru | SC | 15.874 | 220.2 | 4.76 | 0.000 | 0.000 | 0.224 | 0.224 |
     | Ru | Diamond | 40.673 | 163.2 | 4.75 | 0.000 | 0.000 | 0.213 | 0.213 |
+    | S | FCC | 15.872 | 78.9 | 4.31 | 0.004 | 0.003 | 0.052 | 0.048 |
+    | S | BCC | 15.754 | 83.1 | 4.28 | 0.003 | 0.002 | 0.051 | 0.048 |
+    | S | SC | 17.214 | 83.6 | 4.11 | 0.001 | 0.001 | 0.036 | 0.035 |
+    | S | Diamond | 48.540 | 43.9 | 3.54 | 0.001 | 0.000 | 0.046 | 0.045 |
+    | Sb | FCC | 27.519 | 58.7 | 4.60 | 0.000 | 0.000 | 0.107 | 0.107 |
+    | Sb | BCC | 27.254 | 59.9 | 4.62 | 0.001 | 0.001 | 0.104 | 0.105 |
+    | Sb | SC | 30.072 | 54.8 | 4.63 | 0.000 | 0.000 | 0.029 | 0.030 |
+    | Sb | Diamond | 85.367 | 31.1 | 4.06 | 0.001 | 0.000 | 0.008 | 0.008 |
     | Sc | FCC | 24.705 | 51.1 | 3.14 | 0.002 | 0.001 | 0.075 | 0.074 |
     | Sc | BCC | 24.901 | 52.9 | 3.25 | 0.003 | 0.002 | 0.063 | 0.059 |
     | Sc | SC | 26.153 | 35.3 | 3.00 | 0.026 | 0.006 | 0.021 | 0.035 |
     | Sc | Diamond | 68.976 | 8.4 | 5.61 | 0.001 | 0.001 | 0.109 | 0.109 |
+    | Se | FCC | 20.367 | 69.6 | 4.67 | 0.002 | 0.001 | 0.057 | 0.056 |
+    | Se | BCC | 20.347 | 71.9 | 4.63 | 0.001 | 0.000 | 0.063 | 0.062 |
+    | Se | SC | 22.668 | 70.3 | 4.56 | 0.003 | 0.001 | 0.070 | 0.069 |
+    | Se | Diamond | 63.472 | 38.8 | 4.10 | 0.001 | 0.000 | 0.062 | 0.062 |
+    | Si | FCC | 14.477 | 82.9 | 4.32 | 0.023 | 0.013 | 0.034 | 0.013 |
+    | Si | BCC | 14.642 | 92.9 | 4.45 | 0.004 | 0.001 | 0.022 | 0.022 |
+    | Si | SC | 16.222 | 100.5 | 4.40 | 0.011 | 0.006 | 0.048 | 0.058 |
+    | Si | Diamond | 40.893 | 88.2 | 4.30 | 0.001 | 0.000 | 0.055 | 0.054 |
     | Sn | FCC | 28.030 | 46.9 | 4.75 | 0.000 | 0.000 | 0.076 | 0.076 |
     | Sn | BCC | 27.677 | 47.2 | 4.78 | 0.000 | 0.000 | 0.106 | 0.106 |
     | Sn | SC | 29.480 | 46.3 | 4.87 | 0.000 | 0.000 | 0.090 | 0.090 |
@@ -292,6 +387,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | Tc | BCC | 14.640 | 291.9 | 4.57 | 0.000 | 0.000 | 0.138 | 0.139 |
     | Tc | SC | 16.258 | 223.0 | 4.48 | 0.000 | 0.000 | 0.141 | 0.141 |
     | Tc | Diamond | 42.548 | 150.7 | 4.35 | 0.000 | 0.000 | 0.132 | 0.132 |
+    | Te | FCC | 28.388 | 53.7 | 4.84 | 0.002 | 0.001 | 0.385 | 0.387 |
+    | Te | BCC | 28.599 | 54.9 | 4.88 | 0.000 | 0.000 | 0.295 | 0.295 |
+    | Te | SC | 32.837 | 50.2 | 4.79 | 0.002 | 0.001 | 0.134 | 0.135 |
+    | Te | Diamond | 92.977 | 26.5 | 4.34 | 0.002 | 0.001 | 0.190 | 0.192 |
     | Ti | FCC | 17.413 | 107.3 | 3.43 | 0.001 | 0.000 | 0.109 | 0.109 |
     | Ti | BCC | 17.288 | 105.8 | 3.38 | 0.000 | 0.000 | 0.121 | 0.121 |
     | Ti | SC | 18.416 | 78.0 | 3.42 | 0.000 | 0.000 | 0.017 | 0.017 |
@@ -308,6 +407,10 @@ The 196 structures took 32 GPU-hours on V100 GPUs, 20 to 60 minutes each.
     | W | BCC | 16.140 | 303.4 | 4.19 | 0.010 | 0.006 | 0.046 | 0.037 |
     | W | SC | 18.369 | 214.1 | 4.16 | 0.010 | 0.006 | 0.024 | 0.028 |
     | W | Diamond | 49.565 | 120.1 | 3.77 | 0.013 | 0.008 | 0.037 | 0.048 |
+    | Xe | FCC | 86.527 | 0.6 | 7.26 | 0.026 | 0.015 | 0.571 | 0.545 |
+    | Xe | BCC | 88.547 | 0.5 | 7.27 | 0.023 | 0.013 | 0.564 | 0.548 |
+    | Xe | SC | 109.332 | 0.4 | 7.57 | 0.017 | 0.007 | 0.443 | 0.431 |
+    | Xe | Diamond | 330.389 | 0.2 | 7.59 | 0.018 | 0.005 | 0.476 | 0.464 |
     | Y | FCC | 32.488 | 39.0 | 3.28 | 0.000 | 0.000 | 0.052 | 0.052 |
     | Y | BCC | 33.048 | 38.7 | 2.99 | 0.000 | 0.000 | 0.052 | 0.052 |
     | Y | SC | 34.850 | 26.0 | 3.00 | 0.000 | 0.000 | 0.095 | 0.095 |

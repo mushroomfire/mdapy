@@ -1,9 +1,10 @@
 # Plane-wave DFT
 
 !!! warning "Under development"
-    MDAPY's density functional theory is new. It takes norm-conserving
-    pseudopotentials only, runs on one NVIDIA GPU, and its speed has not been
-    worked on yet. Its results are those of Quantum ESPRESSO on the same
+    MDAPY's density functional theory is new. It takes norm-conserving and
+    ultrasoft pseudopotentials (PAW comes later; the virial of ultrasoft ones
+    too), runs on one NVIDIA GPU per configuration, and its speed is still
+    being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
 <!-- skip-test -->
@@ -31,7 +32,7 @@ write("train.xyz", frames)  # energy, virial and forces of each frame
 Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 ```
 
-`DFT(encut, *, pseudopotentials=None, kpoints=None, kspacing=0.25,
+`DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=0.7, magnetic_mixing=1.6, kerker=1.5, bands=None, seed=0,
 gpu=None, restart=False)` computes the
@@ -43,7 +44,8 @@ CUDA 12 for GPUs from the V100 on.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
-| `encut` | float64 | | eV | the kinetic energy cutoff of the plane waves, as VASP's ENCUT; the density takes four times it |
+| `encut` | float64 | | eV | the kinetic energy cutoff of the plane waves, as VASP's ENCUT |
+| `ecutrho` | float64 | 4 `encut`, 8 with ultrasoft pseudopotentials | eV | the cutoff of the density, as QE's ecutrho |
 | `pseudopotentials` | mapping or path | `$MDAPY_PSEUDO_DIR` | | UPF files by element, or a folder with `{element}.upf` or one `{element}_*.upf` of each element |
 | `kpoints` | (3,) int32 | `None` | | a Gamma-centered mesh of k-points |
 | `kspacing` | float64 | 0.25 | 1/Å | without `kpoints`, the largest spacing of the mesh, 2π included, as VASP's KSPACING |
@@ -96,11 +98,17 @@ write(f"train-{rank}.xyz", labelled)
 ## What it computes
 
 - **Plane waves** of kinetic energy up to `encut` at each k-point of the mesh;
-  k-points related by time reversal count once. The density lives on the FFT grid
-  of four times the cutoff, with 2, 3, 5 and 7 as factors.
-- **Pseudopotentials:** norm-conserving, in UPF 2, with their projectors and the
-  core charge of the nonlinear core correction. PseudoDojo's tables are the
-  tested ones. Ultrasoft and PAW files are refused.
+  k-points related by time reversal count once. The bands live on the FFT grid
+  of four times the cutoff, the density and the potentials on that of
+  `ecutrho`, with 2, 3, 5 and 7 as factors.
+- **Pseudopotentials:** in UPF 2, norm-conserving or ultrasoft, with their
+  projectors, the core charge of the nonlinear core correction and, ultrasoft,
+  their augmentation charges by angular momentum (`q_with_l`, as the files of
+  a recent `ld1.x`). The tested ones are PseudoDojo's norm-conserving tables
+  and pslibrary 1.0.0 made by `ld1.x`. PAW files are refused for now.
+- **Ultrasoft pseudopotentials** solve H ψ = ε S ψ with the overlap
+  S = 1 + Σ |β⟩ q ⟨β|; the strengths of the projectors of each atom follow the
+  potential at every step, and the density adds the augmentation charges.
 - **Exchange and correlation:** LDA (Perdew–Wang) and PBE, with and without
   spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the constants
   of their paper, as Quantum ESPRESSO's PBE. `"pbe"` uses those of libxc; the two
@@ -139,6 +147,13 @@ differences:
 | forces | below 1e-7 hartree/bohr | |
 | stress, in sheared cells | 0.003 kbar | 0.02 kbar |
 | magnetization | | below 1e-4 Bohr magneton |
+
+With the ultrasoft files of pslibrary 1.0.0, on one grid and on two (`ecutrho`
+4 and 8 times `encut`), silicon and aluminium agree in every term of the
+energy, the occupied eigenvalues and the Fermi level to 1e-7 hartree and in
+the forces to 1e-7 hartree/bohr; bcc iron with spin in the energy to 1e-7
+hartree per atom once the rounded constant is allowed for, and in the
+magnetization to 1e-6 Bohr magneton.
 
 What differs is Quantum ESPRESSO's own:
 

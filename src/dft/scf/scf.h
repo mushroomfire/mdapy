@@ -53,7 +53,8 @@ struct ScfInput {
     // the lattice itself without
     bool has_basis = false;
     Lattice basis;
-    Int3 grid{};                 // the density grid, also that of the bands
+    Int3 grid{};                 // the density grid, also that of the bands without smooth_grid
+    Int3 smooth_grid{};          // the grid of the bands, of 4 cutoff; zeros for grid
     double cutoff = 0.0;         // of the bands, hartree
     double density_cutoff = 0.0;  // of the density, hartree
     std::vector<SpeciesProjectors> species;

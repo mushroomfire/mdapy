@@ -32,13 +32,12 @@ _SMEARINGS = (
 
 def _find_pseudopotential(folder: Path, element: str) -> Path:
     """The UPF of an element in a folder: {element}.upf, or the one file
-    {element}_*.upf or {element}.*.upf."""
-    exact = folder / f"{element}.upf"
-    if exact.is_file():
-        return exact
-    found = sorted(folder.glob(f"{element}_*.upf")) + sorted(
-        folder.glob(f"{element}.*.upf")
-    )
+    {element}_*.upf or {element}.*.upf, the extension in either case."""
+    for name in (f"{element}.upf", f"{element}.UPF"):
+        if (folder / name).is_file():
+            return folder / name
+    patterns = (f"{element}_*.[uU][pP][fF]", f"{element}.*.[uU][pP][fF]")
+    found = sorted({p for pattern in patterns for p in folder.glob(pattern)})
     if len(found) != 1:
         what = "none" if not found else ", ".join(p.name for p in found)
         raise InvalidParameter(
@@ -57,7 +56,10 @@ class DFT(Calculator):
     ----------
     encut : float64
         The kinetic energy cutoff of the plane waves in eV, as VASP's ENCUT.
-        The density takes four times it.
+    ecutrho : float64, optional
+        The cutoff of the density in eV, as QE's ecutrho. Default 4 encut,
+        8 encut with ultrasoft pseudopotentials, whose augmentation charges
+        need more.
     pseudopotentials : mapping or str or path-like, optional
         Norm-conserving pseudopotentials in UPF, by element, or a folder
         that holds ``{element}.upf`` or one ``{element}_*.upf`` of each
@@ -142,6 +144,7 @@ class DFT(Calculator):
         self,
         encut: float,
         *,
+        ecutrho: float | None = None,
         pseudopotentials: Mapping[str, str | os.PathLike]
         | str
         | os.PathLike
@@ -173,6 +176,9 @@ class DFT(Calculator):
                 "tolerance > 0, max_iterations >= 1, 0 < mixing <= 1 and kerker >= 0"
             )
         self.encut = float(encut)
+        if ecutrho is not None and not ecutrho >= 4 * encut:
+            raise InvalidParameter("ecutrho must be at least 4 encut")
+        self.ecutrho = None if ecutrho is None else float(ecutrho)
         self.kpoints = None
         if kpoints is not None:
             mesh = np.asarray(kpoints)
@@ -324,12 +330,17 @@ class DFT(Calculator):
         elements = system.table["element"].cast(str).to_list()
         species = list(dict.fromkeys(elements))
         pseudos = [self.__pseudopotential(e) for e in species]
+        if "virial" in wanted and any(pp.ultrasoft for pp in pseudos):
+            raise InvalidParameter(
+                "the virial of ultrasoft pseudopotentials is not computed yet"
+            )
         kinds = [species.index(e) for e in elements]
         cell = system.box.matrix
         fractional = system.box.to_fractional(system["positions"]) % 1.0
         mesh = self.__mesh(cell)
         r = scf.run(
             cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE,
+            density_cutoff=None if self.ecutrho is None else self.ecutrho / HARTREE,
             kgrid=mesh, smearing=self.smearing, sigma=self.sigma / HARTREE,
             bands=self.bands, beta=self.mixing, kerker=self.kerker * BOHR,
             magnetic_beta=self.magnetic_mixing,
@@ -359,6 +370,7 @@ class DFT(Calculator):
             "provenance": {
                 "pseudopotentials": {e: pp.digest for e, pp in zip(species, pseudos)},
                 "encut": self.encut,
+                "ecutrho": self.ecutrho,
                 "kpoints": mesh,
                 "smearing": self.smearing,
                 "sigma": self.sigma,

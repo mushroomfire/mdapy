@@ -256,7 +256,7 @@ The rest are programs and conditions of the machine:
 | a German or French locale | numbers under a locale with a decimal comma |
 | `mdapy_dft_cuda12`, the package of MDAPY's DFT built from `dft-cuda12/` with the CUDA toolkit, and an NVIDIA GPU | the plane-wave DFT |
 | `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
-| `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR` | the DFT against Quantum ESPRESSO, run on the same input |
+| `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR`, with the ultrasoft files of [pslibrary](https://github.com/dalcorso/pslibrary) 1.0.0 for Al, Si, Fe and Ni made by `ld1.x` from its `us_ps_high.job` in its subfolder `pslibrary` | the DFT against Quantum ESPRESSO, run on the same input |
 
 ## Compiled code
 

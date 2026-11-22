@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <random>
 #include <unordered_map>
 #include <stdexcept>
@@ -169,9 +170,38 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     const double f_max = ns == 2 ? 1.0 : 2.0;
     const Lattice* basis = input.has_basis ? &input.basis : nullptr;
     Clock clock;
-    Hamiltonian h(input.lattice, input.grid, input.cutoff, input.species, input.atoms, basis);
+    // the bands on the smooth grid, the density and the potentials on the
+    // dense one; the smooth sphere is the start of the dense one
+    const Int3 smooth = input.smooth_grid[0] > 0 ? input.smooth_grid : input.grid;
+    const bool two_grids = smooth != input.grid;
+    const std::size_t points_s = static_cast<std::size_t>(smooth[0]) * smooth[1] * smooth[2];
+    Hamiltonian h(input.lattice, smooth, input.cutoff, input.species, input.atoms, basis);
     Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold,
                    basis);
+    std::unique_ptr<Potentials> pot_s;
+    std::size_t ng_s = 0;
+    if (two_grids) {
+        pot_s = std::make_unique<Potentials>(input.lattice, smooth, 4.0 * input.cutoff, options.functional, ns,
+                                             options.xc_threshold, basis);
+        ng_s = pot_s->sphere().size();
+        if (ng_s > pot.sphere().size()) throw std::invalid_argument("the dense grid is smaller than the smooth one");
+        for (std::size_t g = 0; g < ng_s; ++g)
+            if (pot_s->sphere().miller[g] != pot.sphere().miller[g])
+                throw std::logic_error("the smooth sphere is not the start of the dense one");
+    }
+    DeviceArray<Complex> smooth_g(two_grids ? spins * ng_s : 0);
+    DeviceArray<double> veff_s(two_grids ? points_s : 0), rho_s(two_grids ? spins * points_s : 0);
+    DeviceArray<Complex> veff_dense_g(two_grids ? pot.sphere().size() : 0);
+    // V on the dense grid to the Hamiltonian, through the smooth sphere with two
+    auto set_potential = [&](const DeviceArray<double>& v) {
+        if (!two_grids) {
+            h.set_potential(v.data());
+            return;
+        }
+        pot.to_sphere(v.data(), veff_dense_g.data(), 1);
+        pot_s->from_sphere(veff_dense_g.data(), veff_s.data(), 1);
+        h.set_potential(veff_s.data());
+    };
     // V_loc and rho_core of the atoms on the grid
     const std::size_t ng = pot.sphere().size();
     Ions ions(input.lattice, pot.sphere(), input.atoms, static_cast<int>(input.species.size()),
@@ -328,7 +358,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             for (std::size_t s = 0; s < spins; ++s) {
                 add_kernel<<<blocks(points), kThreads>>>(points, local.data(), hxc.data() + s * points, veff.data());
                 check_cuda(cudaGetLastError(), "the effective potential");
-                h.set_potential(veff.data());
+                set_potential(veff);
                 if (ultrasoft) h.set_strengths(strengths[s]);
                 const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, tolerance, tight,
                                               std::max(tolerance, 1e-2), options.davidson_iterations,
@@ -343,6 +373,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             occupy(eigenvalues, weights, nb, options.electrons, f_max, options.smearing, options.sigma);
         // the output density and the energy
         rho_out.zero();
+        if (two_grids) rho_s.zero();
         if (ultrasoft)
             for (auto& b : becsum) b.assign(pair_offsets.back(), 0.0);
         double band = 0.0;
@@ -354,17 +385,26 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     w[b] = weights[s * nk + k] * f_max * occ.f[row + b];
                     band += w[b] * eigenvalues[row + b];
                 }
-                h.add_density(psi[s * nk + k].data(), nb, w.data(), rho_out.data() + s * points);
+                h.add_density(psi[s * nk + k].data(), nb, w.data(),
+                              two_grids ? rho_s.data() + s * points_s : rho_out.data() + s * points);
                 if (ultrasoft) h.add_becsum(psi[s * nk + k].data(), nb, w.data(), becsum[s]);
             }
         }
         const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy;
-        pot.to_sphere(rho_out.data(), components.data(), ns);
-        if (ultrasoft) {
-            // the augmentation of each spin, and rho_out on the grid with it
-            for (std::size_t s = 0; s < spins; ++s) aug.add_density(becsum[s], components.data() + s * ng);
-            pot.from_sphere(components.data(), rho_out.data(), ns);
+        if (two_grids) {
+            // the smooth density on the start of the dense sphere
+            pot_s->to_sphere(rho_s.data(), smooth_g.data(), ns);
+            components.zero();
+            for (std::size_t s = 0; s < spins; ++s)
+                check_cuda(cudaMemcpy(components.data() + s * ng, smooth_g.data() + s * ng_s, ng_s * sizeof(Complex),
+                                      cudaMemcpyDeviceToDevice),
+                           "cudaMemcpy");
+        } else {
+            pot.to_sphere(rho_out.data(), components.data(), ns);
         }
+        if (ultrasoft)  // the augmentation of each spin
+            for (std::size_t s = 0; s < spins; ++s) aug.add_density(becsum[s], components.data() + s * ng);
+        if (ultrasoft || two_grids) pot.from_sphere(components.data(), rho_out.data(), ns);
         components.download(out_g.data(), out_g.size());
         if (ns == 2) to_total(out_g, ng);
         result.times.density += clock.lap();

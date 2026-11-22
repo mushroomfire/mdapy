@@ -58,7 +58,7 @@ def _run(text: str, folder: str) -> tuple[str, str]:
 
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
-        sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7):  # fmt: skip
+        sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
     of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
@@ -98,7 +98,7 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
         f"  {occupations}, nosym = .true., noinv = .true. {spin} {extra}",
         "/",
         "&electrons",
-        f"  conv_thr = {conv_thr}, mixing_beta = {beta}",
+        f"  conv_thr = {conv_thr}, mixing_beta = {beta}, electron_maxstep = {maxstep}",
         "/",
         "ATOMIC_SPECIES",
         *[
@@ -184,6 +184,15 @@ def parse(out: str, xml: str, nk: int) -> dict:
     )
     result["dense_g"] = int(grid.group(1))
     result["grid"] = tuple(int(grid.group(i)) for i in (2, 3, 4))
+    smooth = re.search(
+        r"Smooth grid:\s+(\d+) G-vectors\s+FFT dimensions: \(\s*(\d+),\s*(\d+),\s*(\d+)\)",
+        out,
+    )
+    result["smooth_grid"] = (
+        result["grid"]
+        if smooth is None
+        else tuple(int(smooth.group(i)) for i in (2, 3, 4))
+    )
     result["text"] = out
     return result
 

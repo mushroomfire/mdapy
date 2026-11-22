@@ -280,8 +280,8 @@ def test_pslibrary_ultrasoft(element):
     integrals of the augmentation charges of L = 0 are q_ij of the file, to the
     1e-6 at which its two parts agree (the DFT takes the integrals, as QE)."""
     name = {
-        "Al": "Al.pbe-n-rrkjus_psl.1.0.0.UPF",
-        "Fe": "Fe.pbe-spn-rrkjus_psl.1.0.0.UPF",
+        "Al": "pslibrary/Al.pbe-n-rrkjus_psl.1.0.0.UPF",
+        "Fe": "pslibrary/Fe.pbe-spn-rrkjus_psl.1.0.0.UPF",
     }
     path = Path(PSEUDO) / name[element]
     if not path.is_file():

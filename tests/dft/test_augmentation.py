@@ -65,7 +65,7 @@ def reference_q(pp, sphere_g, tables, data):
 
 
 def test_iron():
-    path = espresso.pseudo("Fe.pbe-spn-rrkjus_psl.1.0.0.UPF")
+    path = espresso.pseudo("pslibrary/Fe.pbe-spn-rrkjus_psl.1.0.0.UPF")
     pp = read_upf(path)
     a = 2.87 / BOHR
     cell = np.diag([a, a, a])

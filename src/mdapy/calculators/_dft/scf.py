@@ -126,11 +126,14 @@ def run(
     correct_forces: bool = True,
     state=None,
     magnetic_kerker: float = 0.0,
+    smooth_grid=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
-    (hartree) and the density to density_cutoff (4 cutoff by default) on grid
-    (the FFT grid of the density cutoff by default). The forces are in
+    (hartree) and the density to density_cutoff (4 cutoff by default, 8 with
+    ultrasoft pseudopotentials) on grid (the FFT grid of the density cutoff
+    by default); the bands on smooth_grid, that of 4 cutoff when the density
+    takes more, else grid. The forces are in
     hartree / bohr, with correct_forces QE's correction for the change of the
     input density with the atoms, their mean taken out and kept as net_force; with stress,
     strain_derivative is dE/d epsilon (3, 3) of a homogeneous strain at fixed
@@ -147,8 +150,17 @@ def run(
     cell = np.ascontiguousarray(cell, dtype=float)
     positions = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)
-    density_cutoff = 4.0 * cutoff if density_cutoff is None else density_cutoff
+    if density_cutoff is None:
+        # ultrasoft augmentation charges need more of the density
+        density_cutoff = (8.0 if any(pp.ultrasoft for pp in pseudos) else 4.0) * cutoff
     grid = tuple(_dft.fft_grid(cell, density_cutoff)) if grid is None else tuple(grid)
+    if smooth_grid is None:
+        smooth_grid = (
+            grid
+            if density_cutoff <= 4.0 * cutoff
+            else tuple(_dft.fft_grid(cell, 4.0 * cutoff))
+        )
+    smooth_grid = tuple(smooth_grid)
     volume = abs(np.linalg.det(cell))
     electrons = float(sum(pseudos[s].valence for s in kinds))
     if bands is None:
@@ -213,6 +225,7 @@ def run(
         davidson_basis, seed,
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
         state, magnetic_kerker, augmented,
+        None if smooth_grid == grid else list(smooth_grid),
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
@@ -225,6 +238,7 @@ def run(
     result["net_force"] = forces.mean(axis=0)
     result["forces"] = forces - result["net_force"]
     result.update(
+        smooth_grid=smooth_grid,
         grid=grid, kpoints=kpoints, weights=weights, electrons=electrons, bands=bands,
         spins=spins,
     )  # fmt: skip

@@ -173,3 +173,19 @@ def test_restart(folder):
                           mdapy.Box(2 * silicon_cell()), elements=["Si"] * 4)  # fmt: skip
     dft.compute(bigger)
     assert not dft.last["restarted"]
+
+
+def test_ultrasoft(folder):
+    path = espresso.pseudo("pslibrary/Si.pbe-n-rrkjus_psl.1.0.0.UPF")
+    dft = DFT(12 * HARTREE, ecutrho=96 * HARTREE, pseudopotentials={"Si": path}, kpoints=(2, 2, 2),
+              smearing="fixed", functional="pbe_pw", tolerance=1e-10)  # fmt: skip
+    result = dft.compute(silicon())
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [read_upf(path)], 12.0, kgrid=(2, 2, 2),
+                density_cutoff=96.0, functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-8)
+    assert dft.last["provenance"]["ecutrho"] == 96 * HARTREE
+    with pytest.raises(InvalidParameter, match="virial of ultrasoft"):
+        dft.compute(silicon(), ("energy", "forces", "virial"))
+    with pytest.raises(InvalidParameter, match="ecutrho must be at least 4 encut"):
+        DFT(300.0, ecutrho=600.0, pseudopotentials=folder)

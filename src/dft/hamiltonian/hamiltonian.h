@@ -82,6 +82,14 @@ public:
     // S = 1 + sum |beta_a> q_ab <beta_b| on count bands; psi itself without
     // an overlap.
     void apply_overlap(const Complex* psi, Complex* spsi, int count);
+    // The parts of H and S from the projections p = <beta|psi> (projectors,
+    // count) on the device, for the solver to share them: p of psi; H psi
+    // without the projectors; hpsi += beta D p; spsi += beta q p; out = q p.
+    void project(const Complex* psi, int count, Complex* p);
+    void apply_local(const Complex* psi, Complex* hpsi, int count);
+    void add_nonlocal(const Complex* p, int count, Complex* hpsi);
+    void add_overlap(const Complex* p, int count, Complex* spsi);
+    void overlap_projections(const Complex* p, int count, Complex* out);
     // The strengths D and the overlaps q of the projectors of each atom, in the
     // order of the atoms a block (width, width) row by row, width its
     // projector functions; they replace those of the species.

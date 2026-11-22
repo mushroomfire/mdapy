@@ -156,8 +156,10 @@ def test_errors(folder, tmp_path):
 
 
 def test_restart(folder):
-    dft = calculator(folder, restart=True, tolerance=1e-8)
-    cold = calculator(folder, tolerance=1e-8)
+    # the forces of a run are good to about the root of its tolerance, which
+    # bounds the density residual by its Hartree energy
+    dft = calculator(folder, restart=True, tolerance=1e-10)
+    cold = calculator(folder, tolerance=1e-10)
     first = dft.compute(silicon())
     assert not dft.last["restarted"]
     steps = dft.last["iterations"]

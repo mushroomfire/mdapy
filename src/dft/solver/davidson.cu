@@ -141,42 +141,64 @@ void Davidson::eigh(Complex* a, int n) {
                                  std::to_string(info) + ")");
 }
 
-int Davidson::orthonormalize(const Complex* v, const Complex* sv, int n, Complex* w, Complex* sw, int m, int rows) {
+void Davidson::gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka, const Complex* b,
+                     const Complex* pb, int kb, int rows, Complex* out) {
+    // out (ka, kb) = a^H b + pa^H q pb
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, rows, &kOne, a, rows, b, rows, &kZero, out, ka),
+               "cublasZgemm");
+    if (h == nullptr) return;
+    const int np = h->projectors();
+    qp_.reserve(static_cast<std::size_t>(np) * kb);
+    h->overlap_projections(pb, kb, qp_.data());
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, np, &kOne, pa, np, qp_.data(), np, &kOne, out,
+                           ka),
+               "cublasZgemm");
+}
+
+int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv, int n, Complex* w, Complex* pw,
+                             int m, int rows) {
     if (m == 0) return 0;
-    const bool general = sw != nullptr;
-    const Complex* svv = general ? sv : v;  // S v
-    Complex* sww = general ? sw : w;        // S w
-    const std::size_t r = static_cast<std::size_t>(rows);
+    const bool general = h != nullptr;
+    const int np = general ? h->projectors() : 0;
+    const std::size_t r = static_cast<std::size_t>(rows), p = static_cast<std::size_t>(np);
     overlap_.reserve(static_cast<std::size_t>(std::max(n, m)) * m);
-    work_.reserve(r * m);
+    work_.reserve(std::max(r, p) * m);
     std::vector<double> host(static_cast<std::size_t>(m));
     // unit columns in the metric of S, so that the overlap eigenvalues measure
-    // independence
-    sums_.reserve(static_cast<std::size_t>(m));
-    column_dots<<<m, kThreads>>>(r, w, sww, sums_.data());
+    // independence: |w|^2 + pw^H q pw
+    sums_.reserve(2 * static_cast<std::size_t>(m));
+    column_dots<<<m, kThreads>>>(r, w, w, sums_.data());
+    if (general) {
+        qp_.reserve(p * m);
+        h->overlap_projections(pw, m, qp_.data());
+        column_dots<<<m, kThreads>>>(p, pw, qp_.data(), sums_.data() + m);
+    }
     check_cuda(cudaGetLastError(), "the column norms");
-    sums_.download(host.data(), host.size());
-    for (double& x : host) x = x > 0.0 ? 1.0 / std::sqrt(x) : 0.0;
+    std::vector<double> both(2 * static_cast<std::size_t>(m), 0.0);
+    sums_.download(both.data(), general ? both.size() : host.size());
+    for (int c = 0; c < m; ++c) {
+        const double x = both[static_cast<std::size_t>(c)] + (general ? both[static_cast<std::size_t>(m + c)] : 0.0);
+        host[static_cast<std::size_t>(c)] = x > 0.0 ? 1.0 / std::sqrt(x) : 0.0;
+    }
     scale_.assign(host.data(), host.size());
     scale_columns<<<blocks(r * m), kThreads>>>(r, m, scale_.data(), w);
-    if (general) scale_columns<<<blocks(r * m), kThreads>>>(r, m, scale_.data(), sw);
+    if (general) scale_columns<<<blocks(p * m), kThreads>>>(p, m, scale_.data(), pw);
     check_cuda(cudaGetLastError(), "the unit columns");
+    // the projections follow w through the linear steps; recomputed when a
+    // step is ill conditioned, as their error grows with it
+    bool fresh = false;
     for (int pass = 0; pass < 2; ++pass) {
-        if (n > 0) {  // w -= v (v^H S w), S w likewise
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, n, m, rows, &kOne, svv, rows, w, rows, &kZero,
-                                   overlap_.data(), n),
-                       "cublasZgemm");
+        if (n > 0) {  // w -= v (v^H S w), pw likewise
+            gram(h, v, pv, n, w, pw, m, rows, overlap_.data());
             check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, n, &kMinus, v, rows, overlap_.data(),
                                    n, &kOne, w, rows),
                        "cublasZgemm");
             if (general)
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, n, &kMinus, sv, rows,
-                                       overlap_.data(), n, &kOne, sw, rows),
+                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, n, &kMinus, pv, np, overlap_.data(),
+                                       n, &kOne, pw, np),
                            "cublasZgemm");
         }
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, m, m, rows, &kOne, w, rows, sww, rows, &kZero,
-                               overlap_.data(), m),
-                   "cublasZgemm");
+        gram(h, w, pw, m, w, pw, m, rows, overlap_.data());
         // Cholesky QR, w <- w R^-1 with w^H S w = R^H R, while R is well
         // conditioned (its diagonal within 1e-4 of its largest)
         const std::size_t mm = static_cast<std::size_t>(m) * m;
@@ -202,18 +224,20 @@ int Davidson::orthonormalize(const Complex* v, const Complex* sv, int n, Complex
                 high = std::max(high, std::abs(x.x));
             }
             if (low > 1e-4 * high) {
+                if (low < 1e-2 * high) fresh = true;
                 check_blas(cublasZtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
                                        CUBLAS_DIAG_NON_UNIT, rows, m, &kOne, chol_.data(), m, w, rows),
                            "cublasZtrsm");
                 if (general)
                     check_blas(cublasZtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                           CUBLAS_DIAG_NON_UNIT, rows, m, &kOne, chol_.data(), m, sw, rows),
+                                           CUBLAS_DIAG_NON_UNIT, np, m, &kOne, chol_.data(), m, pw, np),
                                "cublasZtrsm");
                 continue;
             }
         }
         // else w <- w Q Lambda^-1/2 over the eigenpairs of w^H S w above
         // kDependent of the largest
+        fresh = true;
         eigh(overlap_.data(), m);
         host.resize(static_cast<std::size_t>(m));
         values_.download(host.data(), host.size());
@@ -226,18 +250,21 @@ int Davidson::orthonormalize(const Complex* v, const Complex* sv, int n, Complex
         for (int i = 0; i < kept; ++i)
             inverse[static_cast<std::size_t>(i)] = 1.0 / std::sqrt(host[static_cast<std::size_t>(first + i)]);
         scale_.assign(inverse.data(), inverse.size());
-        for (Complex* target : {w, general ? sw : nullptr}) {
-            if (target == nullptr) continue;
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, kept, m, &kOne, target, rows,
+        for (int part = 0; part < (general ? 2 : 1); ++part) {
+            Complex* target = part == 0 ? w : pw;
+            const int length = part == 0 ? rows : np;
+            const std::size_t l = static_cast<std::size_t>(length);
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, length, kept, m, &kOne, target, length,
                                    overlap_.data() + static_cast<std::size_t>(first) * m, m, &kZero, work_.data(),
-                                   rows),
+                                   length),
                        "cublasZgemm");
-            scale_columns<<<blocks(r * kept), kThreads>>>(r, kept, scale_.data(), work_.data());
+            scale_columns<<<blocks(l * kept), kThreads>>>(l, kept, scale_.data(), work_.data());
             check_cuda(cudaGetLastError(), "the orthonormal columns");
-            copy(target, work_.data(), r * kept);
+            copy(target, work_.data(), l * kept);
         }
         m = kept;
     }
+    if (general && fresh) h->project(w, m, pw);
     return m;
 }
 
@@ -249,23 +276,59 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     if (max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const int most = std::min(std::max(largest_basis, 2 * count), rows);
     const std::size_t n = static_cast<std::size_t>(rows), bands = static_cast<std::size_t>(count);
-    const bool general = h.has_overlap();
+    // with an overlap, the projections <beta|basis> carry the metric of S and
+    // the nonlocal parts of H and S; without, H is applied as it is
+    const bool general = h.has_overlap() && h.projectors() > 0;
+    Hamiltonian* metric = general ? &h : nullptr;
+    const int np = general ? h.projectors() : 0;
+    const std::size_t p = static_cast<std::size_t>(np);
     basis_.reserve(n * most);
     hbasis_.reserve(n * most);
-    if (general) sbasis_.reserve(n * most);
-    vectors_.reserve(3 * n * bands);  // X, HX and SX
+    if (general) {
+        pbasis_.reserve(p * most);
+        pvectors_.reserve(p * bands);
+    }
+    vectors_.reserve((general ? 3 : 2) * n * bands);  // X, HX and SX
     residual_.reserve(n * bands);
     subspace_.reserve(static_cast<std::size_t>(most) * most);
     diagonal_.reserve(n);
     h.diagonal(diagonal_.data());
     overlap_diagonal_.reserve(n);
     h.overlap_diagonal(overlap_diagonal_.data());
+    Complex* pb = general ? pbasis_.data() : nullptr;
+    // H of columns first ... first + m of the basis, their projections at hand
+    auto apply = [&](int first, int m) {
+        Complex* w = basis_.data() + n * static_cast<std::size_t>(first);
+        Complex* hw = hbasis_.data() + n * static_cast<std::size_t>(first);
+        if (!general) {
+            h.apply(w, hw, m);
+            return;
+        }
+        h.apply_local(w, hw, m);
+        h.add_nonlocal(pb + p * static_cast<std::size_t>(first), m, hw);
+    };
     copy(basis_.data(), psi, n * bands);
-    Complex* sb = general ? sbasis_.data() : nullptr;
-    if (general) h.apply_overlap(basis_.data(), sb, count);
-    int nbase = orthonormalize(nullptr, nullptr, 0, basis_.data(), sb, count, rows);
-    if (nbase < count) throw std::invalid_argument("the guess of the bands is linearly dependent");
-    h.apply(basis_.data(), hbasis_.data(), nbase);
+    if (general) h.project(basis_.data(), count, pb);
+    // the guess as it is when it is orthonormal already, as the bands of the
+    // step before are
+    {
+        overlap_.reserve(bands * bands);
+        gram(metric, basis_.data(), pb, count, basis_.data(), pb, count, rows, overlap_.data());
+        std::vector<Complex> g(bands * bands);
+        overlap_.download(g.data(), g.size());
+        double off = 0.0;
+        for (std::size_t a = 0; a < bands; ++a)
+            for (std::size_t b = 0; b < bands; ++b) {
+                const Complex x = g[a * bands + b];
+                off = std::max(off, std::abs(x.x - (a == b ? 1.0 : 0.0)) + std::abs(x.y));
+            }
+        if (off > 1e-12) {
+            const int independent = orthonormalize(metric, nullptr, nullptr, 0, basis_.data(), pb, count, rows);
+            if (independent < count) throw std::invalid_argument("the guess of the bands is linearly dependent");
+        }
+    }
+    int nbase = count;
+    apply(0, nbase);
     // basis^H H basis, kept between iterations and grown by the columns of
     // the new vectors (the upper triangle, which the eigensolver reads)
     const std::size_t ld = static_cast<std::size_t>(most);
@@ -280,49 +343,44 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     Complex* x = vectors_.data();
     Complex* hx = vectors_.data() + n * bands;
     Complex* sx = general ? vectors_.data() + 2 * n * bands : x;
+    Complex* px = general ? pvectors_.data() : nullptr;
     picked_.reserve(ld * bands);
     DavidsonResult result;
     std::vector<double> lambda, residuals(bands);
     std::vector<char> done(bands, 0);  // converged, not checked again until the end
     std::vector<int> open, column;     // the bands still open; their columns in residual_
     // the residuals of the bands b of `which` into residual_ (column i for
-    // which[i]) and their squared norms into residuals[b]; with all, X, HX and
-    // SX of every band too
+    // which[i]) and their squared norms into residuals[b]; with all, X, HX,
+    // SX and the projections of X of every band too
     auto residuals_of = [&](const std::vector<int>& which, bool all) {
         const int m = static_cast<int>(which.size());
         if (m == 0) return;
-        if (all) {
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, basis_.data(), rows,
-                                   subspace_.data(), nbase, &kZero, x, rows),
-                       "cublasZgemm");
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, hbasis_.data(), rows,
-                                   subspace_.data(), nbase, &kZero, hx, rows),
-                       "cublasZgemm");
-            if (general)
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, sbasis_.data(),
-                                       rows, subspace_.data(), nbase, &kZero, sx, rows),
-                           "cublasZgemm");
-            energies_.assign(lambda.data(), bands);
-            residual_kernel<<<blocks(n * bands), kThreads>>>(n, count, sx, hx, energies_.data(), residual_.data());
-        } else {
-            // the eigenvectors of those bands alone, then H X and S X of them
+        const Complex* y = subspace_.data();
+        if (!all) {
             index_.assign(which.data(), which.size());
             gather_columns<<<blocks(static_cast<std::size_t>(nbase) * m), kThreads>>>(
                 static_cast<std::size_t>(nbase), m, index_.data(), subspace_.data(), picked_.data());
             check_cuda(cudaGetLastError(), "the open eigenvectors");
-            Complex* so = general ? sx : x;
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, hbasis_.data(), rows,
-                                   picked_.data(), nbase, &kZero, hx, rows),
-                       "cublasZgemm");
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne,
-                                   general ? sbasis_.data() : basis_.data(), rows, picked_.data(), nbase, &kZero, so,
-                                   rows),
-                       "cublasZgemm");
-            std::vector<double> e(static_cast<std::size_t>(m));
-            for (int i = 0; i < m; ++i) e[static_cast<std::size_t>(i)] = lambda[static_cast<std::size_t>(which[static_cast<std::size_t>(i)])];
-            energies_.assign(e.data(), e.size());
-            residual_kernel<<<blocks(n * m), kThreads>>>(n, m, so, hx, energies_.data(), residual_.data());
+            y = picked_.data();
         }
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, hbasis_.data(), rows, y, nbase,
+                               &kZero, hx, rows),
+                   "cublasZgemm");
+        // S X: X with the overlap of its projections
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, basis_.data(), rows, y, nbase,
+                               &kZero, sx, rows),
+                   "cublasZgemm");
+        if (general) {
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, nbase, &kOne, pb, np, y, nbase, &kZero, px,
+                                   np),
+                       "cublasZgemm");
+            if (all) copy(x, sx, n * static_cast<std::size_t>(m));
+            h.add_overlap(px, m, sx);
+        }
+        std::vector<double> e(static_cast<std::size_t>(m));
+        for (int i = 0; i < m; ++i) e[static_cast<std::size_t>(i)] = lambda[static_cast<std::size_t>(which[static_cast<std::size_t>(i)])];
+        energies_.assign(e.data(), e.size());
+        residual_kernel<<<blocks(n * m), kThreads>>>(n, m, sx, hx, energies_.data(), residual_.data());
         check_cuda(cudaGetLastError(), "the residuals");
         sums_.reserve(bands);
         column_norms<<<m, kThreads>>>(n, residual_.data(), sums_.data());
@@ -336,6 +394,19 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     };
     std::vector<int> every(bands);
     for (int b = 0; b < count; ++b) every[static_cast<std::size_t>(b)] = b;
+    // the end, X of the last Rayleigh-Ritz as the bands
+    auto finish = [&](bool checked) {
+        if (!checked) residuals_of(every, true);
+        result.converged = 0;
+        result.residual = 0.0;
+        for (int b = 0; b < count; ++b) {
+            result.residual = std::max(result.residual, std::sqrt(residuals[static_cast<std::size_t>(b)]));
+            if (converged(b)) ++result.converged;
+        }
+        copy(psi, x, n * bands);
+        eigenvalues.assign(lambda.begin(), lambda.begin() + count);
+        return result;
+    };
     for (int iteration = 1;; ++iteration) {
         result.iterations = iteration;
         // Rayleigh-Ritz: the count lowest eigenpairs of basis^H H basis
@@ -346,70 +417,56 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
         eigh(subspace_.data(), nbase);
         lambda.resize(static_cast<std::size_t>(nbase));
         values_.download(lambda.data(), lambda.size());
-        // the residuals of the open bands; a band that converges is not checked
-        // again until all have, when all are
         open.clear();
         for (int b = 0; b < count; ++b)
             if (!done[static_cast<std::size_t>(b)]) open.push_back(b);
-        residuals_of(open, false);
         column.clear();
-        std::vector<int> still;
-        for (std::size_t i = 0; i < open.size(); ++i) {
-            if (converged(open[i])) {
-                done[static_cast<std::size_t>(open[i])] = 1;
-            } else {
-                still.push_back(open[i]);
-                column.push_back(static_cast<int>(i));
+        bool full = nbase == most || iteration >= max_iterations;
+        if (!full) {
+            // the residuals of the open bands; a band that converges is not
+            // checked again until all have, when all are
+            residuals_of(open, false);
+            std::vector<int> still;
+            for (std::size_t i = 0; i < open.size(); ++i) {
+                if (converged(open[i])) {
+                    done[static_cast<std::size_t>(open[i])] = 1;
+                } else {
+                    still.push_back(open[i]);
+                    column.push_back(static_cast<int>(i));
+                }
             }
+            open = still;
+            full = open.empty();
         }
-        open = still;
-        const bool last = open.empty() || iteration >= max_iterations;
-        if (last || nbase == most) {
+        if (full) {
             // every band, before a restart or the end
             residuals_of(every, true);
             open.clear();
             column.clear();
-            result.converged = 0;
-            result.residual = 0.0;
             for (int b = 0; b < count; ++b) {
-                result.residual = std::max(result.residual, std::sqrt(residuals[static_cast<std::size_t>(b)]));
                 done[static_cast<std::size_t>(b)] = converged(b) ? 1 : 0;
-                if (done[static_cast<std::size_t>(b)]) {
-                    ++result.converged;
-                } else {
+                if (!done[static_cast<std::size_t>(b)]) {
                     open.push_back(b);
                     column.push_back(b);
                 }
             }
-            if (open.empty() || iteration >= max_iterations) {
-                copy(psi, x, n * bands);
-                eigenvalues.assign(lambda.begin(), lambda.begin() + count);
-                return result;
-            }
+            if (open.empty() || iteration >= max_iterations) return finish(true);
             if (nbase == most) {
-                // restart from the Ritz vectors
+                // restart from the Ritz vectors, where H is diagonal
                 copy(basis_.data(), x, n * bands);
                 copy(hbasis_.data(), hx, n * bands);
-                if (general) copy(sbasis_.data(), sx, n * bands);
+                if (general) copy(pb, px, p * bands);
                 nbase = count;
-                grow(0, nbase);
+                check_cuda(cudaMemset2D(hsub_.data(), ld * sizeof(Complex), 0, bands * sizeof(Complex), bands),
+                           "cudaMemset2D");
+                std::vector<Complex> diag(bands);
+                for (std::size_t b = 0; b < bands; ++b) diag[b] = make_cuDoubleComplex(lambda[b], 0.0);
+                picked_.assign(diag.data(), bands);
+                check_blas(cublasZcopy(blas_, count, picked_.data(), 1, hsub_.data(), most + 1), "cublasZcopy");
             }
         }
-        // the end when the basis cannot grow
-        auto finish = [&]() {
-            residuals_of(every, true);
-            result.converged = 0;
-            result.residual = 0.0;
-            for (int b = 0; b < count; ++b) {
-                result.residual = std::max(result.residual, std::sqrt(residuals[static_cast<std::size_t>(b)]));
-                if (converged(b)) ++result.converged;
-            }
-            copy(psi, x, n * bands);
-            eigenvalues.assign(lambda.begin(), lambda.begin() + count);
-            return result;
-        };
         const int add = std::min(static_cast<int>(open.size()), most - nbase);
-        if (add == 0) return finish();
+        if (add == 0) return finish(full);
         // the preconditioned residuals of the open bands
         std::vector<double> band(static_cast<std::size_t>(add));
         for (int i = 0; i < add; ++i)
@@ -421,12 +478,11 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
                                                           overlap_diagonal_.data(), scale_.data(),
                                                           residual_.data(), fresh);
         check_cuda(cudaGetLastError(), "the preconditioner");
-        Complex* sfresh = general ? sbasis_.data() + n * nbase : nullptr;
-        if (general) h.apply_overlap(fresh, sfresh, add);
-        const int kept = orthonormalize(basis_.data(), general ? sbasis_.data() : nullptr, nbase, fresh, sfresh, add,
-                                        rows);
-        if (kept == 0) return finish();  // nothing new: the basis cannot grow
-        h.apply(fresh, hbasis_.data() + n * nbase, kept);
+        Complex* pfresh = general ? pb + p * static_cast<std::size_t>(nbase) : nullptr;
+        if (general) h.project(fresh, add, pfresh);
+        const int kept = orthonormalize(metric, basis_.data(), pb, nbase, fresh, pfresh, add, rows);
+        if (kept == 0) return finish(full);  // nothing new: the basis cannot grow
+        apply(nbase, kept);
         grow(nbase, kept);
         nbase += kept;
     }

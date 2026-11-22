@@ -98,6 +98,34 @@ def test_the_overlap_and_the_generalized_problem():
     assert np.abs(residual).max() < 1e-8
 
 
+def test_restarts_and_an_orthonormal_guess():
+    """In a basis that restarts, and from bands that are orthonormal in S
+    already (taken as they are), the same eigenpairs."""
+    h, beta, matrix, s, _ = matrices()
+    rng = np.random.default_rng(8)
+    n = len(matrix)
+    lower = np.linalg.cholesky(s)
+    inverse = np.linalg.inv(lower)
+    exact = np.linalg.eigvalsh(inverse @ matrix @ inverse.conj().T)
+    psi = rng.normal(size=(10, n)) + 1j * rng.normal(size=(10, n))
+    e, bands, iterations, converged, _ = _dft.davidson(
+        h, psi, tolerance=1e-9, largest_basis=20, max_iterations=400
+    )
+    assert converged == 10 and iterations > 2
+    np.testing.assert_allclose(e, exact[:10], atol=1e-10)
+    np.testing.assert_allclose(
+        bands.conj() @ h.apply_overlap(bands).T, np.eye(10), atol=1e-11
+    )
+    residual = bands @ matrix.T - e[:, None] * (bands @ s.T)
+    assert np.abs(residual).max() < 1e-8
+    again, same, iterations, converged, _ = _dft.davidson(h, bands, tolerance=1e-9)
+    assert iterations == 1 and converged == 10
+    np.testing.assert_allclose(again, e, atol=1e-12)
+    np.testing.assert_allclose(
+        np.abs(np.sum(same.conj() * (bands @ s.T), axis=1)), 1.0, atol=1e-9
+    )
+
+
 def test_becsum():
     h, beta, *_ = matrices()
     rng = np.random.default_rng(9)

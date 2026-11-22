@@ -711,7 +711,7 @@ void Hamiltonian::add_becsum(const Complex* psi, int count, const double* weight
     out.download(becsum.data(), becsum.size());
 }
 
-void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
+void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
     const std::size_t n = sphere_.size(), points = fft_.points();
     if (n == 0 || count == 0) return;
     if (potential_.size() != points) throw std::logic_error("no potential set");
@@ -730,23 +730,63 @@ void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
         fft_.to_reciprocal(boxes_.data(), m);
         gather_add(boxes_.data(), points, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
     }
-    if (projectors_ == 0) return;
-    // the projectors: P = beta^H psi, D P, H psi += beta D P
-    const std::size_t np = static_cast<std::size_t>(projectors_);
-    projections_.reserve(np * static_cast<std::size_t>(count));
-    scaled_.reserve(np * static_cast<std::size_t>(count));
+}
+
+void Hamiltonian::project(const Complex* psi, int count, Complex* p) {
+    if (projectors_ == 0 || count == 0) return;
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
-    const int nn = static_cast<int>(n);
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(),
-                           nn, psi, nn, &zero, projections_.data(), projectors_),
+    const int nn = static_cast<int>(sphere_.size());
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
+                           &zero, p, projectors_),
                "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one,
-                           dmatrix_.data(), projectors_, projections_.data(), projectors_, &zero,
-                           scaled_.data(), projectors_),
+}
+
+namespace {
+// out += beta (m p), m (projectors, projectors) on the device
+void add_projected(cublasHandle_t blas, const Complex* beta, int n, int projectors, const Complex* m,
+                   const Complex* p, int count, DeviceArray<Complex>& scaled, Complex* out) {
+    scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    check_blas(cublasZgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, &one, m, projectors, p,
+                           projectors, &zero, scaled.data(), projectors),
                "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, nn, count, projectors_, &one, beta_.data(),
-                           nn, scaled_.data(), projectors_, &one, hpsi, nn),
+    check_blas(cublasZgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, n, count, projectors, &one, beta, n, scaled.data(),
+                           projectors, &one, out, n),
                "cublasZgemm");
+}
+}  // namespace
+
+void Hamiltonian::add_nonlocal(const Complex* p, int count, Complex* hpsi) {
+    if (projectors_ == 0 || count == 0) return;
+    add_projected(blas_, beta_.data(), static_cast<int>(sphere_.size()), projectors_, dmatrix_.data(), p, count,
+                  scaled_, hpsi);
+}
+
+void Hamiltonian::add_overlap(const Complex* p, int count, Complex* spsi) {
+    if (!has_overlap_ || projectors_ == 0 || count == 0) return;
+    add_projected(blas_, beta_.data(), static_cast<int>(sphere_.size()), projectors_, qmatrix_.data(), p, count,
+                  scaled_, spsi);
+}
+
+void Hamiltonian::overlap_projections(const Complex* p, int count, Complex* out) {
+    if (projectors_ == 0 || count == 0) return;
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    if (!has_overlap_) {
+        check_cuda(cudaMemset(out, 0, static_cast<std::size_t>(projectors_) * count * sizeof(Complex)), "cudaMemset");
+        return;
+    }
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_.data(),
+                           projectors_, p, projectors_, &zero, out, projectors_),
+               "cublasZgemm");
+}
+
+void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
+    apply_local(psi, hpsi, count);
+    if (projectors_ == 0 || sphere_.size() == 0 || count == 0) return;
+    // the projectors: P = beta^H psi, H psi += beta D P
+    projections_.reserve(static_cast<std::size_t>(projectors_) * static_cast<std::size_t>(count));
+    project(psi, count, projections_.data());
+    add_nonlocal(projections_.data(), count, hpsi);
 }
 
 }  // namespace mdapy::dft

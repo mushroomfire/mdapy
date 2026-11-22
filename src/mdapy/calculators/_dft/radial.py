@@ -6,8 +6,10 @@
 """The Fourier transforms of the radial parts of a pseudopotential, in hartree
 atomic units, with the conventions of Quantum ESPRESSO, so that totals compare
 to a microhartree:
-  - integrals by Simpson's rule on the radial mesh with its weights rab, the
-    local parts up to the first point beyond 10 bohr, made odd;
+  - integrals by Simpson's rule on the radial mesh with its weights rab, an
+    even number of points closed by the three-point rule on the last
+    interval, the local parts up to the first point beyond 10 bohr, made odd,
+    and the projectors of a species all up to the largest of their cutoffs;
   - the local potential with the long-range -Z/r taken out by -Z erf(r)/r and
     added back in reciprocal space, and its G = 0 limit of the potential plus
     Z/r;
@@ -26,15 +28,20 @@ _RCUT = 10.0  # bohr, the reach of the integrals of the local parts
 
 def simpson(f: np.ndarray, rab: np.ndarray, n: int | None = None) -> float:
     """The integral of f by Simpson's rule on a mesh of weights rab, over its
-    first n points (all by default), the last left out when n is even."""
+    first n points (all by default); with n even, Simpson's rule on the first
+    n - 1 and the last interval by (-g[n-3] + 8 g[n-2] + 5 g[n-1]) / 12, exact
+    for parabolas, g = f rab."""
     n = len(f) if n is None else n
-    g = f[:n] * rab[:n] / 3.0
     if n < 3:
         return 0.0
+    g = f[:n] * rab[:n]
     last = n - 1 if n % 2 == 1 else n - 2
-    return float(
+    total = (
         g[0:last:2].sum() + 4.0 * g[1:last:2].sum() + g[2 : last + 1 : 2].sum()
-    )
+    ) / 3
+    if n % 2 == 0:
+        total += (-g[n - 3] + 8.0 * g[n - 2] + 5.0 * g[n - 1]) / 12.0
+    return float(total)
 
 
 def reach(r: np.ndarray) -> int:
@@ -110,15 +117,15 @@ def radial_density(
 
 def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
     """(P, nq) the transforms of the projectors, (4 pi / sqrt(Omega)) int r^2
-    beta(r) j_l(qr) dr, every DQ from 0 to qmax and three steps more for the
-    interpolation."""
+    beta(r) j_l(qr) dr up to the largest cutoff of the species, every DQ from 0
+    to qmax and three steps more for the interpolation."""
     nq = int(qmax / DQ) + 4
     q = DQ * np.arange(nq)
     table = np.empty((len(pp.projectors), nq))
+    n = max((p.cutoff_index for p in pp.projectors), default=1)
+    r, rab = pp.r[:n], pp.rab[:n]
     for i, p in enumerate(pp.projectors):
-        nonzero = np.nonzero(p.r_beta)[0]
-        n = int(nonzero[-1]) + 1 if len(nonzero) else 1
-        r, rab, rb = pp.r[:n], pp.rab[:n], p.r_beta[:n]
+        rb = p.r_beta[:n]
         table[i] = [simpson(rb * r * bessel(p.angular, qi * r), rab) for qi in q]
     return 4 * math.pi / math.sqrt(volume) * table
 

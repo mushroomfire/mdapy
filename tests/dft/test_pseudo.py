@@ -91,8 +91,10 @@ def test_simpson_and_bessel():
     r = 0.01 * np.arange(1001)
     rab = np.full_like(r, 0.01)
     assert radial.simpson(r**3, rab) == pytest.approx(10.0**4 / 4, rel=1e-13)
-    # an even number of points leaves the last out, as QE does
-    assert radial.simpson(r**3, rab, 1000) == pytest.approx(9.98**4 / 4, rel=1e-12)
+    # an even number of points closes on the last interval, as QE 7.6 does
+    assert radial.simpson(r**2, rab, 1000) == pytest.approx(9.99**3 / 3, rel=1e-13)
+    assert radial.simpson(r**3, rab, 1000) == pytest.approx(9.99**4 / 4, rel=1e-9)
+    assert radial.simpson(r, rab, 2) == 0.0
     assert radial.reach(r) == 1001  # the first beyond 10 bohr, odd
     x = np.linspace(0.0, 20.0, 2001)
     safe = np.where(x > 0, x, 1.0)
@@ -120,7 +122,13 @@ def gaussian_pseudopotential(ell):
         rab = np.full(1601, 0.01)
         projectors = (
             type(
-                "B", (), {"angular": ell, "r_beta": r ** (ell + 1) * np.exp(-r * r / 2)}
+                "B",
+                (),
+                {
+                    "angular": ell,
+                    "r_beta": r ** (ell + 1) * np.exp(-r * r / 2),
+                    "cutoff_index": len(r),
+                },
             ),
         )
 

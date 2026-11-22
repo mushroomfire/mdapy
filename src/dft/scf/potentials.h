@@ -48,6 +48,11 @@ public:
     // the cutoff removed, in place, count functions.
     void restrict(double* values, int count);
 
+    // Fourier components on the sphere (coefficients of exp(iGr)) of count
+    // functions on the grid, and back; on the device.
+    void to_sphere(const double* values, Complex* components, int count);
+    void from_sphere(const Complex* components, double* values, int count);
+
     const Sphere& sphere() const noexcept { return sphere_; }
     std::size_t points() const noexcept { return fft_.points(); }
     int spins() const noexcept { return spins_; }
@@ -56,8 +61,6 @@ public:
 
 private:
     void gradient(const Complex* components, double* out);  // the 3 components of a gradient
-    void to_sphere(const double* values, Complex* components, int count);
-    void from_sphere(const Complex* components, double* values, int count);
 
     Lattice lattice_;
     Int3 grid_;

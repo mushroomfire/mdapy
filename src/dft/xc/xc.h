@@ -11,7 +11,9 @@
 //   LDA: Slater exchange and the correlation of Perdew and Wang (1992), with
 //        the constants of their paper (PW) or libxc's more digits (PW_MOD);
 //   PBE: the exchange and correlation of Perdew, Burke and Ernzerhof (1996),
-//        on the correlation of PW_MOD, as libxc's GGA_X_PBE and GGA_C_PBE.
+//        on the correlation of PW_MOD, as libxc's GGA_X_PBE and GGA_C_PBE, or
+//        on that of PW (PbePw), as Quantum ESPRESSO's PBE; they differ by about
+//        1e-6 of the correlation energy.
 
 #pragma once
 
@@ -22,7 +24,7 @@
 
 namespace mdapy::dft {
 
-enum class Functional : int { LdaPw = 0, LdaPwMod = 1, Pbe = 2 };
+enum class Functional : int { LdaPw = 0, LdaPwMod = 1, Pbe = 2, PbePw = 3 };
 
 namespace xc {
 
@@ -119,8 +121,8 @@ MDAPY_HD T energy(Functional functional, const T& up, const T& down, const T& su
     if (value_of(zeta) > edge) zeta = T(edge);
     if (value_of(zeta) < -edge) zeta = T(-edge);
     const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
-    if (functional == Functional::Pbe) {
-        const T ec = pw_correlation(rs, zeta, true);
+    if (functional == Functional::Pbe || functional == Functional::PbePw) {
+        const T ec = pw_correlation(rs, zeta, functional == Functional::Pbe);
         const T grad2 = suu + 2.0 * sud + sdd;
         return pbe_exchange_spin(up, suu) + pbe_exchange_spin(down, sdd) +
                n * (ec + pbe_h(n, zeta, grad2, ec));

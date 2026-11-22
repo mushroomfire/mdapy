@@ -61,6 +61,7 @@ class Gaussians:
             {
                 "angular": ell,
                 "r_beta": MESH ** (ell + 1) * np.exp(-(MESH**2) / (2 + i)),
+                "cutoff_index": len(MESH),
             },
         )
         for i, ell in enumerate(ANGULAR)

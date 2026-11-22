@@ -59,6 +59,9 @@ public:
 
     // H on count bands, column-major (plane waves, count), on the device.
     void apply(const Complex* psi, Complex* hpsi, int count);
+    // rho (the grid, on the device) += sum_b w_b |psi_b(r)|^2 / Omega of count
+    // bands (plane waves, count) on the device, weights on the host.
+    void add_density(const Complex* psi, int count, const double* weights, double* rho);
     // The diagonal H_GG on the device, for the preconditioner: the kinetic
     // energy, the mean potential and the projectors.
     void diagonal(double* out) const;
@@ -70,6 +73,8 @@ public:
     const DeviceArray<double>& kinetic() const noexcept { return kinetic_; }
 
 private:
+    int batch() const noexcept;  // bands per batch of FFTs
+
     Lattice lattice_;
     Int3 grid_;
     double cutoff_;
@@ -94,6 +99,7 @@ private:
     std::vector<int> blocks_;
     DeviceArray<int> blocks_device_;
     double mean_potential_ = 0.0;
+    DeviceArray<double> weights_;
 };
 
 }  // namespace mdapy::dft

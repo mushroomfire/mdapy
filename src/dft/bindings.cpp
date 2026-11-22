@@ -27,7 +27,9 @@
 #include "dft/fft/fft.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
+#include "dft/scf/occupations.h"
 #include "dft/scf/potentials.h"
+#include "dft/scf/scf.h"
 #include "dft/solver/davidson.h"
 #include "dft/xc/xc.h"
 
@@ -56,6 +58,7 @@ mdapy::dft::Functional functional_of(const std::string& name) {
     if (name == "lda_pw") return mdapy::dft::Functional::LdaPw;
     if (name == "lda_pw_mod") return mdapy::dft::Functional::LdaPwMod;
     if (name == "pbe") return mdapy::dft::Functional::Pbe;
+    if (name == "pbe_pw") return mdapy::dft::Functional::PbePw;
     throw std::invalid_argument("no functional named " + name);
 }
 
@@ -75,6 +78,42 @@ Int3 grid_of(std::array<int, 3> grid) { return {grid[0], grid[1], grid[2]}; }
 std::size_t points_of(const Int3& g) { return static_cast<std::size_t>(g[0]) * g[1] * g[2]; }
 
 const Complex* as_device(const std::complex<double>* p) { return reinterpret_cast<const Complex*>(p); }
+
+std::vector<mdapy::dft::SpeciesProjectors> species_of(nb::list tables, nb::list angular, nb::list dij, double dq) {
+    if (nb::len(angular) != nb::len(tables) || nb::len(dij) != nb::len(tables))
+        throw std::invalid_argument("tables, angular and dij of every species");
+    std::vector<mdapy::dft::SpeciesProjectors> kinds;
+    for (std::size_t s = 0; s < nb::len(tables); ++s) {
+        auto t = nb::cast<Rows>(tables[s]);
+        auto d = nb::cast<Rows>(dij[s]);
+        mdapy::dft::SpeciesProjectors sp;
+        sp.dq = dq;
+        sp.points = static_cast<int>(t.shape(1));
+        sp.tables.assign(t.data(), t.data() + t.size());
+        sp.angular = nb::cast<std::vector<int>>(angular[s]);
+        sp.dij.assign(d.data(), d.data() + d.size());
+        kinds.push_back(std::move(sp));
+    }
+    return kinds;
+}
+
+std::vector<mdapy::dft::Atom> atoms_of(Rows positions, Kinds species) {
+    if (positions.shape(1) != 3 || species.shape(0) != positions.shape(0))
+        throw std::invalid_argument("positions (N, 3) and species (N,)");
+    std::vector<mdapy::dft::Atom> atoms;
+    for (std::size_t i = 0; i < species.shape(0); ++i)
+        atoms.push_back({Vec3{positions.data()[3 * i], positions.data()[3 * i + 1], positions.data()[3 * i + 2]},
+                         species.data()[i]});
+    return atoms;
+}
+
+template <class T>
+nb::object array_of(const std::vector<T>& values, std::initializer_list<std::size_t> dims) {
+    T* out = nullptr;
+    auto result = new_array<T>(dims, out);
+    std::copy(values.begin(), values.end(), out);
+    return nb::object(result.cast());
+}
 
 }  // namespace
 
@@ -286,27 +325,9 @@ NB_MODULE(_dft, m) {
              [](mdapy::dft::Hamiltonian* self, Matrix a, std::array<int, 3> grid, double cutoff,
                 nb::list tables, nb::list angular, nb::list dij, double dq, Rows positions,
                 Kinds species) {
-                 std::vector<mdapy::dft::SpeciesProjectors> kinds;
-                 for (std::size_t s = 0; s < nb::len(tables); ++s) {
-                     auto t = nb::cast<Rows>(tables[s]);
-                     auto d = nb::cast<Rows>(dij[s]);
-                     mdapy::dft::SpeciesProjectors sp;
-                     sp.dq = dq;
-                     sp.points = static_cast<int>(t.shape(1));
-                     sp.tables.assign(t.data(), t.data() + t.size());
-                     sp.angular = nb::cast<std::vector<int>>(angular[s]);
-                     sp.dij.assign(d.data(), d.data() + d.size());
-                     kinds.push_back(std::move(sp));
-                 }
-                 if (positions.shape(1) != 3 || species.shape(0) != positions.shape(0))
-                     throw std::invalid_argument("positions (N, 3) and species (N,)");
-                 std::vector<mdapy::dft::Atom> atoms;
-                 for (std::size_t i = 0; i < species.shape(0); ++i)
-                     atoms.push_back({Vec3{positions.data()[3 * i], positions.data()[3 * i + 1],
-                                           positions.data()[3 * i + 2]},
-                                      species.data()[i]});
                  new (self) mdapy::dft::Hamiltonian(lattice_of(a), grid_of(grid), cutoff,
-                                                    std::move(kinds), std::move(atoms));
+                                                    species_of(tables, angular, dij, dq),
+                                                    atoms_of(positions, species));
              })
         .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
             h.set_k(Vec3{k[0], k[1], k[2]});
@@ -405,4 +426,127 @@ NB_MODULE(_dft, m) {
         },
         nb::arg("h"), nb::arg("psi"), nb::arg("tolerance") = 1e-8, nb::arg("tight") = -1,
         nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0);
+
+    // the occupations of eigenvalues (k-points, bands): f, the Fermi level,
+    // -TS and the lowest empty level
+    m.def(
+        "occupy",
+        [](Rows eigenvalues, nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights,
+           double electrons, double f_max, const std::string& smearing, double sigma) {
+            const std::size_t nk = eigenvalues.shape(0), nb_ = eigenvalues.shape(1);
+            if (weights.shape(0) != nk) throw std::invalid_argument("a weight for every k-point");
+            const auto occ = mdapy::dft::occupy(
+                std::vector<double>(eigenvalues.data(), eigenvalues.data() + eigenvalues.size()),
+                std::vector<double>(weights.data(), weights.data() + nk), static_cast<int>(nb_), electrons, f_max,
+                mdapy::dft::smearing_of(smearing), sigma);
+            return nb::make_tuple(array_of(occ.f, {nk, nb_}), occ.fermi, occ.entropy, occ.lowest_empty);
+        },
+        nb::arg("eigenvalues"), nb::arg("weights"), nb::arg("electrons"), nb::arg("f_max") = 2.0,
+        nb::arg("smearing") = "gaussian", nb::arg("sigma") = 0.0);
+    m.def("smeared", [](const std::string& smearing, double u) {
+        const auto s = mdapy::dft::smearing_of(smearing);
+        return nb::make_tuple(mdapy::dft::smeared_occupation(s, u), mdapy::dft::smeared_entropy(s, u));
+    });
+
+    // the self-consistent field: the cell, the grid and the cutoffs (hartree),
+    // the projectors of the species, the atoms, the k-points (K, 3) and
+    // weights, V_loc, rho_core (or None) and the first density on the grid,
+    // the Ewald energy, and the options; a dict of the results
+    m.def(
+        "scf",
+        [](Matrix a, std::array<int, 3> grid, double cutoff, double density_cutoff, nb::list tables,
+           nb::list angular, nb::list dij, double dq, Rows positions, Kinds species, Rows kpoints,
+           nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Grid3 local,
+           nb::object core, Grid3 density, double ewald, int bands, double electrons, const std::string& functional,
+           const std::string& smearing, double sigma, double beta, double kerker, double minimum, int history,
+           double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
+           int davidson_iterations, int davidson_basis, unsigned long long seed) {
+            mdapy::dft::ScfInput in;
+            in.lattice = lattice_of(a);
+            in.grid = grid_of(grid);
+            in.cutoff = cutoff;
+            in.density_cutoff = density_cutoff;
+            in.species = species_of(tables, angular, dij, dq);
+            in.atoms = atoms_of(positions, species);
+            if (kpoints.shape(1) != 3 || weights.shape(0) != kpoints.shape(0))
+                throw std::invalid_argument("k-points (K, 3) and weights (K,)");
+            for (std::size_t k = 0; k < kpoints.shape(0); ++k) {
+                in.kpoints.push_back(
+                    Vec3{kpoints.data()[3 * k], kpoints.data()[3 * k + 1], kpoints.data()[3 * k + 2]});
+                in.weights.push_back(weights.data()[k]);
+            }
+            const std::size_t points = points_of(in.grid);
+            if (local.size() != points || density.size() != points)
+                throw std::invalid_argument("V_loc and the density on the grid");
+            in.local.assign(local.data(), local.data() + points);
+            in.density.assign(density.data(), density.data() + points);
+            if (!core.is_none()) {
+                auto c = nb::cast<Grid3>(core);
+                if (c.size() != points) throw std::invalid_argument("the core charge on the grid");
+                in.core.assign(c.data(), c.data() + points);
+            }
+            in.ewald = ewald;
+            mdapy::dft::ScfOptions opt;
+            opt.bands = bands;
+            opt.electrons = electrons;
+            opt.functional = functional_of(functional);
+            opt.smearing = mdapy::dft::smearing_of(smearing);
+            opt.sigma = sigma;
+            opt.mixing.beta = beta;
+            opt.mixing.kerker = kerker;
+            opt.mixing.minimum = minimum;
+            opt.mixing.history = history;
+            opt.mixing.metric_weight = metric_weight;
+            opt.energy_tolerance = energy_tolerance;
+            opt.density_tolerance = density_tolerance;
+            opt.max_iterations = max_iterations;
+            opt.davidson_iterations = davidson_iterations;
+            opt.davidson_basis = davidson_basis;
+            opt.seed = seed;
+            mdapy::dft::ScfResult r;
+            {
+                nb::gil_scoped_release release;
+                r = mdapy::dft::run_scf(in, opt);
+            }
+            const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands);
+            std::vector<double> energies, accuracy, fermi, tolerance;
+            std::vector<int> davidson;
+            for (const auto& step : r.steps) {
+                energies.push_back(step.energy);
+                accuracy.push_back(step.accuracy);
+                fermi.push_back(step.fermi);
+                tolerance.push_back(step.tolerance);
+                davidson.push_back(step.davidson);
+            }
+            const std::size_t ns = r.steps.size();
+            nb::dict out;
+            out["converged"] = r.converged;
+            out["iterations"] = r.iterations;
+            out["energy"] = r.energy;
+            out["band"] = r.band;
+            out["one_electron"] = r.one_electron;
+            out["hartree"] = r.hartree;
+            out["xc"] = r.xc;
+            out["ewald"] = r.ewald;
+            out["entropy"] = r.entropy;
+            out["fermi"] = r.fermi;
+            out["lowest_empty"] = r.lowest_empty;
+            out["eigenvalues"] = array_of(r.eigenvalues, {nk, nbands});
+            out["occupations"] = array_of(r.occupations, {nk, nbands});
+            out["density"] = array_of(r.density, {static_cast<std::size_t>(grid[0]), static_cast<std::size_t>(grid[1]),
+                                                  static_cast<std::size_t>(grid[2])});
+            out["energies"] = array_of(energies, {ns});
+            out["accuracy"] = array_of(accuracy, {ns});
+            out["fermi_levels"] = array_of(fermi, {ns});
+            out["tolerances"] = array_of(tolerance, {ns});
+            out["davidson"] = array_of(davidson, {ns});
+            return out;
+        },
+        nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("density_cutoff"), nb::arg("tables"),
+        nb::arg("angular"), nb::arg("dij"), nb::arg("dq"), nb::arg("positions"), nb::arg("species"),
+        nb::arg("kpoints"), nb::arg("weights"), nb::arg("local"), nb::arg("core").none(), nb::arg("density"),
+        nb::arg("ewald"), nb::arg("bands"), nb::arg("electrons"), nb::arg("functional"), nb::arg("smearing"),
+        nb::arg("sigma"), nb::arg("beta"), nb::arg("kerker"), nb::arg("minimum"), nb::arg("history"),
+        nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
+        nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"));
 }

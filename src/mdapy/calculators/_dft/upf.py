@@ -24,11 +24,13 @@ _ATTRIBUTE = re.compile(r'([\w.]+)\s*=\s*"([^"]*)"')
 
 @dataclass(frozen=True)
 class Projector:
-    """A projector: its angular momentum and r beta(r) on the radial mesh,
-    zero beyond its cutoff."""
+    """A projector: its angular momentum, r beta(r) on the radial mesh, zero
+    beyond its cutoff, and the points of the mesh up to that cutoff (the
+    cutoff_radius_index of the file)."""
 
     angular: int
     r_beta: np.ndarray
+    cutoff_index: int
 
 
 @dataclass(frozen=True)
@@ -114,6 +116,15 @@ def _indexed(text: str, tag: str) -> list[tuple[dict, str]]:
     ]
 
 
+def _cutoff_index(attributes: dict, beta: np.ndarray) -> int:
+    """The points of a projector up to its cutoff: the file's
+    cutoff_radius_index, or up to its last value that is not zero."""
+    if "cutoff_radius_index" in attributes:
+        return int(attributes["cutoff_radius_index"])
+    nonzero = np.nonzero(beta)[0]
+    return int(nonzero[-1]) + 1 if len(nonzero) else 1
+
+
 def _flag(value: str) -> bool:
     return value.strip().upper() in ("T", "TRUE", ".TRUE.")
 
@@ -166,8 +177,11 @@ def read_upf(path: str | Path) -> Pseudopotential:
     r, rab = radial("PP_R"), radial("PP_RAB")
     local = 0.5 * radial("PP_LOCAL")  # Ry to Ha
     projectors = tuple(
-        Projector(int(attributes["angular_momentum"]), _numbers(body)[:mesh])
+        Projector(
+            int(attributes["angular_momentum"]), beta, _cutoff_index(attributes, beta)
+        )
         for attributes, body in _indexed(text, "PP_BETA")
+        for beta in [_numbers(body)[:mesh]]
     )
     count = int(head.get("number_of_proj", len(projectors)))
     if len(projectors) != count:

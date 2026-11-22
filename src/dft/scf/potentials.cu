@@ -177,7 +177,7 @@ void Potentials::set_core(const double* core) {
 
 void Potentials::to_sphere(const double* values, Complex* components, int count) {
     const std::size_t points = fft_.points(), n = sphere_.size();
-    boxes_.resize(points * static_cast<std::size_t>(count));
+    boxes_.reserve(points * static_cast<std::size_t>(count));
     to_complex<<<blocks(points * count), kThreads>>>(points * count, values, boxes_.data());
     launched("to_complex");
     fft_.to_reciprocal(boxes_.data(), count);
@@ -186,7 +186,7 @@ void Potentials::to_sphere(const double* values, Complex* components, int count)
 
 void Potentials::from_sphere(const Complex* components, double* values, int count) {
     const std::size_t points = fft_.points(), n = sphere_.size();
-    boxes_.resize(points * static_cast<std::size_t>(count));
+    boxes_.reserve(points * static_cast<std::size_t>(count));
     scatter(components, n, box_.data(), nullptr, count, boxes_.data(), points);
     fft_.to_real(boxes_.data(), count);
     real_part<<<blocks(points * count), kThreads>>>(points * count, boxes_.data(), values);
@@ -233,7 +233,7 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     launched("the spin densities");
     sigma_.resize(3 * points);
     sigma_.zero();
-    const bool gga = functional_ == Functional::Pbe;
+    const bool gga = functional_ == Functional::Pbe || functional_ == Functional::PbePw;
     if (gga) {
         // n_up and n_down apart, on the sphere, and the 3 components of each gradient
         DeviceArray<double> apart(2 * points);

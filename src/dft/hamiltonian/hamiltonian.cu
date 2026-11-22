@@ -148,6 +148,19 @@ __global__ void diagonal_kernel(std::size_t n, int atoms, const int* blocks, int
     out[g] = sum;
 }
 
+// rho += sum_b w_b |box_b|^2 / Omega
+__global__ void density_kernel(std::size_t points, int count, const Complex* boxes, const double* w,
+                               double inverse_volume, double* rho) {
+    const std::size_t r = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (r >= points) return;
+    double sum = 0.0;
+    for (int b = 0; b < count; ++b) {
+        const Complex v = boxes[static_cast<std::size_t>(b) * points + r];
+        sum += w[b] * (v.x * v.x + v.y * v.y);
+    }
+    rho[r] += sum * inverse_volume;
+}
+
 __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
     __shared__ double partial[kThreads];
     double s = 0.0;
@@ -293,6 +306,22 @@ void Hamiltonian::set_potential(const double* potential) {
     mean_potential_ /= static_cast<double>(points);
 }
 
+void Hamiltonian::add_density(const Complex* psi, int count, const double* weights, double* rho) {
+    const std::size_t n = sphere_.size(), points = fft_.points();
+    if (n == 0 || count == 0) return;
+    const int step = std::min(batch(), count);
+    boxes_.reserve(points * static_cast<std::size_t>(step));
+    weights_.assign(weights, static_cast<std::size_t>(count));
+    for (int first = 0; first < count; first += step) {
+        const int m = std::min(step, count - first);
+        scatter(psi + n * static_cast<std::size_t>(first), n, box_.data(), nullptr, m, boxes_.data(), points);
+        fft_.to_real(boxes_.data(), m);
+        density_kernel<<<blocks(points), kThreads>>>(points, m, boxes_.data(), weights_.data() + first,
+                                                     1.0 / lattice_.volume, rho);
+        check_cuda(cudaGetLastError(), "the density of the bands");
+    }
+}
+
 void Hamiltonian::diagonal(double* out) const {
     const std::size_t n = sphere_.size();
     if (n == 0) return;
@@ -302,20 +331,32 @@ void Hamiltonian::diagonal(double* out) const {
     check_cuda(cudaGetLastError(), "the diagonal of H");
 }
 
+int Hamiltonian::batch() const noexcept {
+    // bands per batch of FFTs: boxes of at most 256 MB
+    const std::size_t points = fft_.points();
+    const std::size_t most = (std::size_t{256} << 20) / (points * sizeof(Complex));
+    return static_cast<int>(std::max<std::size_t>(1, std::min<std::size_t>(most, 1u << 20)));
+}
+
 void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
     const std::size_t n = sphere_.size(), points = fft_.points();
     if (n == 0 || count == 0) return;
     if (potential_.size() != points) throw std::logic_error("no potential set");
     kinetic_kernel<<<blocks(n * count), kThreads>>>(n, count, kinetic_.data(), psi, hpsi);
     check_cuda(cudaGetLastError(), "the kinetic energy");
-    // the local potential on the grid
-    boxes_.resize(points * static_cast<std::size_t>(count));
-    scatter(psi, n, box_.data(), nullptr, count, boxes_.data(), points);
-    fft_.to_real(boxes_.data(), count);
-    multiply_kernel<<<blocks(points * count), kThreads>>>(points, count, potential_.data(), boxes_.data());
-    check_cuda(cudaGetLastError(), "the local potential");
-    fft_.to_reciprocal(boxes_.data(), count);
-    gather_add(boxes_.data(), points, box_.data(), n, count, 1.0 / static_cast<double>(points), hpsi);
+    // the local potential on the grid, in batches of bands
+    const int step = std::min(batch(), count);
+    boxes_.reserve(points * static_cast<std::size_t>(step));
+    for (int first = 0; first < count; first += step) {
+        const int m = std::min(step, count - first);
+        const std::size_t offset = n * static_cast<std::size_t>(first);
+        scatter(psi + offset, n, box_.data(), nullptr, m, boxes_.data(), points);
+        fft_.to_real(boxes_.data(), m);
+        multiply_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_.data(), boxes_.data());
+        check_cuda(cudaGetLastError(), "the local potential");
+        fft_.to_reciprocal(boxes_.data(), m);
+        gather_add(boxes_.data(), points, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
+    }
     if (projectors_ == 0) return;
     // the projectors: P = beta^H psi, D P, H psi += beta D P
     const std::size_t np = static_cast<std::size_t>(projectors_);

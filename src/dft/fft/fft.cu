@@ -40,6 +40,16 @@ __global__ void gather_kernel(const Complex* boxes, std::size_t points, const st
     c[i] = make_cuDoubleComplex(scale * value.x, scale * value.y);
 }
 
+__global__ void gather_add_kernel(const Complex* boxes, std::size_t points,
+                                  const std::int64_t* box, std::size_t n, int count, double scale,
+                                  Complex* c) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * count) return;
+    const std::size_t b = i / n, g = i % n;
+    const Complex value = boxes[b * points + box[g]];
+    c[i] = make_cuDoubleComplex(c[i].x + scale * value.x, c[i].y + scale * value.y);
+}
+
 __global__ void move_kernel(const Complex* from, std::size_t from_points,
                             const std::int64_t* from_index, Complex* to, std::size_t to_points,
                             const std::int64_t* to_index, std::size_t kept, int count) {
@@ -123,6 +133,14 @@ void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, s
     gather_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale,
                                                    coefficients);
     launched("gather");
+}
+
+void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
+                int count, double scale, Complex* coefficients) {
+    if (n == 0 || count == 0) return;
+    gather_add_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale,
+                                                       coefficients);
+    launched("gather_add");
 }
 
 Transfer::Transfer(const Int3& coarse, const Int3& fine) {

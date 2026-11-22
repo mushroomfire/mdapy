@@ -12,6 +12,7 @@
 #include <nanobind/stl/array.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
+#include <nanobind/stl/vector.h>
 
 #include <array>
 #include <complex>
@@ -23,6 +24,7 @@
 #include "dft/core/check.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
+#include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
 #include "dft/xc/xc.h"
 
@@ -43,6 +45,8 @@ using ComplexBoxes =
     nb::ndarray<const std::complex<double>, nb::ndim<4>, nb::c_contig, nb::device::cpu>;
 using RealBoxes = nb::ndarray<const double, nb::ndim<4>, nb::c_contig, nb::device::cpu>;
 using Rows = nb::ndarray<const double, nb::ndim<2>, nb::c_contig, nb::device::cpu>;
+using Grid3 = nb::ndarray<const double, nb::ndim<3>, nb::c_contig, nb::device::cpu>;
+using Kinds = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
 
 template <class T>
 nb::ndarray<nb::numpy, T> new_array(std::initializer_list<std::size_t> dims, T*& data) {
@@ -81,9 +85,9 @@ NB_MODULE(_dft, m) {
     });
     m.def(
         "sphere",
-        [](Matrix a, std::array<double, 3> k, double cutoff, std::array<int, 3> grid, bool half) {
+        [](Matrix a, std::array<double, 3> k, double cutoff, std::array<int, 3> grid, bool real) {
             const auto sphere =
-                mdapy::dft::make_sphere(lattice_of(a), Vec3{k[0], k[1], k[2]}, cutoff, grid_of(grid), half);
+                mdapy::dft::make_sphere(lattice_of(a), Vec3{k[0], k[1], k[2]}, cutoff, grid_of(grid), real);
             const std::size_t n = sphere.size();
             std::int32_t* miller = nullptr;
             double* kinetic = nullptr;
@@ -174,15 +178,15 @@ NB_MODULE(_dft, m) {
               const std::size_t spectrum = fft.spectrum(), points = fft.points();
               const int count = static_cast<int>(c.shape(0));
               const std::size_t n = c.shape(1);
-              DeviceArray<Complex> coefficients, half(count * spectrum);
+              DeviceArray<Complex> coefficients, spec(count * spectrum);
               coefficients.upload(as_device(c.data()), c.size());
               DeviceArray<std::int64_t> places, partners;
               places.upload(box.data(), n);
               partners.upload(partner.data(), n);
               mdapy::dft::scatter(coefficients.data(), n, places.data(), partners.data(), count,
-                                  half.data(), spectrum);
+                                  spec.data(), spectrum);
               DeviceArray<double> values(count * points);
-              fft.to_real(half.data(), values.data(), count);
+              fft.to_real(spec.data(), values.data(), count);
               double* out = nullptr;
               auto result = new_array<double>(
                   {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -200,11 +204,11 @@ NB_MODULE(_dft, m) {
         const std::size_t n = box.shape(0);
         DeviceArray<double> values;
         values.upload(v.data(), v.size());
-        DeviceArray<Complex> half(count * spectrum), coefficients(count * n);
-        fft.to_reciprocal(values.data(), half.data(), count);
+        DeviceArray<Complex> spec(count * spectrum), coefficients(count * n);
+        fft.to_reciprocal(values.data(), spec.data(), count);
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        mdapy::dft::gather(half.data(), spectrum, places.data(), n, count,
+        mdapy::dft::gather(spec.data(), spectrum, places.data(), n, count,
                            1.0 / static_cast<double>(points), coefficients.data());
         std::complex<double>* out = nullptr;
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
@@ -266,4 +270,71 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(f_out, v_out, s_out);
         },
         nb::arg("name"), nb::arg("rho"), nb::arg("sigma"), nb::arg("threshold") = 1e-10);
+
+    // the Hamiltonian of one k-point, for the tests: tables (list of (P, nq)
+    // arrays), angular (list of lists), dij (list of (P, P)), the atoms by their
+    // fractional positions (N, 3) and species (N,)
+    nb::class_<mdapy::dft::Hamiltonian>(m, "Hamiltonian")
+        .def("__init__",
+             [](mdapy::dft::Hamiltonian* self, Matrix a, std::array<int, 3> grid, double cutoff,
+                nb::list tables, nb::list angular, nb::list dij, double dq, Rows positions,
+                Kinds species) {
+                 std::vector<mdapy::dft::SpeciesProjectors> kinds;
+                 for (std::size_t s = 0; s < nb::len(tables); ++s) {
+                     auto t = nb::cast<Rows>(tables[s]);
+                     auto d = nb::cast<Rows>(dij[s]);
+                     mdapy::dft::SpeciesProjectors sp;
+                     sp.dq = dq;
+                     sp.points = static_cast<int>(t.shape(1));
+                     sp.tables.assign(t.data(), t.data() + t.size());
+                     sp.angular = nb::cast<std::vector<int>>(angular[s]);
+                     sp.dij.assign(d.data(), d.data() + d.size());
+                     kinds.push_back(std::move(sp));
+                 }
+                 if (positions.shape(1) != 3 || species.shape(0) != positions.shape(0))
+                     throw std::invalid_argument("positions (N, 3) and species (N,)");
+                 std::vector<mdapy::dft::Atom> atoms;
+                 for (std::size_t i = 0; i < species.shape(0); ++i)
+                     atoms.push_back({Vec3{positions.data()[3 * i], positions.data()[3 * i + 1],
+                                           positions.data()[3 * i + 2]},
+                                      species.data()[i]});
+                 new (self) mdapy::dft::Hamiltonian(lattice_of(a), grid_of(grid), cutoff,
+                                                    std::move(kinds), std::move(atoms));
+             })
+        .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
+            h.set_k(Vec3{k[0], k[1], k[2]});
+        })
+        .def("set_potential", [](mdapy::dft::Hamiltonian& h, Grid3 v) {
+            DeviceArray<double> d;
+            d.upload(v.data(), v.size());
+            h.set_potential(d.data());
+        })
+        .def("apply", [](mdapy::dft::Hamiltonian& h, Coefficients psi) {
+            const int count = static_cast<int>(psi.shape(0));
+            const std::size_t n = psi.shape(1);
+            if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
+            DeviceArray<Complex> a, b(static_cast<std::size_t>(count) * n);
+            a.upload(as_device(psi.data()), psi.size());
+            h.apply(a.data(), b.data(), count);
+            std::complex<double>* out = nullptr;
+            auto result = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
+            b.download(reinterpret_cast<Complex*>(out), b.size());
+            return result;
+        })
+        .def_prop_ro("miller", [](const mdapy::dft::Hamiltonian& h) {
+            const auto& sphere = h.sphere();
+            std::int32_t* out = nullptr;
+            auto result = new_array<std::int32_t>({sphere.size(), 3}, out);
+            for (std::size_t g = 0; g < sphere.size(); ++g)
+                for (int i = 0; i < 3; ++i) out[3 * g + i] = sphere.miller[g][static_cast<std::size_t>(i)];
+            return nb::object(result.cast());
+        })
+        .def_prop_ro("beta", [](const mdapy::dft::Hamiltonian& h) {
+            std::complex<double>* out = nullptr;
+            auto result = new_array<std::complex<double>>(
+                {static_cast<std::size_t>(h.projectors()), h.plane_waves()}, out);
+            h.beta().download(reinterpret_cast<Complex*>(out), h.beta().size());
+            return nb::object(result.cast());
+        })
+        .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors);
 }

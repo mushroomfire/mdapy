@@ -67,6 +67,10 @@ void scatter(const Complex* coefficients, std::size_t n, const std::int64_t* box
 void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
             int count, double scale, Complex* coefficients);
 
+// The same, added to what the coefficients hold: c[b n + g] += scale boxes[...].
+void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
+                int count, double scale, Complex* coefficients);
+
 // The Fourier components of a coarse box carried to a fine box and back, for
 // densities and potentials: to_fine places each component of |m_i| < n_i / 2 of
 // the coarse box at its place in the fine box, the rest of the fine box zero;

@@ -83,7 +83,7 @@ struct ScfOptions {
     double density_tolerance = 1e-9;  // hartree, E_H[rho_out - rho_in]
     int max_iterations = 100;
     int davidson_iterations = 100;  // per k-point and step
-    int davidson_basis = 4;         // the largest basis, times the bands
+    int davidson_basis = 2;         // the largest basis, times the bands
     double xc_threshold = 1e-10;
     unsigned long long seed = 0;
 };

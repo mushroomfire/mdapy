@@ -22,6 +22,8 @@
 #include <stdexcept>
 #include <string>
 
+#include <cuda_runtime_api.h>
+
 #include "dft/core/check.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
@@ -120,6 +122,12 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
 NB_MODULE(_dft, m) {
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    m.def("set_device", [](int index) {
+        if (index < 0 || index >= mdapy::dft::device_count())
+            throw std::invalid_argument("no GPU " + std::to_string(index) + " of the " +
+                                        std::to_string(mdapy::dft::device_count()) + " this process sees");
+        mdapy::dft::check_cuda(cudaSetDevice(index), "cudaSetDevice");
+    });
 
     m.def("reciprocal", [](Matrix a) {
         const Lattice lattice = lattice_of(a);

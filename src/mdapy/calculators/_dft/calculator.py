@@ -104,6 +104,10 @@ class DFT(Calculator):
         of 1.2 N/2 and N/2 + 4 for N electrons.
     seed : int32, optional
         Seed of the random first bands. Default 0.
+    gpu : int32, optional
+        The GPU of this process, by its index among those it sees. Default
+        the first (CUDA_VISIBLE_DEVICES chooses which). Processes on a node
+        of several GPUs, each computing its own configurations, take one each.
     restart : bool, optional
         Start each computation from the bands and the density of the last,
         for the steps of a relaxation or of molecular dynamics. Default
@@ -155,6 +159,7 @@ class DFT(Calculator):
         kerker: float = 1.5,
         bands: int | None = None,
         seed: int = 0,
+        gpu: int | None = None,
         restart: bool = False,
     ):
         if not encut > 0:
@@ -212,6 +217,9 @@ class DFT(Calculator):
         self.bands = bands
         self.seed = int(seed)
         self.restart = bool(restart)
+        if gpu is not None and int(gpu) < 0:
+            raise InvalidParameter("gpu must be at least 0")
+        self.gpu = None if gpu is None else int(gpu)
         self.__state = None
         self.cutoff = 0.0
         self.elements = None
@@ -305,6 +313,10 @@ class DFT(Calculator):
         from mdapy.calculators._dft import scf
 
         wanted = self._check_properties(properties)
+        if self.gpu is not None:
+            from mdapy_dft_cuda12 import _dft
+
+            _dft.set_device(self.gpu)
         if "element" not in system.table.columns:
             raise MissingProperty("DFT needs the element column")
         if not all(system.box.pbc):

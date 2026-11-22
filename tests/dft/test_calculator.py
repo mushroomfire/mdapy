@@ -55,7 +55,9 @@ def calculator(folder, **options):
 
 
 def test_the_units(folder):
-    result = calculator(folder).compute(silicon(), ("energy", "forces", "virial"))
+    result = calculator(folder, gpu=0).compute(
+        silicon(), ("energy", "forces", "virial")
+    )
     pp = read_upf(espresso.pseudo("Si_std.upf"))
     r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [pp], 12.0, kgrid=(2, 2, 2),
                 functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
@@ -141,6 +143,10 @@ def test_errors(folder, tmp_path):
         calculator(folder).compute(xenon)
     with pytest.raises(InvalidParameter, match="magmoms holds 1 moments for 2 atoms"):
         calculator(folder, magmoms=[1.0]).compute(silicon())
+    with pytest.raises(ValueError, match="no GPU 99"):
+        calculator(folder, gpu=99).compute(silicon())
+    with pytest.raises(InvalidParameter, match="gpu must be at least 0"):
+        calculator(folder, gpu=-1)
     with pytest.raises(CalculationFailed, match="did not converge in 2 steps"):
         calculator(folder, max_iterations=2).compute(silicon())
     with pytest.raises(MissingProperty, match="element column"):

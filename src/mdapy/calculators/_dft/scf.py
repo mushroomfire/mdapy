@@ -116,7 +116,7 @@ def run(
     density_tolerance: float = 1e-10,
     max_iterations: int = 100,
     davidson_iterations: int = 100,
-    davidson_basis: int = 4,
+    davidson_basis: int = 2,
     seed: int = 0,
     functional: str | None = None,
     magmoms=None,

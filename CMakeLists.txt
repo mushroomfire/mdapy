@@ -13,6 +13,7 @@ option(MDAPY_D3D12 "Pictures traced on the GPU with Direct3D 12 (Windows only)" 
 option(MDAPY_CUDA "The GPU side with CUDA, mdapy._cuda (needs the CUDA toolkit)" OFF)
 option(MDAPY_CUDA_ONLY "The GPU side alone, mdapy_cuda12._cuda, for the package mdapy-cuda12" OFF)
 option(MDAPY_CUDA_LINEINFO "The lines of the sources in the GPU kernels, for profilers" ON)
+option(MDAPY_DFT_ONLY "The plane-wave DFT on the GPU alone, mdapy_dft_cuda12._dft, for the package mdapy-dft-cuda12" OFF)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -25,6 +26,14 @@ find_package(Python 3.11 REQUIRED
   COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
 find_package(nanobind CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+
+# The package mdapy-dft-cuda12 (dft-cuda12/pyproject.toml): the plane-wave DFT of
+# MDAPY on the GPU, alone.
+if(MDAPY_DFT_ONLY)
+  set(MDAPY_DFT_PACKAGE mdapy_dft_cuda12)
+  include(cmake/dft.cmake)
+  return()
+endif()
 
 # The package mdapy-cuda12 (cuda12/pyproject.toml): the GPU side alone, for the
 # wheels of MDAPY, which hold none.

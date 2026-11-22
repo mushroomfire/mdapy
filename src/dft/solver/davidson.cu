@@ -96,6 +96,13 @@ __global__ void precondition_kernel(std::size_t n, int count, const int* index, 
     t[i] = make_cuDoubleComplex(k * v.x, k * v.y);
 }
 
+// column c of out (rows, count) is column index[c] of in (rows, any)
+__global__ void gather_columns(std::size_t rows, int count, const int* index, const Complex* in, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= rows * count) return;
+    out[i] = in[static_cast<std::size_t>(index[i / rows]) * rows + i % rows];
+}
+
 // column c of x times s[c]
 __global__ void scale_columns(std::size_t n, int count, const double* s, Complex* x) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
@@ -273,9 +280,62 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     Complex* x = vectors_.data();
     Complex* hx = vectors_.data() + n * bands;
     Complex* sx = general ? vectors_.data() + 2 * n * bands : x;
+    picked_.reserve(ld * bands);
     DavidsonResult result;
     std::vector<double> lambda, residuals(bands);
-    std::vector<int> open;
+    std::vector<char> done(bands, 0);  // converged, not checked again until the end
+    std::vector<int> open, column;     // the bands still open; their columns in residual_
+    // the residuals of the bands b of `which` into residual_ (column i for
+    // which[i]) and their squared norms into residuals[b]; with all, X, HX and
+    // SX of every band too
+    auto residuals_of = [&](const std::vector<int>& which, bool all) {
+        const int m = static_cast<int>(which.size());
+        if (m == 0) return;
+        if (all) {
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, basis_.data(), rows,
+                                   subspace_.data(), nbase, &kZero, x, rows),
+                       "cublasZgemm");
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, hbasis_.data(), rows,
+                                   subspace_.data(), nbase, &kZero, hx, rows),
+                       "cublasZgemm");
+            if (general)
+                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, sbasis_.data(),
+                                       rows, subspace_.data(), nbase, &kZero, sx, rows),
+                           "cublasZgemm");
+            energies_.assign(lambda.data(), bands);
+            residual_kernel<<<blocks(n * bands), kThreads>>>(n, count, sx, hx, energies_.data(), residual_.data());
+        } else {
+            // the eigenvectors of those bands alone, then H X and S X of them
+            index_.assign(which.data(), which.size());
+            gather_columns<<<blocks(static_cast<std::size_t>(nbase) * m), kThreads>>>(
+                static_cast<std::size_t>(nbase), m, index_.data(), subspace_.data(), picked_.data());
+            check_cuda(cudaGetLastError(), "the open eigenvectors");
+            Complex* so = general ? sx : x;
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, hbasis_.data(), rows,
+                                   picked_.data(), nbase, &kZero, hx, rows),
+                       "cublasZgemm");
+            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne,
+                                   general ? sbasis_.data() : basis_.data(), rows, picked_.data(), nbase, &kZero, so,
+                                   rows),
+                       "cublasZgemm");
+            std::vector<double> e(static_cast<std::size_t>(m));
+            for (int i = 0; i < m; ++i) e[static_cast<std::size_t>(i)] = lambda[static_cast<std::size_t>(which[static_cast<std::size_t>(i)])];
+            energies_.assign(e.data(), e.size());
+            residual_kernel<<<blocks(n * m), kThreads>>>(n, m, so, hx, energies_.data(), residual_.data());
+        }
+        check_cuda(cudaGetLastError(), "the residuals");
+        sums_.reserve(bands);
+        column_norms<<<m, kThreads>>>(n, residual_.data(), sums_.data());
+        check_cuda(cudaGetLastError(), "the residual norms");
+        std::vector<double> norms(static_cast<std::size_t>(m));
+        sums_.download(norms.data(), norms.size());
+        for (int i = 0; i < m; ++i) residuals[static_cast<std::size_t>(which[static_cast<std::size_t>(i)])] = norms[static_cast<std::size_t>(i)];
+    };
+    auto converged = [&](int b) {
+        return std::sqrt(residuals[static_cast<std::size_t>(b)]) < (b < tight ? tolerance : loose_tolerance);
+    };
+    std::vector<int> every(bands);
+    for (int b = 0; b < count; ++b) every[static_cast<std::size_t>(b)] = b;
     for (int iteration = 1;; ++iteration) {
         result.iterations = iteration;
         // Rayleigh-Ritz: the count lowest eigenpairs of basis^H H basis
@@ -286,57 +346,76 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
         eigh(subspace_.data(), nbase);
         lambda.resize(static_cast<std::size_t>(nbase));
         values_.download(lambda.data(), lambda.size());
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, basis_.data(), rows,
-                               subspace_.data(), nbase, &kZero, x, rows),
-                   "cublasZgemm");
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, hbasis_.data(), rows,
-                               subspace_.data(), nbase, &kZero, hx, rows),
-                   "cublasZgemm");
-        if (general)
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, count, nbase, &kOne, sbasis_.data(),
-                                   rows, subspace_.data(), nbase, &kZero, sx, rows),
-                       "cublasZgemm");
-        energies_.assign(lambda.data(), bands);
-        residual_kernel<<<blocks(n * bands), kThreads>>>(n, count, sx, hx, energies_.data(), residual_.data());
-        check_cuda(cudaGetLastError(), "the residuals");
-        // |R|^2 of each band
-        sums_.reserve(bands);
-        column_norms<<<count, kThreads>>>(n, residual_.data(), sums_.data());
-        check_cuda(cudaGetLastError(), "the residual norms");
-        sums_.download(residuals.data(), bands);
+        // the residuals of the open bands; a band that converges is not checked
+        // again until all have, when all are
         open.clear();
-        result.residual = 0.0;
-        result.converged = 0;
-        for (int b = 0; b < count; ++b) {
-            const double norm = std::sqrt(residuals[static_cast<std::size_t>(b)]);
-            result.residual = std::max(result.residual, norm);
-            if (norm < (b < tight ? tolerance : loose_tolerance))
-                ++result.converged;
-            else
-                open.push_back(b);
+        for (int b = 0; b < count; ++b)
+            if (!done[static_cast<std::size_t>(b)]) open.push_back(b);
+        residuals_of(open, false);
+        column.clear();
+        std::vector<int> still;
+        for (std::size_t i = 0; i < open.size(); ++i) {
+            if (converged(open[i])) {
+                done[static_cast<std::size_t>(open[i])] = 1;
+            } else {
+                still.push_back(open[i]);
+                column.push_back(static_cast<int>(i));
+            }
         }
-        int add = static_cast<int>(open.size());
-        if (add > 0 && iteration < max_iterations && nbase == most) {
-            // restart from the Ritz vectors
-            copy(basis_.data(), x, n * bands);
-            copy(hbasis_.data(), hx, n * bands);
-            if (general) copy(sbasis_.data(), sx, n * bands);
-            nbase = count;
-            grow(0, nbase);
+        open = still;
+        const bool last = open.empty() || iteration >= max_iterations;
+        if (last || nbase == most) {
+            // every band, before a restart or the end
+            residuals_of(every, true);
+            open.clear();
+            column.clear();
+            result.converged = 0;
+            result.residual = 0.0;
+            for (int b = 0; b < count; ++b) {
+                result.residual = std::max(result.residual, std::sqrt(residuals[static_cast<std::size_t>(b)]));
+                done[static_cast<std::size_t>(b)] = converged(b) ? 1 : 0;
+                if (done[static_cast<std::size_t>(b)]) {
+                    ++result.converged;
+                } else {
+                    open.push_back(b);
+                    column.push_back(b);
+                }
+            }
+            if (open.empty() || iteration >= max_iterations) {
+                copy(psi, x, n * bands);
+                eigenvalues.assign(lambda.begin(), lambda.begin() + count);
+                return result;
+            }
+            if (nbase == most) {
+                // restart from the Ritz vectors
+                copy(basis_.data(), x, n * bands);
+                copy(hbasis_.data(), hx, n * bands);
+                if (general) copy(sbasis_.data(), sx, n * bands);
+                nbase = count;
+                grow(0, nbase);
+            }
         }
-        add = std::min(add, most - nbase);
-        if (add == 0 || iteration >= max_iterations) {
+        // the end when the basis cannot grow
+        auto finish = [&]() {
+            residuals_of(every, true);
+            result.converged = 0;
+            result.residual = 0.0;
+            for (int b = 0; b < count; ++b) {
+                result.residual = std::max(result.residual, std::sqrt(residuals[static_cast<std::size_t>(b)]));
+                if (converged(b)) ++result.converged;
+            }
             copy(psi, x, n * bands);
             eigenvalues.assign(lambda.begin(), lambda.begin() + count);
             return result;
-        }
+        };
+        const int add = std::min(static_cast<int>(open.size()), most - nbase);
+        if (add == 0) return finish();
         // the preconditioned residuals of the open bands
-        open.resize(static_cast<std::size_t>(add));
-        index_.assign(open.data(), open.size());
         std::vector<double> band(static_cast<std::size_t>(add));
         for (int i = 0; i < add; ++i)
             band[static_cast<std::size_t>(i)] = lambda[static_cast<std::size_t>(open[static_cast<std::size_t>(i)])];
         scale_.assign(band.data(), band.size());
+        index_.assign(column.data(), static_cast<std::size_t>(add));
         Complex* fresh = basis_.data() + n * nbase;
         precondition_kernel<<<blocks(n * add), kThreads>>>(n, add, index_.data(), diagonal_.data(),
                                                           overlap_diagonal_.data(), scale_.data(),
@@ -346,11 +425,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
         if (general) h.apply_overlap(fresh, sfresh, add);
         const int kept = orthonormalize(basis_.data(), general ? sbasis_.data() : nullptr, nbase, fresh, sfresh, add,
                                         rows);
-        if (kept == 0) {  // nothing new: the basis cannot grow
-            copy(psi, x, n * bands);
-            eigenvalues.assign(lambda.begin(), lambda.begin() + count);
-            return result;
-        }
+        if (kept == 0) return finish();  // nothing new: the basis cannot grow
         h.apply(fresh, hbasis_.data() + n * nbase, kept);
         grow(nbase, kept);
         nbase += kept;

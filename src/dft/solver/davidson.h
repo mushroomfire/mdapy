@@ -13,7 +13,9 @@
 // basis and among themselves by Cholesky QR, twice; when the factor is ill
 // conditioned, by the eigenvectors of their overlap, dropping the directions of
 // eigenvalues below 1e-10. The matrix of H in the basis grows by the columns of
-// the new vectors.
+// the new vectors. Only the bands still open have their residuals computed; a
+// band that converges is checked again with all the others before a restart
+// and at the end, and opened again if it no longer is.
 
 #pragma once
 
@@ -63,6 +65,7 @@ private:
     DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
     DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors
     DeviceArray<Complex> sbasis_;                     // S basis, with an overlap
+    DeviceArray<Complex> picked_;                     // the eigenvectors of the open bands
     DeviceArray<double> overlap_diagonal_;
     DeviceArray<double> values_, sums_, energies_, scale_, diagonal_;
     DeviceArray<int> info_, index_;

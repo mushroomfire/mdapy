@@ -5,6 +5,7 @@
 
 #include "dft/hamiltonian/hamiltonian.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -124,6 +125,44 @@ __global__ void multiply_kernel(std::size_t points, int count, const double* pot
     boxes[i] = make_cuDoubleComplex(v * boxes[i].x, v * boxes[i].y);
 }
 
+// the diagonal of H: kinetic + mean potential + sum over the blocks of D of
+// beta_i(G) D_ij conj(beta_j(G)); blocks (first, width) of each atom
+__global__ void diagonal_kernel(std::size_t n, int atoms, const int* blocks, int projectors,
+                                const double* kinetic, double mean, const Complex* beta,
+                                const Complex* d, double* out) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    double sum = kinetic[g] + mean;
+    for (int a = 0; a < atoms; ++a) {
+        const int first = blocks[2 * a], width = blocks[2 * a + 1];
+        for (int j = first; j < first + width; ++j) {
+            const Complex bj = beta[static_cast<std::size_t>(j) * n + g];
+            for (int i = first; i < first + width; ++i) {
+                const double dij = d[static_cast<std::size_t>(j) * projectors + i].x;
+                if (dij == 0.0) continue;
+                const Complex bi = beta[static_cast<std::size_t>(i) * n + g];
+                sum += dij * (bi.x * bj.x + bi.y * bj.y);  // Re(b_i conj(b_j))
+            }
+        }
+    }
+    out[g] = sum;
+}
+
+__global__ void sum_kernel(std::size_t count, const double* x, double* total) {
+    __shared__ double partial[kThreads];
+    double s = 0.0;
+    for (std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x; i < count;
+         i += static_cast<std::size_t>(gridDim.x) * blockDim.x)
+        s += x[i];
+    partial[threadIdx.x] = s;
+    __syncthreads();
+    for (int k = kThreads / 2; k > 0; k >>= 1) {
+        if (static_cast<int>(threadIdx.x) < k) partial[threadIdx.x] += partial[threadIdx.x + k];
+        __syncthreads();
+    }
+    if (threadIdx.x == 0) atomicAdd(total, partial[0]);
+}
+
 }  // namespace
 
 Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
@@ -177,9 +216,12 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
                     d[column * static_cast<std::size_t>(projectors_) + row] = make_cuDoubleComplex(value, 0.0);
                 }
             }
+        blocks_.push_back(start);
+        blocks_.push_back(width);
         start += width;
     }
     dmatrix_.upload(d.data(), d.size());
+    blocks_device_.upload(blocks_.data(), blocks_.size());
 }
 
 Hamiltonian::~Hamiltonian() {
@@ -243,6 +285,21 @@ void Hamiltonian::set_potential(const double* potential) {
     check_cuda(cudaMemcpy(potential_.data(), potential, points * sizeof(double),
                           cudaMemcpyDeviceToDevice),
                "cudaMemcpy of the potential");
+    DeviceArray<double> total(1);
+    total.zero();
+    sum_kernel<<<std::min<unsigned>(blocks(points), 1024u), kThreads>>>(points, potential_.data(), total.data());
+    check_cuda(cudaGetLastError(), "the mean potential");
+    total.download(&mean_potential_, 1);
+    mean_potential_ /= static_cast<double>(points);
+}
+
+void Hamiltonian::diagonal(double* out) const {
+    const std::size_t n = sphere_.size();
+    if (n == 0) return;
+    if (potential_.size() != fft_.points()) throw std::logic_error("no potential set");
+    diagonal_kernel<<<blocks(n), kThreads>>>(n, static_cast<int>(atoms_.size()), blocks_device_.data(), projectors_,
+                                             kinetic_.data(), mean_potential_, beta_.data(), dmatrix_.data(), out);
+    check_cuda(cudaGetLastError(), "the diagonal of H");
 }
 
 void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {

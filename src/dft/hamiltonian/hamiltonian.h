@@ -59,6 +59,9 @@ public:
 
     // H on count bands, column-major (plane waves, count), on the device.
     void apply(const Complex* psi, Complex* hpsi, int count);
+    // The diagonal H_GG on the device, for the preconditioner: the kinetic
+    // energy, the mean potential and the projectors.
+    void diagonal(double* out) const;
 
     const Sphere& sphere() const noexcept { return sphere_; }
     std::size_t plane_waves() const noexcept { return sphere_.size(); }
@@ -87,6 +90,10 @@ private:
     DeviceArray<Complex> boxes_, projections_, scaled_;
     // the tables of every species on the device, and where each starts
     DeviceArray<double> tables_;
+    // the block of D of each atom, (first, width)
+    std::vector<int> blocks_;
+    DeviceArray<int> blocks_device_;
+    double mean_potential_ = 0.0;
 };
 
 }  // namespace mdapy::dft

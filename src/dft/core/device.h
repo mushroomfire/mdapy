@@ -54,6 +54,20 @@ public:
         }
     }
 
+    // Holds at least size elements, keeping the memory and its values when it
+    // already does.
+    void reserve(std::size_t size) {
+        if (size > size_) resize(size);
+    }
+
+    // The first count elements from the host, growing the memory if needed.
+    void assign(const T* host, std::size_t count) {
+        reserve(count);
+        if (count > 0)
+            check_cuda(cudaMemcpy(data_, host, count * sizeof(T), cudaMemcpyHostToDevice),
+                       "cudaMemcpy to the GPU");
+    }
+
     void zero() {
         if (size_ > 0) check_cuda(cudaMemset(data_, 0, size_ * sizeof(T)), "cudaMemset");
     }

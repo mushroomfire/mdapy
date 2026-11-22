@@ -14,6 +14,7 @@
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
 #include <array>
 #include <complex>
 #include <cstdint>
@@ -27,6 +28,7 @@
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
 #include "dft/scf/potentials.h"
+#include "dft/solver/davidson.h"
 #include "dft/xc/xc.h"
 
 namespace nb = nanobind;
@@ -341,7 +343,15 @@ NB_MODULE(_dft, m) {
             h.beta().download(reinterpret_cast<Complex*>(out), h.beta().size());
             return nb::object(result.cast());
         })
-        .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors);
+        .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors)
+        .def_prop_ro("diagonal", [](const mdapy::dft::Hamiltonian& h) {
+            DeviceArray<double> d(h.plane_waves());
+            h.diagonal(d.data());
+            double* out = nullptr;
+            auto result = new_array<double>({h.plane_waves()}, out);
+            d.download(out, d.size());
+            return nb::object(result.cast());
+        });
 
     // the Hartree and exchange-correlation potentials of densities rho (spins,
     // n1, n2, n3), with a core charge (n1, n2, n3) or None: V_H + V_xc of each
@@ -367,4 +377,32 @@ NB_MODULE(_dft, m) {
         },
         nb::arg("a"), nb::arg("cutoff"), nb::arg("functional"), nb::arg("rho"),
         nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10);
+
+    // the lowest eigenpairs of a Hamiltonian by block Davidson from the guess
+    // psi (bands, plane waves): eigenvalues, eigenvectors (bands, plane waves),
+    // iterations, converged bands and the largest residual norm
+    m.def(
+        "davidson",
+        [](mdapy::dft::Hamiltonian& h, Coefficients psi, double tolerance, int tight, double loose_tolerance,
+           int max_iterations, int largest_basis) {
+            const int count = static_cast<int>(psi.shape(0));
+            const std::size_t n = psi.shape(1);
+            if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
+            DeviceArray<Complex> a;
+            a.upload(as_device(psi.data()), psi.size());
+            mdapy::dft::Davidson solver;
+            std::vector<double> e;
+            const auto r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight,
+                                        loose_tolerance, max_iterations,
+                                        largest_basis > 0 ? largest_basis : 4 * count);
+            double* values = nullptr;
+            auto eigenvalues = new_array<double>({static_cast<std::size_t>(count)}, values);
+            std::copy(e.begin(), e.end(), values);
+            std::complex<double>* out = nullptr;
+            auto vectors = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
+            a.download(reinterpret_cast<Complex*>(out), psi.size());
+            return nb::make_tuple(eigenvalues, vectors, r.iterations, r.converged, r.residual);
+        },
+        nb::arg("h"), nb::arg("psi"), nb::arg("tolerance") = 1e-8, nb::arg("tight") = -1,
+        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0);
 }

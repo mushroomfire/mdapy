@@ -17,6 +17,7 @@
 #include <stdexcept>
 
 #include "dft/core/device.h"
+#include "dft/scf/augmentation.h"
 #include "dft/scf/ions.h"
 #include "dft/scf/potentials.h"
 #include "dft/solver/davidson.h"
@@ -105,6 +106,43 @@ __global__ void match_kernel(std::size_t n, std::size_t m, int count, const std:
     out[i] = from < 0 ? make_cuDoubleComplex(0.0, 0.0) : in[b * m + static_cast<std::size_t>(from)];
 }
 
+// the width of the projector functions of a species
+int width_of(const SpeciesProjectors& s) {
+    int w = 0;
+    for (const int l : s.angular) w += 2 * l + 1;
+    return w;
+}
+
+// the strengths of a species as a block (width, width), D_pq between the
+// functions of one l and m
+std::vector<double> species_block(const SpeciesProjectors& s) {
+    const int w = width_of(s);
+    std::vector<double> out(static_cast<std::size_t>(w) * w, 0.0);
+    const int count = static_cast<int>(s.angular.size());
+    std::vector<int> first(static_cast<std::size_t>(count));
+    for (int p = 0, f = 0; p < count; f += 2 * s.angular[static_cast<std::size_t>(p)] + 1, ++p)
+        first[static_cast<std::size_t>(p)] = f;
+    for (int p = 0; p < count; ++p)
+        for (int q = 0; q < count; ++q) {
+            const int l = s.angular[static_cast<std::size_t>(p)];
+            if (l != s.angular[static_cast<std::size_t>(q)]) continue;
+            for (int m = 0; m < 2 * l + 1; ++m)
+                out[static_cast<std::size_t>(first[static_cast<std::size_t>(p)] + m) * w +
+                    (first[static_cast<std::size_t>(q)] + m)] = s.dij[static_cast<std::size_t>(p * count + q)];
+        }
+    return out;
+}
+
+// the packed pairs a <= b of a block of width w added to it, symmetric
+void add_packed(const double* packed, int w, double* block) {
+    int k = 0;
+    for (int a = 0; a < w; ++a)
+        for (int b = a; b < w; ++b, ++k) {
+            block[a * w + b] += packed[k];
+            if (b != a) block[b * w + a] += packed[k];
+        }
+}
+
 bool fits(const ScfState* state, const ScfInput& input, int spins, int bands) {
     if (state == nullptr || !state->valid || state->atoms != input.atoms.size() || state->spins != spins ||
         state->bands != bands || state->kpoints.size() != input.kpoints.size())
@@ -152,6 +190,62 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         core.download(host.data(), points);
         pot.set_core(host.data());
     }
+    // ultrasoft species: their augmentation, the overlaps and the strengths of
+    // the bare D for each atom
+    std::vector<SpeciesAugmentation> augmented = input.augmentation;
+    augmented.resize(input.species.size());
+    Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented);
+    const bool ultrasoft = aug.any();
+    std::vector<double> bare;  // the blocks of D0 of the atoms
+    std::vector<std::size_t> pair_offsets;
+    if (ultrasoft) {
+        std::vector<double> overlaps;
+        std::size_t offset = 0;
+        for (const Atom& atom : input.atoms) {
+            const auto& sp = input.species[static_cast<std::size_t>(atom.species)];
+            const int w = width_of(sp);
+            const auto block = species_block(sp);
+            bare.insert(bare.end(), block.begin(), block.end());
+            std::vector<double> q(static_cast<std::size_t>(w) * w, 0.0);
+            const auto& sa = augmented[static_cast<std::size_t>(atom.species)];
+            if (sa.pairs() > 0) {
+                if (sa.functions != w) throw std::invalid_argument("the augmentation and the projectors of a species disagree");
+                const auto packed = aug.overlaps(atom.species);
+                add_packed(packed.data(), w, q.data());
+            }
+            overlaps.insert(overlaps.end(), q.begin(), q.end());
+            pair_offsets.push_back(offset);
+            offset += static_cast<std::size_t>(w) * (w + 1) / 2;
+        }
+        pair_offsets.push_back(offset);
+        h.set_overlaps(overlaps);
+    }
+    // the strengths of each spin: D0 + Omega sum_G conj(V_s(G)) Q(G) of a potential
+    std::vector<std::vector<double>> strengths(spins);
+    DeviceArray<Complex> veff_g(ng);
+    DeviceArray<double> veff_r(ultrasoft ? points : 0);
+    auto potential_of = [&](std::size_t s, const DeviceArray<double>& v) {
+        add_kernel<<<blocks(points), kThreads>>>(points, local.data(), v.data() + s * points, veff_r.data());
+        check_cuda(cudaGetLastError(), "the effective potential");
+        pot.to_sphere(veff_r.data(), veff_g.data(), 1);
+    };
+    auto update_strengths = [&](const DeviceArray<double>& v) {
+        if (!ultrasoft) return;
+        for (std::size_t s = 0; s < spins; ++s) {
+            potential_of(s, v);
+            const auto packed = aug.strengths(veff_g.data());
+            strengths[s] = bare;
+            std::size_t at = 0;
+            for (std::size_t i = 0; i < input.atoms.size(); ++i) {
+                const int w = width_of(input.species[static_cast<std::size_t>(input.atoms[i].species)]);
+                const std::size_t first = pair_offsets[i];
+                if (pair_offsets[i + 1] > first && first < packed.size())
+                    add_packed(packed.data() + first, w, strengths[s].data() + at);
+                at += static_cast<std::size_t>(w) * w;
+            }
+        }
+    };
+    std::vector<std::vector<double>> becsum(spins);
     Davidson davidson;
     // the bands of each spin and k-point, (s, k) at s nk + k, random at the
     // start and the same for both spins, so that a density without
@@ -223,6 +317,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         // the potential of rho_in
         if (iteration == 1) result.times.setup += clock.lap();
         const PotentialEnergies e = pot.compute(rho_in.data(), hxc.data());
+        update_strengths(hxc);
         result.times.potentials += clock.lap();
         last_in = in_g;
         // the bands
@@ -234,6 +329,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 add_kernel<<<blocks(points), kThreads>>>(points, local.data(), hxc.data() + s * points, veff.data());
                 check_cuda(cudaGetLastError(), "the effective potential");
                 h.set_potential(veff.data());
+                if (ultrasoft) h.set_strengths(strengths[s]);
                 const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, tolerance, tight,
                                               std::max(tolerance, 1e-2), options.davidson_iterations,
                                               options.davidson_basis * nb);
@@ -247,6 +343,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             occupy(eigenvalues, weights, nb, options.electrons, f_max, options.smearing, options.sigma);
         // the output density and the energy
         rho_out.zero();
+        if (ultrasoft)
+            for (auto& b : becsum) b.assign(pair_offsets.back(), 0.0);
         double band = 0.0;
         for (std::size_t k = 0; k < nk; ++k) {
             h.set_k(input.kpoints[k]);
@@ -257,10 +355,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     band += w[b] * eigenvalues[row + b];
                 }
                 h.add_density(psi[s * nk + k].data(), nb, w.data(), rho_out.data() + s * points);
+                if (ultrasoft) h.add_becsum(psi[s * nk + k].data(), nb, w.data(), becsum[s]);
             }
         }
         const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy;
         pot.to_sphere(rho_out.data(), components.data(), ns);
+        if (ultrasoft) {
+            // the augmentation of each spin, and rho_out on the grid with it
+            for (std::size_t s = 0; s < spins; ++s) aug.add_density(becsum[s], components.data() + s * ng);
+            pot.from_sphere(components.data(), rho_out.data(), ns);
+        }
         components.download(out_g.data(), out_g.size());
         if (ns == 2) to_total(out_g, ng);
         result.times.density += clock.lap();
@@ -327,12 +431,19 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         vxc_g.upload(v.data(), ng);
         result.forces = ions.forces(rho_g.data(), vxc_g.data());
+        if (ultrasoft)  // the augmentation in the potential of the bands, V of rho_in
+            for (std::size_t s = 0; s < spins; ++s) {
+                potential_of(s, hxc);
+                const auto f = aug.forces(veff_g.data(), becsum[s]);
+                for (std::size_t i = 0; i < f.size(); ++i) result.forces[i] += f[i];
+            }
         for (std::size_t k = 0; k < nk; ++k) {
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
-                h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), result.forces);
+                if (ultrasoft) h.set_strengths(strengths[s]);
+                h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), result.forces, eigenvalues.data() + row);
             }
         }
     }
@@ -361,7 +472,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     }
     result.times.forces += clock.lap();
     // the strain derivative of the energy of Kohn and Sham of the last bands
-    if (ions.has_slopes()) {
+    if (ions.has_slopes() && !ultrasoft) {
         const auto& sphere = pot.sphere();
         const double omega = input.lattice.volume, pi = 3.14159265358979323846;
         const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};

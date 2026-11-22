@@ -519,7 +519,7 @@ NB_MODULE(_dft, m) {
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
-           nb::object state, double magnetic_kerker) {
+           nb::object state, double magnetic_kerker, nb::object augmentation) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -560,6 +560,8 @@ NB_MODULE(_dft, m) {
                 in.atom_factors.assign(c.data(), c.data() + c.size());
             }
             in.ewald = ewald;
+            if (!augmentation.is_none())
+                for (nb::handle item : nb::cast<nb::list>(augmentation)) in.augmentation.push_back(augmentation_of(item));
             mdapy::dft::ScfOptions opt;
             opt.spins = spins;
             opt.bands = bands;
@@ -652,7 +654,7 @@ NB_MODULE(_dft, m) {
         nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
         nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none(),
-        nb::arg("magnetic_kerker") = 0.0);
+        nb::arg("magnetic_kerker") = 0.0, nb::arg("augmentation").none() = nb::none());
 
     // the augmentation charges of ultrasoft species on the sphere of the
     // density, for the tests: the cell, the cutoff and grid of the density, the

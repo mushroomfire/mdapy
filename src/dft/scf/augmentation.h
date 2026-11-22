@@ -61,6 +61,9 @@ public:
     // the strengths Omega sum_G Re[conj(V(G)) Q_ab(G) exp(-i G.tau)] of V(G)
     // on the device, for each atom its pairs, on the host
     std::vector<double> strengths(const Complex* v);
+    // the forces (atoms, 3) of the augmentation in a potential V(G) on the
+    // device: sum_ab becsum_ab Omega Re sum_G conj(V(G)) i G Q_ab(G) exp(-i G.tau)
+    std::vector<double> forces(const Complex* v, const std::vector<double>& becsum);
     // Q_ab(G) of one species at an atom at the origin, (pairs, n), on the host;
     // for the tests
     std::vector<Complex> components(int species);

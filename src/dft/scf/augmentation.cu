@@ -103,6 +103,17 @@ __global__ void weight_kernel(std::size_t first, std::size_t count, int pairs, c
     w[idx] = make_cuDoubleComplex(a.x * b.x + a.y * b.y, a.y * b.x - a.x * b.y);
 }
 
+// w[j pairs + pair] = q[j pairs + pair] conj(v[first + j]) i G_d
+__global__ void force_weight_kernel(std::size_t first, std::size_t count, int pairs, int d, const double* g,
+                                    const Complex* q, const Complex* v, Complex* w) {
+    const std::size_t idx = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (idx >= count * pairs) return;
+    const std::size_t j = first + idx / pairs;
+    const Complex a = q[idx], b = v[j];
+    const double re = a.x * b.x + a.y * b.y, im = a.y * b.x - a.x * b.y, gd = g[3 * j + d];
+    w[idx] = make_cuDoubleComplex(-gd * im, gd * re);  // times i G_d
+}
+
 }  // namespace
 
 Augmentation::Augmentation(const Lattice& lattice, const Sphere& sphere, const std::vector<Atom>& atoms,
@@ -266,6 +277,46 @@ std::vector<double> Augmentation::strengths(const Complex* v) {
             for (int p = 0; p < pairs; ++p)
                 out[offsets_[s][static_cast<std::size_t>(i)] + static_cast<std::size_t>(p)] =
                     lattice_.volume * host[static_cast<std::size_t>(i) * pairs + p].x;
+    }
+    return out;
+}
+
+std::vector<double> Augmentation::forces(const Complex* v, const std::vector<double>& becsum) {
+    std::vector<double> out(3 * atoms_.size(), 0.0);
+    const Complex one = make_cuDoubleComplex(1.0, 0.0);
+    for (std::size_t s = 0; s < species_.size(); ++s) {
+        const int pairs = species_[s].pairs();
+        const int na = static_cast<int>(members_[s].size());
+        if (pairs <= 0 || na == 0) continue;
+        const std::size_t step = std::max<std::size_t>(1, (std::size_t{256} << 20) / (48 * static_cast<std::size_t>(pairs + na)));
+        for (int d = 0; d < 3; ++d) {
+            values_.reserve(static_cast<std::size_t>(pairs) * na);
+            values_.zero();
+            for (std::size_t first = 0; first < n_; first += step) {
+                const std::size_t count = std::min(step, n_ - first);
+                q_.reserve(count * pairs);
+                phases_.reserve(count * na);
+                work_.reserve(count * pairs);
+                block_q(static_cast<int>(s), first, count, q_.data());
+                block_phases(static_cast<int>(s), first, count, phases_.data());
+                force_weight_kernel<<<blocks(count * pairs), kThreads>>>(first, count, pairs, d, g_.data(), q_.data(),
+                                                                       v, work_.data());
+                check_cuda(cudaGetLastError(), "the weights of the forces of the augmentation");
+                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, pairs, na, static_cast<int>(count), &one,
+                                       work_.data(), pairs, phases_.data(), na, &one, values_.data(), pairs),
+                           "cublasZgemm");
+            }
+            std::vector<Complex> host(static_cast<std::size_t>(pairs) * na);
+            values_.download(host.data(), host.size());
+            for (int i = 0; i < na; ++i) {
+                double f = 0.0;
+                for (int p = 0; p < pairs; ++p)
+                    f += becsum[offsets_[s][static_cast<std::size_t>(i)] + static_cast<std::size_t>(p)] *
+                         host[static_cast<std::size_t>(i) * pairs + p].x;
+                out[3 * static_cast<std::size_t>(members_[s][static_cast<std::size_t>(i)]) + static_cast<std::size_t>(d)] +=
+                    lattice_.volume * f;
+            }
+        }
     }
     return out;
 }

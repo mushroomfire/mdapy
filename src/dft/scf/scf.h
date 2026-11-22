@@ -40,6 +40,7 @@
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
+#include "dft/scf/augmentation.h"
 #include "dft/scf/mixer.h"
 #include "dft/scf/occupations.h"
 #include "dft/xc/xc.h"
@@ -67,6 +68,9 @@ struct ScfInput {
     // the form factors of the free atoms, for the correction of the forces;
     // empty for none
     std::vector<double> atom_factors;
+    // the augmentation of each species, none for a norm-conserving one (the
+    // stress of ultrasoft species is not computed yet)
+    std::vector<SpeciesAugmentation> augmentation;
     std::vector<double> density;  // the first rho_in(r) on the grid, up then down with spin
     double ewald = 0.0;
 };

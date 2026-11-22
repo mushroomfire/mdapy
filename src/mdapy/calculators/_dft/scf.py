@@ -12,7 +12,7 @@ import math
 
 import numpy as np
 
-from . import radial
+from . import augmentation, radial
 from .ewald import ewald
 
 _FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "lda_pw"}
@@ -192,6 +192,16 @@ def run(
     charges = np.array([pseudos[s].valence for s in kinds])
     e_ewald, f_ewald, s_ewald = ewald(cell, positions @ cell, charges, True, True)
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
+    ultrasoft = any(pp.ultrasoft for pp in pseudos)
+    augmented = None
+    if ultrasoft:
+        augmented = [
+            augmentation.terms(pp, math.sqrt(2 * density_cutoff) + 1, volume)
+            if pp.ultrasoft
+            else None
+            for pp in pseudos
+        ]
+        stress = False  # not yet for ultrasoft pseudopotentials
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
@@ -202,7 +212,7 @@ def run(
         energy_tolerance, density_tolerance, max_iterations, davidson_iterations,
         davidson_basis, seed,
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
-        state, magnetic_kerker,
+        state, magnetic_kerker, augmented,
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):

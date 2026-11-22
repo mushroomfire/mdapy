@@ -47,7 +47,7 @@ def compare(cell, positions, symbols, cutoff, kgrid, smearing="fixed", sigma=0.0
     ours = scf.run(
         cell, positions, kinds, pseudos, cutoff, kgrid=kgrid, smearing=smearing,
         sigma=sigma, functional="pbe_pw", grid=qe["grid"], density_tolerance=1e-14,
-        energy_tolerance=1e-12,
+        energy_tolerance=1e-12, symmetry=False
     )  # fmt: skip
     assert ours["converged"]
     assert [len(_dft.sphere(cell, list(k), cutoff, ours["grid"])[0])
@@ -88,9 +88,9 @@ def test_aluminium(smearing):
 def test_the_bands_by_default():
     pp = read_upf(espresso.pseudo("Si_std.upf"))
     r = scf.run(fcc(5.431), [[0, 0, 0], [0.25, 0.25, 0.25]], [0, 0], [pp], 8.0,
-                density_tolerance=1e-8)  # fmt: skip
+                density_tolerance=1e-8, symmetry=False)  # fmt: skip
     assert r["bands"] == 8 and r["converged"]
     assert math.isclose(r["occupations"][:, :4].sum(), 4.0)
     r = scf.run(fcc(5.431), [[0, 0, 0], [0.25, 0.25, 0.25]], [0, 0], [pp], 8.0,
-                smearing="gaussian", sigma=0.01, density_tolerance=1e-8)  # fmt: skip
+                smearing="gaussian", sigma=0.01, density_tolerance=1e-8, symmetry=False)  # fmt: skip
     assert r["bands"] == 8

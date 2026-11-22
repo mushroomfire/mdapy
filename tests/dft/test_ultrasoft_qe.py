@@ -56,7 +56,7 @@ def test_against_qe(case, dual):
     r = scf.run(
         cell, positions, [0] * len(positions), [pp], cutoff, kgrid=kgrid, smearing=smearing,
         sigma=0.01, grid=qe["grid"], smooth_grid=qe["smooth_grid"],
-        density_cutoff=dual * cutoff, magmoms=magmoms, **TIGHT,
+        density_cutoff=dual * cutoff, magmoms=magmoms, **TIGHT, symmetry=False
     )  # fmt: skip
     assert r["converged"] and tuple(r["smooth_grid"]) == qe["smooth_grid"]
     n = len(positions)
@@ -86,7 +86,7 @@ def test_forces_against_differences():
 
     def run(x):
         return scf.run(cell, x, [0, 0], [pp], 12.0, kgrid=(2, 2, 2), smearing="fixed",
-                       density_cutoff=96.0, **TIGHT)  # fmt: skip
+                       density_cutoff=96.0, **TIGHT, symmetry=False)  # fmt: skip
 
     r = run(positions)
     raw = r["forces"] + r["net_force"]
@@ -117,13 +117,15 @@ def test_stress(case):
     options = dict(kgrid=kgrid if case == "Fe" else (2, 2, 2), smearing=smearing, sigma=0.01,
                    density_cutoff=8 * cutoff, magmoms=magmoms, functional="pbe_pw",
                    density_tolerance=1e-15, energy_tolerance=1e-13)  # fmt: skip
-    r = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, **options)
+    r = scf.run(
+        cell, positions, [0] * len(positions), [pp], cutoff, **options, symmetry=False
+    )
     assert r["converged"]
 
     def energy(strain):
         return scf.run(cell @ (np.eye(3) + strain), positions, [0] * len(positions), [pp], cutoff,
                        grid=r["grid"], smooth_grid=r["smooth_grid"], basis_cell=cell, stress=False,
-                       **options)["energy"]  # fmt: skip
+                       **options, symmetry=False)["energy"]  # fmt: skip
 
     step = 1e-4
     fd = np.zeros((3, 3))
@@ -137,10 +139,11 @@ def test_stress(case):
     kpoints, weights = _dft.monkhorst_pack(
         list(options["kgrid"]), [0.0, 0.0, 0.0], True
     )
+    # sheared iron with spin converges slowly in QE; its stress needs no tighter
     qe = espresso.run(cell, positions, [case] * len(positions), files, cutoff, kpoints, weights,
-                      smearing, 0.01, conv_thr=1e-13 if magmoms else 1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
+                      smearing, 0.01, conv_thr=1e-12 if magmoms else 1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
                       extra=f", ecutrho = {16 * cutoff:.10f}")  # fmt: skip
     ours = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, grid=qe["grid"],
-                   smooth_grid=qe["smooth_grid"], **options)  # fmt: skip
+                   smooth_grid=qe["smooth_grid"], **options, symmetry=False)  # fmt: skip
     stress = -ours["strain_derivative"] / abs(np.linalg.det(cell))
     np.testing.assert_allclose(stress, qe["stress"], atol=1e-7 if magmoms else 3e-8)

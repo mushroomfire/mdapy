@@ -50,6 +50,7 @@
 #include "dft/scf/mixer.h"
 #include "dft/scf/occupations.h"
 #include "dft/scf/paw.h"
+#include "dft/scf/symmetry.h"
 #include "dft/xc/xc.h"
 
 namespace mdapy::dft {
@@ -91,6 +92,9 @@ struct ScfInput {
     // or the one-center data of each species (mesh 0 without PAW), for the
     // GPU's one-center terms when onecenter is empty
     std::vector<SpeciesOneCenter> paw;
+    // the operations of the crystal, the k-points then irreducible; none for
+    // the identity alone
+    SymmetryInput symmetry;
 };
 
 struct ScfOptions {

@@ -58,12 +58,15 @@ def _run(text: str, folder: str) -> tuple[str, str]:
 
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
-        sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100):  # fmt: skip
+        sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100,
+        symmetric=False):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
     of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
-    magnetons per atom) collinear spins, a species for each element and moment.
-    A dict of the energies and the eigenvalues ((2,) K, bands)."""
+    magnetons per atom) collinear spins, a species for each element and moment;
+    symmetric lets QE use the symmetry of the crystal on the k-points given
+    (irreducible ones). A dict of the energies and the eigenvalues ((2,) K,
+    bands)."""
     from mdapy.calculators._dft.upf import read_upf
 
     folder = str(Path(next(iter(files.values()))).parent)
@@ -95,7 +98,7 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
         "&system",
         f"  ibrav = 0, celldm(1) = {alat:.15f}, nat = {len(symbols)}, "
         f"ntyp = {len(kinds)}, ecutwfc = {cutoff / RY:.10f},",
-        f"  {occupations}, nosym = .true., noinv = .true. {spin} {extra}",
+        f"  {occupations}, {'' if symmetric else 'nosym = .true., noinv = .true.,'} {spin} {extra}",
         "/",
         "&electrons",
         f"  conv_thr = {conv_thr}, mixing_beta = {beta}, electron_maxstep = {maxstep}",

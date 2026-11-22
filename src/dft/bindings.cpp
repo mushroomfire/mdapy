@@ -580,7 +580,7 @@ NB_MODULE(_dft, m) {
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
-           nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals) {
+           nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -626,6 +626,29 @@ NB_MODULE(_dft, m) {
                 for (nb::handle item : nb::cast<nb::list>(augmentation)) in.augmentation.push_back(augmentation_of(item));
             if (!paw.is_none())
                 for (nb::handle item : nb::cast<nb::list>(paw)) in.paw.push_back(paw_of(item));
+            if (!symmetry.is_none()) {
+                // symmetry.payload: inverse_transposes (K, 9), translations (K, 3),
+                // atoms (K, N), harmonics (K, sum (2l+1)^2), lmax
+                nb::dict d = nb::cast<nb::dict>(symmetry);
+                auto w = nb::cast<nb::ndarray<const int, nb::ndim<2>, nb::c_contig, nb::device::cpu>>(d["inverse_transposes"]);
+                auto t = nb::cast<Rows>(d["translations"]);
+                auto at = nb::cast<nb::ndarray<const int, nb::ndim<2>, nb::c_contig, nb::device::cpu>>(d["atoms"]);
+                auto hm = nb::cast<Rows>(d["harmonics"]);
+                const std::size_t ops = w.shape(0);
+                if (w.shape(1) != 9 || t.shape(0) != ops || at.shape(0) != ops || hm.shape(0) != ops ||
+                    at.shape(1) != in.atoms.size())
+                    throw std::invalid_argument("the operations of the symmetry and their parts");
+                in.symmetry.lmax = nb::cast<int>(d["lmax"]);
+                for (std::size_t k = 0; k < ops; ++k) {
+                    std::array<int, 9> matrix{};
+                    for (int j = 0; j < 9; ++j)
+                        matrix[static_cast<std::size_t>(j)] = w.data()[9 * k + static_cast<std::size_t>(j)];
+                    in.symmetry.inverse_transposes.push_back(matrix);
+                    in.symmetry.translations.push_back(Vec3{t.data()[3 * k], t.data()[3 * k + 1], t.data()[3 * k + 2]});
+                    in.symmetry.atoms.emplace_back(at.data() + k * at.shape(1), at.data() + (k + 1) * at.shape(1));
+                    in.symmetry.harmonics.emplace_back(hm.data() + k * hm.shape(1), hm.data() + (k + 1) * hm.shape(1));
+                }
+            }
             if (!onecenter.is_none() || !paw.is_none()) {
                 if (becsum.is_none()) throw std::invalid_argument("PAW needs the first occupations becsum");
                 in.becsum = spins_of(nb::cast<Rows>(becsum));
@@ -756,7 +779,7 @@ NB_MODULE(_dft, m) {
         nb::arg("magnetic_kerker") = 0.0, nb::arg("augmentation").none() = nb::none(),
         nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
         nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none(),
-        nb::arg("orbitals").none() = nb::none());
+        nb::arg("orbitals").none() = nb::none(), nb::arg("symmetry").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

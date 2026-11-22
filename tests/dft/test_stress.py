@@ -38,7 +38,7 @@ def differences(cell, positions, pp, cutoff, grid, step=1e-4, **options):
     def energy(strain):
         return scf.run(cell @ (np.eye(3) + strain), positions, [0] * len(positions), [pp],
                        cutoff, grid=grid, basis_cell=cell, stress=False, **options,
-                       **TIGHT)["energy"]  # fmt: skip
+                       **TIGHT, symmetry=False)["energy"]  # fmt: skip
 
     out = np.zeros((3, 3))
     for a, b in PAIRS:
@@ -53,7 +53,9 @@ def test_silicon_against_its_differences():
     cell = fcc(5.431) @ SHEAR
     positions = np.array([[0.01, -0.02, 0.0], [0.27, 0.25, 0.23]])
     pp = read_upf(espresso.pseudo("Si_std.upf"))
-    r = scf.run(cell, positions, [0, 0], [pp], 12.0, kgrid=(2, 2, 2), **TIGHT)
+    r = scf.run(
+        cell, positions, [0, 0], [pp], 12.0, kgrid=(2, 2, 2), **TIGHT, symmetry=False
+    )
     np.testing.assert_allclose(
         r["strain_derivative"], r["strain_derivative"].T, atol=1e-14
     )
@@ -67,7 +69,7 @@ def test_iron_with_spin_against_its_differences():
     positions = np.array([[0.0, 0.0, 0.0], [0.52, 0.49, 0.5]])
     pp = read_upf(espresso.pseudo("Fe_std.upf"))
     options = dict(kgrid=(2, 2, 2), smearing="gaussian", sigma=0.01, magmoms=[2.5, 2.5])
-    r = scf.run(cell, positions, [0, 0], [pp], 16.0, **options, **TIGHT)
+    r = scf.run(cell, positions, [0, 0], [pp], 16.0, **options, **TIGHT, symmetry=False)
     fd = differences(cell, positions, pp, 16.0, r["grid"], **options)
     np.testing.assert_allclose(r["strain_derivative"], fd, atol=2e-7)
 
@@ -92,7 +94,7 @@ def test_against_qe(case):
                       0.01, conv_thr=1e-14, magmoms=magmoms, beta=0.3)  # fmt: skip
     r = scf.run(cell, positions, [0] * len(positions), [read_upf(files[element])], cutoff,
                 kgrid=(kgrid,) * 3, smearing=smearing, sigma=0.01, grid=qe["grid"],
-                magmoms=magmoms, **TIGHT)  # fmt: skip
+                magmoms=magmoms, **TIGHT, symmetry=False)  # fmt: skip
     # QE's stress is -(1/Omega) dE/d epsilon. With spin, QE's PBE correlation
     # takes a rounded gamma, which moves its gradient term by about 1e-5 (0.02
     # kbar here); test_iron_with_spin_against_its_differences checks ours

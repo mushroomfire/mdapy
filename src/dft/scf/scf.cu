@@ -276,6 +276,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
     };
     std::vector<std::vector<double>> becsum(spins);
+    // the symmetry of the crystal, on the density and the occupations
+    Symmetrizer symmetrizer(input.symmetry, pot.sphere().miller);
+    std::vector<std::vector<int>> atom_angular;
+    for (const Atom& atom : input.atoms) atom_angular.push_back(input.species[static_cast<std::size_t>(atom.species)].angular);
     // PAW: the input occupations, mixed, and the one-center strengths of them,
     // of the callable given or of the GPU
     std::unique_ptr<OneCenter> centers;
@@ -419,6 +423,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         double paw_energy = 0.0;
         if (paw) {
             e1 = one(becsum_in, onecenter);
+            // the one-center strengths made symmetric too, as QE does: its
+            // quadrature of directions is not
+            for (std::size_t s = 0; s < spins; ++s)
+                symmetrizer.occupations(onecenter[s], pair_offsets, atom_angular, false);
             add_onecenter(onecenter);
             paw_energy = e1;
             for (std::size_t s = 0; s < spins; ++s)
@@ -483,9 +491,13 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         } else {
             pot.to_sphere(rho_out.data(), components.data(), ns);
         }
-        if (ultrasoft)  // the augmentation of each spin
-            for (std::size_t s = 0; s < spins; ++s) aug.add_density(becsum[s], components.data() + s * ng);
-        if (ultrasoft || two_grids) pot.from_sphere(components.data(), rho_out.data(), ns);
+        if (ultrasoft)  // the occupations made symmetric, the augmentation of each spin
+            for (std::size_t s = 0; s < spins; ++s) {
+                symmetrizer.occupations(becsum[s], pair_offsets, atom_angular);
+                aug.add_density(becsum[s], components.data() + s * ng);
+            }
+        symmetrizer.density(components.data(), ns);
+        if (ultrasoft || two_grids || symmetrizer.active()) pot.from_sphere(components.data(), rho_out.data(), ns);
         components.download(out_g.data(), out_g.size());
         if (ns == 2) to_total(out_g, ng);
         result.times.density += clock.lap();
@@ -702,6 +714,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 // the one-center strengths of the output occupations
                 std::vector<std::vector<double>> d(spins);
                 one(becsum, d);
+                for (std::size_t s = 0; s < spins; ++s) symmetrizer.occupations(d[s], pair_offsets, atom_angular, false);
                 add_onecenter(d);
             }
             for (std::size_t s = 0; s < spins; ++s) {

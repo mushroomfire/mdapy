@@ -116,13 +116,18 @@ class DFT(Calculator):
         for the steps of a relaxation or of molecular dynamics. Default
         False: each computation starts cold, as the labels of a training set
         should.
+    symmetry : bool, optional
+        Use the symmetry of the crystal, found by spglib, to keep the
+        irreducible k-points alone and make the density, the forces and the
+        stress symmetric. Default None: when spglib is installed.
 
     Attributes
     ----------
     cutoff : float64
         0: the calculator needs no neighbor list.
     last : dict
-        Of the last computation: ``iterations``, ``davidson`` (the
+        Of the last computation: ``iterations``, ``operations`` (of the
+        symmetry used, 1 without), ``davidson`` (the
         iterations of the eigensolver over all steps, k-points and spins),
         ``restarted`` (from the one before), ``fermi`` (eV),
         ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
@@ -166,6 +171,7 @@ class DFT(Calculator):
         seed: int = 0,
         gpu: int | None = None,
         restart: bool = False,
+        symmetry: bool | None = None,
     ):
         if not encut > 0:
             raise InvalidParameter("encut must be positive")
@@ -216,6 +222,7 @@ class DFT(Calculator):
         self.magmoms = magmoms
         self.functional = functional
         self.tolerance = float(tolerance)
+        self.symmetry = symmetry
         self.max_iterations = int(max_iterations)
         self.mixing = float(mixing)
         self.kerker = float(kerker)
@@ -347,6 +354,7 @@ class DFT(Calculator):
             max_iterations=self.max_iterations, seed=self.seed,
             functional=self.functional, magmoms=self.__moments(elements),
             stress="virial" in wanted, state=self.__restart_state(),
+            symmetry=self.symmetry,
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])
@@ -362,6 +370,7 @@ class DFT(Calculator):
             "iterations": int(r["iterations"]),
             "davidson": int(np.sum(r["davidson"])),
             "restarted": bool(r["restarted"]),
+            "operations": int(r["operations"]),
             "fermi": float(r["fermi"]) * HARTREE,
             "net_force": r["net_force"] * HARTREE / BOHR,
             "kpoints": mesh,

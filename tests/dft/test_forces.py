@@ -47,7 +47,9 @@ def test_silicon():
     pp = read_upf(espresso.pseudo("Si_std.upf"))
 
     def run(x):
-        return scf.run(cell, x, [0, 0], [pp], 12.0, kgrid=(2, 2, 2), **TIGHT)
+        return scf.run(
+            cell, x, [0, 0], [pp], 12.0, kgrid=(2, 2, 2), **TIGHT, symmetry=False
+        )
 
     r = run(positions)
     raw = r["forces"] + r["net_force"]
@@ -70,7 +72,7 @@ def test_aluminium_with_a_smearing():
 
     def run(x):
         return scf.run(cell, x, [0] * 4, [pp], 10.0, kgrid=(2, 2, 2),
-                       smearing="marzari-vanderbilt", sigma=0.01, **TIGHT)  # fmt: skip
+                       smearing="marzari-vanderbilt", sigma=0.01, **TIGHT, symmetry=False)  # fmt: skip
 
     r = run(positions)
     raw = r["forces"] + r["net_force"]
@@ -85,7 +87,7 @@ def test_iron_with_spin():
 
     def run(x):
         return scf.run(cell, x, [0, 0], [pp], 20.0, kgrid=(2, 2, 2), smearing="gaussian",
-                       sigma=0.01, magmoms=[2.5, 2.5], **TIGHT)  # fmt: skip
+                       sigma=0.01, magmoms=[2.5, 2.5], **TIGHT, symmetry=False)  # fmt: skip
 
     r = run(positions)
     assert r["magnetization"] > 3.0
@@ -107,7 +109,7 @@ def test_the_correction_of_a_loose_field():
     def run(tolerance, correct=True):
         return scf.run(np.diag([a] * 3), positions, [0] * 8, [pp], 15.0, kgrid=(2, 2, 2),
                        density_tolerance=tolerance, energy_tolerance=tolerance,
-                       correct_forces=correct)["forces"]  # fmt: skip
+                       correct_forces=correct, symmetry=False)["forces"]  # fmt: skip
 
     tight = run(1e-15)
     corrected = np.abs(run(1e-5 / 27.2) - tight).max()

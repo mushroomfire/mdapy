@@ -34,7 +34,7 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=0.7, magnetic_mixing=1.6, kerker=1.5, bands=None, seed=0,
-gpu=None, restart=False)` computes the
+gpu=None, restart=False, symmetry=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
@@ -58,6 +58,7 @@ CUDA 12 for GPUs from the V100 on.
 | `magnetic_mixing` | float64 | 1.6 | | with spin, the share of the residual of the magnetization taken at each step, as VASP's AMIX_MAG |
 | `kerker` | float64 | 1.5 | 1/Å | the wave vector of Kerker's preconditioner of the mixing, 0 for none |
 | `bands` | int32 | `None` | | bands per k-point and spin; by default four or 10 % more than the occupied ones for fixed occupations, else the larger of 1.2 N/2 and N/2 + 4 for N electrons |
+| `symmetry` | bool | `None` | | the symmetry of the crystal, found by [spglib](https://spglib.readthedocs.io): the irreducible k-points alone, the density, the occupations of the projectors, the forces and the stress made symmetric; by default when spglib is installed |
 | `seed` | int32 | 0 | | seed of the random first bands |
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
 | `restart` | bool | `False` | | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; labels of a training set should start cold |
@@ -126,6 +127,15 @@ write(f"train-{rank}.xyz", labelled)
   starts from the bands of the last, plane wave by plane wave, and from its
   density with the free atoms moved from where they were to where they are;
   a run of other k-points, bands, spins or a number of atoms starts cold.
+- **Symmetry:** the operations of the crystal that keep its atoms, their
+  kinds and first moments, found by spglib to 1e-5 bohr. The k-points of the
+  mesh reduce to the irreducible ones, k equivalent to R^T k and to −k. The
+  output density is the average of its images on the sphere of reciprocal
+  space, so the fractional translations need not fit the FFT grid; the
+  occupations of the projectors and the one-center strengths of PAW are averaged
+  with the rotations of the real harmonics, and the forces and the stress over
+  the operations. A configuration without symmetry, as most of a training set,
+  runs on the mesh with time reversal alone.
 - **Forces** with Quantum ESPRESSO's correction for a density not quite
   self-consistent. Their mean, which only the FFT grid leaves, is taken out
   and kept in `last["net_force"]`.

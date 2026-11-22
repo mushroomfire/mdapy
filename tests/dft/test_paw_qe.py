@@ -81,7 +81,7 @@ def test_against_pw(element, engine):
         sigma=0.01, functional=NAME, grid=qe["grid"], smooth_grid=qe["smooth_grid"],
         density_cutoff=dual * cutoff, density_tolerance=1e-13, energy_tolerance=1e-11,
         magmoms=magmoms, onecenter=onecenter if engine == "reference" else None,
-        max_iterations=150,
+        max_iterations=150, symmetry=False
     )  # fmt: skip
     assert r["converged"]
     energy = r["energy"]

@@ -13,6 +13,7 @@ import math
 import numpy as np
 
 from . import augmentation, paw, radial
+from . import symmetry as symmetries
 from .ewald import ewald
 
 _FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "lda_pw"}
@@ -132,6 +133,7 @@ def run(
     smooth_grid=None,
     onecenter=None,
     atomic_start: bool = True,
+    symmetry: bool | None = None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -154,7 +156,11 @@ def run(
     occupations; the result then holds onecenter (E^1) and becsum, the
     occupations of all atoms (spins, pairs). With atomic_start the first
     bands are those of the pseudo-orbitals of the free atoms in the first
-    potential (random ones fill up to the bands), else random."""
+    potential (random ones fill up to the bands), else random. With symmetry
+    (by default when spglib is installed, never with basis_cell) the
+    operations of the crystal reduce the k-points and make the density, the
+    occupations of the projectors, the forces and the stress symmetric; the
+    result holds their number as operations."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -223,7 +229,18 @@ def run(
     dij = [np.ascontiguousarray(pp.dij, dtype=float) for pp in pseudos]
     charges = np.array([pseudos[s].valence for s in kinds])
     e_ewald, f_ewald, s_ewald = ewald(cell, positions @ cell, charges, True, True)
-    kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
+    ops = None
+    wanted = symmetries.available() if symmetry is None else bool(symmetry)
+    if wanted and basis_cell is None:
+        ops = symmetries.operations(cell, positions, kinds, magmoms)
+        if len(ops) == 1:
+            ops = None
+    if ops is None:
+        kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
+    else:
+        full, _ = _dft.monkhorst_pack(list(kgrid), list(offset), False)
+        kpoints, weights = symmetries.irreducible(full, ops.rotations)
+        kpoints, weights = np.ascontiguousarray(kpoints), np.ascontiguousarray(weights)
     ultrasoft = any(pp.ultrasoft for pp in pseudos)
     augmented = None
     if ultrasoft:
@@ -253,6 +270,7 @@ def run(
         state, magnetic_kerker, augmented,
         None if smooth_grid == grid else list(smooth_grid), callback, becsum,
         data if callback is None else None, orbitals if atomic_start else None,
+        None if ops is None else symmetries.payload(ops),
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
@@ -262,12 +280,18 @@ def run(
     if stress:
         result["strain_derivative"] = result["strain_derivative"] + s_ewald
     forces = result["forces"] + f_ewald
+    if ops is not None:
+        forces = symmetries.forces(ops, forces)
+        if stress:
+            result["strain_derivative"] = symmetries.tensor(
+                ops, result["strain_derivative"]
+            )
     result["net_force"] = forces.mean(axis=0)
     result["forces"] = forces - result["net_force"]
     result.update(
         smooth_grid=smooth_grid,
         grid=grid, kpoints=kpoints, weights=weights, electrons=electrons, bands=bands,
-        spins=spins,
+        spins=spins, operations=1 if ops is None else len(ops),
     )  # fmt: skip
     return result
 

@@ -47,7 +47,7 @@ def compare(cell, positions, symbols, magmoms):
     ours = scf.run(
         cell, positions, kinds, pseudos, CUTOFF, kgrid=(4, 4, 4), smearing="gaussian",
         sigma=0.01, functional="pbe_pw", grid=qe["grid"], magmoms=magmoms,
-        density_tolerance=1e-14, energy_tolerance=1e-12,
+        density_tolerance=1e-14, energy_tolerance=1e-12, symmetry=False
     )  # fmt: skip
     assert ours["converged"] and ours["spins"] == 2
     gamma = espresso.rounded_gamma(ours, cell, positions, kinds, pseudos, 4 * CUTOFF)
@@ -87,8 +87,10 @@ def test_no_moments_is_paramagnetic():
     pp = read_upf(espresso.pseudo("Al_std.upf"))
     common = dict(kgrid=(3, 3, 3), smearing="gaussian", sigma=0.01,
                   density_tolerance=1e-13, energy_tolerance=1e-12)  # fmt: skip
-    one = scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, **common)
-    two = scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[0.0], **common)
+    one = scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, **common, symmetry=False)
+    two = scf.run(
+        fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[0.0], **common, symmetry=False
+    )
     assert two["spins"] == 2 and one["spins"] == 1
     assert two["energy"] == pytest.approx(one["energy"], abs=1e-9)
     assert abs(two["magnetization"]) < 1e-12 and two["absolute_magnetization"] < 1e-12
@@ -99,6 +101,8 @@ def test_no_moments_is_paramagnetic():
 def test_moments_that_do_not_fit():
     pp = read_upf(espresso.pseudo("Al_std.upf"))
     with pytest.raises(ValueError, match="at most its valence"):
-        scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[3.5])
+        scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[3.5], symmetry=False)
     with pytest.raises(ValueError, match="a moment for every atom"):
-        scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[0.1, 0.2])
+        scf.run(
+            fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, magmoms=[0.1, 0.2], symmetry=False
+        )

@@ -203,12 +203,12 @@ def test_paw_and_its_restart(folder):
     it; a restart from the last occupations of the projectors too."""
     path = espresso.pseudo("pslibrary/Si.pbe-n-kjpaw_psl.1.0.0.UPF")
     settings = dict(pseudopotentials={"Si": path}, kpoints=(2, 2, 2), smearing="fixed",
-                    functional="pbe_pw", tolerance=1e-9)  # fmt: skip
+                    functional="pbe_pw", tolerance=1e-10)  # fmt: skip
     dft = DFT(12 * HARTREE, restart=True, **settings)
     result = dft.compute(silicon())
     r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [read_upf(path)], 12.0, kgrid=(2, 2, 2),
-                functional="pbe_pw", energy_tolerance=1e-9 / HARTREE,
-                density_tolerance=1e-9 / HARTREE)  # fmt: skip
+                functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
     assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-7)
     assert dft.last["provenance"]["ecutrho"] is None
     moved = silicon(fractions=FRACTIONS + [[0.003, 0.0, -0.002], [0.0, 0.004, 0.001]])

@@ -46,7 +46,7 @@ class Orbital:
 
 @dataclass(frozen=True)
 class Pseudopotential:
-    """A norm-conserving pseudopotential.
+    """A norm-conserving or ultrasoft pseudopotential.
 
     Attributes
     ----------
@@ -71,6 +71,12 @@ class Pseudopotential:
     orbitals : tuple of Orbital
     digest : str
         The SHA-256 of the file, to tell the pseudopotentials of labels apart.
+    q : numpy.ndarray or None
+        (P, P) float64 the integrals q_ij of the augmentation charges of an
+        ultrasoft pseudopotential, None for a norm-conserving one.
+    augmentation : dict or None
+        The augmentation charges r^2 Q_ij^L(r), (M,) float64, by (i, j, L)
+        with i <= j counted from 0.
     """
 
     element: str
@@ -85,6 +91,12 @@ class Pseudopotential:
     atom: np.ndarray
     orbitals: tuple
     digest: str
+    q: np.ndarray | None = None
+    augmentation: dict | None = None
+
+    @property
+    def ultrasoft(self) -> bool:
+        return self.q is not None
 
     @property
     def lmax(self) -> int:
@@ -130,13 +142,16 @@ def _flag(value: str) -> bool:
 
 
 def read_upf(path: str | Path) -> Pseudopotential:
-    """The norm-conserving pseudopotential of a UPF file of version 2.
+    """The norm-conserving or ultrasoft pseudopotential of a UPF file of
+    version 2; the augmentation charges of an ultrasoft one by angular
+    momentum (q_with_l).
 
     Raises
     ------
     InvalidParameter
-        For a file of another version or kind (ultrasoft, PAW, spin-orbit),
-        or one that misses a part a norm-conserving pseudopotential needs.
+        For a file of another version or kind (PAW, spin-orbit), augmentation
+        charges without their angular momenta or pseudized inside rinner, or
+        one that misses a part the pseudopotential needs.
     """
     path = Path(path)
     raw = path.read_bytes()
@@ -148,14 +163,13 @@ def read_upf(path: str | Path) -> Pseudopotential:
         raise InvalidParameter(f"{path.name}: no PP_HEADER")
     head = dict(_ATTRIBUTE.findall(header.group(1)))
     kind = head.get("pseudo_type", "").strip().upper()
-    if (
-        kind not in ("NC", "SL")
-        or _flag(head.get("is_ultrasoft", "F"))
-        or _flag(head.get("is_paw", "F"))
-    ):
+    if kind == "PAW" or _flag(head.get("is_paw", "F")):
+        raise InvalidParameter(f"{path.name}: PAW datasets are not supported yet")
+    ultrasoft = kind == "US" or kind == "USPP" or _flag(head.get("is_ultrasoft", "F"))
+    if kind not in ("NC", "SL", "US", "USPP"):
         raise InvalidParameter(
-            f"{path.name}: only norm-conserving pseudopotentials are supported, not "
-            f"{kind or 'this kind'}"
+            f"{path.name}: only norm-conserving and ultrasoft pseudopotentials are "
+            f"supported, not {kind or 'this kind'}"
         )
     if _flag(head.get("has_so", "F")):
         raise InvalidParameter(
@@ -200,6 +214,33 @@ def read_upf(path: str | Path) -> Pseudopotential:
                 float(attributes.get("occupation", "0")), _numbers(body)[:mesh])
         for attributes, body in _indexed(text, "PP_CHI")
     )  # fmt: skip
+    q = augmentation = None
+    if ultrasoft:
+        found = _block(text, "PP_AUGMENTATION")
+        if found is None:
+            raise InvalidParameter(f"{path.name}: no PP_AUGMENTATION")
+        attributes, body = found
+        if not _flag(attributes.get("q_with_l", "F")):
+            raise InvalidParameter(
+                f"{path.name}: the augmentation charges lack their angular momenta "
+                "(q_with_l); files made by a recent ld1.x have them"
+            )
+        if int(attributes.get("nqf", "0")) > 0:
+            raise InvalidParameter(
+                f"{path.name}: augmentation charges pseudized inside rinner"
+            )
+        qblock = _block(body, "PP_Q")
+        if qblock is None:
+            raise InvalidParameter(f"{path.name}: no PP_Q")
+        q = _numbers(qblock[1])[: count * count].reshape(count, count)
+        augmentation = {}
+        for m in re.finditer(
+            r"<PP_QIJL\.(\d+)\.(\d+)\.(\d+)\b[^>]*>(.*?)</PP_QIJL", body, re.S
+        ):
+            i, j, ell = int(m.group(1)) - 1, int(m.group(2)) - 1, int(m.group(3))
+            augmentation[(min(i, j), max(i, j), ell)] = _numbers(m.group(4))[:mesh]
+        if not augmentation:
+            raise InvalidParameter(f"{path.name}: no PP_QIJL")
     return Pseudopotential(
         element=head["element"].strip(),
         valence=float(head["z_valence"]),
@@ -213,4 +254,6 @@ def read_upf(path: str | Path) -> Pseudopotential:
         atom=radial("PP_RHOATOM"),
         orbitals=orbitals,
         digest=hashlib.sha256(raw).hexdigest(),
+        q=q,
+        augmentation=augmentation,
     )

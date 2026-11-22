@@ -79,8 +79,9 @@ def test_a_upf_file_in_hartree(tmp_path):
 
 @pytest.mark.parametrize(
     ("options", "message"),
-    [({"version": "1.0"}, "version 2"), ({"kind": "US"}, "norm-conserving"),
-     ({"kind": "PAW"}, "norm-conserving"), ({"spin_orbit": "T"}, "spin-orbit")],
+    [({"version": "1.0"}, "version 2"), ({"kind": "US"}, "no PP_AUGMENTATION"),
+     ({"kind": "PAW"}, "PAW datasets are not supported yet"),
+     ({"kind": "XX"}, "norm-conserving and ultrasoft"), ({"spin_orbit": "T"}, "spin-orbit")],
 )  # fmt: skip
 def test_what_is_refused(tmp_path, options, message):
     with pytest.raises(InvalidParameter, match=message):
@@ -262,3 +263,33 @@ def test_pseudodojo(element):
     # the free atom holds the valence
     assert radial.simpson(pp.atom, pp.rab) == pytest.approx(pp.valence, rel=1e-5)
     np.testing.assert_allclose(pp.dij, pp.dij.T)
+
+
+@pytest.mark.skipif(not PSEUDO, reason="MDAPY_PSEUDO_DIR names no pseudopotentials")
+@pytest.mark.parametrize("element", ["Al", "Fe"])
+def test_pslibrary_ultrasoft(element):
+    """The ultrasoft pseudopotentials of pslibrary 1.0.0 made by ld1.x: the
+    integrals of the augmentation charges of L = 0 are q_ij of the file, to the
+    1e-6 at which its two parts agree (the DFT takes the integrals, as QE)."""
+    name = {
+        "Al": "Al.pbe-n-rrkjus_psl.1.0.0.UPF",
+        "Fe": "Fe.pbe-spn-rrkjus_psl.1.0.0.UPF",
+    }
+    path = Path(PSEUDO) / name[element]
+    if not path.is_file():
+        pytest.skip(f"no {path.name}")
+    pp = read_upf(path)
+    assert pp.ultrasoft and pp.element == element
+    np.testing.assert_allclose(pp.q, pp.q.T)
+    angular = [p.angular for p in pp.projectors]
+    for i in range(len(angular)):
+        for j in range(i, len(angular)):
+            if angular[i] == angular[j]:
+                integral = radial.simpson(pp.augmentation[(i, j, 0)], pp.rab)
+                assert integral == pytest.approx(pp.q[i, j], abs=2e-6)
+            else:
+                assert (i, j, 0) not in pp.augmentation
+    # L runs from |l_i - l_j| to l_i + l_j by twos
+    for i, j, ell in pp.augmentation:
+        assert abs(angular[i] - angular[j]) <= ell <= angular[i] + angular[j]
+        assert (ell + angular[i] + angular[j]) % 2 == 0

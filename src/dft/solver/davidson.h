@@ -9,10 +9,11 @@
 // and a restart from the Ritz vectors once the basis is full. The residual of
 // a band of eigenvalue e is preconditioned by 1 / (H_GG - e), the difference
 // bounded below by a smooth maximum with one rydberg (Davidson's diagonal
-// preconditioner). New vectors are scaled to unit norm, made
-// orthogonal to the basis, and among themselves by the eigenvectors of their
-// overlap, twice; directions of overlap eigenvalues below 1e-10 depend on the
-// rest and are dropped.
+// preconditioner). New vectors are scaled to unit norm, made orthogonal to the
+// basis and among themselves by Cholesky QR, twice; when the factor is ill
+// conditioned, by the eigenvectors of their overlap, dropping the directions of
+// eigenvalues below 1e-10. The matrix of H in the basis grows by the columns of
+// the new vectors.
 
 #pragma once
 
@@ -59,6 +60,7 @@ private:
     cublasHandle_t blas_ = nullptr;
     cusolverDnHandle_t solver_ = nullptr;
     DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
+    DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors
     DeviceArray<double> values_, sums_, energies_, scale_, diagonal_;
     DeviceArray<int> info_, index_;
 };

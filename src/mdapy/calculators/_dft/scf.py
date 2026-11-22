@@ -120,7 +120,7 @@ def run(
     seed: int = 0,
     functional: str | None = None,
     magmoms=None,
-    magnetic_beta: float = 0.4,
+    magnetic_beta: float = 1.6,
     stress: bool = True,
     basis_cell=None,
     correct_forces: bool = True,

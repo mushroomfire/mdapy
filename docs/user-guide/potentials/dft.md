@@ -33,7 +33,8 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 
 `DFT(encut, *, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, functional=None, tolerance=1e-6,
-max_iterations=100, mixing=0.7, kerker=1.5, bands=None, seed=0, restart=False)` computes the
+max_iterations=100, mixing=0.7, magnetic_mixing=1.6, kerker=1.5, bands=None, seed=0,
+restart=False)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
@@ -53,6 +54,7 @@ CUDA 12 for GPUs from the V100 on.
 | `tolerance` | float64 | 1e-6 | eV | the self-consistent field stops when the energy changes by less and the Hartree energy of the change of the density is below it |
 | `max_iterations` | int32 | 100 | | the steps of the self-consistent field before it fails |
 | `mixing` | float64 | 0.7 | | the share of the residual of the density taken at each step |
+| `magnetic_mixing` | float64 | 1.6 | | with spin, the share of the residual of the magnetization taken at each step, as VASP's AMIX_MAG |
 | `kerker` | float64 | 1.5 | 1/Å | the wave vector of Kerker's preconditioner of the mixing, 0 for none |
 | `bands` | int32 | `None` | | bands per k-point and spin; by default four or 10 % more than the occupied ones for fixed occupations, else the larger of 1.2 N/2 and N/2 + 4 for N electrons |
 | `seed` | int32 | 0 | | seed of the random first bands |

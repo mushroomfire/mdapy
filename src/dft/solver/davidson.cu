@@ -142,10 +142,41 @@ int Davidson::orthonormalize(const Complex* v, int n, Complex* w, int m, int row
                                    n, &kOne, w, rows),
                        "cublasZgemm");
         }
-        // w <- w Q Lambda^-1/2 over the eigenpairs of w^H w above kDependent
         check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, m, m, rows, &kOne, w, rows, w, rows, &kZero,
                                overlap_.data(), m),
                    "cublasZgemm");
+        // Cholesky QR, w <- w R^-1 with w^H w = R^H R, while R is well
+        // conditioned (its diagonal within 1e-4 of its largest)
+        const std::size_t mm = static_cast<std::size_t>(m) * m;
+        chol_.reserve(mm);
+        copy(chol_.data(), overlap_.data(), mm);
+        int lwork = 0;
+        check_solver(cusolverDnZpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, &lwork),
+                     "cusolverDnZpotrf_bufferSize");
+        lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
+        check_solver(cusolverDnZpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, lapack_.data(), lwork,
+                                      info_.data()),
+                     "cusolverDnZpotrf");
+        int info = 0;
+        info_.download(&info, 1);
+        if (info == 0) {
+            diagonal_r_.reserve(static_cast<std::size_t>(m));
+            check_blas(cublasZcopy(blas_, m, chol_.data(), m + 1, diagonal_r_.data(), 1), "cublasZcopy");
+            std::vector<Complex> d(static_cast<std::size_t>(m));
+            diagonal_r_.download(d.data(), d.size());
+            double low = std::abs(d[0].x), high = low;
+            for (const Complex& x : d) {
+                low = std::min(low, std::abs(x.x));
+                high = std::max(high, std::abs(x.x));
+            }
+            if (low > 1e-4 * high) {
+                check_blas(cublasZtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
+                                       CUBLAS_DIAG_NON_UNIT, rows, m, &kOne, chol_.data(), m, w, rows),
+                           "cublasZtrsm");
+                continue;
+            }
+        }
+        // else w <- w Q Lambda^-1/2 over the eigenpairs of w^H w above kDependent
         eigh(overlap_.data(), m);
         host.resize(static_cast<std::size_t>(m));
         values_.download(host.data(), host.size());
@@ -187,6 +218,17 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     int nbase = orthonormalize(nullptr, 0, basis_.data(), count, rows);
     if (nbase < count) throw std::invalid_argument("the guess of the bands is linearly dependent");
     h.apply(basis_.data(), hbasis_.data(), nbase);
+    // basis^H H basis, kept between iterations and grown by the columns of
+    // the new vectors (the upper triangle, which the eigensolver reads)
+    const std::size_t ld = static_cast<std::size_t>(most);
+    hsub_.reserve(ld * ld);
+    auto grow = [&](int first, int columns) {
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, first + columns, columns, rows, &kOne,
+                               basis_.data(), rows, hbasis_.data() + n * static_cast<std::size_t>(first), rows,
+                               &kZero, hsub_.data() + ld * static_cast<std::size_t>(first), most),
+                   "cublasZgemm");
+    };
+    grow(0, nbase);
     Complex* x = vectors_.data();
     Complex* hx = vectors_.data() + n * bands;
     DavidsonResult result;
@@ -195,9 +237,10 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     for (int iteration = 1;; ++iteration) {
         result.iterations = iteration;
         // Rayleigh-Ritz: the count lowest eigenpairs of basis^H H basis
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, nbase, nbase, rows, &kOne, basis_.data(), rows,
-                               hbasis_.data(), rows, &kZero, subspace_.data(), nbase),
-                   "cublasZgemm");
+        check_cuda(cudaMemcpy2D(subspace_.data(), static_cast<std::size_t>(nbase) * sizeof(Complex), hsub_.data(),
+                                ld * sizeof(Complex), static_cast<std::size_t>(nbase) * sizeof(Complex),
+                                static_cast<std::size_t>(nbase), cudaMemcpyDeviceToDevice),
+                   "cudaMemcpy2D");
         eigh(subspace_.data(), nbase);
         lambda.resize(static_cast<std::size_t>(nbase));
         values_.download(lambda.data(), lambda.size());
@@ -232,6 +275,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
             copy(basis_.data(), x, n * bands);
             copy(hbasis_.data(), hx, n * bands);
             nbase = count;
+            grow(0, nbase);
         }
         add = std::min(add, most - nbase);
         if (add == 0 || iteration >= max_iterations) {
@@ -257,6 +301,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
             return result;
         }
         h.apply(fresh, hbasis_.data() + n * nbase, kept);
+        grow(nbase, kept);
         nbase += kept;
     }
 }

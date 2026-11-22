@@ -236,7 +236,7 @@ __global__ void diagonal_kernel(std::size_t n, int atoms, const int* blocks, int
                                 const Complex* d, double* out) {
     const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (g >= n) return;
-    double sum = kinetic[g] + mean;
+    double sum = (kinetic == nullptr ? 0.0 : kinetic[g]) + mean;
     for (int a = 0; a < atoms; ++a) {
         const int first = blocks[2 * a], width = blocks[2 * a + 1];
         for (int j = first; j < first + width; ++j) {
@@ -284,6 +284,31 @@ __global__ void projector_sums(int projectors, int count, const double* w, const
         sum += w[b] * (a[i].x * c[i].y - a[i].y * c[i].x);
     }
     s[j] = sum;
+}
+
+// out[j] of the packed pairs a <= b of each atom: Re c_aa, 2 Re c_ab, of the
+// dense (projectors, projectors) c, added
+__global__ void becsum_kernel(int atoms, const int* blocks, const std::size_t* offsets, int projectors,
+                              const Complex* c, double* out) {
+    const int a = static_cast<int>(blockIdx.x);
+    if (a >= atoms) return;
+    const int first = blocks[2 * a], width = blocks[2 * a + 1];
+    const std::size_t base = offsets[a];
+    for (int k = static_cast<int>(threadIdx.x); k < width * width; k += static_cast<int>(blockDim.x)) {
+        const int i = k / width, j = k % width;
+        if (j < i) continue;
+        const int packed = i * width - i * (i - 1) / 2 + (j - i);  // pairs (i, j >= i) in order
+        const double value = c[static_cast<std::size_t>(first + j) * projectors + (first + i)].x;
+        out[base + static_cast<std::size_t>(packed)] += (i == j ? 1.0 : 2.0) * value;
+    }
+}
+
+// dp[:, b] -= e_b qp[:, b]
+__global__ void shift_kernel(int projectors, int count, const double* e, const Complex* qp, Complex* dp) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= static_cast<std::size_t>(projectors) * count) return;
+    const double x = e[i / static_cast<std::size_t>(projectors)];
+    dp[i] = make_cuDoubleComplex(dp[i].x - x * qp[i].x, dp[i].y - x * qp[i].y);
 }
 
 __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
@@ -462,7 +487,8 @@ void Hamiltonian::add_density(const Complex* psi, int count, const double* weigh
     }
 }
 
-void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces) {
+void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces,
+                                  const double* eigenvalues) {
     const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_);
     if (n == 0 || count == 0 || projectors_ == 0) return;
     if (forces.size() != 3 * atoms_.size()) throw std::invalid_argument("forces are (atoms, 3)");
@@ -478,6 +504,18 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
     check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
                            projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
                "cublasZgemm");
+    if (has_overlap_) {
+        // (D - e q) P
+        if (eigenvalues == nullptr) throw std::invalid_argument("the forces of ultrasoft bands need their eigenvalues");
+        DeviceArray<Complex> qpp(np * m);
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one,
+                               qmatrix_.data(), projectors_, p.data(), projectors_, &zero, qpp.data(), projectors_),
+                   "cublasZgemm");
+        DeviceArray<double> e;
+        e.upload(eigenvalues, m);
+        shift_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
+        check_cuda(cudaGetLastError(), "D - e q");
+    }
     std::vector<double> sums(np);
     for (int d = 0; d < 3; ++d) {
         times_q_kernel<<<blocks(n * m), kThreads>>>(n, count, d, q_.data(), psi, qpsi.data());
@@ -551,11 +589,115 @@ void Hamiltonian::diagonal(double* out) const {
     check_cuda(cudaGetLastError(), "the diagonal of H");
 }
 
+void Hamiltonian::overlap_diagonal(double* out) const {
+    const std::size_t n = sphere_.size();
+    if (n == 0) return;
+    if (!has_overlap_) {
+        std::vector<double> ones(n, 1.0);
+        check_cuda(cudaMemcpy(out, ones.data(), n * sizeof(double), cudaMemcpyHostToDevice), "cudaMemcpy");
+        return;
+    }
+    diagonal_kernel<<<blocks(n), kThreads>>>(n, static_cast<int>(atoms_.size()), blocks_device_.data(), projectors_,
+                                             nullptr, 1.0, beta_.data(), qmatrix_.data(), out);
+    check_cuda(cudaGetLastError(), "the diagonal of S");
+}
+
 int Hamiltonian::batch() const noexcept {
     // bands per batch of FFTs: boxes of at most 256 MB
     const std::size_t points = fft_.points();
     const std::size_t most = (std::size_t{256} << 20) / (points * sizeof(Complex));
     return static_cast<int>(std::max<std::size_t>(1, std::min<std::size_t>(most, 1u << 20)));
+}
+
+void Hamiltonian::apply_overlap(const Complex* psi, Complex* spsi, int count) {
+    const std::size_t n = sphere_.size();
+    if (n == 0 || count == 0) return;
+    check_cuda(cudaMemcpy(spsi, psi, n * static_cast<std::size_t>(count) * sizeof(Complex), cudaMemcpyDeviceToDevice),
+               "cudaMemcpy");
+    if (!has_overlap_ || projectors_ == 0) return;
+    const std::size_t np = static_cast<std::size_t>(projectors_);
+    projections_.reserve(np * static_cast<std::size_t>(count));
+    scaled_.reserve(np * static_cast<std::size_t>(count));
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    const int nn = static_cast<int>(n);
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
+                           &zero, projections_.data(), projectors_),
+               "cublasZgemm");
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_.data(),
+                           projectors_, projections_.data(), projectors_, &zero, scaled_.data(), projectors_),
+               "cublasZgemm");
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, nn, count, projectors_, &one, beta_.data(), nn,
+                           scaled_.data(), projectors_, &one, spsi, nn),
+               "cublasZgemm");
+}
+
+namespace {
+// the dense matrix of blocks per atom, (width, width) row by row each
+std::vector<Complex> dense_of(const std::vector<int>& blocks, int projectors, const std::vector<double>& values) {
+    std::vector<Complex> d(static_cast<std::size_t>(projectors) * projectors, make_cuDoubleComplex(0.0, 0.0));
+    std::size_t k = 0;
+    for (std::size_t a = 0; a < blocks.size() / 2; ++a) {
+        const int first = blocks[2 * a], width = blocks[2 * a + 1];
+        for (int i = 0; i < width; ++i)
+            for (int j = 0; j < width; ++j, ++k) {
+                if (k >= values.size()) throw std::invalid_argument("too few values for the blocks of the atoms");
+                d[static_cast<std::size_t>(first + j) * projectors + (first + i)] = make_cuDoubleComplex(values[k], 0.0);
+            }
+    }
+    if (k != values.size()) throw std::invalid_argument("the blocks of the atoms take other sizes");
+    return d;
+}
+}  // namespace
+
+void Hamiltonian::set_strengths(const std::vector<double>& blocks) {
+    const auto d = dense_of(blocks_, projectors_, blocks);
+    dmatrix_.assign(d.data(), d.size());
+}
+
+void Hamiltonian::set_overlaps(const std::vector<double>& blocks) {
+    const auto q = dense_of(blocks_, projectors_, blocks);
+    qmatrix_.assign(q.data(), q.size());
+    has_overlap_ = true;
+}
+
+void Hamiltonian::add_becsum(const Complex* psi, int count, const double* weights, std::vector<double>& becsum) {
+    const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
+    if (n == 0 || count == 0 || projectors_ == 0) return;
+    std::size_t total = 0;
+    std::vector<std::size_t> offsets;
+    for (std::size_t a = 0; a < blocks_.size() / 2; ++a) {
+        offsets.push_back(total);
+        const std::size_t w = static_cast<std::size_t>(blocks_[2 * a + 1]);
+        total += w * (w + 1) / 2;
+    }
+    if (becsum.size() != total) throw std::invalid_argument("becsum holds the pairs of each atom");
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    const int nn = static_cast<int>(n);
+    DeviceArray<Complex> p(np * m), pw(np * m), c(np * np);
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
+                           &zero, p.data(), projectors_),
+               "cublasZgemm");
+    // c = P W P^H, c_ab = sum_n w_n P_an conj(P_bn), of real part becsum_ab
+    std::vector<Complex> host(np * m);
+    p.download(host.data(), host.size());
+    for (std::size_t b = 0; b < m; ++b)
+        for (std::size_t i = 0; i < np; ++i) {
+            host[b * np + i].x *= weights[b];
+            host[b * np + i].y *= weights[b];
+        }
+    pw.upload(host.data(), host.size());
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_C, projectors_, projectors_, count, &one, pw.data(),
+                           projectors_, p.data(), projectors_, &zero, c.data(), projectors_),
+               "cublasZgemm");
+    DeviceArray<std::size_t> off;
+    off.upload(offsets.data(), offsets.size());
+    DeviceArray<double> out;
+    out.upload(becsum.data(), becsum.size());
+    becsum_kernel<<<static_cast<unsigned>(atoms_.size()), kThreads>>>(static_cast<int>(atoms_.size()),
+                                                                     blocks_device_.data(), off.data(), projectors_,
+                                                                     c.data(), out.data());
+    check_cuda(cudaGetLastError(), "becsum");
+    out.download(becsum.data(), becsum.size());
 }
 
 void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {

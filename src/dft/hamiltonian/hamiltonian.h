@@ -79,13 +79,29 @@ public:
 
     // H on count bands, column-major (plane waves, count), on the device.
     void apply(const Complex* psi, Complex* hpsi, int count);
+    // S = 1 + sum |beta_a> q_ab <beta_b| on count bands; psi itself without
+    // an overlap.
+    void apply_overlap(const Complex* psi, Complex* spsi, int count);
+    // The strengths D and the overlaps q of the projectors of each atom, in the
+    // order of the atoms a block (width, width) row by row, width its
+    // projector functions; they replace those of the species.
+    void set_strengths(const std::vector<double>& blocks);
+    void set_overlaps(const std::vector<double>& blocks);
+    bool has_overlap() const noexcept { return has_overlap_; }
+    // becsum (packed pairs a <= b of each atom, on the host) += sum_n w_n
+    // Re conj(<beta_a|psi_n>) <beta_b|psi_n>, twice off the diagonal
+    void add_becsum(const Complex* psi, int count, const double* weights, std::vector<double>& becsum);
+    // The diagonal of S on the device, 1 without an overlap.
+    void overlap_diagonal(double* out) const;
     // rho (the grid, on the device) += sum_b w_b |psi_b(r)|^2 / Omega of count
     // bands (plane waves, count) on the device, weights on the host.
     void add_density(const Complex* psi, int count, const double* weights, double* rho);
     // forces (atoms, 3) on the host += those of the projectors on count bands
     // (plane waves, count) on the device of weights w_b (k-point weight, f_max
     // and occupation) on the host: -sum_b w_b d<psi_b|V_nl|psi_b>/dtau_I.
-    void nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces);
+    // With an overlap, of D - e_n q, eigenvalues on the host.
+    void nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces,
+                         const double* eigenvalues = nullptr);
     // out (xx yy zz yz xz xy) += dE/d epsilon of count bands at a fixed set of
     // plane waves, their weights w_b on the host: the kinetic energy and the
     // projectors, hartree.
@@ -120,6 +136,8 @@ private:
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)
     DeviceArray<Complex> dmatrix_;  // (projectors, projectors), block diagonal
+    DeviceArray<Complex> qmatrix_;  // the overlaps, likewise
+    bool has_overlap_ = false;
     // the potential and the work arrays
     DeviceArray<double> potential_;
     DeviceArray<Complex> boxes_, projections_, scaled_;

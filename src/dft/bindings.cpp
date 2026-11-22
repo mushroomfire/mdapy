@@ -393,6 +393,32 @@ NB_MODULE(_dft, m) {
                               static_cast<std::size_t>(h.projectors()) * h.plane_waves());
             return nb::object(result.cast());
         })
+        .def("set_strengths", [](mdapy::dft::Hamiltonian& h, nb::ndarray<const double, nb::c_contig, nb::device::cpu> d) {
+            h.set_strengths(std::vector<double>(d.data(), d.data() + d.size()));
+        })
+        .def("set_overlaps", [](mdapy::dft::Hamiltonian& h, nb::ndarray<const double, nb::c_contig, nb::device::cpu> q) {
+            h.set_overlaps(std::vector<double>(q.data(), q.data() + q.size()));
+        })
+        .def("apply_overlap", [](mdapy::dft::Hamiltonian& h, Coefficients psi) {
+            const int count = static_cast<int>(psi.shape(0));
+            const std::size_t n = psi.shape(1);
+            if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
+            DeviceArray<Complex> a, b(static_cast<std::size_t>(count) * n);
+            a.upload(as_device(psi.data()), psi.size());
+            h.apply_overlap(a.data(), b.data(), count);
+            std::complex<double>* out = nullptr;
+            auto result = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
+            b.download(reinterpret_cast<Complex*>(out), b.size());
+            return nb::object(result.cast());
+        })
+        .def("becsum", [](mdapy::dft::Hamiltonian& h, Coefficients psi,
+                          nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> w, std::size_t size) {
+            DeviceArray<Complex> a;
+            a.upload(as_device(psi.data()), psi.size());
+            std::vector<double> out(size, 0.0);
+            h.add_becsum(a.data(), static_cast<int>(psi.shape(0)), w.data(), out);
+            return array_of(out, {size});
+        })
         .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors)
         .def_prop_ro("diagonal", [](const mdapy::dft::Hamiltonian& h) {
             DeviceArray<double> d(h.plane_waves());

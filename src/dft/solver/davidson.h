@@ -3,7 +3,7 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// The lowest eigenpairs of the Hamiltonian of a k-point by block Davidson, on
+// The lowest eigenpairs of H psi = e S psi of a k-point by block Davidson, on
 // the GPU: an orthonormal basis grown by the preconditioned residuals of the
 // bands not yet converged (as many as fit), Rayleigh-Ritz in it with cuSOLVER,
 // and a restart from the Ritz vectors once the basis is full. The residual of
@@ -52,7 +52,8 @@ public:
 private:
     // makes the m columns of w orthonormal to the n columns of v and among
     // themselves; returns how many independent columns are left, moved first
-    int orthonormalize(const Complex* v, int n, Complex* w, int m, int rows);
+    // in the metric of S when sw holds S w (and sv S v), else the plain one
+    int orthonormalize(const Complex* v, const Complex* sv, int n, Complex* w, Complex* sw, int m, int rows);
     // the eigenvalues (ascending, into values_) and eigenvectors (into a) of
     // the Hermitian n x n matrix a, of which the upper triangle is read
     void eigh(Complex* a, int n);
@@ -61,6 +62,8 @@ private:
     cusolverDnHandle_t solver_ = nullptr;
     DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
     DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors
+    DeviceArray<Complex> sbasis_;                     // S basis, with an overlap
+    DeviceArray<double> overlap_diagonal_;
     DeviceArray<double> values_, sums_, energies_, scale_, diagonal_;
     DeviceArray<int> info_, index_;
 };

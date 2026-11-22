@@ -1,0 +1,327 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""MDAPY's plane-wave DFT as a calculator: energies, forces and virials of
+periodic cells from norm-conserving pseudopotentials on an NVIDIA GPU."""
+
+import math
+import os
+from collections.abc import Iterable, Mapping, Sequence
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+
+from mdapy.calculators._base import Calculator, CalculatorResult
+from mdapy.core.system import System
+from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
+
+HARTREE = 27.211386245988  # eV, CODATA 2018
+BOHR = 0.529177210903  # Å, CODATA 2018
+
+_SMEARINGS = (
+    "fixed",
+    "gaussian",
+    "fermi-dirac",
+    "methfessel-paxton",
+    "marzari-vanderbilt",
+)
+
+
+def _find_pseudopotential(folder: Path, element: str) -> Path:
+    """The UPF of an element in a folder: {element}.upf, or the one file
+    {element}_*.upf or {element}.*.upf."""
+    exact = folder / f"{element}.upf"
+    if exact.is_file():
+        return exact
+    found = sorted(folder.glob(f"{element}_*.upf")) + sorted(
+        folder.glob(f"{element}.*.upf")
+    )
+    if len(found) != 1:
+        what = "none" if not found else ", ".join(p.name for p in found)
+        raise InvalidParameter(
+            f"one pseudopotential of {element} in {folder} is needed, found {what}; "
+            "give them by element"
+        )
+    return found[0]
+
+
+class DFT(Calculator):
+    """Energies, forces and virials from Kohn-Sham density functional theory
+    in plane waves, computed by MDAPY on an NVIDIA GPU (the package
+    ``mdapy-dft-cuda12``), for periodic cells.
+
+    Parameters
+    ----------
+    encut : float64
+        The kinetic energy cutoff of the plane waves in eV, as VASP's ENCUT.
+        The density takes four times it.
+    pseudopotentials : mapping or str or path-like, optional
+        Norm-conserving pseudopotentials in UPF, by element, or a folder
+        that holds ``{element}.upf`` or one ``{element}_*.upf`` of each
+        element. Default the environment variable ``MDAPY_PSEUDO_DIR``.
+    kpoints : sequence of int32, optional
+        A Gamma-centered mesh of k-points, three numbers. Default from
+        ``kspacing``.
+    kspacing : float64, optional
+        The largest spacing of the mesh of k-points in 1/Å, 2 pi included,
+        as VASP's KSPACING. Default 0.25.
+    smearing : str, optional
+        ``"gaussian"`` (default), ``"fermi-dirac"``, ``"methfessel-paxton"``
+        (first order), ``"marzari-vanderbilt"``, or ``"fixed"`` for
+        insulators.
+    sigma : float64, optional
+        The width of the smearing in eV. Default 0.1.
+    magmoms : mapping or sequence of float64, optional
+        The first magnetic moments in Bohr magnetons, by element or one per
+        atom; with them the spins are collinear. Default none: no spin.
+    functional : str, optional
+        ``"pbe"``, ``"pbe_pw"`` (PBE on the PW92 correlation of the paper, as
+        Quantum ESPRESSO's PBE), ``"lda_pw"`` or ``"lda_pw_mod"``. Default
+        that of the pseudopotentials.
+    tolerance : float64, optional
+        The self-consistent field stops when the energy changes by less than
+        this between two steps and the Hartree energy of the change of the
+        density is below it, in eV per cell. Default 1e-6.
+    max_iterations : int32, optional
+        The steps of the self-consistent field before it fails. Default 100.
+    mixing : float64, optional
+        The share of the residual of the density taken at each step. Default
+        0.4.
+    kerker : float64, optional
+        The wave vector of Kerker's preconditioner of the mixing in 1/Å, 0
+        for none (default).
+    bands : int32, optional
+        Bands per k-point and spin. Default as Quantum ESPRESSO: four or 10 %
+        more than the occupied ones for fixed occupations, else the larger
+        of 1.2 N/2 and N/2 + 4 for N electrons.
+    seed : int32, optional
+        Seed of the random first bands. Default 0.
+
+    Attributes
+    ----------
+    cutoff : float64
+        0: the calculator needs no neighbor list.
+    last : dict
+        Of the last computation: ``iterations``, ``fermi`` (eV),
+        ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
+        spin), ``net_force`` (eV/Å, taken out of the forces), ``kpoints``
+        (the mesh) and ``grid`` (the FFT grid).
+
+    Notes
+    -----
+    The energy is the free energy of the smearing, VASP's TOTEN. The virial
+    is the derivative at a fixed set of plane waves: it lacks the Pulay
+    stress of an incomplete basis, which a higher cutoff makes small.
+    """
+
+    implemented = frozenset({"energy", "forces", "virial"})
+    device = "cuda"
+
+    def __init__(
+        self,
+        encut: float,
+        *,
+        pseudopotentials: Mapping[str, str | os.PathLike]
+        | str
+        | os.PathLike
+        | None = None,
+        kpoints: Sequence[int] | None = None,
+        kspacing: float = 0.25,
+        smearing: str = "gaussian",
+        sigma: float = 0.1,
+        magmoms: Mapping[str, float] | Sequence[float] | None = None,
+        functional: str | None = None,
+        tolerance: float = 1e-6,
+        max_iterations: int = 100,
+        mixing: float = 0.4,
+        kerker: float = 0.0,
+        bands: int | None = None,
+        seed: int = 0,
+    ):
+        if not encut > 0:
+            raise InvalidParameter("encut must be positive")
+        if smearing not in _SMEARINGS:
+            raise InvalidParameter(f"smearing must be one of {list(_SMEARINGS)}")
+        if smearing != "fixed" and not sigma > 0:
+            raise InvalidParameter("sigma must be positive")
+        if not tolerance > 0 or max_iterations < 1 or not 0 < mixing <= 1 or kerker < 0:
+            raise InvalidParameter(
+                "tolerance > 0, max_iterations >= 1, 0 < mixing <= 1 and kerker >= 0"
+            )
+        self.encut = float(encut)
+        self.kpoints = None
+        if kpoints is not None:
+            mesh = np.asarray(kpoints)
+            if (
+                mesh.shape != (3,)
+                or not np.issubdtype(mesh.dtype, np.integer)
+                or (mesh < 1).any()
+            ):
+                raise InvalidParameter("kpoints must be three integers of at least 1")
+            self.kpoints = tuple(int(k) for k in mesh)
+        if not kspacing > 0:
+            raise InvalidParameter("kspacing must be positive")
+        self.kspacing = float(kspacing)
+        if pseudopotentials is None:
+            found = os.environ.get("MDAPY_PSEUDO_DIR")
+            if found is None:
+                raise InvalidParameter(
+                    "give pseudopotentials, or set MDAPY_PSEUDO_DIR to their folder"
+                )
+            pseudopotentials = found
+        if isinstance(pseudopotentials, Mapping):
+            self.pseudopotentials = {
+                str(k): Path(v) for k, v in pseudopotentials.items()
+            }
+            self.__folder = None
+        else:
+            self.pseudopotentials = {}
+            self.__folder = Path(pseudopotentials)
+            if not self.__folder.is_dir():
+                raise InvalidParameter(f"{self.__folder} is not a folder")
+        self.smearing = smearing
+        self.sigma = float(sigma)
+        self.magmoms = magmoms
+        self.functional = functional
+        self.tolerance = float(tolerance)
+        self.max_iterations = int(max_iterations)
+        self.mixing = float(mixing)
+        self.kerker = float(kerker)
+        self.bands = bands
+        self.seed = int(seed)
+        self.cutoff = 0.0
+        self.elements = None
+        self.last: dict[str, Any] = {}
+        self.__read: dict[str, Any] = {}
+
+    def __pseudopotential(self, element: str):
+        from mdapy.calculators._dft.upf import read_upf
+
+        if element not in self.__read:
+            if element in self.pseudopotentials:
+                path = self.pseudopotentials[element]
+            elif self.__folder is not None:
+                path = _find_pseudopotential(self.__folder, element)
+            else:
+                raise InvalidParameter(f"no pseudopotential of {element}")
+            pp = read_upf(path)
+            if pp.element != element:
+                raise InvalidParameter(
+                    f"{path} is a pseudopotential of {pp.element}, not {element}"
+                )
+            self.__read[element] = pp
+        return self.__read[element]
+
+    def __mesh(self, cell: np.ndarray) -> tuple[int, int, int]:
+        if self.kpoints is not None:
+            return self.kpoints
+        # |b_i| / kspacing up, b with 2 pi, in 1/Å
+        b = 2 * math.pi * np.linalg.inv(cell).T
+        return tuple(
+            max(1, math.ceil(float(np.linalg.norm(v)) / self.kspacing - 1e-8))
+            for v in b
+        )
+
+    def __moments(self, elements: list[str]) -> np.ndarray | None:
+        if self.magmoms is None:
+            return None
+        if isinstance(self.magmoms, Mapping):
+            return np.array([float(self.magmoms.get(e, 0.0)) for e in elements])
+        moments = np.asarray(self.magmoms, dtype=float)
+        if moments.shape != (len(elements),):
+            raise InvalidParameter(
+                f"magmoms holds {moments.size} moments for {len(elements)} atoms"
+            )
+        return moments
+
+    def compute(
+        self,
+        system: System,
+        properties: Iterable[str] = ("energy", "forces"),
+        *,
+        neighbors: Any = None,
+    ) -> CalculatorResult:
+        """Computes the energy, the forces and the virial of a periodic cell.
+
+        Parameters
+        ----------
+        system : System
+            Periodic along a, b and c, with an ``element`` column.
+        properties : iterable of str, optional
+            Of ``energy``, ``forces`` and ``virial``; the energy and the
+            forces always come.
+        neighbors : NeighborList, optional
+            Not used.
+
+        Returns
+        -------
+        CalculatorResult
+            The energy in eV, the forces in eV/Å, and the virial in eV when
+            asked.
+
+        Raises
+        ------
+        InvalidParameter
+            If the box is not periodic along a, b and c, or a
+            pseudopotential is missing.
+        MissingProperty
+            If the system lacks the element column.
+        CalculationFailed
+            If the self-consistent field does not converge.
+        """
+        from mdapy.calculators._dft import scf
+
+        wanted = self._check_properties(properties)
+        if "element" not in system.table.columns:
+            raise MissingProperty("DFT needs the element column")
+        if not all(system.box.pbc):
+            raise InvalidParameter("DFT needs a box periodic along a, b and c")
+        elements = system.table["element"].cast(str).to_list()
+        species = list(dict.fromkeys(elements))
+        pseudos = [self.__pseudopotential(e) for e in species]
+        kinds = [species.index(e) for e in elements]
+        cell = system.box.matrix
+        fractional = system.box.to_fractional(system["positions"]) % 1.0
+        mesh = self.__mesh(cell)
+        r = scf.run(
+            cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE,
+            kgrid=mesh, smearing=self.smearing, sigma=self.sigma / HARTREE,
+            bands=self.bands, beta=self.mixing, kerker=self.kerker * BOHR,
+            energy_tolerance=self.tolerance / HARTREE,
+            density_tolerance=self.tolerance / HARTREE,
+            max_iterations=self.max_iterations, seed=self.seed,
+            functional=self.functional, magmoms=self.__moments(elements),
+            stress="virial" in wanted,
+        )  # fmt: skip
+        if not r["converged"]:
+            steps = len(r["energies"])
+            tail = ", ".join(
+                f"{e * HARTREE:.8f} eV ({a * HARTREE:.1e})"
+                for e, a in zip(r["energies"][-4:], r["accuracy"][-4:])
+            )
+            raise CalculationFailed(
+                f"the self-consistent field did not converge in {steps} steps; the last "
+                f"energies (and the Hartree energies of the change of the density): {tail}"
+            )
+        self.last = {
+            "iterations": int(r["iterations"]),
+            "fermi": float(r["fermi"]) * HARTREE,
+            "net_force": r["net_force"] * HARTREE / BOHR,
+            "kpoints": mesh,
+            "grid": tuple(r["grid"]),
+        }
+        if r["spins"] == 2:
+            self.last["magnetization"] = float(r["magnetization"])
+            self.last["absolute_magnetization"] = float(r["absolute_magnetization"])
+        virial = None
+        if "virial" in wanted:
+            virial = -r["strain_derivative"] * HARTREE
+        return CalculatorResult(
+            energy=float(r["energy"]) * HARTREE,
+            forces=r["forces"] * HARTREE / BOHR,
+            virial=virial,
+            volume=system.box.volume,
+        )

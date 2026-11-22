@@ -7,6 +7,7 @@
 
 from mdapy.calculators._adp import ADP
 from mdapy.calculators._base import PROPERTIES, Calculator, CalculatorResult
+from mdapy.calculators._dft.calculator import DFT
 from mdapy.calculators._eam import EAM
 from mdapy.calculators._lammps import LAMMPS
 from mdapy.calculators._meam import MEAM
@@ -21,6 +22,7 @@ __all__ = [
     "ADP",
     "Calculator",
     "CalculatorResult",
+    "DFT",
     "EAM",
     "LAMMPS",
     "LennardJones",

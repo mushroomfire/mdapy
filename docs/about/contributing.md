@@ -254,6 +254,9 @@ The rest are programs and conditions of the machine:
 | a LAMMPS built with MPI and the `REPLICA` package, started by `MDAPY_LAMMPS_NEB` with `{n}` for the number of processes, such as `mpirun -np {n} /path/to/lmp` | the nudged elastic band against LAMMPS's `neb`, which runs each image in a partition of its own |
 | Python 3.14 | files compressed with zstd |
 | a German or French locale | numbers under a locale with a decimal comma |
+| `mdapy_dft_cuda12`, the package of MDAPY's DFT built from `dft-cuda12/` with the CUDA toolkit, and an NVIDIA GPU | the plane-wave DFT |
+| `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
+| `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR` | the DFT against Quantum ESPRESSO, run on the same input |
 
 ## Compiled code
 

@@ -1,0 +1,139 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""The calculator DFT: its results in eV and Å are those of the
+self-consistent field in hartree and bohr; rotations, reordering and lattice
+translations of the atoms change nothing but the directions of the forces; the
+mesh of kspacing as VASP's; spins from the first moments; its errors."""
+
+import os
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy.calculators import DFT
+from mdapy.calculators._dft import scf
+from mdapy.calculators._dft.calculator import BOHR, HARTREE
+from mdapy.calculators._dft.upf import read_upf
+from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
+
+from dft import espresso
+
+_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+if _dft.device_count() == 0:
+    pytest.skip("no GPU", allow_module_level=True)
+
+FRACTIONS = np.array([[0.01, -0.02, 0.0], [0.27, 0.25, 0.23]])
+
+
+def silicon_cell():
+    h = 5.431 / 2
+    return np.array([[0, h, h], [h, 0, h], [h, h, 0]])
+
+
+def silicon(cell=None, fractions=FRACTIONS):
+    cell = silicon_cell() if cell is None else cell
+    return mdapy.System(
+        fractions @ cell, mdapy.Box(cell), elements=["Si"] * len(fractions)
+    )
+
+
+@pytest.fixture(scope="module")
+def folder():
+    espresso.pseudo("Si_std.upf")
+    return os.environ["MDAPY_PSEUDO_DIR"]
+
+
+def calculator(folder, **options):
+    settings = dict(encut=12 * HARTREE, kpoints=(2, 2, 2), smearing="fixed", functional="pbe_pw",
+                    tolerance=1e-10, pseudopotentials=folder)  # fmt: skip
+    settings.update(options)
+    return DFT(**settings)
+
+
+def test_the_units(folder):
+    result = calculator(folder).compute(silicon(), ("energy", "forces", "virial"))
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [pp], 12.0, kgrid=(2, 2, 2),
+                functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-8)
+    np.testing.assert_allclose(result.forces, r["forces"] * HARTREE / BOHR, atol=1e-7)
+    np.testing.assert_allclose(
+        result.virial, -r["strain_derivative"] * HARTREE, atol=1e-6
+    )
+    # the stress of MDAPY, positive under tension, against QE's, positive under pressure
+    assert result.stress.trace() < 0  # this cutoff leaves silicon compressed
+
+
+def test_symmetries(folder):
+    dft = calculator(folder)
+    base = dft.compute(silicon())
+    rng = np.random.default_rng(3)
+    q, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+    rotated = dft.compute(silicon(silicon_cell() @ q.T))
+    assert rotated.energy == pytest.approx(base.energy, abs=1e-8)
+    np.testing.assert_allclose(rotated.forces, base.forces @ q.T, atol=1e-6)
+    swapped = dft.compute(silicon(fractions=FRACTIONS[::-1] + [1.0, -2.0, 3.0]))
+    assert swapped.energy == pytest.approx(base.energy, abs=1e-8)
+    np.testing.assert_allclose(swapped.forces, base.forces[::-1], atol=1e-6)
+    # a translation that is not of the FFT grid moves the atoms against it:
+    # the energy changes only by the ripple of the grid
+    moved = dft.compute(silicon(fractions=FRACTIONS + 0.0123))
+    assert moved.energy == pytest.approx(base.energy, abs=1e-4)
+
+
+def test_kspacing_as_vasp(folder):
+    dft = calculator(folder, kpoints=None, kspacing=0.5, tolerance=1e-6)
+    dft.compute(silicon())
+    b = 2 * np.pi * np.linalg.norm(np.linalg.inv(silicon_cell()).T, axis=1)
+    assert dft.last["kpoints"] == tuple(int(np.ceil(x / 0.5)) for x in b)
+
+
+def test_spin(folder):
+    espresso.pseudo("Fe_std.upf")
+    a = 2.87
+    box = mdapy.Box(np.diag([a, a, a]))
+    iron = mdapy.System(
+        np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a, box, elements=["Fe", "Fe"]
+    )
+    dft = DFT(
+        16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2), magmoms={"Fe": 2.5}
+    )
+    result = dft.compute(iron)
+    assert dft.last["magnetization"] > 2.0 and dft.last["absolute_magnetization"] > 2.0
+    np.testing.assert_allclose(result.forces, 0.0, atol=1e-4)
+    plain = calculator(folder)
+    plain.compute(silicon())
+    assert "magnetization" not in plain.last and plain.last["iterations"] > 1
+
+
+def test_errors(folder, tmp_path):
+    with pytest.raises(InvalidParameter, match="encut must be positive"):
+        DFT(0.0, pseudopotentials=folder)
+    with pytest.raises(InvalidParameter, match="smearing must be one of"):
+        DFT(300.0, pseudopotentials=folder, smearing="cold")
+    with pytest.raises(InvalidParameter, match="kpoints must be three integers"):
+        DFT(300.0, pseudopotentials=folder, kpoints=(2, 2))
+    with pytest.raises(InvalidParameter, match="is not a folder"):
+        DFT(300.0, pseudopotentials=tmp_path / "nowhere")
+    with pytest.raises(InvalidParameter, match="periodic along a, b and c"):
+        cell = silicon_cell()
+        system = mdapy.System(FRACTIONS @ cell, mdapy.Box(cell, pbc=(True, True, False)),
+                              elements=["Si", "Si"])  # fmt: skip
+        calculator(folder).compute(system)
+    with pytest.raises(InvalidParameter, match="one pseudopotential of Xe"):
+        xenon = mdapy.System(FRACTIONS @ silicon_cell(), mdapy.Box(silicon_cell()),
+                             elements=["Xe", "Xe"])  # fmt: skip
+        calculator(folder).compute(xenon)
+    with pytest.raises(InvalidParameter, match="magmoms holds 1 moments for 2 atoms"):
+        calculator(folder, magmoms=[1.0]).compute(silicon())
+    with pytest.raises(CalculationFailed, match="did not converge in 2 steps"):
+        calculator(folder, max_iterations=2).compute(silicon())
+    with pytest.raises(MissingProperty, match="element column"):
+        calculator(folder).compute(
+            mdapy.System(FRACTIONS @ silicon_cell(), mdapy.Box(silicon_cell()))
+        )

@@ -108,6 +108,12 @@
   of Waasmaier and Kirfel (1995), and `neutron_scattering_lengths(elements,
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
+- `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
+  NVIDIA GPU, in the package `mdapy-dft-cuda12`. It gives energies, forces and virials
+  of periodic cells with norm-conserving pseudopotentials (UPF), LDA and PBE,
+  collinear spin and smearings, for labelling training sets. The energies, forces,
+  stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
+  same input. Under development.
 
 ## 2.2.0
 

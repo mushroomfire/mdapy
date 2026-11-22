@@ -6749,6 +6749,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#at-a-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At a pressure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#on-many-processes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10787,6 +10798,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#at-a-pressure" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        At a pressure
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#on-many-processes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -10958,7 +10980,7 @@ The runs take the options of <a href="../running/">Running</a>, with these:</p>
 <tbody>
 <tr>
 <td><code>ensemble</code></td>
-<td><code>"nvt"</code>, sampling the quantum canonical ensemble, or <code>"nve"</code>, ring-polymer molecular dynamics (RPMD)</td>
+<td><code>"nvt"</code>, sampling the quantum canonical ensemble, <code>"npt"</code>, the quantum isothermal-isobaric one, or <code>"nve"</code>, ring-polymer molecular dynamics (RPMD)</td>
 </tr>
 <tr>
 <td><code>temperature</code></td>
@@ -10966,26 +10988,90 @@ The runs take the options of <a href="../running/">Running</a>, with these:</p>
 </tr>
 <tr>
 <td><code>thermostat</code></td>
-<td>with <code>"nvt"</code>, <code>"langevin"</code>: the path-integral Langevin thermostat PILE_L</td>
+<td>with <code>"nvt"</code> and <code>"npt"</code>, <code>"langevin"</code>: the path-integral Langevin thermostat PILE_L</td>
 </tr>
 <tr>
 <td><code>thermostat_damping</code></td>
 <td>the damping time of the centroids in ps, the other modes damped critically; <code>math.inf</code> leaves the centroids free, thermostatted RPMD (TRPMD)</td>
 </tr>
 <tr>
+<td><code>pressure</code></td>
+<td>with <code>"npt"</code>, one pressure in GPa</td>
+</tr>
+<tr>
+<td><code>barostat</code></td>
+<td>with <code>"npt"</code>, <code>"iso"</code>: the box keeps its shape, its lengths scaled together</td>
+</tr>
+<tr>
+<td><code>barostat_damping</code></td>
+<td>the time of the barostat in ps, which sets its mass; 1000 time steps by default</td>
+</tr>
+<tr>
 <td><code>seed</code></td>
-<td>of the random forces of the thermostat</td>
+<td>of the random forces of the thermostat and the barostat</td>
 </tr>
 </tbody>
 </table>
 <p><code>md.beads</code> gives the atoms at each bead, a tuple of <code>P</code> systems with the bead in
 <code>info["bead"]</code>; <code>md.system</code>, the frames of <code>iterate</code> and <code>save_every</code> and the system
 of a restart are the centroids, the mean place and velocity of the beads of each atom.</p>
+<h2 id="at-a-pressure">At a pressure<a class="headerlink" href="#at-a-pressure" title="Permanent link">&para;</a></h2>
+<p>With <code>ensemble="npt"</code> the box follows the pressure of the quantum nuclei, which their
+zero-point motion raises: neon at 20 K and zero pressure, its crystal of 4.46 Å, 8
+beads, beside LAMMPS's <code>fix pimd/langevin</code> with <code>ensemble npt barostat BZP iso 0.0
+taup 1.0</code>:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">LennardJones</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">neon</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"fcc"</span><span class="p">,</span> <span class="mf">4.46</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"Ne"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">lj</span> <span class="o">=</span> <span class="n">LennardJones</span><span class="p">({</span><span class="s2">"Ne"</span><span class="p">:</span> <span class="p">(</span><span class="mf">0.0031</span><span class="p">,</span> <span class="mf">2.74</span><span class="p">)},</span> <span class="mf">8.0</span><span class="p">)</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">neon</span><span class="p">,</span> <span class="n">lj</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">,</span> <span class="n">beads</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mf">20.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">4711</span><span class="p">)</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">12000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">thermostat</span><span class="o">=</span><span class="s2">"langevin"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mf">20.0</span><span class="p">,</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>           <span class="n">thermostat_damping</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span> <span class="n">barostat</span><span class="o">=</span><span class="s2">"iso"</span><span class="p">,</span>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>           <span class="n">barostat_damping</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">4711</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>    <span class="n">thermo</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">[</span><span class="s2">"step"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">2000</span><span class="p">)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Mean over the last 10 000 steps</th>
+<th style="text-align: right;">MDAPY</th>
+<th style="text-align: right;">LAMMPS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>volume (Å³)</td>
+<td style="text-align: right;">5763 ± 7</td>
+<td style="text-align: right;">5759 ± 7</td>
+</tr>
+<tr>
+<td>potential energy (eV)</td>
+<td style="text-align: right;">−5.199 ± 0.009</td>
+<td style="text-align: right;">−5.204 ± 0.008</td>
+</tr>
+<tr>
+<td>kinetic energy, centroid virial (eV)</td>
+<td style="text-align: right;">0.9913 ± 0.0010</td>
+<td style="text-align: right;">0.9929 ± 0.0009</td>
+</tr>
+<tr>
+<td>pressure, centroid virial (GPa)</td>
+<td style="text-align: right;">−0.0002 ± 0.0003</td>
+<td style="text-align: right;">0.0001 ± 0.0003</td>
+</tr>
+</tbody>
+</table>
+<p><em>Neon of 256 atoms, the standard errors from 20 blocks. The crystal is 1.5 % larger
+than its box of 4.46 Å at the start, and its kinetic energy is 1.5 times the
+classical 0.66 eV: the zero-point motion of light atoms.</em></p>
 <h2 id="on-many-processes">On many processes<a class="headerlink" href="#on-many-processes" title="Permanent link">&para;</a></h2>
 <p>Under <code>mpirun</code> the beads are shared among the processes, each computing the forces of
 its own beads, <code>P</code> processes for <code>P</code> beads at most; every process then takes the same
 steps, and the run is that of one process. The atoms of a bead are not split further:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nv">MDAPY_NUM_THREADS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>mpirun<span class="w"> </span>-np<span class="w"> </span><span class="m">8</span><span class="w"> </span>python<span class="w"> </span>pimd.py<span class="w">  </span><span class="c1"># 8 beads, one each</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">MDAPY_NUM_THREADS</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>mpirun<span class="w"> </span>-np<span class="w"> </span><span class="m">8</span><span class="w"> </span>python<span class="w"> </span>pimd.py<span class="w">  </span><span class="c1"># 8 beads, one each</span>
 </code></pre></div>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
 <p><code>thermo</code> records the quantum estimators:</p>
@@ -11060,10 +11146,20 @@ thermostatted RPMD, for dynamics such as diffusion and vibrational spectra, in w
 the thermostat damps the spurious vibrations of the ring polymers but not the motion
 of the atoms themselves:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">math</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">10_000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">thermostat_damping</span><span class="o">=</span><span class="n">math</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
 </code></pre></div>
+<p>At a pressure, the isotropic barostat of Bussi, Zykova-Timan and Parrinello
+(<a href="../../../reference/references/#bussi2009">2009</a>) acts on the centroids, as in
+LAMMPS's <code>fix pimd/langevin</code> with <code>barostat BZP</code> and in i-PI: its rate <span class="arithmatex">\(\dot\epsilon\)</span>,
+of mass <span class="arithmatex">\(W = 3 N \tau^2 P k_B T\)</span> with <span class="arithmatex">\(\tau\)</span> the <code>barostat_damping</code>, is pushed by
+<span class="arithmatex">\(3 [P V (p_\text{cv} - p) + P k_B T] / W\)</span>, with <span class="arithmatex">\(p_\text{cv}\)</span> the pressure of the
+centroid virial and <span class="arithmatex">\(p\)</span> the one set, in the half steps of the forces, and damped with
+noise as the centroids in the step of the thermostat. In the half steps of the free
+ring polymer the centroids and the box grow by <span class="arithmatex">\(e^{\dot\epsilon h}\)</span> about the middle
+of the box, and the velocities of the centroids shrink by <span class="arithmatex">\(e^{-\dot\epsilon h}\)</span>,
+exactly; the other modes do not feel the barostat.</p>
 <p>The kinetic
 energy of the centroid virial is</p>
 <div class="arithmatex">\[
@@ -11076,12 +11172,15 @@ water at 300 K.</p>
 <h2 id="errors">Errors<a class="headerlink" href="#errors" title="Permanent link">&para;</a></h2>
 <p><code>MolecularDynamics</code> raises <code>InvalidParameter</code> for <code>beads</code> that is not a positive
 integer, with a <code>LAMMPS</code> calculator or a <code>movable</code> column. A run raises it
-for an ensemble other than <code>"nvt"</code> and <code>"nve"</code>, a thermostat other than <code>"langevin"</code>
-with <code>"nvt"</code>, no temperature or two, and controls. A run without beads raises it for a
+for an ensemble other than <code>"nvt"</code>, <code>"npt"</code> and <code>"nve"</code>, a thermostat other than
+<code>"langevin"</code> with <code>"nvt"</code> or <code>"npt"</code>, no temperature or two, and controls; with <code>"npt"</code>,
+for a barostat other than <code>"iso"</code>, two pressures, a box that is not periodic in every
+direction, and a calculator without the virial. A run without beads raises it for a
 <code>thermostat_damping</code> of <code>math.inf</code>, and every run for one that is not positive.</p>
 <div class="admonition quote">
 <p class="admonition-title">Please cite</p>
-<p><a href="../../../reference/references/#ceriotti2010">Ceriotti et al. (2010)</a>.</p>
+<p><a href="../../../reference/references/#ceriotti2010">Ceriotti et al. (2010)</a>; at a
+pressure also <a href="../../../reference/references/#bussi2009">Bussi et al. (2009)</a>.</p>
 </div>
 
 

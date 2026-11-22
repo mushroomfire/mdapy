@@ -11765,6 +11765,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>the mean place of the beads of an atom; <code>md.system</code> gives the centroids</td>
 </tr>
 <tr>
+<td>BZP barostat</td>
+<td>the Langevin barostat of Bussi, Zykova-Timan and Parrinello: the rate of the box, of a mass set by <code>barostat_damping</code>, pushed by the pressure and damped with noise; with beads it scales the centroids and the box by the centroid-virial pressure, as LAMMPS's <code>fix pimd/langevin</code> with <code>barostat BZP</code></td>
+</tr>
+<tr>
 <td>centroid-virial estimator</td>
 <td>the kinetic energy of quantum nuclei from the forces on the beads and their distances from the centroids, 3Nk_BT/2 − Σ(q−q_c)·F/2P; <code>kinetic_energy</code> of path integrals</td>
 </tr>

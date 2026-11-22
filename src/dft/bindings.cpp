@@ -29,6 +29,7 @@
 #include "dft/fft/fft.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
+#include "dft/scf/augmentation.h"
 #include "dft/scf/occupations.h"
 #include "dft/scf/potentials.h"
 #include "dft/scf/scf.h"
@@ -97,6 +98,25 @@ std::vector<mdapy::dft::SpeciesProjectors> species_of(nb::list tables, nb::list 
         kinds.push_back(std::move(sp));
     }
     return kinds;
+}
+
+using Coefficients1 = nb::ndarray<const std::complex<double>, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+mdapy::dft::SpeciesAugmentation augmentation_of(nb::handle item) {
+    mdapy::dft::SpeciesAugmentation sp;
+    if (item.is_none()) return sp;
+    nb::dict d = nb::cast<nb::dict>(item);
+    sp.functions = nb::cast<int>(d["functions"]);
+    sp.pair_start = nb::cast<std::vector<int>>(d["pair_start"]);
+    sp.term_lm = nb::cast<std::vector<int>>(d["term_lm"]);
+    sp.term_l = nb::cast<std::vector<int>>(d["term_l"]);
+    sp.term_table = nb::cast<std::vector<int>>(d["term_table"]);
+    sp.term_coef = nb::cast<std::vector<double>>(d["term_coef"]);
+    sp.lmax = nb::cast<int>(d["lmax"]);
+    sp.points = nb::cast<int>(d["points"]);
+    auto t = nb::cast<Rows>(d["tables"]);
+    sp.tables.assign(t.data(), t.data() + t.size());
+    return sp;
 }
 
 std::vector<mdapy::dft::Atom> atoms_of(Rows positions, Kinds species) {
@@ -607,6 +627,48 @@ NB_MODULE(_dft, m) {
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
         nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none(),
         nb::arg("magnetic_kerker") = 0.0);
+
+    // the augmentation charges of ultrasoft species on the sphere of the
+    // density, for the tests: the cell, the cutoff and grid of the density, the
+    // atoms, and a dict of each species (augmentation.terms) or None
+    nb::class_<mdapy::dft::Augmentation>(m, "Augmentation")
+        .def("__init__",
+             [](mdapy::dft::Augmentation* self, Matrix a, double cutoff, std::array<int, 3> grid, Rows positions,
+                Kinds species, nb::list kinds) {
+                 std::vector<mdapy::dft::SpeciesAugmentation> all;
+                 for (std::size_t s = 0; s < nb::len(kinds); ++s) all.push_back(augmentation_of(kinds[s]));
+                 const auto sphere = mdapy::dft::make_sphere(lattice_of(a), Vec3{0.0, 0.0, 0.0}, cutoff, grid_of(grid), false);
+                 new (self) mdapy::dft::Augmentation(lattice_of(a), sphere, atoms_of(positions, species), std::move(all));
+             })
+        .def("overlaps", [](const mdapy::dft::Augmentation& x, int s) {
+            const auto q = x.overlaps(s);
+            return array_of(q, {q.size()});
+        })
+        .def("components", [](mdapy::dft::Augmentation& x, int s) {
+            const auto q = x.components(s);
+            const std::size_t pairs = static_cast<std::size_t>(x.pairs(s));
+            std::vector<std::complex<double>> out(q.size());
+            for (std::size_t i = 0; i < q.size(); ++i) out[i] = {q[i].x, q[i].y};
+            return array_of(out, {pairs == 0 ? 0 : q.size() / pairs, pairs});
+        })
+        .def("add_density",
+             [](mdapy::dft::Augmentation& x, nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> becsum,
+                std::size_t n) {
+                 DeviceArray<Complex> rho(n);
+                 rho.zero();
+                 x.add_density(std::vector<double>(becsum.data(), becsum.data() + becsum.size()), rho.data());
+                 std::vector<Complex> host(n);
+                 rho.download(host.data(), n);
+                 std::vector<std::complex<double>> out(n);
+                 for (std::size_t i = 0; i < n; ++i) out[i] = {host[i].x, host[i].y};
+                 return array_of(out, {n});
+             })
+        .def("strengths", [](mdapy::dft::Augmentation& x, Coefficients1 v) {
+            DeviceArray<Complex> d;
+            d.upload(as_device(v.data()), v.size());
+            const auto out = x.strengths(d.data());
+            return array_of(out, {out.size()});
+        });
 
     // what a run of the self-consistent field leaves for the next one
     nb::class_<mdapy::dft::ScfState>(m, "State")

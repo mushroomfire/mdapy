@@ -55,19 +55,20 @@ def reach(r: np.ndarray) -> int:
 
 
 def bessel(l: int, x: np.ndarray) -> np.ndarray:  # noqa: E741
-    """The spherical Bessel function j_l(x), l from 0 to 3: below x = 1 by its
-    series to twelve terms, whose cancellation is harmless there, and by its
-    closed form beyond, whose cancellation is harmless there."""
-    if not 0 <= l <= 3:
-        raise ValueError("spherical Bessel functions up to l = 3")
+    """The spherical Bessel function j_l(x), l from 0 to 6: below x = max(1, l)
+    by its series, whose cancellation is harmless there; beyond, for l up to 3
+    by its closed form and above by the upward recurrence from j_0 and j_1,
+    stable for x > l."""
+    if not 0 <= l <= 6:
+        raise ValueError("spherical Bessel functions up to l = 6")
     x = np.asarray(x, dtype=float)
     out = np.empty_like(x)
-    small = np.abs(x) < 1.0
+    small = np.abs(x) < max(1.0, float(l))
     xs, xl = x[small], x[~small]
     # x^l / (2l+1)!! sum_k (-x^2/2)^k / (k! (2l+3)(2l+5)...(2l+2k+1))
-    term = xs**l / [1.0, 3.0, 15.0, 105.0][l]
+    term = xs**l / math.prod(range(1, 2 * l + 2, 2))
     total = term.copy()
-    for k in range(1, 13):
+    for k in range(1, 13 + 4 * l):
         term = term * (-0.5 * xs * xs) / (k * (2 * l + 2 * k + 1))
         total += term
     out[small] = total
@@ -78,8 +79,13 @@ def bessel(l: int, x: np.ndarray) -> np.ndarray:  # noqa: E741
         out[~small] = s / xl**2 - c / xl
     elif l == 2:
         out[~small] = (3 / xl**3 - 1 / xl) * s - 3 * c / xl**2
-    else:
+    elif l == 3:
         out[~small] = (15 / xl**4 - 6 / xl**2) * s - (15 / xl**3 - 1 / xl) * c
+    else:
+        before, now = s / xl, s / xl**2 - c / xl
+        for n in range(1, l):
+            before, now = now, (2 * n + 1) / xl * now - before
+        out[~small] = now
     return out
 
 
@@ -175,6 +181,23 @@ def radial_density_slope(
     out = interpolate_slope(table[None], q)[0]
     out[q < 1e-8] = 0.0
     return out
+
+
+def augmentation_tables(pp, qmax: float, volume: float) -> tuple[list, np.ndarray]:
+    """The keys (p, q, L) of the augmentation charges of an ultrasoft
+    pseudopotential and their transforms (tables, nq), (4 pi / Omega) int r^2
+    Q^L_pq(r) j_L(qr) dr up to the largest cutoff of the projectors, every DQ
+    from 0 to qmax and three steps more."""
+    nq = int(qmax / DQ) + 4
+    q = DQ * np.arange(nq)
+    n = max((p.cutoff_index for p in pp.projectors), default=1)
+    r, rab = pp.r[:n], pp.rab[:n]
+    keys = sorted(pp.augmentation)
+    table = np.empty((len(keys), nq))
+    for i, (_, _, ell) in enumerate(keys):
+        f = pp.augmentation[keys[i]][:n]
+        table[i] = [simpson(f * bessel(ell, qi * r), rab) for qi in q]
+    return keys, 4 * math.pi / volume * table
 
 
 def projector_table(pp, qmax: float, volume: float) -> np.ndarray:

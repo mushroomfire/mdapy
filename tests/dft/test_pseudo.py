@@ -110,8 +110,16 @@ def test_simpson_and_bessel():
         below = radial.bessel(ell, np.array([1.0 - 1e-9]))
         above = radial.bessel(ell, np.array([1.0]))
         assert below[0] == pytest.approx(above[0], rel=1e-8)
-    with pytest.raises(ValueError, match="up to l = 3"):
-        radial.bessel(4, x)
+    # l up to 6 against j_l = (-i)^l / 2 int exp(ixt) P_l(t) dt by Gauss-Legendre
+    t, w = np.polynomial.legendre.leggauss(200)
+    for ell in range(7):
+        legendre = np.polynomial.legendre.Legendre.basis(ell)(t)
+        exact = np.real(
+            0.5 * (-1j) ** ell * (np.exp(1j * np.outer(x, t)) * legendre * w).sum(1)
+        )
+        np.testing.assert_allclose(radial.bessel(ell, x), exact, atol=1e-13)
+    with pytest.raises(ValueError, match="up to l = 6"):
+        radial.bessel(7, x)
 
 
 def gaussian_pseudopotential(ell):

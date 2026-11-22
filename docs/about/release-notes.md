@@ -71,8 +71,12 @@
   records the centroid-virial and primitive kinetic energies and the centroid-virial
   pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
   of the finite ring polymer in closed form, and neon at 20 K the averages of LAMMPS's
-  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. See
-  [Path integrals](../user-guide/simulation/pimd.md).
+  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. At a
+  pressure, `ensemble="npt"` with `barostat="iso"`, the barostat of Bussi,
+  Zykova-Timan and Parrinello scales the centroids and the box by the centroid-virial
+  pressure, as LAMMPS's `barostat BZP`: neon at 20 K and zero pressure takes the volume
+  of LAMMPS, 5763 ± 7 against 5759 ± 7 Å³, and heavy atoms that of the classical
+  crystal. See [Path integrals](../user-guide/simulation/pimd.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their

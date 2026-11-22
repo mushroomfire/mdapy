@@ -111,15 +111,51 @@ The runs take the options of [Running](running.md), with these:
 
 | Option | Meaning with beads |
 |---|---|
-| `ensemble` | `"nvt"`, sampling the quantum canonical ensemble, or `"nve"`, ring-polymer molecular dynamics (RPMD) |
+| `ensemble` | `"nvt"`, sampling the quantum canonical ensemble, `"npt"`, the quantum isothermal-isobaric one, or `"nve"`, ring-polymer molecular dynamics (RPMD) |
 | `temperature` | one temperature, also of `"nve"`: it sets the springs of the ring polymers |
-| `thermostat` | with `"nvt"`, `"langevin"`: the path-integral Langevin thermostat PILE_L |
+| `thermostat` | with `"nvt"` and `"npt"`, `"langevin"`: the path-integral Langevin thermostat PILE_L |
 | `thermostat_damping` | the damping time of the centroids in ps, the other modes damped critically; `math.inf` leaves the centroids free, thermostatted RPMD (TRPMD) |
-| `seed` | of the random forces of the thermostat |
+| `pressure` | with `"npt"`, one pressure in GPa |
+| `barostat` | with `"npt"`, `"iso"`: the box keeps its shape, its lengths scaled together |
+| `barostat_damping` | the time of the barostat in ps, which sets its mass; 1000 time steps by default |
+| `seed` | of the random forces of the thermostat and the barostat |
 
 `md.beads` gives the atoms at each bead, a tuple of `P` systems with the bead in
 `info["bead"]`; `md.system`, the frames of `iterate` and `save_every` and the system
 of a restart are the centroids, the mean place and velocity of the beads of each atom.
+
+## At a pressure
+
+With `ensemble="npt"` the box follows the pressure of the quantum nuclei, which their
+zero-point motion raises: neon at 20 K and zero pressure, its crystal of 4.46 Å, 8
+beads, beside LAMMPS's `fix pimd/langevin` with `ensemble npt barostat BZP iso 0.0
+taup 1.0`:
+
+<!-- skip-test -->
+```python
+from mdapy.build import build_crystal
+from mdapy.calculators import LennardJones
+
+neon = build_crystal("fcc", 4.46, elements="Ne", repeat=(4, 4, 4))
+lj = LennardJones({"Ne": (0.0031, 2.74)}, 8.0)
+with MolecularDynamics(neon, lj, timestep=0.002, beads=8) as md:
+    md.velocities(20.0, seed=4711)
+    md.run(12000, ensemble="npt", thermostat="langevin", temperature=20.0,
+           thermostat_damping=0.1, pressure=0.0, barostat="iso",
+           barostat_damping=1.0, seed=4711, thermo=10)  # fmt: skip
+    thermo = md.thermo.filter(md.thermo["step"] > 2000)
+```
+
+| Mean over the last 10 000 steps | MDAPY | LAMMPS |
+|---|---:|---:|
+| volume (Å³) | 5763 ± 7 | 5759 ± 7 |
+| potential energy (eV) | −5.199 ± 0.009 | −5.204 ± 0.008 |
+| kinetic energy, centroid virial (eV) | 0.9913 ± 0.0010 | 0.9929 ± 0.0009 |
+| pressure, centroid virial (GPa) | −0.0002 ± 0.0003 | 0.0001 ± 0.0003 |
+
+*Neon of 256 atoms, the standard errors from 20 blocks. The crystal is 1.5 % larger
+than its box of 4.46 Å at the start, and its kinetic energy is 1.5 times the
+classical 0.66 eV: the zero-point motion of light atoms.*
 
 ## On many processes
 
@@ -177,6 +213,17 @@ import math
 md.run(10_000, ensemble="nvt", temperature=300, thermostat_damping=math.inf)
 ```
 
+At a pressure, the isotropic barostat of Bussi, Zykova-Timan and Parrinello
+([2009](../../reference/references.md#bussi2009)) acts on the centroids, as in
+LAMMPS's `fix pimd/langevin` with `barostat BZP` and in i-PI: its rate $\dot\epsilon$,
+of mass $W = 3 N \tau^2 P k_B T$ with $\tau$ the `barostat_damping`, is pushed by
+$3 [P V (p_\text{cv} - p) + P k_B T] / W$, with $p_\text{cv}$ the pressure of the
+centroid virial and $p$ the one set, in the half steps of the forces, and damped with
+noise as the centroids in the step of the thermostat. In the half steps of the free
+ring polymer the centroids and the box grow by $e^{\dot\epsilon h}$ about the middle
+of the box, and the velocities of the centroids shrink by $e^{-\dot\epsilon h}$,
+exactly; the other modes do not feel the barostat.
+
 The kinetic
 energy of the centroid virial is
 
@@ -193,9 +240,12 @@ water at 300 K.
 
 `MolecularDynamics` raises `InvalidParameter` for `beads` that is not a positive
 integer, with a `LAMMPS` calculator or a `movable` column. A run raises it
-for an ensemble other than `"nvt"` and `"nve"`, a thermostat other than `"langevin"`
-with `"nvt"`, no temperature or two, and controls. A run without beads raises it for a
+for an ensemble other than `"nvt"`, `"npt"` and `"nve"`, a thermostat other than
+`"langevin"` with `"nvt"` or `"npt"`, no temperature or two, and controls; with `"npt"`,
+for a barostat other than `"iso"`, two pressures, a box that is not periodic in every
+direction, and a calculator without the virial. A run without beads raises it for a
 `thermostat_damping` of `math.inf`, and every run for one that is not positive.
 
 !!! quote "Please cite"
-    [Ceriotti et al. (2010)](../../reference/references.md#ceriotti2010).
+    [Ceriotti et al. (2010)](../../reference/references.md#ceriotti2010); at a
+    pressure also [Bussi et al. (2009)](../../reference/references.md#bussi2009).

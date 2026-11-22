@@ -11,7 +11,10 @@ BAOAB in the normal modes of the free ring polymer: half a kick of the
 forces, half a step of the free ring polymer, exact, the PILE_L thermostat
 of each mode, the other half of the free ring polymer, the forces, the
 other half kick. Without the thermostat it is ring-polymer molecular
-dynamics."""
+dynamics. At a pressure, the isotropic Langevin barostat of Bussi, Zykova and
+Parrinello (J. Chem. Phys. 130, 074101 (2009)) scales the centroids and the
+box, driven by the centroid-virial pressure, as LAMMPS's fix pimd/langevin
+with barostat BZP."""
 
 import math
 import secrets
@@ -22,6 +25,7 @@ import polars as pl
 
 from mdapy import _core, units
 from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator
+from mdapy.core.box import Box
 from mdapy.core.system import System
 from mdapy.core.threads import get_num_threads
 from mdapy.elements import atomic_masses
@@ -33,6 +37,7 @@ from mdapy.simulation._log import _on_gpu
 _native = _core.core
 _HBAR = units.PLANCK / (2.0 * math.pi)  # eV ps
 _PIMD_STREAM = 2  # of the random numbers of the thermostat of the normal modes
+_BAROSTAT_STREAM = 3  # of the random numbers of the barostat
 _MOVING = ("positions", "velocities", "image", "forces", "atomic_energies",
            "atomic_virials")  # fmt: skip
 
@@ -153,6 +158,12 @@ class _RingPolymer:
         self.__run: dict[str, Any] = {}
         self.__temperature: float | None = None  # of the springs, K
         self.__thermostat = False
+        # the barostat: on, the pressure in eV/A^3, its mass in eV ps^2 and the
+        # rate at which the lengths of the box change, 1/ps
+        self.__barostat = False
+        self.__pressure = 0.0
+        self.__mass = 0.0
+        self.__rate = 0.0
         self.__seed = 0
         self.__draws = 0
 
@@ -304,8 +315,10 @@ class _RingPolymer:
             if kept is not None:
                 step = x - kept[1]
                 moved = math.sqrt(float((step * step).sum(axis=1).max(initial=0.0)))
-                if not 2.0 * moved < _integrator._SKIN:
-                    kept = None
+                if not 2.0 * moved < _integrator._SKIN or not np.array_equal(
+                    kept[2], matrix
+                ):
+                    kept = None  # moved too far, or the barostat changed the box
             if kept is None:
                 current = System(table=self.__table.with_columns(
                     pl.Series("positions", x.copy(), dtype=pl.Array(pl.Float64, 3))
@@ -313,6 +326,7 @@ class _RingPolymer:
                 kept = self.__lists[k] = (
                     NeighborList.build(current, cutoff + _integrator._SKIN),
                     x.copy(),
+                    matrix.copy(),
                 )
             part = calculator._split((self.__species, x, matrix), wanted, kept[0],
                                      self.__n, _same, _same, self.__ids)  # fmt: skip
@@ -329,11 +343,11 @@ class _RingPolymer:
 
     def start(self, run: dict[str, Any]) -> None:
         ensemble = run["ensemble"]
-        if ensemble not in ("nvt", "nve"):
+        if ensemble not in ("nvt", "npt", "nve"):
             raise InvalidParameter(
-                f'path-integral dynamics runs "nvt" or "nve", not {ensemble!r}'
+                f'path-integral dynamics runs "nvt", "npt" or "nve", not {ensemble!r}'
             )
-        if ensemble == "nvt" and run["thermostat"] != "langevin":
+        if ensemble in ("nvt", "npt") and run["thermostat"] != "langevin":
             raise InvalidParameter(
                 'path-integral dynamics at a temperature takes the "langevin" '
                 "thermostat, the PILE_L of the normal modes"
@@ -352,9 +366,12 @@ class _RingPolymer:
                 "path-integral dynamics needs one positive temperature, not "
                 f"{temperatures!r}"
             )
+        self.__barostat = ensemble == "npt"
+        if self.__barostat:
+            self.__start_barostat(run, float(t0))
         self.__run = run
         self.__temperature = float(t0)
-        self.__thermostat = ensemble == "nvt"
+        self.__thermostat = ensemble in ("nvt", "npt")
         # a damping of math.inf leaves the centroids to their dynamics, the
         # other modes thermostatted: thermostatted ring-polymer dynamics
         self.__damping = float(run["thermostat_damping"])
@@ -368,6 +385,35 @@ class _RingPolymer:
             )
             self.__draws = 0
         self.__compute()
+
+    def __start_barostat(self, run: dict[str, Any], temperature: float) -> None:
+        """The barostat of a run at a pressure: isotropic, of a box periodic
+        in every direction, its mass 3 N tau^2 P k_B T as LAMMPS's and i-PI's,
+        at rest at the start of the run."""
+        if run["barostat"] != "iso":
+            raise InvalidParameter(
+                'path-integral dynamics at a pressure takes the "iso" barostat, not '
+                f"{run['barostat']!r}"
+            )
+        if not self.__box.pbc.all():
+            raise InvalidParameter(
+                "path-integral dynamics at a pressure needs a box periodic in every "
+                "direction"
+            )
+        if "virial" not in self.__properties:
+            raise InvalidParameter(
+                f"a barostat needs the virial, which "
+                f"{type(self.__calculator).__name__} does not compute"
+            )
+        p0, p1 = run["pressures"]
+        if p0 != p1:
+            raise InvalidParameter(
+                f"path-integral dynamics needs one pressure, not {run['pressures']!r}"
+            )
+        self.__pressure = float(p0) / _integrator._EV_PER_A3_TO_GPA
+        tau = float(run["barostat_damping"])
+        self.__mass = 3 * self.__n * tau**2 * self.__p * _integrator._KB * temperature
+        self.__rate = 0.0
 
     def finish(self) -> None:
         self.__run = {}
@@ -388,8 +434,24 @@ class _RingPolymer:
 
     def __free(self, q: np.ndarray, v: np.ndarray, h: float) -> None:
         """The free ring polymer for a time h, exactly, in the normal modes,
-        in place: the centroid drifts, the others turn."""
-        q[0] += h * v[0]
+        in place: the centroid drifts, the others turn. With the barostat the
+        centroids and the box grow at its rate about the middle of the box,
+        the velocities of the centroids shrink, exactly."""
+        rate = self.__rate if self.__barostat else 0.0
+        if rate == 0.0:
+            q[0] += h * v[0]
+        else:
+            box = self.__box
+            middle = box.origin + 0.5 * box.matrix.sum(axis=0)
+            grow = math.exp(rate * h)
+            # the centroid mode is sqrt(P) times the centroid
+            fixed = math.sqrt(self.__p) * middle
+            q[0] = fixed + grow * (q[0] - fixed) + math.sinh(rate * h) / rate * v[0]
+            v[0] *= 1.0 / grow
+            self.__box = Box(
+                box.matrix * grow, origin=middle + grow * (box.origin - middle),
+                pbc=box.pbc,
+            )  # fmt: skip
         w = self.__omega() * self.__frequencies[1:, None, None]
         c, s = np.cos(w * h), np.sin(w * h)
         q1, v1 = q[1:].copy(), v[1:].copy()
@@ -413,20 +475,69 @@ class _RingPolymer:
         self.__draws += 1
         v[:] = c1 * v + c2 * sigma * noise.reshape(self.__p, self.__n, 3)
 
+    def __centroid_pressure(self) -> float:
+        """The pressure of the centroid virial in eV/A^3, of the kinetic
+        energy of the centroids as they move, as LAMMPS's p_cv."""
+        p = self.__p
+        vc = self.__v.mean(axis=0)
+        twice = (
+            float(np.einsum("i,ia,ia->", self.__masses, vc, vc)) * _integrator._MVV2E
+        )
+        away = self.__x - self.__x.mean(axis=0)[None]
+        spread = float(np.einsum("kia,kia->", away, self.__f)) / p
+        work = float(np.trace(self.__virials.mean(axis=0)))
+        return (twice - spread + work) / (3.0 * float(self.__box.volume))
+
+    def __push(self, h: float) -> None:
+        """Half a step of the rate of the barostat, h: the pressure against
+        the one set, and the kick of the forces on the centroids over h, to
+        third order in h, as the BZP barostat of LAMMPS."""
+        p, w = self.__p, self.__mass
+        kt = p * _integrator._KB * self.__temperature
+        volume = float(self.__box.volume)
+        excess = volume * p * (self.__centroid_pressure() - self.__pressure)
+        # the force and the velocity of the centroid mode, sqrt(P) times those
+        # of the centroids
+        f = self.__f.sum(axis=0) / math.sqrt(p)
+        v = self.__v.sum(axis=0) / math.sqrt(p)
+        power = float(np.einsum("ia,ia->", f, v))
+        square = float(np.einsum("ia,ia,i->", f, f, 1.0 / self.__masses))
+        self.__rate += (
+            3.0 * h * (excess + kt) + h * h * power
+            + h**3 / 3.0 * square * _integrator._FTM2V
+        ) / w  # fmt: skip
+
+    def __shake(self, h: float, draw: int) -> None:
+        """The Langevin thermostat of the rate of the barostat for a time h,
+        damped as the centroids, in thermostat_damping."""
+        c1 = math.exp(-h / self.__damping)
+        c2 = math.sqrt(1.0 - c1 * c1)
+        sigma = math.sqrt(self.__p * _integrator._KB * self.__temperature / self.__mass)
+        noise = _native.normals(np.zeros(1, dtype=np.int64), self.__seed,
+                                _BAROSTAT_STREAM, draw)  # fmt: skip
+        self.__rate = c1 * self.__rate + c2 * sigma * float(noise[0, 0])
+
     def __one_step(self, full: bool) -> None:
         dt = self.__dt
         kick = 0.5 * dt * _integrator._FTM2V / self.__masses[None, :, None]
+        if self.__barostat:
+            self.__push(0.5 * dt)
         self.__v += kick * self.__f
         q, v = self.__to_modes(self.__x), self.__to_modes(self.__v)
         self.__free(q, v, 0.5 * dt)
         if self.__thermostat:
+            draw = self.__draws
             self.__pile(v, dt)
+            if self.__barostat:
+                self.__shake(dt, draw)
         self.__free(q, v, 0.5 * dt)
         self.__x[:] = self.__to_beads(q)
         self.__v[:] = self.__to_beads(v)
         self.__step += 1
         self.__time = self.__atime + (self.__step - self.__astep) * dt
-        self.__compute(full)
+        self.__compute(full or self.__barostat)
+        if self.__barostat:
+            self.__push(0.5 * dt)
         self.__v += kick * self.__f
 
     # -- what it records -------------------------------------------------------

@@ -80,8 +80,8 @@ def test_a_upf_file_in_hartree(tmp_path):
 @pytest.mark.parametrize(
     ("options", "message"),
     [({"version": "1.0"}, "version 2"), ({"kind": "US"}, "no PP_AUGMENTATION"),
-     ({"kind": "PAW"}, "PAW datasets are not supported yet"),
-     ({"kind": "XX"}, "norm-conserving and ultrasoft"), ({"spin_orbit": "T"}, "spin-orbit")],
+     ({"kind": "PAW"}, "no PP_AUGMENTATION"),
+     ({"kind": "XX"}, "norm-conserving, ultrasoft and PAW"), ({"spin_orbit": "T"}, "spin-orbit")],
 )  # fmt: skip
 def test_what_is_refused(tmp_path, options, message):
     with pytest.raises(InvalidParameter, match=message):
@@ -129,6 +129,7 @@ def gaussian_pseudopotential(ell):
     class P:
         r = 0.01 * np.arange(1601)
         rab = np.full(1601, 0.01)
+        kkbeta = 1601
         projectors = (
             type(
                 "B",

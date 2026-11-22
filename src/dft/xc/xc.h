@@ -131,13 +131,49 @@ MDAPY_HD T energy(Functional functional, const T& up, const T& down, const T& su
     return slater_spin(up) + slater_spin(down) + n * ec;
 }
 
+// The parts of a functional as QE takes them apart, for the thresholds of
+// small and negative densities: LDA of the spin densities, the gradient part of
+// PBE exchange of one spin density, n H of PBE correlation
+template <class T>
+MDAPY_HD T lda_energy(Functional functional, const T& up, const T& down) {
+    using std::cbrt;
+    const T n = up + down;
+    const T zeta = (up - down) / n;
+    const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
+    const bool modified = functional == Functional::LdaPwMod || functional == Functional::Pbe;
+    return slater_spin(up) + slater_spin(down) + n * pw_correlation(rs, zeta, modified);
+}
+
+template <class T>
+MDAPY_HD T exchange_gradient(const T& n, const T& s) {
+    return pbe_exchange_spin(n, s) - slater_spin(n);
+}
+
+template <class T>
+MDAPY_HD T correlation_gradient(Functional functional, const T& n, const T& zeta, const T& grad2) {
+    using std::cbrt;
+    const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
+    const T ec = pw_correlation(rs, zeta, functional == Functional::Pbe);
+    return n * pbe_h(n, zeta, grad2, ec);
+}
+
 }  // namespace xc
 
 // The functional at each of count points: f the energy per volume, v (2 per
 // point) its derivatives by n_up and n_down, vs (3 per point) by s_uu, s_ud
-// and s_dd. Points of total density below threshold, or a spin density not
-// above zero, give zero.
+// and s_dd. Small and negative densities are taken as Quantum ESPRESSO takes
+// them:
+//   - points of |n| not above threshold give zero;
+//   - LDA is evaluated at |n| and zeta = (n_up - n_down) / |n| within [-1, 1],
+//     the energy n e(|n|, zeta), the potentials those of that point;
+//   - without spin (polarized false) the gradient terms come where |n| > 1e-6
+//     and |grad n|^2 > 1e-10, of |n| and its gradient, their energy with the
+//     sign of n unless signed_gradient is false (QE's one-center PAW);
+//   - with spin, the exchange of each spin where n > 1e-10, n_s > 1e-10 and
+//     |grad n_s|^2 > 1e-20, and the correlation where n (not |n|) > 1e-6 and
+//     |grad n|^2 > 1e-12, with zeta within 1 - 1e-6.
 void evaluate_xc(Functional functional, std::size_t count, const double* rho, const double* sigma,
-                 double threshold, double* f, double* v, double* vs);
+                 double threshold, double* f, double* v, double* vs, bool polarized = true,
+                 bool signed_gradient = true);
 
 }  // namespace mdapy::dft

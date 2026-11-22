@@ -98,6 +98,8 @@ Mixer::Mixer(std::vector<double> g2, double volume, int channels, MixingOptions 
 void Mixer::reset() {
     inputs_.clear();
     residuals_.clear();
+    extra_inputs_.clear();
+    extra_residuals_.clear();
 }
 
 double Mixer::dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const {
@@ -122,16 +124,38 @@ double Mixer::residual_energy(const std::vector<cuDoubleComplex>& in,
 }
 
 std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
-                                        const std::vector<cuDoubleComplex>& out) {
+                                        const std::vector<cuDoubleComplex>& out, std::vector<double>* extra,
+                                        const std::vector<double>* extra_out) {
     const std::size_t size = n_ * channels_;
     if (in.size() != size || out.size() != size) throw std::invalid_argument("densities of the sphere");
+    const bool along = extra != nullptr;
+    if (along != (extra_out != nullptr) || (along && (extra->size() != extra_out->size() ||
+                                                      extra->size() % static_cast<std::size_t>(channels_) != 0)))
+        throw std::invalid_argument("the components that come along: their input and output, channels of one size");
+    if (along != !extra_inputs_.empty() && !inputs_.empty())
+        throw std::invalid_argument("components that come along in every step or none");
     std::vector<cuDoubleComplex> r(size);
     for (std::size_t i = 0; i < size; ++i) r[i] = make_cuDoubleComplex(out[i].x - in[i].x, out[i].y - in[i].y);
     inputs_.push_back(in);
     residuals_.push_back(r);
+    if (along) {
+        std::vector<double> er(extra->size());
+        for (std::size_t i = 0; i < er.size(); ++i) er[i] = (*extra_out)[i] - (*extra)[i];
+        extra_inputs_.push_back(*extra);
+        extra_residuals_.push_back(std::move(er));
+    }
     while (static_cast<int>(inputs_.size()) > options_.history + 1) {
         inputs_.pop_front();
         residuals_.pop_front();
+        if (along) {
+            extra_inputs_.pop_front();
+            extra_residuals_.pop_front();
+        }
+    }
+    std::vector<double> x, xr;
+    if (along) {
+        x = extra_inputs_.back();
+        xr = extra_residuals_.back();
     }
     const int m = static_cast<int>(inputs_.size()) - 1;  // differences
     std::vector<cuDoubleComplex> rho = in, res = r;
@@ -161,6 +185,16 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
         const std::vector<double> gamma = solve_symmetric(a, b, m);
         for (int i = 0; i < m; ++i) {
             const double c = gamma[static_cast<std::size_t>(i)];
+            if (along) {
+                const auto& x0 = extra_inputs_[static_cast<std::size_t>(i)];
+                const auto& x1 = extra_inputs_[static_cast<std::size_t>(i + 1)];
+                const auto& r0 = extra_residuals_[static_cast<std::size_t>(i)];
+                const auto& r1 = extra_residuals_[static_cast<std::size_t>(i + 1)];
+                for (std::size_t j = 0; j < x.size(); ++j) {
+                    x[j] -= c * (x1[j] - x0[j]);
+                    xr[j] -= c * (r1[j] - r0[j]);
+                }
+            }
             for (std::size_t j = 0; j < size; ++j) {
                 rho[j].x -= c * drho[static_cast<std::size_t>(i)][j].x;
                 rho[j].y -= c * drho[static_cast<std::size_t>(i)][j].y;
@@ -174,6 +208,11 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
         rho[j].y += precondition_[j] * res[j].y;
     }
     rho[0] = in[0];
+    if (along) {
+        const std::size_t per = x.size() / static_cast<std::size_t>(channels_);
+        for (std::size_t j = 0; j < x.size(); ++j)
+            (*extra)[j] = x[j] + (j < per ? options_.beta : options_.magnetic_beta) * xr[j];
+    }
     return rho;
 }
 

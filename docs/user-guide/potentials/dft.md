@@ -1,8 +1,8 @@
 # Plane-wave DFT
 
 !!! warning "Under development"
-    MDAPY's density functional theory is new. It takes norm-conserving and
-    ultrasoft pseudopotentials (PAW comes later), runs on one NVIDIA GPU per
+    MDAPY's density functional theory is new. It takes norm-conserving,
+    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU per
     configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
@@ -44,7 +44,7 @@ CUDA 12 for GPUs from the V100 on.
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
 | `encut` | float64 | | eV | the kinetic energy cutoff of the plane waves, as VASP's ENCUT |
-| `ecutrho` | float64 | 4 `encut`, 8 with ultrasoft pseudopotentials | eV | the cutoff of the density, as QE's ecutrho |
+| `ecutrho` | float64 | 4 `encut`, 8 with ultrasoft or PAW pseudopotentials | eV | the cutoff of the density, as QE's ecutrho |
 | `pseudopotentials` | mapping or path | `$MDAPY_PSEUDO_DIR` | | UPF files by element, or a folder with `{element}.upf` or one `{element}_*.upf` of each element |
 | `kpoints` | (3,) int32 | `None` | | a Gamma-centered mesh of k-points |
 | `kspacing` | float64 | 0.25 | 1/Å | without `kpoints`, the largest spacing of the mesh, 2π included, as VASP's KSPACING |
@@ -100,14 +100,21 @@ write(f"train-{rank}.xyz", labelled)
   k-points related by time reversal count once. The bands live on the FFT grid
   of four times the cutoff, the density and the potentials on that of
   `ecutrho`, with 2, 3, 5 and 7 as factors.
-- **Pseudopotentials:** in UPF 2, norm-conserving or ultrasoft, with their
-  projectors, the core charge of the nonlinear core correction and, ultrasoft,
-  their augmentation charges by angular momentum (`q_with_l`, as the files of
-  a recent `ld1.x`). The tested ones are PseudoDojo's norm-conserving tables
-  and pslibrary 1.0.0 made by `ld1.x`. PAW files are refused for now.
+- **Pseudopotentials:** in UPF 2, norm-conserving, ultrasoft or PAW, with
+  their projectors, the core charge of the nonlinear core correction and,
+  ultrasoft and PAW, their augmentation charges by angular momentum
+  (`q_with_l`, as the files of a recent `ld1.x`). The tested ones are
+  PseudoDojo's norm-conserving tables and the ultrasoft and PAW files of
+  pslibrary 1.0.0 made by `ld1.x`.
 - **Ultrasoft pseudopotentials** solve H ψ = ε S ψ with the overlap
   S = 1 + Σ |β⟩ q ⟨β|; the strengths of the projectors of each atom follow the
   potential at every step, and the density adds the augmentation charges.
+- **PAW** adds to that the one-center terms of each atom, on its radial mesh:
+  the all-electron and pseudo densities of the occupations of its projectors,
+  their Hartree and exchange-correlation energies, and the strengths these
+  add to the projectors. The occupations are mixed along with the density, as
+  Quantum ESPRESSO mixes them. The energy is Quantum ESPRESSO's total energy,
+  without the energy of the frozen core.
 - **Exchange and correlation:** LDA (Perdew–Wang) and PBE, with and without
   spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the constants
   of their paper, as Quantum ESPRESSO's PBE. `"pbe"` uses those of libxc; the two
@@ -156,13 +163,20 @@ magnetization to 1e-6 Bohr magneton. The stress of sheared silicon agrees to
 0.01 kbar, that of sheared iron with spin to 0.03 kbar, and both with
 differences of strained cells at a fixed basis to 1e-7 hartree.
 
+With the PAW files of pslibrary 1.0.0 (`ecutrho` 8 times `encut`),
+aluminium, silicon of two displaced atoms and bcc iron with spin agree in the
+energy to 1e-8 hartree per atom (iron once the rounded constant is allowed
+for), in the occupied eigenvalues to 1e-7 hartree, in the forces to 1e-7
+hartree/bohr, in the stress to 0.01 kbar and, iron, in the magnetization to
+1e-6 Bohr magneton.
+
 What differs is Quantum ESPRESSO's own:
 
 - Its Ewald sum is converged to about 1e-7 Ry.
 - Its spin-polarized PBE correlation takes γ = 0.031091, rounded, where its
   paramagnetic one takes (1 − ln 2)/π². This moves the energy of iron by 1e-6
-  hartree. A NumPy evaluation of the difference on MDAPY's density accounts for
-  it to 1e-8.
+  hartree, and with PAW by 4e-6 more through the one-center densities. A NumPy
+  evaluation of the difference on MDAPY's densities accounts for it to 1e-8.
 - With FFTW its grids take the factors 2, 3 and 5 only; the comparisons use its
   grid.
 

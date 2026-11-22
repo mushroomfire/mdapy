@@ -46,6 +46,25 @@ def simpson(f: np.ndarray, rab: np.ndarray, n: int | None = None) -> float:
     return float(total)
 
 
+def simpson_weights(rab: np.ndarray, n: int | None = None) -> np.ndarray:
+    """The weights of simpson over the first n points (all by default), zero
+    beyond: simpson(f, rab, n) is (f * weights).sum()."""
+    n = len(rab) if n is None else n
+    w = np.zeros(len(rab))
+    if n < 3:
+        return w
+    last = n - 1 if n % 2 == 1 else n - 2
+    w[0:last:2] += 1.0 / 3
+    w[1:last:2] += 4.0 / 3
+    w[2 : last + 1 : 2] += 1.0 / 3
+    if n % 2 == 0:
+        w[n - 3] -= 1.0 / 12
+        w[n - 2] += 8.0 / 12
+        w[n - 1] += 5.0 / 12
+    w[:n] *= rab[:n]
+    return w
+
+
 def reach(r: np.ndarray) -> int:
     """The points of the mesh that the local parts are integrated over: up to
     the first beyond 10 bohr, an odd number."""
@@ -186,11 +205,11 @@ def radial_density_slope(
 def augmentation_tables(pp, qmax: float, volume: float) -> tuple[list, np.ndarray]:
     """The keys (p, q, L) of the augmentation charges of an ultrasoft
     pseudopotential and their transforms (tables, nq), (4 pi / Omega) int r^2
-    Q^L_pq(r) j_L(qr) dr up to the largest cutoff of the projectors, every DQ
-    from 0 to qmax and three steps more."""
+    Q^L_pq(r) j_L(qr) dr up to kkbeta, every DQ from 0 to qmax and three
+    steps more."""
     nq = int(qmax / DQ) + 4
     q = DQ * np.arange(nq)
-    n = max((p.cutoff_index for p in pp.projectors), default=1)
+    n = pp.kkbeta
     r, rab = pp.r[:n], pp.rab[:n]
     keys = sorted(pp.augmentation)
     table = np.empty((len(keys), nq))
@@ -202,12 +221,13 @@ def augmentation_tables(pp, qmax: float, volume: float) -> tuple[list, np.ndarra
 
 def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
     """(P, nq) the transforms of the projectors, (4 pi / sqrt(Omega)) int r^2
-    beta(r) j_l(qr) dr up to the largest cutoff of the species, every DQ from 0
-    to qmax and three steps more for the interpolation."""
+    beta(r) j_l(qr) dr up to kkbeta (the largest cutoff of the species, for PAW
+    at least its augmentation points), every DQ from 0 to qmax and three steps
+    more for the interpolation."""
     nq = int(qmax / DQ) + 4
     q = DQ * np.arange(nq)
     table = np.empty((len(pp.projectors), nq))
-    n = max((p.cutoff_index for p in pp.projectors), default=1)
+    n = pp.kkbeta
     r, rab = pp.r[:n], pp.rab[:n]
     for i, p in enumerate(pp.projectors):
         rb = p.r_beta[:n]

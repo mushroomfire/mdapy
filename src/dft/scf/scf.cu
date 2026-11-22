@@ -276,6 +276,40 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
     };
     std::vector<std::vector<double>> becsum(spins);
+    // PAW: the input occupations, mixed, and the one-center strengths of them,
+    // of the callable given or of the GPU
+    std::unique_ptr<OneCenter> centers;
+    std::function<double(const std::vector<std::vector<double>>&, std::vector<std::vector<double>>&)> one =
+        input.onecenter;
+    if (!one && std::any_of(input.paw.begin(), input.paw.end(), [](const SpeciesOneCenter& x) { return x.mesh > 0; })) {
+        std::vector<int> kinds, widths;
+        for (const Atom& atom : input.atoms) {
+            kinds.push_back(atom.species);
+            widths.push_back(width_of(input.species[static_cast<std::size_t>(atom.species)]));
+        }
+        std::vector<SpeciesOneCenter> data = input.paw;
+        data.resize(input.species.size());
+        centers = std::make_unique<OneCenter>(std::move(data), kinds, widths, ns, options.functional,
+                                              options.xc_threshold);
+        one = [&centers](const std::vector<std::vector<double>>& b, std::vector<std::vector<double>>& d) {
+            return centers->compute(b, d);
+        };
+    }
+    const bool paw = static_cast<bool>(one);
+    if (paw && !ultrasoft) throw std::invalid_argument("PAW without augmentation");
+    std::vector<std::vector<double>> becsum_in, onecenter(spins);
+    double e1 = 0.0;
+    auto add_onecenter = [&](const std::vector<std::vector<double>>& d) {
+        for (std::size_t s = 0; s < spins; ++s) {
+            if (d[s].size() != pair_offsets.back()) throw std::invalid_argument("the one-center strengths of each spin");
+            std::size_t at = 0;
+            for (std::size_t i = 0; i < input.atoms.size(); ++i) {
+                const int w = width_of(input.species[static_cast<std::size_t>(input.atoms[i].species)]);
+                add_packed(d[s].data() + pair_offsets[i], w, strengths[s].data() + at);
+                at += static_cast<std::size_t>(w) * w;
+            }
+        }
+    };
     Davidson davidson;
     // the bands of each spin and k-point, (s, k) at s nk + k, random at the
     // start and the same for both spins, so that a density without
@@ -334,6 +368,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         components.upload(start.data(), start.size());
         pot.from_sphere(components.data(), rho_in.data(), ns);
     }
+    if (paw) {
+        becsum_in = restart && state->becsum.size() == spins ? state->becsum : input.becsum;
+        if (becsum_in.size() != spins) throw std::invalid_argument("the first occupations of PAW of each spin");
+        for (const auto& b : becsum_in)
+            if (b.size() != pair_offsets.back()) throw std::invalid_argument("the first occupations of PAW of each atom");
+    }
     ScfResult result;
     result.restarted = restart;
     result.ewald = input.ewald;
@@ -348,6 +388,14 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         if (iteration == 1) result.times.setup += clock.lap();
         const PotentialEnergies e = pot.compute(rho_in.data(), hxc.data());
         update_strengths(hxc);
+        double paw_energy = 0.0;
+        if (paw) {
+            e1 = one(becsum_in, onecenter);
+            add_onecenter(onecenter);
+            paw_energy = e1;
+            for (std::size_t s = 0; s < spins; ++s)
+                for (std::size_t i = 0; i < becsum_in[s].size(); ++i) paw_energy -= onecenter[s][i] * becsum_in[s][i];
+        }
         result.times.potentials += clock.lap();
         last_in = in_g;
         // the bands
@@ -390,7 +438,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (ultrasoft) h.add_becsum(psi[s * nk + k].data(), nb, w.data(), becsum[s]);
             }
         }
-        const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy;
+        const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy + paw_energy;
         if (two_grids) {
             // the smooth density on the start of the dense sphere
             pot_s->to_sphere(rho_s.data(), smooth_g.data(), ns);
@@ -433,8 +481,34 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             result.converged = true;
             break;
         }
-        // the next input density
-        in_g = mixer.mix(in_g, out_g);
+        // the next input density, and with PAW the occupations of (total,
+        // magnetization) along
+        if (paw) {
+            const std::size_t n = pair_offsets.back();
+            std::vector<double> x(spins * n), x_out(spins * n);
+            for (std::size_t i = 0; i < n; ++i) {
+                if (ns == 2) {
+                    x[i] = becsum_in[0][i] + becsum_in[1][i];
+                    x[n + i] = becsum_in[0][i] - becsum_in[1][i];
+                    x_out[i] = becsum[0][i] + becsum[1][i];
+                    x_out[n + i] = becsum[0][i] - becsum[1][i];
+                } else {
+                    x[i] = becsum_in[0][i];
+                    x_out[i] = becsum[0][i];
+                }
+            }
+            in_g = mixer.mix(in_g, out_g, &x, &x_out);
+            for (std::size_t i = 0; i < n; ++i) {
+                if (ns == 2) {
+                    becsum_in[0][i] = 0.5 * (x[i] + x[n + i]);
+                    becsum_in[1][i] = 0.5 * (x[i] - x[n + i]);
+                } else {
+                    becsum_in[0][i] = x[i];
+                }
+            }
+        } else {
+            in_g = mixer.mix(in_g, out_g);
+        }
         result.times.mixing += clock.lap();
         std::vector<Complex> next = in_g;
         if (ns == 2) to_spins(next, ng);
@@ -597,6 +671,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             // the strengths of the energy of Kohn and Sham of rho_out, and the
             // augmentation moving with the strain in V of rho_out
             update_strengths(hxc_out);
+            if (paw) {
+                // the one-center strengths of the output occupations
+                std::vector<std::vector<double>> d(spins);
+                one(becsum, d);
+                add_onecenter(d);
+            }
             for (std::size_t s = 0; s < spins; ++s) {
                 potential_of(s, hxc_out);
                 const auto a = aug.strain(veff_g.data(), becsum[s]);
@@ -628,7 +708,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         state->density_miller = pot.sphere().miller;
         state->density = out_g;
         state->atoms_density = atoms_g;
+        state->becsum = paw ? becsum : std::vector<std::vector<double>>{};
     }
+    result.onecenter = e1;
+    if (paw) result.becsum = becsum;
     result.density.resize(spins * points);
     rho_out.download(result.density.data(), result.density.size());
     if (ns == 2) {

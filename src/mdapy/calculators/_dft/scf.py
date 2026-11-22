@@ -12,7 +12,7 @@ import math
 
 import numpy as np
 
-from . import augmentation, radial
+from . import augmentation, paw, radial
 from .ewald import ewald
 
 _FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "lda_pw"}
@@ -127,6 +127,7 @@ def run(
     state=None,
     magnetic_kerker: float = 0.0,
     smooth_grid=None,
+    onecenter=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -144,7 +145,10 @@ def run(
     magmoms, the first
     moments of the atoms in Bohr magnetons, the spins are collinear; the
     eigenvalues and occupations are then (2, K, bands) and the density (2, n1,
-    n2, n3), up and down."""
+    n2, n3), up and down. With PAW datasets, onecenter(data, becsum) gives E^1
+    and D (spins, pairs) of an atom of paw.onecenter data from its
+    occupations; the result then holds onecenter (E^1) and becsum, the
+    occupations of all atoms (spins, pairs)."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -213,6 +217,13 @@ def run(
             else None
             for pp in pseudos
         ]
+    becsum = callback = data = None
+    paw_atoms = [i for i, s in enumerate(kinds) if pseudos[s].paw is not None]
+    if paw_atoms:
+        name = functional or functional_of(pseudos)
+        becsum, callback, data = _paw(
+            pseudos, kinds, paw_atoms, spins, magmoms, name, onecenter
+        )
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
@@ -224,7 +235,8 @@ def run(
         davidson_basis, seed,
         None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
         state, magnetic_kerker, augmented,
-        None if smooth_grid == grid else list(smooth_grid),
+        None if smooth_grid == grid else list(smooth_grid), callback, becsum,
+        data if callback is None else None,
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
@@ -242,3 +254,34 @@ def run(
         spins=spins,
     )  # fmt: skip
     return result
+
+
+def _paw(pseudos, kinds, paw_atoms, spins, magmoms, functional, onecenter):
+    """The first occupations (spins, pairs) of all atoms, those of PAW atoms
+    of their free atom; the callable of the one-center terms of all of them
+    from onecenter of one, None without; and the one-center data of each
+    species, None for those without PAW."""
+    widths = [sum(2 * p.angular + 1 for p in pseudos[s].projectors) for s in kinds]
+    offsets = np.cumsum([0] + [w * (w + 1) // 2 for w in widths])
+    gga = functional in ("pbe", "pbe_pw")
+    data = [paw.onecenter(pp, gga) if pp.paw is not None else None for pp in pseudos]
+    becsum = np.zeros((spins, offsets[-1]))
+    for i in paw_atoms:
+        moment = 0.0 if magmoms is None else float(magmoms[i])
+        becsum[:, offsets[i] : offsets[i + 1]] = paw.initial_becsum(
+            pseudos[kinds[i]], spins, moment
+        )
+    if onecenter is None:
+        return becsum, None, data
+
+    def callback(b):
+        energy, d = 0.0, np.zeros_like(b)
+        for i in paw_atoms:
+            part = slice(offsets[i], offsets[i + 1])
+            e, d[:, part] = onecenter(
+                data[int(kinds[i])], np.ascontiguousarray(b[:, part])
+            )
+            energy += e
+        return energy, d
+
+    return becsum, callback, data

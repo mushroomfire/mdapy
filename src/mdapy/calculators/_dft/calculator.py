@@ -4,7 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """MDAPY's plane-wave DFT as a calculator: energies, forces and virials of
-periodic cells from norm-conserving pseudopotentials on an NVIDIA GPU."""
+periodic cells from norm-conserving, ultrasoft or PAW pseudopotentials on an
+NVIDIA GPU."""
 
 import math
 import os
@@ -58,10 +59,10 @@ class DFT(Calculator):
         The kinetic energy cutoff of the plane waves in eV, as VASP's ENCUT.
     ecutrho : float64, optional
         The cutoff of the density in eV, as QE's ecutrho. Default 4 encut,
-        8 encut with ultrasoft pseudopotentials, whose augmentation charges
+        8 encut with ultrasoft or PAW pseudopotentials, whose augmentation charges
         need more.
     pseudopotentials : mapping or str or path-like, optional
-        Norm-conserving pseudopotentials in UPF, by element, or a folder
+        Norm-conserving, ultrasoft or PAW pseudopotentials in UPF, by element, or a folder
         that holds ``{element}.upf`` or one ``{element}_*.upf`` of each
         element. Default the environment variable ``MDAPY_PSEUDO_DIR``.
     kpoints : sequence of int32, optional

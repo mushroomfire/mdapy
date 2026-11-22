@@ -27,6 +27,10 @@
 // Miller indices of the energy of Kohn and Sham of the last bands and rho_out
 // (Nielsen and Martin): the kinetic, local, projector, Hartree and
 // exchange-correlation terms, with the gradients of GGA and the core charge.
+// With PAW, the one-center terms of the atoms come of the input occupations
+// of the projectors, becsum, mixed along with the density: their energy E^1
+// and strengths D^1 - D~^1 in the Hamiltonian, and the energy above takes
+// E^1 - sum D^1 becsum_in more.
 // The bands are converged to a residual norm of 0.01 sqrt(E_H[rho_out -
 // rho_in]) of the step before, 1e-2 at the start and never above that of the
 // step before, tightly for the bands that hold electrons and to 1e-2 for the
@@ -35,6 +39,7 @@
 #pragma once
 
 #include <array>
+#include <functional>
 #include <vector>
 
 #include "dft/core/device.h"
@@ -43,6 +48,7 @@
 #include "dft/scf/augmentation.h"
 #include "dft/scf/mixer.h"
 #include "dft/scf/occupations.h"
+#include "dft/scf/paw.h"
 #include "dft/xc/xc.h"
 
 namespace mdapy::dft {
@@ -74,6 +80,16 @@ struct ScfInput {
     std::vector<SpeciesAugmentation> augmentation;
     std::vector<double> density;  // the first rho_in(r) on the grid, up then down with spin
     double ewald = 0.0;
+    // PAW: the one-center terms of the atoms, from the occupations becsum of
+    // each spin (the pairs a <= b of the projector functions of each atom, as
+    // the augmentation packs them) to their energy E^1, filling the strengths
+    // D^1 - D~^1 of each spin, packed likewise; empty for none. becsum holds
+    // the first occupations.
+    std::function<double(const std::vector<std::vector<double>>&, std::vector<std::vector<double>>&)> onecenter;
+    std::vector<std::vector<double>> becsum;
+    // or the one-center data of each species (mesh 0 without PAW), for the
+    // GPU's one-center terms when onecenter is empty
+    std::vector<SpeciesOneCenter> paw;
 };
 
 struct ScfOptions {
@@ -130,6 +146,8 @@ struct ScfResult {
     // without the Ewald term, when the slopes are given
     bool has_strain = false;
     std::array<double, 6> strain{};
+    double onecenter = 0.0;  // E^1 of PAW of the last input occupations
+    std::vector<std::vector<double>> becsum;  // the last output occupations of each spin, with augmentation
     std::vector<ScfStep> steps;
     ScfTimes times;
 };
@@ -156,6 +174,7 @@ struct ScfState {
     std::vector<DeviceArray<Complex>> psi;   // (s, k) at s nk + k
     std::vector<Int3> density_miller;
     std::vector<Complex> density, atoms_density;  // (total, magnetization) on that sphere
+    std::vector<std::vector<double>> becsum;      // the output occupations of each spin, PAW
 };
 
 // state, when given, starts the run from the last one when it fits, and

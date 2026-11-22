@@ -191,3 +191,25 @@ def test_ultrasoft(folder):
     )
     with pytest.raises(InvalidParameter, match="ecutrho must be at least 4 encut"):
         DFT(300.0, ecutrho=600.0, pseudopotentials=folder)
+
+
+def test_paw_and_its_restart(folder):
+    """PAW silicon through the calculator, as the self-consistent field gives
+    it; a restart from the last occupations of the projectors too."""
+    path = espresso.pseudo("pslibrary/Si.pbe-n-kjpaw_psl.1.0.0.UPF")
+    settings = dict(pseudopotentials={"Si": path}, kpoints=(2, 2, 2), smearing="fixed",
+                    functional="pbe_pw", tolerance=1e-9)  # fmt: skip
+    dft = DFT(12 * HARTREE, restart=True, **settings)
+    result = dft.compute(silicon())
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [read_upf(path)], 12.0, kgrid=(2, 2, 2),
+                functional="pbe_pw", energy_tolerance=1e-9 / HARTREE,
+                density_tolerance=1e-9 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-7)
+    assert dft.last["provenance"]["ecutrho"] is None
+    steps = dft.last["iterations"]
+    moved = silicon(fractions=FRACTIONS + [[0.003, 0.0, -0.002], [0.0, 0.004, 0.001]])
+    warm = dft.compute(moved)
+    assert dft.last["restarted"] and dft.last["iterations"] < steps
+    cold = DFT(12 * HARTREE, **settings).compute(moved)
+    assert warm.energy == pytest.approx(cold.energy, abs=1e-6)
+    np.testing.assert_allclose(warm.forces, cold.forces, atol=1e-5)

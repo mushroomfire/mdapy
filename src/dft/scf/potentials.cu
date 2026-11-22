@@ -301,7 +301,8 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     f_.resize(points);
     v_.resize(2 * points);
     vs_.resize(3 * points);
-    evaluate_xc(functional_, points, rho_.data(), sigma_.data(), threshold_, f_.data(), v_.data(), vs_.data());
+    evaluate_xc(functional_, points, rho_.data(), sigma_.data(), threshold_, f_.data(), v_.data(), vs_.data(),
+                spins_ == 2);
     sum.zero();
     dot_kernel<<<blocks(points), kThreads>>>(points, f_.data(), nullptr, sum.data());
     launched("the XC energy");

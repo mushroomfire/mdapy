@@ -18,6 +18,9 @@
 // form with magnetic_kerker but for its G = 0. The
 // component G = 0 of the total density holds the electrons and is left as it
 // is; that of the magnetization, the total moment, is mixed.
+// Real components outside the metric can come along, as Quantum ESPRESSO
+// mixes the occupations of the projectors of PAW: the same g_i, and the share
+// beta of their residual, magnetic_beta in the second of two channels.
 
 #pragma once
 
@@ -44,9 +47,11 @@ public:
     Mixer(std::vector<double> g2, double volume, int channels, MixingOptions options);
 
     // The next input density from this step's input and output, (channels, n)
-    // each.
+    // each; with extra, the components that come along: their input, replaced
+    // by the next, and their output, (channels, count) each.
     std::vector<cuDoubleComplex> mix(const std::vector<cuDoubleComplex>& in,
-                                     const std::vector<cuDoubleComplex>& out);
+                                     const std::vector<cuDoubleComplex>& out, std::vector<double>* extra = nullptr,
+                                     const std::vector<double>* extra_out = nullptr);
     // The Hartree energy of the residual of the total density, E_H[out - in],
     // the estimate of the error of the energy; with the magnetization, plus
     // 2 pi Omega sum_G |m_out - m_in|^2 times one bohr^2, the Hartree energy of
@@ -63,6 +68,7 @@ private:
     MixingOptions options_;
     std::size_t n_;
     std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
+    std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };
 
 }  // namespace mdapy::dft

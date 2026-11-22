@@ -119,6 +119,50 @@ mdapy::dft::SpeciesAugmentation augmentation_of(nb::handle item) {
     return sp;
 }
 
+std::vector<double> doubles_of(nb::handle h) {
+    auto a = nb::cast<nb::ndarray<const double, nb::c_contig, nb::device::cpu>>(h);
+    return std::vector<double>(a.data(), a.data() + a.size());
+}
+
+// the one-center data of a PAW species (paw.onecenter), or none
+mdapy::dft::SpeciesOneCenter paw_of(nb::handle item) {
+    mdapy::dft::SpeciesOneCenter sp;
+    if (item.is_none()) return sp;
+    nb::dict d = nb::cast<nb::dict>(item);
+    sp.mesh = nb::cast<int>(d["mesh"]);
+    sp.kkbeta = nb::cast<int>(d["kkbeta"]);
+    sp.lmax_rho = nb::cast<int>(d["lmax_rho"]);
+    sp.l2 = nb::cast<int>(d["l2"]);
+    sp.lh = nb::cast<int>(d["lh"]);
+    sp.functions = nb::cast<int>(d["functions"]);
+    sp.dx = nb::cast<double>(d["dx"]);
+    sp.r = doubles_of(d["r"]);
+    sp.whole = doubles_of(d["whole"]);
+    sp.inner = doubles_of(d["inner"]);
+    sp.ww = doubles_of(d["ww"]);
+    sp.sin_theta = doubles_of(d["sin"]);
+    sp.cos_theta = doubles_of(d["cos"]);
+    sp.ylm = doubles_of(d["ylm"]);
+    sp.dylmt = doubles_of(d["dylmt"]);
+    sp.dylmp = doubles_of(d["dylmp"]);
+    sp.ae = doubles_of(d["ae"]);
+    sp.ps = doubles_of(d["ps"]);
+    sp.coef = doubles_of(d["coef"]);
+    sp.pair = nb::cast<std::vector<int>>(d["pair"]);
+    sp.ae_core = doubles_of(d["ae_core"]);
+    sp.ps_core = doubles_of(d["ps_core"]);
+    sp.nx = static_cast<int>(sp.ww.size());
+    sp.radial = sp.mesh > 0 ? static_cast<int>(sp.ae.size() / static_cast<std::size_t>(sp.mesh)) : 0;
+    return sp;
+}
+
+std::vector<std::vector<double>> spins_of(Rows values) {
+    std::vector<std::vector<double>> out;
+    const std::size_t n = values.shape(1);
+    for (std::size_t s = 0; s < values.shape(0); ++s) out.emplace_back(values.data() + s * n, values.data() + (s + 1) * n);
+    return out;
+}
+
 std::vector<mdapy::dft::Atom> atoms_of(Rows positions, Kinds species) {
     if (positions.shape(1) != 3 || species.shape(0) != positions.shape(0))
         throw std::invalid_argument("positions (N, 3) and species (N,)");
@@ -324,7 +368,7 @@ NB_MODULE(_dft, m) {
     // volume, its derivatives by the densities (n, 2) and by sigma (n, 3)
     m.def(
         "xc",
-        [](const std::string& name, Rows rho, Rows sigma, double threshold) {
+        [](const std::string& name, Rows rho, Rows sigma, double threshold, bool polarized, bool signed_gradient) {
             const mdapy::dft::Functional functional = functional_of(name);
             const std::size_t n = rho.shape(0);
             if (rho.shape(1) != 2 || sigma.shape(0) != n || sigma.shape(1) != 3)
@@ -333,7 +377,7 @@ NB_MODULE(_dft, m) {
             r.upload(rho.data(), 2 * n);
             s.upload(sigma.data(), 3 * n);
             mdapy::dft::evaluate_xc(functional, n, r.data(), s.data(), threshold, f.data(),
-                                    v.data(), vs.data());
+                                    v.data(), vs.data(), polarized, signed_gradient);
             double *fo = nullptr, *vo = nullptr, *so = nullptr;
             auto f_out = new_array<double>({n}, fo);
             auto v_out = new_array<double>({n, 2}, vo);
@@ -343,7 +387,8 @@ NB_MODULE(_dft, m) {
             vs.download(so, 3 * n);
             return nb::make_tuple(f_out, v_out, s_out);
         },
-        nb::arg("name"), nb::arg("rho"), nb::arg("sigma"), nb::arg("threshold") = 1e-10);
+        nb::arg("name"), nb::arg("rho"), nb::arg("sigma"), nb::arg("threshold") = 1e-10,
+        nb::arg("polarized") = true, nb::arg("signed_gradient") = true);
 
     // the Hamiltonian of one k-point, for the tests: tables (list of (P, nq)
     // arrays), angular (list of lists), dij (list of (P, P)), the atoms by their
@@ -519,7 +564,8 @@ NB_MODULE(_dft, m) {
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
-           nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid) {
+           nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
+           nb::object onecenter, nb::object becsum, nb::object paw) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
             if (!basis.is_none()) {
@@ -563,6 +609,37 @@ NB_MODULE(_dft, m) {
             if (!smooth_grid.is_none()) in.smooth_grid = grid_of(nb::cast<std::array<int, 3>>(smooth_grid));
             if (!augmentation.is_none())
                 for (nb::handle item : nb::cast<nb::list>(augmentation)) in.augmentation.push_back(augmentation_of(item));
+            if (!paw.is_none())
+                for (nb::handle item : nb::cast<nb::list>(paw)) in.paw.push_back(paw_of(item));
+            if (!onecenter.is_none() || !paw.is_none()) {
+                if (becsum.is_none()) throw std::invalid_argument("PAW needs the first occupations becsum");
+                in.becsum = spins_of(nb::cast<Rows>(becsum));
+            }
+            if (!onecenter.is_none()) {
+                // a callable of becsum (spins, pairs) giving (E^1, D (spins, pairs)),
+                // run with the GIL; its errors come back as errors of the run
+                nb::object f = onecenter;
+                in.onecenter = [f](const std::vector<std::vector<double>>& b, std::vector<std::vector<double>>& d) {
+                    nb::gil_scoped_acquire gil;
+                    try {
+                        const std::size_t ns_ = b.size(), np_ = b.empty() ? 0 : b[0].size();
+                        std::vector<double> flat;
+                        flat.reserve(ns_ * np_);
+                        for (const auto& x : b) flat.insert(flat.end(), x.begin(), x.end());
+                        nb::tuple out = nb::cast<nb::tuple>(f(array_of(flat, {ns_, np_})));
+                        const double e = nb::cast<double>(out[0]);
+                        auto values = nb::cast<Rows>(out[1]);
+                        if (values.shape(0) != ns_ || values.shape(1) != np_)
+                            throw std::invalid_argument("the one-center strengths are (spins, pairs)");
+                        d.assign(ns_, {});
+                        for (std::size_t s = 0; s < ns_; ++s)
+                            d[s].assign(values.data() + s * np_, values.data() + (s + 1) * np_);
+                        return e;
+                    } catch (nb::python_error& error) {
+                        throw std::runtime_error(std::string("the one-center terms: ") + error.what());
+                    }
+                };
+            }
             mdapy::dft::ScfOptions opt;
             opt.spins = spins;
             opt.bands = bands;
@@ -637,6 +714,12 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             out["forces"] = array_of(r.forces, {in.atoms.size(), 3});
+            if (!r.becsum.empty()) {
+                std::vector<double> flat;
+                for (const auto& x : r.becsum) flat.insert(flat.end(), x.begin(), x.end());
+                out["onecenter"] = r.onecenter;
+                out["becsum"] = array_of(flat, {r.becsum.size(), r.becsum[0].size()});
+            }
             if (r.has_strain) {
                 const auto& e = r.strain;  // xx yy zz yz xz xy
                 out["strain_derivative"] =
@@ -656,7 +739,43 @@ NB_MODULE(_dft, m) {
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
         nb::arg("basis").none() = nb::none(), nb::arg("state").none() = nb::none(),
         nb::arg("magnetic_kerker") = 0.0, nb::arg("augmentation").none() = nb::none(),
-        nb::arg("smooth_grid").none() = nb::none());
+        nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
+        nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none());
+
+    // the one-center terms of PAW, for the tests: the data of each species
+    // (paw.onecenter or None), the species and projector functions of each
+    // atom; compute(becsum (spins, pairs)) gives the energies and D (spins,
+    // pairs)
+    nb::class_<mdapy::dft::OneCenter>(m, "OneCenter")
+        .def("__init__",
+             [](mdapy::dft::OneCenter* self, nb::list species, std::vector<int> kinds, std::vector<int> widths,
+                int spins, const std::string& functional, double threshold) {
+                 std::vector<mdapy::dft::SpeciesOneCenter> all;
+                 for (nb::handle item : species) all.push_back(paw_of(item));
+                 new (self) mdapy::dft::OneCenter(std::move(all), std::move(kinds), std::move(widths), spins,
+                                                  functional_of(functional), threshold);
+             },
+             nb::arg("species"), nb::arg("kinds"), nb::arg("widths"), nb::arg("spins"), nb::arg("functional"),
+             nb::arg("threshold") = 1e-10)
+        .def("compute", [](mdapy::dft::OneCenter& x, Rows becsum) {
+            std::vector<std::vector<double>> d;
+            mdapy::dft::OneCenterEnergies parts;
+            double total = 0.0;
+            {
+                const auto b = spins_of(becsum);
+                nb::gil_scoped_release release;
+                total = x.compute(b, d, &parts);
+            }
+            nb::dict energies;
+            energies["hartree_ae"] = parts.hartree_ae;
+            energies["xc_ae"] = parts.xc_ae;
+            energies["hartree_ps"] = parts.hartree_ps;
+            energies["xc_ps"] = parts.xc_ps;
+            energies["total"] = total;
+            std::vector<double> flat;
+            for (const auto& v : d) flat.insert(flat.end(), v.begin(), v.end());
+            return nb::make_tuple(energies, array_of(flat, {d.size(), d.empty() ? 0 : d[0].size()}));
+        });
 
     // the augmentation charges of ultrasoft species on the sphere of the
     // density, for the tests: the cell, the cutoff and grid of the density, the

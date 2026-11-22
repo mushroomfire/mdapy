@@ -193,6 +193,15 @@ def parse(out: str, xml: str, nk: int) -> dict:
         if smooth is None
         else tuple(int(smooth.group(i)) for i in (2, 3, 4))
     )
+    # PAW: the one-center energy and its parts as QE prints them, rydberg
+    found = re.findall(r"one-center paw contrib\.\s*=\s*(\S+)\s*Ry", out)
+    if found:
+        result["onecenter"] = float(found[-1]) * RY
+        for key, label in (("hartree_ae", "PAW hartree energy AE"), ("hartree_ps", "PAW hartree energy PS"),
+                           ("xc_ae", "PAW xc energy AE"), ("xc_ps", "PAW xc energy PS")):  # fmt: skip
+            part = re.findall(rf"-> {label}\s*=\s*(\S+)\s*Ry", out)
+            if part:
+                result["paw_" + key] = float(part[-1]) * RY
     result["text"] = out
     return result
 
@@ -232,8 +241,19 @@ def rounded_gamma(result, cell, positions, kinds, pseudos, density_cutoff) -> fl
         box[index[:, 0], index[:, 1], index[:, 2]] = 1j * g[:, j] * components
         grad2 += (np.fft.ifftn(box).real * n.size) ** 2
     keep = n > 1e-10
-    n, grad2 = n[keep], grad2[keep]
-    zeta = np.clip(m[keep] / n, -1 + 1e-12, 1 - 1e-12)
+    volume = abs(np.linalg.det(cell))
+    return float(
+        gamma_difference(n[keep], m[keep], grad2[keep]).sum() * volume / up.size
+    )
+
+
+def gamma_difference(n, m, grad2):
+    """n (H(gamma = 0.031091) - H(gamma = (1 - ln 2) / pi^2)) of PBE at points
+    of density n > 0, magnetization m and |grad n|^2, with the PW92
+    correlation of the paper."""
+    import math
+
+    zeta = np.clip(m / n, -1 + 1e-12, 1 - 1e-12)
     rs = (3 / (4 * math.pi * n)) ** (1 / 3)
     e0 = _pw_g(rs, 0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
     e1 = _pw_g(rs, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
@@ -254,6 +274,5 @@ def rounded_gamma(result, cell, positions, kinds, pseudos, density_cutoff) -> fl
             * np.log1p(beta / gamma * t2 * (1 + at2) / (1 + at2 + at2 * at2))
         )
 
-    volume = abs(np.linalg.det(cell))
     exact = (1 - math.log(2)) / math.pi**2
-    return float((n * (h(0.031091) - h(exact))).sum() * volume / up.size)
+    return n * (h(0.031091) - h(exact))

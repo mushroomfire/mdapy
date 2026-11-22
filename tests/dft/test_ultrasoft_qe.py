@@ -50,8 +50,8 @@ def test_against_qe(case, dual):
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
     qe = espresso.run(
         cell, positions, [case] * len(positions), files, cutoff, kpoints, weights, smearing,
-        0.01, conv_thr=1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
-        extra=f", ecutrho = {2 * dual * cutoff:.10f}",
+        0.01, conv_thr=1e-13 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
+        maxstep=400, extra=f", ecutrho = {2 * dual * cutoff:.10f}",
     )  # fmt: skip
     r = scf.run(
         cell, positions, [0] * len(positions), [pp], cutoff, kgrid=kgrid, smearing=smearing,
@@ -138,7 +138,7 @@ def test_stress(case):
         list(options["kgrid"]), [0.0, 0.0, 0.0], True
     )
     qe = espresso.run(cell, positions, [case] * len(positions), files, cutoff, kpoints, weights,
-                      smearing, 0.01, conv_thr=1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
+                      smearing, 0.01, conv_thr=1e-13 if magmoms else 1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
                       extra=f", ecutrho = {16 * cutoff:.10f}")  # fmt: skip
     ours = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, grid=qe["grid"],
                    smooth_grid=qe["smooth_grid"], **options)  # fmt: skip

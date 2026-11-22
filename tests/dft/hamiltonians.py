@@ -53,6 +53,7 @@ class Gaussians:
 
     r = MESH
     rab = np.full(1601, 0.01)
+    kkbeta = 1601
     angular = ANGULAR
     projectors = tuple(
         type(

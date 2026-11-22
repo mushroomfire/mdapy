@@ -3,11 +3,12 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Norm-conserving pseudopotentials of the UPF format, version 2, in hartree
-atomic units: the local potential, the Kleinman-Bylander projectors with their
-D_ij, the core charge of the nonlinear core correction, the charge of the free
-atom and its pseudo-orbitals. UPF keeps energies in rydberg; they are halved
-here."""
+"""Pseudopotentials of the UPF format, version 2, in hartree atomic units:
+norm-conserving, ultrasoft and PAW. The local potential, the projectors with
+their D_ij, the core charge of the nonlinear core correction, the charge of the
+free atom and its pseudo-orbitals; the augmentation charges of the ultrasoft
+and PAW ones; the partial waves and core charges of PAW. UPF keeps energies in
+rydberg; they are halved here."""
 
 import hashlib
 import re
@@ -45,8 +46,50 @@ class Orbital:
 
 
 @dataclass(frozen=True)
+class Paw:
+    """The one-center parts of a PAW dataset.
+
+    Attributes
+    ----------
+    lmax_rho : int
+        The largest angular momentum of the one-center densities.
+    dx, xmin, zmesh : float64
+        The logarithmic mesh r_i = exp(xmin + i dx) / zmesh, i from 0.
+    augmentation_points : int
+        The points of the mesh that the partial waves and the augmentation
+        charges of the one-center densities reach (cutoff_r_index).
+    multipoles : numpy.ndarray
+        (P, P, 2 lmax + 1) float64 the multipoles of the augmentation charges.
+    ae_waves, ps_waves : numpy.ndarray
+        (P, M) float64 r phi_i(r) and r phi~_i(r), the all-electron and pseudo
+        partial waves, one for each projector.
+    occupations : numpy.ndarray
+        (P,) float64 the occupations of the partial waves in the free atom.
+    ae_core : numpy.ndarray
+        (M,) float64 the all-electron core charge density.
+    ae_local : numpy.ndarray
+        (M,) float64 the all-electron local potential in hartree.
+    core_energy : float64
+        The energy of the frozen core in hartree.
+    """
+
+    lmax_rho: int
+    dx: float
+    xmin: float
+    zmesh: float
+    augmentation_points: int
+    multipoles: np.ndarray
+    ae_waves: np.ndarray
+    ps_waves: np.ndarray
+    occupations: np.ndarray
+    ae_core: np.ndarray
+    ae_local: np.ndarray
+    core_energy: float
+
+
+@dataclass(frozen=True)
 class Pseudopotential:
-    """A norm-conserving or ultrasoft pseudopotential.
+    """A norm-conserving, ultrasoft or PAW pseudopotential.
 
     Attributes
     ----------
@@ -76,7 +119,10 @@ class Pseudopotential:
         ultrasoft pseudopotential, None for a norm-conserving one.
     augmentation : dict or None
         The augmentation charges r^2 Q_ij^L(r), (M,) float64, by (i, j, L)
-        with i <= j counted from 0.
+        with i <= j counted from 0; for PAW zero beyond its augmentation
+        points, without the terms whose multipoles vanish.
+    paw : Paw or None
+        The one-center parts of a PAW dataset.
     """
 
     element: str
@@ -93,10 +139,20 @@ class Pseudopotential:
     digest: str
     q: np.ndarray | None = None
     augmentation: dict | None = None
+    paw: Paw | None = None
 
     @property
     def ultrasoft(self) -> bool:
+        """Augmented, as ultrasoft and PAW are."""
         return self.q is not None
+
+    @property
+    def kkbeta(self) -> int:
+        """The points of the mesh that the projectors and the augmentation
+        charges are integrated over: the largest cutoff of the projectors, for
+        PAW at least the augmentation points."""
+        n = max((p.cutoff_index for p in self.projectors), default=1)
+        return max(n, self.paw.augmentation_points) if self.paw is not None else n
 
     @property
     def lmax(self) -> int:
@@ -142,14 +198,13 @@ def _flag(value: str) -> bool:
 
 
 def read_upf(path: str | Path) -> Pseudopotential:
-    """The norm-conserving or ultrasoft pseudopotential of a UPF file of
-    version 2; the augmentation charges of an ultrasoft one by angular
-    momentum (q_with_l).
+    """The norm-conserving, ultrasoft or PAW pseudopotential of a UPF file of
+    version 2; the augmentation charges by angular momentum (q_with_l).
 
     Raises
     ------
     InvalidParameter
-        For a file of another version or kind (PAW, spin-orbit), augmentation
+        For a file of another version or kind (spin-orbit), augmentation
         charges without their angular momenta or pseudized inside rinner, or
         one that misses a part the pseudopotential needs.
     """
@@ -163,13 +218,12 @@ def read_upf(path: str | Path) -> Pseudopotential:
         raise InvalidParameter(f"{path.name}: no PP_HEADER")
     head = dict(_ATTRIBUTE.findall(header.group(1)))
     kind = head.get("pseudo_type", "").strip().upper()
-    if kind == "PAW" or _flag(head.get("is_paw", "F")):
-        raise InvalidParameter(f"{path.name}: PAW datasets are not supported yet")
-    ultrasoft = kind == "US" or kind == "USPP" or _flag(head.get("is_ultrasoft", "F"))
-    if kind not in ("NC", "SL", "US", "USPP"):
+    is_paw = kind == "PAW" or _flag(head.get("is_paw", "F"))
+    ultrasoft = is_paw or kind in ("US", "USPP") or _flag(head.get("is_ultrasoft", "F"))
+    if kind not in ("NC", "SL", "US", "USPP", "PAW"):
         raise InvalidParameter(
-            f"{path.name}: only norm-conserving and ultrasoft pseudopotentials are "
-            f"supported, not {kind or 'this kind'}"
+            f"{path.name}: only norm-conserving, ultrasoft and PAW pseudopotentials "
+            f"are supported, not {kind or 'this kind'}"
         )
     if _flag(head.get("has_so", "F")):
         raise InvalidParameter(
@@ -233,14 +287,38 @@ def read_upf(path: str | Path) -> Pseudopotential:
         if qblock is None:
             raise InvalidParameter(f"{path.name}: no PP_Q")
         q = _numbers(qblock[1])[: count * count].reshape(count, count)
+        multipoles = points = None
+        if is_paw:
+            # as QE: the terms of vanishing multipoles left out, the charges
+            # zero beyond the augmentation points
+            mblock = _block(body, "PP_MULTIPOLES")
+            if mblock is None:
+                raise InvalidParameter(f"{path.name}: no PP_MULTIPOLES")
+            lmax = max((p.angular for p in projectors), default=0)
+            multipoles = (
+                _numbers(mblock[1])[: count * count * (2 * lmax + 1)]
+                .reshape(2 * lmax + 1, count, count)
+                .transpose(2, 1, 0)
+            )
+            points = int(attributes["cutoff_r_index"])
+            epsilon = float(attributes.get("augmentation_epsilon", "1e-12"))
         augmentation = {}
         for m in re.finditer(
             r"<PP_QIJL\.(\d+)\.(\d+)\.(\d+)\b[^>]*>(.*?)</PP_QIJL", body, re.S
         ):
             i, j, ell = int(m.group(1)) - 1, int(m.group(2)) - 1, int(m.group(3))
-            augmentation[(min(i, j), max(i, j), ell)] = _numbers(m.group(4))[:mesh]
+            values = _numbers(m.group(4))[:mesh]
+            if is_paw:
+                if abs(multipoles[i, j, ell]) < epsilon:
+                    continue
+                values = values.copy()
+                values[points:] = 0.0
+            augmentation[(min(i, j), max(i, j), ell)] = values
         if not augmentation:
             raise InvalidParameter(f"{path.name}: no PP_QIJL")
+    paw = None
+    if is_paw:
+        paw = _read_paw(path.name, text, head, mesh, count, multipoles, points, radial)
     return Pseudopotential(
         element=head["element"].strip(),
         valence=float(head["z_valence"]),
@@ -256,4 +334,51 @@ def read_upf(path: str | Path) -> Pseudopotential:
         digest=hashlib.sha256(raw).hexdigest(),
         q=q,
         augmentation=augmentation,
+        paw=paw,
+    )
+
+
+def _read_paw(name, text, head, mesh, count, multipoles, points, radial) -> Paw:
+    """The one-center parts of a PAW file."""
+    found = re.search(r"<PP_MESH\b([^>]*)>", text)
+    grid = dict(_ATTRIBUTE.findall(found.group(1))) if found else {}
+    if not {"dx", "xmin", "zmesh"} <= grid.keys():
+        raise InvalidParameter(f"{name}: PP_MESH lacks the logarithmic mesh of PAW")
+    full = _block(text, "PP_FULL_WFC")
+    paw = _block(text, "PP_PAW")
+    if full is None or paw is None:
+        raise InvalidParameter(f"{name}: no PP_FULL_WFC or PP_PAW")
+
+    def waves(tag: str) -> np.ndarray:
+        found = _indexed(full[1], tag)
+        if len(found) != count:
+            raise InvalidParameter(f"{name}: {len(found)} {tag} of {count}")
+        return np.array([_numbers(body)[:mesh] for _, body in found])
+
+    def inner(tag: str, size: int) -> np.ndarray:
+        found = _block(paw[1], tag)
+        if found is None:
+            raise InvalidParameter(f"{name}: no {tag}")
+        values = _numbers(found[1])
+        if len(values) < size:
+            raise InvalidParameter(f"{name}: {tag} holds {len(values)} of {size}")
+        return values[:size]
+
+    ae, ps = waves("PP_AEWFC"), waves("PP_PSWFC")
+    # the partial waves of the one-center densities reach the augmentation points
+    ae[:, points:] = 0.0
+    ps[:, points:] = 0.0
+    return Paw(
+        lmax_rho=int(head["l_max_rho"]),
+        dx=float(grid["dx"]),
+        xmin=float(grid["xmin"]),
+        zmesh=float(grid["zmesh"]),
+        augmentation_points=points,
+        multipoles=multipoles,
+        ae_waves=ae,
+        ps_waves=ps,
+        occupations=inner("PP_OCCUPATIONS", count),
+        ae_core=inner("PP_AE_NLCC", mesh),
+        ae_local=0.5 * inner("PP_AE_VLOC", mesh),
+        core_energy=0.5 * float(paw[0].get("core_energy", "0")),
     )

@@ -69,12 +69,14 @@ Occupation occupy(const std::vector<double>& eigenvalues, const std::vector<doub
     const std::size_t nk = weights.size(), nb = static_cast<std::size_t>(bands);
     if (bands < 1 || eigenvalues.size() != nk * nb)
         throw std::invalid_argument("the eigenvalues are (k-points, bands)");
-    if (!(electrons > 0.0) || electrons > f_max * bands + 1e-9)
+    double total_weight = 0.0;
+    for (const double w : weights) total_weight += w;
+    if (!(electrons > 0.0) || electrons > f_max * bands * total_weight + 1e-9)
         throw std::invalid_argument("the bands cannot hold the electrons");
     Occupation out;
     out.f.assign(nk * nb, 0.0);
     if (smearing == Smearing::Fixed) {
-        const double filled = electrons / f_max;
+        const double filled = electrons / (f_max * total_weight);
         const int occupied = static_cast<int>(std::lround(filled));
         if (std::abs(filled - occupied) > 1e-9)
             throw std::invalid_argument("fixed occupations need whole bands of electrons; use a smearing");

@@ -58,11 +58,14 @@ def _run(text: str, folder: str) -> tuple[str, str]:
 
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
-        sigma=0.0, conv_thr=1e-12, extra=""):  # fmt: skip
+        sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
-    of the reciprocal vectors) and weights; sigma in hartree. A dict of the
-    energies and the eigenvalues (K, bands)."""
+    of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
+    magnetons per atom) collinear spins, a species for each element and moment.
+    A dict of the energies and the eigenvalues ((2,) K, bands)."""
+    from mdapy.calculators._dft.upf import read_upf
+
     folder = str(Path(next(iter(files.values()))).parent)
     occupations = (
         'occupations = "fixed"'
@@ -70,6 +73,17 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
         else f'occupations = "smearing", smearing = "{_SMEARING[smearing]}", '
         f"degauss = {sigma / RY:.12f}"
     )
+    # the species of QE: one per element and first moment
+    moments = [0.0] * len(symbols) if magmoms is None else list(magmoms)
+    kinds = list(dict.fromkeys(zip(symbols, moments)))
+    labels = [f"{el}{i + 1}" for i, (el, _) in enumerate(kinds)]
+    spin = ""
+    if magmoms is not None:
+        valence = {el: read_upf(f).valence for el, f in files.items()}
+        spin = ", nspin = 2, " + ", ".join(
+            f"starting_magnetization({i + 1}) = {m / valence[el]:.12f}"
+            for i, (el, m) in enumerate(kinds)
+        )
     b = np.linalg.inv(np.asarray(cell)).T  # rows, without 2 pi
     alat = np.linalg.norm(cell[0])
     cart = np.asarray(kpoints) @ b * alat  # units of 2 pi / alat
@@ -80,20 +94,23 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
         "/",
         "&system",
         f"  ibrav = 0, celldm(1) = {alat:.15f}, nat = {len(symbols)}, "
-        f"ntyp = {len(files)}, ecutwfc = {cutoff / RY:.10f},",
-        f"  {occupations}, nosym = .true., noinv = .true. {extra}",
+        f"ntyp = {len(kinds)}, ecutwfc = {cutoff / RY:.10f},",
+        f"  {occupations}, nosym = .true., noinv = .true. {spin} {extra}",
         "/",
         "&electrons",
-        f"  conv_thr = {conv_thr}, mixing_beta = 0.7",
+        f"  conv_thr = {conv_thr}, mixing_beta = {beta}",
         "/",
         "ATOMIC_SPECIES",
-        *[f"{el} 1.0 {Path(f).name}" for el, f in files.items()],
+        *[
+            f"{label} 1.0 {Path(files[el]).name}"
+            for label, (el, _) in zip(labels, kinds)
+        ],
         "CELL_PARAMETERS alat",
         *[" ".join(f"{x / alat:.15f}" for x in row) for row in cell],
         "ATOMIC_POSITIONS crystal",
         *[
-            f"{s} " + " ".join(f"{x:.15f}" for x in p)
-            for s, p in zip(symbols, positions)
+            f"{labels[kinds.index((s, m))]} " + " ".join(f"{x:.15f}" for x in p)
+            for s, m, p in zip(symbols, moments, positions)
         ],
         "K_POINTS tpiba",
         str(len(cart)),
@@ -139,8 +156,17 @@ def parse(out: str, xml: str, nk: int) -> dict:
         eigen.append([float(x) for x in ks.find("eigenvalues").text.split()])
         occ.append([float(x) for x in ks.find("occupations").text.split()])
         pws.append(int(ks.find("npw").text))
-    result["eigenvalues"] = np.array(eigen[:nk])
-    result["occupations"] = np.array(occ[:nk])
+    eigen, occ = np.array(eigen[:nk]), np.array(occ[:nk])
+    if bs.find("lsda").text.strip() == "true":
+        # up then down at each k-point
+        half = eigen.shape[1] // 2
+        eigen = np.stack([eigen[:, :half], eigen[:, half:]])
+        occ = np.stack([occ[:, :half], occ[:, half:]])
+        magnet = root.find("output/magnetization")
+        result["magnetization"] = float(magnet.find("total").text)
+        result["absolute_magnetization"] = float(magnet.find("absolute").text)
+    result["eigenvalues"] = eigen
+    result["occupations"] = occ
     result["plane_waves"] = pws[:nk]
     grid = re.search(
         r"Dense\s+grid:\s+(\d+) G-vectors\s+FFT dimensions: \(\s*(\d+),\s*(\d+),\s*(\d+)\)",
@@ -150,3 +176,65 @@ def parse(out: str, xml: str, nk: int) -> dict:
     result["grid"] = tuple(int(grid.group(i)) for i in (2, 3, 4))
     result["text"] = out
     return result
+
+
+def _pw_g(rs, a, a1, b1, b2, b3, b4):
+    q = 2 * a * (b1 * np.sqrt(rs) + b2 * rs + b3 * rs**1.5 + b4 * rs * rs)
+    return -2 * a * (1 + a1 * rs) * np.log1p(1 / q)
+
+
+def rounded_gamma(result, cell, positions, kinds, pseudos, density_cutoff) -> float:
+    """E_c(gamma = 0.031091) - E_c(gamma = (1 - ln 2) / pi^2) of PBE on the
+    PW92 correlation of the paper, on the spin densities of our result with
+    the core charge. QE's spin-polarized PBE takes the rounded gamma and its
+    paramagnetic PBE the exact one; the energy, stationary in the density,
+    moves by this difference to first order."""
+    import math
+
+    from mdapy_dft_cuda12 import _dft
+
+    from mdapy.calculators._dft import scf
+
+    grid = result["grid"]
+    miller, _, _, _ = _dft.sphere(cell, [0.0, 0.0, 0.0], density_cutoff, grid)
+    _, core_g, _, _ = scf.radial_parts(
+        np.asarray(cell), np.asarray(positions, dtype=float), kinds, pseudos, miller
+    )
+    up, down = result["density"]
+    n = up + down + (0.0 if core_g is None else scf.on_grid(core_g, miller, grid))
+    m = up - down
+    # |grad n|^2 from the components of n on the sphere, as the GPU's
+    index = np.mod(miller, grid)
+    components = np.fft.fftn(n)[index[:, 0], index[:, 1], index[:, 2]] / n.size
+    g = miller @ (2 * math.pi * np.linalg.inv(cell).T)
+    grad2 = np.zeros(grid)
+    for j in range(3):
+        box = np.zeros(grid, dtype=complex)
+        box[index[:, 0], index[:, 1], index[:, 2]] = 1j * g[:, j] * components
+        grad2 += (np.fft.ifftn(box).real * n.size) ** 2
+    keep = n > 1e-10
+    n, grad2 = n[keep], grad2[keep]
+    zeta = np.clip(m[keep] / n, -1 + 1e-12, 1 - 1e-12)
+    rs = (3 / (4 * math.pi * n)) ** (1 / 3)
+    e0 = _pw_g(rs, 0.031091, 0.21370, 7.5957, 3.5876, 1.6382, 0.49294)
+    e1 = _pw_g(rs, 0.015545, 0.20548, 14.1189, 6.1977, 3.3662, 0.62517)
+    alpha = -_pw_g(rs, 0.016887, 0.11125, 10.357, 3.6231, 0.88026, 0.49671)
+    fz = ((1 + zeta) ** (4 / 3) + (1 - zeta) ** (4 / 3) - 2) / (2 ** (4 / 3) - 2)
+    ec = e0 + alpha * fz / 1.709921 * (1 - zeta**4) + (e1 - e0) * fz * zeta**4
+    phi3 = (0.5 * ((1 + zeta) ** (2 / 3) + (1 - zeta) ** (2 / 3))) ** 3
+    kf = (3 * math.pi**2 * n) ** (1 / 3)
+    t2 = grad2 / (4 * phi3 ** (2 / 3) * (4 * kf / math.pi) * n * n)
+    beta = 0.06672455060314922
+
+    def h(gamma):
+        a = beta / gamma / (np.exp(-ec / (gamma * phi3)) - 1)
+        at2 = a * t2
+        return (
+            gamma
+            * phi3
+            * np.log1p(beta / gamma * t2 * (1 + at2) / (1 + at2 + at2 * at2))
+        )
+
+    volume = abs(np.linalg.det(cell))
+    exact = (1 - math.log(2)) / math.pi**2
+    return float((n * (h(0.031091) - h(exact))).sum() * volume / up.size)

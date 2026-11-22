@@ -107,6 +107,11 @@ double Mixer::residual_energy(const std::vector<cuDoubleComplex>& in,
         const double re = out[g].x - in[g].x, im = out[g].y - in[g].y;
         s += (re * re + im * im) / g2_[g];
     }
+    if (channels_ == 2)
+        for (std::size_t g = n_; g < 2 * n_; ++g) {
+            const double re = out[g].x - in[g].x, im = out[g].y - in[g].y;
+            s += re * re + im * im;
+        }
     return 2.0 * kPi * volume_ * s;
 }
 

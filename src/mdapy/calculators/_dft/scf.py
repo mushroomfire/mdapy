@@ -39,10 +39,12 @@ def on_grid(components: np.ndarray, miller: np.ndarray, grid) -> np.ndarray:
     return np.fft.ifftn(box).real * box.size
 
 
-def radial_parts(cell, positions, kinds, pseudos, miller):
-    """V_loc(G), rho_core(G) (None without core charges) and rho_atom(G) on the
-    sphere of the density: the radial transforms of each species, once per
-    shell of |G|, times the structure factor of its atoms."""
+def radial_parts(cell, positions, kinds, pseudos, miller, magmoms=None):
+    """V_loc(G), rho_core(G) (None without core charges), rho_atom(G) and the
+    magnetization of the atoms (None without magmoms) on the sphere of the
+    density: the radial transforms of each species, once per shell of |G|,
+    times the structure factor of its atoms; the magnetization is the density
+    of each atom times its moment over its valence."""
     volume = abs(np.linalg.det(cell))
     b = 2 * math.pi * np.linalg.inv(cell).T
     q = np.linalg.norm(miller @ b, axis=1)
@@ -54,20 +56,25 @@ def radial_parts(cell, positions, kinds, pseudos, miller):
         if any(pp.core is not None for pp in pseudos)
         else None
     )
+    moment = None if magmoms is None else np.zeros(len(q), dtype=complex)
     for s, pp in enumerate(pseudos):
-        tau = positions[np.asarray(kinds) == s]
-        if len(tau) == 0:
+        mine = np.asarray(kinds) == s
+        if not mine.any():
             continue
-        factor = np.exp(-2j * math.pi * (miller @ tau.T)).sum(axis=1)
+        phases = np.exp(-2j * math.pi * (miller @ positions[mine].T))
+        factor = phases.sum(axis=1)
         local += factor * radial.local_potential(pp, shells, volume)[where]
-        atom += (
-            factor * radial.radial_density(pp.atom, pp, shells, volume, False)[where]
-        )
+        free = radial.radial_density(pp.atom, pp, shells, volume, False)[where]
+        atom += factor * free
+        if moment is not None:
+            moment += (
+                phases @ (np.asarray(magmoms, dtype=float)[mine] / pp.valence) * free
+            )
         if pp.core is not None:
             core += (
                 factor * radial.radial_density(pp.core, pp, shells, volume, True)[where]
             )
-    return local, core, atom
+    return local, core, atom, moment
 
 
 def run(
@@ -95,11 +102,16 @@ def run(
     davidson_basis: int = 4,
     seed: int = 0,
     functional: str | None = None,
+    magmoms=None,
+    magnetic_beta: float = 0.4,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
     (hartree) and the density to density_cutoff (4 cutoff by default) on grid
-    (the FFT grid of the density cutoff by default)."""
+    (the FFT grid of the density cutoff by default). With magmoms, the first
+    moments of the atoms in Bohr magnetons, the spins are collinear; the
+    eigenvalues and occupations are then (2, K, bands) and the density (2, n1,
+    n2, n3), up and down."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -115,12 +127,25 @@ def run(
             bands = occupied + max(4, math.ceil(0.1 * occupied))
         else:
             bands = max(math.ceil(1.2 * electrons / 2), occupied + 4)
+    spins = 1
+    if magmoms is not None:
+        magmoms = np.asarray(magmoms, dtype=float)
+        valence = np.array([pseudos[s].valence for s in kinds])
+        if magmoms.shape != (len(kinds),) or (np.abs(magmoms) > valence).any():
+            raise ValueError("a moment for every atom, at most its valence")
+        spins = 2
     miller, _, _, _ = _dft.sphere(cell, [0.0, 0.0, 0.0], density_cutoff, grid)
-    local_g, core_g, atom_g = radial_parts(cell, positions, kinds, pseudos, miller)
+    local_g, core_g, atom_g, moment_g = radial_parts(
+        cell, positions, kinds, pseudos, miller, magmoms
+    )
     local = on_grid(local_g, miller, grid)
     core = None if core_g is None else on_grid(core_g, miller, grid)
     density = on_grid(atom_g, miller, grid)
-    density *= electrons / (density.mean() * volume)
+    scale = electrons / (density.mean() * volume)
+    density *= scale
+    if spins == 2:
+        moment = on_grid(moment_g, miller, grid) * scale
+        density = np.stack([0.5 * (density + moment), 0.5 * (density - moment)])
     qmax = math.sqrt(2 * cutoff) + 1.0
     tables = [radial.projector_table(pp, qmax, volume) for pp in pseudos]
     angular = [[p.angular for p in pp.projectors] for pp in pseudos]
@@ -130,12 +155,17 @@ def run(
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
-        positions, kinds, kpoints, weights, local, core, density, e_ewald, bands,
-        electrons, functional or functional_of(pseudos), smearing, sigma, beta, kerker, minimum,
-        history, metric_weight, energy_tolerance, density_tolerance, max_iterations,
-        davidson_iterations, davidson_basis, seed,
+        positions, kinds, kpoints, weights, local, core, np.ascontiguousarray(density),
+        e_ewald, spins, bands, electrons, functional or functional_of(pseudos),
+        smearing, sigma, beta, kerker, minimum, magnetic_beta, history, metric_weight,
+        energy_tolerance, density_tolerance, max_iterations, davidson_iterations,
+        davidson_basis, seed,
     )  # fmt: skip
+    if spins == 1:
+        for key in ("eigenvalues", "occupations", "density"):
+            result[key] = result[key][0]
     result.update(
-        grid=grid, kpoints=kpoints, weights=weights, electrons=electrons, bands=bands
-    )
+        grid=grid, kpoints=kpoints, weights=weights, electrons=electrons, bands=bands,
+        spins=spins,
+    )  # fmt: skip
     return result

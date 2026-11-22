@@ -457,8 +457,9 @@ NB_MODULE(_dft, m) {
         [](Matrix a, std::array<int, 3> grid, double cutoff, double density_cutoff, nb::list tables,
            nb::list angular, nb::list dij, double dq, Rows positions, Kinds species, Rows kpoints,
            nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Grid3 local,
-           nb::object core, Grid3 density, double ewald, int bands, double electrons, const std::string& functional,
-           const std::string& smearing, double sigma, double beta, double kerker, double minimum, int history,
+           nb::object core, nb::ndarray<const double, nb::c_contig, nb::device::cpu> density, double ewald,
+           int spins, int bands, double electrons, const std::string& functional, const std::string& smearing,
+           double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
            int davidson_iterations, int davidson_basis, unsigned long long seed) {
             mdapy::dft::ScfInput in;
@@ -476,10 +477,10 @@ NB_MODULE(_dft, m) {
                 in.weights.push_back(weights.data()[k]);
             }
             const std::size_t points = points_of(in.grid);
-            if (local.size() != points || density.size() != points)
-                throw std::invalid_argument("V_loc and the density on the grid");
+            if (local.size() != points || density.size() != static_cast<std::size_t>(spins) * points)
+                throw std::invalid_argument("V_loc and the density of each spin on the grid");
             in.local.assign(local.data(), local.data() + points);
-            in.density.assign(density.data(), density.data() + points);
+            in.density.assign(density.data(), density.data() + density.size());
             if (!core.is_none()) {
                 auto c = nb::cast<Grid3>(core);
                 if (c.size() != points) throw std::invalid_argument("the core charge on the grid");
@@ -487,6 +488,7 @@ NB_MODULE(_dft, m) {
             }
             in.ewald = ewald;
             mdapy::dft::ScfOptions opt;
+            opt.spins = spins;
             opt.bands = bands;
             opt.electrons = electrons;
             opt.functional = functional_of(functional);
@@ -495,6 +497,7 @@ NB_MODULE(_dft, m) {
             opt.mixing.beta = beta;
             opt.mixing.kerker = kerker;
             opt.mixing.minimum = minimum;
+            opt.mixing.magnetic_beta = magnetic_beta;
             opt.mixing.history = history;
             opt.mixing.metric_weight = metric_weight;
             opt.energy_tolerance = energy_tolerance;
@@ -508,14 +511,16 @@ NB_MODULE(_dft, m) {
                 nb::gil_scoped_release release;
                 r = mdapy::dft::run_scf(in, opt);
             }
-            const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands);
-            std::vector<double> energies, accuracy, fermi, tolerance;
+            const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
+                              ns_ = static_cast<std::size_t>(spins);
+            std::vector<double> energies, accuracy, fermi, tolerance, moments;
             std::vector<int> davidson;
             for (const auto& step : r.steps) {
                 energies.push_back(step.energy);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
                 tolerance.push_back(step.tolerance);
+                moments.push_back(step.magnetization);
                 davidson.push_back(step.davidson);
             }
             const std::size_t ns = r.steps.size();
@@ -531,22 +536,26 @@ NB_MODULE(_dft, m) {
             out["entropy"] = r.entropy;
             out["fermi"] = r.fermi;
             out["lowest_empty"] = r.lowest_empty;
-            out["eigenvalues"] = array_of(r.eigenvalues, {nk, nbands});
-            out["occupations"] = array_of(r.occupations, {nk, nbands});
-            out["density"] = array_of(r.density, {static_cast<std::size_t>(grid[0]), static_cast<std::size_t>(grid[1]),
-                                                  static_cast<std::size_t>(grid[2])});
+            out["magnetization"] = r.magnetization;
+            out["absolute_magnetization"] = r.absolute_magnetization;
+            out["eigenvalues"] = array_of(r.eigenvalues, {ns_, nk, nbands});
+            out["occupations"] = array_of(r.occupations, {ns_, nk, nbands});
+            out["density"] = array_of(r.density, {ns_, static_cast<std::size_t>(grid[0]),
+                                                  static_cast<std::size_t>(grid[1]), static_cast<std::size_t>(grid[2])});
             out["energies"] = array_of(energies, {ns});
             out["accuracy"] = array_of(accuracy, {ns});
             out["fermi_levels"] = array_of(fermi, {ns});
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
+            out["magnetizations"] = array_of(moments, {ns});
             return out;
         },
         nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("density_cutoff"), nb::arg("tables"),
         nb::arg("angular"), nb::arg("dij"), nb::arg("dq"), nb::arg("positions"), nb::arg("species"),
         nb::arg("kpoints"), nb::arg("weights"), nb::arg("local"), nb::arg("core").none(), nb::arg("density"),
-        nb::arg("ewald"), nb::arg("bands"), nb::arg("electrons"), nb::arg("functional"), nb::arg("smearing"),
-        nb::arg("sigma"), nb::arg("beta"), nb::arg("kerker"), nb::arg("minimum"), nb::arg("history"),
+        nb::arg("ewald"), nb::arg("spins"), nb::arg("bands"), nb::arg("electrons"), nb::arg("functional"),
+        nb::arg("smearing"), nb::arg("sigma"), nb::arg("beta"), nb::arg("kerker"), nb::arg("minimum"),
+        nb::arg("magnetic_beta"), nb::arg("history"),
         nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
         nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"));
 }

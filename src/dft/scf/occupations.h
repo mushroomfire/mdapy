@@ -34,8 +34,10 @@ struct Occupation {
     double lowest_empty = 0.0;  // for fixed occupations the lowest empty level, else mu
 };
 
-// eigenvalues (k-points, bands) row by row, weights of the k-points adding up
-// to one; f_max the electrons a band holds (2 without spin, 1 with).
+// eigenvalues (k-points, bands) row by row and the weights of the k-points,
+// adding up to one, or to two over the k-points of both spins; f_max the
+// electrons a band holds (2 without spin, 1 with). Fixed occupations fill the
+// same bands at every row.
 Occupation occupy(const std::vector<double>& eigenvalues, const std::vector<double>& weights, int bands,
                   double electrons, double f_max, Smearing smearing, double sigma);
 

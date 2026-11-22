@@ -31,7 +31,7 @@ struct MixingOptions {
     double beta = 0.4;           // the share of the residual taken
     double kerker = 1.0;         // q0 in 1/bohr; 0 for none
     double minimum = 0.1;        // the least share of any component with Kerker
-    double magnetic_beta = 1.6;  // the share of the residual of the magnetization
+    double magnetic_beta = 0.4;  // the share of the residual of the magnetization
     int history = 8;             // steps kept
     double metric_weight = 20.0;  // w at the shortest G; 1 for the plain norm
 };
@@ -45,8 +45,10 @@ public:
     // each.
     std::vector<cuDoubleComplex> mix(const std::vector<cuDoubleComplex>& in,
                                      const std::vector<cuDoubleComplex>& out);
-    // The Hartree energy of the residual of the total density, E_H[out - in]:
-    // the estimate of the error of the energy.
+    // The Hartree energy of the residual of the total density, E_H[out - in],
+    // the estimate of the error of the energy; with the magnetization, plus
+    // 2 pi Omega sum_G |m_out - m_in|^2 times one bohr^2, the Hartree energy of
+    // a residual at the wavelength of one bohr.
     double residual_energy(const std::vector<cuDoubleComplex>& in, const std::vector<cuDoubleComplex>& out) const;
     void reset();
 

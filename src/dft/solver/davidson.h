@@ -55,6 +55,9 @@ public:
     DavidsonResult solve(Hamiltonian& h, Complex* psi, int count, std::vector<double>& eigenvalues,
                          double tolerance, int tight, double loose_tolerance, int max_iterations,
                          int largest_basis);
+    // the same with a tolerance for each band
+    DavidsonResult solve(Hamiltonian& h, Complex* psi, int count, std::vector<double>& eigenvalues,
+                         const std::vector<double>& tolerances, int max_iterations, int largest_basis);
 
 private:
     // makes the m columns of w orthonormal to the n columns of v and among

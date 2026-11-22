@@ -33,8 +33,9 @@
 // E^1 - sum D^1 becsum_in more.
 // The bands are converged to a residual norm of 0.01 sqrt(E_H[rho_out -
 // rho_in]) of the step before, 1e-2 at the start and never above that of the
-// step before, tightly for the bands that hold electrons and to 1e-2 for the
-// others.
+// step before, divided by the square root of the occupation of the band in the
+// step before (its share of the density goes with its occupation) and never
+// above 1e-2.
 
 #pragma once
 

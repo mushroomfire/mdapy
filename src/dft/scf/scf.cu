@@ -382,7 +382,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     for (std::size_t s = 0; s < spins; ++s)
         std::copy(input.weights.begin(), input.weights.end(), weights.begin() + static_cast<std::ptrdiff_t>(s * nk));
     double tolerance = 1e-2, previous = std::numeric_limits<double>::infinity();
-    int tight = nb;
+    // the occupations of the step before, which weight the tolerance of each
+    // band: tolerance / sqrt(|f|), never above the loose one of empty bands
+    std::vector<double> held;
+    std::vector<double> limits(bands);
     for (int iteration = 1; iteration <= options.max_iterations; ++iteration) {
         // the potential of rho_in
         if (iteration == 1) result.times.setup += clock.lap();
@@ -408,9 +411,13 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 check_cuda(cudaGetLastError(), "the effective potential");
                 set_potential(veff);
                 if (ultrasoft) h.set_strengths(strengths[s]);
-                const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, tolerance, tight,
-                                              std::max(tolerance, 1e-2), options.davidson_iterations,
-                                              options.davidson_basis * nb);
+                const double loose = std::max(tolerance, 1e-2);
+                for (std::size_t b = 0; b < bands; ++b) {
+                    const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
+                    limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
+                }
+                const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
+                                              options.davidson_iterations, options.davidson_basis * nb);
                 step.davidson += r.iterations;
                 std::copy(values.begin(), values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands));
@@ -514,14 +521,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         if (ns == 2) to_spins(next, ng);
         components.upload(next.data(), next.size());
         pot.from_sphere(components.data(), rho_in.data(), ns);
-        // the bands that hold electrons, and the tolerance of the next step
-        tight = 1;
-        for (std::size_t row = 0; row < spins * nk; ++row)
-            for (int b = nb - 1; b >= tight; --b)
-                if (std::abs(occ.f[row * bands + static_cast<std::size_t>(b)]) > 1e-10) {
-                    tight = b + 1;
-                    break;
-                }
+        // the occupations and the tolerance of the next step
+        held = occ.f;
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
     }
     clock.lap();

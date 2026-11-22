@@ -271,8 +271,16 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
 DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vector<double>& eigenvalues,
                                double tolerance, int tight, double loose_tolerance, int max_iterations,
                                int largest_basis) {
+    std::vector<double> tolerances(static_cast<std::size_t>(std::max(count, 0)));
+    for (int b = 0; b < count; ++b) tolerances[static_cast<std::size_t>(b)] = b < tight ? tolerance : loose_tolerance;
+    return solve(h, psi, count, eigenvalues, tolerances, max_iterations, largest_basis);
+}
+
+DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vector<double>& eigenvalues,
+                               const std::vector<double>& tolerances, int max_iterations, int largest_basis) {
     const int rows = static_cast<int>(h.plane_waves());
     if (count < 1 || count > rows) throw std::invalid_argument("from one band to as many as the plane waves");
+    if (tolerances.size() != static_cast<std::size_t>(count)) throw std::invalid_argument("a tolerance for each band");
     if (max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const int most = std::min(std::max(largest_basis, 2 * count), rows);
     const std::size_t n = static_cast<std::size_t>(rows), bands = static_cast<std::size_t>(count);
@@ -390,7 +398,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
         for (int i = 0; i < m; ++i) residuals[static_cast<std::size_t>(which[static_cast<std::size_t>(i)])] = norms[static_cast<std::size_t>(i)];
     };
     auto converged = [&](int b) {
-        return std::sqrt(residuals[static_cast<std::size_t>(b)]) < (b < tight ? tolerance : loose_tolerance);
+        return std::sqrt(residuals[static_cast<std::size_t>(b)]) < tolerances[static_cast<std::size_t>(b)];
     };
     std::vector<int> every(bands);
     for (int b = 0; b < count; ++b) every[static_cast<std::size_t>(b)] = b;

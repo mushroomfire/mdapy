@@ -285,6 +285,7 @@ nav:
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md
           - Plane-wave DFT: user-guide/potentials/dft.md
+          - Verification of the DFT: user-guide/potentials/dft-verification.md
       - Simulation:
           - user-guide/simulation/index.md
           - Running:

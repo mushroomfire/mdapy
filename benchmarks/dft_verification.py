@@ -15,14 +15,18 @@ pseudopotentials (PseudoDojo 0.4, PBE, scalar relativistic, standard), at the
 high cutoff of their hints.
 
     python benchmarks/dft_verification.py prepare FOLDER
-    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe FCC ...]
+    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe FCC ...] [--cutoff HA]
     python benchmarks/dft_verification.py report FOLDER [OUTPUT.md]
+    python benchmarks/dft_verification.py figure FOLDER IMAGE
 
 prepare downloads into FOLDER the data and scripts of the paper from the
 Materials Cloud Archive (doi:10.24435/materialscloud:s4-3h, CC BY 4.0) and
 the PseudoDojo table with its hints; run writes FOLDER/results/El-CONF.json,
-the free energies of the volumes and what they were computed with; report
-fits them and prints the table of the comparisons (markdown).
+the free energies of the volumes and what they were computed with (with
+--cutoff, at that cutoff in hartree into FOLDER/results-HA, for the tests of
+convergence); report fits them and prints the table of the comparisons
+(markdown); figure draws nu of each structure against QE and against the
+all-electron codes beside QE's from FOLDER/summary.json.
 """
 
 import hashlib
@@ -106,7 +110,9 @@ def mesh_of(cell: np.ndarray) -> tuple[int, int, int]:
     )
 
 
-def run(folder: Path, element: str, configuration: str) -> None:
+def run(
+    folder: Path, element: str, configuration: str, cutoff: float | None = None
+) -> None:
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
 
@@ -118,7 +124,9 @@ def run(folder: Path, element: str, configuration: str) -> None:
     hints = json.loads((folder / "pseudo-dojo" / "standard.djson").read_text())[
         "pseudos_metadata"
     ]
-    cutoff = float(hints[element]["hints"]["high"]["ecut"])  # hartree
+    results = folder / ("results" if cutoff is None else f"results-{cutoff:g}")
+    if cutoff is None:
+        cutoff = float(hints[element]["hints"]["high"]["ecut"])  # hartree
     volume = abs(np.linalg.det(cell))
     mesh = mesh_of(cell * SCALES[0] ** (1 / 3))
     out = {
@@ -149,7 +157,7 @@ def run(folder: Path, element: str, configuration: str) -> None:
         out["kpoints"].append(len(r["kpoints"]))
         print(f"{element} {configuration} {scale:.2f}: {r['energy'] * HARTREE:.8f} eV, {r['iterations']} steps, "
               f"{len(r['kpoints'])} k, {time.time() - start:.1f} s", flush=True)  # fmt: skip
-    target = folder / "results" / f"{element}-{configuration}.json"
+    target = results / f"{element}-{configuration}.json"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(out, indent=1))
 
@@ -200,7 +208,7 @@ def epsilon(a, b) -> float:
     return math.sqrt(mean((ea - eb) ** 2) / math.sqrt(var))
 
 
-def report(folder: Path, output: Path | None = None) -> None:
+def report(folder: Path, output: Path | None = None, results: str = "results") -> None:
     acwf = folder / "acwf"
     reference = json.loads(
         (acwf / "results-unaries-verification-PBE-v1-AE-average.json").read_text()
@@ -212,7 +220,7 @@ def report(folder: Path, output: Path | None = None) -> None:
         ).read_text()
     )
     rows, summary = [], []
-    for path in sorted((folder / "results").glob("*.json")):
+    for path in sorted((folder / results).glob("*.json")):
         r = json.loads(path.read_text())
         key = f"{r['element']}-X/{r['configuration']}"
         v0, _, b0, b1 = fit(r["volumes"], r["free_energies_ev"])
@@ -253,15 +261,53 @@ def report(folder: Path, output: Path | None = None) -> None:
         output.write_text(text)
 
 
+def figure(folder: Path, image: Path) -> None:
+    from mdapy.visualization import plot
+
+    summary = json.loads((folder / "summary.json").read_text())
+    order = {c: i for i, c in enumerate(CONFIGURATIONS)}
+    markers = {"FCC": "o", "BCC": "s", "SC": "^", "Diamond": "D"}
+    with plot.style():
+        fig, (left, right) = plot.figure("double", 70, nrows=1, ncols=2)
+        for conf in sorted(markers, key=order.get):
+            rows = [x for x in summary if x["key"].endswith("/" + conf)]
+            left.plot([x["epsilon_qe"] for x in rows], [x["nu_qe"] for x in rows], markers[conf],
+                      ms=3, mfc="none", label=conf)  # fmt: skip
+            right.plot([x["qe_nu_ae"] for x in rows], [x["nu_ae"] for x in rows], markers[conf],
+                       ms=3, mfc="none", label=conf)  # fmt: skip
+        left.axhline(0.1, ls="--", c="0.5", lw=0.8)
+        left.axvline(0.06, ls="--", c="0.5", lw=0.8)
+        left.set(
+            xscale="log",
+            yscale="log",
+            xlabel=r"$\varepsilon$ against QE",
+            ylabel=r"$\nu$ against QE",
+        )
+        line = np.array([1e-3, 5.0])
+        right.plot(line, line, c="0.5", lw=0.8)
+        right.set(xscale="log", yscale="log", xlabel=r"$\nu$ of QE against all-electron",
+                  ylabel=r"$\nu$ of MDAPY against all-electron")  # fmt: skip
+        left.legend()
+        for ax, label in zip((left, right), "ab"):
+            plot.panel_label(ax, label)
+        plot.save(fig, str(image.with_suffix("")), formats=("png",))
+
+
 if __name__ == "__main__":
     command, folder = sys.argv[1], Path(sys.argv[2])
     if command == "prepare":
         prepare(folder)
     elif command == "run":
-        pairs = sys.argv[3:]
+        pairs, cutoff = sys.argv[3:], None
+        if "--cutoff" in pairs:
+            at = pairs.index("--cutoff")
+            cutoff = float(pairs[at + 1])
+            pairs = pairs[:at] + pairs[at + 2 :]
         for element, configuration in zip(pairs[::2], pairs[1::2]):
-            run(folder, element, configuration)
+            run(folder, element, configuration, cutoff)
     elif command == "report":
         report(folder, Path(sys.argv[3]) if len(sys.argv) > 3 else None)
+    elif command == "figure":
+        figure(folder, Path(sys.argv[3]))
     else:
         raise SystemExit(__doc__)

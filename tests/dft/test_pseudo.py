@@ -302,3 +302,20 @@ def test_pslibrary_ultrasoft(element):
     for i, j, ell in pp.augmentation:
         assert abs(angular[i] - angular[j]) <= ell <= angular[i] + angular[j]
         assert (ell + angular[i] + angular[j]) % 2 == 0
+
+
+def test_functional_of_headers():
+    from types import SimpleNamespace
+
+    from mdapy.calculators._dft.scf import functional_of
+
+    def of(*names):
+        return functional_of([SimpleNamespace(functional=n) for n in names])
+
+    # pslibrary writes QE's parts with several spaces between them
+    assert of(" SLA  PW   PBX  PBC") == "pbe" and of("PBE", "sla pw pbx pbc") == "pbe"
+    assert of("PW", "LDA") == "lda_pw"
+    with pytest.raises(ValueError, match="different functionals"):
+        of("PBE", "PW")
+    with pytest.raises(ValueError, match="no functional"):
+        of("B3LYP")

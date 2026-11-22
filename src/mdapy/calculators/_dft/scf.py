@@ -19,16 +19,19 @@ _FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "l
 
 
 def functional_of(pseudos) -> str:
-    """The functional of the pseudopotentials, which must agree."""
-    names = {pp.functional.strip().upper() for pp in pseudos}
-    if len(names) != 1:
+    """The functional of the pseudopotentials, which must agree; the names of
+    their headers taken without the spaces between their parts."""
+    found = set()
+    for pp in pseudos:
+        name = " ".join(pp.functional.upper().split())
+        if name not in _FUNCTIONALS:
+            raise ValueError(f"no functional {name!r} here; PBE or PW LDA")
+        found.add(_FUNCTIONALS[name])
+    if len(found) != 1:
         raise ValueError(
-            f"the pseudopotentials were made with different functionals: {sorted(names)}"
+            f"the pseudopotentials were made with different functionals: {sorted(found)}"
         )
-    name = names.pop()
-    if name not in _FUNCTIONALS:
-        raise ValueError(f"no functional {name!r} here; PBE or PW LDA")
-    return _FUNCTIONALS[name]
+    return found.pop()
 
 
 def on_grid(components: np.ndarray, miller: np.ndarray, grid) -> np.ndarray:

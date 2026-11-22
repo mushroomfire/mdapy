@@ -62,6 +62,12 @@ struct Sphere {
 Sphere make_sphere(const Lattice& lattice, const Vec3& k, double cutoff, const Int3& grid,
                    bool half);
 
+// The plane waves of the sphere chosen in the cell basis, if given, with their
+// kinetic energies in lattice, in that order: a fixed set of Miller indices
+// as the cell strains, for differences of the energy at a fixed basis.
+Sphere make_sphere(const Lattice& lattice, const Lattice* basis, const Vec3& k, double cutoff,
+                   const Int3& grid, bool half);
+
 // The k-points of a grid of n points along each reciprocal vector, shifted by
 // offset of the spacing, (j + offset) / n, folded into [-1/2, 1/2): offset 0 is
 // centred on Gamma. With time reversal each k and -k (modulo a reciprocal

@@ -13,8 +13,10 @@ to a microhartree:
   - the local potential with the long-range -Z/r taken out by -Z erf(r)/r and
     added back in reciprocal space, and its G = 0 limit of the potential plus
     Z/r;
-  - the projectors tabulated every 0.01 / bohr and interpolated by Lagrange
-    polynomials of four points.
+  - the local potential without its long range, the densities and the
+    projectors tabulated every 0.01 / bohr and interpolated by Lagrange
+    polynomials of four points, as QE 7.6; their slopes in q are those of the
+    interpolation, the exact derivatives of the values used.
 Every transform is per unit volume of the cell: 4 pi / Omega for the local
 parts, 4 pi / sqrt(Omega) for the projectors."""
 
@@ -81,38 +83,98 @@ def bessel(l: int, x: np.ndarray) -> np.ndarray:  # noqa: E741
     return out
 
 
-def local_potential(pp, q: np.ndarray, volume: float) -> np.ndarray:
-    """V_loc(q) of the pseudopotential pp at the moduli q (1/bohr), per unit
-    volume of a cell of volume Omega: (4 pi / Omega) [int (r V(r) + Z erf(r))
-    sin(qr)/q dr - Z exp(-q^2/4) / q^2], and at q = 0 (4 pi / Omega) int r (r V(r)
-    + Z) dr."""
+def _table_points(q: np.ndarray) -> int:
+    """The points of a table every DQ that interpolates to the largest q."""
+    largest = float(np.max(q)) if len(q) else 0.0
+    return int(largest / DQ) + 5
+
+
+def local_table(pp, nq: int, volume: float) -> np.ndarray:
+    """(nq,) the local potential without its long range, every DQ from 0:
+    (4 pi / Omega) int (r V(r) + Z erf(r)) sin(qr)/q dr, at q = 0 the limit
+    (4 pi / Omega) int r (r V(r) + Z erf(r)) dr."""
     n = reach(pp.r)
     r, rab, z = pp.r[:n], pp.rab[:n], pp.valence
-    out = np.empty(len(q))
-    zero = q < 1e-8
-    if zero.any():
-        out[zero] = simpson(r * (r * pp.local[:n] + z), rab)
     base = r * pp.local[:n] + z * np.vectorize(math.erf)(r)
-    for i in np.nonzero(~zero)[0]:
-        g = q[i]
-        out[i] = simpson(base * np.sin(g * r) / g, rab) - z * math.exp(
-            -0.25 * g * g
-        ) / (g * g)
-    return 4 * math.pi / volume * out
+    table = np.empty(nq)
+    table[0] = simpson(base * r, rab)
+    for i in range(1, nq):
+        g = i * DQ
+        table[i] = simpson(base * np.sin(g * r) / g, rab)
+    return 4 * math.pi / volume * table
+
+
+def alpha(pp, volume: float) -> float:
+    """The G = 0 term of the local potential, (4 pi / Omega) int r (r V(r) + Z)
+    dr."""
+    n = reach(pp.r)
+    r, rab = pp.r[:n], pp.rab[:n]
+    return 4 * math.pi / volume * simpson(r * (r * pp.local[:n] + pp.valence), rab)
+
+
+def local_potential(pp, q: np.ndarray, volume: float) -> np.ndarray:
+    """V_loc(q) of the pseudopotential pp at the moduli q (1/bohr), per unit
+    volume of a cell of volume Omega: the table of local_table interpolated,
+    less (4 pi / Omega) Z exp(-q^2/4) / q^2, and alpha at q = 0."""
+    q = np.asarray(q, dtype=float)
+    table = local_table(pp, _table_points(q), volume)
+    out = interpolate(table[None], q)[0]
+    zero = q < 1e-8
+    safe = np.where(zero, 1.0, q)
+    out -= 4 * math.pi / volume * pp.valence * np.exp(-0.25 * safe * safe) / safe**2
+    out[zero] = alpha(pp, volume)
+    return out
+
+
+def local_potential_slope(pp, q: np.ndarray, volume: float) -> np.ndarray:
+    """dV_loc/dq of local_potential at the moduli q (1/bohr) at a fixed volume:
+    the slope of the interpolation plus (4 pi / Omega) Z exp(-q^2/4) (1/(2q) +
+    2/q^3); zero at q = 0."""
+    q = np.asarray(q, dtype=float)
+    table = local_table(pp, _table_points(q), volume)
+    out = interpolate_slope(table[None], q)[0]
+    zero = q < 1e-8
+    safe = np.where(zero, 1.0, q)
+    out += (4 * math.pi / volume * pp.valence * np.exp(-0.25 * safe * safe)
+            * (0.5 / safe + 2.0 / safe**3))  # fmt: skip
+    out[zero] = 0.0
+    return out
+
+
+def density_table(
+    f: np.ndarray, pp, nq: int, volume: float, weight_r2: bool
+) -> np.ndarray:
+    """(nq,) int f(r) j0(qr) dr / Omega every DQ from 0, times r^2 4 pi when
+    weight_r2."""
+    n = reach(pp.r)
+    r, rab = pp.r[:n], pp.rab[:n]
+    g = f[:n] * (4 * math.pi * r * r if weight_r2 else 1.0)
+    return (
+        np.array([simpson(g * bessel(0, DQ * i * r), rab) for i in range(nq)]) / volume
+    )
 
 
 def radial_density(
     f: np.ndarray, pp, q: np.ndarray, volume: float, weight_r2: bool
 ) -> np.ndarray:
-    """int f(r) j0(qr) dr / Omega, times r^2 4 pi when weight_r2: the Fourier
-    transform of a density per unit volume, rho_core (f = rho) or the free atom
-    (f = 4 pi r^2 rho)."""
-    n = reach(pp.r)
-    r, rab = pp.r[:n], pp.rab[:n]
-    g = f[:n] * (4 * math.pi * r * r if weight_r2 else 1.0)
-    return (
-        np.array([simpson(g * bessel(0, np.array(qi * r)), rab) for qi in q]) / volume
-    )
+    """int f(r) j0(qr) dr / Omega, times r^2 4 pi when weight_r2, interpolated
+    from density_table: the Fourier transform of a density per unit volume,
+    rho_core (f = rho) or the free atom (f = 4 pi r^2 rho)."""
+    q = np.asarray(q, dtype=float)
+    table = density_table(f, pp, _table_points(q), volume, weight_r2)
+    return interpolate(table[None], q)[0]
+
+
+def radial_density_slope(
+    f: np.ndarray, pp, q: np.ndarray, volume: float, weight_r2: bool
+) -> np.ndarray:
+    """d/dq of radial_density at a fixed volume, the slope of its
+    interpolation; zero at q = 0."""
+    q = np.asarray(q, dtype=float)
+    table = density_table(f, pp, _table_points(q), volume, weight_r2)
+    out = interpolate_slope(table[None], q)[0]
+    out[q < 1e-8] = 0.0
+    return out
 
 
 def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
@@ -140,3 +202,16 @@ def interpolate(table: np.ndarray, q: np.ndarray) -> np.ndarray:
     t = table
     return (t[:, i0] * (u * v * w / 6) + t[:, i0 + 1] * (p * v * w / 2)
             - t[:, i0 + 2] * (p * u * w / 2) + t[:, i0 + 3] * (p * u * v / 6))  # fmt: skip
+
+
+def interpolate_slope(table: np.ndarray, q: np.ndarray) -> np.ndarray:
+    """The derivatives by q of interpolate, the slopes of its polynomials."""
+    x = q / DQ
+    i0 = np.floor(x).astype(int)
+    p = x - i0
+    u, v, w = 1 - p, 2 - p, 3 - p
+    t = table
+    return (t[:, i0] * (-(v * w + u * w + u * v) / 6)
+            + t[:, i0 + 1] * ((v * w - p * w - p * v) / 2)
+            - t[:, i0 + 2] * ((u * w - p * w - p * u) / 2)
+            + t[:, i0 + 3] * ((u * v - p * v - p * u) / 6)) / DQ  # fmt: skip

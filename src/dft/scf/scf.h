@@ -18,7 +18,11 @@
 // magnetization m = rho_up - rho_down are mixed together.
 // At the end, the forces of the bands on the ions: the local term of rho_out,
 // that of the projectors, and that of the core charge in V_xc of the last
-// rho_in, the derivatives of that energy with the bands fixed.
+// rho_in, the derivatives of that energy with the bands fixed. And, with the
+// slopes of the form factors, dE/d epsilon of a homogeneous strain at fixed
+// Miller indices of the energy of Kohn and Sham of the last bands and rho_out
+// (Nielsen and Martin): the kinetic, local, projector, Hartree and
+// exchange-correlation terms, with the gradients of GGA and the core charge.
 // The bands are converged to a residual norm of 0.01 sqrt(E_H[rho_out -
 // rho_in]) of the step before, 1e-2 at the start and never above that of the
 // step before, tightly for the bands that hold electrons and to 1e-2 for the
@@ -26,6 +30,7 @@
 
 #pragma once
 
+#include <array>
 #include <vector>
 
 #include "dft/hamiltonian/hamiltonian.h"
@@ -38,6 +43,10 @@ namespace mdapy::dft {
 
 struct ScfInput {
     Lattice lattice;
+    // the cell that chooses the plane waves, for differences at a fixed basis;
+    // the lattice itself without
+    bool has_basis = false;
+    Lattice basis;
     Int3 grid{};                 // the density grid, also that of the bands
     double cutoff = 0.0;         // of the bands, hartree
     double density_cutoff = 0.0;  // of the density, hartree
@@ -48,6 +57,8 @@ struct ScfInput {
     // the form factors of each species on the sphere of the density, (species,
     // n): of V_loc, and of rho_core or empty without core charges
     std::vector<double> local_factors, core_factors;
+    // their slopes d/d|G| at a fixed volume, for the stress; empty for none
+    std::vector<double> local_slopes, core_slopes;
     std::vector<double> density;  // the first rho_in(r) on the grid, up then down with spin
     double ewald = 0.0;
 };
@@ -90,6 +101,10 @@ struct ScfResult {
     // (atoms, 3) hartree / bohr: of V_loc, the projectors and the core charge,
     // without the Ewald forces of the ions
     std::vector<double> forces;
+    // dE/d epsilon (xx yy zz yz xz xy) at a fixed set of plane waves, hartree,
+    // without the Ewald term, when the slopes are given
+    bool has_strain = false;
+    std::array<double, 6> strain{};
     std::vector<ScfStep> steps;
 };
 

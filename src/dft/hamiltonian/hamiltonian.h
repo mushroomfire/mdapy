@@ -17,6 +17,7 @@
 
 #include <cublas_v2.h>
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -42,10 +43,29 @@ struct Atom {
     int species;
 };
 
+namespace detail {
+// a column of the projectors: where its table starts, l, m and its atom
+struct ProjectorColumn {
+    std::int64_t table;
+    int l, m;
+    double tau[3];  // fractions of the cell vectors
+};
+// what the kernels of the projectors take of the cell and the k-point
+struct ReciprocalCell {
+    double b[9];  // the reciprocal vectors, rows
+    double k[3];
+    double dq;
+    int points;
+};
+}  // namespace detail
+
 class Hamiltonian {
 public:
+    // basis: the cell that chooses the plane waves of each k-point, for a fixed
+    // set of Miller indices as the cell strains; the lattice itself by default
     Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
-                std::vector<SpeciesProjectors> species, std::vector<Atom> atoms);
+                std::vector<SpeciesProjectors> species, std::vector<Atom> atoms,
+                const Lattice* basis = nullptr);
     ~Hamiltonian();
     Hamiltonian(const Hamiltonian&) = delete;
     Hamiltonian& operator=(const Hamiltonian&) = delete;
@@ -66,6 +86,10 @@ public:
     // (plane waves, count) on the device of weights w_b (k-point weight, f_max
     // and occupation) on the host: -sum_b w_b d<psi_b|V_nl|psi_b>/dtau_I.
     void nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces);
+    // out (xx yy zz yz xz xy) += dE/d epsilon of count bands at a fixed set of
+    // plane waves, their weights w_b on the host: the kinetic energy and the
+    // projectors, hartree.
+    void strain_derivative(const Complex* psi, int count, const double* weights, std::array<double, 6>& out);
     // The diagonal H_GG on the device, for the preconditioner: the kinetic
     // energy, the mean potential and the projectors.
     void diagonal(double* out) const;
@@ -80,6 +104,8 @@ private:
     int batch() const noexcept;  // bands per batch of FFTs
 
     Lattice lattice_;
+    bool has_basis_ = false;
+    Lattice basis_;
     Int3 grid_;
     double cutoff_;
     std::vector<SpeciesProjectors> species_;
@@ -104,6 +130,11 @@ private:
     DeviceArray<int> blocks_device_;
     double mean_potential_ = 0.0;
     DeviceArray<double> weights_;
+    // of the k-point, for the stress of the projectors: the Miller indices, the
+    // columns of the projectors and the reciprocal cell of their kernel
+    DeviceArray<int> miller_;
+    DeviceArray<detail::ProjectorColumn> columns_;
+    detail::ReciprocalCell reciprocal_{};
 };
 
 }  // namespace mdapy::dft

@@ -34,6 +34,13 @@ public:
     // V(G) and rho_core(G) into n components on the device
     void local_components(Complex* out) const;
     void core_components(Complex* out) const;
+    // the slopes dV_s/d|G| and dc_s/d|G| of the form factors (species, n), for
+    // the stress; core empty without core charges
+    void set_slopes(const std::vector<double>& local, const std::vector<double>& core);
+    bool has_slopes() const noexcept { return local_slope_.size() > 0; }
+    // sum_s S_s(G) dV_s/d|G| and sum_s S_s(G) dc_s/d|G| on the device
+    void local_slope_components(Complex* out) const;
+    void core_slope_components(Complex* out) const;
     // the forces (atoms, 3) on the host of rho(G) through V_loc and, with core
     // charges, of V_xc(G) through rho_core; both on the device
     std::vector<double> forces(const Complex* rho, const Complex* vxc) const;
@@ -46,7 +53,7 @@ private:
     int atoms_, species_;
     bool has_core_;
     DeviceArray<int> miller_, kinds_;
-    DeviceArray<double> g_, tau_, local_, core_;
+    DeviceArray<double> g_, tau_, local_, core_, local_slope_, core_slope_;
 };
 
 }  // namespace mdapy::dft

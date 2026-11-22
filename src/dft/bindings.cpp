@@ -458,13 +458,18 @@ NB_MODULE(_dft, m) {
         [](Matrix a, std::array<int, 3> grid, double cutoff, double density_cutoff, nb::list tables,
            nb::list angular, nb::list dij, double dq, Rows positions, Kinds species, Rows kpoints,
            nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Rows local,
-           nb::object core, nb::ndarray<const double, nb::c_contig, nb::device::cpu> density, double ewald,
+           nb::object core, nb::object local_slopes, nb::object core_slopes,
+           nb::ndarray<const double, nb::c_contig, nb::device::cpu> density, double ewald,
            int spins, int bands, double electrons, const std::string& functional, const std::string& smearing,
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
            double metric_weight, double energy_tolerance, double density_tolerance, int max_iterations,
-           int davidson_iterations, int davidson_basis, unsigned long long seed) {
+           int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis) {
             mdapy::dft::ScfInput in;
             in.lattice = lattice_of(a);
+            if (!basis.is_none()) {
+                in.has_basis = true;
+                in.basis = lattice_of(nb::cast<Matrix>(basis));
+            }
             in.grid = grid_of(grid);
             in.cutoff = cutoff;
             in.density_cutoff = density_cutoff;
@@ -485,6 +490,14 @@ NB_MODULE(_dft, m) {
             if (!core.is_none()) {
                 auto c = nb::cast<Rows>(core);
                 in.core_factors.assign(c.data(), c.data() + c.size());
+            }
+            if (!local_slopes.is_none()) {
+                auto c = nb::cast<Rows>(local_slopes);
+                in.local_slopes.assign(c.data(), c.data() + c.size());
+            }
+            if (!core_slopes.is_none()) {
+                auto c = nb::cast<Rows>(core_slopes);
+                in.core_slopes.assign(c.data(), c.data() + c.size());
             }
             in.ewald = ewald;
             mdapy::dft::ScfOptions opt;
@@ -549,14 +562,21 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             out["forces"] = array_of(r.forces, {in.atoms.size(), 3});
+            if (r.has_strain) {
+                const auto& e = r.strain;  // xx yy zz yz xz xy
+                out["strain_derivative"] =
+                    array_of(std::vector<double>{e[0], e[5], e[4], e[5], e[1], e[3], e[4], e[3], e[2]}, {3, 3});
+            }
             return out;
         },
         nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("density_cutoff"), nb::arg("tables"),
         nb::arg("angular"), nb::arg("dij"), nb::arg("dq"), nb::arg("positions"), nb::arg("species"),
-        nb::arg("kpoints"), nb::arg("weights"), nb::arg("local"), nb::arg("core").none(), nb::arg("density"),
+        nb::arg("kpoints"), nb::arg("weights"), nb::arg("local"), nb::arg("core").none(),
+        nb::arg("local_slopes").none(), nb::arg("core_slopes").none(), nb::arg("density"),
         nb::arg("ewald"), nb::arg("spins"), nb::arg("bands"), nb::arg("electrons"), nb::arg("functional"),
         nb::arg("smearing"), nb::arg("sigma"), nb::arg("beta"), nb::arg("kerker"), nb::arg("minimum"),
         nb::arg("magnetic_beta"), nb::arg("history"),
         nb::arg("metric_weight"), nb::arg("energy_tolerance"), nb::arg("density_tolerance"),
-        nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"));
+        nb::arg("max_iterations"), nb::arg("davidson_iterations"), nb::arg("davidson_basis"), nb::arg("seed"),
+        nb::arg("basis").none() = nb::none());
 }

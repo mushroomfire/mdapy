@@ -132,6 +132,17 @@ Sphere make_sphere(const Lattice& lattice, const Vec3& k, double cutoff, const I
     return sphere;
 }
 
+Sphere make_sphere(const Lattice& lattice, const Lattice* basis, const Vec3& k, double cutoff,
+                   const Int3& grid, bool half) {
+    if (basis == nullptr) return make_sphere(lattice, k, cutoff, grid, half);
+    Sphere sphere = make_sphere(*basis, k, cutoff, grid, half);
+    for (std::size_t g = 0; g < sphere.size(); ++g) {
+        const Vec3 q = lattice.cartesian(k, sphere.miller[g]);
+        sphere.kinetic[g] = 0.5 * (q[0] * q[0] + q[1] * q[1] + q[2] * q[2]);
+    }
+    return sphere;
+}
+
 KPoints monkhorst_pack(const Int3& n, const Vec3& offset, bool time_reversal) {
     for (int i = 0; i < 3; ++i)
         if (n[i] < 1) throw std::invalid_argument("a k-point grid needs one point or more");

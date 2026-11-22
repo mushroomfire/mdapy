@@ -113,6 +113,24 @@ void Ions::core_components(Complex* out) const {
     structure(core_, out);
 }
 
+void Ions::set_slopes(const std::vector<double>& local, const std::vector<double>& core) {
+    const std::size_t total = static_cast<std::size_t>(species_) * n_;
+    if (local.size() != total || core.size() != (has_core_ ? total : 0))
+        throw std::invalid_argument("the slopes of the form factors are (species, the sphere of the density)");
+    local_slope_.upload(local.data(), local.size());
+    if (has_core_) core_slope_.upload(core.data(), core.size());
+}
+
+void Ions::local_slope_components(Complex* out) const {
+    if (!has_slopes()) throw std::logic_error("no slopes of the form factors");
+    structure(local_slope_, out);
+}
+
+void Ions::core_slope_components(Complex* out) const {
+    if (!has_slopes() || !has_core_) throw std::logic_error("no slopes of the core charges");
+    structure(core_slope_, out);
+}
+
 std::vector<double> Ions::forces(const Complex* rho, const Complex* vxc) const {
     std::vector<double> out(3 * static_cast<std::size_t>(atoms_), 0.0);
     if (atoms_ == 0) return out;

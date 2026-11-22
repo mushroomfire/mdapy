@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <vector>
 
@@ -33,8 +34,10 @@ struct PotentialEnergies {
 
 class Potentials {
 public:
+    // basis: the cell that chooses the sphere, for a fixed set of G as the cell
+    // strains; the lattice itself by default
     Potentials(const Lattice& lattice, const Int3& grid, double cutoff, Functional functional,
-               int spins, double threshold = 1e-10);
+               int spins, double threshold = 1e-10, const Lattice* basis = nullptr);
 
     // The core charge on the grid, n1 n2 n3 values on the host; none by default.
     void set_core(const double* core);
@@ -43,6 +46,11 @@ public:
     // from the densities rho (spins x points on the device) into hxc (the same
     // shape on the device), and the energies.
     PotentialEnergies compute(const double* rho, double* hxc);
+
+    // The part of GGA in dE_xc/d epsilon of the last density computed,
+    // -int sum_s h_s,a grad n_s,b with h_s the flux of the spin (xx yy zz yz xz
+    // xy), hartree; zero for LDA.
+    std::array<double, 6> gga_strain() const;
 
     // A density on the grid restricted to the sphere: its components beyond
     // the cutoff removed, in place, count functions.

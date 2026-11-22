@@ -165,6 +165,11 @@ def parse(out: str, xml: str, nk: int) -> dict:
         magnet = root.find("output/magnetization")
         result["magnetization"] = float(magnet.find("total").text)
         result["absolute_magnetization"] = float(magnet.find("absolute").text)
+    stress = root.find("output/stress")
+    if stress is not None:  # QE's sign: -(1/Omega) dE/d epsilon
+        result["stress"] = np.array([float(x) for x in stress.text.split()]).reshape(
+            3, 3
+        )
     forces = root.find("output/forces")
     if forces is not None:
         result["forces"] = np.array([float(x) for x in forces.text.split()]).reshape(

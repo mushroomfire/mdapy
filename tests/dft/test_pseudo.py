@@ -175,6 +175,40 @@ def test_the_local_potential_of_a_bare_erf():
     )
 
 
+def test_the_slopes_of_the_tables():
+    """The slopes in q are the derivatives of the interpolated values, which
+    stay continuous across the points of the tables."""
+
+    class P:
+        r = 0.01 * np.arange(1201)
+        rab = np.full(1201, 0.01)
+        valence = 3.0
+        local = np.array([-3.0 * math.erf(x) / x if x > 0 else -6 / math.sqrt(math.pi)
+                          for x in r]) + 2.0 * np.exp(-r * r)  # fmt: skip
+        core = np.exp(-2 * r * r)
+
+    volume = 250.0
+    q = np.array([0.137, 0.731, 1.2345, 3.3321])
+    h = 1e-6
+    for value, slope in [
+        (lambda x: radial.local_potential(P, x, volume),
+         radial.local_potential_slope(P, q, volume)),
+        (lambda x: radial.radial_density(P.core, P, x, volume, True),
+         radial.radial_density_slope(P.core, P, q, volume, True)),
+    ]:  # fmt: skip
+        np.testing.assert_allclose(
+            (value(q + h) - value(q - h)) / (2 * h), slope, rtol=1e-6, atol=1e-10
+        )
+        knots = radial.DQ * np.array([17.0, 123.0])
+        np.testing.assert_allclose(
+            value(knots - 1e-12), value(knots + 1e-12), rtol=1e-10
+        )
+    assert radial.local_potential_slope(P, np.array([0.0]), volume)[0] == 0.0
+    assert (
+        radial.radial_density_slope(P.core, P, np.array([0.0]), volume, True)[0] == 0.0
+    )
+
+
 def test_ewald_against_madelung():
     a = 10.0
     fcc = np.array([[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]])

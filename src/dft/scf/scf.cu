@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <functional>
 #include <limits>
 #include <random>
 #include <stdexcept>
@@ -75,16 +76,19 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     if (nb < 1) throw std::invalid_argument("at least one band");
     if (options.max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const double f_max = ns == 2 ? 1.0 : 2.0;
-    Hamiltonian h(input.lattice, input.grid, input.cutoff, input.species, input.atoms);
-    Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold);
+    const Lattice* basis = input.has_basis ? &input.basis : nullptr;
+    Hamiltonian h(input.lattice, input.grid, input.cutoff, input.species, input.atoms, basis);
+    Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold,
+                   basis);
     // V_loc and rho_core of the atoms on the grid
     const std::size_t ng = pot.sphere().size();
-    const Ions ions(input.lattice, pot.sphere(), input.atoms, static_cast<int>(input.species.size()),
-                    input.local_factors, input.core_factors);
+    Ions ions(input.lattice, pot.sphere(), input.atoms, static_cast<int>(input.species.size()),
+              input.local_factors, input.core_factors);
     DeviceArray<Complex> components(spins * ng);
     DeviceArray<double> local(points);
     ions.local_components(components.data());
     pot.from_sphere(components.data(), local.data(), 1);
+    if (!input.local_slopes.empty()) ions.set_slopes(input.local_slopes, input.core_slopes);
     if (ions.has_core()) {
         DeviceArray<double> core(points);
         ions.core_components(components.data());
@@ -233,6 +237,100 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
                 h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), result.forces);
             }
         }
+    }
+    // the strain derivative of the energy of Kohn and Sham of the last bands
+    if (ions.has_slopes()) {
+        const auto& sphere = pot.sphere();
+        const double omega = input.lattice.volume, pi = 3.14159265358979323846;
+        const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
+        std::vector<double> gv(3 * ng);
+        for (std::size_t g = 0; g < ng; ++g)
+            for (int d = 0; d < 3; ++d) {
+                double x = 0.0;
+                for (int j = 0; j < 3; ++j)
+                    x += sphere.miller[g][static_cast<std::size_t>(j)] *
+                         input.lattice.b[static_cast<std::size_t>(j)][static_cast<std::size_t>(d)];
+                gv[3 * g + static_cast<std::size_t>(d)] = x;
+            }
+        auto download = [&](void (Ions::*f)(Complex*) const) {
+            (ions.*f)(components.data());
+            std::vector<Complex> out(ng);
+            components.download(out.data(), ng);
+            return out;
+        };
+        std::array<double, 6> st{};
+        auto add_diagonal = [&](double x) {
+            for (int d = 0; d < 3; ++d) st[static_cast<std::size_t>(d)] += x;
+        };
+        // sum_G w(G) G_a G_b, G = 0 left out
+        auto add_shells = [&](const std::function<double(std::size_t)>& weight) {
+            for (std::size_t g = 1; g < ng; ++g) {
+                const double w_ = weight(g);
+                for (int d = 0; d < 6; ++d)
+                    st[static_cast<std::size_t>(d)] += w_ * gv[3 * g + static_cast<std::size_t>(pairs[d][0])] *
+                                                       gv[3 * g + static_cast<std::size_t>(pairs[d][1])];
+            }
+        };
+        const std::vector<Complex>& rho = out_g;  // the total density first
+        auto g2_of = [&](std::size_t g) { return 2.0 * sphere.kinetic[g]; };
+        // Hartree: -delta E_H + 4 pi Omega sum |rho|^2 G_a G_b / G^4
+        double hartree = 0.0;
+        for (std::size_t g = 1; g < ng; ++g)
+            hartree += (rho[g].x * rho[g].x + rho[g].y * rho[g].y) / g2_of(g);
+        hartree *= 2.0 * pi * omega;
+        add_diagonal(-hartree);
+        add_shells([&](std::size_t g) {
+            const double x = g2_of(g);
+            return 4.0 * pi * omega * (rho[g].x * rho[g].x + rho[g].y * rho[g].y) / (x * x);
+        });
+        // local: -delta E_loc - Omega sum Re[conj(rho) S V'] G_a G_b / |G|
+        const auto vloc = download(&Ions::local_components);
+        const auto vslope = download(&Ions::local_slope_components);
+        double eloc = 0.0;
+        for (std::size_t g = 0; g < ng; ++g) eloc += rho[g].x * vloc[g].x + rho[g].y * vloc[g].y;
+        add_diagonal(-omega * eloc);
+        add_shells([&](std::size_t g) {
+            return -omega * (rho[g].x * vslope[g].x + rho[g].y * vslope[g].y) / std::sqrt(g2_of(g));
+        });
+        // exchange and correlation of rho_out: delta [E_xc - int V_xc (rho + rho_core)]
+        // - Omega sum Re[conj(V_xc) S c'] G_a G_b / |G| + the gradients of GGA
+        const PotentialEnergies e = pot.compute(rho_out.data(), hxc.data());
+        pot.to_sphere(hxc.data(), components.data(), ns);
+        std::vector<Complex> v(spins * ng);
+        components.download(v.data(), v.size());
+        for (std::size_t g = 0; g < ng; ++g) {
+            Complex x = v[g];
+            if (ns == 2) x = make_cuDoubleComplex(0.5 * (x.x + v[ng + g].x), 0.5 * (x.y + v[ng + g].y));
+            if (g > 0) {
+                const double f = 4.0 * pi / g2_of(g);
+                x = make_cuDoubleComplex(x.x - f * rho[g].x, x.y - f * rho[g].y);
+            }
+            v[g] = x;
+        }
+        double vxc_core = 0.0;
+        if (ions.has_core()) {
+            const auto core = download(&Ions::core_components);
+            const auto cslope = download(&Ions::core_slope_components);
+            for (std::size_t g = 0; g < ng; ++g) vxc_core += v[g].x * core[g].x + v[g].y * core[g].y;
+            vxc_core *= omega;
+            add_shells([&](std::size_t g) {
+                return -omega * (v[g].x * cslope[g].x + v[g].y * cslope[g].y) / std::sqrt(g2_of(g));
+            });
+        }
+        add_diagonal(e.xc - (e.hxc_density - 2.0 * e.hartree) - vxc_core);
+        const auto gga = pot.gga_strain();
+        for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += gga[static_cast<std::size_t>(d)];
+        // the kinetic energy and the projectors of the bands
+        for (std::size_t k = 0; k < nk; ++k) {
+            h.set_k(input.kpoints[k]);
+            for (std::size_t s = 0; s < spins; ++s) {
+                const std::size_t row = (s * nk + k) * bands;
+                for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
+                h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), st);
+            }
+        }
+        result.has_strain = true;
+        result.strain = st;
     }
     result.density.resize(spins * points);
     rho_out.download(result.density.data(), result.density.size());

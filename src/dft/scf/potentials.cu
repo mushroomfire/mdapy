@@ -5,6 +5,8 @@
 
 #include "dft/scf/potentials.h"
 
+#include <algorithm>
+
 #include <cmath>
 #include <stdexcept>
 
@@ -145,6 +147,36 @@ __global__ void combine_kernel(std::size_t points, int spin, const double* hartr
     hxc[i] = hartree[i] + v[2 * i + spin] - (divergence == nullptr ? 0.0 : divergence[i]);
 }
 
+// sums (6) += sum over the points of sum_s h_s,a grad n_s,b, h_s the flux of
+// GGA, for the pairs xx yy zz yz xz xy
+__global__ void gga_stress_kernel(std::size_t points, const double* grads, const double* vs, double* sums) {
+    double local[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
+    for (std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x; i < points;
+         i += static_cast<std::size_t>(gridDim.x) * blockDim.x) {
+        for (int spin = 0; spin < 2; ++spin) {
+            const double same = vs[3 * i + (spin == 0 ? 0 : 2)], cross = vs[3 * i + 1];
+            const int other = 1 - spin;
+            for (int d = 0; d < 6; ++d) {
+                const int a = pairs[d][0], b = pairs[d][1];
+                const double h = 2.0 * same * grads[static_cast<std::size_t>(3 * spin + a) * points + i] +
+                                 cross * grads[static_cast<std::size_t>(3 * other + a) * points + i];
+                local[d] += h * grads[static_cast<std::size_t>(3 * spin + b) * points + i];
+            }
+        }
+    }
+    __shared__ double partial[6][kThreads];
+    for (int d = 0; d < 6; ++d) partial[d][threadIdx.x] = local[d];
+    __syncthreads();
+    for (int k = kThreads / 2; k > 0; k >>= 1) {
+        if (static_cast<int>(threadIdx.x) < k)
+            for (int d = 0; d < 6; ++d) partial[d][threadIdx.x] += partial[d][threadIdx.x + k];
+        __syncthreads();
+    }
+    if (threadIdx.x == 0)
+        for (int d = 0; d < 6; ++d) atomicAdd(sums + d, partial[d][0]);
+}
+
 double total(const DeviceArray<double>& sum) {
     double host = 0.0;
     sum.download(&host, 1);
@@ -154,10 +186,10 @@ double total(const DeviceArray<double>& sum) {
 }  // namespace
 
 Potentials::Potentials(const Lattice& lattice, const Int3& grid, double cutoff, Functional functional,
-                       int spins, double threshold)
+                       int spins, double threshold, const Lattice* basis)
     : lattice_(lattice), grid_(grid), functional_(functional), spins_(spins), threshold_(threshold), fft_(grid) {
     if (spins != 1 && spins != 2) throw std::invalid_argument("one or two spins");
-    sphere_ = make_sphere(lattice, Vec3{0.0, 0.0, 0.0}, cutoff, grid, false);
+    sphere_ = make_sphere(lattice, basis, Vec3{0.0, 0.0, 0.0}, cutoff, grid, false);
     box_.upload(sphere_.box.data(), sphere_.size());
     std::vector<double> g(3 * sphere_.size());
     for (std::size_t i = 0; i < sphere_.size(); ++i) {
@@ -292,6 +324,22 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
         launched("int V rho");
         out.hxc_density += dv * total(sum);
     }
+    return out;
+}
+
+std::array<double, 6> Potentials::gga_strain() const {
+    std::array<double, 6> out{};
+    if (functional_ != Functional::Pbe && functional_ != Functional::PbePw) return out;
+    const std::size_t points = fft_.points();
+    if (grads_.size() < 6 * points || vs_.size() < 3 * points) throw std::logic_error("no potential computed");
+    DeviceArray<double> sums(6);
+    sums.zero();
+    gga_stress_kernel<<<std::min<unsigned>(blocks(points), 1024u), kThreads>>>(points, grads_.data(), vs_.data(),
+                                                                                sums.data());
+    launched("the stress of GGA");
+    sums.download(out.data(), 6);
+    const double dv = lattice_.volume / static_cast<double>(points);
+    for (double& x : out) x *= -dv;
     return out;
 }
 

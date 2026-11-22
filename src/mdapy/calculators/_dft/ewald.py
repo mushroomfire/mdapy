@@ -19,10 +19,12 @@ import math
 import numpy as np
 
 
-def ewald(cell: np.ndarray, positions: np.ndarray, charges: np.ndarray, forces=False):
+def ewald(cell: np.ndarray, positions: np.ndarray, charges: np.ndarray, forces=False,
+          strain=False):  # fmt: skip
     """The Ewald energy in hartree of the charges at the positions (bohr) in the
-    cell of rows (bohr), and with forces the forces on them (N, 3) in hartree
-    / bohr."""
+    cell of rows (bohr); with forces also the forces on them (N, 3) in hartree
+    / bohr, and with strain also dE/d epsilon (3, 3) of a homogeneous strain in
+    hartree."""
     cell = np.asarray(cell, dtype=float)
     x = np.asarray(positions, dtype=float)
     z = np.asarray(charges, dtype=float)
@@ -35,6 +37,7 @@ def ewald(cell: np.ndarray, positions: np.ndarray, charges: np.ndarray, forces=F
     gmax = 2 * math.sqrt(eta) * 6.1
     total = 0.0
     force = np.zeros_like(x)
+    derivative = np.zeros((3, 3))
     # reciprocal space: F_i = (4 pi / Omega) z_i sum_G w(G) G Im[exp(iG.x_i) conj(S)]
     span = [
         int(math.ceil(gmax * np.linalg.norm(cell[i]) / (2 * math.pi))) for i in range(3)
@@ -47,8 +50,13 @@ def ewald(cell: np.ndarray, positions: np.ndarray, charges: np.ndarray, forces=F
     w = np.exp(-g2 / (4 * eta)) / g2
     phase = np.exp(1j * (x @ g.T))  # (atoms, G)
     s = (z[:, None] * phase).sum(axis=0)
-    total += 2 * math.pi / volume * float((w * np.abs(s) ** 2).sum())
+    reciprocal = 2 * math.pi / volume * float((w * np.abs(s) ** 2).sum())
+    total += reciprocal
     force += 4 * math.pi / volume * z[:, None] * ((w * (phase * s.conj()).imag) @ g)
+    # -delta E_G + (4 pi / Omega) sum |S|^2 w (1/(4 eta) + 1/G^2) G_a G_b
+    derivative -= reciprocal * np.eye(3)
+    scale = np.abs(s) ** 2 * w * (1 / (4 * eta) + 1 / g2)
+    derivative += 4 * math.pi / volume * (g.T * scale) @ g
     # real space: F_i = z_i sum_j z_j [erfc/r^2 + 2 sqrt(eta/pi) exp(-eta r^2)/r] d/r
     span = [
         int(math.ceil(rmax * np.linalg.norm(recip[i]) / (2 * math.pi))) + 1
@@ -68,6 +76,12 @@ def ewald(cell: np.ndarray, positions: np.ndarray, charges: np.ndarray, forces=F
             erfc / rk**2 + 2 * root / math.sqrt(math.pi) * np.exp(-eta * rk * rk) / rk
         )
         force[i] += z[i] * ((radial / rk)[:, None] * d[keep]).sum(axis=0)
+        # 1/2 sum z_i z_j phi'(r) d_a d_b / r, phi' = -radial / zz
+        dk = d[keep]
+        derivative -= 0.5 * z[i] * (dk.T * (radial / rk)) @ dk
     total -= math.sqrt(eta / math.pi) * float((z * z).sum())
-    total -= math.pi * float(z.sum()) ** 2 / (2 * volume * eta)
-    return (total, force) if forces else total
+    background = math.pi * float(z.sum()) ** 2 / (2 * volume * eta)
+    total -= background
+    derivative += background * np.eye(3)
+    out = (total,) + ((force,) if forces else ()) + ((derivative,) if strain else ())
+    return out if len(out) > 1 else total

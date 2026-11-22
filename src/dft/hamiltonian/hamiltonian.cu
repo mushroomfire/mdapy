@@ -5,6 +5,8 @@
 
 #include "dft/hamiltonian/hamiltonian.h"
 
+#include "dft/xc/dual.h"
+
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
@@ -35,7 +37,7 @@ __device__ double ylm(int l, int m, double x, double y, double z) {
     const double r2 = x * x + y * y + z * z;
     if (l == 0) return 0.28209479177387814347;  // 1 / (2 sqrt(pi))
     if (r2 < 1e-24) return 0.0;
-    const double r = sqrt(r2);
+    const double r = ::sqrt(r2);
     x /= r;
     y /= r;
     z /= r;
@@ -63,18 +65,37 @@ __device__ double ylm(int l, int m, double x, double y, double z) {
     }
 }
 
-struct Column {
-    std::int64_t table;  // where the table of its projector starts
-    int l, m;
-    double tau[3];  // the atom, fractions of the cell vectors
-};
+// ylm of any number type (the duals of the stress), as ylm
+template <class T>
+__device__ T ylm_of(int l, int m, T x, T y, T z) {
+    if (l == 0) return T(0.28209479177387814347);
+    const T r = sqrt(x * x + y * y + z * z);
+    x = x / r;
+    y = y / r;
+    z = z / r;
+    if (l == 1) return 0.48860251190291992159 * (m == -1 ? y : (m == 0 ? z : x));
+    if (l == 2) {
+        switch (m) {
+            case -2: return 1.0925484305920790705 * x * y;
+            case -1: return 1.0925484305920790705 * y * z;
+            case 0: return 0.31539156525252000603 * (3.0 * z * z - 1.0);
+            case 1: return 1.0925484305920790705 * x * z;
+            default: return 0.54627421529603953527 * (x * x - y * y);
+        }
+    }
+    switch (m) {
+        case -3: return 0.59004358992664351035 * y * (3.0 * x * x - y * y);
+        case -2: return 2.8906114426405540554 * x * y * z;
+        case -1: return 0.45704579946446573616 * y * (5.0 * z * z - 1.0);
+        case 0: return 0.37317633259011539141 * z * (5.0 * z * z - 3.0);
+        case 1: return 0.45704579946446573616 * x * (5.0 * z * z - 1.0);
+        case 2: return 1.4453057213202770277 * z * (x * x - y * y);
+        default: return 0.59004358992664351035 * x * (x * x - 3.0 * y * y);
+    }
+}
 
-struct Reciprocal {
-    double b[9];  // rows
-    double k[3];
-    double dq;
-    int points;
-};
+using Column = detail::ProjectorColumn;
+using Reciprocal = detail::ReciprocalCell;
 
 __global__ void projector_kernel(std::size_t n, int columns, const int* miller, Reciprocal rc,
                                  const Column* cols, const double* tables, Complex* beta) {
@@ -88,7 +109,7 @@ __global__ void projector_kernel(std::size_t n, int columns, const int* miller, 
     const double x = f0 * rc.b[0] + f1 * rc.b[3] + f2 * rc.b[6];
     const double y = f0 * rc.b[1] + f1 * rc.b[4] + f2 * rc.b[7];
     const double z = f0 * rc.b[2] + f1 * rc.b[5] + f2 * rc.b[8];
-    const double q = sqrt(x * x + y * y + z * z);
+    const double q = ::sqrt(x * x + y * y + z * z);
     // Lagrange polynomials of four points from the one at or below q
     const double s = q / rc.dq;
     int i0 = static_cast<int>(floor(s));
@@ -107,6 +128,89 @@ __global__ void projector_kernel(std::size_t n, int columns, const int* miller, 
         im = -old;
     }
     beta[static_cast<std::size_t>(c) * n + g] = make_cuDoubleComplex(amplitude * re, amplitude * im);
+}
+
+// d beta / d epsilon_ab at a fixed set of plane waves, symmetrized:
+//   -1/2 delta_ab beta - 1/2 (q_b du/dq_a + q_a du/dq_b) (-i)^l exp(-i q.tau),
+// u = t(|q|) Y_lm(q), the derivatives by duals
+__global__ void projector_strain_kernel(std::size_t n, int columns, const int* miller, Reciprocal rc,
+                                        const Column* cols, const double* tables, int a, int b,
+                                        Complex* dbeta) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * columns) return;
+    const std::size_t g = i % n;
+    const int c = static_cast<int>(i / n);
+    const Column col = cols[c];
+    const double f0 = rc.k[0] + miller[3 * g], f1 = rc.k[1] + miller[3 * g + 1],
+                 f2 = rc.k[2] + miller[3 * g + 2];
+    const double q[3] = {f0 * rc.b[0] + f1 * rc.b[3] + f2 * rc.b[6], f0 * rc.b[1] + f1 * rc.b[4] + f2 * rc.b[7],
+                         f0 * rc.b[2] + f1 * rc.b[5] + f2 * rc.b[8]};
+    const double modulus = ::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2]);
+    using D = Dual<3>;
+    double u = 0.0, du[3] = {0.0, 0.0, 0.0};
+    const double* t = tables + col.table;
+    if (modulus < 1e-12) {  // q = 0: only l = 0 holds a value, and q_b du/dq_a vanishes
+        u = col.l == 0 ? t[0] * 0.28209479177387814347 : 0.0;
+    } else {
+        const D x = D::input(q[0], 0), y = D::input(q[1], 1), z = D::input(q[2], 2);
+        const D s = sqrt(x * x + y * y + z * z) / rc.dq;
+        int i0 = static_cast<int>(floor(s.v));
+        if (i0 > rc.points - 4) i0 = rc.points - 4;
+        const D p = s - static_cast<double>(i0), uu = 1.0 - p, v = 2.0 - p, w = 3.0 - p;
+        const D radial = t[i0] * uu * v * w / 6.0 + t[i0 + 1] * p * v * w / 2.0 -
+                         t[i0 + 2] * p * uu * w / 2.0 + t[i0 + 3] * p * uu * v / 6.0;
+        const D value = radial * ylm_of(col.l, col.m, x, y, z);
+        u = value.v;
+        for (int d = 0; d < 3; ++d) du[d] = value.d[d];
+    }
+    const double strain = -(a == b ? 0.5 * u : 0.0) - 0.5 * (q[b] * du[a] + q[a] * du[b]);
+    const double phase = -2.0 * kPi * (f0 * col.tau[0] + f1 * col.tau[1] + f2 * col.tau[2]);
+    double re = cos(phase), im = sin(phase);
+    for (int k = 0; k < col.l; ++k) {
+        const double old = re;
+        re = im;
+        im = -old;
+    }
+    dbeta[static_cast<std::size_t>(c) * n + g] = make_cuDoubleComplex(strain * re, strain * im);
+}
+
+// per band b: sum_G |psi|^2 q_a q_b for the six pairs (xx yy zz yz xz xy)
+__global__ void kinetic_stress_kernel(std::size_t n, const double* q, const Complex* psi, double* out) {
+    const Complex* column = psi + static_cast<std::size_t>(blockIdx.x) * n;
+    double sum[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+    for (std::size_t g = threadIdx.x; g < n; g += blockDim.x) {
+        const double m = column[g].x * column[g].x + column[g].y * column[g].y;
+        const double* x = q + 3 * g;
+        sum[0] += m * x[0] * x[0];
+        sum[1] += m * x[1] * x[1];
+        sum[2] += m * x[2] * x[2];
+        sum[3] += m * x[1] * x[2];
+        sum[4] += m * x[0] * x[2];
+        sum[5] += m * x[0] * x[1];
+    }
+    __shared__ double partial[6][kThreads];
+    for (int d = 0; d < 6; ++d) partial[d][threadIdx.x] = sum[d];
+    __syncthreads();
+    for (int k = kThreads / 2; k > 0; k >>= 1) {
+        if (static_cast<int>(threadIdx.x) < k)
+            for (int d = 0; d < 6; ++d) partial[d][threadIdx.x] += partial[d][threadIdx.x + k];
+        __syncthreads();
+    }
+    if (threadIdx.x == 0)
+        for (int d = 0; d < 6; ++d) out[6 * blockIdx.x + d] = partial[d][0];
+}
+
+// s_j = sum_b w_b Re(conj(a_jb) c_jb)
+__global__ void projector_real_sums(int projectors, int count, const double* w, const Complex* a, const Complex* c,
+                                    double* s) {
+    const int j = static_cast<int>(blockIdx.x * blockDim.x + threadIdx.x);
+    if (j >= projectors) return;
+    double sum = 0.0;
+    for (int b = 0; b < count; ++b) {
+        const std::size_t i = static_cast<std::size_t>(b) * projectors + j;
+        sum += w[b] * (a[i].x * c[i].x + a[i].y * c[i].y);
+    }
+    s[j] = sum;
 }
 
 __global__ void kinetic_kernel(std::size_t n, int count, const double* kinetic, const Complex* psi,
@@ -200,8 +304,10 @@ __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
 }  // namespace
 
 Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
-                         std::vector<SpeciesProjectors> species, std::vector<Atom> atoms)
+                         std::vector<SpeciesProjectors> species, std::vector<Atom> atoms, const Lattice* basis)
     : lattice_(lattice),
+      has_basis_(basis != nullptr),
+      basis_(basis != nullptr ? *basis : lattice),
       grid_(grid),
       cutoff_(cutoff),
       species_(std::move(species)),
@@ -263,7 +369,7 @@ Hamiltonian::~Hamiltonian() {
 }
 
 void Hamiltonian::set_k(const Vec3& k) {
-    sphere_ = make_sphere(lattice_, k, cutoff_, grid_, false);
+    sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, false);
     const std::size_t n = sphere_.size();
     kinetic_.upload(sphere_.kinetic.data(), n);
     box_.upload(sphere_.box.data(), n);
@@ -283,7 +389,7 @@ void Hamiltonian::set_k(const Vec3& k) {
     std::vector<int> miller(3 * n);
     for (std::size_t g = 0; g < n; ++g)
         for (int i = 0; i < 3; ++i) miller[3 * g + i] = sphere_.miller[g][i];
-    DeviceArray<int> m;
+    DeviceArray<int>& m = miller_;
     m.upload(miller.data(), miller.size());
     std::vector<Column> columns;
     std::vector<std::int64_t> starts;  // of the tables of each species
@@ -302,7 +408,7 @@ void Hamiltonian::set_k(const Vec3& k) {
                                    l, mm, {a.position[0], a.position[1], a.position[2]}});
         }
     }
-    DeviceArray<Column> cols;
+    DeviceArray<Column>& cols = columns_;
     cols.upload(columns.data(), columns.size());
     Reciprocal rc{};
     for (int i = 0; i < 3; ++i) {
@@ -317,11 +423,12 @@ void Hamiltonian::set_k(const Vec3& k) {
             throw std::invalid_argument("every species needs tables of the same steps and points");
     // the tables reach every |k+G| of the sphere
     const double reach = (rc.points - 4) * rc.dq;
-    if (!(std::sqrt(2.0 * sphere_.kinetic.back()) <= reach))
+    if (!(std::sqrt(2.0 * *std::max_element(sphere_.kinetic.begin(), sphere_.kinetic.end())) <= reach))
         throw std::invalid_argument("the tables of the projectors stop short of the sphere");
     projector_kernel<<<blocks(n * columns.size()), kThreads>>>(
         n, static_cast<int>(columns.size()), m.data(), rc, cols.data(), tables_.data(), beta_.data());
     check_cuda(cudaGetLastError(), "the projectors");
+    reciprocal_ = rc;
 }
 
 void Hamiltonian::set_potential(const double* potential) {
@@ -387,6 +494,50 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
                 total += sums[static_cast<std::size_t>(j)];
             forces[3 * a + static_cast<std::size_t>(d)] += 2.0 * total;
         }
+    }
+}
+
+void Hamiltonian::strain_derivative(const Complex* psi, int count, const double* weights,
+                                    std::array<double, 6>& out) {
+    const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
+    if (n == 0 || count == 0) return;
+    // the kinetic energy: -sum_b w_b sum_G |psi|^2 q_a q_b
+    DeviceArray<double> sums(6 * m);
+    kinetic_stress_kernel<<<static_cast<unsigned>(count), kThreads>>>(n, q_.data(), psi, sums.data());
+    check_cuda(cudaGetLastError(), "the kinetic stress");
+    std::vector<double> host(6 * m);
+    sums.download(host.data(), host.size());
+    for (std::size_t b = 0; b < m; ++b)
+        for (int d = 0; d < 6; ++d) out[static_cast<std::size_t>(d)] -= weights[b] * host[6 * b + static_cast<std::size_t>(d)];
+    if (projectors_ == 0) return;
+    // the projectors: 2 sum_b w_b Re sum_j conj(D P)_jb dP_jb, dP = dbeta^H psi
+    DeviceArray<Complex> p(np * m), dp(np * m), dbeta(n * np), dpsi(np * m);
+    DeviceArray<double> w, s(np);
+    w.upload(weights, m);
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    const int nn = static_cast<int>(n);
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
+                           &zero, p.data(), projectors_),
+               "cublasZgemm");
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
+                           projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
+               "cublasZgemm");
+    const Reciprocal rc = reciprocal_;
+    const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
+    std::vector<double> values(np);
+    for (int d = 0; d < 6; ++d) {
+        projector_strain_kernel<<<blocks(n * np), kThreads>>>(n, projectors_, miller_.data(), rc, columns_.data(),
+                                                              tables_.data(), pairs[d][0], pairs[d][1], dbeta.data());
+        check_cuda(cudaGetLastError(), "the strain of the projectors");
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, dbeta.data(), nn, psi,
+                               nn, &zero, dpsi.data(), projectors_),
+                   "cublasZgemm");
+        projector_real_sums<<<blocks(np), kThreads>>>(projectors_, count, w.data(), dp.data(), dpsi.data(), s.data());
+        check_cuda(cudaGetLastError(), "the sums of the projectors");
+        s.download(values.data(), np);
+        double total = 0.0;
+        for (const double x : values) total += x;
+        out[static_cast<std::size_t>(d)] += 2.0 * total;
     }
 }
 

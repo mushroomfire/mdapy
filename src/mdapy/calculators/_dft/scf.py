@@ -39,31 +39,38 @@ def on_grid(components: np.ndarray, miller: np.ndarray, grid) -> np.ndarray:
     return np.fft.ifftn(box).real * box.size
 
 
-def form_factors(cell, pseudos, miller):
+def form_factors(cell, pseudos, miller, slopes=False):
     """The form factors of each species on the sphere of the density, (species,
     n), per unit volume of the cell: of V_loc, of rho_core (None without core
-    charges) and of the free atom, once per shell of |G|."""
+    charges) and of the free atom, interpolated from their tables; with slopes
+    also the derivatives by |G| of the first two at a fixed volume, for the
+    stress."""
     volume = abs(np.linalg.det(cell))
-    b = 2 * math.pi * np.linalg.inv(cell).T
-    q = np.linalg.norm(miller @ b, axis=1)
-    shells, where = np.unique(np.round(q, 10), return_inverse=True)
-    local = np.array(
-        [radial.local_potential(pp, shells, volume)[where] for pp in pseudos]
-    )
-    atom = np.array(
-        [
-            radial.radial_density(pp.atom, pp, shells, volume, False)[where]
-            for pp in pseudos
-        ]
-    )
-    core = None
-    if any(pp.core is not None for pp in pseudos):
-        core = np.array([
-            np.zeros(len(q)) if pp.core is None
-            else radial.radial_density(pp.core, pp, shells, volume, True)[where]
+    q = np.linalg.norm(miller @ (2 * math.pi * np.linalg.inv(cell).T), axis=1)
+
+    def each(transform, core=False):
+        return np.array([
+            np.zeros(len(q)) if core and pp.core is None else transform(pp)
             for pp in pseudos
         ])  # fmt: skip
-    return local, core, atom
+
+    has_core = any(pp.core is not None for pp in pseudos)
+    local = each(lambda pp: radial.local_potential(pp, q, volume))
+    atom = each(lambda pp: radial.radial_density(pp.atom, pp, q, volume, False))
+    core = None
+    if has_core:
+        core = each(
+            lambda pp: radial.radial_density(pp.core, pp, q, volume, True), True
+        )
+    if not slopes:
+        return local, core, atom
+    local_slope = each(lambda pp: radial.local_potential_slope(pp, q, volume))
+    core_slope = None
+    if has_core:
+        core_slope = each(
+            lambda pp: radial.radial_density_slope(pp.core, pp, q, volume, True), True
+        )
+    return local, core, atom, local_slope, core_slope
 
 
 def radial_parts(cell, positions, kinds, pseudos, miller, magmoms=None):
@@ -114,12 +121,18 @@ def run(
     functional: str | None = None,
     magmoms=None,
     magnetic_beta: float = 0.4,
+    stress: bool = True,
+    basis_cell=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
     (hartree) and the density to density_cutoff (4 cutoff by default) on grid
     (the FFT grid of the density cutoff by default). The forces are in
-    hartree / bohr, their mean taken out and kept as net_force. With magmoms, the first
+    hartree / bohr, their mean taken out and kept as net_force; with stress,
+    strain_derivative is dE/d epsilon (3, 3) of a homogeneous strain at fixed
+    Miller indices, hartree; basis_cell chooses the plane waves (and the
+    sphere of the density), the cell by default, for differences of the energy
+    at a fixed basis. With magmoms, the first
     moments of the atoms in Bohr magnetons, the spins are collinear; the
     eigenvalues and occupations are then (2, K, bands) and the density (2, n1,
     n2, n3), up and down."""
@@ -145,8 +158,16 @@ def run(
         if magmoms.shape != (len(kinds),) or (np.abs(magmoms) > valence).any():
             raise ValueError("a moment for every atom, at most its valence")
         spins = 2
-    miller, _, _, _ = _dft.sphere(cell, [0.0, 0.0, 0.0], density_cutoff, grid)
-    local_f, core_f, _ = form_factors(cell, pseudos, miller)
+    # the G of the sphere of the density in the order of the GPU's
+    chooser = (
+        cell if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float)
+    )
+    miller, _, _, _ = _dft.sphere(chooser, [0.0, 0.0, 0.0], density_cutoff, grid)
+    local_s = core_s = None
+    if stress:
+        local_f, core_f, _, local_s, core_s = form_factors(cell, pseudos, miller, True)
+    else:
+        local_f, core_f, _ = form_factors(cell, pseudos, miller)
     _, _, atom_g, moment_g = radial_parts(
         cell, positions, kinds, pseudos, miller, magmoms
     )
@@ -161,21 +182,25 @@ def run(
     angular = [[p.angular for p in pp.projectors] for pp in pseudos]
     dij = [np.ascontiguousarray(pp.dij, dtype=float) for pp in pseudos]
     charges = np.array([pseudos[s].valence for s in kinds])
-    e_ewald, f_ewald = ewald(cell, positions @ cell, charges, forces=True)
+    e_ewald, f_ewald, s_ewald = ewald(cell, positions @ cell, charges, True, True)
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
-        positions, kinds, kpoints, weights, local_f, core_f, np.ascontiguousarray(density),
+        positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
+        np.ascontiguousarray(density),
         e_ewald, spins, bands, electrons, functional or functional_of(pseudos),
         smearing, sigma, beta, kerker, minimum, magnetic_beta, history, metric_weight,
         energy_tolerance, density_tolerance, max_iterations, davidson_iterations,
         davidson_basis, seed,
+        None if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float),
     )  # fmt: skip
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
             result[key] = result[key][0]
     # the forces with those of the ions, less their mean: the net force of a
     # periodic cell is zero but for the grid
+    if stress:
+        result["strain_derivative"] = result["strain_derivative"] + s_ewald
     forces = result["forces"] + f_ewald
     result["net_force"] = forces.mean(axis=0)
     result["forces"] = forces - result["net_force"]

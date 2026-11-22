@@ -450,13 +450,14 @@ NB_MODULE(_dft, m) {
 
     // the self-consistent field: the cell, the grid and the cutoffs (hartree),
     // the projectors of the species, the atoms, the k-points (K, 3) and
-    // weights, V_loc, rho_core (or None) and the first density on the grid,
-    // the Ewald energy, and the options; a dict of the results
+    // weights, the form factors (species, n) of V_loc and rho_core (or None) on
+    // the sphere of the density, the first density on the grid, the Ewald
+    // energy, and the options; a dict of the results
     m.def(
         "scf",
         [](Matrix a, std::array<int, 3> grid, double cutoff, double density_cutoff, nb::list tables,
            nb::list angular, nb::list dij, double dq, Rows positions, Kinds species, Rows kpoints,
-           nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Grid3 local,
+           nb::ndarray<const double, nb::ndim<1>, nb::c_contig, nb::device::cpu> weights, Rows local,
            nb::object core, nb::ndarray<const double, nb::c_contig, nb::device::cpu> density, double ewald,
            int spins, int bands, double electrons, const std::string& functional, const std::string& smearing,
            double sigma, double beta, double kerker, double minimum, double magnetic_beta, int history,
@@ -477,14 +478,13 @@ NB_MODULE(_dft, m) {
                 in.weights.push_back(weights.data()[k]);
             }
             const std::size_t points = points_of(in.grid);
-            if (local.size() != points || density.size() != static_cast<std::size_t>(spins) * points)
-                throw std::invalid_argument("V_loc and the density of each spin on the grid");
-            in.local.assign(local.data(), local.data() + points);
+            if (density.size() != static_cast<std::size_t>(spins) * points)
+                throw std::invalid_argument("the density of each spin on the grid");
+            in.local_factors.assign(local.data(), local.data() + local.size());
             in.density.assign(density.data(), density.data() + density.size());
             if (!core.is_none()) {
-                auto c = nb::cast<Grid3>(core);
-                if (c.size() != points) throw std::invalid_argument("the core charge on the grid");
-                in.core.assign(c.data(), c.data() + points);
+                auto c = nb::cast<Rows>(core);
+                in.core_factors.assign(c.data(), c.data() + c.size());
             }
             in.ewald = ewald;
             mdapy::dft::ScfOptions opt;
@@ -548,6 +548,7 @@ NB_MODULE(_dft, m) {
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
+            out["forces"] = array_of(r.forces, {in.atoms.size(), 3});
             return out;
         },
         nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("density_cutoff"), nb::arg("tables"),

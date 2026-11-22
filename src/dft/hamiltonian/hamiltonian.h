@@ -62,6 +62,10 @@ public:
     // rho (the grid, on the device) += sum_b w_b |psi_b(r)|^2 / Omega of count
     // bands (plane waves, count) on the device, weights on the host.
     void add_density(const Complex* psi, int count, const double* weights, double* rho);
+    // forces (atoms, 3) on the host += those of the projectors on count bands
+    // (plane waves, count) on the device of weights w_b (k-point weight, f_max
+    // and occupation) on the host: -sum_b w_b d<psi_b|V_nl|psi_b>/dtau_I.
+    void nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces);
     // The diagonal H_GG on the device, for the preconditioner: the kinetic
     // energy, the mean potential and the projectors.
     void diagonal(double* out) const;
@@ -86,7 +90,7 @@ private:
 
     // of the k-point
     Sphere sphere_;
-    DeviceArray<double> kinetic_;
+    DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)
     DeviceArray<Complex> dmatrix_;  // (projectors, projectors), block diagonal

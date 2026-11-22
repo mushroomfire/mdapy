@@ -161,6 +161,27 @@ __global__ void density_kernel(std::size_t points, int count, const Complex* box
     rho[r] += sum * inverse_volume;
 }
 
+// out = q_d * psi, q (n, 3) the Cartesian k+G
+__global__ void times_q_kernel(std::size_t n, int count, int d, const double* q, const Complex* psi, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * count) return;
+    const double x = q[3 * (i % n) + static_cast<std::size_t>(d)];
+    out[i] = make_cuDoubleComplex(x * psi[i].x, x * psi[i].y);
+}
+
+// s_j = sum_b w_b Im(conj(a_jb) c_jb), a and c (projectors, count)
+__global__ void projector_sums(int projectors, int count, const double* w, const Complex* a, const Complex* c,
+                               double* s) {
+    const int j = static_cast<int>(blockIdx.x * blockDim.x + threadIdx.x);
+    if (j >= projectors) return;
+    double sum = 0.0;
+    for (int b = 0; b < count; ++b) {
+        const std::size_t i = static_cast<std::size_t>(b) * projectors + j;
+        sum += w[b] * (a[i].x * c[i].y - a[i].y * c[i].x);
+    }
+    s[j] = sum;
+}
+
 __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
     __shared__ double partial[kThreads];
     double s = 0.0;
@@ -247,6 +268,17 @@ void Hamiltonian::set_k(const Vec3& k) {
     kinetic_.upload(sphere_.kinetic.data(), n);
     box_.upload(sphere_.box.data(), n);
     beta_.resize(n * static_cast<std::size_t>(projectors_));
+    // the Cartesian k+G of the plane waves
+    std::vector<double> q(3 * n);
+    for (std::size_t g = 0; g < n; ++g)
+        for (int d = 0; d < 3; ++d) {
+            double x = 0.0;
+            for (int j = 0; j < 3; ++j)
+                x += (k[static_cast<std::size_t>(j)] + sphere_.miller[g][static_cast<std::size_t>(j)]) *
+                     lattice_.b[static_cast<std::size_t>(j)][static_cast<std::size_t>(d)];
+            q[3 * g + static_cast<std::size_t>(d)] = x;
+        }
+    q_.upload(q.data(), q.size());
     if (projectors_ == 0 || n == 0) return;
     std::vector<int> miller(3 * n);
     for (std::size_t g = 0; g < n; ++g)
@@ -319,6 +351,42 @@ void Hamiltonian::add_density(const Complex* psi, int count, const double* weigh
         density_kernel<<<blocks(points), kThreads>>>(points, m, boxes_.data(), weights_.data() + first,
                                                      1.0 / lattice_.volume, rho);
         check_cuda(cudaGetLastError(), "the density of the bands");
+    }
+}
+
+void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* weights, std::vector<double>& forces) {
+    const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_);
+    if (n == 0 || count == 0 || projectors_ == 0) return;
+    if (forces.size() != 3 * atoms_.size()) throw std::invalid_argument("forces are (atoms, 3)");
+    const std::size_t m = static_cast<std::size_t>(count);
+    DeviceArray<Complex> p(np * m), dp(np * m), qpsi(n * m), qp(np * m);
+    DeviceArray<double> w, s(np);
+    w.upload(weights, m);
+    const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
+    const int nn = static_cast<int>(n);
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
+                           &zero, p.data(), projectors_),
+               "cublasZgemm");
+    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
+                           projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
+               "cublasZgemm");
+    std::vector<double> sums(np);
+    for (int d = 0; d < 3; ++d) {
+        times_q_kernel<<<blocks(n * m), kThreads>>>(n, count, d, q_.data(), psi, qpsi.data());
+        check_cuda(cudaGetLastError(), "k+G times the bands");
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn,
+                               qpsi.data(), nn, &zero, qp.data(), projectors_),
+                   "cublasZgemm");
+        projector_sums<<<blocks(np), kThreads>>>(projectors_, count, w.data(), dp.data(), qp.data(), s.data());
+        check_cuda(cudaGetLastError(), "the sums of the projectors");
+        s.download(sums.data(), np);
+        // F = -dE/dtau = 2 sum_j of the atom s_j
+        for (std::size_t a = 0; a < atoms_.size(); ++a) {
+            double total = 0.0;
+            for (int j = blocks_[2 * a]; j < blocks_[2 * a] + blocks_[2 * a + 1]; ++j)
+                total += sums[static_cast<std::size_t>(j)];
+            forces[3 * a + static_cast<std::size_t>(d)] += 2.0 * total;
+        }
     }
 }
 

@@ -165,6 +165,11 @@ def parse(out: str, xml: str, nk: int) -> dict:
         magnet = root.find("output/magnetization")
         result["magnetization"] = float(magnet.find("total").text)
         result["absolute_magnetization"] = float(magnet.find("absolute").text)
+    forces = root.find("output/forces")
+    if forces is not None:
+        result["forces"] = np.array([float(x) for x in forces.text.split()]).reshape(
+            -1, 3
+        )
     result["eigenvalues"] = eigen
     result["occupations"] = occ
     result["plane_waves"] = pws[:nk]

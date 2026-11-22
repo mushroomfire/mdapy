@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 #include "dft/core/device.h"
+#include "dft/scf/ions.h"
 #include "dft/scf/potentials.h"
 #include "dft/solver/davidson.h"
 
@@ -70,15 +71,28 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     if (ns != 1 && ns != 2) throw std::invalid_argument("one or two spins");
     const std::size_t spins = static_cast<std::size_t>(ns), bands = static_cast<std::size_t>(nb);
     if (nk == 0 || input.weights.size() != nk) throw std::invalid_argument("k-points and their weights");
-    if (input.local.size() != points || input.density.size() != spins * points ||
-        (!input.core.empty() && input.core.size() != points))
-        throw std::invalid_argument("V_loc, rho_core and rho_in of each spin on the grid");
+    if (input.density.size() != spins * points) throw std::invalid_argument("rho_in of each spin on the grid");
     if (nb < 1) throw std::invalid_argument("at least one band");
     if (options.max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const double f_max = ns == 2 ? 1.0 : 2.0;
     Hamiltonian h(input.lattice, input.grid, input.cutoff, input.species, input.atoms);
     Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold);
-    if (!input.core.empty()) pot.set_core(input.core.data());
+    // V_loc and rho_core of the atoms on the grid
+    const std::size_t ng = pot.sphere().size();
+    const Ions ions(input.lattice, pot.sphere(), input.atoms, static_cast<int>(input.species.size()),
+                    input.local_factors, input.core_factors);
+    DeviceArray<Complex> components(spins * ng);
+    DeviceArray<double> local(points);
+    ions.local_components(components.data());
+    pot.from_sphere(components.data(), local.data(), 1);
+    if (ions.has_core()) {
+        DeviceArray<double> core(points);
+        ions.core_components(components.data());
+        pot.from_sphere(components.data(), core.data(), 1);
+        std::vector<double> host(points);
+        core.download(host.data(), points);
+        pot.set_core(host.data());
+    }
     Davidson davidson;
     // the bands of each spin and k-point, (s, k) at s nk + k, random at the
     // start and the same for both spins, so that a density without
@@ -90,17 +104,14 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
         const auto start = random_bands(h.sphere().kinetic, nb, options.seed * 1000003ULL + k);
         for (std::size_t s = 0; s < spins; ++s) psi[s * nk + k].upload(start.data(), start.size());
     }
-    // the sphere of the density and its mixer, of (total, magnetization)
-    const std::size_t ng = pot.sphere().size();
+    // the mixer of (total, magnetization) on the sphere of the density
     std::vector<double> g2(ng);
     for (std::size_t g = 0; g < ng; ++g) g2[g] = 2.0 * pot.sphere().kinetic[g];
     Mixer mixer(g2, input.lattice.volume, ns, options.mixing);
-    DeviceArray<double> local, rho_in, rho_out, hxc(spins * points), veff(points);
-    local.upload(input.local.data(), points);
+    DeviceArray<double> rho_in, rho_out, hxc(spins * points), veff(points);
     rho_in.upload(input.density.data(), spins * points);
     rho_out.resize(spins * points);
-    DeviceArray<Complex> components(spins * ng);
-    std::vector<Complex> in_g(spins * ng), out_g(spins * ng);
+    std::vector<Complex> in_g(spins * ng), out_g(spins * ng), last_in;
     pot.to_sphere(rho_in.data(), components.data(), ns);
     components.download(in_g.data(), in_g.size());
     if (ns == 2) to_total(in_g, ng);
@@ -115,6 +126,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
     for (int iteration = 1; iteration <= options.max_iterations; ++iteration) {
         // the potential of rho_in
         const PotentialEnergies e = pot.compute(rho_in.data(), hxc.data());
+        last_in = in_g;
         // the bands
         ScfStep step;
         step.tolerance = tolerance;
@@ -192,6 +204,35 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options) {
                     break;
                 }
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
+    }
+    // the forces: the local term of rho_out, the core charge in V_xc of the
+    // last rho_in (V_Hxc of each spin, averaged, less V_H), the projectors
+    {
+        DeviceArray<Complex> rho_g, vxc_g;
+        rho_g.upload(out_g.data(), ng);
+        pot.to_sphere(hxc.data(), components.data(), ns);
+        std::vector<Complex> v(spins * ng);
+        components.download(v.data(), v.size());
+        for (std::size_t g = 0; g < ng; ++g) {
+            Complex x = v[g];
+            if (ns == 2) x = make_cuDoubleComplex(0.5 * (x.x + v[ng + g].x), 0.5 * (x.y + v[ng + g].y));
+            const double g2_ = 2.0 * pot.sphere().kinetic[g];
+            if (g2_ > 0.0) {
+                const double f = 4.0 * 3.14159265358979323846 / g2_;
+                x = make_cuDoubleComplex(x.x - f * last_in[g].x, x.y - f * last_in[g].y);
+            }
+            v[g] = x;
+        }
+        vxc_g.upload(v.data(), ng);
+        result.forces = ions.forces(rho_g.data(), vxc_g.data());
+        for (std::size_t k = 0; k < nk; ++k) {
+            h.set_k(input.kpoints[k]);
+            for (std::size_t s = 0; s < spins; ++s) {
+                const std::size_t row = (s * nk + k) * bands;
+                for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
+                h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), result.forces);
+            }
+        }
     }
     result.density.resize(spins * points);
     rho_out.download(result.density.data(), result.density.size());

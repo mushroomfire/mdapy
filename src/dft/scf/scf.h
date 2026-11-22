@@ -16,6 +16,9 @@
 // With spin, each channel has its bands and potential V_loc + V_H + V_xc,s,
 // one Fermi level holds the electrons of both, and the total density and the
 // magnetization m = rho_up - rho_down are mixed together.
+// At the end, the forces of the bands on the ions: the local term of rho_out,
+// that of the projectors, and that of the core charge in V_xc of the last
+// rho_in, the derivatives of that energy with the bands fixed.
 // The bands are converged to a residual norm of 0.01 sqrt(E_H[rho_out -
 // rho_in]) of the step before, 1e-2 at the start and never above that of the
 // step before, tightly for the bands that hold electrons and to 1e-2 for the
@@ -42,8 +45,9 @@ struct ScfInput {
     std::vector<Atom> atoms;
     std::vector<Vec3> kpoints;  // fractions of the reciprocal vectors
     std::vector<double> weights;  // adding up to one
-    std::vector<double> local;    // V_loc(r) on the grid
-    std::vector<double> core;     // rho_core(r) on the grid, or empty
+    // the form factors of each species on the sphere of the density, (species,
+    // n): of V_loc, and of rho_core or empty without core charges
+    std::vector<double> local_factors, core_factors;
     std::vector<double> density;  // the first rho_in(r) on the grid, up then down with spin
     double ewald = 0.0;
 };
@@ -83,6 +87,9 @@ struct ScfResult {
     double magnetization = 0.0, absolute_magnetization = 0.0;  // int m and int |m|, Bohr magnetons
     std::vector<double> eigenvalues, occupations;  // (spins, k-points, bands)
     std::vector<double> density;                   // the last rho_out(r), (spins, points)
+    // (atoms, 3) hartree / bohr: of V_loc, the projectors and the core charge,
+    // without the Ewald forces of the ions
+    std::vector<double> forces;
     std::vector<ScfStep> steps;
 };
 

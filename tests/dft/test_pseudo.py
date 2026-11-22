@@ -7,7 +7,7 @@
 hartree; Simpson's rule and the spherical Bessel functions; the transforms of
 the projectors and the local potential against analytic ones, and the
 interpolation of their tables; the Ewald sum against the Madelung constants
-of rock salt and CsCl and the 16.79062332 Ry of QE for silicon. Pseudopotentials
+of rock salt and CsCl, and its forces against its differences. Pseudopotentials
 of PseudoDojo are read from MDAPY_PSEUDO_DIR when it is set."""
 
 import math
@@ -175,7 +175,7 @@ def test_the_local_potential_of_a_bare_erf():
     )
 
 
-def test_ewald_against_madelung_and_qe():
+def test_ewald_against_madelung():
     a = 10.0
     fcc = np.array([[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]])
     rocksalt = ewald(
@@ -184,17 +184,37 @@ def test_ewald_against_madelung_and_qe():
     assert -rocksalt / 4 * (a / 2) == pytest.approx(1.747564594633, rel=1e-10)
     cscl = ewald(np.eye(3) * a, np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a, [1, -1])
     assert -cscl * a * math.sqrt(3) / 2 == pytest.approx(1.762674773070, rel=1e-10)
-    # QE 7.6, the silicon of tests/dft/test_basis.py with an atom moved
+    # silicon with an atom moved: a translation and a swap of the atoms leave
+    # it (QE run live compares it in test_scf.py)
     half = 5.431 / 2 / BOHR
     cell = np.array([[0, half, half], [half, 0, half], [half, half, 0]])
     positions = np.array([[0, 0, 0], [0.27, 0.25, 0.25]]) @ cell
-    assert ewald(cell, positions, [4.0, 4.0]) == pytest.approx(
-        -16.79062332 / 2, abs=5e-8
-    )
-    # a translation and a swap of the atoms leave it
     assert ewald(cell, positions[::-1] + 1.3, [4.0, 4.0]) == pytest.approx(
         ewald(cell, positions, [4.0, 4.0]), abs=1e-11
     )
+
+
+def test_ewald_forces():
+    rng = np.random.default_rng(7)
+    cell = np.array([[6.0, 0.3, 0.0], [0.5, 7.0, 0.2], [0.0, -0.4, 6.5]])
+    positions = rng.uniform(0, 1, (4, 3)) @ cell
+    charges = np.array([3.0, 1.0, 2.0, 4.0])
+    energy, forces = ewald(cell, positions, charges, forces=True)
+    assert energy == ewald(cell, positions, charges)
+    np.testing.assert_allclose(forces.sum(axis=0), 0.0, atol=1e-10)
+    h = 1e-4
+    for atom, d in [(0, 0), (2, 1), (3, 2)]:
+        up, down = positions.copy(), positions.copy()
+        up[atom, d] += h
+        down[atom, d] -= h
+        slope = (ewald(cell, up, charges) - ewald(cell, down, charges)) / (2 * h)
+        assert forces[atom, d] == pytest.approx(-slope, abs=1e-8)
+    # the atoms of the rock salt feel nothing
+    a = 10.0
+    fcc = np.array([[0, 0, 0], [0, 0.5, 0.5], [0.5, 0, 0.5], [0.5, 0.5, 0]])
+    _, f = ewald(np.eye(3) * a, np.vstack([fcc, fcc + [0.5, 0, 0]]) * a,
+                 [1] * 4 + [-1] * 4, forces=True)  # fmt: skip
+    np.testing.assert_allclose(f, 0.0, atol=1e-12)
 
 
 PSEUDO = os.environ.get("MDAPY_PSEUDO_DIR")

@@ -4,8 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The basis of the plane-wave DFT on the GPU: the reciprocal cell; FFT grids
-that hold their spheres; spheres of plane waves against a count in NumPy and
-against the 9257 G-vectors QE finds for silicon; k-points with time reversal;
+that hold their spheres; spheres of plane waves against a count in NumPy, as
+the sphere of the density of silicon; k-points with time reversal;
 the transforms between plane waves and the grid, their round trip, Parseval's
 identity, real wavefunctions of Gamma, and functions carried from a coarse grid
 to a fine one exactly."""
@@ -79,14 +79,16 @@ def test_good_sizes():
         assert m == 1
 
 
-def test_the_density_of_silicon_as_qe():
-    """QE 7.6 with ecutwfc = 40 Ry: the dense grid of 9257 G-vectors and FFT
-    dimensions (30, 30, 30)."""
+def test_the_density_of_silicon():
+    """The sphere of the density of silicon at 80 hartree, the plane waves to
+    20 (QE run live compares the grid and the plane waves in test_scf.py):
+    every G of the sphere by brute force, and a grid that holds twice its
+    largest Miller index in each direction."""
     a = silicon()
-    grid = _dft.fft_grid(a, 80.0)  # 4 ecutwfc, in hartree
-    assert tuple(grid) == (30, 30, 30)
+    grid = _dft.fft_grid(a, 80.0)
     miller, kinetic, box, partner = _dft.sphere(a, [0, 0, 0], 80.0, grid)
-    assert len(miller) == 9257
+    assert {tuple(m) for m in miller} == set(brute_sphere(a, [0, 0, 0], 80.0))
+    assert (np.asarray(grid) > 2 * np.abs(miller).max(axis=0)).all()
     assert (partner == -1).all()
 
 

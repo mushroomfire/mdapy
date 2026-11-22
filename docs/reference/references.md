@@ -85,6 +85,15 @@ A. Hollocou, Hierarchical graph clustering using node pair sampling,
 Crystal Lattices* (Oxford University Press, Oxford, 1954).
 { #born1954 }
 
+**Bosoni et al. (2024).** E. Bosoni et al., How to verify the precision of
+density-functional-theory implementations via reproducible and universal
+workflows, *Nat. Rev. Phys.* **6**, 45 (2024).
+[doi:10.1038/s42254-023-00655-3](https://doi.org/10.1038/s42254-023-00655-3); the
+data: Materials Cloud Archive
+[doi:10.24435/materialscloud:s4-3h](https://doi.org/10.24435/materialscloud:s4-3h)
+(CC BY 4.0)
+{ #bosoni2024 }
+
 **Bulatov and Cai (2006).** V. Bulatov and W. Cai, *Computer Simulations of
 Dislocations* (Oxford University Press, Oxford, 2006).
 [doi:10.1093/oso/9780198526148.001.0001](https://doi.org/10.1093/oso/9780198526148.001.0001)
@@ -358,6 +367,11 @@ elastic properties and intrinsic strength of monolayer graphene, *Science* **321
 (2008).
 [doi:10.1126/science.1157996](https://doi.org/10.1126/science.1157996)
 { #lee2008 }
+
+**Lejaeghere et al. (2016).** K. Lejaeghere et al., Reproducibility in
+density functional theory calculations of solids, *Science* **351**, aad3000
+(2016). [doi:10.1126/science.aad3000](https://doi.org/10.1126/science.aad3000)
+{ #lejaeghere2016 }
 
 **Lin et al. (2008).** Z. Lin, R. A. Johnson and L. V. Zhigilei,
 Computational study of the generation of crystal defects in a bcc metal

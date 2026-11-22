@@ -6,6 +6,7 @@
 #include "dft/scf/scf.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -32,6 +33,18 @@ __global__ void add_kernel(std::size_t n, const double* a, const double* b, doub
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (i < n) out[i] = a[i] + b[i];
 }
+
+// seconds between laps, the GPU finished
+struct Clock {
+    std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
+    double lap() {
+        check_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
+        const auto now = std::chrono::steady_clock::now();
+        const double seconds = std::chrono::duration<double>(now - last).count();
+        last = now;
+        return seconds;
+    }
+};
 
 // random bands decaying as 1 / (1 + |k+G|^2 / 2)
 std::vector<Complex> random_bands(const std::vector<double>& kinetic, int bands, unsigned long long seed) {
@@ -117,6 +130,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     if (options.max_iterations < 1) throw std::invalid_argument("max_iterations must be positive");
     const double f_max = ns == 2 ? 1.0 : 2.0;
     const Lattice* basis = input.has_basis ? &input.basis : nullptr;
+    Clock clock;
     Hamiltonian h(input.lattice, input.grid, input.cutoff, input.species, input.atoms, basis);
     Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold,
                    basis);
@@ -207,7 +221,9 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     int tight = nb;
     for (int iteration = 1; iteration <= options.max_iterations; ++iteration) {
         // the potential of rho_in
+        if (iteration == 1) result.times.setup += clock.lap();
         const PotentialEnergies e = pot.compute(rho_in.data(), hxc.data());
+        result.times.potentials += clock.lap();
         last_in = in_g;
         // the bands
         ScfStep step;
@@ -226,6 +242,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands));
             }
         }
+        result.times.bands += clock.lap();
         const Occupation occ =
             occupy(eigenvalues, weights, nb, options.electrons, f_max, options.smearing, options.sigma);
         // the output density and the energy
@@ -246,6 +263,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         pot.to_sphere(rho_out.data(), components.data(), ns);
         components.download(out_g.data(), out_g.size());
         if (ns == 2) to_total(out_g, ng);
+        result.times.density += clock.lap();
         const double accuracy = mixer.residual_energy(in_g, out_g);
         if (!std::isfinite(energy) || !std::isfinite(accuracy))
             throw std::runtime_error("the energy or the density is not finite");
@@ -273,6 +291,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         // the next input density
         in_g = mixer.mix(in_g, out_g);
+        result.times.mixing += clock.lap();
         std::vector<Complex> next = in_g;
         if (ns == 2) to_spins(next, ng);
         components.upload(next.data(), next.size());
@@ -287,6 +306,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 }
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
     }
+    clock.lap();
     // the forces: the local term of rho_out, the core charge in V_xc of the
     // last rho_in (V_Hxc of each spin, averaged, less V_H), the projectors
     {
@@ -316,6 +336,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         }
     }
+    result.times.forces += clock.lap();
     // V_Hxc of rho_out, for the correction of the forces and the stress (the
     // last potentials computed, whose gradients the stress of GGA takes)
     DeviceArray<double> hxc_out(spins * points);
@@ -338,6 +359,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         const auto correction = ions.correction_forces(dv_g.data());
         for (std::size_t i = 0; i < correction.size(); ++i) result.forces[i] += correction[i];
     }
+    result.times.forces += clock.lap();
     // the strain derivative of the energy of Kohn and Sham of the last bands
     if (ions.has_slopes()) {
         const auto& sphere = pot.sphere();
@@ -432,6 +454,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         result.has_strain = true;
         result.strain = st;
     }
+    result.times.stress += clock.lap();
     if (state != nullptr) {
         state->valid = result.converged;
         state->atoms = input.atoms.size();

@@ -97,6 +97,17 @@ struct ScfStep {
     int davidson = 0;        // iterations of Davidson, summed over the k-points
 };
 
+// seconds spent in each part of a run
+struct ScfTimes {
+    double setup = 0.0;       // the Hamiltonian, the potentials, the ions, the first bands and density
+    double potentials = 0.0;  // V_Hxc of each rho_in
+    double bands = 0.0;       // Davidson
+    double density = 0.0;     // rho_out and the energy
+    double mixing = 0.0;
+    double forces = 0.0;
+    double stress = 0.0;
+};
+
 struct ScfResult {
     bool converged = false;
     bool restarted = false;  // from the state of a last run
@@ -115,6 +126,7 @@ struct ScfResult {
     bool has_strain = false;
     std::array<double, 6> strain{};
     std::vector<ScfStep> steps;
+    ScfTimes times;
 };
 
 // What one run leaves for the next of nearby atoms (a step of a relaxation or

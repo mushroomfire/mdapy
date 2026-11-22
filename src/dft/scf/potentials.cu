@@ -249,7 +249,8 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     const std::size_t points = fft_.points(), n = sphere_.size();
     const double dv = lattice_.volume / static_cast<double>(points);
     PotentialEnergies out;
-    DeviceArray<double> sum(1);
+    DeviceArray<double>& sum = sum_;
+    sum.reserve(1);
     // the total density on the sphere, and the Hartree potential
     work_.resize(points * 4);
     components_.reserve(2 * n);
@@ -262,7 +263,8 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     } else {
         to_sphere(rho, components_.data(), 1);
     }
-    DeviceArray<Complex> vh(n);
+    DeviceArray<Complex>& vh = vh_;
+    vh.reserve(n);
     sum.zero();
     hartree_kernel<<<blocks(n), kThreads>>>(n, g_.data(), components_.data(), vh.data(), sum.data());
     launched("the Hartree potential");
@@ -306,16 +308,17 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     out.xc = dv * total(sum);
     // the potential of each spin
     double* divergence = work_.data() + points;
-    DeviceArray<double> h;
-    DeviceArray<Complex> hcomp, div;
+    DeviceArray<double>& h = flux_;
+    DeviceArray<Complex>& hcomp = flux_g_;
+    DeviceArray<Complex>& div = div_;
     for (int s = 0; s < spins_; ++s) {
         const double* div_ptr = nullptr;
         if (gga) {
-            h.resize(3 * points);
+            h.reserve(3 * points);
             flux_kernel<<<blocks(points), kThreads>>>(points, s, grads_.data(), vs_.data(), h.data());
             launched("the flux of GGA");
-            hcomp.resize(3 * n);
-            div.resize(n);
+            hcomp.reserve(3 * n);
+            div.reserve(n);
             to_sphere(h.data(), hcomp.data(), 3);
             divergence_kernel<<<blocks(n), kThreads>>>(n, g_.data(), hcomp.data(), div.data());
             launched("the divergence");

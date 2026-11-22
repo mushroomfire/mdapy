@@ -361,7 +361,8 @@ NB_MODULE(_dft, m) {
             std::complex<double>* out = nullptr;
             auto result = new_array<std::complex<double>>(
                 {static_cast<std::size_t>(h.projectors()), h.plane_waves()}, out);
-            h.beta().download(reinterpret_cast<Complex*>(out), h.beta().size());
+            h.beta().download(reinterpret_cast<Complex*>(out),
+                              static_cast<std::size_t>(h.projectors()) * h.plane_waves());
             return nb::object(result.cast());
         })
         .def_prop_ro("projectors", &mdapy::dft::Hamiltonian::projectors)
@@ -546,6 +547,15 @@ NB_MODULE(_dft, m) {
             nb::dict out;
             out["converged"] = r.converged;
             out["restarted"] = r.restarted;
+            nb::dict times;
+            times["setup"] = r.times.setup;
+            times["potentials"] = r.times.potentials;
+            times["bands"] = r.times.bands;
+            times["density"] = r.times.density;
+            times["mixing"] = r.times.mixing;
+            times["forces"] = r.times.forces;
+            times["stress"] = r.times.stress;
+            out["timings"] = times;
             out["iterations"] = r.iterations;
             out["energy"] = r.energy;
             out["band"] = r.band;

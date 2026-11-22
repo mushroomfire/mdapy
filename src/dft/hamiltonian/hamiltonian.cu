@@ -371,9 +371,9 @@ Hamiltonian::~Hamiltonian() {
 void Hamiltonian::set_k(const Vec3& k) {
     sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, false);
     const std::size_t n = sphere_.size();
-    kinetic_.upload(sphere_.kinetic.data(), n);
-    box_.upload(sphere_.box.data(), n);
-    beta_.resize(n * static_cast<std::size_t>(projectors_));
+    kinetic_.assign(sphere_.kinetic.data(), n);
+    box_.assign(sphere_.box.data(), n);
+    beta_.reserve(n * static_cast<std::size_t>(projectors_));
     // the Cartesian k+G of the plane waves
     std::vector<double> q(3 * n);
     for (std::size_t g = 0; g < n; ++g)
@@ -384,13 +384,13 @@ void Hamiltonian::set_k(const Vec3& k) {
                      lattice_.b[static_cast<std::size_t>(j)][static_cast<std::size_t>(d)];
             q[3 * g + static_cast<std::size_t>(d)] = x;
         }
-    q_.upload(q.data(), q.size());
+    q_.assign(q.data(), q.size());
     if (projectors_ == 0 || n == 0) return;
     std::vector<int> miller(3 * n);
     for (std::size_t g = 0; g < n; ++g)
         for (int i = 0; i < 3; ++i) miller[3 * g + i] = sphere_.miller[g][i];
     DeviceArray<int>& m = miller_;
-    m.upload(miller.data(), miller.size());
+    m.assign(miller.data(), miller.size());
     std::vector<Column> columns;
     std::vector<std::int64_t> starts;  // of the tables of each species
     std::int64_t offset = 0;
@@ -409,7 +409,7 @@ void Hamiltonian::set_k(const Vec3& k) {
         }
     }
     DeviceArray<Column>& cols = columns_;
-    cols.upload(columns.data(), columns.size());
+    cols.assign(columns.data(), columns.size());
     Reciprocal rc{};
     for (int i = 0; i < 3; ++i) {
         for (int j = 0; j < 3; ++j) rc.b[3 * i + j] = lattice_.b[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)];
@@ -437,7 +437,8 @@ void Hamiltonian::set_potential(const double* potential) {
     check_cuda(cudaMemcpy(potential_.data(), potential, points * sizeof(double),
                           cudaMemcpyDeviceToDevice),
                "cudaMemcpy of the potential");
-    DeviceArray<double> total(1);
+    DeviceArray<double>& total = total_;
+    total.reserve(1);
     total.zero();
     sum_kernel<<<std::min<unsigned>(blocks(points), 1024u), kThreads>>>(points, potential_.data(), total.data());
     check_cuda(cudaGetLastError(), "the mean potential");
@@ -579,8 +580,8 @@ void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
     if (projectors_ == 0) return;
     // the projectors: P = beta^H psi, D P, H psi += beta D P
     const std::size_t np = static_cast<std::size_t>(projectors_);
-    projections_.resize(np * static_cast<std::size_t>(count));
-    scaled_.resize(np * static_cast<std::size_t>(count));
+    projections_.reserve(np * static_cast<std::size_t>(count));
+    scaled_.reserve(np * static_cast<std::size_t>(count));
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
     check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(),

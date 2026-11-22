@@ -83,6 +83,8 @@ private:
     DeviceArray<Complex> boxes_, components_;
     DeviceArray<double> work_, rho_, sigma_, f_, v_, vs_, grads_, apart_;
     DeviceArray<Complex> spare_;  // components of the spins and of the gradients
+    DeviceArray<double> sum_, flux_;
+    DeviceArray<Complex> vh_, flux_g_, div_;
 };
 
 }  // namespace mdapy::dft

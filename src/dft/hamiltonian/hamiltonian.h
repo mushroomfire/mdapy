@@ -129,7 +129,7 @@ private:
     std::vector<int> blocks_;
     DeviceArray<int> blocks_device_;
     double mean_potential_ = 0.0;
-    DeviceArray<double> weights_;
+    DeviceArray<double> weights_, total_;
     // of the k-point, for the stress of the projectors: the Miller indices, the
     // columns of the projectors and the reciprocal cell of their kernel
     DeviceArray<int> miller_;

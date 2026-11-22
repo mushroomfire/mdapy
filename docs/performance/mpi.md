@@ -8,8 +8,8 @@ Tersoff at 1000 K, each at about 250 000 and 2 million atoms: MDAPY's own dynami
 [on many processes](../user-guide/simulation/processes.md), and LAMMPS through MDAPY's
 [LAMMPS calculator](../user-guide/potentials/lammps.md). Both read the same files: the
 `eam/alloy` file written by `EAM.zhou(["Cu"]).write(path)`, and the `Si.sw` and
-`Si.tersoff` of LAMMPS. Each run takes 100 steps after 20, of 2 fs for copper, 5 fs for
-argon and 1 fs for silicon, and the time of a step is the time of the 100 over 100;
+`Si.tersoff` of LAMMPS. Each run takes 50 steps after 20, of 2 fs for copper, 5 fs for
+argon and 1 fs for silicon, and the time of a step is the time of the 50 over 50;
 `benchmarks/processes.py` runs them.
 
 ## Results

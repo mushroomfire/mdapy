@@ -10785,30 +10785,31 @@
 
 <h1 id="molecular-dynamics-on-many-processes">Molecular dynamics on many processes<a class="headerlink" href="#molecular-dynamics-on-many-processes" title="Permanent link">&para;</a></h1>
 <p>MDAPY and LAMMPS run the same molecular dynamics at constant energy, split among 4 to 40
-processes of one thread each with MPI, with the five potentials of the
+processes of one thread each with MPI, with six potentials of the
 <a href="../gpu/">GPU benchmarks</a>: copper with the EAM of Zhou et al. and with a Morse potential
-at 600 K, argon with Lennard-Jones at 60 K, and silicon with Stillinger–Weber and
-Tersoff at 1000 K, each at about 250 000 and 2 million atoms: MDAPY's own dynamics
-<a href="../../user-guide/simulation/processes/">on many processes</a>, and LAMMPS through MDAPY's
-<a href="../../user-guide/potentials/lammps/">LAMMPS calculator</a>. Both read the same files: the
-<code>eam/alloy</code> file written by <code>EAM.zhou(["Cu"]).write(path)</code>, and the <code>Si.sw</code> and
-<code>Si.tersoff</code> of LAMMPS. Each run takes 100 steps after 20, of 2 fs for copper, 5 fs for
-argon and 1 fs for silicon, and the time of a step is the time of the 100 over 100;
-<code>benchmarks/processes.py</code> runs them.</p>
+at 600 K, nickel with ADP at 600 K, argon with Lennard-Jones at 60 K, and silicon with
+Stillinger–Weber and Tersoff at 1000 K, each at about 250 000 and 2 million atoms:
+MDAPY's own dynamics <a href="../../user-guide/simulation/processes/">on many processes</a>, and
+LAMMPS through MDAPY's <a href="../../user-guide/potentials/lammps/">LAMMPS calculator</a>. Both read
+the same files: the <code>eam/alloy</code> file written by <code>EAM.zhou(["Cu"]).write(path)</code>, and the
+<code>Ni.adp</code>, <code>Si.sw</code> and <code>Si.tersoff</code> of LAMMPS. Each run takes 50 steps after 20, of 2 fs
+for copper and nickel, 5 fs for argon and 1 fs for silicon, and the time of a step is the
+time of the 50 over 50; <code>benchmarks/processes.py</code> runs them.</p>
 <h2 id="results">Results<a class="headerlink" href="#results" title="Permanent link">&para;</a></h2>
-<p>A node of the Triton cluster of Aalto University: two Intel Xeon Gold 6230, 40 cores,
-OpenMPI 4.1.6 and GCC 12.3.0, the processes started by <code>srun --mpi=pmix</code>. MDAPY 2.3 in
+<p>A node of the Triton cluster of Aalto University: two Intel Xeon Gold 6230, 40 cores
+(two Gold 6248 for ADP), OpenMPI 4.1.6 and GCC 12.3.0, the processes started by
+<code>srun --mpi=pmix</code>; MDAPY and LAMMPS ran each case on the same node. MDAPY 2.3 in
 development, built with <code>pip install .</code>; LAMMPS stable_30Sep2026 with MPI and the
 MANYBODY package, with its defaults: <code>newton on</code>, a skin of 2 Å. MDAPY's skin is 1 Å.</p>
-<p><img alt="The speed of MDAPY over that of LAMMPS on 4 to 40 processes, for five potentials" src="../images/mpi.png" /></p>
+<p><img alt="The speed of MDAPY over that of LAMMPS on 4 to 40 processes, for six potentials" src="../images/mpi.png" /></p>
 <p><em>The speed of MDAPY over that of LAMMPS, the time of a step of LAMMPS over that of
 MDAPY: above 1 MDAPY is the faster.</em></p>
 <h3 id="what-they-show">What they show<a class="headerlink" href="#what-they-show" title="Permanent link">&para;</a></h3>
 <ul>
 <li>On 4 to 40 processes MDAPY runs at 0.90 to 1.28 times the speed of LAMMPS: 0.90 to
-  1.13 with EAM, 0.98 to 1.11 with Stillinger–Weber and Tersoff, 0.98 to 1.23 with
-  Lennard-Jones and 1.06 to 1.28 with Morse. Its slowest case is EAM on 2 048 000 atoms,
-  at 0.91 and 0.90 of LAMMPS on 4 and 40 processes.</li>
+  1.13 with EAM, 1.02 to 1.11 with ADP, 0.98 to 1.11 with Stillinger–Weber and Tersoff,
+  0.98 to 1.23 with Lennard-Jones and 1.06 to 1.28 with Morse. Its slowest case is EAM
+  on 2 048 000 atoms, at 0.91 and 0.90 of LAMMPS on 4 and 40 processes.</li>
 <li>Each process of one thread computes each pair of atoms and each term of three bodies
   once, as LAMMPS does with <code>newton on</code>, the pairs across the faces of its brick shared
   half and half with the processes beside it. On one process MDAPY computes each pair
@@ -11067,6 +11068,54 @@ MDAPY: above 1 MDAPY is the faster.</em></p>
 <td style="text-align: right;">120.5</td>
 <td style="text-align: right;">133.0</td>
 <td style="text-align: right;">1.10</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">256 000</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">196.3</td>
+<td style="text-align: right;">212.1</td>
+<td style="text-align: right;">1.08</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">256 000</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">58.4</td>
+<td style="text-align: right;">61.9</td>
+<td style="text-align: right;">1.06</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">256 000</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">30.8</td>
+<td style="text-align: right;">31.5</td>
+<td style="text-align: right;">1.02</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">2 048 000</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">1548.3</td>
+<td style="text-align: right;">1626.2</td>
+<td style="text-align: right;">1.05</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">2 048 000</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">442.3</td>
+<td style="text-align: right;">493.0</td>
+<td style="text-align: right;">1.11</td>
+</tr>
+<tr>
+<td>ADP (Ni)</td>
+<td style="text-align: right;">2 048 000</td>
+<td style="text-align: right;">40</td>
+<td style="text-align: right;">230.5</td>
+<td style="text-align: right;">235.1</td>
+<td style="text-align: right;">1.02</td>
 </tr>
 </tbody>
 </table>

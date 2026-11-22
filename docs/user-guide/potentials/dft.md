@@ -2,9 +2,8 @@
 
 !!! warning "Under development"
     MDAPY's density functional theory is new. It takes norm-conserving and
-    ultrasoft pseudopotentials (PAW comes later; the virial of ultrasoft ones
-    too), runs on one NVIDIA GPU per configuration, and its speed is still
-    being worked on. Its results are those of Quantum ESPRESSO on the same
+    ultrasoft pseudopotentials (PAW comes later), runs on one NVIDIA GPU per
+    configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
 <!-- skip-test -->
@@ -153,7 +152,9 @@ With the ultrasoft files of pslibrary 1.0.0, on one grid and on two (`ecutrho`
 energy, the occupied eigenvalues and the Fermi level to 1e-7 hartree and in
 the forces to 1e-7 hartree/bohr; bcc iron with spin in the energy to 1e-7
 hartree per atom once the rounded constant is allowed for, and in the
-magnetization to 1e-6 Bohr magneton.
+magnetization to 1e-6 Bohr magneton. The stress of sheared silicon agrees to
+0.01 kbar, that of sheared iron with spin to 0.03 kbar, and both with
+differences of strained cells at a fixed basis to 1e-7 hartree.
 
 What differs is Quantum ESPRESSO's own:
 

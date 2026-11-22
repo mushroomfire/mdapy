@@ -11,6 +11,7 @@
 #include <string>
 
 #include "dft/hamiltonian/harmonics.h"
+#include "dft/xc/dual.h"
 
 namespace mdapy::dft {
 
@@ -62,6 +63,49 @@ __global__ void q_kernel(std::size_t first, std::size_t count, const double* g, 
             }
         }
         out[j * t.pairs + pair] = make_cuDoubleComplex(re, im);
+    }
+}
+
+// w[j pairs + pair] = Omega dQ_ab(G)/d epsilon_k conj(v(G)) at a fixed volume,
+// the derivative of the table and of the harmonics through duals, with
+// dG_c / d epsilon_ab = -(delta_ca G_b + delta_cb G_a) / 2
+__global__ void strain_weight_kernel(std::size_t first, std::size_t count, const double* g, Terms t, int a, int b,
+                                     double volume, const Complex* v, Complex* w) {
+    const std::size_t j = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (j >= count) return;
+    using D = Dual<3>;
+    const double* gv = g + 3 * (first + j);
+    const double modulus = ::sqrt(gv[0] * gv[0] + gv[1] * gv[1] + gv[2] * gv[2]);
+    const Complex vc = v[first + j];
+    if (modulus < 1e-12) {  // G = 0 does not move
+        for (int pair = 0; pair < t.pairs; ++pair) w[j * t.pairs + pair] = make_cuDoubleComplex(0.0, 0.0);
+        return;
+    }
+    const D x = D::input(gv[0], 0), y = D::input(gv[1], 1), z = D::input(gv[2], 2);
+    D harm[(kHarmonicsMax + 1) * (kHarmonicsMax + 1)];
+    real_harmonics(t.lmax, x, y, z, harm);
+    const D s = sqrt(x * x + y * y + z * z) / t.dq;
+    int i0 = static_cast<int>(floor(s.v));
+    if (i0 > t.points - 4) i0 = t.points - 4;
+    const D p = s - static_cast<double>(i0), u = 1.0 - p, w2 = 2.0 - p, w3 = 3.0 - p;
+    const D c0 = u * w2 * w3 / 6.0, c1 = p * w2 * w3 / 2.0, c2 = -1.0 * p * u * w3 / 2.0, c3 = p * u * w2 / 6.0;
+    for (int pair = 0; pair < t.pairs; ++pair) {
+        double re = 0.0, im = 0.0;
+        for (int k = t.pair_start[pair]; k < t.pair_start[pair + 1]; ++k) {
+            const double* table = t.tables + static_cast<std::size_t>(t.table[k]) * t.points + i0;
+            const D radial = c0 * table[0] + c1 * table[1] + c2 * table[2] + c3 * table[3];
+            const D value = t.coef[k] * radial * harm[t.lm[k]];
+            const double dvalue = -0.5 * (gv[b] * value.d[a] + gv[a] * value.d[b]);
+            switch (t.l[k] & 3) {
+                case 0: re += dvalue; break;
+                case 1: im -= dvalue; break;
+                case 2: re -= dvalue; break;
+                default: im += dvalue; break;
+            }
+        }
+        // (re + i im) conj(v) Omega
+        w[j * t.pairs + pair] =
+            make_cuDoubleComplex(volume * (re * vc.x + im * vc.y), volume * (im * vc.x - re * vc.y));
     }
 }
 
@@ -316,6 +360,46 @@ std::vector<double> Augmentation::forces(const Complex* v, const std::vector<dou
                 out[3 * static_cast<std::size_t>(members_[s][static_cast<std::size_t>(i)]) + static_cast<std::size_t>(d)] +=
                     lattice_.volume * f;
             }
+        }
+    }
+    return out;
+}
+
+std::array<double, 6> Augmentation::strain(const Complex* v, const std::vector<double>& becsum) {
+    std::array<double, 6> out{};
+    const Complex one = make_cuDoubleComplex(1.0, 0.0);
+    const int pairs6[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
+    for (std::size_t s = 0; s < species_.size(); ++s) {
+        const auto& sp = species_[s];
+        const int pairs = sp.pairs();
+        const int na = static_cast<int>(members_[s].size());
+        if (pairs <= 0 || na == 0) continue;
+        const auto& d = device_[s];
+        const Terms t{d.pair_start.data(), d.term_lm.data(), d.term_l.data(), d.term_table.data(),
+                      d.term_coef.data(), d.tables.data(), sp.points, sp.lmax, pairs, sp.dq};
+        const std::size_t step = std::max<std::size_t>(1, (std::size_t{256} << 20) / (48 * static_cast<std::size_t>(pairs + na)));
+        for (int k = 0; k < 6; ++k) {
+            values_.reserve(static_cast<std::size_t>(pairs) * na);
+            values_.zero();
+            for (std::size_t first = 0; first < n_; first += step) {
+                const std::size_t count = std::min(step, n_ - first);
+                phases_.reserve(count * na);
+                work_.reserve(count * pairs);
+                block_phases(static_cast<int>(s), first, count, phases_.data());
+                strain_weight_kernel<<<blocks(count), kThreads>>>(first, count, g_.data(), t, pairs6[k][0], pairs6[k][1],
+                                                                  lattice_.volume, v, work_.data());
+                check_cuda(cudaGetLastError(), "the strain of the augmentation");
+                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, pairs, na, static_cast<int>(count), &one,
+                                       work_.data(), pairs, phases_.data(), na, &one, values_.data(), pairs),
+                           "cublasZgemm");
+            }
+            std::vector<Complex> host(static_cast<std::size_t>(pairs) * na);
+            values_.download(host.data(), host.size());
+            for (int i = 0; i < na; ++i)
+                for (int p = 0; p < pairs; ++p)
+                    out[static_cast<std::size_t>(k)] +=
+                        becsum[offsets_[s][static_cast<std::size_t>(i)] + static_cast<std::size_t>(p)] *
+                        host[static_cast<std::size_t>(i) * pairs + p].x;
         }
     }
     return out;

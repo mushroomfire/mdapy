@@ -330,10 +330,6 @@ class DFT(Calculator):
         elements = system.table["element"].cast(str).to_list()
         species = list(dict.fromkeys(elements))
         pseudos = [self.__pseudopotential(e) for e in species]
-        if "virial" in wanted and any(pp.ultrasoft for pp in pseudos):
-            raise InvalidParameter(
-                "the virial of ultrasoft pseudopotentials is not computed yet"
-            )
         kinds = [species.index(e) for e in elements]
         cell = system.box.matrix
         fractional = system.box.to_fractional(system["positions"]) % 1.0

@@ -105,7 +105,9 @@ public:
     // out (xx yy zz yz xz xy) += dE/d epsilon of count bands at a fixed set of
     // plane waves, their weights w_b on the host: the kinetic energy and the
     // projectors, hartree.
-    void strain_derivative(const Complex* psi, int count, const double* weights, std::array<double, 6>& out);
+    // With an overlap, of D - e_n q, eigenvalues on the host.
+    void strain_derivative(const Complex* psi, int count, const double* weights, std::array<double, 6>& out,
+                           const double* eigenvalues = nullptr);
     // The diagonal H_GG on the device, for the preconditioner: the kinetic
     // energy, the mean potential and the projectors.
     void diagonal(double* out) const;

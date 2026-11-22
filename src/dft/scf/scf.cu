@@ -512,7 +512,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     }
     result.times.forces += clock.lap();
     // the strain derivative of the energy of Kohn and Sham of the last bands
-    if (ions.has_slopes() && !ultrasoft) {
+    if (ions.has_slopes()) {
         const auto& sphere = pot.sphere();
         const double omega = input.lattice.volume, pi = 3.14159265358979323846;
         const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
@@ -593,13 +593,24 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         add_diagonal(e.xc - (e.hxc_density - 2.0 * e.hartree) - vxc_core);
         const auto gga = pot.gga_strain();
         for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += gga[static_cast<std::size_t>(d)];
+        if (ultrasoft) {
+            // the strengths of the energy of Kohn and Sham of rho_out, and the
+            // augmentation moving with the strain in V of rho_out
+            update_strengths(hxc_out);
+            for (std::size_t s = 0; s < spins; ++s) {
+                potential_of(s, hxc_out);
+                const auto a = aug.strain(veff_g.data(), becsum[s]);
+                for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += a[static_cast<std::size_t>(d)];
+            }
+        }
         // the kinetic energy and the projectors of the bands
         for (std::size_t k = 0; k < nk; ++k) {
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
-                h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), st);
+                if (ultrasoft) h.set_strengths(strengths[s]);
+                h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), st, eigenvalues.data() + row);
             }
         }
         result.has_strain = true;

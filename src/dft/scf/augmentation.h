@@ -21,6 +21,7 @@
 
 #include <cublas_v2.h>
 
+#include <array>
 #include <vector>
 
 #include "dft/core/device.h"
@@ -64,6 +65,10 @@ public:
     // the forces (atoms, 3) of the augmentation in a potential V(G) on the
     // device: sum_ab becsum_ab Omega Re sum_G conj(V(G)) i G Q_ab(G) exp(-i G.tau)
     std::vector<double> forces(const Complex* v, const std::vector<double>& becsum);
+    // sum_I sum_ab becsum_ab sum_G Re[conj(V(G)) Omega dQ_ab(G)/d epsilon
+    // exp(-i G.tau)] (xx yy zz yz xz xy), at fixed Miller indices: the change of
+    // the augmentation in a strain, in the potential V(G) on the device
+    std::array<double, 6> strain(const Complex* v, const std::vector<double>& becsum);
     // Q_ab(G) of one species at an atom at the origin, (pairs, n), on the host;
     // for the tests
     std::vector<Complex> components(int species);

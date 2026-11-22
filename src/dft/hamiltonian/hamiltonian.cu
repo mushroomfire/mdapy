@@ -537,7 +537,7 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
 }
 
 void Hamiltonian::strain_derivative(const Complex* psi, int count, const double* weights,
-                                    std::array<double, 6>& out) {
+                                    std::array<double, 6>& out, const double* eigenvalues) {
     const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
     if (n == 0 || count == 0) return;
     // the kinetic energy: -sum_b w_b sum_G |psi|^2 q_a q_b
@@ -561,6 +561,17 @@ void Hamiltonian::strain_derivative(const Complex* psi, int count, const double*
     check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
                            projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
                "cublasZgemm");
+    if (has_overlap_) {  // (D - e q) P
+        if (eigenvalues == nullptr) throw std::invalid_argument("the stress of ultrasoft bands needs their eigenvalues");
+        DeviceArray<Complex> qpp(np * m);
+        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one,
+                               qmatrix_.data(), projectors_, p.data(), projectors_, &zero, qpp.data(), projectors_),
+                   "cublasZgemm");
+        DeviceArray<double> e;
+        e.upload(eigenvalues, m);
+        shift_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
+        check_cuda(cudaGetLastError(), "D - e q");
+    }
     const Reciprocal rc = reciprocal_;
     const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
     std::vector<double> values(np);

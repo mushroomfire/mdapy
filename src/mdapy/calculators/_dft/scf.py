@@ -213,7 +213,6 @@ def run(
             else None
             for pp in pseudos
         ]
-        stress = False  # not yet for ultrasoft pseudopotentials
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,

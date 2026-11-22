@@ -100,3 +100,47 @@ def test_forces_against_differences():
         assert raw[0, d] == pytest.approx(
             -(energies[0] - energies[1]) / (2 * step), abs=2e-7
         )
+
+
+SHEAR = np.array([[1.01, 0.02, 0.0], [0.02, 0.98, 0.01], [0.0, 0.01, 1.0]])
+PAIRS = [(0, 0), (1, 1), (2, 2), (0, 1), (1, 2), (0, 2)]
+
+
+@pytest.mark.parametrize("case", ["Si", "Fe"])
+def test_stress(case):
+    """dE/d epsilon against differences of strained cells at a fixed basis, and
+    against QE (iron with QE's rounded gamma, about 0.02 kbar)."""
+    cell, positions, name, smearing, kgrid, magmoms = CASES[case]
+    cell = cell @ SHEAR
+    cutoff = 12.0 if case == "Si" else 15.0
+    pp = read_upf(espresso.pseudo(name))
+    options = dict(kgrid=kgrid if case == "Fe" else (2, 2, 2), smearing=smearing, sigma=0.01,
+                   density_cutoff=8 * cutoff, magmoms=magmoms, functional="pbe_pw",
+                   density_tolerance=1e-15, energy_tolerance=1e-13)  # fmt: skip
+    r = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, **options)
+    assert r["converged"]
+
+    def energy(strain):
+        return scf.run(cell @ (np.eye(3) + strain), positions, [0] * len(positions), [pp], cutoff,
+                       grid=r["grid"], smooth_grid=r["smooth_grid"], basis_cell=cell, stress=False,
+                       **options)["energy"]  # fmt: skip
+
+    step = 1e-4
+    fd = np.zeros((3, 3))
+    for a, b in PAIRS:
+        e = np.zeros((3, 3))
+        e[a, b] += 0.5 * step
+        e[b, a] += 0.5 * step
+        fd[a, b] = fd[b, a] = (energy(e) - energy(-e)) / (2 * step)
+    np.testing.assert_allclose(r["strain_derivative"], fd, atol=1e-7)
+    files = {case: espresso.pseudo(name)}
+    kpoints, weights = _dft.monkhorst_pack(
+        list(options["kgrid"]), [0.0, 0.0, 0.0], True
+    )
+    qe = espresso.run(cell, positions, [case] * len(positions), files, cutoff, kpoints, weights,
+                      smearing, 0.01, conv_thr=1e-14, magmoms=magmoms, beta=0.3, maxstep=400,
+                      extra=f", ecutrho = {16 * cutoff:.10f}")  # fmt: skip
+    ours = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, grid=qe["grid"],
+                   smooth_grid=qe["smooth_grid"], **options)  # fmt: skip
+    stress = -ours["strain_derivative"] / abs(np.linalg.det(cell))
+    np.testing.assert_allclose(stress, qe["stress"], atol=1e-7 if magmoms else 3e-8)

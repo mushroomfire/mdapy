@@ -185,7 +185,9 @@ def test_ultrasoft(folder):
                 density_tolerance=1e-10 / HARTREE)  # fmt: skip
     assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-8)
     assert dft.last["provenance"]["ecutrho"] == 96 * HARTREE
-    with pytest.raises(InvalidParameter, match="virial of ultrasoft"):
-        dft.compute(silicon(), ("energy", "forces", "virial"))
+    with_virial = dft.compute(silicon(), ("energy", "forces", "virial"))
+    np.testing.assert_allclose(
+        with_virial.virial, -r["strain_derivative"] * HARTREE, atol=1e-6
+    )
     with pytest.raises(InvalidParameter, match="ecutrho must be at least 4 encut"):
         DFT(300.0, ecutrho=600.0, pseudopotentials=folder)

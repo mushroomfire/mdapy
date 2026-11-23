@@ -2,6 +2,10 @@
 
 ## 2.3.0 (not released)
 
+- The example [Isotopes of lithium hydride](../examples/lih-isotopes.md): path integrals
+  of 40 beads give the lattice of ⁶LiH, ⁷LiH, ⁶LiD, ⁷LiD and ⁷LiT at room temperature,
+  a = A μ^−1/2 + B with A = 0.0495 Å against 0.054 Å measured, where classical nuclei
+  give the same lattice for all five.
 - MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
   their neighbor list with the skin as it is between two builds, instead of the pairs
   within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the

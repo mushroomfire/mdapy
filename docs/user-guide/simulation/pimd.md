@@ -157,6 +157,10 @@ with MolecularDynamics(neon, lj, timestep=0.002, beads=8) as md:
 than its box of 4.46 Å at the start, and its kinetic energy is 1.5 times the
 classical 0.66 eV: the zero-point motion of light atoms.*
 
+The example [Isotopes of lithium hydride](../../examples/lih-isotopes.md) runs five
+isotopic compositions of LiH this way, with 40 beads, and finds the dependence of the
+lattice parameter on the masses that experiments measure.
+
 ## On many processes
 
 Under `mpirun` the beads are shared among the processes, each computing the forces of

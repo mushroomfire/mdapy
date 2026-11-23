@@ -278,6 +278,12 @@ saddle points, *J. Chem. Phys.* **113**, 9978 (2000).
 [doi:10.1063/1.1323224](https://doi.org/10.1063/1.1323224)
 { #henkelman2000b }
 
+**Herbst and Levitt (2021).** M. F. Herbst and A. Levitt, Black-box inhomogeneous
+preconditioning for self-consistent field iterations in density functional theory,
+*J. Phys.: Condens. Matter* **33**, 085503 (2021).
+[doi:10.1088/1361-648X/abcbdb](https://doi.org/10.1088/1361-648X/abcbdb)
+{ #herbst2021 }
+
 **Himanen et al. (2020).** L. Himanen, M. O. J. Jäger, E. V. Morooka,
 F. Federici Canova, Y. S. Ranawat, D. Z. Gao, P. Rinke and A. S. Foster,
 DScribe: Library of descriptors for machine learning in materials science,

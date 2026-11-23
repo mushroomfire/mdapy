@@ -269,3 +269,16 @@ def test_paw_and_its_restart(folder):
     assert steps <= fresh.last["iterations"]
     assert warm.energy == pytest.approx(cold.energy, abs=1e-6)
     np.testing.assert_allclose(warm.forces, cold.forces, atol=1e-5)
+
+
+def test_the_preconditioner_of_the_local_density_of_states(folder):
+    """DFT(preconditioner="ldos") reaches the energy and the forces of
+    Kerker's; an unknown one is refused."""
+    kerker = calculator(folder).compute(silicon(), ("energy", "forces"))
+    ldos = calculator(folder, preconditioner="ldos").compute(
+        silicon(), ("energy", "forces")
+    )
+    assert ldos.energy == pytest.approx(kerker.energy, abs=1e-6)
+    np.testing.assert_allclose(ldos.forces, kerker.forces, atol=1e-5)
+    with pytest.raises(InvalidParameter, match="preconditioner"):
+        DFT(300.0, preconditioner="tf")

@@ -116,7 +116,9 @@
   pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
   Gamma, the k-points and spins of one configuration shared by several GPUs
   (`comm`), the k-points of a small cell solved side by side on one GPU and calculations
-  in several threads of one process at once, for labelling training sets. The FFT grids
+  in several threads of one process at once, for labelling training sets; the
+  preconditioner of the local density of states (`preconditioner="ldos"`) for slabs,
+  surfaces and magnetic alloys. The FFT grids
   are those of Quantum ESPRESSO (factors 2, 3 and 5, multiples of the denominators of
   the fractional translations). The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the

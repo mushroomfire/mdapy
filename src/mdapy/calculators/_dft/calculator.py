@@ -122,6 +122,12 @@ class DFT(Calculator):
         The wave vector of Kerker's preconditioner of the mixing in 1/Å, 0
         for none. Default 1.5: 32 atoms of aluminium converge in half the
         steps, 64 of silicon in as many.
+    preconditioner : str, optional
+        Of the mixing of the total density: ``"kerker"``, or ``"ldos"``, from
+        the local density of states at the Fermi level of each step (Herbst
+        and Levitt, 2021), which screens metal and not vacuum or insulator in
+        one cell: slabs and surfaces, and magnetic alloys, whose moments
+        Kerker's lets wander or fall. Default ``"kerker"``.
     bands : int32, optional
         Bands per k-point and spin. Default as Quantum ESPRESSO: four or 10 %
         more than the occupied ones for fixed occupations, else the larger
@@ -197,6 +203,7 @@ class DFT(Calculator):
         mixing: float | None = None,
         magnetic_mixing: float = 1.0,
         kerker: float = 1.5,
+        preconditioner: str = "kerker",
         bands: int | None = None,
         seed: int = 0,
         gpu: int | None = None,
@@ -274,6 +281,9 @@ class DFT(Calculator):
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
+        if preconditioner not in ("kerker", "ldos"):
+            raise InvalidParameter("preconditioner must be 'kerker' or 'ldos'")
+        self.preconditioner = preconditioner
         if not magnetic_mixing > 0:
             raise InvalidParameter("magnetic_mixing must be positive")
         self.magnetic_mixing = float(magnetic_mixing)
@@ -418,7 +428,7 @@ class DFT(Calculator):
             cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE,
             density_cutoff=None if self.ecutrho is None else self.ecutrho / HARTREE,
             kgrid=mesh, smearing=self.smearing, sigma=self.sigma / HARTREE,
-            bands=self.bands, beta=mixing, kerker=self.kerker * BOHR,
+            bands=self.bands, beta=mixing, kerker=self.kerker * BOHR, preconditioner=self.preconditioner,
             magnetic_beta=self.magnetic_mixing,
             energy_tolerance=self.tolerance / HARTREE,
             density_tolerance=self.tolerance / HARTREE,

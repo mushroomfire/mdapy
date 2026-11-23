@@ -271,6 +271,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | largest spacing of a mesh of k-points (1/Å, 2π included), as VASP's KSPACING | `kspacing` | `kpoint_density`, `kdens` |
 | first magnetic moments of the atoms of DFT (Bohr magnetons) | `magmoms` | `magmom`, `starting_magnetization` |
 | smearing of the occupations of DFT and its width (eV) | `smearing`, `sigma` | `ismear`, `degauss` |
+| DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |

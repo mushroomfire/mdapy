@@ -59,13 +59,14 @@ def _run(text: str, folder: str, threads: int = 4) -> tuple[str, str]:
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
         sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100,
-        symmetric=False, threads=4):  # fmt: skip
+        symmetric=False, threads=4, hubbard=None):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
     of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
     magnetons per atom) collinear spins, a species for each element and moment;
     symmetric lets QE use the symmetry of the crystal on the k-points given
-    (irreducible ones); threads, those of OpenMP. A dict of the energies and the eigenvalues ((2,) K,
+    (irreducible ones); threads, those of OpenMP; hubbard, element: (orbital
+    label, U in hartree), DFT+U on QE's atomic projectors. A dict of the energies and the eigenvalues ((2,) K,
     bands)."""
     from mdapy.calculators._dft.upf import read_upf
 
@@ -122,6 +123,12 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
             for k, w in zip(cart, weights)
         ],
     ]
+    if hubbard:
+        lines.append("HUBBARD (atomic)")
+        for label, (el, _) in zip(labels, kinds):
+            if el in hubbard:
+                orbital, u = hubbard[el]
+                lines.append(f"U {label}-{orbital.lower()} {u / EV:.12f}")
     out, xml = _run("\n".join(lines) + "\n", folder, threads)
     return parse(out, xml, len(cart))
 
@@ -196,6 +203,19 @@ def parse(out: str, xml: str, nk: int) -> dict:
         if smooth is None
         else tuple(int(smooth.group(i)) for i in (2, 3, 4))
     )
+    # DFT+U: the Hubbard energy and the traces of the occupations of each atom
+    # as last printed (up, down and total, or the total without spin)
+    found = re.findall(r"Hubbard energy\s*=\s*(\S+)\s*Ry", out)
+    if found:
+        result["hubbard_energy"] = float(found[-1]) * RY
+        traces = re.findall(
+            r"Tr\[ns\(\s*(\d+)\)\](?:\s*\(up, down, total\))?\s*=((?:\s+[-\d.]+)+)",
+            out,
+        )
+        # the last of each atom, in the order of the atoms; one number, the
+        # total, without spin
+        latest = {int(row[0]): [float(x) for x in row[1].split()] for row in traces}
+        result["hubbard_traces"] = np.array([latest[i] for i in sorted(latest)])
     # PAW: the one-center energy and its parts as QE prints them, rydberg
     found = re.findall(r"one-center paw contrib\.\s*=\s*(\S+)\s*Ry", out)
     if found:

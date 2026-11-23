@@ -112,7 +112,8 @@
   NVIDIA GPU, in the package `mdapy-dft-cuda12`. It gives energies, forces and virials
   of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF 2, and UPF
   1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
-  collinear spin and smearings, the symmetry of crystals (by spglib), real bands at
+  collinear spin and smearings, DFT+U of Dudarev on norm-conserving
+  pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
   Gamma, and the k-points and spins of one configuration shared by several GPUs
   (`comm`), for labelling training sets. The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the

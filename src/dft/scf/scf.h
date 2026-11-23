@@ -100,6 +100,13 @@ struct ScfInput {
     // or the one-center data of each species (mesh 0 without PAW), for the
     // GPU's one-center terms when onecenter is empty
     std::vector<SpeciesOneCenter> paw;
+    // DFT+U of Dudarev on the pseudo-orbitals of norm-conserving species: for
+    // each species the index of its projector function that is the
+    // pseudo-orbital (with D = 0) and U in hartree, -1 and 0 for none; empty
+    // for no species. The first occupations of the orbitals then come in
+    // becsum, as with PAW.
+    std::vector<int> hubbard_function;
+    std::vector<double> hubbard_u;
     // the operations of the crystal, the k-points then irreducible; none for
     // the identity alone
     SymmetryInput symmetry;
@@ -160,7 +167,8 @@ struct ScfResult {
     bool has_strain = false;
     std::array<double, 6> strain{};
     double onecenter = 0.0;  // E^1 of PAW of the last input occupations
-    std::vector<std::vector<double>> becsum;  // the last output occupations of each spin, with augmentation
+    double hubbard = 0.0;    // E_U of DFT+U of the last input occupations
+    std::vector<std::vector<double>> becsum;  // the last output occupations of each spin, with augmentation or DFT+U
     std::vector<ScfStep> steps;
     ScfTimes times;
 };

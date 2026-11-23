@@ -245,9 +245,34 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     augmented.resize(input.species.size());
     Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented);
     const bool ultrasoft = aug.any();
+    // DFT+U: the block of the pseudo-orbital of each Hubbard atom, where it
+    // starts among the projector functions of the atom, its l and U
+    struct HubbardBlock {
+        std::size_t atom;
+        int first, l;
+        double u;
+    };
+    std::vector<HubbardBlock> hubbard_blocks;
+    if (!input.hubbard_function.empty()) {
+        if (input.hubbard_function.size() != input.species.size() || input.hubbard_u.size() != input.species.size())
+            throw std::invalid_argument("a Hubbard function and U of every species");
+        for (std::size_t i = 0; i < input.atoms.size(); ++i) {
+            const auto sp = static_cast<std::size_t>(input.atoms[i].species);
+            const int f = input.hubbard_function[sp];
+            if (f < 0) continue;
+            const auto& s = input.species[sp];
+            if (f >= static_cast<int>(s.angular.size())) throw std::invalid_argument("the Hubbard function of a species");
+            if (augmented[sp].pairs() > 0)
+                throw std::invalid_argument("DFT+U takes norm-conserving pseudopotentials only, for now");
+            int first = 0;
+            for (int q = 0; q < f; ++q) first += 2 * s.angular[static_cast<std::size_t>(q)] + 1;
+            hubbard_blocks.push_back({i, first, s.angular[static_cast<std::size_t>(f)], input.hubbard_u[sp]});
+        }
+    }
+    const bool hubbard = !hubbard_blocks.empty();
     std::vector<double> bare;  // the blocks of D0 of the atoms
-    std::vector<std::size_t> pair_offsets;
-    if (ultrasoft) {
+    std::vector<std::size_t> pair_offsets, block_offsets;  // of the packed pairs and of the blocks of each atom
+    if (ultrasoft || hubbard) {
         std::vector<double> overlaps;
         std::size_t offset = 0;
         for (const Atom& atom : input.atoms) {
@@ -263,11 +288,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 add_packed(packed.data(), w, q.data());
             }
             overlaps.insert(overlaps.end(), q.begin(), q.end());
+            block_offsets.push_back(bare.size() - block.size());
             pair_offsets.push_back(offset);
             offset += static_cast<std::size_t>(w) * (w + 1) / 2;
         }
         pair_offsets.push_back(offset);
-        h.set_overlaps(overlaps);
+        if (ultrasoft) h.set_overlaps(overlaps);
     }
     // the strengths of each spin: D0 + Omega sum_G conj(V_s(G)) Q(G) of a potential
     std::vector<std::vector<double>> strengths(spins);
@@ -279,7 +305,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         pot.to_sphere(veff_r.data(), veff_g.data(), 1);
     };
     auto update_strengths = [&](const DeviceArray<double>& v) {
-        if (!ultrasoft) return;
+        if (!ultrasoft) {
+            if (hubbard) std::fill(strengths.begin(), strengths.end(), bare);
+            return;
+        }
         for (std::size_t s = 0; s < spins; ++s) {
             potential_of(s, v);
             const auto packed = aug.strengths(veff_g.data());
@@ -296,6 +325,60 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     };
     std::vector<std::vector<double>> becsum(spins);
     std::vector<DeviceArray<double>> becsum_d(spins);  // the same on the device, during the density
+    // DFT+U from occupations (spins, pairs) as becsum holds them, n of a spin
+    // channel their half with one channel: E_U = sum (U/2) Tr[n (1 - n)]; with
+    // add, v = U (1/2 - n) into the strengths of each spin; vn = sum Tr[v n]
+    const double channels = ns == 2 ? 1.0 : 2.0;
+    auto hubbard_occupation = [&](const std::vector<double>& occ, const HubbardBlock& b, int x, int y) {
+        const int w = width_of(input.species[static_cast<std::size_t>(input.atoms[b.atom].species)]);
+        const int i = b.first + std::min(x, y), j = b.first + std::max(x, y);
+        const std::size_t k = static_cast<std::size_t>(i) * static_cast<std::size_t>(w) -
+                              static_cast<std::size_t>(i) * static_cast<std::size_t>(i - 1) / 2 +
+                              static_cast<std::size_t>(j - i);
+        return occ[pair_offsets[b.atom] + k] * (x == y ? 1.0 : 0.5) / channels;
+    };
+    auto hubbard_of = [&](const std::vector<std::vector<double>>& occ, bool add, double* vn) {
+        double energy = 0.0, sum_vn = 0.0;
+        for (const auto& b : hubbard_blocks) {
+            const int w = width_of(input.species[static_cast<std::size_t>(input.atoms[b.atom].species)]);
+            const int d = 2 * b.l + 1;
+            for (std::size_t s = 0; s < spins; ++s)
+                for (int x = 0; x < d; ++x)
+                    for (int y = 0; y < d; ++y) {
+                        const double n = hubbard_occupation(occ[s], b, x, y);
+                        const double v = b.u * ((x == y ? 0.5 : 0.0) - n);
+                        energy += channels * 0.5 * b.u * ((x == y ? n : 0.0) - n * n);
+                        sum_vn += channels * v * n;
+                        if (add)
+                            strengths[s][block_offsets[b.atom] + static_cast<std::size_t>((b.first + x) * w + b.first + y)] += v;
+                    }
+        }
+        if (vn != nullptr) *vn = sum_vn;
+        return energy;
+    };
+    // sum Tr[v(a) n(b)], v of the occupations a on the occupations b
+    auto hubbard_cross = [&](const std::vector<std::vector<double>>& a, const std::vector<std::vector<double>>& b_) {
+        double r = 0.0;
+        for (const auto& b : hubbard_blocks)
+            for (std::size_t s = 0; s < spins; ++s)
+                for (int x = 0; x < 2 * b.l + 1; ++x)
+                    for (int y = 0; y < 2 * b.l + 1; ++y)
+                        r += channels * b.u * ((x == y ? 0.5 : 0.0) - hubbard_occupation(a[s], b, x, y)) *
+                             hubbard_occupation(b_[s], b, x, y);
+        return r;
+    };
+    // sum (U/2) |n_out - n_in|^2, the part of the occupations in the accuracy
+    auto hubbard_residual = [&](const std::vector<std::vector<double>>& in, const std::vector<std::vector<double>>& out) {
+        double r = 0.0;
+        for (const auto& b : hubbard_blocks)
+            for (std::size_t s = 0; s < spins; ++s)
+                for (int x = 0; x < 2 * b.l + 1; ++x)
+                    for (int y = 0; y < 2 * b.l + 1; ++y) {
+                        const double dn = hubbard_occupation(out[s], b, x, y) - hubbard_occupation(in[s], b, x, y);
+                        r += channels * 0.5 * b.u * dn * dn;
+                    }
+        return r;
+    };
     // the symmetry of the crystal, on the density and the occupations
     Symmetrizer symmetrizer(input.symmetry, pot.sphere().miller);
     std::vector<std::vector<int>> atom_angular;
@@ -395,11 +478,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         components.upload(start.data(), start.size());
         pot.from_sphere(components.data(), rho_in.data(), ns);
     }
-    if (paw) {
+    const bool mixes_occupations = paw || hubbard;  // the occupations of the projectors mixed with the density
+    if (mixes_occupations) {
         becsum_in = restart && state->becsum.size() == spins ? state->becsum : input.becsum;
-        if (becsum_in.size() != spins) throw std::invalid_argument("the first occupations of PAW of each spin");
+        if (becsum_in.size() != spins) throw std::invalid_argument("the first occupations of each spin");
         for (const auto& b : becsum_in)
-            if (b.size() != pair_offsets.back()) throw std::invalid_argument("the first occupations of PAW of each atom");
+            if (b.size() != pair_offsets.back()) throw std::invalid_argument("the first occupations of each atom");
     }
     ScfResult result;
     result.restarted = restart;
@@ -447,7 +531,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         if (iteration == 1) result.times.setup += clock.lap();
         const PotentialEnergies e = pot.compute(rho_in.data(), hxc.data());
         update_strengths(hxc);
-        double paw_energy = 0.0;
+        double paw_energy = 0.0, hubbard_energy = 0.0, hubbard_vn = 0.0;
         if (paw) {
             e1 = one(becsum_in, onecenter);
             // the one-center strengths made symmetric too, as QE does: its
@@ -459,6 +543,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             for (std::size_t s = 0; s < spins; ++s)
                 for (std::size_t i = 0; i < becsum_in[s].size(); ++i) paw_energy -= onecenter[s][i] * becsum_in[s][i];
         }
+        if (hubbard) result.hubbard = hubbard_of(becsum_in, true, &hubbard_vn);
         result.times.potentials += clock.lap();
         last_in = in_g;
         // the bands
@@ -472,7 +557,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 add_kernel<<<blocks(points), kThreads>>>(points, local.data(), hxc.data() + s * points, veff.data());
                 check_cuda(cudaGetLastError(), "the effective potential");
                 set_potential(veff);
-                if (ultrasoft) h.set_strengths(strengths[s]);
+                if (ultrasoft || hubbard) h.set_strengths(strengths[s]);
                 const double loose = std::max(tolerance, 1e-2);
                 for (std::size_t b = 0; b < bands; ++b) {
                     const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
@@ -502,13 +587,13 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         // the output density and the energy
         rho_out.zero();
         if (two_grids) rho_s.zero();
-        if (ultrasoft)
+        if (ultrasoft || hubbard)
             for (std::size_t s = 0; s < spins; ++s) {
                 becsum[s].assign(pair_offsets.back(), 0.0);
                 becsum_d[s].resize(pair_offsets.back());
             }
         double band = 0.0;
-        if (ultrasoft)  // the occupations of the projectors gathered on the device
+        if (ultrasoft || hubbard)  // the occupations of the projectors gathered on the device
             for (auto& b : becsum_d) b.zero();
         for (std::size_t k = 0; k < nk; ++k) {
             if (!any_mine(k)) continue;
@@ -522,10 +607,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 }
                 h.add_density(psi[s * nk + k].data(), nb, w.data(),
                               two_grids ? rho_s.data() + s * points_s : rho_out.data() + s * points);
-                if (ultrasoft) h.add_becsum_device(psi[s * nk + k].data(), nb, w.data(), becsum_d[s].data());
+                if (ultrasoft || hubbard) h.add_becsum_device(psi[s * nk + k].data(), nb, w.data(), becsum_d[s].data());
             }
         }
-        if (ultrasoft)
+        if (ultrasoft || hubbard)
             for (std::size_t s = 0; s < spins; ++s) becsum_d[s].download(becsum[s].data(), becsum[s].size());
         if (input.ranks > 1) {  // the densities and occupations of every pool
             sum(&band, 1);
@@ -534,10 +619,32 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             partial.download(host.data(), host.size());
             sum(host.data(), host.size());
             partial.upload(host.data(), host.size());
-            if (ultrasoft)
+            if (ultrasoft || hubbard)
                 for (auto& b : becsum) sum(b.data(), b.size());
         }
-        const double energy = band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy + paw_energy;
+        if (hubbard) {
+            // the occupations of the orbitals, symmetric; on a cold start the
+            // first output ones are taken as input, as Quantum ESPRESSO does
+            for (std::size_t s = 0; s < spins; ++s)
+                if (!ultrasoft) symmetrizer.occupations(becsum[s], pair_offsets, atom_angular);
+            if (iteration == 1 && !restart) {
+                hubbard_vn = hubbard_cross(becsum_in, becsum);  // the strengths of the bands on what comes in
+                for (const auto& b : hubbard_blocks) {
+                    const int w = width_of(input.species[static_cast<std::size_t>(input.atoms[b.atom].species)]);
+                    for (int x = b.first; x < b.first + 2 * b.l + 1; ++x)
+                        for (int y = x; y < b.first + 2 * b.l + 1; ++y) {
+                            const std::size_t k = pair_offsets[b.atom] + static_cast<std::size_t>(x) * w -
+                                                  static_cast<std::size_t>(x) * static_cast<std::size_t>(x - 1) / 2 +
+                                                  static_cast<std::size_t>(y - x);
+                            for (std::size_t s = 0; s < spins; ++s) becsum_in[s][k] = becsum[s][k];
+                        }
+                }
+                result.hubbard = hubbard_of(becsum_in, false, nullptr);
+            }
+            hubbard_energy = result.hubbard - hubbard_vn;
+        }
+        const double energy =
+            band - e.hxc_density + e.hartree + e.xc + input.ewald + occ.entropy + paw_energy + hubbard_energy;
         if (two_grids) {
             // the smooth density on the start of the dense sphere
             pot_s->to_sphere(rho_s.data(), smooth_g.data(), ns);
@@ -559,7 +666,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         components.download(out_g.data(), out_g.size());
         if (ns == 2) to_total(out_g, ng);
         result.times.density += clock.lap();
-        const double accuracy = mixer.residual_energy(in_g, out_g);
+        const double accuracy = mixer.residual_energy(in_g, out_g) + (hubbard ? hubbard_residual(becsum_in, becsum) : 0.0);
         if (!std::isfinite(energy) || !std::isfinite(accuracy))
             throw std::runtime_error("the energy or the density is not finite");
         step.energy = energy;
@@ -591,7 +698,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         // the next input density, and with PAW the occupations of (total,
         // magnetization) along
-        if (paw) {
+        if (mixes_occupations) {
             const std::size_t n = pair_offsets.back();
             std::vector<double> x(spins * n), x_out(spins * n);
             for (std::size_t i = 0; i < n; ++i) {
@@ -661,7 +768,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (!mine(s, k)) continue;
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
-                if (ultrasoft) h.set_strengths(strengths[s]);
+                if (ultrasoft || hubbard) h.set_strengths(strengths[s]);
                 h.nonlocal_forces(psi[s * nk + k].data(), nb, w.data(), nonlocal, eigenvalues.data() + row);
             }
         }
@@ -774,10 +881,11 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         add_diagonal(e.xc - (e.hxc_density - 2.0 * e.hartree) - vxc_core);
         const auto gga = pot.gga_strain();
         for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += gga[static_cast<std::size_t>(d)];
-        if (ultrasoft) {
+        if (ultrasoft || hubbard) {
             // the strengths of the energy of Kohn and Sham of rho_out, and the
             // augmentation moving with the strain in V of rho_out
             update_strengths(hxc_out);
+            if (hubbard) hubbard_of(becsum, true, nullptr);  // v of the output occupations
             if (paw) {
                 // the one-center strengths of the output occupations
                 std::vector<std::vector<double>> d(spins);
@@ -785,11 +893,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 for (std::size_t s = 0; s < spins; ++s) symmetrizer.occupations(d[s], pair_offsets, atom_angular, false);
                 add_onecenter(d);
             }
-            for (std::size_t s = 0; s < spins; ++s) {
-                potential_of(s, hxc_out);
-                const auto a = aug.strain(veff_g.data(), becsum[s]);
-                for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += a[static_cast<std::size_t>(d)];
-            }
+            if (ultrasoft)
+                for (std::size_t s = 0; s < spins; ++s) {
+                    potential_of(s, hxc_out);
+                    const auto a = aug.strain(veff_g.data(), becsum[s]);
+                    for (int d = 0; d < 6; ++d) st[static_cast<std::size_t>(d)] += a[static_cast<std::size_t>(d)];
+                }
         }
         // the kinetic energy and the projectors of the bands
         std::array<double, 6> of_bands{};
@@ -800,7 +909,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (!mine(s, k)) continue;
                 const std::size_t row = (s * nk + k) * bands;
                 for (std::size_t b = 0; b < bands; ++b) w[b] = weights[s * nk + k] * f_max * result.occupations[row + b];
-                if (ultrasoft) h.set_strengths(strengths[s]);
+                if (ultrasoft || hubbard) h.set_strengths(strengths[s]);
                 h.strain_derivative(psi[s * nk + k].data(), nb, w.data(), of_bands, eigenvalues.data() + row);
             }
         }
@@ -824,10 +933,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         state->density_miller = pot.sphere().miller;
         state->density = out_g;
         state->atoms_density = atoms_g;
-        state->becsum = paw ? becsum : std::vector<std::vector<double>>{};
+        state->becsum = mixes_occupations ? becsum : std::vector<std::vector<double>>{};
     }
     result.onecenter = e1;
-    if (paw) result.becsum = becsum;
+    if (mixes_occupations) result.becsum = becsum;
     result.density.resize(spins * points);
     rho_out.download(result.density.data(), result.density.size());
     if (ns == 2) {

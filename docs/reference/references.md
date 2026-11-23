@@ -118,6 +118,12 @@ Manolopoulos, Efficient stochastic thermostatting of path integral molecular dyn
 [doi:10.1063/1.3489925](https://doi.org/10.1063/1.3489925)
 { #ceriotti2010 }
 
+**Cococcioni and de Gironcoli (2005).** M. Cococcioni and S. de Gironcoli,
+Linear response approach to the calculation of the effective interaction
+parameters in the LDA+U method, *Phys. Rev. B* **71**, 035105 (2005).
+[doi:10.1103/PhysRevB.71.035105](https://doi.org/10.1103/PhysRevB.71.035105)
+{ #cococcioni2005 }
+
 **Cordero et al. (2008).** B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés,
 J. Echeverría, E. Cremades, F. Barragán and S. Alvarez, Covalent radii
 revisited, *Dalton Trans.*, 2832 (2008).
@@ -146,6 +152,12 @@ based interatomic potential for amorphous carbon, *Phys. Rev. B* **95**, 094203
 (2017).
 [doi:10.1103/PhysRevB.95.094203](https://doi.org/10.1103/PhysRevB.95.094203)
 { #deringer2017 }
+
+**Dudarev et al. (1998).** S. L. Dudarev, G. A. Botton, S. Y. Savrasov, C. J.
+Humphreys and A. P. Sutton, Electron-energy-loss spectra and the structural
+stability of nickel oxide: An LSDA+U study, *Phys. Rev. B* **57**, 1505 (1998).
+[doi:10.1103/PhysRevB.57.1505](https://doi.org/10.1103/PhysRevB.57.1505)
+{ #dudarev1998 }
 
 **Edelsbrunner and Mücke (1994).** H. Edelsbrunner and E. P. Mücke,
 Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).

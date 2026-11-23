@@ -626,7 +626,7 @@ NB_MODULE(_dft, m) {
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
-           bool gamma, nb::object pools) {
+           bool gamma, nb::object pools, nb::object hubbard) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             if (!pools.is_none()) {
@@ -717,8 +717,16 @@ NB_MODULE(_dft, m) {
                     in.symmetry.harmonics.emplace_back(hm.data() + k * hm.shape(1), hm.data() + (k + 1) * hm.shape(1));
                 }
             }
-            if (!onecenter.is_none() || !paw.is_none()) {
-                if (becsum.is_none()) throw std::invalid_argument("PAW needs the first occupations becsum");
+            if (!hubbard.is_none()) {
+                // DFT+U: (function, U in hartree) of each species, -1 for none
+                for (nb::handle item : nb::cast<nb::list>(hubbard)) {
+                    nb::tuple pair = nb::cast<nb::tuple>(item);
+                    in.hubbard_function.push_back(nb::cast<int>(pair[0]));
+                    in.hubbard_u.push_back(nb::cast<double>(pair[1]));
+                }
+            }
+            if (!onecenter.is_none() || !paw.is_none() || !hubbard.is_none()) {
+                if (becsum.is_none()) throw std::invalid_argument("PAW and DFT+U need the first occupations becsum");
                 in.becsum = spins_of(nb::cast<Rows>(becsum));
             }
             if (!onecenter.is_none()) {
@@ -825,6 +833,7 @@ NB_MODULE(_dft, m) {
                 std::vector<double> flat;
                 for (const auto& x : r.becsum) flat.insert(flat.end(), x.begin(), x.end());
                 out["onecenter"] = r.onecenter;
+                out["hubbard_energy"] = r.hubbard;
                 out["becsum"] = array_of(flat, {r.becsum.size(), r.becsum[0].size()});
             }
             if (r.has_strain) {
@@ -849,7 +858,7 @@ NB_MODULE(_dft, m) {
         nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
         nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none(),
         nb::arg("orbitals").none() = nb::none(), nb::arg("symmetry").none() = nb::none(),
-        nb::arg("gamma") = false, nb::arg("pools").none() = nb::none());
+        nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

@@ -126,6 +126,71 @@ def radial_parts(cell, positions, kinds, pseudos, miller, magmoms=None):
     return local, core, atom, moment
 
 
+def _hubbard_blocks(kinds, angular, hubbard_of):
+    """Of each atom where its packed pairs start, its width, and for a
+    Hubbard atom where its orbital starts among its functions and its l."""
+    rows, start = [], 0
+    for s in kinds:
+        width = sum(2 * ell + 1 for ell in angular[s])
+        function = hubbard_of[s][0]
+        first = (
+            sum(2 * ell + 1 for ell in angular[s][:function]) if function >= 0 else -1
+        )
+        rows.append(
+            (start, width, first, angular[s][function] if function >= 0 else -1)
+        )
+        start += width * (width + 1) // 2
+    return rows, start
+
+
+def _pair(width, a, b):
+    """The index of the pair a <= b among the packed pairs of a block."""
+    a, b = min(a, b), max(a, b)
+    return a * width - a * (a - 1) // 2 + b - a
+
+
+def _hubbard_start(kinds, angular, hubbard_of, electrons, spins, magmoms):
+    """The first occupations (spins, pairs) as Quantum ESPRESSO starts them,
+    of the electrons of each Hubbard orbital: with a moment the orbitals of
+    the majority spin filled first, one electron each, the rest spread over
+    the minority; without, spread over both."""
+    rows, pairs = _hubbard_blocks(kinds, angular, hubbard_of)
+    becsum = np.zeros((spins, pairs))
+    for i, (s, (start, width, first, ell)) in enumerate(zip(kinds, rows)):
+        if first < 0:
+            continue
+        total, d = electrons[s], 2 * ell + 1
+        moment = 0.0 if magmoms is None else float(magmoms[i])
+        for m in range(first, first + d):
+            k = start + _pair(width, m, m)
+            if spins == 1:
+                becsum[0, k] = total / d
+            elif moment == 0.0:
+                becsum[:, k] = total / 2 / d
+            else:
+                major, minor = (0, 1) if moment > 0 else (1, 0)
+                becsum[major, k] = min(1.0, total / d)
+                becsum[minor, k] = max(0.0, (total - d) / d)
+    return becsum
+
+
+def _hubbard_occupations(becsum, kinds, angular, hubbard_of, spins):
+    """n (spins, 2l + 1, 2l + 1) of each Hubbard atom, a spin channel each."""
+    rows, _ = _hubbard_blocks(kinds, angular, hubbard_of)
+    out = []
+    for start, width, first, ell in rows:
+        if first < 0:
+            continue
+        d = 2 * ell + 1
+        n = np.zeros((spins, d, d))
+        for x in range(d):
+            for y in range(d):
+                k = start + _pair(width, first + x, first + y)
+                n[:, x, y] = becsum[:, k] * (1.0 if x == y else 0.5)
+        out.append(n / (2.0 if spins == 1 else 1.0))
+    return out
+
+
 def run(
     cell,
     positions,
@@ -164,6 +229,7 @@ def run(
     symmetry: bool | None = None,
     gamma: bool | None = None,
     comm=None,
+    hubbard=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -195,7 +261,13 @@ def run(
     result says which as gamma. With comm, an mpi4py communicator of several
     processes (each on its own GPU, chosen before), the pairs of spin and
     k-point are shared among them as pools, every process taking part with
-    the same arguments; each gets the whole result."""
+    the same arguments; each gets the whole result. With hubbard, a mapping of
+    species (indices of pseudos, norm-conserving) to the label of one of
+    their pseudo-orbitals and U in hartree, DFT+U of Dudarev on those
+    orbitals as Quantum ESPRESSO's atomic projectors, started from its
+    occupations; the result then holds hubbard_energy and
+    hubbard_occupations, n of each Hubbard atom (spins, 2l + 1, 2l + 1) in
+    the order of the atoms."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -260,6 +332,34 @@ def run(
     ]
     angular = [[p.angular for p in pp.projectors] for pp in pseudos]
     dij = [np.ascontiguousarray(pp.dij, dtype=float) for pp in pseudos]
+    hubbard_of = hubbard_electrons = None
+    if hubbard:
+        # the pseudo-orbital of each Hubbard species as one more projector
+        # function of D = 0, whose strengths the field fills with v = U (1/2 - n)
+        hubbard_of = [(-1, 0.0)] * len(pseudos)
+        hubbard_electrons = [0.0] * len(pseudos)
+        for s, (label, u) in hubbard.items():
+            pp = pseudos[s]
+            if pp.ultrasoft:
+                raise ValueError(
+                    "DFT+U takes norm-conserving pseudopotentials only, for now"
+                )
+            found = [
+                i
+                for i, o in enumerate(pp.orbitals)
+                if o.label.lower() == str(label).lower()
+            ]
+            if len(found) != 1:
+                labels = [o.label for o in pp.orbitals]
+                raise ValueError(f"no single pseudo-orbital {label} among {labels}")
+            table = radial.orbital_table(pp, qmax, volume)[found[0]]
+            tables[s] = np.ascontiguousarray(np.vstack([tables[s], table]))
+            angular[s] = angular[s] + [pp.orbitals[found[0]].angular]
+            grown = np.zeros((len(angular[s]), len(angular[s])))
+            grown[:-1, :-1] = dij[s]
+            dij[s] = grown
+            hubbard_of[s] = (len(angular[s]) - 1, float(u))
+            hubbard_electrons[s] = float(pp.orbitals[found[0]].occupation)
     charges = np.array([pseudos[s].valence for s in kinds])
     e_ewald, f_ewald, s_ewald = _dft.ewald(
         cell,
@@ -299,6 +399,14 @@ def run(
         becsum, callback, data = _paw(
             pseudos, kinds, paw_atoms, spins, magmoms, name, onecenter
         )
+    if hubbard_of is not None:
+        if paw_atoms:
+            raise ValueError(
+                "DFT+U takes norm-conserving pseudopotentials only, for now"
+            )
+        becsum = _hubbard_start(
+            kinds, angular, hubbard_of, hubbard_electrons, spins, magmoms
+        )
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
@@ -313,7 +421,14 @@ def run(
         None if smooth_grid == grid else list(smooth_grid), callback, becsum,
         data if callback is None else None, orbitals if atomic_start else None,
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
+        hubbard_of,
     )  # fmt: skip
+    if hubbard_of is not None:
+        result["hubbard_occupations"] = _hubbard_occupations(
+            result["becsum"], kinds, angular, hubbard_of, spins
+        )
+    else:  # the occupations of PAW come with it
+        result.pop("hubbard_energy", None)
     if spins == 1:
         for key in ("eigenvalues", "occupations", "density"):
             result[key] = result[key][0]

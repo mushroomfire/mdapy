@@ -87,6 +87,14 @@ class DFT(Calculator):
     magmoms : mapping or sequence of float64, optional
         The first magnetic moments in Bohr magnetons, by element or one per
         atom; with them the spins are collinear. Default none: no spin.
+    hubbard : mapping of str to (str, float64), optional
+        DFT+U of Dudarev: for an element the label of one of the
+        pseudo-orbitals of its file (such as ``"3d"``) and U in eV, on
+        Quantum ESPRESSO's atomic projectors (the pseudo-orbitals, neither
+        orthogonalized nor normalized). U belongs to its projectors: values
+        fitted with those of other codes, such as the spheres of VASP's PAW,
+        do not carry over. Norm-conserving pseudopotentials only. Default
+        none.
     functional : str, optional
         ``"pbe"``, ``"pbe_pw"`` (PBE on the PW92 correlation of the paper, as
         Quantum ESPRESSO's PBE), ``"pbesol"``, ``"pbesol_pw"`` (likewise),
@@ -150,11 +158,13 @@ class DFT(Calculator):
         iterations of the eigensolver over all steps, k-points and spins),
         ``restarted`` (from the one before), ``fermi`` (eV),
         ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
-        spin), ``net_force`` (eV/Å, taken out of the forces), ``kpoints``
-        (the mesh), ``grid`` (the FFT grid) and ``provenance``: what makes
-        the labels of a set comparable, the SHA-256 of each pseudopotential,
-        the cutoff, the mesh, the smearing and its width, the functional, the
-        spins, the grid and the bands.
+        spin), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
+        (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
+        2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
+        of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid) and
+        ``provenance``: what makes the labels of a set comparable, the SHA-256
+        of each pseudopotential, the cutoff, the mesh, the smearing and its
+        width, the functional, the spins, the grid, the bands and U.
 
     Notes
     -----
@@ -180,6 +190,7 @@ class DFT(Calculator):
         smearing: str = "gaussian",
         sigma: float = 0.1,
         magmoms: Mapping[str, float] | Sequence[float] | None = None,
+        hubbard: Mapping[str, tuple[str, float]] | None = None,
         functional: str | None = None,
         tolerance: float = 1e-6,
         max_iterations: int = 100,
@@ -245,6 +256,18 @@ class DFT(Calculator):
         self.smearing = smearing
         self.sigma = float(sigma)
         self.magmoms = magmoms
+        self.hubbard = {}
+        for element, value in (hubbard or {}).items():
+            if not (
+                isinstance(value, (tuple, list))
+                and len(value) == 2
+                and isinstance(value[0], str)
+                and float(value[1]) >= 0
+            ):
+                raise InvalidParameter(
+                    "hubbard maps an element to the label of a pseudo-orbital and U >= 0 in eV"
+                )
+            self.hubbard[str(element)] = (value[0], float(value[1]))
         self.functional = functional
         self.tolerance = float(tolerance)
         self.symmetry = symmetry
@@ -401,6 +424,8 @@ class DFT(Calculator):
             density_tolerance=self.tolerance / HARTREE,
             max_iterations=self.max_iterations, seed=self.seed,
             functional=self.functional, magmoms=moments,
+            hubbard={species.index(e): (label, u / HARTREE)
+                     for e, (label, u) in self.hubbard.items() if e in species} or None,
             stress=stress, state=self.__restart_state(),
             symmetry=self.symmetry, comm=self.comm,
         )  # fmt: skip
@@ -434,8 +459,12 @@ class DFT(Calculator):
                 "spins": int(r["spins"]),
                 "grid": tuple(r["grid"]),
                 "bands": int(r["bands"]),
+                "hubbard": dict(self.hubbard),
             },
         }
+        if "hubbard_energy" in r:
+            self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE
+            self.last["hubbard_occupations"] = r["hubbard_occupations"]
         if r["spins"] == 2:
             self.last["magnetization"] = float(r["magnetization"])
             self.last["absolute_magnetization"] = float(r["absolute_magnetization"])

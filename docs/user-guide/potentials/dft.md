@@ -32,7 +32,7 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 ```
 
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
-smearing="gaussian", sigma=0.1, magmoms=None, functional=None, tolerance=1e-6,
+smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, bands=None, seed=0,
 gpu=None, restart=False, symmetry=None, comm=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
@@ -51,6 +51,7 @@ CUDA 12 for GPUs from the V100 on.
 | `smearing` | str | `"gaussian"` | | `"gaussian"`, `"fermi-dirac"`, `"methfessel-paxton"` (first order), `"marzari-vanderbilt"`, or `"fixed"` for insulators |
 | `sigma` | float64 | 0.1 | eV | the width of the smearing |
 | `magmoms` | mapping or (N,) float64 | `None` | Bohr magneton | the first magnetic moments, by element or one per atom; with them the spins are collinear |
+| `hubbard` | mapping of str to (str, float64) | `None` | eV | DFT+U: for an element the label of one of its pseudo-orbitals, such as `"3d"`, and U |
 | `functional` | str | that of the pseudopotentials, as Quantum ESPRESSO takes it | | `"pbe"`, `"pbe_pw"`, `"pbesol"`, `"pbesol_pw"`, `"lda_pw"` or `"lda_pw_mod"` |
 | `tolerance` | float64 | 1e-6 | eV | the self-consistent field stops when the energy changes by less and the Hartree energy of the change of the density is below it |
 | `max_iterations` | int32 | 100 | | the steps of the self-consistent field before it fails |
@@ -152,6 +153,17 @@ if MPI.COMM_WORLD.Get_rank() == 0:
   are PBEsol likewise; a PBEsol run may take PBE
   pseudopotentials, as Quantum ESPRESSO's `input_dft` does, but PBEsol ones
   are better.
+- **DFT+U** of [Dudarev et al. (1998)](../../reference/references.md#dudarev1998):
+  E_U = Σ (U/2) Tr[n(1 − n)] over the Hubbard atoms and spins, n the
+  occupations of the pseudo-orbital named in `hubbard` on Quantum ESPRESSO's
+  atomic projectors, the pseudo-orbitals as they are, neither orthogonalized
+  nor normalized ([Cococcioni and de Gironcoli 2005](../../reference/references.md#cococcioni2005)).
+  The occupations start as Quantum ESPRESSO starts them, the majority spin
+  filled first, and are mixed with the density; the forces and the stress
+  include them. U belongs to its projectors: values fitted with those of
+  other codes, such as the spheres of VASP's PAW or the orthogonalized
+  orbitals of Quantum ESPRESSO's linear response, do not carry over.
+  Norm-conserving pseudopotentials only, for now.
 - **The self-consistent field:** the bands by block Davidson, from the
   pseudo-orbitals of the free atoms at the start, the density mixed
   by Pulay's method in the metric of Kresse and Furthmüller with Kerker's
@@ -179,7 +191,8 @@ The constructor raises `InvalidParameter` for a cutoff, width, tolerance or
 mesh that is not positive, an unknown smearing, or a folder that does not
 exist. `compute` raises `InvalidParameter` for a box that is not periodic
 along a, b and c, an element without a pseudopotential, or a moment for each
-atom of the wrong number; `MissingProperty` without an `element` column;
+atom of the wrong number; `ValueError` for a Hubbard orbital that is not in
+the file or a Hubbard element with an ultrasoft or PAW pseudopotential; `MissingProperty` without an `element` column;
 and [`CalculationFailed`](../../reference/api/utilities.md#mdapy.errors.CalculationFailed)
 when the self-consistent field does not converge, with its last energies.
 
@@ -217,6 +230,15 @@ for), in the occupied eigenvalues to 1e-7 hartree, in the forces to 1e-7
 hartree/bohr, in the stress to 0.01 kbar and, iron, in the magnetization to
 1e-6 Bohr magneton.
 
+With DFT+U against Quantum ESPRESSO's `HUBBARD (atomic)`, antiferromagnetic NiO
+of four displaced atoms with U = 6 eV on the 3d of nickel, and two displaced
+atoms of copper without spin with U = 4 eV, agree in the energy to 1e-8 hartree
+per atom (NiO once the rounded constant is allowed for), in the Hubbard energy
+to the 8 digits Quantum ESPRESSO prints, in the traces of the occupations to
+1e-5, in the forces to 1e-6 hartree/bohr, in the stress to 0.003 kbar, in the
+occupied eigenvalues to 1e-6 hartree and, NiO, in the magnetization to 1e-6
+Bohr magneton.
+
 What differs is Quantum ESPRESSO's own:
 
 - Its Ewald sum is converged to about 1e-7 Ry.
@@ -224,8 +246,6 @@ What differs is Quantum ESPRESSO's own:
   paramagnetic one takes (1 − ln 2)/π². This moves the energy of iron by 1e-6
   hartree, and with PAW by 4e-6 more through the one-center densities. A NumPy
   evaluation of the difference on MDAPY's densities accounts for it to 1e-8.
-- With FFTW its grids take the factors 2, 3 and 5 only; the comparisons use its
-  grid.
 
 The forces also agree with differences of the energy of displaced atoms, to 1e-7
 hartree/bohr. The stress agrees with differences of strained cells whose plane

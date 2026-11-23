@@ -9,7 +9,11 @@ most 0.25 1/Å between k-points, a tolerance of 1e-6 eV, at most 100 steps,
 its mixing), against Quantum ESPRESSO's pw.x with its own defaults (Broyden
 mixing of 0.7, at most 100 steps) on the same cells, pseudopotentials,
 cutoffs, k-points, smearing, bands and starting moments, and with its local
-Thomas-Fermi mixing of 0.3 where its defaults fail. Eight groups: magnetic
+Thomas-Fermi mixing of 0.3 where its defaults fail. The energies, forces and
+stresses are compared with pw.x converged to 1e-11 Ry (label qe-tight, mixing
+of 0.3, local-TF where plain fails) where it was run, else with its default
+run: at its default threshold pw.x stops early on magnetic iron, 5e-4 Ry from
+its converged energy. Eight groups: magnetic
 crystals (ferromagnetic, antiferromagnetic, PAW and ultrasoft), random
 packings at the density of the liquid, slabs, molecules in a box, vacancies
 and interstitials, compressed, stretched and sheared cells, ionic crystals,
@@ -545,14 +549,17 @@ def report(folder: Path) -> None:
         )
         print("|---|---:|---|---:|---:|---:|---:|---:|---:|")
         for c in mine:
-            ours, qe, tf = (
-                results.get((c["name"], label)) for label in ("mdapy", "qe", "qe-tf")
+            ours, qe, tf, tight = (
+                results.get((c["name"], label))
+                for label in ("mdapy", "qe", "qe-tf", "qe-tight")
             )
             for key, r in (("mdapy", ours), ("qe", qe), ("qe-tf", tf)):
                 if r is not None:
                     totals[key][0] += r["converged"]
                     totals[key][1] += 1
             reference = qe if qe and qe["converged"] else tf
+            if tight and tight["converged"]:
+                reference = tight
             de = df = ds = ""
             if ours and ours["converged"] and reference and reference["converged"]:
                 de = f"{(ours['energy_ev'] - reference['energy_ev']) / len(c['symbols']) * 1e3:.3f}"

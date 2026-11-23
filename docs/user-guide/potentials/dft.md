@@ -226,6 +226,32 @@ the file or a Hubbard element with an ultrasoft or PAW pseudopotential; `Missing
 and [`CalculationFailed`](../../reference/api/utilities.md#mdapy.errors.CalculationFailed)
 when the self-consistent field does not converge, with its last energies.
 
+## When the self-consistent field does not converge
+
+The defaults suit bulk cells. Cells of metal and vacuum, surfaces, vacancies,
+and magnetic alloys converge better with the preconditioner of the local density
+of states, which screens the metal and not the vacuum, and keeps the moments of a
+magnet from wandering among nearby orders or falling to none:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.errors import CalculationFailed
+
+dft = DFT(600.0, magmoms={"Cr": -1.0, "Co": 1.5, "Ni": 0.6}, preconditioner="ldos")
+try:
+    result = dft.compute(cell, ("energy", "forces", "virial"))
+except CalculationFailed:  # slower still: a smaller share of the residual, more steps
+    dft = DFT(600.0, magmoms={"Cr": -1.0, "Co": 1.5, "Ni": 0.6}, preconditioner="ldos",
+              mixing=0.2, max_iterations=200)  # fmt: skip
+    result = dft.compute(cell, ("energy", "forces", "virial"))
+print(dft.last["iterations"], dft.last["magnetization"])
+```
+
+A magnet can converge to more than one state from different first moments:
+compare `last["magnetization"]` and `last["absolute_magnetization"]` across the
+labels of a set, and start them alike.
+
 ## How the results compare with Quantum ESPRESSO
 
 Its [speed against Quantum ESPRESSO](../../performance/dft.md) on GPUs and processors is on

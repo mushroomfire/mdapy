@@ -94,6 +94,22 @@ step, and the free energy against that of MDAPY on the H100.
   another 0.1 meV per atom for this PAW iron. With `"pbe"`, the constants of libxc,
   MDAPY's energies would move by 0.01 to 0.25 meV per atom.
 
+## On several GPUs
+
+With `comm`, the processes of one configuration share its pairs of spin and k-point,
+one GPU each ([Many GPUs](../user-guide/potentials/dft.md#many-gpus)). On a node of four
+NVIDIA Tesla V100-PCIE-32GB, the processes started by the `mpiexec` of MPICH 5.0.2 from
+PyPI:
+
+| Case | Pairs of spin and k-point | 1 GPU (s) | 2 GPUs (s) | 4 GPUs (s) | Speedup on 4 |
+|---|---:|---:|---:|---:|---:|
+| W54 | 8 | 155.3 | 81.4 | 43.8 | 3.5 |
+| Fe54 | 16 | 548.8 | 295.8 | 171.4 | 3.2 |
+
+The energies are the same to the last digit printed, 1e-6 eV. What the processes do not
+share, the density on the grid, the mixing and, for PAW, the one-center terms of every
+atom, every process does in full; it takes the rest of the time.
+
 ## How it was measured
 
 - The cells are perfect crystals, 2 × 2 × 2 and 3 × 3 × 3 cubic cells of silicon
@@ -128,4 +144,10 @@ cd perf/qe && mpirun -np 1 pw.x -in Fe54-tf.in > Fe54-tf-a100.out && cd ../..
 python benchmarks/dft_performance.py qe perf Fe54 perf/qe/Fe54-tf-a100.out qe-a100
 python benchmarks/dft_performance.py report perf
 python benchmarks/dft_performance.py figure perf dft.png "qe-a100=QE, A100" "a100=MDAPY, A100"
+```
+
+On several GPUs, one process each:
+
+```bash
+mpiexec -n 4 python benchmarks/dft_performance.py mdapy perf Fe54 v100-x4 --mpi
 ```

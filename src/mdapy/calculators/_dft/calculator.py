@@ -141,6 +141,11 @@ class DFT(Calculator):
         Use the symmetry of the crystal, found by spglib, to keep the
         irreducible k-points alone and make the density, the forces and the
         stress symmetric. Default None: when spglib is installed.
+    precision : str, optional
+        ``"double"``, or ``"mixed"``: the first steps of the self-consistent
+        field in single precision, the last in double, for GPUs of little
+        double precision; the label is that of double precision. Cells of
+        Gamma alone stay in double. Default ``"double"``.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -161,7 +166,8 @@ class DFT(Calculator):
         spin), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
-        of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid) and
+        of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
+        ``single_steps`` (the steps in single precision) and
         ``provenance``: what makes the labels of a set comparable, the SHA-256
         of each pseudopotential, the cutoff, the mesh, the smearing and its
         width, the functional, the spins, the grid, the bands and U.
@@ -202,6 +208,7 @@ class DFT(Calculator):
         gpu: int | None = None,
         restart: bool = False,
         symmetry: bool | None = None,
+        precision: str = "double",
         comm: Any = None,
     ):
         if not encut > 0:
@@ -271,6 +278,9 @@ class DFT(Calculator):
         self.functional = functional
         self.tolerance = float(tolerance)
         self.symmetry = symmetry
+        if precision not in ("double", "mixed"):
+            raise InvalidParameter("precision must be 'double' or 'mixed'")
+        self.precision = precision
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
@@ -427,7 +437,7 @@ class DFT(Calculator):
             hubbard={species.index(e): (label, u / HARTREE)
                      for e, (label, u) in self.hubbard.items() if e in species} or None,
             stress=stress, state=self.__restart_state(),
-            symmetry=self.symmetry, comm=self.comm,
+            symmetry=self.symmetry, comm=self.comm, precision=self.precision,
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])
@@ -461,6 +471,7 @@ class DFT(Calculator):
                 "bands": int(r["bands"]),
                 "hubbard": dict(self.hubbard),
             },
+            "single_steps": int(np.sum(r.get("single", 0))),
         }
         if "hubbard_energy" in r:
             self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE

@@ -269,3 +269,24 @@ def test_paw_and_its_restart(folder):
     assert steps <= fresh.last["iterations"]
     assert warm.energy == pytest.approx(cold.energy, abs=1e-6)
     np.testing.assert_allclose(warm.forces, cold.forces, atol=1e-5)
+
+
+def test_mixed_precision_gives_the_label_of_double():
+    """DFT(precision="mixed"): the energy and the forces of double precision,
+    some steps in single; a precision unknown is refused."""
+    a = 4.05
+    cell = np.diag([a, a, a])
+    fractions = np.array([[0.01, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
+    system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
+    pp = {"Al": espresso.pseudo("Al_std.upf")}
+    common = dict(pseudopotentials=pp, kpoints=(3, 3, 3), smearing="marzari-vanderbilt", sigma=0.2,
+                  tolerance=1e-8, symmetry=False)  # fmt: skip
+    double = DFT(300.0, **common)
+    mixed = DFT(300.0, precision="mixed", **common)
+    first = double.compute(system, ("energy", "forces"))
+    second = mixed.compute(system, ("energy", "forces"))
+    assert mixed.last["single_steps"] > 0 and double.last["single_steps"] == 0
+    assert second.energy == pytest.approx(first.energy, abs=1e-6)
+    np.testing.assert_allclose(second.forces, first.forces, atol=1e-5)
+    with pytest.raises(InvalidParameter, match="precision"):
+        DFT(300.0, precision="half", **common)

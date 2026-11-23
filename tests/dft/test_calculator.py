@@ -123,6 +123,31 @@ def test_spin(folder):
     assert "magnetization" not in plain.last and plain.last["iterations"] > 1
 
 
+def test_the_mixing_with_and_without_spin(folder, monkeypatch):
+    """The density mixed by 0.7 without spin, as Quantum ESPRESSO, by 0.4 with
+    it, the magnetization by 1.0; a mixing given is kept."""
+    seen = []
+
+    class Seen(Exception):
+        pass
+
+    def spy(*args, **options):
+        seen.append((options["beta"], options["magnetic_beta"]))
+        raise Seen
+
+    monkeypatch.setattr(scf, "run", spy)
+    for options in (
+        {},
+        {"magmoms": {"Si": 1.0}},
+        {"magmoms": [1.0, 0.0], "mixing": 0.2},
+    ):
+        with pytest.raises(Seen):
+            calculator(folder, **options).compute(silicon())
+    assert seen == [(0.7, 1.0), (0.4, 1.0), (0.2, 1.0)]
+    with pytest.raises(InvalidParameter, match="0 < mixing <= 1"):
+        calculator(folder, mixing=1.5)
+
+
 def test_errors(folder, tmp_path):
     with pytest.raises(InvalidParameter, match="encut must be positive"):
         DFT(0.0, pseudopotentials=folder)

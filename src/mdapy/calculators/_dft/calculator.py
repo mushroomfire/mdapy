@@ -101,11 +101,15 @@ class DFT(Calculator):
         The steps of the self-consistent field before it fails. Default 100.
     mixing : float64, optional
         The share of the residual of the density taken at each step. Default
-        0.7.
+        0.7 without spin, as Quantum ESPRESSO, and 0.4 with it: of the
+        magnetic cells of the robustness study, iron packed at random as a
+        liquid converges in 69 steps where 0.7 does not in 100, iron with a
+        vacancy in 23 against 45.
     magnetic_mixing : float64, optional
         With spin, the share of the residual of the magnetization taken at
-        each step, as VASP's AMIX_MAG. Default 1.6: 16 atoms of iron converge
-        in 27 steps, against 62 with 0.4.
+        each step, as VASP's AMIX_MAG. Default 1.0: 1.6 overshoots, and fcc
+        nickel of GBRV started at 0.6 Bohr magnetons ends without moment, 0.3
+        eV above its ferromagnetic state.
     kerker : float64, optional
         The wave vector of Kerker's preconditioner of the mixing in 1/Å, 0
         for none. Default 1.5: 32 atoms of aluminium converge in half the
@@ -179,8 +183,8 @@ class DFT(Calculator):
         functional: str | None = None,
         tolerance: float = 1e-6,
         max_iterations: int = 100,
-        mixing: float = 0.7,
-        magnetic_mixing: float = 1.6,
+        mixing: float | None = None,
+        magnetic_mixing: float = 1.0,
         kerker: float = 1.5,
         bands: int | None = None,
         seed: int = 0,
@@ -195,7 +199,12 @@ class DFT(Calculator):
             raise InvalidParameter(f"smearing must be one of {list(_SMEARINGS)}")
         if smearing != "fixed" and not sigma > 0:
             raise InvalidParameter("sigma must be positive")
-        if not tolerance > 0 or max_iterations < 1 or not 0 < mixing <= 1 or kerker < 0:
+        if (
+            not tolerance > 0
+            or max_iterations < 1
+            or not (mixing is None or 0 < mixing <= 1)
+            or kerker < 0
+        ):
             raise InvalidParameter(
                 "tolerance > 0, max_iterations >= 1, 0 < mixing <= 1 and kerker >= 0"
             )
@@ -240,7 +249,7 @@ class DFT(Calculator):
         self.tolerance = float(tolerance)
         self.symmetry = symmetry
         self.max_iterations = int(max_iterations)
-        self.mixing = float(mixing)
+        self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
         if not magnetic_mixing > 0:
             raise InvalidParameter("magnetic_mixing must be positive")
@@ -378,16 +387,20 @@ class DFT(Calculator):
         cell = system.box.matrix
         fractional = system.box.to_fractional(system["positions"]) % 1.0
         mesh = self.__mesh(cell)
+        moments = self.__moments(elements)
+        mixing = self.mixing
+        if mixing is None:
+            mixing = 0.7 if moments is None else 0.4
         r = scf.run(
             cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE,
             density_cutoff=None if self.ecutrho is None else self.ecutrho / HARTREE,
             kgrid=mesh, smearing=self.smearing, sigma=self.sigma / HARTREE,
-            bands=self.bands, beta=self.mixing, kerker=self.kerker * BOHR,
+            bands=self.bands, beta=mixing, kerker=self.kerker * BOHR,
             magnetic_beta=self.magnetic_mixing,
             energy_tolerance=self.tolerance / HARTREE,
             density_tolerance=self.tolerance / HARTREE,
             max_iterations=self.max_iterations, seed=self.seed,
-            functional=self.functional, magmoms=self.__moments(elements),
+            functional=self.functional, magmoms=moments,
             stress=stress, state=self.__restart_state(),
             symmetry=self.symmetry, comm=self.comm,
         )  # fmt: skip

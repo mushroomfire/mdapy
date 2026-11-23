@@ -182,3 +182,23 @@ def test_adaptive_damping_against_charge_sloshing():
     assert reference["converged"] and sloshing["converged"]
     assert sloshing["energy"] == pytest.approx(reference["energy"], abs=1e-8)
     assert min(sloshing["dampings"]) < 1.0 and not all(sloshing["accepted"])
+
+
+def test_a_pass_on_the_bands_held():
+    """A non-self-consistent pass at the potential of a coarse density solves
+    the empty bands loosely with first_held: the same energy, fewer
+    iterations of Davidson."""
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    cell = fcc(4.04) @ np.diag([1.02, 1.0, 0.98])
+    args = (cell, [[0, 0, 0]], [0], [pp], 12.0)
+    common = dict(smearing="marzari-vanderbilt", sigma=0.01, functional="pbe_pw",
+                  symmetry=False, bands=8)  # fmt: skip
+    coarse = scf.run(*args, kgrid=(4, 4, 4), density_tolerance=1e-12, **common)
+    held = int((coarse["occupations"] > 1e-10).sum(axis=-1).max()) + 1
+    assert held < 8
+    passes = [scf.run(*args, kgrid=(8, 8, 8), start_density=coarse["density"], max_iterations=1,
+                      first_tolerance=1e-5, first_held=h, **common) for h in (0, held)]  # fmt: skip
+    assert passes[1]["energies"][0] == pytest.approx(passes[0]["energies"][0], abs=1e-8)
+    assert passes[1]["davidson"][0] < passes[0]["davidson"][0]
+    with pytest.raises(ValueError, match="first_held"):
+        scf.run(*args, kgrid=(2, 2, 2), first_held=-1, **common)

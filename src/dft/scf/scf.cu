@@ -554,6 +554,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
     std::vector<double> held;
+    // before them, the bands that may hold electrons (all by default)
+    const std::size_t first_held = static_cast<std::size_t>(std::max(options.first_held, 0));
     std::vector<double> limits(bands);
     // the pairs (s, k) of this pool, and the host threads that take them side
     // by side: small cells of many k-points, whose bands alone leave the GPU
@@ -662,7 +664,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (ultrasoft || hubbard) wk.h.set_strengths(strengths[s]);
                 const double loose = std::max(tolerance, 1e-2);
                 for (std::size_t b = 0; b < bands; ++b) {
-                    const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
+                    const double f = held.empty() ? (first_held > 0 && b >= first_held ? 0.0 : 1.0)
+                                                   : std::abs(held[(s * nk + k) * bands + b]);
                     wk.limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
                 }
                 const std::size_t row = s * nk + k;
@@ -711,7 +714,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (ultrasoft || hubbard) h.set_strengths(strengths[s]);
                 const double loose = std::max(tolerance, 1e-2);
                 for (std::size_t b = 0; b < bands; ++b) {
-                    const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
+                    const double f = held.empty() ? (first_held > 0 && b >= first_held ? 0.0 : 1.0)
+                                                   : std::abs(held[(s * nk + k) * bands + b]);
                     limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
                 }
                 if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);

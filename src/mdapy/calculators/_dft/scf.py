@@ -236,6 +236,7 @@ def run(
     conditioning: float = 1e6,
     output_energies: bool = False,
     adaptive_damping: bool = False,
+    first_held: int = 0,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -279,7 +280,9 @@ def run(
     density on grid (as the result's, (2, n1, n2, n3) with spin), replaces the
     superposition of the free atoms as the first input density; with
     first_tolerance (hartree) the bands of the first step are solved to that
-    residual norm, as a non-self-consistent pass at its potential needs.
+    residual norm, as a non-self-consistent pass at its potential needs, and
+    with first_held only the first first_held bands of each k-point, those
+    that may hold electrons; the others to the loose tolerance of empty bands.
     conditioning bounds the condition number of the residual differences
     that Pulay's mixing combines: directions of smaller singular values are
     dropped. With output_energies the result holds output_energies, the
@@ -456,7 +459,7 @@ def run(
         data if callback is None else None, orbitals if atomic_start else None,
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
-        bool(output_energies), bool(adaptive_damping),
+        bool(output_energies), bool(adaptive_damping), int(first_held),
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

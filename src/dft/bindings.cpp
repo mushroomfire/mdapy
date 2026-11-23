@@ -630,7 +630,7 @@ NB_MODULE(_dft, m) {
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
-           double conditioning, bool output_energies, bool adaptive_damping) {
+           double conditioning, bool output_energies, bool adaptive_damping, int first_held) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             if (!pools.is_none()) {
@@ -775,6 +775,7 @@ NB_MODULE(_dft, m) {
             opt.mixing.conditioning = conditioning;
             opt.output_energies = output_energies;
             opt.adaptive_damping = adaptive_damping;
+            opt.first_held = first_held;
             opt.energy_tolerance = energy_tolerance;
             opt.density_tolerance = density_tolerance;
             opt.max_iterations = max_iterations;
@@ -783,6 +784,7 @@ NB_MODULE(_dft, m) {
             if (kpoint_threads < 0) throw std::invalid_argument("kpoint_threads must be 0 or more");
             opt.kpoint_threads = kpoint_threads;
             if (first_tolerance < 0.0) throw std::invalid_argument("first_tolerance must be 0 or more");
+            if (first_held < 0) throw std::invalid_argument("first_held must be 0 or more");
             opt.first_tolerance = first_tolerance;
             opt.seed = seed;
             mdapy::dft::ScfState* kept = state.is_none() ? nullptr : nb::cast<mdapy::dft::ScfState*>(state);
@@ -881,7 +883,7 @@ NB_MODULE(_dft, m) {
         nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none(),
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
-        nb::arg("adaptive_damping") = false);
+        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0);
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

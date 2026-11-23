@@ -133,6 +133,9 @@ struct ScfOptions {
     // or 1e-4 from the bands of the last run (a non-self-consistent pass at
     // the potential of a given density takes it tight)
     double first_tolerance = 0.0;
+    // the bands that may hold electrons in the first step, the others solved
+    // to the loose tolerance of empty bands: 0 for all
+    int first_held = 0;
     // the free energy of the output of each step as well (ScfStep::output_energy)
     bool output_energies = false;
     // the damping of each step adapted (Herbst and Levitt): steps tried and

@@ -574,7 +574,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // is below its tolerance, has not halved in three steps, or after half
     // the steps allowed
     bool single_phase = options.mixed_precision && !input.gamma;
-    DavidsonSingle single_solver;
+    std::unique_ptr<DavidsonSingle> single_solver;  // made at its first use
     const double single_floor = 1.2e-7 * std::max(2.0 * input.cutoff, 1.0);
     std::vector<double> single_accuracies;
     // the occupations of the step before, which weight the tolerance of each
@@ -599,7 +599,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     struct Worker {
         Hamiltonian h;
         Davidson davidson;
-        DavidsonSingle single;
+        std::unique_ptr<DavidsonSingle> single;  // made at its first use
         DeviceArray<double> rho;
         std::vector<DeviceArray<double>> becsum;
         std::vector<double> values, limits, w;
@@ -724,7 +724,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     }
                 }
                 const auto r = single_phase
-                                   ? wk.single.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
+                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>()))
+                                         .solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
                                                      options.davidson_iterations, options.davidson_basis * nb)
                                    : wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
                                                        options.davidson_iterations, options.davidson_basis * nb);
@@ -752,7 +753,9 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 }
                 if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);
                 const auto r = single_phase
-                                   ? single_solver.solve(h, psi[s * nk + k].data(), nb, values, limits,
+                                   ? (single_solver ? *single_solver
+                                                    : *(single_solver = std::make_unique<DavidsonSingle>()))
+                                         .solve(h, psi[s * nk + k].data(), nb, values, limits,
                                                          options.davidson_iterations, options.davidson_basis * nb)
                                    : davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
                                                     options.davidson_iterations, options.davidson_basis * nb);

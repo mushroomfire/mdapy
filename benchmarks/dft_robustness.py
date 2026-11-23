@@ -17,7 +17,10 @@ its converged energy. Eight groups: magnetic
 crystals (ferromagnetic, antiferromagnetic, PAW and ultrasoft), random
 packings at the density of the liquid, slabs, molecules in a box, vacancies
 and interstitials, compressed, stretched and sheared cells, ionic crystals,
-and cells of aluminium from generate_structures. Every cell is displaced
+cells of aluminium from generate_structures, and equiatomic CrCoNi, a random
+fcc cell of 27 atoms with the ultrasoft files of SSSP 1.3 precision (GBRV's,
+made for 40 Ry) at 45 and 360 Ry, at five volumes from 94 % to 112 %,
+started ferromagnetic and with chromium reversed. Every cell is displaced
 from symmetry by its own construction or by a normal draw of 0.05 Å.
 
 The noise of the labels: the same cell moved rigidly by a quarter, a half and
@@ -32,7 +35,8 @@ against those at the start, and the net force the calculator takes out.
 
 prepare downloads the pseudopotentials (PseudoDojo 0.4 standard with the
 normal cutoff of its hints; pslibrary 1.0.0 PAW and ultrasoft for iron and
-nickel with the cutoffs their files suggest), builds the cells into
+nickel with the cutoffs their files suggest; the files of SSSP 1.3 precision
+for CrCoNi), builds the cells into
 FOLDER/cases/CASE.json and writes the inputs of pw.x, FOLDER/qe/CASE.in and
 CASE-tf.in; mdapy runs the cases given (all by default) on the GPU into
 FOLDER/results/CASE-mdapy.json; qe reads an output of pw.x into
@@ -62,6 +66,8 @@ PSL = {
     ("Fe", "us"): "Fe.pbe-spn-rrkjus_psl.1.0.0.UPF",
     ("Ni", "paw"): "Ni.pbe-spn-kjpaw_psl.1.0.0.UPF",
 }
+SSSP = "https://archive.materialscloud.org/api/records/rcyfm-68h65/files/SSSP_1.3.0_PBE_precision"
+ALLOY_CUTOFFS = (22.5, 180.0)  # hartree, 45 and 360 Ry, of CrCoNi
 KSPACING = 0.25  # 1/Å, with 2 pi: the default of the calculator
 SIGMA = 0.1  # eV, Gaussian: the default of the calculator
 TOLERANCE = 1e-6  # eV: the default of the calculator
@@ -78,6 +84,7 @@ GROUPS = {
     "strained": "Compressed, stretched and sheared",
     "ionic": "Ionic crystals",
     "generated": "Cells of aluminium from generate_structures",
+    "alloy": "Equiatomic CrCoNi, 27 atoms of random fcc, SSSP 1.3 (GBRV ultrasoft)",
 }
 TRANSLATED = ("Si-vacancy", "W-packing", "Fe16-paw")
 
@@ -172,6 +179,18 @@ def molecule(symbols, positions):
     cart = cart - cart.mean(axis=0) + BOX / 2 + np.array([0.13, 0.07, 0.03])
     return {"cell": np.eye(3) * BOX, "symbols": list(symbols), "frac": cart / BOX,
             "vacuum": [0, 1, 2]}  # fmt: skip
+
+
+def fcc_cell(a, n, elements, seed):
+    """n x n x n primitive cells of fcc of the cubic lattice constant a, the
+    sites shared equally among the elements at random."""
+    cell = a / 2 * n * np.array([[0, 1, 1], [1, 0, 1], [1, 1, 0]], dtype=float)
+    frac = (
+        np.array([[i, j, k] for i in range(n) for j in range(n) for k in range(n)]) / n
+    )
+    symbols = [elements[i % len(elements)] for i in range(len(frac))]
+    order = np.random.default_rng(seed).permutation(len(frac))
+    return {"cell": cell, "symbols": [symbols[i] for i in order], "frac": frac}
 
 
 def magnetic(case, moments=None):
@@ -271,8 +290,18 @@ def cases() -> dict:
             "symbols": ["Al"] * len(frac),
             "frac": frac,
         }
+    # CrCoNi at five volumes, ferromagnetic and with chromium reversed
+    alloy = rattled(fcc_cell(3.56, 3, ["Cr", "Co", "Ni"], 27), 28)
+    for volume in (0.94, 1.00, 1.04, 1.08, 1.12):
+        for start, cr in (("fm", 2.0), ("ferri", -2.0)):
+            moments = [cr if s == "Cr" else MOMENTS[s] for s in alloy["symbols"]]
+            out[f"CrCoNi-{volume:.2f}V-{start}"] = {
+                **magnetic(scaled(alloy, volume), moments),
+                "kind": "sssp",
+            }
     groups = (["magnetic"] * 9 + ["packing"] * 8 + ["slab"] * 6 + ["molecule"] * 5
-              + ["defect"] * 6 + ["strained"] * 6 + ["ionic"] * 5 + ["generated"] * 8)  # fmt: skip
+              + ["defect"] * 6 + ["strained"] * 6 + ["ionic"] * 5 + ["generated"] * 8
+              + ["alloy"] * 10)  # fmt: skip
     for (name, case), group in zip(out.items(), groups, strict=True):
         case["group"] = group
     return out
@@ -292,7 +321,11 @@ def suggested(path: Path) -> tuple[float, float]:
 
 
 def valence_of(path: Path) -> float:
-    m = re.search(r'z_valence\s*=\s*"\s*([-+.\dEe]+)', path.read_text(errors="replace"))
+    """z_valence of UPF 2, or the header line of UPF 1."""
+    text = path.read_text(errors="replace")
+    m = re.search(r'z_valence\s*=\s*"\s*([-+.\dEe]+)', text) or re.search(
+        r"([-+.\dEe]+)\s+Z valence", text
+    )
     return float(m.group(1))
 
 
@@ -325,15 +358,34 @@ def prepare(folder: Path) -> None:
     ]
     for name in PSL.values():
         download(PSLIBRARY + name, pseudo / name)
+    sssp = json.loads(
+        download(SSSP + ".json/content", folder / "downloads" / "sssp.json").read_text()
+    )
+    wanted = {sssp[e]["filename"] for e in ("Cr", "Co", "Ni")}
+    with tarfile.open(
+        download(SSSP + ".tar.gz/content", folder / "downloads" / "sssp.tar.gz")
+    ) as t:
+        for member in t.getmembers():
+            if member.isfile() and Path(member.name).name in wanted:
+                (pseudo / Path(member.name).name).write_bytes(
+                    t.extractfile(member).read()
+                )
     (folder / "cases").mkdir(parents=True, exist_ok=True)
     (folder / "qe").mkdir(parents=True, exist_ok=True)
     for name, case in cases().items():
         kind = case.get("kind", "nc")
         elements = list(dict.fromkeys(case["symbols"]))
-        files = {e: (f"{e}.upf" if kind == "nc" else PSL[(e, kind)]) for e in elements}
+        if kind == "sssp":
+            files = {e: sssp[e]["filename"] for e in elements}
+        else:
+            files = {
+                e: (f"{e}.upf" if kind == "nc" else PSL[(e, kind)]) for e in elements
+            }
         if kind == "nc":
             cutoff = max(float(hints[e]["hints"]["normal"]["ecut"]) for e in elements)
             density = 4 * cutoff
+        elif kind == "sssp":
+            cutoff, density = ALLOY_CUTOFFS
         else:
             pairs = [suggested(pseudo / f) for f in files.values()]
             cutoff, density = max(p[0] for p in pairs), max(p[1] for p in pairs)

@@ -15,7 +15,14 @@ import numpy as np
 from . import augmentation, paw, radial
 from . import symmetry as symmetries
 
-_FUNCTIONALS = {"PBE": "pbe", "SLA PW PBX PBC": "pbe", "PW": "lda_pw", "LDA": "lda_pw"}
+_FUNCTIONALS = {
+    "PBE": "pbe_pw",
+    "SLA PW PBX PBC": "pbe_pw",
+    "PBESOL": "pbesol_pw",
+    "SLA PW PSX PSC": "pbesol_pw",
+    "PW": "lda_pw",
+    "LDA": "lda_pw",
+}
 
 
 def functional_of(pseudos) -> str:
@@ -25,7 +32,7 @@ def functional_of(pseudos) -> str:
     for pp in pseudos:
         name = " ".join(pp.functional.upper().split())
         if name not in _FUNCTIONALS:
-            raise ValueError(f"no functional {name!r} here; PBE or PW LDA")
+            raise ValueError(f"no functional {name!r} here; PBE, PBEsol or PW LDA")
         found.add(_FUNCTIONALS[name])
     if len(found) != 1:
         raise ValueError(
@@ -353,7 +360,7 @@ def _paw(pseudos, kinds, paw_atoms, spins, magmoms, functional, onecenter):
     species, None for those without PAW."""
     widths = [sum(2 * p.angular + 1 for p in pseudos[s].projectors) for s in kinds]
     offsets = np.cumsum([0] + [w * (w + 1) // 2 for w in widths])
-    gga = functional in ("pbe", "pbe_pw")
+    gga = functional.startswith("pbe")
     data = [paw.onecenter(pp, gga) if pp.paw is not None else None for pp in pseudos]
     becsum = np.zeros((spins, offsets[-1]))
     for i in paw_atoms:

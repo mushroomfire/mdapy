@@ -29,7 +29,8 @@ __global__ void xc_kernel(Functional functional, std::size_t count, const double
         out = sign * lda.v;
         vu = lda.d[0];
         vd = lda.d[1];
-        if (functional == Functional::Pbe || functional == Functional::PbePw) {
+        if (xc::gradient(functional)) {
+            const double mu = xc::exchange_mu(functional);
             const double s_uu = sigma[3 * i], s_ud = sigma[3 * i + 1], s_dd = sigma[3 * i + 2];
             const double grad2 = s_uu + 2.0 * s_ud + s_dd;
             using D3 = Dual<3>;
@@ -37,7 +38,7 @@ __global__ void xc_kernel(Functional functional, std::size_t count, const double
                 if (an > 1e-6 && grad2 > 1e-10) {
                     // of n and |grad n|^2, the exchange of each half by spin scaling
                     const D3 nn = D3::input(an, 0), g2 = D3::input(grad2, 1);
-                    const D3 e = 2.0 * xc::exchange_gradient(0.5 * nn, 0.25 * g2) +
+                    const D3 e = 2.0 * xc::exchange_gradient(0.5 * nn, 0.25 * g2, mu) +
                                  xc::correlation_gradient(functional, nn, D3(0.0), g2);
                     out += (signed_gradient ? sign : 1.0) * e.v;
                     vu += e.d[0];
@@ -49,13 +50,13 @@ __global__ void xc_kernel(Functional functional, std::size_t count, const double
             } else {
                 // exchange where n > 1e-10, of each spin above 1e-10
                 if (n > 1e-10 && up0 > 1e-10 && s_uu > 1e-20) {
-                    const D3 e = xc::exchange_gradient(D3::input(up0, 0), D3::input(s_uu, 1));
+                    const D3 e = xc::exchange_gradient(D3::input(up0, 0), D3::input(s_uu, 1), mu);
                     out += e.v;
                     vu += e.d[0];
                     suu += e.d[1];
                 }
                 if (n > 1e-10 && down0 > 1e-10 && s_dd > 1e-20) {
-                    const D3 e = xc::exchange_gradient(D3::input(down0, 0), D3::input(s_dd, 1));
+                    const D3 e = xc::exchange_gradient(D3::input(down0, 0), D3::input(s_dd, 1), mu);
                     out += e.v;
                     vd += e.d[0];
                     sdd += e.d[1];

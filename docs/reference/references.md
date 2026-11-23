@@ -505,6 +505,13 @@ Generalized gradient approximation made simple, *Phys. Rev. Lett.* **77**,
 [doi:10.1103/PhysRevLett.77.3865](https://doi.org/10.1103/PhysRevLett.77.3865)
 { #perdew1996 }
 
+**Perdew et al. (2008).** J. P. Perdew, A. Ruzsinszky, G. I. Csonka, O. A.
+Vydrov, G. E. Scuseria, L. A. Constantin, X. Zhou and K. Burke, Restoring the
+density-gradient expansion for exchange in solids and surfaces, *Phys. Rev.
+Lett.* **100**, 136406 (2008).
+[doi:10.1103/PhysRevLett.100.136406](https://doi.org/10.1103/PhysRevLett.100.136406)
+{ #perdew2008 }
+
 **Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
 based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 114112 (2017).

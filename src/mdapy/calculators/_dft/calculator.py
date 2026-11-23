@@ -82,8 +82,10 @@ class DFT(Calculator):
         atom; with them the spins are collinear. Default none: no spin.
     functional : str, optional
         ``"pbe"``, ``"pbe_pw"`` (PBE on the PW92 correlation of the paper, as
-        Quantum ESPRESSO's PBE), ``"lda_pw"`` or ``"lda_pw_mod"``. Default
-        that of the pseudopotentials.
+        Quantum ESPRESSO's PBE), ``"pbesol"``, ``"pbesol_pw"`` (likewise),
+        ``"lda_pw"`` or ``"lda_pw_mod"``. Default that of the
+        pseudopotentials as Quantum ESPRESSO takes it: ``"pbe_pw"``,
+        ``"pbesol_pw"`` or ``"lda_pw"``.
     tolerance : float64, optional
         The self-consistent field stops when the energy changes by less than
         this between two steps and the Hartree energy of the change of the

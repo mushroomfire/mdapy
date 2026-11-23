@@ -278,7 +278,7 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     launched("the spin densities");
     sigma_.resize(3 * points);
     sigma_.zero();
-    const bool gga = functional_ == Functional::Pbe || functional_ == Functional::PbePw;
+    const bool gga = xc::gradient(functional_);
     if (gga) {
         // n_up and n_down apart, on the sphere, and the 3 components of each gradient
         apart_.reserve(2 * points);
@@ -340,7 +340,7 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
 
 std::array<double, 6> Potentials::gga_strain() const {
     std::array<double, 6> out{};
-    if (functional_ != Functional::Pbe && functional_ != Functional::PbePw) return out;
+    if (!xc::gradient(functional_)) return out;
     const std::size_t points = fft_.points();
     if (grads_.size() < 6 * points || vs_.size() < 3 * points) throw std::logic_error("no potential computed");
     DeviceArray<double> sums(6);

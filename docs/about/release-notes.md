@@ -110,12 +110,14 @@
   Rauch and Waschkowski (2003).
 - `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
   NVIDIA GPU, in the package `mdapy-dft-cuda12`. It gives energies, forces and virials
-  of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF), LDA and PBE,
+  of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF), LDA, PBE
+  and PBEsol,
   collinear spin and smearings, the symmetry of crystals (by spglib), real bands at
   Gamma, and the k-points and spins of one configuration shared by several GPUs
   (`comm`), for labelling training sets. The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
-  same input. Under development.
+  same input; the functional of the pseudopotentials is taken as Quantum ESPRESSO takes
+  it. Under development.
 
 ## 2.2.0
 

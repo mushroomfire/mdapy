@@ -24,11 +24,28 @@
 
 namespace mdapy::dft {
 
-enum class Functional : int { LdaPw = 0, LdaPwMod = 1, Pbe = 2, PbePw = 3 };
+enum class Functional : int { LdaPw = 0, LdaPwMod = 1, Pbe = 2, PbePw = 3, PbeSol = 4, PbeSolPw = 5 };
 
 namespace xc {
 
 constexpr double kPi = 3.14159265358979323846264338327950288;
+
+// Whether a functional has gradient terms (PBE and PBEsol)
+MDAPY_HD constexpr bool gradient(Functional f) {
+    return f == Functional::Pbe || f == Functional::PbePw || f == Functional::PbeSol || f == Functional::PbeSolPw;
+}
+
+// Whether it takes the constants of PW92 correlation with libxc's digits
+// (lda_c_pw_mod) rather than those of the paper, as Quantum ESPRESSO does
+MDAPY_HD constexpr bool modified(Functional f) {
+    return f == Functional::LdaPwMod || f == Functional::Pbe || f == Functional::PbeSol;
+}
+
+// mu of the exchange and beta of the correlation of PBE, or of PBEsol
+// (Perdew et al., Phys. Rev. Lett. 100, 136406, 2008)
+MDAPY_HD constexpr bool sol(Functional f) { return f == Functional::PbeSol || f == Functional::PbeSolPw; }
+MDAPY_HD constexpr double exchange_mu(Functional f) { return sol(f) ? 10.0 / 81.0 : 0.2195149727645171; }
+MDAPY_HD constexpr double correlation_beta(Functional f) { return sol(f) ? 0.046 : 0.06672455060314922; }
 
 struct PwParameters {
     double a, alpha1, beta1, beta2, beta3, beta4;
@@ -75,12 +92,13 @@ MDAPY_HD T slater_spin(const T& n) {
     return -0.75 * std::cbrt(3.0 / kPi) * std::cbrt(2.0) * n * cbrt(n);
 }
 
-// PBE exchange per volume of one spin density n with |grad n|^2 = s, from
-// that of the paramagnetic gas of density 2n and gradient squared 4s, halved
+// PBE exchange (of that mu) per volume of one spin density n with
+// |grad n|^2 = s, from that of the paramagnetic gas of density 2n and gradient
+// squared 4s, halved
 template <class T>
-MDAPY_HD T pbe_exchange_spin(const T& n, const T& s) {
+MDAPY_HD T pbe_exchange_spin(const T& n, const T& s, double mu) {
     using std::cbrt;
-    const double kappa = 0.804, mu = 0.2195149727645171;
+    const double kappa = 0.804;
     const T n2 = 2.0 * n;
     const T kf = std::cbrt(3.0 * kPi * kPi) * cbrt(n2);
     const T s2 = 4.0 * s / (4.0 * kf * kf * n2 * n2);
@@ -88,15 +106,15 @@ MDAPY_HD T pbe_exchange_spin(const T& n, const T& s) {
     return 0.5 * (-0.75 * std::cbrt(3.0 / kPi) * n2 * cbrt(n2)) * fx;
 }
 
-// The PBE gradient correction of correlation per particle, H(rs, zeta, t)
+// The PBE gradient correction of correlation per particle, H(rs, zeta, t),
+// of that beta
 template <class T>
-MDAPY_HD T pbe_h(const T& n, const T& zeta, const T& grad2, const T& ec) {
+MDAPY_HD T pbe_h(const T& n, const T& zeta, const T& grad2, const T& ec, double beta) {
     using std::cbrt;
     using std::exp;
     using std::log;
     using std::pow;
     using std::sqrt;
-    const double beta = 0.06672455060314922;
     const double gamma = (1.0 - 0.69314718055994530941723212145818) / (kPi * kPi);
     const T phi = 0.5 * (pow(1.0 + zeta, 2.0 / 3.0) + pow(1.0 - zeta, 2.0 / 3.0));
     const T kf = std::cbrt(3.0 * kPi * kPi) * cbrt(n);
@@ -121,13 +139,14 @@ MDAPY_HD T energy(Functional functional, const T& up, const T& down, const T& su
     if (value_of(zeta) > edge) zeta = T(edge);
     if (value_of(zeta) < -edge) zeta = T(-edge);
     const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
-    if (functional == Functional::Pbe || functional == Functional::PbePw) {
-        const T ec = pw_correlation(rs, zeta, functional == Functional::Pbe);
+    if (gradient(functional)) {
+        const T ec = pw_correlation(rs, zeta, modified(functional));
         const T grad2 = suu + 2.0 * sud + sdd;
-        return pbe_exchange_spin(up, suu) + pbe_exchange_spin(down, sdd) +
-               n * (ec + pbe_h(n, zeta, grad2, ec));
+        const double mu = exchange_mu(functional);
+        return pbe_exchange_spin(up, suu, mu) + pbe_exchange_spin(down, sdd, mu) +
+               n * (ec + pbe_h(n, zeta, grad2, ec, correlation_beta(functional)));
     }
-    const T ec = pw_correlation(rs, zeta, functional == Functional::LdaPwMod);
+    const T ec = pw_correlation(rs, zeta, modified(functional));
     return slater_spin(up) + slater_spin(down) + n * ec;
 }
 
@@ -140,21 +159,20 @@ MDAPY_HD T lda_energy(Functional functional, const T& up, const T& down) {
     const T n = up + down;
     const T zeta = (up - down) / n;
     const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
-    const bool modified = functional == Functional::LdaPwMod || functional == Functional::Pbe;
-    return slater_spin(up) + slater_spin(down) + n * pw_correlation(rs, zeta, modified);
+    return slater_spin(up) + slater_spin(down) + n * pw_correlation(rs, zeta, modified(functional));
 }
 
 template <class T>
-MDAPY_HD T exchange_gradient(const T& n, const T& s) {
-    return pbe_exchange_spin(n, s) - slater_spin(n);
+MDAPY_HD T exchange_gradient(const T& n, const T& s, double mu) {
+    return pbe_exchange_spin(n, s, mu) - slater_spin(n);
 }
 
 template <class T>
 MDAPY_HD T correlation_gradient(Functional functional, const T& n, const T& zeta, const T& grad2) {
     using std::cbrt;
     const T rs = std::cbrt(3.0 / (4.0 * kPi)) / cbrt(n);
-    const T ec = pw_correlation(rs, zeta, functional == Functional::Pbe);
-    return n * pbe_h(n, zeta, grad2, ec);
+    const T ec = pw_correlation(rs, zeta, modified(functional));
+    return n * pbe_h(n, zeta, grad2, ec, correlation_beta(functional));
 }
 
 }  // namespace xc

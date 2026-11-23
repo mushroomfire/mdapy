@@ -64,6 +64,8 @@ mdapy::dft::Functional functional_of(const std::string& name) {
     if (name == "lda_pw_mod") return mdapy::dft::Functional::LdaPwMod;
     if (name == "pbe") return mdapy::dft::Functional::Pbe;
     if (name == "pbe_pw") return mdapy::dft::Functional::PbePw;
+    if (name == "pbesol") return mdapy::dft::Functional::PbeSol;
+    if (name == "pbesol_pw") return mdapy::dft::Functional::PbeSolPw;
     throw std::invalid_argument("no functional named " + name);
 }
 

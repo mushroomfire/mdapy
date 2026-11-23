@@ -295,6 +295,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
     };
     std::vector<std::vector<double>> becsum(spins);
+    std::vector<DeviceArray<double>> becsum_d(spins);  // the same on the device, during the density
     // the symmetry of the crystal, on the density and the occupations
     Symmetrizer symmetrizer(input.symmetry, pot.sphere().miller);
     std::vector<std::vector<int>> atom_angular;
@@ -498,8 +499,13 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         rho_out.zero();
         if (two_grids) rho_s.zero();
         if (ultrasoft)
-            for (auto& b : becsum) b.assign(pair_offsets.back(), 0.0);
+            for (std::size_t s = 0; s < spins; ++s) {
+                becsum[s].assign(pair_offsets.back(), 0.0);
+                becsum_d[s].resize(pair_offsets.back());
+            }
         double band = 0.0;
+        if (ultrasoft)  // the occupations of the projectors gathered on the device
+            for (auto& b : becsum_d) b.zero();
         for (std::size_t k = 0; k < nk; ++k) {
             if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
@@ -512,9 +518,11 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 }
                 h.add_density(psi[s * nk + k].data(), nb, w.data(),
                               two_grids ? rho_s.data() + s * points_s : rho_out.data() + s * points);
-                if (ultrasoft) h.add_becsum(psi[s * nk + k].data(), nb, w.data(), becsum[s]);
+                if (ultrasoft) h.add_becsum_device(psi[s * nk + k].data(), nb, w.data(), becsum_d[s].data());
             }
         }
+        if (ultrasoft)
+            for (std::size_t s = 0; s < spins; ++s) becsum_d[s].download(becsum[s].data(), becsum[s].size());
         if (input.ranks > 1) {  // the densities and occupations of every pool
             sum(&band, 1);
             DeviceArray<double>& partial = two_grids ? rho_s : rho_out;

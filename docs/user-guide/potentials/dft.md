@@ -51,7 +51,7 @@ CUDA 12 for GPUs from the V100 on.
 | `smearing` | str | `"gaussian"` | | `"gaussian"`, `"fermi-dirac"`, `"methfessel-paxton"` (first order), `"marzari-vanderbilt"`, or `"fixed"` for insulators |
 | `sigma` | float64 | 0.1 | eV | the width of the smearing |
 | `magmoms` | mapping or (N,) float64 | `None` | Bohr magneton | the first magnetic moments, by element or one per atom; with them the spins are collinear |
-| `functional` | str | that of the pseudopotentials | | `"pbe"`, `"pbe_pw"`, `"lda_pw"` or `"lda_pw_mod"` |
+| `functional` | str | that of the pseudopotentials, as Quantum ESPRESSO takes it | | `"pbe"`, `"pbe_pw"`, `"pbesol"`, `"pbesol_pw"`, `"lda_pw"` or `"lda_pw_mod"` |
 | `tolerance` | float64 | 1e-6 | eV | the self-consistent field stops when the energy changes by less and the Hartree energy of the change of the density is below it |
 | `max_iterations` | int32 | 100 | | the steps of the self-consistent field before it fails |
 | `mixing` | float64 | 0.7 | | the share of the residual of the density taken at each step |
@@ -139,10 +139,14 @@ if MPI.COMM_WORLD.Get_rank() == 0:
   add to the projectors. The occupations are mixed along with the density, as
   Quantum ESPRESSO mixes them. The energy is Quantum ESPRESSO's total energy,
   without the energy of the frozen core.
-- **Exchange and correlation:** LDA (Perdew–Wang) and PBE, with and without
-  spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the constants
-  of their paper, as Quantum ESPRESSO's PBE. `"pbe"` uses those of libxc; the two
-  differ by about 1e-6 of the correlation energy.
+- **Exchange and correlation:** LDA (Perdew–Wang), PBE and PBEsol, with and
+  without spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the
+  constants of their paper, as Quantum ESPRESSO's PBE, and the default for PBE
+  pseudopotentials. `"pbe"` uses those of libxc; the two differ by about 1e-6 of
+  the correlation energy, 0.01 to 0.25 meV per atom. `"pbesol_pw"` and `"pbesol"`
+  are PBEsol likewise; a PBEsol run may take PBE
+  pseudopotentials, as Quantum ESPRESSO's `input_dft` does, but PBEsol ones
+  are better.
 - **The self-consistent field:** the bands by block Davidson, from the
   pseudo-orbitals of the free atoms at the start, the density mixed
   by Pulay's method in the metric of Kresse and Furthmüller with Kerker's
@@ -225,7 +229,8 @@ waves keep their Miller indices, to 5e-8 hartree.
 !!! quote "Please cite"
     The pseudopotentials ([van Setten et al. 2018](../../reference/references.md#vansetten2018)
     for PseudoDojo) and the functional ([Perdew and Wang 1992](../../reference/references.md#perdew1992),
-    [Perdew et al. 1996](../../reference/references.md#perdew1996)); the methods:
+    [Perdew et al. 1996](../../reference/references.md#perdew1996), and for PBEsol
+    [Perdew et al. 2008](../../reference/references.md#perdew2008)); the methods:
     [Davidson (1975)](../../reference/references.md#davidson1975),
     [Kresse and Furthmüller (1996)](../../reference/references.md#kresse1996),
     [Kerker (1981)](../../reference/references.md#kerker1981),

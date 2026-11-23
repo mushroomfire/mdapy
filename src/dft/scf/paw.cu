@@ -318,7 +318,7 @@ OneCenter::OneCenter(std::vector<SpeciesOneCenter> species, std::vector<int> ato
       spins_(spins),
       functional_(functional),
       threshold_(threshold),
-      gga_(functional == Functional::Pbe || functional == Functional::PbePw) {
+      gga_(xc::gradient(functional)) {
     if (spins_ != 1 && spins_ != 2) throw std::invalid_argument("one or two spins");
     if (widths.size() != atom_species_.size()) throw std::invalid_argument("the width of each atom");
     offsets_.push_back(0);

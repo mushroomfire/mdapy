@@ -111,6 +111,9 @@ public:
     // becsum (packed pairs a <= b of each atom, on the host) += sum_n w_n
     // Re conj(<beta_a|psi_n>) <beta_b|psi_n>, twice off the diagonal
     void add_becsum(const Complex* psi, int count, const double* weights, std::vector<double>& becsum);
+    // the same into becsum on the device; becsum_size() pairs
+    void add_becsum_device(const Complex* psi, int count, const double* weights, double* becsum);
+    std::size_t becsum_size() const;
     // The diagonal of S on the device, 1 without an overlap.
     void overlap_diagonal(double* out) const;
     // rho (the grid, on the device) += sum_b w_b |psi_b(r)|^2 / Omega of count
@@ -184,6 +187,7 @@ private:
     DeviceArray<int> miller_;
     DeviceArray<detail::ProjectorColumn> columns_;
     detail::ReciprocalCell reciprocal_{};
+    DeviceArray<std::size_t> becsum_offsets_;  // where the pairs of each atom start
 };
 
 }  // namespace mdapy::dft

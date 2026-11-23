@@ -6,7 +6,7 @@
 """The exchange-correlation functionals of the plane-wave DFT on the GPU against
 libxc, point by point: the energy per volume and its derivatives by the spin
 densities and by the products of their gradients, for LDA with both sets of
-constants of Perdew and Wang and for PBE, polarized and not."""
+constants of Perdew and Wang and for PBE and PBEsol, polarized and not."""
 
 import numpy as np
 import pytest
@@ -20,6 +20,7 @@ PARTS = {
     "lda_pw": ["lda_x", "lda_c_pw"],
     "lda_pw_mod": ["lda_x", "lda_c_pw_mod"],
     "pbe": ["gga_x_pbe", "gga_c_pbe"],
+    "pbesol": ["gga_x_pbe_sol", "gga_c_pbe_sol"],
 }
 
 
@@ -69,7 +70,7 @@ def test_against_libxc(name, polarized):
     ef, ev, evs = libxc(name, rho, sigma)
     np.testing.assert_allclose(f, ef, rtol=1e-10, atol=1e-14)
     np.testing.assert_allclose(v, ev, rtol=1e-9, atol=1e-12)
-    if name == "pbe":
+    if name.startswith("pbe"):
         if not polarized:
             vs, evs = vs @ SHARE, evs @ SHARE
         np.testing.assert_allclose(vs, evs, rtol=1e-9, atol=1e-12)
@@ -127,7 +128,7 @@ def test_without_spin_as_with():
     g2 = (n ** (4 / 3) * rng.uniform(0.1, 3.0, 200)) ** 2
     rho = np.stack([n / 2, n / 2], axis=1)
     sigma = np.stack([g2 / 4, g2 / 4, g2 / 4], axis=1)
-    for name in ("pbe", "pbe_pw"):
+    for name in ("pbe", "pbe_pw", "pbesol", "pbesol_pw"):
         a = _dft.xc(name, rho, sigma, polarized=False)
         b = _dft.xc(name, rho, sigma, polarized=True)
         for x, y in zip(a[:2], b[:2]):

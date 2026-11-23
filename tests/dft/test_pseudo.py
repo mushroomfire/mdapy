@@ -313,8 +313,11 @@ def test_functional_of_headers():
         return functional_of([SimpleNamespace(functional=n) for n in names])
 
     # pslibrary writes QE's parts with several spaces between them
-    assert of(" SLA  PW   PBX  PBC") == "pbe" and of("PBE", "sla pw pbx pbc") == "pbe"
+    # as Quantum ESPRESSO takes them, PW92 with the constants of its paper
+    assert of(" SLA  PW   PBX  PBC") == "pbe_pw"
+    assert of("PBE", "sla pw pbx pbc") == "pbe_pw"
     assert of("PW", "LDA") == "lda_pw"
+    assert of("PBESOL") == "pbesol_pw" and of(" SLA  PW   PSX  PSC") == "pbesol_pw"
     with pytest.raises(ValueError, match="different functionals"):
         of("PBE", "PW")
     with pytest.raises(ValueError, match="no functional"):

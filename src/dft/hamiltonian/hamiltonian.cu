@@ -389,6 +389,20 @@ __global__ void shift_real_kernel(int projectors, int count, const double* e, co
     dp[i] -= e[i / static_cast<std::size_t>(projectors)] * qp[i];
 }
 
+// out[:, b] = w_b p[:, b], (rows, count)
+__global__ void weigh_columns(std::size_t rows, int count, const double* w, const Complex* p, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= rows * count) return;
+    const double x = w[i / rows];
+    out[i] = make_cuDoubleComplex(x * p[i].x, x * p[i].y);
+}
+
+__global__ void weigh_real_columns(std::size_t rows, int count, const double* w, const double* p, double* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= rows * count) return;
+    out[i] = w[i / rows] * p[i];
+}
+
 // becsum_kernel of a real c
 __global__ void becsum_real_kernel(int atoms, const int* blocks, const std::size_t* offsets, int projectors,
                                    const double* c, double* out) {
@@ -903,61 +917,65 @@ void Hamiltonian::set_overlaps(const std::vector<double>& blocks) {
     has_overlap_ = true;
 }
 
-void Hamiltonian::add_becsum(const Complex* psi, int count, const double* weights, std::vector<double>& becsum) {
-    const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
-    if (n == 0 || count == 0 || projectors_ == 0) return;
+std::size_t Hamiltonian::becsum_size() const {
     std::size_t total = 0;
-    std::vector<std::size_t> offsets;
     for (std::size_t a = 0; a < blocks_.size() / 2; ++a) {
-        offsets.push_back(total);
         const std::size_t w = static_cast<std::size_t>(blocks_[2 * a + 1]);
         total += w * (w + 1) / 2;
     }
-    if (becsum.size() != total) throw std::invalid_argument("becsum holds the pairs of each atom");
-    DeviceArray<std::size_t> off;
-    off.upload(offsets.data(), offsets.size());
+    return total;
+}
+
+void Hamiltonian::add_becsum(const Complex* psi, int count, const double* weights, std::vector<double>& becsum) {
+    if (becsum.size() != becsum_size()) throw std::invalid_argument("becsum holds the pairs of each atom");
+    DeviceArray<double> out;
+    out.upload(becsum.data(), becsum.size());
+    add_becsum_device(psi, count, weights, out.data());
+    out.download(becsum.data(), becsum.size());
+}
+
+void Hamiltonian::add_becsum_device(const Complex* psi, int count, const double* weights, double* becsum) {
+    const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
+    if (n == 0 || count == 0 || projectors_ == 0) return;
+    if (becsum_offsets_.size() != atoms_.size()) {  // where the pairs of each atom start
+        std::vector<std::size_t> offsets;
+        std::size_t total = 0;
+        for (std::size_t a = 0; a < blocks_.size() / 2; ++a) {
+            offsets.push_back(total);
+            const std::size_t w = static_cast<std::size_t>(blocks_[2 * a + 1]);
+            total += w * (w + 1) / 2;
+        }
+        becsum_offsets_.upload(offsets.data(), offsets.size());
+    }
+    weights_.assign(weights, m);
+    const unsigned atoms = static_cast<unsigned>(atoms_.size());
     if (gamma_) {  // c = P W P^T, real
-        DeviceArray<double> p(np * m), pw(np * m), c(np * np), out;
-        gamma_inner(blas_, n, beta_.data(), projectors_, psi, count, p.data(), projectors_);
-        std::vector<double> host(np * m);
-        p.download(host.data(), host.size());
-        for (std::size_t b = 0; b < m; ++b)
-            for (std::size_t i = 0; i < np; ++i) host[b * np + i] *= weights[b];
-        pw.upload(host.data(), host.size());
+        DeviceArray<double> pr(np * m), pw(np * m), c(np * np);
+        gamma_inner(blas_, n, beta_.data(), projectors_, psi, count, pr.data(), projectors_);
+        weigh_real_columns<<<blocks(np * m), kThreads>>>(np, count, weights_.data(), pr.data(), pw.data());
+        check_cuda(cudaGetLastError(), "the weighted projections");
         dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, projectors_, projectors_, count, 1.0, pw.data(), projectors_,
-              p.data(), projectors_, 0.0, c.data(), projectors_);
-        out.upload(becsum.data(), becsum.size());
-        becsum_real_kernel<<<static_cast<unsigned>(atoms_.size()), kThreads>>>(
-            static_cast<int>(atoms_.size()), blocks_device_.data(), off.data(), projectors_, c.data(), out.data());
+              pr.data(), projectors_, 0.0, c.data(), projectors_);
+        becsum_real_kernel<<<atoms, kThreads>>>(static_cast<int>(atoms), blocks_device_.data(),
+                                                becsum_offsets_.data(), projectors_, c.data(), becsum);
         check_cuda(cudaGetLastError(), "becsum");
-        out.download(becsum.data(), becsum.size());
         return;
     }
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
-    DeviceArray<Complex> p(np * m), pw(np * m), c(np * np);
+    DeviceArray<Complex> pc(np * m), pw(np * m), c(np * np);
     check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, p.data(), projectors_),
+                           &zero, pc.data(), projectors_),
                "cublasZgemm");
     // c = P W P^H, c_ab = sum_n w_n P_an conj(P_bn), of real part becsum_ab
-    std::vector<Complex> host(np * m);
-    p.download(host.data(), host.size());
-    for (std::size_t b = 0; b < m; ++b)
-        for (std::size_t i = 0; i < np; ++i) {
-            host[b * np + i].x *= weights[b];
-            host[b * np + i].y *= weights[b];
-        }
-    pw.upload(host.data(), host.size());
+    weigh_columns<<<blocks(np * m), kThreads>>>(np, count, weights_.data(), pc.data(), pw.data());
+    check_cuda(cudaGetLastError(), "the weighted projections");
     check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_C, projectors_, projectors_, count, &one, pw.data(),
-                           projectors_, p.data(), projectors_, &zero, c.data(), projectors_),
+                           projectors_, pc.data(), projectors_, &zero, c.data(), projectors_),
                "cublasZgemm");
-    DeviceArray<double> out;
-    out.upload(becsum.data(), becsum.size());
-    becsum_kernel<<<static_cast<unsigned>(atoms_.size()), kThreads>>>(static_cast<int>(atoms_.size()),
-                                                                     blocks_device_.data(), off.data(), projectors_,
-                                                                     c.data(), out.data());
+    becsum_kernel<<<atoms, kThreads>>>(static_cast<int>(atoms), blocks_device_.data(), becsum_offsets_.data(),
+                                       projectors_, c.data(), becsum);
     check_cuda(cudaGetLastError(), "becsum");
-    out.download(becsum.data(), becsum.size());
 }
 
 void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {

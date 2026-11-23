@@ -30,23 +30,24 @@ def fcc(a):
     return np.array([[0, h, h], [h, 0, h], [h, h, 0]])
 
 
-def compare(cell, positions, symbols, cutoff, kgrid, smearing="fixed", sigma=0.0):
+def compare(cell, positions, symbols, cutoff, kgrid, smearing="fixed", sigma=0.0,
+            functional="pbe_pw", extra=""):  # fmt: skip
     """Our SCF and QE's: the terms of the energy to 1e-7 hartree per atom (QE's
     Ewald sum is good to about 1e-7 rydberg), the eigenvalues of the bands that
     hold electrons and the Fermi level to 1e-7 hartree, the same plane waves
-    and grid."""
+    and grid. extra goes into QE's &system."""
     files = {s: espresso.pseudo(f"{s}_std.upf") for s in dict.fromkeys(symbols)}
     kinds = [list(files).index(s) for s in symbols]
     pseudos = [read_upf(f) for f in files.values()]
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
     qe = espresso.run(
         cell, positions, symbols, files, cutoff, kpoints, weights, smearing, sigma,
-        conv_thr=1e-14,
+        conv_thr=1e-14, extra=extra,
     )  # fmt: skip
     # QE's FFTW grids take the factors 2, 3 and 5, ours 7 too
     ours = scf.run(
         cell, positions, kinds, pseudos, cutoff, kgrid=kgrid, smearing=smearing,
-        sigma=sigma, functional="pbe_pw", grid=qe["grid"], density_tolerance=1e-14,
+        sigma=sigma, functional=functional, grid=qe["grid"], density_tolerance=1e-14,
         energy_tolerance=1e-12, symmetry=False
     )  # fmt: skip
     assert ours["converged"]
@@ -72,6 +73,12 @@ def test_silicon():
         fcc(5.431), [[0, 0, 0], [0.27, 0.25, 0.25]], ["Si", "Si"], 20.0, (4, 4, 4)
     )
     assert r["iterations"] <= 15
+
+
+def test_silicon_pbesol():
+    """PBEsol on the PBE pseudopotential, as QE's input_dft = 'PBESOL'."""
+    compare(fcc(5.431), [[0, 0, 0], [0.27, 0.25, 0.25]], ["Si", "Si"], 20.0, (4, 4, 4),
+            functional="pbesol_pw", extra=", input_dft = 'PBESOL'")  # fmt: skip
 
 
 def test_diamond():

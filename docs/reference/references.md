@@ -375,6 +375,12 @@ thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 20544
 [doi:10.1103/PhysRevB.81.205441](https://doi.org/10.1103/PhysRevB.81.205441)
 { #lindsay2010 }
 
+**Liu et al. (2025).** J. Liu, J. Byggmästar, Z. Fan, B. Bai, P. Qian and Y. Su,
+Utilizing a machine-learned potential to explore enhanced radiation tolerance in the
+MoNbTaVW high-entropy alloy, *J. Nucl. Mater.* **616**, 156004 (2025).
+[doi:10.1016/j.jnucmat.2025.156004](https://doi.org/10.1016/j.jnucmat.2025.156004)
+{ #liu2025 }
+
 **Lorch (1969).** E. Lorch, Neutron diffraction by germania, silica and
 radiation-damaged silica glasses, *J. Phys. C: Solid State Phys.* **2**, 229 (1969).
 [doi:10.1088/0022-3719/2/2/305](https://doi.org/10.1088/0022-3719/2/2/305)
@@ -438,6 +444,20 @@ cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
 7556 (1998).
 [doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
 { #nordlund1998 }
+
+**Nordlund et al. (2018).** K. Nordlund, S. J. Zinkle, A. E. Sand, F. Granberg,
+R. S. Averback, R. Stoller, T. Suzudo, L. Malerba, F. Banhart, W. J. Weber, F.
+Willaime, S. L. Dudarev and D. Simeone, Improving atomic displacement and replacement
+calculations with physically realistic damage models, *Nat. Commun.* **9**, 1084
+(2018).
+[doi:10.1038/s41467-018-03415-5](https://doi.org/10.1038/s41467-018-03415-5)
+{ #nordlund2018 }
+
+**Norgett, Robinson and Torrens (1975).** M. J. Norgett, M. T. Robinson and I. M.
+Torrens, A proposed method of calculating displacement dose rates, *Nucl. Eng. Des.*
+**33**, 50 (1975).
+[doi:10.1016/0029-5493(75)90035-7](https://doi.org/10.1016/0029-5493(75)90035-7)
+{ #norgett1975 }
 
 **Nye (1985).** J. F. Nye, *Physical Properties of Crystals: Their Representation by
 Tensors and Matrices* (Oxford University Press, Oxford, 1985).

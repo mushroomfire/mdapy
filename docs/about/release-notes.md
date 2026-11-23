@@ -2,6 +2,12 @@
 
 ## 2.3.0 (not released)
 
+- The example [Radiation damage in tungsten and MoNbTaVW](../examples/radiation-cascade.md)
+  replaces the collision cascade in tungsten: with the machine-learned potential of Liu
+  et al. (2025), the threshold displacement energies of Mo, Nb, Ta, V and W and of each
+  element in the alloy over all directions, their Figures 3 and 4, and the Frenkel pairs
+  of cascades of 1 to 10 keV against the NRT and arc-dpa models; the four scripts that
+  ran them.
 - The example [Isotopes of lithium hydride](../examples/lih-isotopes.md): path integrals
   of 40 beads give the lattice of ⁶LiH, ⁷LiH, ⁶LiD, ⁷LiD and ⁷LiT at room temperature,
   a = A μ^−1/2 + B with A = 0.0495 Å against 0.054 Å measured, where classical nuclei

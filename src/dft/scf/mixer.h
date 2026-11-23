@@ -27,6 +27,7 @@
 #include <cuComplex.h>
 
 #include <deque>
+#include <functional>
 #include <vector>
 
 namespace mdapy::dft {
@@ -43,6 +44,10 @@ struct MixingOptions {
     // directions of their least squares with singular values below the
     // largest over this are dropped
     double conditioning = 1e6;
+    // the preconditioner of the total density: Kerker's, or the local
+    // density of states at the Fermi level (Herbst and Levitt, J. Phys.:
+    // Condens. Matter 33, 085503 (2021)) that the SCF sets each step
+    bool ldos = false;
 };
 
 class Mixer {
@@ -66,6 +71,9 @@ public:
     // preconditioner), 1 at the start: the damping of adaptive damping
     void set_scale(double factor);
     double scale() const noexcept { return scale_; }
+    // P^-1 on the residual of the total density (its sphere, G = 0 first and
+    // zero), in place, in the place of Kerker's; none for Kerker's again
+    void set_preconditioner(std::function<void(std::vector<cuDoubleComplex>&)> apply);
 
 private:
     double dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const;
@@ -76,8 +84,15 @@ private:
     MixingOptions options_;
     std::size_t n_;
     double scale_ = 1.0;
+    std::function<void(std::vector<cuDoubleComplex>&)> preconditioner_;
     std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
     std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };
+
+// x of A x = b by GMRES without restart (Saad and Schultz), at most
+// iterations steps or a residual below tolerance times |b|
+std::vector<cuDoubleComplex> gmres(
+    const std::function<std::vector<cuDoubleComplex>(const std::vector<cuDoubleComplex>&)>& apply,
+    const std::vector<cuDoubleComplex>& b, int iterations, double tolerance);
 
 }  // namespace mdapy::dft

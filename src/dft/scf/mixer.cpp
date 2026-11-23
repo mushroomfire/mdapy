@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <complex>
 #include <stdexcept>
 
 namespace mdapy::dft {
@@ -100,6 +101,93 @@ void Mixer::reset() {
     residuals_.clear();
     extra_inputs_.clear();
     extra_residuals_.clear();
+}
+
+void Mixer::set_preconditioner(std::function<void(std::vector<cuDoubleComplex>&)> apply) {
+    preconditioner_ = std::move(apply);
+}
+
+std::vector<cuDoubleComplex> gmres(
+    const std::function<std::vector<cuDoubleComplex>(const std::vector<cuDoubleComplex>&)>& apply,
+    const std::vector<cuDoubleComplex>& b, int iterations, double tolerance) {
+    using C = std::complex<double>;
+    const std::size_t n = b.size();
+    auto norm = [](const std::vector<C>& v) {
+        double s = 0.0;
+        for (const auto& x : v) s += std::norm(x);
+        return std::sqrt(s);
+    };
+    std::vector<C> r(n);
+    for (std::size_t i = 0; i < n; ++i) r[i] = C(b[i].x, b[i].y);
+    const double beta = norm(r);
+    std::vector<cuDoubleComplex> x(n, make_cuDoubleComplex(0.0, 0.0));
+    if (!(beta > 0.0) || iterations < 1) return x;
+    const int m = iterations;
+    std::vector<std::vector<C>> v;
+    v.reserve(static_cast<std::size_t>(m) + 1);
+    for (auto& e : r) e /= beta;
+    v.push_back(std::move(r));
+    // the Hessenberg matrix by columns, its Givens rotations and the residual
+    std::vector<std::vector<C>> h(static_cast<std::size_t>(m), std::vector<C>(static_cast<std::size_t>(m) + 1));
+    std::vector<double> cs(static_cast<std::size_t>(m));
+    std::vector<C> sn(static_cast<std::size_t>(m)), g(static_cast<std::size_t>(m) + 1);
+    g[0] = beta;
+    int k = 0;
+    std::vector<cuDoubleComplex> in(n);
+    for (int j = 0; j < m; ++j) {
+        const auto& vj = v[static_cast<std::size_t>(j)];
+        for (std::size_t i = 0; i < n; ++i) in[i] = make_cuDoubleComplex(vj[i].real(), vj[i].imag());
+        const auto out = apply(in);
+        std::vector<C> w(n);
+        for (std::size_t i = 0; i < n; ++i) w[i] = C(out[i].x, out[i].y);
+        auto& col = h[static_cast<std::size_t>(j)];
+        for (int i = 0; i <= j; ++i) {  // modified Gram-Schmidt
+            const auto& vi = v[static_cast<std::size_t>(i)];
+            C d(0.0, 0.0);
+            for (std::size_t q = 0; q < n; ++q) d += std::conj(vi[q]) * w[q];
+            col[static_cast<std::size_t>(i)] = d;
+            for (std::size_t q = 0; q < n; ++q) w[q] -= d * vi[q];
+        }
+        const double next = norm(w);
+        col[static_cast<std::size_t>(j) + 1] = next;
+        for (int i = 0; i < j; ++i) {  // the rotations so far
+            const C a = col[static_cast<std::size_t>(i)], c2 = col[static_cast<std::size_t>(i) + 1];
+            col[static_cast<std::size_t>(i)] = cs[static_cast<std::size_t>(i)] * a + sn[static_cast<std::size_t>(i)] * c2;
+            col[static_cast<std::size_t>(i) + 1] =
+                -std::conj(sn[static_cast<std::size_t>(i)]) * a + cs[static_cast<std::size_t>(i)] * c2;
+        }
+        const C a = col[static_cast<std::size_t>(j)], bb = col[static_cast<std::size_t>(j) + 1];
+        const double rr = std::sqrt(std::norm(a) + std::norm(bb));
+        if (std::abs(a) == 0.0) {
+            cs[static_cast<std::size_t>(j)] = 0.0;
+            sn[static_cast<std::size_t>(j)] = 1.0;
+        } else {
+            cs[static_cast<std::size_t>(j)] = std::abs(a) / rr;
+            sn[static_cast<std::size_t>(j)] = a * std::conj(bb) / (rr * std::abs(a));
+        }
+        col[static_cast<std::size_t>(j)] = cs[static_cast<std::size_t>(j)] * a + sn[static_cast<std::size_t>(j)] * bb;
+        col[static_cast<std::size_t>(j) + 1] = 0.0;
+        g[static_cast<std::size_t>(j) + 1] = -std::conj(sn[static_cast<std::size_t>(j)]) * g[static_cast<std::size_t>(j)];
+        g[static_cast<std::size_t>(j)] *= cs[static_cast<std::size_t>(j)];
+        k = j + 1;
+        if (std::abs(g[static_cast<std::size_t>(j) + 1]) < tolerance * beta || !(next > 0.0)) break;
+        for (auto& e : w) e /= next;
+        v.push_back(std::move(w));
+    }
+    // H y = g, upper triangular k x k, and x = V y
+    std::vector<C> y(static_cast<std::size_t>(k));
+    for (int i = k - 1; i >= 0; --i) {
+        C s = g[static_cast<std::size_t>(i)];
+        for (int j = i + 1; j < k; ++j) s -= h[static_cast<std::size_t>(j)][static_cast<std::size_t>(i)] * y[static_cast<std::size_t>(j)];
+        y[static_cast<std::size_t>(i)] = s / h[static_cast<std::size_t>(i)][static_cast<std::size_t>(i)];
+    }
+    for (int i = 0; i < k; ++i)
+        for (std::size_t q = 0; q < n; ++q) {
+            const C t = y[static_cast<std::size_t>(i)] * v[static_cast<std::size_t>(i)][q];
+            x[q].x += t.real();
+            x[q].y += t.imag();
+        }
+    return x;
 }
 
 void Mixer::set_scale(double factor) {
@@ -210,7 +298,18 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
             }
         }
     }
-    for (std::size_t j = 0; j < size; ++j) {
+    std::size_t from = 0;
+    if (preconditioner_) {  // the total density by the preconditioner given
+        std::vector<cuDoubleComplex> total(res.begin(), res.begin() + static_cast<std::ptrdiff_t>(n_));
+        total[0] = make_cuDoubleComplex(0.0, 0.0);
+        preconditioner_(total);
+        for (std::size_t j = 0; j < n_; ++j) {
+            rho[j].x += scale_ * options_.beta * total[j].x;
+            rho[j].y += scale_ * options_.beta * total[j].y;
+        }
+        from = n_;
+    }
+    for (std::size_t j = from; j < size; ++j) {
         rho[j].x += scale_ * precondition_[j] * res[j].x;
         rho[j].y += scale_ * precondition_[j] * res[j].y;
     }

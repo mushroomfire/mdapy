@@ -94,7 +94,9 @@ def test_the_potential_is_the_derivative_of_the_energy(functional, spins, with_c
         numeric = (plus[0] + plus[1] - minus[0] - minus[1]) / (2 * eps)
         analytic = dv * (hxc[s] * delta[s]).sum()
         assert abs(analytic) > 1e-6  # a change the energy feels
-        assert numeric == pytest.approx(analytic, rel=1e-6)
+        # the energies are sums on the GPU in no fixed order, each to about
+        # 1e-15 hartree: 1e-12 in their difference over 2 eps
+        assert numeric == pytest.approx(analytic, rel=1e-6, abs=5e-12)
 
 
 def test_xc_against_libxc():

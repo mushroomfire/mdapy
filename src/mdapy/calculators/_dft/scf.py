@@ -237,6 +237,7 @@ def run(
     output_energies: bool = False,
     adaptive_damping: bool = False,
     first_held: int = 0,
+    preconditioner: str = "kerker",
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -294,7 +295,12 @@ def run(
     J. Comput. Phys. 459, 111127 (2022)), and the shares of the mixing
     adapt: the result holds output_energies, accepted (1 for the steps
     taken) and dampings (the factor on each step of the mixing); not with
-    DFT+U."""
+    DFT+U. preconditioner, of the residual of the total density: "kerker"
+    (with kerker) or "ldos", from the local density of states at the Fermi
+    level of each step (Herbst and Levitt, J. Phys.: Condens. Matter 33,
+    085503 (2021)), for cells of metal and vacuum or insulator."""
+    if preconditioner not in ("kerker", "ldos"):
+        raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -460,6 +466,7 @@ def run(
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
+        preconditioner == "ldos",
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

@@ -344,7 +344,7 @@ double Potentials::integral(const double* a, const double* b, int count) {
     sum.reserve(1);
     sum.zero();
     const std::size_t n = points * static_cast<std::size_t>(count);
-    dot_kernel<<<blocks(n), kThreads>>>(n, a, b, sum.data());
+    dot_kernel<<<blocks(n), kThreads>>>(n, a, b, sum.data());  // b null: the integral of a
     launched("an integral");
     return lattice_.volume / static_cast<double>(points) * total(sum);
 }

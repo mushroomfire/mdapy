@@ -202,3 +202,59 @@ def test_a_pass_on_the_bands_held():
     assert passes[1]["davidson"][0] < passes[0]["davidson"][0]
     with pytest.raises(ValueError, match="first_held"):
         scf.run(*args, kgrid=(2, 2, 2), first_held=-1, **common)
+
+
+def test_the_ldos_preconditioner_on_a_slab():
+    """A slab of aluminium with as much vacuum: the preconditioner of the local
+    density of states screens the metal and not the vacuum, and takes far
+    fewer steps than Kerker's to the same ground state."""
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    a = 4.04 / BOHR
+    base = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
+    fractions = np.concatenate([(base + [0, 0, k]) * [1, 1, 0.125] for k in range(4)])
+    fractions[0] += 0.01
+    args = (np.diag([a, a, 8 * a]), fractions, [0] * 16, [pp], 10.0)
+    common = dict(kgrid=(3, 3, 1), smearing="gaussian", sigma=0.01, functional="pbe_pw",
+                  energy_tolerance=1e-10, density_tolerance=1e-12, symmetry=False)  # fmt: skip
+    kerker = scf.run(*args, **common)
+    ldos = scf.run(*args, preconditioner="ldos", **common)
+    assert kerker["converged"] and ldos["converged"]
+    assert ldos["energy"] == pytest.approx(kerker["energy"], abs=1e-8)
+    assert len(ldos["energies"]) < 0.7 * len(kerker["energies"])
+    with pytest.raises(ValueError, match="preconditioner"):
+        scf.run(*args, preconditioner="tf", **common)
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_the_ldos_preconditioner_reaches_the_ground_state(case):
+    """With fixed occupations (no states at the Fermi level, so simple mixing),
+    ultrasoft on two grids, and PAW with spin and symmetry: the ground state
+    of Kerker's preconditioner."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    args = (base, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(kgrid=(3, 3, 3), functional="pbe_pw", energy_tolerance=1e-12,
+                  density_tolerance=1e-14, **options)  # fmt: skip
+    kerker = scf.run(*args, **common)
+    ldos = scf.run(*args, preconditioner="ldos", **common)
+    assert kerker["converged"] and ldos["converged"]
+    assert ldos["energy"] == pytest.approx(kerker["energy"], abs=1e-9)
+
+
+def test_the_ldos_preconditioner_keeps_the_moment_of_nickel():
+    """fcc nickel with GBRV's ultrasoft file at 104 % of its volume, from
+    0.7 Bohr magnetons on 31^3 k-points: Kerker's preconditioner with Pulay's
+    mixing falls there into the state without moment, 39 meV higher; the
+    preconditioner of the local density of states ends in the ferromagnet."""
+    pp = read_upf(espresso.pseudo("gbrv/ni_pbe_v1.4.uspp.F.UPF"))
+    a = (4 * 11.380) ** (1 / 3)
+    cell = fcc(a)  # the primitive cell of the cube of edge a
+    r = scf.run(cell, [[0, 0, 0]], [0], [pp], 12.5, kgrid=(31, 31, 31), smearing="fermi-dirac",
+                sigma=0.00225, functional="pbe_pw", density_cutoff=100.0, magmoms=[0.7], beta=0.4,
+                magnetic_beta=1.0, energy_tolerance=1e-9, density_tolerance=1e-11,
+                max_iterations=100, stress=False, preconditioner="ldos")  # fmt: skip
+    assert r["converged"]
+    assert r["magnetization"] == pytest.approx(0.6385, abs=2e-3)
+    assert r["energy"] == pytest.approx(-171.24373783, abs=2e-7)

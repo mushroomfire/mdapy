@@ -44,6 +44,17 @@ __global__ void difference_kernel(std::size_t n, const double* a, const double* 
     if (i < n) out[i] = a[i] - b[i];
 }
 
+// out = d (v - c), d clamped at zero
+__global__ void screened_kernel(std::size_t n, const double* d, const double* v, double c, double* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = fmax(d[i], 0.0) * (v[i] - c);
+}
+
+__global__ void clamp_kernel(std::size_t n, double* x) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n && x[i] < 0.0) x[i] = 0.0;
+}
+
 void copy_device(DeviceArray<double>& to, const DeviceArray<double>& from, std::size_t n) {
     to.resize(n);
     check_cuda(cudaMemcpy(to.data(), from.data(), n * sizeof(double), cudaMemcpyDeviceToDevice), "cudaMemcpy");
@@ -473,6 +484,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     if (adaptive && !hubbard_blocks.empty()) throw std::invalid_argument("adaptive damping without DFT+U");
     const bool outputs = options.output_energies || adaptive;
     DeviceArray<double> taken_out, taken_hxc, taken_hxc_out, d_out, d_v, d_vo, d_r;
+    // the local density of states of the preconditioner (on the grid of the
+    // density, and on the smooth one), and the work of its operator
+    DeviceArray<double> ldos_r, ldos_s, ldos_v, ldos_out;
+    DeviceArray<Complex> ldos_g;
     std::vector<Complex> taken_in, delta;
     std::vector<std::vector<double>> taken_becsum, delta_becsum;
     double taken_energy = 0.0, taken_accuracy = 0.0, trial = 1.0, scale = 1.0;
@@ -962,6 +977,80 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         if (done) {
             result.converged = true;
             break;
+        }
+        if (options.mixing.ldos) {
+            // the local density of states at the Fermi level, both spins, by a
+            // Gaussian of the width of the smearing, on the grid of the density
+            // and symmetric; P = 1 - chi0 v_c with chi0 = -D(r) + D(r) D(r') / D
+            ldos_r.resize(points);
+            DeviceArray<double>& acc = two_grids ? ldos_s : ldos_r;
+            acc.resize(two_grids ? points_s : points);
+            acc.zero();
+            const double width = options.sigma;
+            std::vector<double> wd(bands);
+            for (std::size_t k = 0; k < nk && width > 0.0; ++k) {
+                if (!any_mine(k)) continue;
+                h.set_k(input.kpoints[k]);
+                for (std::size_t s = 0; s < spins; ++s) {
+                    if (!mine(s, k)) continue;
+                    const std::size_t row = (s * nk + k) * bands;
+                    for (std::size_t b = 0; b < bands; ++b) {
+                        const double x = (eigenvalues[row + b] - occ.fermi) / width;
+                        wd[b] = weights[s * nk + k] * f_max * std::exp(-x * x) / (std::sqrt(3.14159265358979323846) * width);
+                    }
+                    h.add_density(psi[s * nk + k].data(), nb, wd.data(), acc.data());
+                }
+            }
+            if (input.ranks > 1) {
+                std::vector<double> host(acc.size());
+                acc.download(host.data(), host.size());
+                sum(host.data(), host.size());
+                acc.upload(host.data(), host.size());
+            }
+            if (two_grids) {
+                pot_s->to_sphere(ldos_s.data(), smooth_g.data(), 1);
+                components.zero();
+                check_cuda(cudaMemcpy(components.data(), smooth_g.data(), ng_s * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                           "cudaMemcpy");
+            } else {
+                pot.to_sphere(ldos_r.data(), components.data(), 1);
+            }
+            symmetrizer.density(components.data(), 1);
+            pot.from_sphere(components.data(), ldos_r.data(), 1);
+            clamp_kernel<<<blocks(points), kThreads>>>(points, ldos_r.data());
+            check_cuda(cudaGetLastError(), "the local density of states");
+            const double d_total = pot.integral(ldos_r.data(), nullptr, 1);
+            if (d_total > 1e-8) {
+                mixer.set_preconditioner([&, d_total](std::vector<Complex>& r) {
+                    const auto apply = [&, d_total](const std::vector<Complex>& x) {
+                        // x + D v_c x - D int D v_c x / D, on the sphere
+                        std::vector<Complex> y(ng);
+                        for (std::size_t g = 0; g < ng; ++g) {
+                            const double g2_ = 2.0 * pot.sphere().kinetic[g];
+                            const double f = g2_ > 0.0 ? 4.0 * 3.14159265358979323846 / g2_ : 0.0;
+                            y[g] = make_cuDoubleComplex(f * x[g].x, f * x[g].y);
+                        }
+                        ldos_g.resize(ng);
+                        ldos_v.resize(points);
+                        ldos_out.resize(points);
+                        ldos_g.upload(y.data(), ng);
+                        pot.from_sphere(ldos_g.data(), ldos_v.data(), 1);
+                        const double c = pot.integral(ldos_r.data(), ldos_v.data(), 1) / d_total;
+                        screened_kernel<<<blocks(points), kThreads>>>(points, ldos_r.data(), ldos_v.data(), c,
+                                                                       ldos_out.data());
+                        check_cuda(cudaGetLastError(), "the screening of the local density of states");
+                        pot.to_sphere(ldos_out.data(), ldos_g.data(), 1);
+                        std::vector<Complex> z(ng);
+                        ldos_g.download(z.data(), ng);
+                        for (std::size_t g = 0; g < ng; ++g) z[g] = make_cuDoubleComplex(x[g].x + z[g].x, x[g].y + z[g].y);
+                        z[0] = make_cuDoubleComplex(0.0, 0.0);
+                        return z;
+                    };
+                    r = gmres(apply, r, 30, 1e-4);
+                });
+            } else {
+                mixer.set_preconditioner([](std::vector<Complex>&) {});  // no states at the Fermi level: P = 1
+            }
         }
         if (adaptive) {  // this step taken: what the next trials start from
             const std::size_t n = spins * points;

@@ -16,9 +16,9 @@ pseudopotentials (PseudoDojo 0.4, PBE, scalar relativistic, standard), at the
 high cutoff of their hints.
 
     python benchmarks/dft_verification.py prepare FOLDER
-    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe XO ...] [--cutoff HA]
-    python benchmarks/dft_verification.py report FOLDER [OUTPUT.md]
-    python benchmarks/dft_verification.py figure FOLDER IMAGE [unaries|oxides]
+    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe XO ...] [--cutoff HA] [--library sssp]
+    python benchmarks/dft_verification.py report FOLDER [OUTPUT.md] [--library sssp]
+    python benchmarks/dft_verification.py figure FOLDER IMAGE [unaries|oxides] [--library sssp]
 
 prepare downloads into FOLDER the data and scripts of the paper from the
 Materials Cloud Archive (doi:10.24435/materialscloud:s4-3h, CC BY 4.0) and
@@ -29,7 +29,11 @@ convergence); report fits them and prints the table of the comparisons
 (markdown); figure draws nu of each structure (of one family, or all)
 against QE and against the all-electron codes beside QE's from
 FOLDER/summary.json. The cutoff of an oxide is the higher of the hints of
-its two elements.
+its two elements. With --library sssp, the pseudopotentials of SSSP 1.3 PBE
+precision (norm-conserving, ultrasoft and PAW of several libraries) at the
+cutoffs it recommends, the highest of the elements of the structure, against
+Quantum ESPRESSO with the same, into FOLDER/results-sssp and
+FOLDER/summary-sssp.json.
 """
 
 import hashlib
@@ -46,6 +50,11 @@ import numpy as np
 ARCHIVE = "https://archive.materialscloud.org/api/records/yf0rj-w3r97/files/ACWF-verification-data-and-scripts.zip/content"
 DOJO = "https://www.pseudo-dojo.org/pseudos/nc-sr-04_pbe_standard_upf.tgz"
 HINTS = "https://raw.githubusercontent.com/PseudoDojo/ONCVPSP-PBE-PDv0.4/master/standard.djson"
+SSSP = "https://archive.materialscloud.org/api/records/rcyfm-68h65/files/SSSP_1.3.0_PBE_precision"
+CODES = {
+    "dojo": "quantum_espresso-PseudoDojo-0.4-PBE-SR-standard-upf",
+    "sssp": "quantum_espresso-SSSP-1.3-PBE-precision",
+}
 BOHR = 0.529177210903  # Å
 HARTREE = 27.211386245988  # eV
 RY = 0.5 * HARTREE
@@ -90,6 +99,16 @@ def prepare(folder: Path) -> None:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(t.extractfile(member).read())
     download(HINTS, folder / "pseudo-dojo" / "standard.djson")
+    sssp = folder / "sssp"
+    download(SSSP + ".json/content", sssp / "SSSP_1.3.0_PBE_precision.json")
+    with tarfile.open(
+        download(SSSP + ".tar.gz/content", folder / "downloads" / "sssp.tar.gz")
+    ) as t:
+        for member in t.getmembers():
+            if member.isfile() and member.name.lower().endswith(".upf"):
+                (sssp / Path(member.name).name).write_bytes(
+                    t.extractfile(member).read()
+                )
     print(
         f"prepared {folder}: {len(list((folder / 'pseudo-dojo').glob('*.upf')))} pseudopotentials"
     )
@@ -120,7 +139,11 @@ def mesh_of(cell: np.ndarray) -> tuple[int, int, int]:
 
 
 def run(
-    folder: Path, element: str, configuration: str, cutoff: float | None = None
+    folder: Path,
+    element: str,
+    configuration: str,
+    cutoff: float | None = None,
+    library: str = "dojo",
 ) -> None:
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
@@ -131,19 +154,30 @@ def run(
     # one pseudopotential per species, in the order they first appear
     names = [element if s.isdigit() else s for s in dict.fromkeys(species)]
     kinds = [names.index(element if s.isdigit() else s) for s in species]
-    paths = [folder / "pseudo-dojo" / f"{name}.upf" for name in names]
+    density = None
+    if library == "sssp":
+        sssp = json.loads(
+            (folder / "sssp" / "SSSP_1.3.0_PBE_precision.json").read_text()
+        )
+        paths = [folder / "sssp" / sssp[name]["filename"] for name in names]
+        results = folder / "results-sssp"
+        # the recommended cutoffs in Ry, the highest of the elements, in hartree
+        cutoff = max(sssp[name]["cutoff_wfc"] for name in names) / 2
+        density = max(sssp[name]["cutoff_rho"] for name in names) / 2
+    else:
+        paths = [folder / "pseudo-dojo" / f"{name}.upf" for name in names]
+        hints = json.loads((folder / "pseudo-dojo" / "standard.djson").read_text())[
+            "pseudos_metadata"
+        ]
+        results = folder / ("results" if cutoff is None else f"results-{cutoff:g}")
+        if cutoff is None:  # hartree
+            cutoff = max(float(hints[name]["hints"]["high"]["ecut"]) for name in names)
     pseudos = [read_upf(path) for path in paths]
-    hints = json.loads((folder / "pseudo-dojo" / "standard.djson").read_text())[
-        "pseudos_metadata"
-    ]
-    results = folder / ("results" if cutoff is None else f"results-{cutoff:g}")
-    if cutoff is None:  # hartree
-        cutoff = max(float(hints[name]["hints"]["high"]["ecut"]) for name in names)
     volume = abs(np.linalg.det(cell))
     mesh = mesh_of(cell * SCALES[0] ** (1 / 3))
     out = {
         "element": element, "configuration": configuration, "atoms": len(species),
-        "cutoff_hartree": cutoff, "mesh": mesh, "smearing": "fermi-dirac", "sigma_hartree": SMEARING,
+        "cutoff_hartree": cutoff, "density_cutoff_hartree": density, "mesh": mesh, "library": library, "smearing": "fermi-dirac", "sigma_hartree": SMEARING,
         "functional": "pbe_pw", "pseudopotentials": [path.name for path in paths],
         "sha256": [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths],
         "central_volume": volume, "volumes": [], "free_energies_ev": [], "steps": [], "seconds": [],
@@ -156,7 +190,7 @@ def run(
         start = time.time()
         r = scf.run(
             cell * scale ** (1 / 3) / BOHR, fractions, kinds, pseudos, cutoff, kgrid=mesh,
-            smearing="fermi-dirac", sigma=SMEARING, functional="pbe_pw",
+            smearing="fermi-dirac", sigma=SMEARING, functional="pbe_pw", density_cutoff=density,
             energy_tolerance=1e-9 * len(species), density_tolerance=1e-11, max_iterations=200, stress=False,
         )  # fmt: skip
         if not r["converged"]:
@@ -220,17 +254,17 @@ def epsilon(a, b) -> float:
     return math.sqrt(mean((ea - eb) ** 2) / math.sqrt(var))
 
 
-def report(folder: Path, output: Path | None = None, results: str = "results") -> None:
+def report(folder: Path, output: Path | None = None, library: str = "dojo") -> None:
     acwf = folder / "acwf"
 
     def data(family: str, code: str) -> dict:
         path = acwf / f"results-{family}-verification-PBE-v1-{code}.json"
         return json.loads(path.read_text())["BM_fit_data"] if path.exists() else {}
 
-    dojo = "quantum_espresso-PseudoDojo-0.4-PBE-SR-standard-upf"
     references = {f: data(f, "AE-average") for f in FAMILIES}
-    espressos = {f: data(f, dojo) for f in FAMILIES}
+    espressos = {f: data(f, CODES[library]) for f in FAMILIES}
     rows, summary = [], []
+    results = "results" if library == "dojo" else f"results-{library}"
     for path in sorted((folder / results).glob("*.json")):
         r = json.loads(path.read_text())
         oxide = r["configuration"] in OXIDES
@@ -274,15 +308,19 @@ def report(folder: Path, output: Path | None = None, results: str = "results") -
     )
     text = head + "\n" + "\n".join(rows) + "\n"
     print(text)
-    (folder / "summary.json").write_text(json.dumps(summary, indent=1))
+    name = "summary.json" if library == "dojo" else f"summary-{library}.json"
+    (folder / name).write_text(json.dumps(summary, indent=1))
     if output is not None:
         output.write_text(text)
 
 
-def figure(folder: Path, image: Path, family: str | None = None) -> None:
+def figure(
+    folder: Path, image: Path, family: str | None = None, library: str = "dojo"
+) -> None:
     from mdapy.visualization import plot
 
-    summary = json.loads((folder / "summary.json").read_text())
+    name = "summary.json" if library == "dojo" else f"summary-{library}.json"
+    summary = json.loads((folder / name).read_text())
     shapes = "os^Dvp"
     markers = {
         c: shapes[i % len(shapes)]
@@ -320,21 +358,33 @@ def figure(folder: Path, image: Path, family: str | None = None) -> None:
         plot.save(fig, str(image.with_suffix("")), formats=("png",))
 
 
+def _option(args: list, name: str) -> tuple[list, str | None]:
+    """args without --name VALUE, and VALUE (None without it)."""
+    if name not in args:
+        return args, None
+    at = args.index(name)
+    return args[:at] + args[at + 2 :], args[at + 1]
+
+
 if __name__ == "__main__":
     command, folder = sys.argv[1], Path(sys.argv[2])
+    rest, library = _option(sys.argv[3:], "--library")
+    library = library or "dojo"
     if command == "prepare":
         prepare(folder)
     elif command == "run":
-        pairs, cutoff = sys.argv[3:], None
-        if "--cutoff" in pairs:
-            at = pairs.index("--cutoff")
-            cutoff = float(pairs[at + 1])
-            pairs = pairs[:at] + pairs[at + 2 :]
+        pairs, cutoff = _option(rest, "--cutoff")
         for element, configuration in zip(pairs[::2], pairs[1::2]):
-            run(folder, element, configuration, cutoff)
+            run(
+                folder,
+                element,
+                configuration,
+                None if cutoff is None else float(cutoff),
+                library,
+            )
     elif command == "report":
-        report(folder, Path(sys.argv[3]) if len(sys.argv) > 3 else None)
+        report(folder, Path(rest[0]) if rest else None, library)
     elif command == "figure":
-        figure(folder, Path(sys.argv[3]), sys.argv[4] if len(sys.argv) > 4 else None)
+        figure(folder, Path(rest[0]), rest[1] if len(rest) > 1 else None, library)
     else:
         raise SystemExit(__doc__)

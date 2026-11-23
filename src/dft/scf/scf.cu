@@ -13,7 +13,10 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <atomic>
+#include <exception>
 #include <random>
+#include <thread>
 #include <unordered_map>
 #include <stdexcept>
 
@@ -36,11 +39,21 @@ __global__ void add_kernel(std::size_t n, const double* a, const double* b, doub
     if (i < n) out[i] = a[i] + b[i];
 }
 
+__global__ void difference_kernel(std::size_t n, const double* a, const double* b, double* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = a[i] - b[i];
+}
+
+void copy_device(DeviceArray<double>& to, const DeviceArray<double>& from, std::size_t n) {
+    to.resize(n);
+    check_cuda(cudaMemcpy(to.data(), from.data(), n * sizeof(double), cudaMemcpyDeviceToDevice), "cudaMemcpy");
+}
+
 // seconds between laps, the GPU finished
 struct Clock {
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
     double lap() {
-        check_cuda(cudaDeviceSynchronize(), "cudaDeviceSynchronize");
+        check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
         const auto now = std::chrono::steady_clock::now();
         const double seconds = std::chrono::duration<double>(now - last).count();
         last = now;
@@ -272,8 +285,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     const bool hubbard = !hubbard_blocks.empty();
     std::vector<double> bare;  // the blocks of D0 of the atoms
     std::vector<std::size_t> pair_offsets, block_offsets;  // of the packed pairs and of the blocks of each atom
+    std::vector<double> overlaps;                          // the blocks of q of the atoms, ultrasoft
     if (ultrasoft || hubbard) {
-        std::vector<double> overlaps;
         std::size_t offset = 0;
         for (const Atom& atom : input.atoms) {
             const auto& sp = input.species[static_cast<std::size_t>(atom.species)];
@@ -452,7 +465,22 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     std::vector<double> g2(ng);
     for (std::size_t g = 0; g < ng; ++g) g2[g] = 2.0 * pot.sphere().kinetic[g];
     Mixer mixer(g2, input.lattice.volume, ns, options.mixing);
-    DeviceArray<double> rho_in, rho_out, hxc(spins * points), veff(points);
+    DeviceArray<double> rho_in, rho_out, hxc(spins * points), veff(points), hxc_output;
+    // adaptive damping: the step taken last (its input on the sphere, output,
+    // potentials of both, output energy and residual), the step of the mixing
+    // from it, and the factor on it tried
+    const bool adaptive = options.adaptive_damping;
+    if (adaptive && !hubbard_blocks.empty()) throw std::invalid_argument("adaptive damping without DFT+U");
+    const bool outputs = options.output_energies || adaptive;
+    DeviceArray<double> taken_out, taken_hxc, taken_hxc_out, d_out, d_v, d_vo, d_r;
+    std::vector<Complex> taken_in, delta;
+    std::vector<std::vector<double>> taken_becsum, delta_becsum;
+    double taken_energy = 0.0, taken_accuracy = 0.0, trial = 1.0, scale = 1.0;
+    bool any_taken = false;
+    int trials = 0;
+    constexpr int kTrials = 5;           // trials of one step, the last taken whatever it gives
+    constexpr double kLeastScale = 0.25;  // of the shares of the mixing, Herbst and Levitt's 0.2 of 0.8
+    constexpr double kLeastTrial = 0.05;  // the smallest factor on a step
     rho_in.upload(input.density.data(), spins * points);
     rho_out.resize(spins * points);
     std::vector<Complex> in_g(spins * ng), out_g(spins * ng), last_in;
@@ -521,11 +549,75 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // atomic bands; from the bands of the last run, tight, as Quantum ESPRESSO
     // starts the steps of dynamics (1e-6 Ry on the eigenvalues), since loose
     // bands there would give an output density worse than the input
-    double tolerance = restart ? 1e-4 : 1e-2, previous = std::numeric_limits<double>::infinity();
+    double tolerance = options.first_tolerance > 0.0 ? options.first_tolerance : (restart ? 1e-4 : 1e-2);
+    double previous = std::numeric_limits<double>::infinity();
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
     std::vector<double> held;
     std::vector<double> limits(bands);
+    // the pairs (s, k) of this pool, and the host threads that take them side
+    // by side: small cells of many k-points, whose bands alone leave the GPU
+    // idle; each thread its own Hamiltonian, solver, density and occupations
+    std::vector<std::pair<std::size_t, std::size_t>> tasks;
+    for (std::size_t k = 0; k < nk; ++k)
+        for (std::size_t s = 0; s < spins; ++s)
+            if (mine(s, k)) tasks.emplace_back(s, k);
+    std::size_t largest = 0;
+    for (const auto& m : millers) largest = std::max(largest, m.size());
+    int threads = options.kpoint_threads;
+    if (threads == 0) threads = (input.gamma || tasks.size() < 4 || largest * bands > 500000) ? 1 : 8;
+    threads = static_cast<int>(std::min<std::size_t>(static_cast<std::size_t>(std::max(threads, 1)), tasks.size()));
+    if (input.gamma) threads = 1;
+    struct Worker {
+        Hamiltonian h;
+        Davidson davidson;
+        DeviceArray<double> rho;
+        std::vector<DeviceArray<double>> becsum;
+        std::vector<double> values, limits, w;
+        int iterations = 0;
+        double band = 0.0;
+        std::exception_ptr error;
+        Worker(const Lattice& lattice, const Int3& grid, double cutoff, const std::vector<SpeciesProjectors>& species,
+               const std::vector<Atom>& atoms, const Lattice* basis_)
+            : h(lattice, grid, cutoff, species, atoms, basis_) {}
+    };
+    std::vector<std::unique_ptr<Worker>> workers;
+    std::vector<DeviceArray<double>> veff_spin;  // the effective potential of each spin on the grid of the bands
+    if (threads > 1) {
+        for (int i = 0; i < threads; ++i) {
+            workers.push_back(std::make_unique<Worker>(input.lattice, smooth, input.cutoff, input.species,
+                                                       input.atoms, basis));
+            if (ultrasoft) workers.back()->h.set_overlaps(overlaps);
+            workers.back()->becsum.resize(spins);
+            workers.back()->limits.resize(bands);
+            workers.back()->w.resize(bands);
+        }
+        veff_spin.resize(spins);
+        for (auto& v : veff_spin) v.resize(two_grids ? points_s : points);
+        check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
+    }
+    // each task of tasks by one of the workers, f(worker, s, k); the work of
+    // this thread done first, the errors of the workers raised here
+    auto side_by_side = [&](const std::function<void(Worker&, std::size_t, std::size_t)>& f) {
+        check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
+        std::atomic<std::size_t> next{0};
+        std::vector<std::thread> pool;
+        for (auto& worker : workers) {
+            Worker* wk = worker.get();
+            wk->error = nullptr;
+            pool.emplace_back([&, wk] {
+                try {
+                    for (std::size_t i = next++; i < tasks.size(); i = next++) f(*wk, tasks[i].first, tasks[i].second);
+                    check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
+                } catch (...) {
+                    wk->error = std::current_exception();
+                }
+            });
+        }
+        for (auto& t : pool) t.join();
+        for (auto& worker : workers)
+            if (worker->error) std::rethrow_exception(worker->error);
+    };
     for (int iteration = 1; iteration <= options.max_iterations; ++iteration) {
         // the potential of rho_in
         if (iteration == 1) result.times.setup += clock.lap();
@@ -549,7 +641,66 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         // the bands
         ScfStep step;
         step.tolerance = tolerance;
-        for (std::size_t k = 0; k < nk; ++k) {
+        if (threads > 1) {
+            // the potential of each spin once, then the k-points on the workers
+            for (std::size_t s = 0; s < spins; ++s) {
+                add_kernel<<<blocks(points), kThreads>>>(points, local.data(), hxc.data() + s * points, veff.data());
+                check_cuda(cudaGetLastError(), "the effective potential");
+                if (two_grids) {
+                    pot.to_sphere(veff.data(), veff_dense_g.data(), 1);
+                    pot_s->from_sphere(veff_dense_g.data(), veff_spin[s].data(), 1);
+                } else {
+                    check_cuda(cudaMemcpy(veff_spin[s].data(), veff.data(), points * sizeof(double),
+                                          cudaMemcpyDeviceToDevice),
+                               "cudaMemcpy");
+                }
+            }
+            for (auto& worker : workers) worker->iterations = 0;
+            side_by_side([&](Worker& wk, std::size_t s, std::size_t k) {
+                wk.h.set_k(input.kpoints[k]);
+                wk.h.set_potential(veff_spin[s].data());
+                if (ultrasoft || hubbard) wk.h.set_strengths(strengths[s]);
+                const double loose = std::max(tolerance, 1e-2);
+                for (std::size_t b = 0; b < bands; ++b) {
+                    const double f = held.empty() ? 1.0 : std::abs(held[(s * nk + k) * bands + b]);
+                    wk.limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
+                }
+                const std::size_t row = s * nk + k;
+                if (iteration == 1 && !restart && wk.h.atomic_functions() > 0) {
+                    // the lowest Ritz vectors of the pseudo-orbitals, as start_atomic
+                    const std::size_t n = wk.h.plane_waves();
+                    const int m = wk.h.atomic_functions(), total = std::max(m, nb);
+                    if (m <= 2 * nb && static_cast<std::size_t>(total) <= n) {
+                        DeviceArray<Complex> start(n * static_cast<std::size_t>(total));
+                        wk.h.atomic(start.data());
+                        if (m < nb)
+                            check_cuda(cudaMemcpy(start.data() + n * static_cast<std::size_t>(m),
+                                                  psi[row].data() + n * static_cast<std::size_t>(m),
+                                                  n * static_cast<std::size_t>(nb - m) * sizeof(Complex),
+                                                  cudaMemcpyDeviceToDevice),
+                                       "cudaMemcpy");
+                        bool solved = true;
+                        try {
+                            std::vector<double> ev, first(static_cast<std::size_t>(total), 1e-2);
+                            wk.davidson.solve(wk.h, start.data(), total, ev, first, 1, total);
+                        } catch (const std::invalid_argument&) {
+                            solved = false;
+                        }
+                        if (solved)
+                            check_cuda(cudaMemcpy(psi[row].data(), start.data(), n * bands * sizeof(Complex),
+                                                  cudaMemcpyDeviceToDevice),
+                                       "cudaMemcpy");
+                    }
+                }
+                const auto r = wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
+                                                 options.davidson_iterations, options.davidson_basis * nb);
+                wk.iterations += r.iterations;
+                std::copy(wk.values.begin(), wk.values.end(),
+                          eigenvalues.begin() + static_cast<std::ptrdiff_t>(row * bands));
+            });
+            for (auto& worker : workers) step.davidson += worker->iterations;
+        }
+        for (std::size_t k = 0; k < nk && threads == 1; ++k) {
             if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
@@ -595,7 +746,46 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         double band = 0.0;
         if (ultrasoft || hubbard)  // the occupations of the projectors gathered on the device
             for (auto& b : becsum_d) b.zero();
-        for (std::size_t k = 0; k < nk; ++k) {
+        if (threads > 1) {
+            // each worker its share of the density and of the occupations,
+            // added here
+            const std::size_t per = two_grids ? points_s : points;
+            for (auto& worker : workers) {
+                worker->band = 0.0;
+                worker->rho.resize(spins * per);
+                worker->rho.zero();
+                if (ultrasoft || hubbard)
+                    for (auto& b : worker->becsum) {
+                        b.resize(pair_offsets.back());
+                        b.zero();
+                    }
+            }
+            side_by_side([&](Worker& wk, std::size_t s, std::size_t k) {
+                wk.h.set_k(input.kpoints[k]);
+                const std::size_t row = (s * nk + k) * bands;
+                for (std::size_t b = 0; b < bands; ++b) {
+                    wk.w[b] = weights[s * nk + k] * f_max * occ.f[row + b];
+                    wk.band += wk.w[b] * eigenvalues[row + b];
+                }
+                wk.h.add_density(psi[s * nk + k].data(), nb, wk.w.data(), wk.rho.data() + s * per);
+                if (ultrasoft || hubbard)
+                    wk.h.add_becsum_device(psi[s * nk + k].data(), nb, wk.w.data(), wk.becsum[s].data());
+            });
+            DeviceArray<double>& target = two_grids ? rho_s : rho_out;
+            for (auto& worker : workers) {
+                band += worker->band;
+                add_kernel<<<blocks(spins * per), kThreads>>>(spins * per, target.data(), worker->rho.data(),
+                                                             target.data());
+                check_cuda(cudaGetLastError(), "the density of the workers");
+                if (ultrasoft || hubbard)
+                    for (std::size_t s = 0; s < spins; ++s) {
+                        add_kernel<<<blocks(pair_offsets.back()), kThreads>>>(
+                            pair_offsets.back(), becsum_d[s].data(), worker->becsum[s].data(), becsum_d[s].data());
+                        check_cuda(cudaGetLastError(), "the occupations of the workers");
+                    }
+            }
+        }
+        for (std::size_t k = 0; k < nk && threads == 1; ++k) {
             if (!any_mine(k)) continue;
             h.set_k(input.kpoints[k]);
             for (std::size_t s = 0; s < spins; ++s) {
@@ -671,6 +861,24 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             throw std::runtime_error("the energy or the density is not finite");
         step.energy = energy;
         step.accuracy = accuracy;
+        if (outputs) {
+            // band - int V_Hxc[rho_in] rho_out + E_Hxc[rho_out], with PAW
+            // E^1 of the output occupations less the strengths of the input on them
+            step.output_energy = std::numeric_limits<double>::quiet_NaN();
+            if (!hubbard) {
+                hxc_output.resize(spins * points);
+                const PotentialEnergies e_o = pot.compute(rho_out.data(), hxc_output.data());
+                double paw_o = 0.0;
+                if (paw) {
+                    std::vector<std::vector<double>> strengths_o(spins);
+                    paw_o = one(becsum, strengths_o);
+                    for (std::size_t s = 0; s < spins; ++s)
+                        for (std::size_t i = 0; i < becsum[s].size(); ++i) paw_o -= onecenter[s][i] * becsum[s][i];
+                }
+                step.output_energy = band - pot.integral(hxc.data(), rho_out.data(), static_cast<int>(spins)) +
+                                     e_o.hartree + e_o.xc + input.ewald + occ.entropy + paw_o;
+            }
+        }
         step.fermi = occ.fermi;
         step.magnetization = ns == 2 ? out_g[ng].x * input.lattice.volume : 0.0;
         result.steps.push_back(step);
@@ -685,6 +893,61 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         result.lowest_empty = occ.lowest_empty;
         result.eigenvalues = eigenvalues;
         result.occupations = occ.f;
+        if (adaptive && any_taken) {
+            // Herbst and Levitt, J. Comput. Phys. 459, 111127 (2022): this step
+            // tried the input taken + trial delta; along delta, in u = 1 at this
+            // trial, the energy phi(u) = E + u a - u^2 b / 2 with
+            // a = <d rho_out, V_out - V> of the step taken (its residual in
+            // potential) and b = <d rho_out, d V_in - d V_out>, d of this trial
+            // from the step taken; a good model (its prediction within a tenth
+            // of the change, convex) places the next trial at its minimum
+            const std::size_t n = spins * points;
+            d_out.resize(n);
+            d_v.resize(n);
+            d_vo.resize(n);
+            d_r.resize(n);
+            difference_kernel<<<blocks(n), kThreads>>>(n, rho_out.data(), taken_out.data(), d_out.data());
+            difference_kernel<<<blocks(n), kThreads>>>(n, hxc.data(), taken_hxc.data(), d_v.data());
+            difference_kernel<<<blocks(n), kThreads>>>(n, hxc_output.data(), taken_hxc_out.data(), d_vo.data());
+            difference_kernel<<<blocks(n), kThreads>>>(n, taken_hxc_out.data(), taken_hxc.data(), d_r.data());
+            check_cuda(cudaGetLastError(), "the differences of a step");
+            const int c = static_cast<int>(spins);
+            const double a = pot.integral(d_out.data(), d_r.data(), c);
+            const double b = pot.integral(d_out.data(), d_v.data(), c) - pot.integral(d_out.data(), d_vo.data(), c);
+            const double change = step.output_energy - taken_energy;
+            const double ratio = std::abs(change - (a - 0.5 * b)) / std::max(std::abs(change), 1e-300);
+            const bool good = ratio < 0.1 && b < 0.0;
+            const double best = good ? a / b : 0.0;  // u of the minimum
+            const bool take = step.output_energy < taken_energy || accuracy < taken_accuracy || trials >= kTrials;
+            result.steps.back().damping = trial * scale;
+            if (!take) {
+                double u = 0.5;
+                if (good && (best > 0.0 || ratio < 0.01)) u = std::copysign(std::min(std::abs(best), 0.95), best);
+                if (std::abs(u * trial) < kLeastTrial) u = std::copysign(kLeastTrial / std::abs(trial), u);
+                trial *= u;
+                ++trials;
+                result.steps.back().accepted = false;
+                for (std::size_t i = 0; i < in_g.size(); ++i)
+                    in_g[i] = make_cuDoubleComplex(taken_in[i].x + trial * delta[i].x, taken_in[i].y + trial * delta[i].y);
+                if (mixes_occupations)
+                    for (std::size_t s = 0; s < spins; ++s)
+                        for (std::size_t i = 0; i < becsum_in[s].size(); ++i)
+                            becsum_in[s][i] = taken_becsum[s][i] + trial * delta_becsum[s][i];
+                std::vector<Complex> next = in_g;
+                if (ns == 2) to_spins(next, ng);
+                components.upload(next.data(), next.size());
+                pot.from_sphere(components.data(), rho_in.data(), ns);
+                result.times.mixing += clock.lap();
+                continue;
+            }
+            // the shares of the mixing: those of the trial taken after trials
+            // back, or up to 1.1 times the minimum of a good model after none
+            if (trials > 0)
+                scale = std::max(kLeastScale, scale * std::abs(trial));
+            else if (good && best > 0.0)
+                scale = std::min(1.0, std::max(scale, 1.1 * best * scale));
+            mixer.set_scale(scale);
+        }
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
         if (input.ranks > 1) {  // all pools stop together, when every one has converged
             double count = done ? 1.0 : 0.0;
@@ -695,6 +958,19 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         if (done) {
             result.converged = true;
             break;
+        }
+        if (adaptive) {  // this step taken: what the next trials start from
+            const std::size_t n = spins * points;
+            copy_device(taken_out, rho_out, n);
+            copy_device(taken_hxc, hxc, n);
+            copy_device(taken_hxc_out, hxc_output, n);
+            taken_in = in_g;
+            taken_becsum = becsum_in;
+            taken_energy = step.output_energy;
+            taken_accuracy = accuracy;
+            any_taken = true;
+            trials = 0;
+            trial = 1.0;
         }
         // the next input density, and with PAW the occupations of (total,
         // magnetization) along
@@ -723,6 +999,14 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         } else {
             in_g = mixer.mix(in_g, out_g);
+        }
+        if (adaptive) {  // the step of the mixing, of which the trials take a share
+            delta.resize(in_g.size());
+            for (std::size_t i = 0; i < in_g.size(); ++i)
+                delta[i] = make_cuDoubleComplex(in_g[i].x - taken_in[i].x, in_g[i].y - taken_in[i].y);
+            delta_becsum = becsum_in;
+            for (std::size_t s = 0; s < delta_becsum.size(); ++s)
+                for (std::size_t i = 0; i < delta_becsum[s].size(); ++i) delta_becsum[s][i] -= taken_becsum[s][i];
         }
         result.times.mixing += clock.lap();
         std::vector<Complex> next = in_g;

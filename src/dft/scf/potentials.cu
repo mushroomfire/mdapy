@@ -338,6 +338,17 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     return out;
 }
 
+double Potentials::integral(const double* a, const double* b, int count) {
+    const std::size_t points = fft_.points();
+    DeviceArray<double>& sum = sum_;
+    sum.reserve(1);
+    sum.zero();
+    const std::size_t n = points * static_cast<std::size_t>(count);
+    dot_kernel<<<blocks(n), kThreads>>>(n, a, b, sum.data());
+    launched("an integral");
+    return lattice_.volume / static_cast<double>(points) * total(sum);
+}
+
 std::array<double, 6> Potentials::gga_strain() const {
     std::array<double, 6> out{};
     if (!xc::gradient(functional_)) return out;

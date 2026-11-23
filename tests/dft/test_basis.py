@@ -79,6 +79,13 @@ def test_good_sizes():
             while m % p == 0:
                 m //= p
         assert m == 1
+    # multiples of a factor, whose own primes count as good
+    assert [_dft.good_size(n, f) for n, f in ((49, 4), (51, 4), (13, 3), (20, 7))] == [
+        60,
+        60,
+        15,
+        21,
+    ]
 
 
 @pytest.mark.parametrize("cell", ["silicon", "triclinic"])

@@ -25,8 +25,11 @@ set_target_properties(mdapy_dft PROPERTIES POSITION_INDEPENDENT_CODE ON
   CUDA_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden)
 target_include_directories(mdapy_dft PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(mdapy_dft PUBLIC CUDA::cudart CUDA::cufft CUDA::cublas CUDA::cusolver)
+# the default stream of each host thread, so that runs on several threads (as
+# the SCFs of several configurations) overlap on the GPU instead of taking turns
+target_compile_definitions(mdapy_dft PUBLIC CUDA_API_PER_THREAD_DEFAULT_STREAM=1)
 target_compile_options(mdapy_dft PRIVATE
-  $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr -Wno-deprecated-gpu-targets>
+  $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr -Wno-deprecated-gpu-targets --default-stream per-thread>
   $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic -Wshadow -ffp-contract=off>)
 if(MDAPY_CUDA_LINEINFO)
   target_compile_options(mdapy_dft PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:-lineinfo>)

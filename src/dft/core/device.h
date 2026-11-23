@@ -5,7 +5,10 @@
 //
 // Memory of the GPU owned by an object: allocated once, freed with it, moved
 // but never copied. The complex numbers of the device are cuDoubleComplex, the
-// layout of std::complex<double>.
+// layout of std::complex<double>. The memory is that of the stream-ordered pool
+// on the default stream of the calling thread, which cudaFree, waiting for the
+// whole device, would not let runs on several threads overlap; the pool keeps
+// what it is given back.
 
 #pragma once
 
@@ -21,6 +24,19 @@
 namespace mdapy::dft {
 
 using Complex = cuDoubleComplex;
+
+// the pool of the current device keeps the memory given back to it, once
+inline void keep_pool() {
+    static const bool kept = [] {
+        int device = 0;
+        cudaMemPool_t pool{};
+        if (cudaGetDevice(&device) != cudaSuccess || cudaDeviceGetDefaultMemPool(&pool, device) != cudaSuccess)
+            return false;
+        unsigned long long most = ~0ULL;
+        return cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &most) == cudaSuccess;
+    }();
+    (void)kept;
+}
 
 template <class T>
 class DeviceArray {
@@ -48,7 +64,8 @@ public:
         release();
         if (size > 0) {
             void* memory = nullptr;
-            check_cuda(cudaMalloc(&memory, size * sizeof(T)), "cudaMalloc");
+            keep_pool();
+            check_cuda(cudaMallocAsync(&memory, size * sizeof(T), cudaStreamPerThread), "cudaMallocAsync");
             data_ = static_cast<T*>(memory);
             size_ = size;
         }
@@ -92,7 +109,7 @@ public:
 
 private:
     void release() noexcept {
-        if (data_ != nullptr) cudaFree(data_);
+        if (data_ != nullptr) cudaFreeAsync(data_, cudaStreamPerThread);
         data_ = nullptr;
         size_ = 0;
     }

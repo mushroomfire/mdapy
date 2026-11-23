@@ -16,8 +16,8 @@ namespace {
 constexpr double kPi = 3.14159265358979323846264338327950288;
 
 // x of A x = b, A symmetric positive semidefinite m x m: by its eigenvectors
-// (Jacobi), directions of eigenvalues below 1e-12 of the largest dropped
-std::vector<double> solve_symmetric(std::vector<double> a, const std::vector<double>& b, int m) {
+// (Jacobi), directions of eigenvalues below cut times the largest dropped
+std::vector<double> solve_symmetric(std::vector<double> a, const std::vector<double>& b, int m, double cut) {
     std::vector<double> v(static_cast<std::size_t>(m * m), 0.0);
     for (int i = 0; i < m; ++i) v[static_cast<std::size_t>(i * m + i)] = 1.0;
     auto at = [&](std::vector<double>& x, int i, int j) -> double& { return x[static_cast<std::size_t>(i * m + j)]; };
@@ -54,7 +54,7 @@ std::vector<double> solve_symmetric(std::vector<double> a, const std::vector<dou
     std::vector<double> x(static_cast<std::size_t>(m), 0.0);
     for (int e = 0; e < m; ++e) {
         const double lambda = at(a, e, e);
-        if (!(lambda > 1e-12 * largest)) continue;
+        if (!(lambda > cut * largest)) continue;
         double proj = 0.0;
         for (int k = 0; k < m; ++k) proj += at(v, k, e) * b[static_cast<std::size_t>(k)];
         for (int k = 0; k < m; ++k) x[static_cast<std::size_t>(k)] += at(v, k, e) * proj / lambda;
@@ -70,9 +70,9 @@ Mixer::Mixer(std::vector<double> g2, double volume, int channels, MixingOptions 
     if (n_ < 2 || g2_[0] != 0.0) throw std::invalid_argument("the sphere of the density starts at G = 0");
     if (!(options_.beta > 0.0) || options_.history < 1 || !(options_.metric_weight >= 1.0) ||
         options_.kerker < 0.0 || options_.minimum < 0.0 || !(options_.magnetic_beta > 0.0) ||
-        options_.magnetic_kerker < 0.0)
+        options_.magnetic_kerker < 0.0 || !(options_.conditioning >= 1.0))
         throw std::invalid_argument("mixing: beta and magnetic_beta > 0, history >= 1, metric_weight >= 1, "
-                                    "kerker >= 0, minimum >= 0");
+                                    "kerker >= 0, minimum >= 0, conditioning >= 1");
     double shortest = 0.0;
     for (std::size_t g = 1; g < n_; ++g)
         if (g2_[g] > 0.0 && (shortest == 0.0 || g2_[g] < shortest)) shortest = g2_[g];
@@ -100,6 +100,11 @@ void Mixer::reset() {
     residuals_.clear();
     extra_inputs_.clear();
     extra_residuals_.clear();
+}
+
+void Mixer::set_scale(double factor) {
+    if (!(factor > 0.0)) throw std::invalid_argument("the scale of the mixing must be positive");
+    scale_ = factor;
 }
 
 double Mixer::dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const {
@@ -182,7 +187,9 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
                 a[static_cast<std::size_t>(i * m + j)] = a[static_cast<std::size_t>(j * m + i)] =
                     dot(dr[static_cast<std::size_t>(i)], dr[static_cast<std::size_t>(j)]);
         }
-        const std::vector<double> gamma = solve_symmetric(a, b, m);
+        // A = dR^T dR: its eigenvalues are the squares of the singular values
+        const std::vector<double> gamma =
+            solve_symmetric(a, b, m, 1.0 / (options_.conditioning * options_.conditioning));
         for (int i = 0; i < m; ++i) {
             const double c = gamma[static_cast<std::size_t>(i)];
             if (along) {
@@ -204,14 +211,14 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
         }
     }
     for (std::size_t j = 0; j < size; ++j) {
-        rho[j].x += precondition_[j] * res[j].x;
-        rho[j].y += precondition_[j] * res[j].y;
+        rho[j].x += scale_ * precondition_[j] * res[j].x;
+        rho[j].y += scale_ * precondition_[j] * res[j].y;
     }
     rho[0] = in[0];
     if (along) {
         const std::size_t per = x.size() / static_cast<std::size_t>(channels_);
         for (std::size_t j = 0; j < x.size(); ++j)
-            (*extra)[j] = x[j] + (j < per ? options_.beta : options_.magnetic_beta) * xr[j];
+            (*extra)[j] = x[j] + scale_ * (j < per ? options_.beta : options_.magnetic_beta) * xr[j];
     }
     return rho;
 }

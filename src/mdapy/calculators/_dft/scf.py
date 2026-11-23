@@ -230,6 +230,12 @@ def run(
     gamma: bool | None = None,
     comm=None,
     hubbard=None,
+    kpoint_threads: int = 0,
+    start_density=None,
+    first_tolerance: float = 0.0,
+    conditioning: float = 1e6,
+    output_energies: bool = False,
+    adaptive_damping: bool = False,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -267,7 +273,25 @@ def run(
     orbitals as Quantum ESPRESSO's atomic projectors, started from its
     occupations; the result then holds hubbard_energy and
     hubbard_occupations, n of each Hubbard atom (spins, 2l + 1, 2l + 1) in
-    the order of the atoms."""
+    the order of the atoms. kpoint_threads host threads solve the k-points
+    side by side on the GPU, each with its own Hamiltonian: 0 for as many as
+    small cells of many k-points use, 1 for one. start_density, the
+    density on grid (as the result's, (2, n1, n2, n3) with spin), replaces the
+    superposition of the free atoms as the first input density; with
+    first_tolerance (hartree) the bands of the first step are solved to that
+    residual norm, as a non-self-consistent pass at its potential needs.
+    conditioning bounds the condition number of the residual differences
+    that Pulay's mixing combines: directions of smaller singular values are
+    dropped. With output_energies the result holds output_energies, the
+    Kohn-Sham free energy of the output density and occupations of each step
+    (variational, where energies are the Harris-Foulkes functional of the
+    inputs; NaN with DFT+U). With adaptive_damping each step is a trial,
+    taken back and tried closer when neither its output energy nor its
+    residual is below those of the step it came from (Herbst and Levitt,
+    J. Comput. Phys. 459, 111127 (2022)), and the shares of the mixing
+    adapt: the result holds output_energies, accepted (1 for the steps
+    taken) and dampings (the factor on each step of the mixing); not with
+    DFT+U."""
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -276,14 +300,6 @@ def run(
     if density_cutoff is None:
         # ultrasoft augmentation charges need more of the density
         density_cutoff = (8.0 if any(pp.ultrasoft for pp in pseudos) else 4.0) * cutoff
-    grid = tuple(_dft.fft_grid(cell, density_cutoff)) if grid is None else tuple(grid)
-    if smooth_grid is None:
-        smooth_grid = (
-            grid
-            if density_cutoff <= 4.0 * cutoff
-            else tuple(_dft.fft_grid(cell, 4.0 * cutoff))
-        )
-    smooth_grid = tuple(smooth_grid)
     volume = abs(np.linalg.det(cell))
     electrons = float(sum(pseudos[s].valence for s in kinds))
     if bands is None:
@@ -299,6 +315,26 @@ def run(
         if magmoms.shape != (len(kinds),) or (np.abs(magmoms) > valence).any():
             raise ValueError("a moment for every atom, at most its valence")
         spins = 2
+    ops = None
+    wanted = symmetries.available() if symmetry is None else bool(symmetry)
+    if wanted and basis_cell is None:
+        ops = symmetries.operations(cell, positions, kinds, magmoms)
+        if len(ops) == 1:
+            ops = None
+    # the grids fit the fractional translations of the operations, as QE's
+    factors = (1, 1, 1) if ops is None else symmetries.fft_factors(ops)
+    grid = (
+        tuple(_dft.fft_grid(cell, density_cutoff, factors))
+        if grid is None
+        else tuple(grid)
+    )
+    if smooth_grid is None:
+        smooth_grid = (
+            grid
+            if density_cutoff <= 4.0 * cutoff
+            else tuple(_dft.fft_grid(cell, 4.0 * cutoff, factors))
+        )
+    smooth_grid = tuple(smooth_grid)
     # the G of the sphere of the density in the order of the GPU's
     chooser = (
         cell if basis_cell is None else np.ascontiguousarray(basis_cell, dtype=float)
@@ -318,6 +354,10 @@ def run(
     if spins == 2:
         moment = on_grid(moment_g, miller, grid) * scale
         density = np.stack([0.5 * (density + moment), 0.5 * (density - moment)])
+    if start_density is not None:
+        density = np.asarray(start_density, dtype=float)
+        if density.shape != ((spins,) if spins == 2 else ()) + tuple(grid):
+            raise ValueError("start_density on the grid of the run, with each spin")
     qmax = math.sqrt(2 * cutoff) + 1.0
     tables = [radial.projector_table(pp, qmax, volume) for pp in pseudos]
     # the pseudo-orbitals of the free atoms, for the first bands
@@ -366,12 +406,6 @@ def run(
         np.ascontiguousarray(positions @ cell),
         np.ascontiguousarray(charges, dtype=float),
     )
-    ops = None
-    wanted = symmetries.available() if symmetry is None else bool(symmetry)
-    if wanted and basis_cell is None:
-        ops = symmetries.operations(cell, positions, kinds, magmoms)
-        if len(ops) == 1:
-            ops = None
     if ops is None:
         kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
     else:
@@ -421,7 +455,8 @@ def run(
         None if smooth_grid == grid else list(smooth_grid), callback, becsum,
         data if callback is None else None, orbitals if atomic_start else None,
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
-        hubbard_of,
+        hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
+        bool(output_energies), bool(adaptive_damping),
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

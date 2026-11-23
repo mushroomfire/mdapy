@@ -59,17 +59,23 @@ Vec3 Lattice::cartesian(const Vec3& k, const Int3& m) const {
     return out;
 }
 
-int good_size(int n) {
-    if (n < 1) throw std::invalid_argument("an FFT size must be positive");
-    for (int m = n;; ++m) {
-        int r = m;
+int good_size(int n, int factor) {
+    if (n < 1 || factor < 1) throw std::invalid_argument("an FFT size and its factor must be positive");
+    for (int m = factor * ((n + factor - 1) / factor);; m += factor) {
+        int r = m / factor;
         for (const int p : {2, 3, 5})
             while (r % p == 0) r /= p;
+        int f = factor;  // the primes of the factor itself
+        for (int p = 2; p <= f; ++p)
+            while (f % p == 0) {
+                f /= p;
+                while (r % p == 0) r /= p;
+            }
         if (r == 1) return m;
     }
 }
 
-Int3 fft_grid(const Lattice& lattice, double cutoff) {
+Int3 fft_grid(const Lattice& lattice, double cutoff, const Int3& factors) {
     if (!(cutoff > 0.0)) throw std::invalid_argument("the cutoff must be positive");
     const double radius = std::sqrt(2.0 * cutoff);
     // m_i = a_i . G / 2 pi is at most |a_i| |G| / 2 pi; the largest |m_i| of
@@ -87,7 +93,7 @@ Int3 fft_grid(const Lattice& lattice, double cutoff) {
                         std::max(most[2], std::abs(m2))};
             }
     Int3 grid{};
-    for (int i = 0; i < 3; ++i) grid[i] = good_size(2 * most[i] + 1);
+    for (int i = 0; i < 3; ++i) grid[i] = good_size(2 * most[i] + 1, factors[i]);
     return grid;
 }
 

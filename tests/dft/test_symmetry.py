@@ -48,6 +48,13 @@ def test_operations():
     ops = symmetry.operations(fcc(5.431), DIAMOND, [0, 0])
     assert len(ops) == 48
     assert (np.abs(ops.translations).sum(axis=1) > 1e-8).sum() == 24
+    # the FFT grids of diamond fit translations of a quarter, as QE's
+    assert symmetry.fft_factors(ops) == (4, 4, 4)
+    assert symmetry.fft_factors(symmetry.operations(fcc(4.05), [[0, 0, 0]], [0])) == (
+        1,
+        1,
+        1,
+    )
     # each operation takes the atoms onto atoms
     cell = fcc(5.431)
     for r, t, atoms in zip(ops.rotations, ops.translations, ops.atoms):
@@ -195,6 +202,9 @@ def test_against_pw_with_symmetry(name):
         extra=f", ecutrho = {2 * dual * cutoff:.10f}", symmetric=True,
     )  # fmt: skip
     assert "48 Sym. Ops." in qe["text"]
+    # the grids chosen with the symmetry are those of pw.x with it
+    assert tuple(first["grid"]) == qe["grid"]
+    assert tuple(first["smooth_grid"]) == qe["smooth_grid"]
     r = scf.run(cell, positions, [0] * len(positions), [pp], cutoff, functional="pbe_pw", density_cutoff=dual * cutoff,
                 grid=qe["grid"], smooth_grid=qe["smooth_grid"], energy_tolerance=1e-12, density_tolerance=1e-14,
                 **options)  # fmt: skip

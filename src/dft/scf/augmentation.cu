@@ -210,6 +210,7 @@ Augmentation::Augmentation(const Lattice& lattice, const Sphere& sphere, const s
     }
     if (any_) {
         cublasStatus_t status = cublasCreate(&blas_);
+        if (status == CUBLAS_STATUS_SUCCESS) status = cublasSetStream(blas_, cudaStreamPerThread);
         if (status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error("cublasCreate failed");
     }
 }

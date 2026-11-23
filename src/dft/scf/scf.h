@@ -125,6 +125,19 @@ struct ScfOptions {
     int max_iterations = 100;
     int davidson_iterations = 100;  // per k-point and step
     int davidson_basis = 2;         // the largest basis, times the bands
+    // host threads that solve the bands of the k-points side by side on the
+    // GPU, each its own Hamiltonian and solver: 0 for as many as small cells
+    // with many k-points use (up to 8), 1 for none
+    int kpoint_threads = 0;
+    // the residual norm of the bands of the first step, hartree: 0 for 1e-2,
+    // or 1e-4 from the bands of the last run (a non-self-consistent pass at
+    // the potential of a given density takes it tight)
+    double first_tolerance = 0.0;
+    // the free energy of the output of each step as well (ScfStep::output_energy)
+    bool output_energies = false;
+    // the damping of each step adapted (Herbst and Levitt): steps tried and
+    // taken back; with the output energies, not with DFT+U
+    bool adaptive_damping = false;
     double xc_threshold = 1e-10;
     unsigned long long seed = 0;
 };
@@ -135,6 +148,12 @@ struct ScfStep {
     double magnetization = 0.0;  // int m of rho_out, Bohr magnetons
     double fermi = 0.0;
     double tolerance = 0.0;  // of the residuals of the bands
+    // the Kohn-Sham free energy of the output density and occupations of the
+    // step, variational where energy is the Harris-Foulkes functional of its
+    // input; with output_energies, and not with DFT+U (NaN then)
+    double output_energy = 0.0;
+    bool accepted = true;  // with adaptive damping, whether the step was taken
+    double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
 };
 

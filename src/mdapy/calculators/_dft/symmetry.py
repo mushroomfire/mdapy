@@ -16,6 +16,7 @@ them:
     operation on Cartesian vectors;
   - the forces on J the average of C F_I, the stress of C s C^T."""
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -55,6 +56,22 @@ def available() -> bool:
     except ImportError:
         return False
     return True
+
+
+def fft_factors(symmetry: Symmetry) -> tuple[int, int, int]:
+    """Of each lattice vector the number the FFT grid is a multiple of, so that
+    the fractional translations of the operations fit it, as Quantum ESPRESSO
+    makes its grid: the least common multiple of their denominators of 2, 3, 4
+    or 6 (others QE drops with their operation; they add nothing here)."""
+    factors = [1, 1, 1]
+    for t in np.asarray(symmetry.translations, dtype=float):
+        for i in range(3):
+            x = t[i] - round(t[i])
+            for d in (1, 2, 3, 4, 6):
+                if abs(x * d - round(x * d)) < 1e-5:
+                    factors[i] = math.lcm(factors[i], d)
+                    break
+    return tuple(factors)
 
 
 def operations(

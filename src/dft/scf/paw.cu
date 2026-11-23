@@ -369,7 +369,10 @@ OneCenter::OneCenter(std::vector<SpeciesOneCenter> species, std::vector<int> ato
         d.ell.assign(ell.data(), ell.size());
         d.ae_core.assign(sp.ae_core.data(), m);
         d.ps_core.assign(sp.ps_core.data(), m);
-        if (blas_ == nullptr) check_blas(cublasCreate(&blas_), "cublasCreate");
+        if (blas_ == nullptr) {
+            check_blas(cublasCreate(&blas_), "cublasCreate");
+            check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
+        }
     }
 }
 

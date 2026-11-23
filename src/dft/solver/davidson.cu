@@ -157,7 +157,9 @@ __global__ void gather_real_columns(std::size_t rows, int count, const int* inde
 
 Davidson::Davidson() {
     check_blas(cublasCreate(&blas_), "cublasCreate");
+    check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
     check_solver(cusolverDnCreate(&solver_), "cusolverDnCreate");
+    check_solver(cusolverDnSetStream(solver_, cudaStreamPerThread), "cusolverDnSetStream");
     info_.resize(1);
 }
 

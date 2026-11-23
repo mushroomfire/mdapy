@@ -47,6 +47,9 @@ public:
     // shape on the device), and the energies.
     PotentialEnergies compute(const double* rho, double* hxc);
 
+    // sum over count functions of int a b, on the device, count x points each
+    double integral(const double* a, const double* b, int count);
+
     // The part of GGA in dE_xc/d epsilon of the last density computed,
     // -int sum_s h_s,a grad n_s,b with h_s the flux of the spin (xx yy zz yz xz
     // xy), hartree; zero for LDA.

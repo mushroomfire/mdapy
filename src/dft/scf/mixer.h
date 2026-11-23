@@ -39,6 +39,10 @@ struct MixingOptions {
     double magnetic_kerker = 0.0;  // q0 of Kerker's form on the magnetization but at G = 0, 1/bohr; 0 for none
     int history = 8;             // steps kept
     double metric_weight = 20.0;  // w at the shortest G; 1 for the plain norm
+    // the largest condition number of the residual differences kept: the
+    // directions of their least squares with singular values below the
+    // largest over this are dropped
+    double conditioning = 1e6;
 };
 
 class Mixer {
@@ -58,6 +62,10 @@ public:
     // a residual at the wavelength of one bohr.
     double residual_energy(const std::vector<cuDoubleComplex>& in, const std::vector<cuDoubleComplex>& out) const;
     void reset();
+    // a factor on the shares of the residuals (beta, magnetic_beta and the
+    // preconditioner), 1 at the start: the damping of adaptive damping
+    void set_scale(double factor);
+    double scale() const noexcept { return scale_; }
 
 private:
     double dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const;
@@ -67,6 +75,7 @@ private:
     int channels_;
     MixingOptions options_;
     std::size_t n_;
+    double scale_ = 1.0;
     std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
     std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };

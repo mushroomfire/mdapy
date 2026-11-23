@@ -114,8 +114,11 @@
   1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
   collinear spin and smearings, DFT+U of Dudarev on norm-conserving
   pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
-  Gamma, and the k-points and spins of one configuration shared by several GPUs
-  (`comm`), for labelling training sets. The energies, forces,
+  Gamma, the k-points and spins of one configuration shared by several GPUs
+  (`comm`), the k-points of a small cell solved side by side on one GPU and calculations
+  in several threads of one process at once, for labelling training sets. The FFT grids
+  are those of Quantum ESPRESSO (factors 2, 3 and 5, multiples of the denominators of
+  the fractional translations). The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
   same input; the functional of the pseudopotentials is taken as Quantum ESPRESSO takes
   it. Under development.

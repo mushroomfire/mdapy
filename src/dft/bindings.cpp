@@ -220,7 +220,7 @@ NB_MODULE(_dft, m) {
             for (int j = 0; j < 3; ++j) b[3 * i + j] = lattice.b[i][j];
         return nb::make_tuple(out, lattice.volume);
     });
-    m.def("good_size", &mdapy::dft::good_size);
+    m.def("good_size", &mdapy::dft::good_size, nb::arg("n"), nb::arg("factor") = 1);
     // the Ewald sum of point charges (atoms,) at Cartesian positions (atoms, 3)
     // in the cell of rows a, bohr: (energy, forces (atoms, 3), dE/d epsilon
     // (3, 3)), hartree
@@ -258,9 +258,12 @@ NB_MODULE(_dft, m) {
         out.download(reinterpret_cast<Complex*>(host), n);
         return result;
     });
-    m.def("fft_grid", [](Matrix a, double cutoff) {
-        return mdapy::dft::fft_grid(lattice_of(a), cutoff);
-    });
+    m.def(
+        "fft_grid",
+        [](Matrix a, double cutoff, std::array<int, 3> factors) {
+            return mdapy::dft::fft_grid(lattice_of(a), cutoff, Int3{factors[0], factors[1], factors[2]});
+        },
+        nb::arg("a"), nb::arg("cutoff"), nb::arg("factors") = std::array<int, 3>{1, 1, 1});
     m.def(
         "sphere",
         [](Matrix a, std::array<double, 3> k, double cutoff, std::array<int, 3> grid, bool real) {
@@ -626,7 +629,8 @@ NB_MODULE(_dft, m) {
            int davidson_iterations, int davidson_basis, unsigned long long seed, nb::object basis,
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
-           bool gamma, nb::object pools, nb::object hubbard) {
+           bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
+           double conditioning, bool output_energies, bool adaptive_damping) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             if (!pools.is_none()) {
@@ -768,11 +772,18 @@ NB_MODULE(_dft, m) {
             opt.mixing.magnetic_kerker = magnetic_kerker;
             opt.mixing.history = history;
             opt.mixing.metric_weight = metric_weight;
+            opt.mixing.conditioning = conditioning;
+            opt.output_energies = output_energies;
+            opt.adaptive_damping = adaptive_damping;
             opt.energy_tolerance = energy_tolerance;
             opt.density_tolerance = density_tolerance;
             opt.max_iterations = max_iterations;
             opt.davidson_iterations = davidson_iterations;
             opt.davidson_basis = davidson_basis;
+            if (kpoint_threads < 0) throw std::invalid_argument("kpoint_threads must be 0 or more");
+            opt.kpoint_threads = kpoint_threads;
+            if (first_tolerance < 0.0) throw std::invalid_argument("first_tolerance must be 0 or more");
+            opt.first_tolerance = first_tolerance;
             opt.seed = seed;
             mdapy::dft::ScfState* kept = state.is_none() ? nullptr : nb::cast<mdapy::dft::ScfState*>(state);
             mdapy::dft::ScfResult r;
@@ -782,10 +793,14 @@ NB_MODULE(_dft, m) {
             }
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
-            std::vector<double> energies, accuracy, fermi, tolerance, moments;
+            std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
+            std::vector<int> accepted;
             std::vector<int> davidson;
             for (const auto& step : r.steps) {
                 energies.push_back(step.energy);
+                output.push_back(step.output_energy);
+                accepted.push_back(step.accepted ? 1 : 0);
+                dampings.push_back(step.damping);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
                 tolerance.push_back(step.tolerance);
@@ -828,6 +843,11 @@ NB_MODULE(_dft, m) {
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
+            if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
+            if (adaptive_damping) {
+                out["accepted"] = array_of(accepted, {ns});
+                out["dampings"] = array_of(dampings, {ns});
+            }
             out["forces"] = array_of(r.forces, {in.atoms.size(), 3});
             if (!r.becsum.empty()) {
                 std::vector<double> flat;
@@ -858,7 +878,10 @@ NB_MODULE(_dft, m) {
         nb::arg("smooth_grid").none() = nb::none(), nb::arg("onecenter").none() = nb::none(),
         nb::arg("becsum").none() = nb::none(), nb::arg("paw").none() = nb::none(),
         nb::arg("orbitals").none() = nb::none(), nb::arg("symmetry").none() = nb::none(),
-        nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none());
+        nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none(),
+        nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
+        nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
+        nb::arg("adaptive_damping") = false);
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

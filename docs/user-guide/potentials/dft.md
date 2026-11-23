@@ -97,6 +97,33 @@ labelled = [dft.compute(s, ("energy", "forces", "virial")).attach(s) for s in mi
 write(f"train-{rank}.xyz", labelled)
 ```
 
+A small cell leaves most of a GPU idle. Its k-points are solved side by side on threads
+of the processor by themselves, and several configurations share one GPU from threads of
+one process, each with a calculator of its own:
+
+<!-- skip-test -->
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+from mdapy.calculators import DFT
+from mdapy.io import read_trajectory, write
+
+structures = list(read_trajectory("structures.xyz"))
+
+
+def label(part):
+    dft = DFT(600.0, kspacing=0.2)
+    return [dft.compute(s, ("energy", "forces", "virial")).attach(s) for s in part]
+
+
+with ThreadPoolExecutor(4) as pool:
+    parts = list(pool.map(label, [structures[i::4] for i in range(4)]))
+write("train.xyz", [s for part in parts for s in part])
+```
+
+Four to eight threads fill a GPU with cells of a few dozen atoms; a cell of hundreds of
+atoms fills it alone.
+
 One configuration of many k-points or of two spins can also run on several GPUs:
 with `comm`, the processes share its pairs of spin and k-point, each GPU holding
 the bands of its own, and every process gets the whole result. This pays when a
@@ -122,7 +149,8 @@ if MPI.COMM_WORLD.Get_rank() == 0:
   of four times the cutoff, the density and the potentials on that of
   `ecutrho`, chosen as Quantum ESPRESSO chooses them: along each vector at
   least 2 m + 1 points, m the largest Miller index of the sphere, with 2, 3
-  and 5 as the only factors. When the mesh is Γ alone, as for
+  and 5 as the only factors, and with the symmetry a multiple of the
+  denominators of its fractional translations (4 in diamond). When the mesh is Γ alone, as for
   large cells, the bands are real: they keep half of the plane waves, the
   other half being their complex conjugates, with real Fourier transforms and
   real products of the bands, for the same results in less time and half the

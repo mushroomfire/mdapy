@@ -93,6 +93,7 @@ cufftHandle Fft::plan(cufftType type, int count) {
     cufftHandle handle{};
     check_cufft(cufftPlanMany(&handle, 3, n, nullptr, 1, idist, nullptr, 1, odist, type, count),
                 "cufftPlanMany");
+    check_cufft(cufftSetStream(handle, cudaStreamPerThread), "cufftSetStream");
     plans_.emplace(key, handle);
     return handle;
 }

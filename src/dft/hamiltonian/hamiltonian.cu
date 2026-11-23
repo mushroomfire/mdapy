@@ -432,6 +432,7 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
       atoms_(std::move(atoms)),
       fft_(grid) {
     check_blas(cublasCreate(&blas_), "cublasCreate");
+    check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
     // the tables of every species, one after the other
     std::vector<double> all;
     for (const auto& s : species_) {

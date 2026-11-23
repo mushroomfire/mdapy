@@ -197,7 +197,7 @@ def run(
         "functional": "pbe_pw", "pseudopotentials": [path.name for path in paths],
         "sha256": [hashlib.sha256(path.read_bytes()).hexdigest() for path in paths],
         "central_volume": volume, "volumes": [], "free_energies_ev": [], "steps": [], "seconds": [],
-        "operations": [], "kpoints": [],
+        "operations": [], "kpoints": [], "grids": [],
     }  # fmt: skip
     import mdapy
 
@@ -217,6 +217,7 @@ def run(
         out["seconds"].append(time.time() - start)
         out["operations"].append(int(r["operations"]))
         out["kpoints"].append(len(r["kpoints"]))
+        out["grids"].append([int(n) for n in r["grid"]])
         print(f"{element} {configuration} {scale:.2f}: {r['energy'] * HARTREE:.8f} eV, {r['iterations']} steps, "
               f"{len(r['kpoints'])} k, {time.time() - start:.1f} s", flush=True)  # fmt: skip
     target = results / f"{element}-{configuration}.json"

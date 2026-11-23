@@ -61,22 +61,35 @@ def test_the_reciprocal_cell():
 
 
 def test_good_sizes():
-    assert [_dft.good_size(n) for n in (1, 11, 13, 17, 29, 31, 97)] == [
+    assert [_dft.good_size(n) for n in (1, 11, 13, 17, 29, 31, 49, 55, 97)] == [
         1,
         12,
-        14,
+        15,
         18,
         30,
         32,
-        98,
+        50,
+        60,
+        100,
     ]
     for n in range(1, 300):
         m = _dft.good_size(n)
         assert m >= n
-        for p in (2, 3, 5, 7):
+        for p in (2, 3, 5):
             while m % p == 0:
                 m //= p
         assert m == 1
+
+
+@pytest.mark.parametrize("cell", ["silicon", "triclinic"])
+def test_the_grid_of_the_largest_miller_index(cell):
+    """Along each vector the good size of 2 max|m_i| + 1, max|m_i| that of the
+    G of the sphere by brute force, as Quantum ESPRESSO chooses it."""
+    a = silicon() if cell == "silicon" else triclinic(4)
+    cutoff = 30.0
+    most = np.abs(np.array(list(brute_sphere(a, [0, 0, 0], cutoff)))).max(axis=0)
+    expected = [_dft.good_size(2 * int(m) + 1) for m in most]
+    assert list(_dft.fft_grid(a, cutoff)) == expected
 
 
 def test_the_density_of_silicon():

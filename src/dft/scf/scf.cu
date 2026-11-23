@@ -433,7 +433,11 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         check_cuda(cudaMemcpy(psi[row].data(), start.data(), n * bands * sizeof(Complex), cudaMemcpyDeviceToDevice),
                    "cudaMemcpy");
     };
-    double tolerance = 1e-2, previous = std::numeric_limits<double>::infinity();
+    // the residual norm of the bands of the first step: loose from random or
+    // atomic bands; from the bands of the last run, tight, as Quantum ESPRESSO
+    // starts the steps of dynamics (1e-6 Ry on the eigenvalues), since loose
+    // bands there would give an output density worse than the input
+    double tolerance = restart ? 1e-4 : 1e-2, previous = std::numeric_limits<double>::infinity();
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
     std::vector<double> held;

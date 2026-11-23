@@ -119,7 +119,9 @@ if MPI.COMM_WORLD.Get_rank() == 0:
 - **Plane waves** of kinetic energy up to `encut` at each k-point of the mesh;
   k-points related by time reversal count once. The bands live on the FFT grid
   of four times the cutoff, the density and the potentials on that of
-  `ecutrho`, with 2, 3, 5 and 7 as factors. When the mesh is Γ alone, as for
+  `ecutrho`, chosen as Quantum ESPRESSO chooses them: along each vector at
+  least 2 m + 1 points, m the largest Miller index of the sphere, with 2, 3
+  and 5 as the only factors. When the mesh is Γ alone, as for
   large cells, the bands are real: they keep half of the plane waves, the
   other half being their complex conjugates, with real Fourier transforms and
   real products of the bands, for the same results in less time and half the

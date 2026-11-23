@@ -34,12 +34,14 @@ struct Lattice {
     Vec3 cartesian(const Vec3& k, const Int3& m) const;
 };
 
-// The smallest size at least n whose only prime factors are 2, 3, 5 and 7.
+// The smallest size at least n whose only prime factors are 2, 3 and 5, as
+// Quantum ESPRESSO takes them with FFTW.
 int good_size(int n);
 
 // The FFT grid that holds every G of kinetic energy up to cutoff, |G|^2/2 <=
-// cutoff, without aliasing: along each vector 2 max|m_i| + 1 points or more, of
-// good sizes. For the density of norm-conserving pseudopotentials the cutoff is
+// cutoff, without aliasing: along each vector the good size of at least
+// 2 max|m_i| + 1 points, max|m_i| the largest of the G of the sphere, as Quantum
+// ESPRESSO chooses it. For the density of norm-conserving pseudopotentials the cutoff is
 // four times that of the wavefunctions.
 Int3 fft_grid(const Lattice& lattice, double cutoff);
 

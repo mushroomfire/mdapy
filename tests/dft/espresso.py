@@ -41,7 +41,7 @@ def pseudo(name: str) -> Path:
 
 
 @functools.lru_cache(maxsize=None)
-def _run(text: str, folder: str) -> tuple[str, str]:
+def _run(text: str, folder: str, threads: int = 4) -> tuple[str, str]:
     exe = shutil.which("pw.x")
     if exe is None:
         pytest.skip("no pw.x")
@@ -49,7 +49,7 @@ def _run(text: str, folder: str) -> tuple[str, str]:
         Path(work, "pw.in").write_text(text)
         out = subprocess.run(
             [exe, "-in", "pw.in"], cwd=work, capture_output=True, text=True,
-            env={**os.environ, "OMP_NUM_THREADS": "4"}, check=True, timeout=1800,
+            env={**os.environ, "OMP_NUM_THREADS": str(threads)}, check=True, timeout=1800,
         ).stdout  # fmt: skip
         if "convergence has been achieved" not in out:
             raise RuntimeError("pw.x did not converge:\n" + out[-3000:])
@@ -59,13 +59,13 @@ def _run(text: str, folder: str) -> tuple[str, str]:
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
         sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100,
-        symmetric=False):  # fmt: skip
+        symmetric=False, threads=4):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
     of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
     magnetons per atom) collinear spins, a species for each element and moment;
     symmetric lets QE use the symmetry of the crystal on the k-points given
-    (irreducible ones). A dict of the energies and the eigenvalues ((2,) K,
+    (irreducible ones); threads, those of OpenMP. A dict of the energies and the eigenvalues ((2,) K,
     bands)."""
     from mdapy.calculators._dft.upf import read_upf
 
@@ -122,7 +122,7 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
             for k, w in zip(cart, weights)
         ],
     ]
-    out, xml = _run("\n".join(lines) + "\n", folder)
+    out, xml = _run("\n".join(lines) + "\n", folder, threads)
     return parse(out, xml, len(cart))
 
 

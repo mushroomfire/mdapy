@@ -63,7 +63,7 @@ int good_size(int n) {
     if (n < 1) throw std::invalid_argument("an FFT size must be positive");
     for (int m = n;; ++m) {
         int r = m;
-        for (const int p : {2, 3, 5, 7})
+        for (const int p : {2, 3, 5})
             while (r % p == 0) r /= p;
         if (r == 1) return m;
     }
@@ -72,12 +72,22 @@ int good_size(int n) {
 Int3 fft_grid(const Lattice& lattice, double cutoff) {
     if (!(cutoff > 0.0)) throw std::invalid_argument("the cutoff must be positive");
     const double radius = std::sqrt(2.0 * cutoff);
+    // m_i = a_i . G / 2 pi is at most |a_i| |G| / 2 pi; the largest |m_i| of
+    // the G of the sphere, which can be smaller in a skewed cell, as Quantum
+    // ESPRESSO takes it
+    Int3 bound{}, most{};
+    for (int i = 0; i < 3; ++i)
+        bound[i] = static_cast<int>(std::floor(radius * norm(lattice.a[i]) / kTwoPi));
+    for (int m0 = -bound[0]; m0 <= bound[0]; ++m0)
+        for (int m1 = -bound[1]; m1 <= bound[1]; ++m1)
+            for (int m2 = -bound[2]; m2 <= bound[2]; ++m2) {
+                const Vec3 g = lattice.cartesian({0.0, 0.0, 0.0}, {m0, m1, m2});
+                if (0.5 * (g[0] * g[0] + g[1] * g[1] + g[2] * g[2]) > cutoff) continue;
+                most = {std::max(most[0], std::abs(m0)), std::max(most[1], std::abs(m1)),
+                        std::max(most[2], std::abs(m2))};
+            }
     Int3 grid{};
-    for (int i = 0; i < 3; ++i) {
-        // m_i = a_i . G / 2 pi, at most |a_i| |G| / 2 pi
-        const int most = static_cast<int>(std::floor(radius * norm(lattice.a[i]) / kTwoPi));
-        grid[i] = good_size(2 * most + 1);
-    }
+    for (int i = 0; i < 3; ++i) grid[i] = good_size(2 * most[i] + 1);
     return grid;
 }
 

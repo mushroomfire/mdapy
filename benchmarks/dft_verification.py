@@ -16,9 +16,9 @@ pseudopotentials (PseudoDojo 0.4, PBE, scalar relativistic, standard), at the
 high cutoff of their hints.
 
     python benchmarks/dft_verification.py prepare FOLDER
-    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe XO ...] [--cutoff HA] [--library sssp]
-    python benchmarks/dft_verification.py report FOLDER [OUTPUT.md] [--library sssp]
-    python benchmarks/dft_verification.py figure FOLDER IMAGE [unaries|oxides] [--library sssp]
+    python benchmarks/dft_verification.py run FOLDER Fe BCC [Fe XO ...] [--cutoff HA] [--library sssp] [--hint normal]
+    python benchmarks/dft_verification.py report FOLDER [OUTPUT.md] [--library sssp] [--hint normal]
+    python benchmarks/dft_verification.py figure FOLDER IMAGE [unaries|oxides] [--library sssp] [--hint normal]
 
 prepare downloads into FOLDER the data and scripts of the paper from the
 Materials Cloud Archive (doi:10.24435/materialscloud:s4-3h, CC BY 4.0) and
@@ -33,7 +33,10 @@ its two elements. With --library sssp, the pseudopotentials of SSSP 1.3 PBE
 precision (norm-conserving, ultrasoft and PAW of several libraries) at the
 cutoffs it recommends, the highest of the elements of the structure, against
 Quantum ESPRESSO with the same, into FOLDER/results-sssp and
-FOLDER/summary-sssp.json.
+FOLDER/summary-sssp.json. With --hint normal, PseudoDojo's normal hints, as
+the published Quantum ESPRESSO took them (the default stringency of the
+families of aiida-pseudo), into FOLDER/results-normal and
+FOLDER/summary-normal.json.
 """
 
 import hashlib
@@ -64,6 +67,16 @@ SMEARING = 0.0045 / 2  # hartree, 0.0045 Ry
 CONFIGURATIONS = ("FCC", "BCC", "SC", "Diamond")
 OXIDES = ("X2O", "XO", "X2O3", "XO2", "X2O5", "XO3")
 FAMILIES = {"unaries": CONFIGURATIONS, "oxides": OXIDES}
+
+
+def _outputs(library: str, hint: str) -> tuple[str, str]:
+    """The folder of the results and the name of the summary."""
+    tag = library if library != "dojo" else (None if hint == "high" else hint)
+    return (
+        ("results", "summary.json")
+        if tag is None
+        else (f"results-{tag}", f"summary-{tag}.json")
+    )
 
 
 def download(url: str, path: Path) -> Path:
@@ -144,6 +157,7 @@ def run(
     configuration: str,
     cutoff: float | None = None,
     library: str = "dojo",
+    hint: str = "high",
 ) -> None:
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
@@ -169,9 +183,11 @@ def run(
         hints = json.loads((folder / "pseudo-dojo" / "standard.djson").read_text())[
             "pseudos_metadata"
         ]
-        results = folder / ("results" if cutoff is None else f"results-{cutoff:g}")
+        results = folder / (
+            _outputs(library, hint)[0] if cutoff is None else f"results-{cutoff:g}"
+        )
         if cutoff is None:  # hartree
-            cutoff = max(float(hints[name]["hints"]["high"]["ecut"]) for name in names)
+            cutoff = max(float(hints[name]["hints"][hint]["ecut"]) for name in names)
     pseudos = [read_upf(path) for path in paths]
     volume = abs(np.linalg.det(cell))
     mesh = mesh_of(cell * SCALES[0] ** (1 / 3))
@@ -254,7 +270,9 @@ def epsilon(a, b) -> float:
     return math.sqrt(mean((ea - eb) ** 2) / math.sqrt(var))
 
 
-def report(folder: Path, output: Path | None = None, library: str = "dojo") -> None:
+def report(
+    folder: Path, output: Path | None = None, library: str = "dojo", hint: str = "high"
+) -> None:
     acwf = folder / "acwf"
 
     def data(family: str, code: str) -> dict:
@@ -264,7 +282,7 @@ def report(folder: Path, output: Path | None = None, library: str = "dojo") -> N
     references = {f: data(f, "AE-average") for f in FAMILIES}
     espressos = {f: data(f, CODES[library]) for f in FAMILIES}
     rows, summary = [], []
-    results = "results" if library == "dojo" else f"results-{library}"
+    results, name = _outputs(library, hint)
     for path in sorted((folder / results).glob("*.json")):
         r = json.loads(path.read_text())
         oxide = r["configuration"] in OXIDES
@@ -308,18 +326,21 @@ def report(folder: Path, output: Path | None = None, library: str = "dojo") -> N
     )
     text = head + "\n" + "\n".join(rows) + "\n"
     print(text)
-    name = "summary.json" if library == "dojo" else f"summary-{library}.json"
     (folder / name).write_text(json.dumps(summary, indent=1))
     if output is not None:
         output.write_text(text)
 
 
 def figure(
-    folder: Path, image: Path, family: str | None = None, library: str = "dojo"
+    folder: Path,
+    image: Path,
+    family: str | None = None,
+    library: str = "dojo",
+    hint: str = "high",
 ) -> None:
     from mdapy.visualization import plot
 
-    name = "summary.json" if library == "dojo" else f"summary-{library}.json"
+    name = _outputs(library, hint)[1]
     summary = json.loads((folder / name).read_text())
     shapes = "os^Dvp"
     markers = {
@@ -370,6 +391,8 @@ if __name__ == "__main__":
     command, folder = sys.argv[1], Path(sys.argv[2])
     rest, library = _option(sys.argv[3:], "--library")
     library = library or "dojo"
+    rest, hint = _option(rest, "--hint")
+    hint = hint or "high"
     if command == "prepare":
         prepare(folder)
     elif command == "run":
@@ -381,10 +404,11 @@ if __name__ == "__main__":
                 configuration,
                 None if cutoff is None else float(cutoff),
                 library,
+                hint,
             )
     elif command == "report":
-        report(folder, Path(rest[0]) if rest else None, library)
+        report(folder, Path(rest[0]) if rest else None, library, hint)
     elif command == "figure":
-        figure(folder, Path(rest[0]), rest[1] if len(rest) > 1 else None, library)
+        figure(folder, Path(rest[0]), rest[1] if len(rest) > 1 else None, library, hint)
     else:
         raise SystemExit(__doc__)

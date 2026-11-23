@@ -54,10 +54,14 @@ def test_against_qe(case, dual):
     files = {case: espresso.pseudo(name)}
     pp = read_upf(files[case])
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
+    # the magnetic iron plateaus near 1e-7 Ry for 70 to 400 steps of pw.x, as
+    # its transforms happen to round: on one thread, 0.1 s a step against 1.4
+    # on four, as many steps as it takes
     qe = espresso.run(
         cell, positions, [case] * len(positions), files, cutoff, kpoints, weights, smearing,
         0.01, conv_thr=1e-11 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
-        maxstep=400, extra=f", ecutrho = {2 * dual * cutoff:.10f}",
+        maxstep=2000 if magmoms else 400, extra=f", ecutrho = {2 * dual * cutoff:.10f}",
+        threads=1 if magmoms else 4,
     )  # fmt: skip
     r = scf.run(
         cell, positions, [0] * len(positions), [pp], cutoff, kgrid=kgrid, smearing=smearing,

@@ -7,13 +7,15 @@
 same inputs: the same cells (perfect crystals with every fractional
 coordinate displaced by a normal draw of 0.003, seed 0, so that neither code
 finds a symmetry beyond time reversal), pseudopotentials, cutoffs, k-point
-meshes, smearing, number of bands and starting moments, run to the ground
-state with forces and stress.
+meshes, smearing, number of bands and starting moments, and the PBE of
+Quantum ESPRESSO ("pbe_pw"), run to the ground state with forces and stress.
 
     python benchmarks/dft_performance.py prepare FOLDER
     python benchmarks/dft_performance.py mdapy FOLDER CASE [LABEL]
+    mpirun -np 4 python benchmarks/dft_performance.py mdapy FOLDER CASE LABEL --mpi
     python benchmarks/dft_performance.py qe FOLDER CASE OUTPUT LABEL
     python benchmarks/dft_performance.py report FOLDER
+    python benchmarks/dft_performance.py figure FOLDER IMAGE LABEL=NAME ...
 
 prepare downloads the pseudopotentials (PseudoDojo 0.4 standard for the
 norm-conserving cases, pslibrary 1.0.0 from the site of Quantum ESPRESSO for
@@ -21,9 +23,13 @@ PAW) and writes the inputs of pw.x, FOLDER/qe/CASE.in (and CASE-gamma.in
 with QE's real wavefunctions at Gamma where the mesh is Gamma only; for the
 magnetic case, where pw.x's default mixing of 0.7 diverges, a mixing of 0.3
 in CASE.in and with QE's local Thomas-Fermi screening in CASE-tf.in); mdapy
-runs the case on the GPU and writes FOLDER/results/CASE-LABEL.json; qe reads
+runs the case on the GPU and writes FOLDER/results/CASE-LABEL.json (with
+--mpi on as many GPUs as processes, sharing the pairs of spin and k-point,
+each process on the GPU of its rank); qe reads
 the output of pw.x into FOLDER/results/CASE-LABEL.json; report prints the
-table of the times (markdown).
+table of the times (markdown); figure draws the wall times of the results of
+the labels given, in that order, under the names given; a label may list
+others after |, the first of them that a case has counts.
 """
 
 import json
@@ -166,9 +172,22 @@ def prepare(folder: Path) -> None:
     print(f"prepared {folder}")
 
 
-def run_mdapy(folder: Path, name: str, label: str) -> None:
+def run_mdapy(folder: Path, name: str, label: str, mpi: bool = False) -> None:
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
+
+    comm, rank, size = None, 0, 1
+    if mpi:
+        from mdapy_dft_cuda12 import _dft
+        from mpi4py import MPI
+
+        comm, rank, size = (
+            MPI.COMM_WORLD,
+            MPI.COMM_WORLD.Get_rank(),
+            MPI.COMM_WORLD.Get_size(),
+        )
+        _dft.set_device(rank % _dft.device_count())
+        comm.Barrier()
 
     case = CASES[name]
     cell, frac = structure(case)
@@ -177,11 +196,13 @@ def run_mdapy(folder: Path, name: str, label: str) -> None:
     start = time.perf_counter()
     r = scf.run(
         cell / BOHR, frac, [0] * len(frac), [pp], case["cutoff"], kgrid=case["kgrid"],
-        smearing=case["smearing"], sigma=case["sigma"], magmoms=magmoms,
+        smearing=case["smearing"], sigma=case["sigma"], magmoms=magmoms, functional="pbe_pw",
         density_cutoff=case.get("density_cutoff"), energy_tolerance=ENERGY_TOLERANCE,
-        density_tolerance=DENSITY_TOLERANCE, max_iterations=200,
+        density_tolerance=DENSITY_TOLERANCE, max_iterations=200, comm=comm,
     )  # fmt: skip
     seconds = time.perf_counter() - start
+    if rank > 0:
+        return
     import subprocess
 
     gpu = subprocess.run(
@@ -189,11 +210,13 @@ def run_mdapy(folder: Path, name: str, label: str) -> None:
         capture_output=True, text=True,
     ).stdout.strip()  # fmt: skip
     out = {
-        "case": name, "code": "MDAPY", "label": label, "hardware": gpu,
+        "case": name, "code": "MDAPY", "label": label, "hardware": gpu if size == 1 else f"{size} x {gpu}", "gpus": size,
         "seconds": seconds, "steps": int(r["iterations"]), "converged": bool(r["converged"]),
-        "energy_ev": r["energy"] * HARTREE, "atoms": len(frac),
+        "energy_ev": r["energy"] * HARTREE, "atoms": len(frac), "gamma": bool(r.get("gamma", False)),
         "bands": int(bands_of(case, pp.valence, len(frac))), "grid": list(r["grid"]),
         "timings": {k: round(v, 3) for k, v in r["timings"].items()},
+        "terms_ev": {k: float(r[k]) * HARTREE for k in ("one_electron", "hartree", "xc", "ewald", "entropy")},
+        "fermi_ev": float(r["fermi"]) * HARTREE, "magnetization": float(r.get("magnetization", 0.0)),
     }  # fmt: skip
     save(folder, out)
 
@@ -249,13 +272,13 @@ def report(folder: Path) -> None:
         mine = [r for r in rows if r["case"] == name]
         ours = [r for r in mine if r["code"] == "MDAPY"]
         ref = ours[0]["energy_ev"] if ours else None
-        for r in sorted(mine, key=lambda r: r["seconds"]):
+        for r in sorted(mine, key=lambda r: (r.get("gpus", 1), r["seconds"])):
             de = (
                 ""
                 if ref is None
                 else f"{(r['energy_ev'] - ref) / r.get('atoms', ours[0]['atoms']) * 1e3:.3f}"
             )
-            where = r["hardware"]
+            where = r["hardware"] + (", real bands at Gamma" if r.get("gamma") else "")
             if r["code"] != "MDAPY" and not r["gpu"]:
                 where = f"{r['label']} ({r['processes']} MPI × {r['threads']} threads, {r['pools']} pools)"
             print(
@@ -264,15 +287,49 @@ def report(folder: Path) -> None:
             )
 
 
+def figure(folder: Path, image: Path, series: list[tuple[str, str]]) -> None:
+    from mdapy.visualization import plot
+
+    rows = {
+        (r["case"], r["label"]): r
+        for r in (
+            json.loads(p.read_text()) for p in (folder / "results").glob("*.json")
+        )
+    }
+    cases = list(CASES)
+    width = 0.8 / len(series)
+    with plot.style():
+        fig, ax = plot.figure("double", 70)
+        for i, (label, name) in enumerate(series):
+            x = [c + (i - (len(series) - 1) / 2) * width for c in range(len(cases))]
+            y = []
+            for case in cases:
+                found = [
+                    rows[(case, one)] for one in label.split("|") if (case, one) in rows
+                ]
+                y.append(found[0]["seconds"] if found else np.nan)
+            ax.bar(x, y, width * 0.9, label=name)
+        ax.set_xticks(range(len(cases)), cases)
+        ax.set(yscale="log", ylabel="time to the ground state, forces and stress (s)")
+        ax.legend(ncols=2, fontsize=6)
+        plot.save(fig, str(image.with_suffix("")), formats=("png",))
+
+
 if __name__ == "__main__":
     command, folder = sys.argv[1], Path(sys.argv[2])
     if command == "prepare":
         prepare(folder)
     elif command == "mdapy":
-        run_mdapy(folder, sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else "gpu")
+        mpi = "--mpi" in sys.argv
+        rest = [a for a in sys.argv[3:] if a != "--mpi"]
+        run_mdapy(folder, rest[0], rest[1] if len(rest) > 1 else "gpu", mpi)
     elif command == "qe":
         read_qe(folder, sys.argv[3], Path(sys.argv[4]), sys.argv[5])
     elif command == "report":
         report(folder)
+    elif command == "figure":
+        figure(
+            folder, Path(sys.argv[3]), [tuple(a.split("=", 1)) for a in sys.argv[4:]]
+        )
     else:
         raise SystemExit(__doc__)

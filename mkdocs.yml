@@ -375,6 +375,7 @@ nav:
       - Building structures: performance/builders.md
       - Molecular dynamics on the GPU: performance/gpu.md
       - Molecular dynamics on many processes: performance/mpi.md
+      - Plane-wave DFT: performance/dft.md
   - Reference:
       - Python API:
           - Overview: reference/api/index.md

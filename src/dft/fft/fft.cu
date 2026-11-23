@@ -59,6 +59,23 @@ __global__ void move_kernel(const Complex* from, std::size_t from_points,
     to[b * to_points + to_index[g]] = from[b * from_points + from_index[g]];
 }
 
+__global__ void scatter_single_kernel(const cuComplex* c, std::size_t n, const std::int64_t* box, int count,
+                                      cuComplex* boxes, std::size_t points) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * count) return;
+    const std::size_t b = i / n, g = i % n;
+    boxes[b * points + box[g]] = c[i];
+}
+
+__global__ void gather_add_single_kernel(const cuComplex* boxes, std::size_t points, const std::int64_t* box,
+                                         std::size_t n, int count, float scale, cuComplex* c) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= n * count) return;
+    const std::size_t b = i / n, g = i % n;
+    const cuComplex value = boxes[b * points + box[g]];
+    c[i] = make_cuComplex(c[i].x + scale * value.x, c[i].y + scale * value.y);
+}
+
 void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 
 }  // namespace
@@ -108,6 +125,14 @@ void Fft::to_reciprocal(Complex* boxes, int count) {
                 "cufftExecZ2Z");
 }
 
+void Fft::to_real(cuComplex* boxes, int count) {
+    check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_INVERSE), "cufftExecC2C");
+}
+
+void Fft::to_reciprocal(cuComplex* boxes, int count) {
+    check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
+}
+
 void Fft::to_real(Complex* spectrum, double* values, int count) {
     check_cufft(cufftExecZ2D(plan(CUFFT_Z2D, count), spectrum, values), "cufftExecZ2D");
 }
@@ -141,6 +166,21 @@ void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* bo
     if (n == 0 || count == 0) return;
     gather_add_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale,
                                                        coefficients);
+    launched("gather_add");
+}
+
+void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,
+             std::size_t points) {
+    check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * points * sizeof(cuComplex)), "cudaMemset");
+    if (n == 0 || count == 0) return;
+    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, count, boxes, points);
+    launched("scatter");
+}
+
+void gather_add(const cuComplex* boxes, std::size_t points, const std::int64_t* box, std::size_t n, int count,
+                float scale, cuComplex* coefficients) {
+    if (n == 0 || count == 0) return;
+    gather_add_single_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale, coefficients);
     launched("gather_add");
 }
 

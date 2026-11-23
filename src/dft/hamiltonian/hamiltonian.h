@@ -102,6 +102,15 @@ public:
     void add_nonlocal(const Complex* p, int count, Complex* hpsi);
     void add_overlap(const Complex* p, int count, Complex* spsi);
     void overlap_projections(const Complex* p, int count, Complex* out);
+    // The same in single precision, for the bands of the single-precision
+    // steps (k-points with complex bands only): the potential, the projectors
+    // and their strengths and overlaps those set, rounded when they change.
+    void apply(const cuComplex* psi, cuComplex* hpsi, int count);
+    void project(const cuComplex* psi, int count, cuComplex* p);
+    void apply_local(const cuComplex* psi, cuComplex* hpsi, int count);
+    void add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi);
+    void add_overlap(const cuComplex* p, int count, cuComplex* spsi);
+    void overlap_projections(const cuComplex* p, int count, cuComplex* out);
     // The strengths D and the overlaps q of the projectors of each atom, in the
     // order of the atoms a block (width, width) row by row, width its
     // projector functions; they replace those of the species.
@@ -147,6 +156,7 @@ public:
 
 private:
     int batch() const noexcept;  // bands per batch of FFTs
+    void single();               // the single-precision copies, when stale
 
     Lattice lattice_;
     bool has_basis_ = false;
@@ -188,6 +198,10 @@ private:
     DeviceArray<detail::ProjectorColumn> columns_;
     detail::ReciprocalCell reciprocal_{};
     DeviceArray<std::size_t> becsum_offsets_;  // where the pairs of each atom start
+    // single precision: what single() rounds, and its work arrays
+    bool single_stale_ = true;
+    DeviceArray<float> kinetic_f_, potential_f_;
+    DeviceArray<cuComplex> beta_f_, dmatrix_f_, qmatrix_f_, boxes_f_, projections_f_, scaled_f_;
 };
 
 }  // namespace mdapy::dft

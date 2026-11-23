@@ -630,7 +630,7 @@ NB_MODULE(_dft, m) {
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
-           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos) {
+           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             if (!pools.is_none()) {
@@ -777,6 +777,7 @@ NB_MODULE(_dft, m) {
             opt.adaptive_damping = adaptive_damping;
             opt.first_held = first_held;
             opt.mixing.ldos = ldos;
+            opt.mixed_precision = mixed_precision;
             opt.energy_tolerance = energy_tolerance;
             opt.density_tolerance = density_tolerance;
             opt.max_iterations = max_iterations;
@@ -797,12 +798,13 @@ NB_MODULE(_dft, m) {
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
-            std::vector<int> accepted;
+            std::vector<int> accepted, single;
             std::vector<int> davidson;
             for (const auto& step : r.steps) {
                 energies.push_back(step.energy);
                 output.push_back(step.output_energy);
                 accepted.push_back(step.accepted ? 1 : 0);
+                single.push_back(step.single ? 1 : 0);
                 dampings.push_back(step.damping);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
@@ -847,6 +849,7 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
+            if (mixed_precision) out["single"] = array_of(single, {ns});
             if (adaptive_damping) {
                 out["accepted"] = array_of(accepted, {ns});
                 out["dampings"] = array_of(dampings, {ns});
@@ -884,7 +887,8 @@ NB_MODULE(_dft, m) {
         nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none(),
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
-        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false);
+        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
+        nb::arg("mixed_precision") = false);
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

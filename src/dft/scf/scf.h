@@ -141,6 +141,10 @@ struct ScfOptions {
     // the damping of each step adapted (Herbst and Levitt): steps tried and
     // taken back; with the output energies, not with DFT+U
     bool adaptive_damping = false;
+    // the first steps in single precision (dft/solver/davidson_single.h),
+    // complex bands only, until the residual of the density is below
+    // density_tolerance or stalls; the run then ends in double precision
+    bool mixed_precision = false;
     double xc_threshold = 1e-10;
     unsigned long long seed = 0;
 };
@@ -156,6 +160,7 @@ struct ScfStep {
     // input; with output_energies, and not with DFT+U (NaN then)
     double output_energy = 0.0;
     bool accepted = true;  // with adaptive damping, whether the step was taken
+    bool single = false;   // the bands of the step in single precision
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
 };

@@ -258,3 +258,38 @@ def test_the_ldos_preconditioner_keeps_the_moment_of_nickel():
     assert r["converged"]
     assert r["magnetization"] == pytest.approx(0.6385, abs=2e-3)
     assert r["energy"] == pytest.approx(-171.24373783, abs=2e-7)
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_mixed_precision_reaches_the_ground_state_of_double(case):
+    """The first steps in single precision, the last in double: the energy and
+    the forces of double precision throughout, norm-conserving, ultrasoft and
+    PAW with spin, the k-points on threads."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    args = (base, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(kgrid=(4, 4, 4), functional="pbe_pw", energy_tolerance=1e-11,
+                  density_tolerance=1e-13, symmetry=False, **options)  # fmt: skip
+    double = scf.run(*args, **common)
+    mixed = scf.run(*args, precision="mixed", **common)
+    assert double["converged"] and mixed["converged"]
+    assert "single" not in double and 0 < sum(mixed["single"]) < len(mixed["single"])
+    assert mixed["single"][-1] == 0  # the end in double precision
+    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-9)
+    np.testing.assert_allclose(mixed["forces"], double["forces"], atol=2e-6)
+
+
+def test_mixed_precision_at_gamma_is_double():
+    """The real bands of Gamma have no single precision: every step in double,
+    the same run; a precision unknown is refused."""
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+    args = (fcc(5.431), [[0, 0, 0], [0.26, 0.25, 0.24]], [0, 0], [pp], 10.0)
+    common = dict(kgrid=(1, 1, 1), energy_tolerance=1e-11, density_tolerance=1e-13)
+    double = scf.run(*args, **common)
+    mixed = scf.run(*args, precision="mixed", **common)
+    assert mixed["gamma"] and not any(mixed["single"])
+    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-12)
+    with pytest.raises(ValueError, match="precision"):
+        scf.run(*args, precision="half", **common)

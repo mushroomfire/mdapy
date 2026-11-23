@@ -4,9 +4,11 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The figures of the page "A potential from MDAPY's DFT", from the files of
-dft_training.py and kconv.py in FOLDER: the forces of the test frames, the
-equations of state and the phonons of the DFT and of the two models; and the
-elastic constants of the DFT against the mesh of k-points.
+dft_training.py and kconv.py in FOLDER: the training of the model of seed 0
+(torchnep's loss curves and the energies, forces and stresses of the training
+frames and of the tenth held out against the DFT); the equations of state and the phonons of
+the DFT and of the two models; and the elastic constants of the DFT against
+the mesh of k-points.
 
     python figures.py FOLDER IMAGES
 """
@@ -16,6 +18,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from torchnep.plot import NEPPlotter
 
 from mdapy.visualization import plot
 
@@ -34,54 +37,29 @@ style = {
 }
 props = {k: json.loads((folder / f"properties-{k}.json").read_text()) for k in who}
 
+NEPPlotter().dashboard(
+    str(folder / "nep_0"), out=str(images / "dft-potential-training.png")
+)
+
 with plot.style():
-    fig, (a, b, c) = plot.figure("double", 62, nrows=1, ncols=3)
-    d = np.load(folder / "predictions-nep_0.npz")
-    f = d["forces"]
-    a.plot(f[:, 0], f[:, 1], ".", ms=1.5, alpha=0.4, c="C0", rasterized=True)
-    lim = np.abs(f).max() * 1.05
-    a.plot([-lim, lim], [-lim, lim], "-", c="0.5", lw=0.6)
-    a.set(
-        xlim=(-lim, lim),
-        ylim=(-lim, lim),
-        xlabel="force of the DFT (eV/Å)",
-        ylabel="force of NEP (eV/Å)",
-    )
+    fig, (eos, bands) = plot.figure("double", 62, nrows=1, ncols=2)
     for k, p in props.items():
+        color, line = style[k]
         v, e = np.asarray(p["volumes"]), np.asarray(p["energies"])
-        color, line = style[k]
-        b.plot(
-            v,
-            1e3 * (e - e.min()),
-            line,
-            marker="o",
-            ms=3,
-            c=color,
-            lw=0.9,
-            label=who[k],
-        )
-    b.set(xlabel="volume per atom (Å³)", ylabel="energy above the minimum (meV/atom)")
-    b.legend(fontsize=6)
-    for k, p in props.items():
-        color, line = style[k]
-        x = np.asarray(p["phonon_distances"])
-        y = np.asarray(p["phonon_frequencies_THz"])
+        eos.plot(v, 1e3 * (e - e.min()), line, marker="o", ms=3, c=color, lw=0.9, label=who[k])  # fmt: skip
+        x, y = np.asarray(p["phonon_distances"]), np.asarray(p["phonon_frequencies_THz"])  # fmt: skip
         for branch in range(y.shape[1]):
-            c.plot(
-                x,
-                y[:, branch],
-                line,
-                c=color,
-                lw=0.9,
-                label=who[k] if branch == 0 else None,
-            )
-    labels = props["dft"]["phonon_labels"]
-    c.set_xticks([t for t, _ in labels], [name.replace("|", "|") for _, name in labels])
-    for t, _ in labels:
-        c.axvline(t, c="0.85", lw=0.5, zorder=0)
-    c.set(xlim=(0, labels[-1][0]), ylim=(0, None), ylabel="frequency (THz)")
-    for ax, tag in zip((a, b, c), "abc"):
-        plot.panel_label(ax, tag)
+            bands.plot(x, y[:, branch], line, c=color, lw=0.9, label=who[k] if branch == 0 else None)  # fmt: skip
+    eos.set(xlabel="volume per atom (Å³)", ylabel="energy above the minimum (meV/atom)")
+    eos.legend(fontsize=6)
+    # the high-symmetry points: (distance, name)
+    ticks = props["dft"]["phonon_labels"]
+    bands.set_xticks([d for d, _ in ticks], [name for _, name in ticks])
+    for d, _ in ticks:
+        bands.axvline(d, c="0.85", lw=0.5, zorder=0)
+    bands.set(xlim=(0, ticks[-1][0]), ylim=(0, None), ylabel="frequency (THz)")
+    plot.panel_label(eos, "a")
+    plot.panel_label(bands, "b")
     plot.save(fig, str(images / "dft-potential"), formats=("png",))
 
     fig, ax = plot.figure("single", 62)

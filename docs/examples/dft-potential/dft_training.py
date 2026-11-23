@@ -6,20 +6,22 @@
 """A NEP model of aluminium trained on labels of MDAPY's DFT, and its properties
 against those of the DFT itself.
 
-    python dft_training.py sets                 # train.xyz and test.xyz, unlabelled
-    python dft_training.py label PART PARTS     # labels of the frames i % PARTS == PART
-    python dft_training.py train SEED           # nep_SEED/nep_best.txt
+    python dft_training.py sets                 # train.xyz, near.xyz and test.xyz, unlabelled
+    python dft_training.py atom                 # atom.json: the energy of the isolated atom
+    python dft_training.py label SET PART PARTS # labels of the frames i % PARTS == PART of SET
+    python dft_training.py train SEED           # nep_SEED/nep_best.txt, its loss.out
     python dft_training.py errors               # errors.json: the models on the test frames
     python dft_training.py properties WHO       # properties-WHO.json, WHO = dft, dft-fine or nep_SEED
 
 The structures are the "generated + crystals" set of the page on generated
 training sets for aluminium: two thirds of the atoms from generate_structures,
-one third perturbed fcc, bcc and hcp crystals, 4800 atoms; the test frames
-another generation and other crystals, 1200 atoms.
+one third perturbed fcc, bcc and hcp crystals, 4800 atoms; with them fcc
+crystals near equilibrium, 864 atoms; the test frames another generation and
+other crystals, 1200 atoms. The models learn the energies relative to the
+isolated atom.
 """
 
 import json
-import subprocess
 import sys
 import tarfile
 import time
@@ -28,9 +30,11 @@ from pathlib import Path
 
 import numpy as np
 
+from mdapy import System
 from mdapy.build import build_crystal
 from mdapy.io import read_trajectory, write
 from mdapy.mlip import generate_structures, perturb
+from mdapy.transform import replicate
 
 DOJO = "https://www.pseudo-dojo.org/pseudos/nc-sr-04_pbe_standard_upf.tgz"
 VOLUME = (8.3, 33.2)
@@ -40,11 +44,11 @@ hcp = build_crystal("hcp", 2.86, elements="Al", repeat=(3, 2, 2))
 NEP_IN = """type       1 Al
 version    4
 cutoff     6 4
-n_max      4 4
+n_max      6 6
 basis_size 8 8
 l_max      4 2 0
 neuron     50
-epoch      300
+epoch      600
 batch      {batch}
 lr         0.01
 stage2     1
@@ -65,7 +69,7 @@ def pseudopotential() -> Path:
 KSPACING, SMEARING, SIGMA = 0.15, "marzari-vanderbilt", 0.25  # 1/Å, eV
 
 
-def dft(kspacing=KSPACING):
+def dft(kspacing=KSPACING, **extra):
     from mdapy.calculators import DFT
 
     return DFT(
@@ -74,6 +78,7 @@ def dft(kspacing=KSPACING):
         kspacing=kspacing,
         smearing=SMEARING,
         sigma=SIGMA,
+        **extra,
     )
 
 
@@ -104,6 +109,21 @@ def crystals(seed, atoms):
     return first(frames, atoms)
 
 
+def near(seed, cells):
+    """fcc near equilibrium: volumes from 90 to 110 %, strains up to 2 %, atoms
+    displaced by 0.03 Å; cells of 4 and of 32 atoms in turn."""
+    rng = np.random.default_rng(seed)
+    unit = build_crystal("fcc", 4.04, elements="Al")
+    frames = []
+    for k in range(cells):
+        crystal = unit if k % 2 == 0 else replicate(unit, (2, 2, 2))
+        volume = rng.uniform(0.90, 1.10)
+        frames += perturb(
+            scaled(crystal, volume), 1, displacement=0.03, strain=0.02, seed=rng
+        )
+    return frames
+
+
 def mixed(parts, shares, budget):
     taken, atoms, out = [0] * len(parts), [0] * len(parts), []
     while sum(atoms) < budget:
@@ -119,9 +139,10 @@ def mixed(parts, shares, budget):
 def sets():
     generated = generate_structures("Al", volume=VOLUME, seed=0).structures
     write("train.xyz", mixed([generated, crystals(50, 4800)], [2, 1], 4800))
+    write("near.xyz", near(51, 48))
     other = generate_structures("Al", volume=VOLUME, seed=7).structures
     write("test.xyz", mixed([other, crystals(57, 1200)], [2, 1], 1200))
-    for name in ("train", "test"):
+    for name in ("train", "near", "test"):
         frames = list(read_trajectory(f"{name}.xyz"))
         print(
             name,
@@ -133,32 +154,47 @@ def sets():
         )
 
 
-def label(part, parts):
+def atom():
+    """The energy of one atom with spin in a box of 12 Å, Γ only, by the DFT of
+    the labels otherwise: the energy every atom of a cell is counted from."""
+    single = System([[6.0, 6.0, 6.0]], np.eye(3) * 12.0, elements="Al")
+    result = dft(kpoints=(1, 1, 1), magmoms={"Al": 1.0}).compute(single)
+    Path("atom.json").write_text(json.dumps({"energy": float(result.energy)}))
+    print("the atom:", result.energy, "eV", flush=True)
+
+
+def label(name, part, parts):
     calculator = dft()
-    for name in ("train", "test"):
-        out = []
-        for i, frame in enumerate(read_trajectory(f"{name}.xyz")):
-            if i % parts != part:
-                continue
-            start = time.time()
-            result = calculator.compute(frame, ("energy", "forces", "virial"))
-            out.append(result.attach(frame).with_info(index=i))
-            print(f"{name} {i}: {len(frame)} atoms, {calculator.last['iterations']} steps, "
-                  f"{time.time() - start:.1f} s", flush=True)  # fmt: skip
-        write(f"labelled/{name}_{part}.xyz", out)
+    out = []
+    for i, frame in enumerate(read_trajectory(f"{name}.xyz")):
+        if i % parts != part:
+            continue
+        start = time.time()
+        result = calculator.compute(frame, ("energy", "forces", "virial"))
+        out.append(result.attach(frame).with_info(index=i))
+        print(f"{name} {i}: {len(frame)} atoms, {calculator.last['iterations']} steps, "
+              f"{time.time() - start:.1f} s", flush=True)  # fmt: skip
+    write(f"labelled/{name}_{part}.xyz", out)
 
 
 def merged(name):
+    """The labelled frames of a set, their energies counted from the atom's."""
+    e_atom = json.loads(Path("atom.json").read_text())["energy"]
     frames = []
     for path in sorted(Path("labelled").glob(f"{name}_*.xyz")):
         frames += list(read_trajectory(path))
-    return sorted(frames, key=lambda f: f.info["index"])
+    frames = sorted(frames, key=lambda f: f.info["index"])
+    return [f.with_info(energy=f.info["energy"] - len(f) * e_atom) for f in frames]
 
 
 def train(seed):
+    """NEP of seed `seed` on the training frames, a tenth of them held out to
+    choose the best epoch; the test frames are not seen."""
+    from torchnep import train_nep
+
     folder = Path(f"nep_{seed}")
     folder.mkdir(exist_ok=True)
-    frames = merged("train")
+    frames = merged("train") + merged("near")
     energies = [f.info["energy"] / len(f) for f in frames]
     low = min(energies) + 0.5
     frames = [
@@ -169,13 +205,14 @@ def train(seed):
     (folder / "nep.in").write_text(
         NEP_IN.format(batch=max(1, round(150 * len(frames) / atoms)))
     )
-    code = f"from torchnep import train_nep; train_nep('nep.in', 'train.xyz', device='cuda', run_seed={seed})"
     start = time.time()
-    subprocess.run([sys.executable, "-c", code], cwd=folder, check=True)
+    train_nep(str(folder / "nep.in"), str(folder / "train.xyz"), output_dir=str(folder),
+              device="cuda", run_seed=seed, valid_ratio=0.1)  # fmt: skip
     print(f"trained nep_{seed} in {time.time() - start:.0f} s", flush=True)
 
 
 def errors():
+    """The errors of each model on the test frames."""
     from mdapy.calculators import NEP
 
     frames = merged("test")
@@ -228,7 +265,6 @@ def properties(who):
     from mdapy.properties.defects import surface_energy, vacancy_formation_energy
     from mdapy.properties.elastic import elastic_constants
     from mdapy.properties.phonons import phonons, primitive_cell
-    from mdapy.transform import replicate
 
     # dft-fine: k-points twice as dense as the labels
     calc = (
@@ -296,9 +332,11 @@ if __name__ == "__main__":
     command = sys.argv[1]
     if command == "sets":
         sets()
+    elif command == "atom":
+        atom()
     elif command == "label":
         Path("labelled").mkdir(exist_ok=True)
-        label(int(sys.argv[2]), int(sys.argv[3]))
+        label(sys.argv[2], int(sys.argv[3]), int(sys.argv[4]))
     elif command == "train":
         train(int(sys.argv[2]))
     elif command == "errors":

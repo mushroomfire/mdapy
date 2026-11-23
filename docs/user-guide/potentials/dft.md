@@ -127,9 +127,12 @@ if MPI.COMM_WORLD.Get_rank() == 0:
 - **Pseudopotentials:** in UPF 2, norm-conserving, ultrasoft or PAW, with
   their projectors, the core charge of the nonlinear core correction and,
   ultrasoft and PAW, their augmentation charges by angular momentum
-  (`q_with_l`, as the files of a recent `ld1.x`). The tested ones are
-  PseudoDojo's norm-conserving tables and the ultrasoft and PAW files of
-  pslibrary 1.0.0 made by `ld1.x`.
+  (`q_with_l`, as the files of a recent `ld1.x` or of atompaw); and in UPF 1,
+  norm-conserving or ultrasoft, such as GBRV's, whose augmentation charges are
+  pseudized inside `rinner` as Quantum ESPRESSO pseudizes them. Every file of
+  SSSP 1.3 is read, and its folder can be given as `pseudopotentials`. The
+  tested ones are PseudoDojo's norm-conserving tables, the ultrasoft and PAW
+  files of pslibrary 1.0.0, GBRV's ultrasoft tungsten and atompaw's lanthanum.
 - **Ultrasoft pseudopotentials** solve H ψ = ε S ψ with the overlap
   S = 1 + Σ |β⟩ q ⟨β|; the strengths of the projectors of each atom follow the
   potential at every step, and the density adds the augmentation charges.

@@ -51,11 +51,11 @@ class Paw:
 
     Attributes
     ----------
-    lmax_rho : int
+    lmax_rho : int32
         The largest angular momentum of the one-center densities.
     dx, xmin, zmesh : float64
         The logarithmic mesh r_i = exp(xmin + i dx) / zmesh, i from 0.
-    augmentation_points : int
+    augmentation_points : int32
         The points of the mesh that the partial waves and the augmentation
         charges of the one-center densities reach (cutoff_r_index).
     multipoles : numpy.ndarray
@@ -159,9 +159,13 @@ class Pseudopotential:
         return max((p.angular for p in self.projectors), default=-1)
 
 
+def _float(text: str) -> float:
+    """A number, also in Fortran's notation, 1.d-12."""
+    return float(text.strip().replace("d", "e").replace("D", "e"))
+
+
 def _numbers(text: str) -> np.ndarray:
-    return np.array([float(x.replace("d", "e").replace("D", "e"))
-                     for x in _NUMBER.findall(text)])  # fmt: skip
+    return np.array([_float(x) for x in _NUMBER.findall(text)])
 
 
 def _block(text: str, tag: str) -> tuple[dict, str] | None:
@@ -198,21 +202,26 @@ def _flag(value: str) -> bool:
 
 
 def read_upf(path: str | Path) -> Pseudopotential:
-    """The norm-conserving, ultrasoft or PAW pseudopotential of a UPF file of
-    version 2; the augmentation charges by angular momentum (q_with_l).
+    """The norm-conserving, ultrasoft or PAW pseudopotential of a UPF file:
+    of version 2, its augmentation charges by angular momentum (q_with_l);
+    or a norm-conserving or ultrasoft one of version 1, such as those of
+    GBRV, its augmentation charges pseudized inside rinner as Quantum
+    ESPRESSO pseudizes them.
 
     Raises
     ------
     InvalidParameter
-        For a file of another version or kind (spin-orbit), augmentation
-        charges without their angular momenta or pseudized inside rinner, or
-        one that misses a part the pseudopotential needs.
+        For a file of another kind (spin-orbit), augmentation charges of
+        version 2 without their angular momenta or pseudized inside rinner,
+        or one that misses a part the pseudopotential needs.
     """
     path = Path(path)
     raw = path.read_bytes()
     text = raw.decode("utf-8", errors="replace")
     if not re.search(r'<UPF\s+version\s*=\s*"2', text):
-        raise InvalidParameter(f"{path.name}: only UPF files of version 2 are read")
+        if "<PP_HEADER>" in text:
+            return _read_v1(path, raw, text)
+        raise InvalidParameter(f"{path.name}: not a UPF file of version 1 or 2")
     header = re.search(r"<PP_HEADER\b(.*?)/?>", text, re.S)
     if header is None:
         raise InvalidParameter(f"{path.name}: no PP_HEADER")
@@ -265,7 +274,7 @@ def read_upf(path: str | Path) -> Pseudopotential:
     core = radial("PP_NLCC") if _flag(head.get("core_correction", "F")) else None
     orbitals = tuple(
         Orbital(attributes.get("label", ""), int(attributes["l"]),
-                float(attributes.get("occupation", "0")), _numbers(body)[:mesh])
+                _float(attributes.get("occupation", "0")), _numbers(body)[:mesh])
         for attributes, body in _indexed(text, "PP_CHI")
     )  # fmt: skip
     q = augmentation = None
@@ -301,7 +310,7 @@ def read_upf(path: str | Path) -> Pseudopotential:
                 .transpose(2, 1, 0)
             )
             points = int(attributes["cutoff_r_index"])
-            epsilon = float(attributes.get("augmentation_epsilon", "1e-12"))
+            epsilon = _float(attributes.get("augmentation_epsilon", "1e-12"))
         augmentation = {}
         for m in re.finditer(
             r"<PP_QIJL\.(\d+)\.(\d+)\.(\d+)\b[^>]*>(.*?)</PP_QIJL", body, re.S
@@ -321,7 +330,7 @@ def read_upf(path: str | Path) -> Pseudopotential:
         paw = _read_paw(path.name, text, head, mesh, count, multipoles, points, radial)
     return Pseudopotential(
         element=head["element"].strip(),
-        valence=float(head["z_valence"]),
+        valence=_float(head["z_valence"]),
         functional=head.get("functional", "").strip(),
         r=r,
         rab=rab,
@@ -370,9 +379,9 @@ def _read_paw(name, text, head, mesh, count, multipoles, points, radial) -> Paw:
     ps[:, points:] = 0.0
     return Paw(
         lmax_rho=int(head["l_max_rho"]),
-        dx=float(grid["dx"]),
-        xmin=float(grid["xmin"]),
-        zmesh=float(grid["zmesh"]),
+        dx=_float(grid["dx"]),
+        xmin=_float(grid["xmin"]),
+        zmesh=_float(grid["zmesh"]),
         augmentation_points=points,
         multipoles=multipoles,
         ae_waves=ae,
@@ -380,5 +389,132 @@ def _read_paw(name, text, head, mesh, count, multipoles, points, radial) -> Paw:
         occupations=inner("PP_OCCUPATIONS", count),
         ae_core=inner("PP_AE_NLCC", mesh),
         ae_local=0.5 * inner("PP_AE_VLOC", mesh),
-        core_energy=0.5 * float(paw[0].get("core_energy", "0")),
+        core_energy=0.5 * _float(paw[0].get("core_energy", "0")),
     )
+
+
+def _read_v1(path: Path, raw: bytes, text: str) -> Pseudopotential:
+    """A norm-conserving or ultrasoft pseudopotential of a UPF file of version 1."""
+
+    def block(tag: str, required: bool = True) -> str | None:
+        found = re.search(rf"<{tag}>(.*?)</{tag}>", text, re.S)
+        if found is None and required:
+            raise InvalidParameter(f"{path.name}: no {tag}")
+        return None if found is None else found.group(1)
+
+    lines = [line for line in block("PP_HEADER").splitlines() if line.strip()]
+    kind = lines[2].split()[0].upper()
+    if kind not in ("NC", "SL", "US"):
+        raise InvalidParameter(
+            f"{path.name}: only norm-conserving and ultrasoft pseudopotentials are "
+            f"read from files of version 1, not {kind}"
+        )
+    element = lines[1].split()[0]
+    nlcc = _flag(lines[3].split()[0])
+    functional = " ".join(lines[4][:20].split())  # as QE reads it, 20 characters
+    valence = _float(lines[5].split()[0])
+    mesh = int(lines[9].split()[0])
+    count = int(lines[10].split()[1])
+
+    def radial(tag: str) -> np.ndarray:
+        values = _numbers(block(tag))
+        if len(values) < mesh:
+            raise InvalidParameter(
+                f"{path.name}: {tag} holds {len(values)} of {mesh} values"
+            )
+        return values[:mesh]
+
+    r, rab = radial("PP_R"), radial("PP_RAB")
+    local = 0.5 * radial("PP_LOCAL")  # Ry to Ha
+    projectors = []
+    for body in re.findall(r"<PP_BETA>(.*?)</PP_BETA>", text, re.S):
+        # index, l, the points up to the cutoff, then r beta(r) there
+        numbers = _numbers(body)
+        angular, points = int(numbers[1]), int(numbers[2])
+        beta = np.zeros(mesh)
+        beta[:points] = numbers[3 : 3 + points]
+        projectors.append(Projector(angular, beta, points))
+    if len(projectors) != count:
+        raise InvalidParameter(f"{path.name}: {len(projectors)} of {count} projectors")
+    dij = np.zeros((count, count))
+    if count:
+        numbers = _numbers(block("PP_DIJ"))
+        for k in range(int(numbers[0])):
+            i, j, d = numbers[1 + 3 * k : 4 + 3 * k]
+            dij[int(i) - 1, int(j) - 1] = dij[int(j) - 1, int(i) - 1] = (
+                0.5 * d
+            )  # Ry to Ha
+    core = radial("PP_NLCC") if nlcc else None
+    orbitals = []
+    wavefunctions = block("PP_PSWFC", required=False) or ""
+    for found in re.finditer(
+        r"^\s*(\S+)\s+(\d+)\s+([-+.\dEeDd]+)\s+Wavefunction[^\n]*\n(.*?)(?=^\s*\S+\s+\d+\s+\S+\s+Wavefunction|\Z)",
+        wavefunctions, re.M | re.S,
+    ):  # fmt: skip
+        label, angular, occupation, body = found.groups()
+        orbitals.append(
+            Orbital(label, int(angular), _float(occupation), _numbers(body)[:mesh])
+        )
+    q = augmentation = None
+    if kind == "US":
+        q, augmentation = _augmentation_v1(
+            path.name, block("PP_QIJ"), projectors, r, mesh
+        )
+    return Pseudopotential(
+        element=element, valence=valence, functional=functional, r=r, rab=rab,
+        local=local, projectors=tuple(projectors), dij=dij, core=core,
+        atom=radial("PP_RHOATOM"), orbitals=tuple(orbitals),
+        digest=hashlib.sha256(raw).hexdigest(), q=q, augmentation=augmentation,
+    )  # fmt: skip
+
+
+def _augmentation_v1(name: str, body: str, projectors: list, r: np.ndarray, mesh: int):
+    """q_ij and the augmentation charges r^2 Q_ij^L(r) by (i, j, L) of a file
+    of version 1: one function r^2 Q_ij(r) of each pair for every L, inside
+    rinner_L replaced, when nqf > 0, by r^(L+2) sum_k c_k r^(2k) with the
+    coefficients of that pair and L."""
+    count = len(projectors)
+    rinner_block = re.search(r"<PP_RINNER>(.*?)</PP_RINNER>", body, re.S)
+    head = body if rinner_block is None else body[: rinner_block.start()]
+    nqf = int(_numbers(head)[0])
+    rinner = np.zeros(0)
+    if nqf > 0:
+        if rinner_block is None:
+            raise InvalidParameter(f"{name}: nqf > 0 without PP_RINNER")
+        # pairs of the index of L + 1 and rinner_L
+        rinner = _numbers(rinner_block.group(1)).reshape(-1, 2)[:, 1]
+        body = body[rinner_block.end() :]
+    q = np.zeros((count, count))
+    augmentation = {}
+    pairs = re.split(
+        r"^\s*(\d+)\s+(\d+)\s+(\d+)\s+i\s+j\s+\(l\(j\)\)[^\n]*$", body, flags=re.M
+    )
+    for k in range(1, len(pairs) - 1, 4):
+        i, j = int(pairs[k]) - 1, int(pairs[k + 1]) - 1
+        chunk = pairs[k + 3]
+        coefficients = re.search(r"<PP_QFCOEF>(.*?)</PP_QFCOEF>", chunk, re.S)
+        values = _numbers(
+            chunk if coefficients is None else chunk[: coefficients.start()]
+        )
+        q[i, j] = q[j, i] = values[0]  # Q_int
+        function = values[1 : 1 + mesh]
+        if len(function) < mesh:
+            raise InvalidParameter(f"{name}: the Q of {i + 1} {j + 1} is short")
+        c = None
+        if nqf > 0:
+            if coefficients is None:
+                raise InvalidParameter(f"{name}: no PP_QFCOEF of {i + 1} {j + 1}")
+            c = _numbers(coefficients.group(1))[: nqf * len(rinner)].reshape(
+                len(rinner), nqf
+            )
+        li, lj = projectors[i].angular, projectors[j].angular
+        for ell in range(abs(li - lj), li + lj + 1, 2):
+            charge = function.copy()
+            if c is not None:
+                inside = r < rinner[ell]
+                x = r[inside]
+                charge[inside] = x ** (ell + 2) * np.polyval(c[ell][::-1], x * x)
+            augmentation[(min(i, j), max(i, j), ell)] = charge
+    if not augmentation:
+        raise InvalidParameter(f"{name}: no augmentation charges in PP_QIJ")
+    return q, augmentation

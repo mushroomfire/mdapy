@@ -194,6 +194,12 @@ def test_molecular_dynamics(folder):
         thermo, last = md.thermo, md.system
     assert dft.last["restarted"]
     assert np.ptp(thermo["total_energy"].to_numpy()) < 2e-3
+    # without the virial when the dynamics needs no pressure
+    from mdapy.calculators._base import WITHOUT_VIRIAL
+
+    assert (
+        dft.compute(last, ("energy", "forces", "virial", WITHOUT_VIRIAL)).virial is None
+    )
     cold = calculator(folder).compute(last)
     assert thermo["potential_energy"][-1] == pytest.approx(cold.energy, abs=1e-6)
 

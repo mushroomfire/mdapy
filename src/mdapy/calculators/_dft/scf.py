@@ -18,6 +18,7 @@ from . import symmetry as symmetries
 _FUNCTIONALS = {
     "PBE": "pbe_pw",
     "SLA PW PBX PBC": "pbe_pw",
+    "SLA PW PBE PBE": "pbe_pw",
     "PBESOL": "pbesol_pw",
     "SLA PW PSX PSC": "pbesol_pw",
     "PW": "lda_pw",

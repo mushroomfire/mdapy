@@ -79,13 +79,33 @@ def test_a_upf_file_in_hartree(tmp_path):
 
 @pytest.mark.parametrize(
     ("options", "message"),
-    [({"version": "1.0"}, "version 2"), ({"kind": "US"}, "no PP_AUGMENTATION"),
+    [({"version": "1.0"}, "version 1 or 2"), ({"kind": "US"}, "no PP_AUGMENTATION"),
      ({"kind": "PAW"}, "no PP_AUGMENTATION"),
      ({"kind": "XX"}, "norm-conserving, ultrasoft and PAW"), ({"spin_orbit": "T"}, "spin-orbit")],
 )  # fmt: skip
 def test_what_is_refused(tmp_path, options, message):
     with pytest.raises(InvalidParameter, match=message):
         read_upf(write_upf(tmp_path / "X.upf", **options))
+
+
+def test_the_file_of_an_element_in_a_folder(tmp_path):
+    """{element}.upf, or the one {element}_* or {element}.* of it, the element
+    and the extension in either case, as the files of SSSP are named."""
+    from mdapy.calculators._dft.calculator import _find_pseudopotential
+
+    for name in ["ni_pbe_v1.4.uspp.F.UPF", "s_pbe_v1.4.uspp.F.UPF", "sb_pbe_v1.4.uspp.F.UPF",
+                 "Sb_other.upf", "Hg.us.z_12.uspp.gbrv.v1.upf", "Al.upf", "Al_extra.upf", "notes.txt"]:  # fmt: skip
+        (tmp_path / name).write_text("")
+    assert _find_pseudopotential(tmp_path, "Ni").name == "ni_pbe_v1.4.uspp.F.UPF"
+    assert _find_pseudopotential(tmp_path, "S").name == "s_pbe_v1.4.uspp.F.UPF"
+    assert _find_pseudopotential(tmp_path, "Hg").name == "Hg.us.z_12.uspp.gbrv.v1.upf"
+    assert (
+        _find_pseudopotential(tmp_path, "Al").name == "Al.upf"
+    )  # the plain name first
+    with pytest.raises(InvalidParameter, match="Sb_other.upf, sb_pbe_v1.4.uspp.F.UPF"):
+        _find_pseudopotential(tmp_path, "Sb")
+    with pytest.raises(InvalidParameter, match="found none"):
+        _find_pseudopotential(tmp_path, "Xe")
 
 
 def test_simpson_and_bessel():
@@ -272,6 +292,44 @@ def test_pseudodojo(element):
     # the free atom holds the valence
     assert radial.simpson(pp.atom, pp.rab) == pytest.approx(pp.valence, rel=1e-5)
     np.testing.assert_allclose(pp.dij, pp.dij.T)
+
+
+@pytest.mark.skipif(not PSEUDO, reason="MDAPY_PSEUDO_DIR names no pseudopotentials")
+@pytest.mark.parametrize("name", ["ni_pbe_v1.4.uspp.F.UPF", "W_pbe_v1.2.uspp.F.UPF"])
+def test_gbrv_of_version_1(name):
+    """Ultrasoft pseudopotentials of GBRV in files of version 1, from SSSP: the
+    header, the projectors, the orbitals; inside rinner the augmentation
+    charges are r^(L+2) times the polynomial of their coefficients, which
+    keeps their integrals of L = 0, q_ij (test_ultrasoft_qe runs them against
+    Quantum ESPRESSO)."""
+    path = Path(PSEUDO) / "sssp" / name
+    if not path.is_file():
+        pytest.skip(f"no {path.name}")
+    pp = read_upf(path)
+    assert pp.ultrasoft and pp.paw is None and pp.core is not None
+    from mdapy.calculators._dft.scf import functional_of
+
+    assert functional_of([pp]) == "pbe_pw"
+    assert radial.simpson(pp.atom, pp.rab) < pp.valence  # without the augmentation
+    angular = [p.angular for p in pp.projectors]
+    assert angular == sorted(angular) and all(p.cutoff_index > 0 for p in pp.projectors)
+    assert [o.label[-1] for o in pp.orbitals][:3] == ["S", "P", "D"]
+    np.testing.assert_allclose(pp.q, pp.q.T)
+    for (i, j, ell), charge in pp.augmentation.items():
+        assert abs(angular[i] - angular[j]) <= ell <= angular[i] + angular[j]
+        if ell == 0:
+            assert radial.simpson(charge, pp.rab) == pytest.approx(pp.q[i, j], abs=1e-5)
+
+
+@pytest.mark.skipif(not PSEUDO, reason="MDAPY_PSEUDO_DIR names no pseudopotentials")
+def test_fortran_numbers_of_atompaw():
+    """The PAW datasets of the lanthanides of SSSP, made by atompaw, write
+    1.d-12 in their attributes."""
+    path = Path(PSEUDO) / "sssp" / "La.paw.z_11.atompaw.wentzcovitch.v1.2.upf"
+    if not path.is_file():
+        pytest.skip(f"no {path.name}")
+    pp = read_upf(path)
+    assert pp.paw is not None and pp.valence == 11.0 and pp.lmax == 3
 
 
 @pytest.mark.skipif(not PSEUDO, reason="MDAPY_PSEUDO_DIR names no pseudopotentials")

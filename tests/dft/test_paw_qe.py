@@ -3,9 +3,11 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""PAW against pw.x 7.6 run live on the same pslibrary datasets, cutoffs and
-grids, the one-center terms on the GPU: the energy, its plane-wave parts, the eigenvalues, the forces and the
-stress of aluminium, silicon of two displaced atoms and iron with spin. QE's
+"""PAW against pw.x 7.6 run live on the same datasets (pslibrary's, and
+atompaw's lanthanum of SSSP with f projectors), cutoffs and grids, the
+one-center terms on the GPU: the energy, its plane-wave parts, the
+eigenvalues, the forces and the stress of aluminium, silicon of two displaced
+atoms, iron with spin and lanthanum. QE's
 spin-polarized PBE rounds gamma; the energy of iron is compared with the
 first-order change that makes, of the plane-wave and the one-center
 densities."""
@@ -14,9 +16,10 @@ import numpy as np
 import pytest
 
 from mdapy.calculators._dft import paw, scf
+from mdapy.calculators._dft.upf import read_upf
 
 from dft import espresso, paw_reference
-from dft.test_paw import dataset, xc_of
+from dft.test_paw import xc_of
 
 _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
 if _dft.device_count() == 0:
@@ -33,9 +36,11 @@ def onecenter(data, becsum):
 
 
 FILES = {
-    "Al": "Al.pbe-n-kjpaw_psl.1.0.0.UPF",
-    "Si": "Si.pbe-n-kjpaw_psl.1.0.0.UPF",
-    "Fe": "Fe.pbe-spn-kjpaw_psl.1.0.0.UPF",
+    "Al": "pslibrary/Al.pbe-n-kjpaw_psl.1.0.0.UPF",
+    "Si": "pslibrary/Si.pbe-n-kjpaw_psl.1.0.0.UPF",
+    "Fe": "pslibrary/Fe.pbe-spn-kjpaw_psl.1.0.0.UPF",
+    # made by atompaw (Topsakal and Wentzcovitch), f projectors, from SSSP 1.3
+    "La": "sssp/La.paw.z_11.atompaw.wentzcovitch.v1.2.upf",
 }
 CASES = {
     "Al": (4.05, "fcc", [[0.01, 0.0, 0.0]], "gaussian", (3, 3, 3), None, 15.0),
@@ -49,12 +54,13 @@ CASES = {
         15.0,
     ),
     "Fe": (2.87, "bcc", [[0.0, 0.0, 0.0]], "gaussian", (3, 3, 3), [2.5], 20.0),
+    "La": (5.30, "fcc", [[0.0, 0.0, 0.0]], "gaussian", (3, 3, 3), None, 20.0),
 }
 
 
 @pytest.mark.parametrize(
     ("element", "engine"),
-    [("Al", "gpu"), ("Al", "reference"), ("Si", "gpu"), ("Fe", "gpu")],
+    [("Al", "gpu"), ("Al", "reference"), ("Si", "gpu"), ("Fe", "gpu"), ("La", "gpu")],
 )
 def test_against_pw(element, engine):
     """The one-center terms of the GPU, or of the NumPy reference through the
@@ -65,11 +71,11 @@ def test_against_pw(element, engine):
         cell = np.array([[0, h, h], [h, 0, h], [h, h, 0]])
     else:
         cell = np.array([[-h, h, h], [h, -h, h], [h, h, -h]])
-    pp = dataset(element)
+    files = {element: espresso.pseudo(FILES[element])}
+    pp = read_upf(files[element])
     dual = 8.0
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
     symbols = [element] * len(positions)
-    files = {element: espresso.pseudo("pslibrary/" + FILES[element])}
     qe = espresso.run(
         cell, positions, symbols, files, cutoff, kpoints, weights, smearing, 0.01,
         conv_thr=1e-13, magmoms=magmoms, beta=0.3, maxstep=300,

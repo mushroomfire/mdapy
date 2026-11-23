@@ -15,7 +15,7 @@ from typing import Any
 
 import numpy as np
 
-from mdapy.calculators._base import Calculator, CalculatorResult
+from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator, CalculatorResult
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 
@@ -33,12 +33,19 @@ _SMEARINGS = (
 
 def _find_pseudopotential(folder: Path, element: str) -> Path:
     """The UPF of an element in a folder: {element}.upf, or the one file
-    {element}_*.upf or {element}.*.upf, the extension in either case."""
+    {element}_*.upf or {element}.*.upf, the element and the extension in
+    either case (GBRV writes ni_pbe_v1.4.uspp.F.UPF)."""
     for name in (f"{element}.upf", f"{element}.UPF"):
         if (folder / name).is_file():
             return folder / name
-    patterns = (f"{element}_*.[uU][pP][fF]", f"{element}.*.[uU][pP][fF]")
-    found = sorted({p for pattern in patterns for p in folder.glob(pattern)})
+    low = element.lower()
+    found = sorted(
+        p
+        for p in folder.iterdir()
+        if p.is_file()
+        and p.suffix.lower() == ".upf"
+        and p.name.lower().startswith((low + "_", low + "."))
+    )
     if len(found) != 1:
         what = "none" if not found else ", ".join(p.name for p in found)
         raise InvalidParameter(
@@ -348,7 +355,11 @@ class DFT(Calculator):
         """
         from mdapy.calculators._dft import scf
 
+        properties = tuple(properties)
         wanted = self._check_properties(properties)
+        # the stress costs a pass over the bands; dynamics asks without it on
+        # the steps that need no pressure
+        stress = "virial" in wanted and WITHOUT_VIRIAL not in properties
         if self.gpu is not None:
             from mdapy_dft_cuda12 import _dft
 
@@ -377,7 +388,7 @@ class DFT(Calculator):
             density_tolerance=self.tolerance / HARTREE,
             max_iterations=self.max_iterations, seed=self.seed,
             functional=self.functional, magmoms=self.__moments(elements),
-            stress="virial" in wanted, state=self.__restart_state(),
+            stress=stress, state=self.__restart_state(),
             symmetry=self.symmetry, comm=self.comm,
         )  # fmt: skip
         if not r["converged"]:
@@ -416,7 +427,7 @@ class DFT(Calculator):
             self.last["magnetization"] = float(r["magnetization"])
             self.last["absolute_magnetization"] = float(r["absolute_magnetization"])
         virial = None
-        if "virial" in wanted:
+        if stress:
             virial = -r["strain_derivative"] * HARTREE
         return CalculatorResult(
             energy=float(r["energy"]) * HARTREE,

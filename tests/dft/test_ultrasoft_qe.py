@@ -3,9 +3,11 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Ultrasoft pseudopotentials (pslibrary 1.0.0, made by ld1.x) against Quantum
-ESPRESSO run live, on one grid (ecutrho = 4 ecutwfc) and on two (8 ecutwfc):
-silicon, aluminium with a smearing, iron with spin. The energy and its terms,
+"""Ultrasoft pseudopotentials (pslibrary 1.0.0, made by ld1.x, and GBRV's in
+files of version 1, their augmentation charges pseudized inside rinner)
+against Quantum ESPRESSO run live, on one grid (ecutrho = 4 ecutwfc) and on two
+(8 ecutwfc): silicon, aluminium with a smearing, iron with spin, and tungsten
+of GBRV. The energy and its terms,
 the occupied eigenvalues, the Fermi level, the magnetization and the forces;
 the forces also against differences of the energy."""
 
@@ -36,11 +38,15 @@ CASES = {
     "Al": (fcc(4.05), [[0.0, 0.0, 0.0]], "pslibrary/Al.pbe-n-rrkjus_psl.1.0.0.UPF", "gaussian", (4, 4, 4), None),
     "Fe": (np.array([[-1, 1, 1], [1, -1, 1], [1, 1, -1]]) * 2.87 / 2 / BOHR, [[0.0, 0.0, 0.0]],
            "pslibrary/Fe.pbe-spn-rrkjus_psl.1.0.0.UPF", "gaussian", (3, 3, 3), [2.5]),
+    # GBRV of version 1, from SSSP 1.3
+    "W": (np.eye(3) * 3.17 / BOHR, [[0.0, 0.0, 0.0], [0.52, 0.5, 0.49]],
+          "sssp/W_pbe_v1.2.uspp.F.UPF", "gaussian", (3, 3, 3), None),
 }  # fmt: skip
 
 
 @pytest.mark.parametrize(
-    ("case", "dual"), [("Si", 4.0), ("Si", 8.0), ("Al", 8.0), ("Fe", 8.0)]
+    ("case", "dual"),
+    [("Si", 4.0), ("Si", 8.0), ("Al", 8.0), ("Fe", 8.0), ("W", 8.0)],
 )
 def test_against_qe(case, dual):
     cell, positions, name, smearing, kgrid, magmoms = CASES[case]
@@ -50,7 +56,7 @@ def test_against_qe(case, dual):
     kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
     qe = espresso.run(
         cell, positions, [case] * len(positions), files, cutoff, kpoints, weights, smearing,
-        0.01, conv_thr=1e-12 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
+        0.01, conv_thr=1e-11 if magmoms else 1e-14, magmoms=magmoms, beta=0.3,
         maxstep=400, extra=f", ecutrho = {2 * dual * cutoff:.10f}",
     )  # fmt: skip
     r = scf.run(
@@ -61,8 +67,13 @@ def test_against_qe(case, dual):
     assert r["converged"] and tuple(r["smooth_grid"]) == qe["smooth_grid"]
     n = len(positions)
     if magmoms is None:
-        for key in ["energy", "band", "hartree", "xc", "ewald"]:
-            assert r[key] == pytest.approx(qe[key], abs=1e-7 * n), key
+        assert r["energy"] == pytest.approx(qe["energy"], abs=1e-7 * n)
+        # GBRV's charges pseudized inside rinner reach far in G: their
+        # transforms move charge between the parts by 1.5e-7 per atom against
+        # QE's, the energy staying within 1e-8
+        parts = 3e-7 if name.startswith("sssp/") else 1e-7
+        for key in ["band", "hartree", "xc", "ewald"]:
+            assert r[key] == pytest.approx(qe[key], abs=parts * n), key
         eigen = 1e-7
     else:
         # QE's spin-polarized PBE takes a rounded gamma (test_spin.py)

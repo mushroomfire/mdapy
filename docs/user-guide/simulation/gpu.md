@@ -134,7 +134,11 @@ that seed.
 
 ## Molecular dynamics
 
-`MolecularDynamics` with a potential on the GPU runs every ensemble, `"nve"`, `"nvt"`,
+`MolecularDynamics` with a potential of the table above on the GPU runs the steps
+there too. Other calculators on the GPU, such as the [plane-wave DFT](../potentials/dft.md)
+and models of torch, compute there and return their forces; the steps of their atoms
+run on the processor, which costs nothing beside them. A potential on the GPU runs
+every ensemble, `"nve"`, `"nvt"`,
 `"npt"` and `"nph"`, with every barostat and both thermostats, as
 [MDAPY's own dynamics](ensembles.md#how-mdapy-integrates) does on the
 processor. Along every periodic direction the box must be thicker than twice the

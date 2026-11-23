@@ -123,8 +123,11 @@ def test_errors(gpu, monkeypatch):
     potential = EAM.zhou(["Cu", "Ni"], device="cuda")
     with pytest.raises(InvalidParameter, match="thicker than twice the cutoff"):
         run(crystal(repeat=3), potential, 2)
-    with pytest.raises(InvalidParameter, match="has no molecular dynamics on the GPU"):
-        MolecularDynamics(crystal(), _Elsewhere())
+    # a calculator on the GPU without MDAPY's dynamics there: the steps on
+    # the processor, its forces as it computes them
+    with MolecularDynamics(crystal(), _Elsewhere(), timestep=0.001) as md:
+        md.run(3, ensemble="nve", thermo=1)
+        assert md.thermo["step"].to_list() == [0, 1, 2, 3]
     # forces that are not finite move the atoms to positions that are not
     lj = LennardJones({"Cu": (0.4, 2.3), "Ni": (0.5, 2.2)}, 5.0, device="cuda")
     original = lj._on_device.potential.compute

@@ -180,6 +180,24 @@ def test_restart(folder):
     assert not dft.last["restarted"]
 
 
+def test_molecular_dynamics(folder):
+    """MDAPY's dynamics with the DFT as its calculator, the steps on the
+    processor, each computation from the bands and the density of the last:
+    the total energy of NVE holds, and the potential energy of the last step
+    is that of a cold start."""
+    from mdapy.simulation import MolecularDynamics
+
+    dft = calculator(folder, restart=True)
+    with MolecularDynamics(silicon(), dft, timestep=0.002) as md:
+        md.velocities(600.0, seed=1)
+        md.run(10, ensemble="nve", thermo=1)
+        thermo, last = md.thermo, md.system
+    assert dft.last["restarted"]
+    assert np.ptp(thermo["total_energy"].to_numpy()) < 2e-3
+    cold = calculator(folder).compute(last)
+    assert thermo["potential_energy"][-1] == pytest.approx(cold.energy, abs=1e-6)
+
+
 def test_ultrasoft(folder):
     path = espresso.pseudo("pslibrary/Si.pbe-n-rrkjus_psl.1.0.0.UPF")
     dft = DFT(12 * HARTREE, ecutrho=96 * HARTREE, pseudopotentials={"Si": path}, kpoints=(2, 2, 2),

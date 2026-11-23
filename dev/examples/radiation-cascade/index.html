@@ -27,7 +27,7 @@
     
     
       
-        <title>A collision cascade in tungsten - MDAPY</title>
+        <title>Radiation damage in tungsten and MoNbTaVW - MDAPY</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#a-collision-cascade-in-tungsten" class="md-skip">
+        <a href="#radiation-damage-in-tungsten-and-monbtavw" class="md-skip">
           Skip to content
         </a>
       
@@ -129,7 +129,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              A collision cascade in tungsten
+              Radiation damage in tungsten and MoNbTaVW
             
           </span>
         </div>
@@ -2022,7 +2022,7 @@
   <span class="md-ellipsis">
     
   
-    A collision cascade in tungsten
+    Radiation damage in tungsten and MoNbTaVW
   
 
     
@@ -2040,7 +2040,7 @@
   <span class="md-ellipsis">
     
   
-    A collision cascade in tungsten
+    Radiation damage in tungsten and MoNbTaVW
   
 
     
@@ -2088,21 +2088,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-cascade" class="md-nav__link">
+  <a href="#threshold-displacement-energies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The cascade
+        Threshold displacement energies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Threshold displacement energies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-pure-metals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pure metals
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#the-defects" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#the-alloy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The defects
+        The alloy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cascades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cascades
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cascades">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-frenkel-pairs-against-the-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Frenkel pairs against the energy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it
       
     </span>
   </a>
@@ -10815,21 +10871,77 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#the-cascade" class="md-nav__link">
+  <a href="#threshold-displacement-energies" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The cascade
+        Threshold displacement energies
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Threshold displacement energies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-pure-metals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The pure metals
       
     </span>
   </a>
   
 </li>
-      
-        <li class="md-nav__item">
-  <a href="#the-defects" class="md-nav__link">
+        
+          <li class="md-nav__item">
+  <a href="#the-alloy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The defects
+        The alloy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cascades" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cascades
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cascades">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#the-frenkel-pairs-against-the-energy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Frenkel pairs against the energy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#running-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running it
       
     </span>
   </a>
@@ -10867,148 +10979,512 @@
   
 
 
-<h1 id="a-collision-cascade-in-tungsten">A collision cascade in tungsten<a class="headerlink" href="#a-collision-cascade-in-tungsten" title="Permanent link">&para;</a></h1>
-<p>A neutron or an ion that hits a crystal knocks an atom out of its place: the
-primary knock-on atom (PKA). Moving with kiloelectronvolts, it knocks others
-out in turn, a cascade that melts a small region for a few picoseconds and
-leaves vacancies and interstitials behind as it cools. This example starts one
-with 2 keV in tungsten and counts the defects with the
-<a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a>.</p>
+<h1 id="radiation-damage-in-tungsten-and-monbtavw">Radiation damage in tungsten and MoNbTaVW<a class="headerlink" href="#radiation-damage-in-tungsten-and-monbtavw" title="Permanent link">&para;</a></h1>
+<p>A neutron that hits a crystal knocks an atom out of its place, the primary knock-on
+atom (PKA). Below some tens of eV the atom falls back; above the threshold displacement
+energy it leaves a vacancy and an interstitial behind, a Frenkel pair. At kiloelectronvolts
+it knocks others out in turn, a cascade that melts a small region for a few picoseconds
+and leaves a few of its defects as it cools. Tungsten is the armour of fusion reactors;
+the equiatomic MoNbTaVW alloy, a high-entropy alloy of the same bcc lattice, is a
+candidate that may stand radiation better.</p>
+<p>This page follows <a href="../../reference/references/#liu2025">Liu et al. (2025)</a> with their
+machine-learned potential: the threshold displacement energies of the five pure metals
+and of each element in the alloy over all directions, their Figures 3 and 4, and the
+Frenkel pairs that cascades of 1, 5 and 10 keV leave in tungsten and in the alloy, against
+the NRT and arc-dpa models.</p>
 <div class="admonition note">
 <p class="admonition-title">The model</p>
-<p>The NEP model for 16 metals of the <a href="../high-throughput/">high-throughput example</a>,
-<a href="../high-throughput/nep.txt"><code>nep.txt</code></a>, has a ZBL repulsion at short range, from 1 to
-2 Å: atoms that meet at the speeds of a cascade come much closer than in a crystal,
-where only such a repulsion describes them. A potential without one lets them
-pass through each other. The molecular dynamics run in MDAPY with the NEP on a
-<a href="../../user-guide/simulation/gpu/">GPU</a>, <code>device="cuda"</code>.</p>
+<p>Liu et al. trained a NEP model of Mo, Nb, Ta, V and W on DFT, with a ZBL repulsion at
+short range for the close collisions of cascades. It is published under the AGPL-3.0 in
+<a href="https://github.com/Jonsnow-willow/GPUMD-Wizard">GPUMD-Wizard</a>, from where the
+scripts here download it; MDAPY does not ship it. The molecular dynamics run in
+MDAPY with the NEP on a <a href="../../user-guide/simulation/gpu/">GPU</a>, <code>device="cuda"</code>.</p>
 </div>
-<!-- files: high-throughput -->
-
 <h2 id="the-crystal-at-300-k">The crystal at 300 K<a class="headerlink" href="#the-crystal-at-300-k" title="Permanent link">&para;</a></h2>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEP</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span><span class="p">,</span> <span class="n">minimize</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">replicate</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">urllib.request</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.build</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_crystal</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">NEP</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">gpu</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">)</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># the cell of two atoms on the processor: it is too small for the lists of the GPU</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">cell</span> <span class="o">=</span> <span class="n">minimize</span><span class="p">(</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"bcc"</span><span class="p">,</span> <span class="mf">3.17</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"W"</span><span class="p">),</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep.txt"</span><span class="p">),</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"full"</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span><span class="o">.</span><span class="n">system</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="n">crystal</span> <span class="o">=</span> <span class="n">replicate</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">30</span><span class="p">))</span>  <span class="c1"># 54000 atoms, 9.5 nm wide</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>  <span class="c1"># half of it goes into the potential energy</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">2500</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">)</span>  <span class="c1"># 5 ps</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">warm</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">URL</span> <span class="o">=</span> <span class="p">(</span><span class="s2">"https://raw.githubusercontent.com/Jonsnow-willow/GPUMD-Wizard/main/tutorials/"</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>       <span class="s2">"Calculatiing_Material_Properties/MoNbTaVW/potentials/nep.txt"</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">urllib</span><span class="o">.</span><span class="n">request</span><span class="o">.</span><span class="n">urlretrieve</span><span class="p">(</span><span class="n">URL</span><span class="p">,</span> <span class="s2">"nep_monbtavw.txt"</span><span class="p">)</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">gpu</span> <span class="o">=</span> <span class="n">NEP</span><span class="p">(</span><span class="s2">"nep_monbtavw.txt"</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="s2">"cuda"</span><span class="p">)</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="k">def</span><span class="w"> </span><span class="nf">relaxed</span><span class="p">(</span><span class="n">cells</span><span class="p">,</span> <span class="n">alloy</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">):</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">    </span><span class="sd">"""The random equiatomic alloy (or tungsten) of the bcc cells given, 10 ps at</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="sd">    300 K and zero pressure; its mean lattice constant."""</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">crystal</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"bcc"</span><span class="p">,</span> <span class="mf">3.18</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"W"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="n">cells</span><span class="p">)</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="k">if</span> <span class="n">alloy</span><span class="p">:</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>        <span class="n">kinds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="s2">"Mo"</span><span class="p">,</span> <span class="s2">"Nb"</span><span class="p">,</span> <span class="s2">"Ta"</span><span class="p">,</span> <span class="s2">"V"</span><span class="p">,</span> <span class="s2">"W"</span><span class="p">]),</span> <span class="nb">len</span><span class="p">(</span><span class="n">crystal</span><span class="p">))</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">default_rng</span><span class="p">(</span><span class="n">seed</span><span class="p">)</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">kinds</span><span class="p">)</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>        <span class="n">crystal</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">element</span><span class="o">=</span><span class="n">kinds</span><span class="p">)</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">crystal</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>        <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">600</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># half of it goes into the potential energy</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">10000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"npt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">pressure</span><span class="o">=</span><span class="mf">0.0</span><span class="p">)</span>  <span class="c1"># 10 ps</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>        <span class="n">warm</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>    <span class="k">return</span> <span class="n">warm</span><span class="p">,</span> <span class="p">(</span><span class="n">warm</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">volume</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="n">cells</span><span class="p">))</span> <span class="o">**</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="n">warm</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">relaxed</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">))</span>  <span class="c1"># 4368 atoms</span>
 </code></pre></div>
 <h2 id="the-knock-on-atom">The knock-on atom<a class="headerlink" href="#the-knock-on-atom" title="Permanent link">&para;</a></h2>
-<p>A few lines give one atom an energy along a direction, by default the atom nearest
-the center of the box. A direction of high indices, such as [1 3 5], keeps it away
-from the open channels of the lattice, along which it would travel far without
-collisions.</p>
+<p>A few lines give one atom an energy along a direction, and pick an atom of an element
+near the center of the box:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.elements</span><span class="w"> </span><span class="kn">import</span> <span class="n">atomic_masses</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy</span><span class="w"> </span><span class="kn">import</span> <span class="n">units</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.elements</span><span class="w"> </span><span class="kn">import</span> <span class="n">atomic_masses</span>
 <a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="k">def</span><span class="w"> </span><span class="nf">knock_on</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">atom</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="sd">"""The system with one atom given a kinetic energy in eV along a direction;</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="sd">    by default the atom nearest the center of the box. The index of the atom too."""</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="k">if</span> <span class="n">atom</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="n">center</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">origin</span> <span class="o">+</span> <span class="n">system</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
-<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>        <span class="n">atom</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]</span> <span class="o">-</span> <span class="n">center</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)))</span>
-<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="k">if</span> <span class="s2">"mass"</span> <span class="ow">in</span> <span class="n">system</span><span class="o">.</span><span class="n">table</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
-<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>        <span class="n">mass</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="s2">"mass"</span><span class="p">][</span><span class="n">atom</span><span class="p">]</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>        <span class="n">mass</span> <span class="o">=</span> <span class="n">atomic_masses</span><span class="p">([</span><span class="n">system</span><span class="p">[</span><span class="s2">"element"</span><span class="p">][</span><span class="n">atom</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span>
-<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">unit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
-<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a>    <span class="n">speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">energy</span> <span class="o">/</span> <span class="p">(</span><span class="n">mass</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">AMU_A2_PER_PS2_TO_EV</span><span class="p">))</span>  <span class="c1"># Å/ps</span>
-<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a>    <span class="n">velocities</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="s2">"velocities"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">velocities</span><span class="p">[</span><span class="n">atom</span><span class="p">]</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">unit</span>
-<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="k">return</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">velocities</span><span class="o">=</span><span class="n">velocities</span><span class="p">),</span> <span class="n">atom</span>
-<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>
-<a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="n">start</span><span class="p">,</span> <span class="n">pka</span> <span class="o">=</span> <span class="n">knock_on</span><span class="p">(</span><span class="n">warm</span><span class="p">,</span> <span class="mf">2000.0</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
-<a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">"velocities"</span><span class="p">][</span><span class="n">pka</span><span class="p">])</span>  <span class="c1"># Å/ps, 458</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">knock_on</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">atom</span><span class="p">):</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="sd">"""The system with one atom given a kinetic energy in eV along a direction."""</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">mass</span> <span class="o">=</span> <span class="n">atomic_masses</span><span class="p">([</span><span class="n">system</span><span class="p">[</span><span class="s2">"element"</span><span class="p">][</span><span class="n">atom</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">unit</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">direction</span><span class="p">)</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">speed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">energy</span> <span class="o">/</span> <span class="p">(</span><span class="n">mass</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">AMU_A2_PER_PS2_TO_EV</span><span class="p">))</span>  <span class="c1"># Å/ps</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">velocities</span> <span class="o">=</span> <span class="n">system</span><span class="p">[</span><span class="s2">"velocities"</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">velocities</span><span class="p">[</span><span class="n">atom</span><span class="p">]</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">unit</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="k">return</span> <span class="n">system</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">velocities</span><span class="o">=</span><span class="n">velocities</span><span class="p">)</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>
+<a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>
+<a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">central</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">element</span><span class="p">,</span> <span class="n">count</span><span class="o">=</span><span class="mi">400</span><span class="p">):</span>
+<a id="__codelineno-1-16" name="__codelineno-1-16" href="#__codelineno-1-16"></a><span class="w">    </span><span class="sd">"""The atoms of an element among the count nearest the center of the box."""</span>
+<a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">center</span> <span class="o">=</span> <span class="n">system</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">origin</span> <span class="o">+</span> <span class="n">system</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">matrix</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span>
+<a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">near</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">]</span> <span class="o">-</span> <span class="n">center</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))[:</span><span class="n">count</span><span class="p">]</span>
+<a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="k">return</span> <span class="n">near</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="s2">"element"</span><span class="p">])[</span><span class="n">near</span><span class="p">]</span> <span class="o">==</span> <span class="n">element</span><span class="p">]</span>
 </code></pre></div>
-<h2 id="the-cascade">The cascade<a class="headerlink" href="#the-cascade" title="Permanent link">&para;</a></h2>
-<p>The time step adapts to the fastest atom, an
-<a href="../../user-guide/simulation/adaptive-timestep/"><code>AdaptiveTimestep</code></a>: no atom moves
-more than 0.05 Å in a step, up to steps of 1 fs once the cascade has cooled. The atoms
-within 1 nm of the faces of the box keep 300 K in a
-<a href="../../user-guide/simulation/controls/"><code>Langevin</code></a> bath and carry the heat of the
-cascade away, as the crystal around it would:</p>
+<h2 id="threshold-displacement-energies">Threshold displacement energies<a class="headerlink" href="#threshold-displacement-energies" title="Permanent link">&para;</a></h2>
+<p>The threshold displacement energy E_d of a direction is the least energy of a PKA along
+it that leaves a stable Frenkel pair. It changes much with the direction: along the
+close-packed rows a PKA pushes its neighbor on and a chain of replacements carries the
+interstitial away from the vacancy, while other directions have to break through a wall
+of atoms. The protocol of Liu et al.:</p>
+<ul>
+<li>the crystal above, 12 × 13 × 14 bcc cells, at 300 K;</li>
+<li>a PKA among the atoms nearest the center, in the alloy of the element studied, along a
+  random direction;</li>
+<li>6 ps at constant energy, the atoms within a lattice constant of the faces of the box
+  kept at 300 K by a <a href="../../user-guide/simulation/controls/"><code>Langevin</code></a> bath, the time
+  step <a href="../../user-guide/simulation/adaptive-timestep/">adapting</a> to the fastest atom, no
+  electronic stopping;</li>
+<li>a pair is stable when the <a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a>
+  against the perfect crystal still finds a vacancy at the end; E_d is 1 eV below the
+  least energy that leaves one.</li>
+</ul>
+<p>Liu et al. raise the energy in steps of 2 eV. To save runs, the energy here climbs from
+20 eV in steps of 10 eV, and the last step is searched again in steps of 2 eV:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdaptiveTimestep</span><span class="p">,</span> <span class="n">Langevin</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">L</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">lengths</span>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">inside</span> <span class="o">=</span> <span class="n">start</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">to_fractional</span><span class="p">(</span><span class="n">start</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">])</span> <span class="o">*</span> <span class="n">L</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">core</span> <span class="o">=</span> <span class="p">((</span><span class="n">inside</span> <span class="o">&gt;</span> <span class="mi">10</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">inside</span> <span class="o">&lt;</span> <span class="n">L</span> <span class="o">-</span> <span class="mi">10</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span><span class="n">AdaptiveTimestep</span><span class="p">(</span><span class="mf">0.05</span><span class="p">),</span> <span class="n">Langevin</span><span class="p">(</span><span class="o">~</span><span class="n">core</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">7</span><span class="p">)]</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
-<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">20000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nve"</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="n">controls</span><span class="p">)</span>
-<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="n">thermo</span><span class="p">,</span> <span class="n">frames</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">,</span> <span class="n">md</span><span class="o">.</span><span class="n">frames</span>
-<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">frames</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span>  <span class="c1"># ps, about 19: the steps grew from 0.1 fs to 1 fs</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">WignerSeitz</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">AdaptiveTimestep</span><span class="p">,</span> <span class="n">Langevin</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">perfect</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"bcc"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"W"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">))</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">sites</span> <span class="o">=</span> <span class="n">WignerSeitz</span><span class="p">(</span><span class="n">perfect</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">element</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">warm</span><span class="p">[</span><span class="s2">"element"</span><span class="p">])))</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="n">L</span> <span class="o">=</span> <span class="n">warm</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">lengths</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">inside</span> <span class="o">=</span> <span class="n">warm</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">to_fractional</span><span class="p">(</span><span class="n">warm</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">])</span> <span class="o">*</span> <span class="n">L</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">border</span> <span class="o">=</span> <span class="o">~</span><span class="p">((</span><span class="n">inside</span> <span class="o">&gt;</span> <span class="n">a</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">inside</span> <span class="o">&lt;</span> <span class="n">L</span> <span class="o">-</span> <span class="n">a</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>
+<a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>
+<a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="k">def</span><span class="w"> </span><span class="nf">stays</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">atom</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+<a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">    </span><span class="sd">"""Whether a PKA of energy eV leaves a Frenkel pair after 6 ps."""</span>
+<a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a>    <span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>        <span class="n">AdaptiveTimestep</span><span class="p">(</span><span class="mf">0.015</span><span class="p">),</span>
+<a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="n">Langevin</span><span class="p">(</span><span class="n">border</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="n">seed</span><span class="p">),</span>
+<a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>    <span class="p">]</span>
+<a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="n">shot</span> <span class="o">=</span> <span class="n">knock_on</span><span class="p">(</span><span class="n">warm</span><span class="p">,</span> <span class="n">energy</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">atom</span><span class="p">)</span>
+<a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>    <span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">md</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span>
+<a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>            <span class="mi">10_000_000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nve"</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="n">controls</span>
+<a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>        <span class="p">):</span>
+<a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>            <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">6.0</span><span class="p">:</span>
+<a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>                <span class="k">break</span>
+<a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="n">last</span> <span class="o">=</span> <span class="n">md</span><span class="o">.</span><span class="n">system</span>
+<a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>    <span class="k">return</span> <span class="n">sites</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">last</span><span class="p">)</span><span class="o">.</span><span class="n">vacancy_count</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+<a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>
+<a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a><span class="k">def</span><span class="w"> </span><span class="nf">threshold</span><span class="p">(</span><span class="n">atom</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+<a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a><span class="w">    </span><span class="sd">"""E_d of a direction: 10 eV steps from 20 eV, the last one again by 2 eV."""</span>
+<a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>    <span class="n">low</span><span class="p">,</span> <span class="n">energy</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="mf">20.0</span>
+<a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>    <span class="k">while</span> <span class="ow">not</span> <span class="n">stays</span><span class="p">(</span><span class="n">energy</span><span class="p">,</span> <span class="n">atom</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+<a id="__codelineno-2-32" name="__codelineno-2-32" href="#__codelineno-2-32"></a>        <span class="n">low</span><span class="p">,</span> <span class="n">energy</span> <span class="o">=</span> <span class="n">energy</span><span class="p">,</span> <span class="n">energy</span> <span class="o">+</span> <span class="mf">10.0</span>
+<a id="__codelineno-2-33" name="__codelineno-2-33" href="#__codelineno-2-33"></a>    <span class="k">if</span> <span class="n">low</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-2-34" name="__codelineno-2-34" href="#__codelineno-2-34"></a>        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="p">(</span><span class="n">low</span> <span class="o">+</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">low</span> <span class="o">+</span> <span class="mf">4.0</span><span class="p">,</span> <span class="n">low</span> <span class="o">+</span> <span class="mf">6.0</span><span class="p">,</span> <span class="n">low</span> <span class="o">+</span> <span class="mf">8.0</span><span class="p">):</span>
+<a id="__codelineno-2-35" name="__codelineno-2-35" href="#__codelineno-2-35"></a>            <span class="k">if</span> <span class="n">stays</span><span class="p">(</span><span class="n">e</span><span class="p">,</span> <span class="n">atom</span><span class="p">,</span> <span class="n">direction</span><span class="p">,</span> <span class="n">seed</span><span class="p">):</span>
+<a id="__codelineno-2-36" name="__codelineno-2-36" href="#__codelineno-2-36"></a>                <span class="k">return</span> <span class="n">e</span> <span class="o">-</span> <span class="mf">1.0</span>
+<a id="__codelineno-2-37" name="__codelineno-2-37" href="#__codelineno-2-37"></a>    <span class="k">return</span> <span class="n">energy</span> <span class="o">-</span> <span class="mf">1.0</span>
 </code></pre></div>
-<h2 id="the-defects">The defects<a class="headerlink" href="#the-defects" title="Permanent link">&para;</a></h2>
-<p>The <a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a> against the
-perfect crystal counts the vacancies of each frame, as many as the interstitials:</p>
+<p>A run of 6 ps of 4368 atoms takes about 20 s on a V100; a direction takes 10 to 40 runs.
+The 2000 directions of this page took 18098 runs, 47 GPU-hours with eight runs sharing
+each GPU.</p>
+<h3 id="the-pure-metals">The pure metals<a class="headerlink" href="#the-pure-metals" title="Permanent link">&para;</a></h3>
+<p><img alt="The threshold displacement energies of Mo, Nb, Ta, V and W over the standard triangle of directions, and their distributions" src="../images/radiation-tde-metals.png" /></p>
+<p><em>Figure 3 of Liu et al.: E_d of each direction computed, reduced to the standard
+triangle [001]–[101]–[111] by the symmetry of the cubic crystal and drawn in
+stereographic projection, interpolated linearly between the directions (white dots); f,
+the distributions.</em></p>
+<p>The thresholds of each metal, the mean with its standard error, against the means of
+Table 2 of Liu et al.:</p>
+<table>
+<thead>
+<tr>
+<th>PKA</th>
+<th style="text-align: right;">Directions</th>
+<th style="text-align: right;">Mean E_d (eV)</th>
+<th style="text-align: right;">Median</th>
+<th style="text-align: right;">Least</th>
+<th style="text-align: right;">Most</th>
+<th style="text-align: right;">Liu et al.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mo</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">106 ± 4</td>
+<td style="text-align: right;">99</td>
+<td style="text-align: right;">29</td>
+<td style="text-align: right;">301</td>
+<td style="text-align: right;">99</td>
+</tr>
+<tr>
+<td>Nb</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">72 ± 2</td>
+<td style="text-align: right;">69</td>
+<td style="text-align: right;">25</td>
+<td style="text-align: right;">241</td>
+<td style="text-align: right;">70</td>
+</tr>
+<tr>
+<td>Ta</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">77 ± 3</td>
+<td style="text-align: right;">69</td>
+<td style="text-align: right;">27</td>
+<td style="text-align: right;">205</td>
+<td style="text-align: right;">77</td>
+</tr>
+<tr>
+<td>V</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">52 ± 2</td>
+<td style="text-align: right;">51</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">141</td>
+<td style="text-align: right;">54</td>
+</tr>
+<tr>
+<td>W</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">119 ± 4</td>
+<td style="text-align: right;">110</td>
+<td style="text-align: right;">39</td>
+<td style="text-align: right;">251</td>
+<td style="text-align: right;">109</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>The order</strong> is that of Liu et al.: tungsten and molybdenum hold their atoms the
+  hardest, vanadium the least. The means of niobium, tantalum and vanadium are theirs
+  within the error; those of tungsten and molybdenum lie 10 and 7 eV above, about two
+  standard errors.</li>
+<li><strong>The maps</strong> have the pattern of the bcc metals: the lowest thresholds near ⟨100⟩ and
+  ⟨111⟩, the rows of atoms along which a chain of replacements carries the interstitial
+  away from its vacancy, the highest inside the triangle towards ⟨110⟩, where the PKA
+  meets a wall of neighbors. Tungsten and molybdenum have the widest such region,
+  vanadium hardly any.</li>
+<li><strong>The search</strong> is the reason for the higher means of tungsten and molybdenum: at 300 K
+  each run is a draw, and near the threshold a pair stays in some runs and not in
+  others. Climbing by 2 eV from the start tries every energy below the threshold; the
+  steps of 10 eV here skip most of them, and the chance to catch a pair below it. The
+  metals whose thresholds are the highest and the most spread lose the most.</li>
+</ul>
+<h3 id="the-alloy">The alloy<a class="headerlink" href="#the-alloy" title="Permanent link">&para;</a></h3>
+<p><img alt="The threshold displacement energies of each element as the PKA in MoNbTaVW, and their distributions" src="../images/radiation-tde-hea.png" /></p>
+<p><em>Figure 4 of Liu et al.: E_d of the PKAs of each element in the random equiatomic
+alloy.</em></p>
+<p>The thresholds of the PKAs of each element in the alloy, against the values Liu et al.
+give in their text:</p>
+<table>
+<thead>
+<tr>
+<th>PKA</th>
+<th style="text-align: right;">Directions</th>
+<th style="text-align: right;">Mean E_d (eV)</th>
+<th style="text-align: right;">Median</th>
+<th style="text-align: right;">Least</th>
+<th style="text-align: right;">Most</th>
+<th style="text-align: right;">Liu et al.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Mo</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">55 ± 2</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">181</td>
+<td style="text-align: right;">54</td>
+</tr>
+<tr>
+<td>Nb</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">54 ± 2</td>
+<td style="text-align: right;">47</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">159</td>
+<td style="text-align: right;">53</td>
+</tr>
+<tr>
+<td>Ta</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">43 ± 2</td>
+<td style="text-align: right;">37</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">111</td>
+<td style="text-align: right;">45</td>
+</tr>
+<tr>
+<td>V</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">65 ± 2</td>
+<td style="text-align: right;">59</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">161</td>
+<td style="text-align: right;">58</td>
+</tr>
+<tr>
+<td>W</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: right;">44 ± 2</td>
+<td style="text-align: right;">39</td>
+<td style="text-align: right;">19</td>
+<td style="text-align: right;">183</td>
+<td style="text-align: right;">45</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Every element but vanadium</strong> is displaced more easily in the alloy than in its own
+  metal: tungsten at 44 eV against 119, tantalum at 43 against 77. Over the five, 52 eV,
+  against 51 eV in Table 2 of Liu et al.</li>
+<li><strong>The maps lose the pattern</strong> of the pure metals: the random neighbors break the rows
+  that carry replacements in a crystal of one element, and the walls with them, so that
+  the thresholds are low and alike in every direction.</li>
+<li><strong>Vanadium</strong>, the lightest of the five, is the exception, 65 eV against 52 in vanadium
+  and 58 in Liu et al.: it passes less of its energy to heavier neighbors.</li>
+<li>7 % of the directions of the alloy show 19 eV: the search starts at 20 eV, so 19
+  stands for a threshold of 20 eV or less, and the means are a little high for it.</li>
+</ul>
+<h2 id="cascades">Cascades<a class="headerlink" href="#cascades" title="Permanent link">&para;</a></h2>
+<p>The protocol of Liu et al., for 1, 5 and 10 keV:</p>
+<ul>
+<li>50 × 50 × 50 bcc cells, 250 000 atoms, 16 nm wide, relaxed for 10 ps at 300 K and zero
+  pressure; the alloy relaxed once, its runs differing by their PKA;</li>
+<li>a PKA near the center along a ⟨135⟩ direction, its order and signs varied from run to
+  run, away from the open channels of the lattice; in the alloy each element in turn;</li>
+<li>50 ps at constant energy, the atoms within 3 lattice constants of the faces at 300 K;</li>
+<li>electronic stopping as a friction on the atoms above 10 eV, of Lindhard and Scharff
+  (<a href="../../reference/references/#lindhard1961">1961</a>) for each element in the alloy by
+  Bragg's rule (<a href="../../user-guide/simulation/electronic-stopping/">electronic stopping</a>);</li>
+<li>an adaptive time step of at most 0.015 Å and 1 fs;</li>
+<li>the Frenkel pairs by Wigner–Seitz every picosecond, and at the end the clusters of
+  defects: vacancies within 1.2 a of each other (between the second and third
+  neighbors), interstitials within 1.55 a (between the third and fourth).</li>
+</ul>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">WignerSeitz</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot</span>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">sites</span> <span class="o">=</span> <span class="n">WignerSeitz</span><span class="p">(</span><span class="n">crystal</span><span class="p">)</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="n">sites</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span> <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">frames</span><span class="p">]</span>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">time</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span> <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">frames</span><span class="p">])</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">pairs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="o">.</span><span class="n">vacancy_count</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="k">with</span> <span class="n">plot</span><span class="o">.</span><span class="n">style</span><span class="p">():</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">top</span><span class="p">,</span> <span class="n">bottom</span><span class="p">)</span> <span class="o">=</span> <span class="n">plot</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="s2">"single"</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">sharex</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">top</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">thermo</span><span class="p">[</span><span class="s2">"time"</span><span class="p">],</span> <span class="n">thermo</span><span class="p">[</span><span class="s2">"temperature"</span><span class="p">])</span>
-<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">top</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Temperature (K)"</span><span class="p">)</span>
-<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">bottom</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">time</span><span class="p">,</span> <span class="n">pairs</span><span class="p">)</span>
-<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">bottom</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s2">"Frenkel pairs"</span><span class="p">)</span>
-<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="n">bottom</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s2">"Time (ps)"</span><span class="p">)</span>
-<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>    <span class="n">plot</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fig</span><span class="p">,</span> <span class="s2">"images/radiation-cascade"</span><span class="p">,</span> <span class="n">formats</span><span class="o">=</span><span class="p">(</span><span class="s2">"png"</span><span class="p">,))</span>
-<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a><span class="n">pairs</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">pairs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># 23 at the peak of the cascade, 3 at the end</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.analysis</span><span class="w"> </span><span class="kn">import</span> <span class="n">ClusterAnalysis</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.elements</span><span class="w"> </span><span class="kn">import</span> <span class="n">atomic_numbers</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation.controls</span><span class="w"> </span><span class="kn">import</span> <span class="n">ElectronicStopping</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="k">def</span><span class="w"> </span><span class="nf">stopping</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="n">elements</span><span class="p">,</span> <span class="n">energy</span><span class="p">):</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="sd">"""The electronic stopping power (eV/Å) of each element against its energy, of</span>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="sd">    Lindhard and Scharff in the target by Bragg's rule."""</span>
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">e2</span><span class="p">,</span> <span class="n">bohr</span><span class="p">,</span> <span class="n">v0</span> <span class="o">=</span> <span class="mf">14.399645</span><span class="p">,</span> <span class="mf">0.529177</span><span class="p">,</span> <span class="mf">21876.9</span>  <span class="c1"># eV Å, Å, Å/ps</span>
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>    <span class="n">density</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">system</span><span class="p">)</span> <span class="o">/</span> <span class="n">system</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">volume</span>
+<a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>    <span class="n">names</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">system</span><span class="p">[</span><span class="s2">"element"</span><span class="p">])</span>
+<a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a>    <span class="n">fractions</span> <span class="o">=</span> <span class="p">{</span><span class="n">el</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">names</span> <span class="o">==</span> <span class="n">el</span><span class="p">))</span> <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">}</span>
+<a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>    <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">geomspace</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">energy</span><span class="p">,</span> <span class="mi">200</span><span class="p">)</span>
+<a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>    <span class="n">table</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a>    <span class="k">for</span> <span class="n">el</span> <span class="ow">in</span> <span class="n">elements</span><span class="p">:</span>
+<a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>        <span class="n">z1</span><span class="p">,</span> <span class="n">m1</span> <span class="o">=</span> <span class="n">atomic_numbers</span><span class="p">([</span><span class="n">el</span><span class="p">])[</span><span class="mi">0</span><span class="p">],</span> <span class="n">atomic_masses</span><span class="p">([</span><span class="n">el</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-3-17" name="__codelineno-3-17" href="#__codelineno-3-17"></a>        <span class="n">k</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">c</span> <span class="o">*</span> <span class="mi">8</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">e2</span> <span class="o">*</span> <span class="n">bohr</span> <span class="o">*</span> <span class="n">z1</span> <span class="o">**</span> <span class="p">(</span><span class="mi">7</span> <span class="o">/</span> <span class="mi">6</span><span class="p">)</span> <span class="o">*</span> <span class="n">atomic_numbers</span><span class="p">([</span><span class="n">t</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-3-18" name="__codelineno-3-18" href="#__codelineno-3-18"></a>                <span class="o">/</span> <span class="p">(</span><span class="n">z1</span> <span class="o">**</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">)</span> <span class="o">+</span> <span class="n">atomic_numbers</span><span class="p">([</span><span class="n">t</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">**</span> <span class="p">(</span><span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">))</span> <span class="o">**</span> <span class="mf">1.5</span>
+<a id="__codelineno-3-19" name="__codelineno-3-19" href="#__codelineno-3-19"></a>                <span class="k">for</span> <span class="n">t</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">fractions</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-3-20" name="__codelineno-3-20" href="#__codelineno-3-20"></a>        <span class="n">speeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">grid</span> <span class="o">/</span> <span class="p">(</span><span class="n">m1</span> <span class="o">*</span> <span class="n">units</span><span class="o">.</span><span class="n">AMU_A2_PER_PS2_TO_EV</span><span class="p">))</span>
+<a id="__codelineno-3-21" name="__codelineno-3-21" href="#__codelineno-3-21"></a>        <span class="n">table</span><span class="p">[</span><span class="n">el</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">density</span> <span class="o">*</span> <span class="n">k</span> <span class="o">*</span> <span class="n">speeds</span> <span class="o">/</span> <span class="n">v0</span><span class="p">)</span>
+<a id="__codelineno-3-22" name="__codelineno-3-22" href="#__codelineno-3-22"></a>    <span class="k">return</span> <span class="n">table</span>
+<a id="__codelineno-3-23" name="__codelineno-3-23" href="#__codelineno-3-23"></a>
+<a id="__codelineno-3-24" name="__codelineno-3-24" href="#__codelineno-3-24"></a>
+<a id="__codelineno-3-25" name="__codelineno-3-25" href="#__codelineno-3-25"></a><span class="n">big</span><span class="p">,</span> <span class="n">a</span> <span class="o">=</span> <span class="n">relaxed</span><span class="p">((</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>  <span class="c1"># 250 000 atoms</span>
+<a id="__codelineno-3-26" name="__codelineno-3-26" href="#__codelineno-3-26"></a><span class="n">perfect</span> <span class="o">=</span> <span class="n">build_crystal</span><span class="p">(</span><span class="s2">"bcc"</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">elements</span><span class="o">=</span><span class="s2">"W"</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="p">(</span><span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">50</span><span class="p">))</span>
+<a id="__codelineno-3-27" name="__codelineno-3-27" href="#__codelineno-3-27"></a><span class="n">sites</span> <span class="o">=</span> <span class="n">WignerSeitz</span><span class="p">(</span><span class="n">perfect</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">element</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">big</span><span class="p">[</span><span class="s2">"element"</span><span class="p">])))</span>
+<a id="__codelineno-3-28" name="__codelineno-3-28" href="#__codelineno-3-28"></a><span class="n">pka</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">central</span><span class="p">(</span><span class="n">big</span><span class="p">,</span> <span class="s2">"Ta"</span><span class="p">,</span> <span class="mi">200</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>  <span class="c1"># a PKA of tantalum, 5 keV along [1 3 5]</span>
+<a id="__codelineno-3-29" name="__codelineno-3-29" href="#__codelineno-3-29"></a><span class="n">shot</span> <span class="o">=</span> <span class="n">knock_on</span><span class="p">(</span><span class="n">big</span><span class="p">,</span> <span class="mf">5000.0</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">pka</span><span class="p">)</span>
+<a id="__codelineno-3-30" name="__codelineno-3-30" href="#__codelineno-3-30"></a><span class="n">L</span> <span class="o">=</span> <span class="n">shot</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">lengths</span>
+<a id="__codelineno-3-31" name="__codelineno-3-31" href="#__codelineno-3-31"></a><span class="n">inside</span> <span class="o">=</span> <span class="n">shot</span><span class="o">.</span><span class="n">box</span><span class="o">.</span><span class="n">to_fractional</span><span class="p">(</span><span class="n">shot</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">])</span> <span class="o">*</span> <span class="n">L</span>
+<a id="__codelineno-3-32" name="__codelineno-3-32" href="#__codelineno-3-32"></a><span class="n">core</span> <span class="o">=</span> <span class="p">((</span><span class="n">inside</span> <span class="o">&gt;</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">a</span><span class="p">)</span> <span class="o">&amp;</span> <span class="p">(</span><span class="n">inside</span> <span class="o">&lt;</span> <span class="n">L</span> <span class="o">-</span> <span class="mi">3</span> <span class="o">*</span> <span class="n">a</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-3-33" name="__codelineno-3-33" href="#__codelineno-3-33"></a><span class="n">controls</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-3-34" name="__codelineno-3-34" href="#__codelineno-3-34"></a>    <span class="n">AdaptiveTimestep</span><span class="p">(</span><span class="mf">0.015</span><span class="p">),</span>
+<a id="__codelineno-3-35" name="__codelineno-3-35" href="#__codelineno-3-35"></a>    <span class="n">Langevin</span><span class="p">(</span><span class="o">~</span><span class="n">core</span><span class="p">,</span> <span class="mf">300.0</span><span class="p">,</span> <span class="n">damping</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-3-36" name="__codelineno-3-36" href="#__codelineno-3-36"></a>    <span class="n">ElectronicStopping</span><span class="p">(</span>
+<a id="__codelineno-3-37" name="__codelineno-3-37" href="#__codelineno-3-37"></a>        <span class="n">stopping</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="p">[</span><span class="s2">"Mo"</span><span class="p">,</span> <span class="s2">"Nb"</span><span class="p">,</span> <span class="s2">"Ta"</span><span class="p">,</span> <span class="s2">"V"</span><span class="p">,</span> <span class="s2">"W"</span><span class="p">],</span> <span class="mf">5000.0</span><span class="p">),</span> <span class="n">min_energy</span><span class="o">=</span><span class="mf">10.0</span>
+<a id="__codelineno-3-38" name="__codelineno-3-38" href="#__codelineno-3-38"></a>    <span class="p">),</span>
+<a id="__codelineno-3-39" name="__codelineno-3-39" href="#__codelineno-3-39"></a><span class="p">]</span>
+<a id="__codelineno-3-40" name="__codelineno-3-40" href="#__codelineno-3-40"></a><span class="n">pairs</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-3-41" name="__codelineno-3-41" href="#__codelineno-3-41"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">shot</span><span class="p">,</span> <span class="n">gpu</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.001</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-3-42" name="__codelineno-3-42" href="#__codelineno-3-42"></a>    <span class="k">for</span> <span class="n">frame</span> <span class="ow">in</span> <span class="n">md</span><span class="o">.</span><span class="n">iterate</span><span class="p">(</span>
+<a id="__codelineno-3-43" name="__codelineno-3-43" href="#__codelineno-3-43"></a>        <span class="mi">10_000_000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nve"</span><span class="p">,</span> <span class="n">save_every</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">controls</span><span class="o">=</span><span class="n">controls</span>
+<a id="__codelineno-3-44" name="__codelineno-3-44" href="#__codelineno-3-44"></a>    <span class="p">):</span>
+<a id="__codelineno-3-45" name="__codelineno-3-45" href="#__codelineno-3-45"></a>        <span class="n">pairs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sites</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">vacancy_count</span><span class="p">)</span>  <span class="c1"># about every picosecond</span>
+<a id="__codelineno-3-46" name="__codelineno-3-46" href="#__codelineno-3-46"></a>        <span class="k">if</span> <span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"time"</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mf">50.0</span><span class="p">:</span>
+<a id="__codelineno-3-47" name="__codelineno-3-47" href="#__codelineno-3-47"></a>            <span class="k">break</span>
+<a id="__codelineno-3-48" name="__codelineno-3-48" href="#__codelineno-3-48"></a>    <span class="n">damage</span> <span class="o">=</span> <span class="mf">5000.0</span> <span class="o">-</span> <span class="n">md</span><span class="o">.</span><span class="n">thermo</span><span class="p">[</span><span class="s2">"electronic_loss"</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>  <span class="c1"># the damage energy, eV</span>
 </code></pre></div>
-<p><img alt="The temperature and the Frenkel pairs of a cascade of 2 keV in tungsten" src="../images/radiation-cascade.png" /></p>
-<p><em>A cascade of 2 keV in 54000 atoms of tungsten, under three minutes on one V100 GPU.
-The temperature of the box starts near 580 K, as the 2 keV of the PKA count in the
-kinetic energy of all the atoms, and falls back to 300 K as the border takes the heat
-away. Of the 23 Frenkel pairs at 0.4 ps, 4 are left after 3 ps and 3 after 8 ps: most of the atoms
-knocked out of their places fall back into vacancies as the cascade cools. The dynamics
-are chaotic, so another run, or another GPU, leaves a few more or fewer.</em></p>
-<p>The vacancies and the interstitials at the end:</p>
-<!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.transform</span><span class="w"> </span><span class="kn">import</span> <span class="n">combine</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.visualization</span><span class="w"> </span><span class="kn">import</span> <span class="n">render</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="n">last</span> <span class="o">=</span> <span class="n">frames</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">with_columns</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">])</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="n">interstitials</span> <span class="o">=</span> <span class="n">last</span><span class="o">.</span><span class="n">filter</span><span class="p">(</span><span class="n">last</span><span class="p">[</span><span class="s2">"occupancy"</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># the atoms on doubly occupied sites</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">vacancies</span> <span class="o">=</span> <span class="n">crystal</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="n">results</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">vacancies</span><span class="p">)</span>  <span class="c1"># the empty sites</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">defects</span> <span class="o">=</span> <span class="n">combine</span><span class="p">(</span><span class="n">vacancies</span><span class="p">,</span> <span class="n">interstitials</span><span class="p">)</span>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="n">blue</span><span class="p">,</span> <span class="n">red</span> <span class="o">=</span> <span class="p">(</span><span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.39</span><span class="p">,</span> <span class="mf">0.92</span><span class="p">),</span> <span class="p">(</span><span class="mf">0.86</span><span class="p">,</span> <span class="mf">0.15</span><span class="p">,</span> <span class="mf">0.47</span><span class="p">)</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="n">colors</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">defects</span><span class="p">))[:,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">&lt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">vacancies</span><span class="p">),</span> <span class="n">blue</span><span class="p">,</span> <span class="n">red</span><span class="p">)</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="n">render</span><span class="p">(</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="n">defects</span><span class="p">,</span> <span class="s2">"images/radiation-cascade-defects.png"</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">colors</span><span class="p">,</span> <span class="n">width</span><span class="o">=</span><span class="mi">900</span><span class="p">,</span> <span class="n">height</span><span class="o">=</span><span class="mi">700</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="p">)</span>
-</code></pre></div>
-<p><img alt="The vacancies and interstitials left by the cascade" src="../images/radiation-cascade-defects.png" /></p>
-<p><em>The three vacancies in blue, at the center of the box where the cascade began, and the
-three interstitials around them in red, each two atoms sharing one site.</em></p>
+<p>A cascade of 5 keV takes about 19 minutes on one GPU, the relaxation of the crystal included.</p>
+<h3 id="the-frenkel-pairs-against-the-energy">The Frenkel pairs against the energy<a class="headerlink" href="#the-frenkel-pairs-against-the-energy" title="Permanent link">&para;</a></h3>
+<p>The NRT model (<a href="../../reference/references/#norgett1975">Norgett, Robinson and Torrens 1975</a>)
+counts 0.8 T_d / (2 E_d) pairs for a damage energy T_d, the energy of the PKA less what
+the electrons take. Most of the atoms a cascade knocks out fall back as it cools, and the
+arc-dpa model of <a href="../../reference/references/#nordlund2018">Nordlund et al. (2018)</a> scales
+it by ξ = (1 − c) (2 E_d / 0.8)^−b T_d^b + c: for tungsten E_d = 70 eV, b = −0.56 and
+c = 0.12 of Nordlund et al.; for the alloy b = −0.73 and c = 0.21 of Liu et al., with
+E_d = 51 eV, the mean threshold displacement energy of the alloy in their Table 2. The
+paper does not say which E_d its fit takes; with this one the model follows their
+cascades from 5 keV on, while the effective threshold of 108 eV that they also give for
+alloys puts it a factor of two below them.</p>
+<p><img alt="The Frenkel pairs left by the cascades against the energy of the PKA and against the damage energy" src="../images/radiation-cascades.png" /></p>
+<p><em>a: the Frenkel pairs left after 50 ps, the mean and its standard error over the runs,
+against the energy of the PKA, with the power laws Liu et al. fitted to their cascades of
+1 to 150 keV. b: against the damage energy, with the NRT and arc-dpa models.</em></p>
+<p>The runs of each energy, their mean damage energy, the Frenkel pairs left after 50 ps
+(the mean and its standard error), the most at the peak of the cascade, and the shares
+of the vacancies and of the interstitials in clusters of two or more:</p>
+<table>
+<thead>
+<tr>
+<th>Material</th>
+<th style="text-align: right;">E_PKA (keV)</th>
+<th style="text-align: right;">Runs</th>
+<th style="text-align: right;">T_d (keV)</th>
+<th style="text-align: right;">Frenkel pairs</th>
+<th style="text-align: right;">Peak</th>
+<th style="text-align: right;">Vacancies in clusters</th>
+<th style="text-align: right;">Interstitials in clusters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MoNbTaVW</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">0.79</td>
+<td style="text-align: right;">4.1 ± 0.3</td>
+<td style="text-align: right;">41</td>
+<td style="text-align: right;">34 %</td>
+<td style="text-align: right;">14 %</td>
+</tr>
+<tr>
+<td>MoNbTaVW</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">3.73</td>
+<td style="text-align: right;">9.1 ± 0.7</td>
+<td style="text-align: right;">406</td>
+<td style="text-align: right;">36 %</td>
+<td style="text-align: right;">13 %</td>
+</tr>
+<tr>
+<td>MoNbTaVW</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">20</td>
+<td style="text-align: right;">7.35</td>
+<td style="text-align: right;">13.8 ± 1.1</td>
+<td style="text-align: right;">1128</td>
+<td style="text-align: right;">45 %</td>
+<td style="text-align: right;">18 %</td>
+</tr>
+<tr>
+<td>W</td>
+<td style="text-align: right;">1</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">0.78</td>
+<td style="text-align: right;">1.6 ± 0.3</td>
+<td style="text-align: right;">9</td>
+<td style="text-align: right;">8 %</td>
+<td style="text-align: right;">27 %</td>
+</tr>
+<tr>
+<td>W</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">3.63</td>
+<td style="text-align: right;">5.1 ± 0.7</td>
+<td style="text-align: right;">135</td>
+<td style="text-align: right;">13 %</td>
+<td style="text-align: right;">57 %</td>
+</tr>
+<tr>
+<td>W</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">7.09</td>
+<td style="text-align: right;">7.9 ± 0.5</td>
+<td style="text-align: right;">403</td>
+<td style="text-align: right;">10 %</td>
+<td style="text-align: right;">54 %</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Tungsten</strong> follows the power law of Liu et al. within one standard error at 5 and
+  10 keV and two at 1 keV; arc-dpa, whose parameters Nordlund et al. fitted to other
+  potentials, lies 10 to 20 % above. Of the hundreds of pairs at the peak (135 at
+  5 keV, 400 at 10 keV), all but 5 to 8 recombine as the cascade cools.</li>
+<li><strong>The alloy</strong> keeps more Frenkel pairs than tungsten at every energy, 1.7 to 2.6 times
+  as many, as Liu et al. find over 1 to 150 keV; its peak is three times that of
+  tungsten. At 5 and 10 keV the pairs lie on Liu et al.'s power law; at 1 keV there are
+  4.1 where their law, a fit from 1 to 150 keV, gives 1.7: near the threshold, where
+  the alloy's thresholds, half those of tungsten, count most.</li>
+<li><strong>The defects</strong> cluster differently: in tungsten half of the interstitials sit in
+  clusters at 5 and 10 keV, and a tenth of the vacancies; in the alloy a third to nearly
+  a half of the vacancies and a sixth of the interstitials. Liu et al. find the same: fewer
+  clustered interstitials in the alloy, under a quarter, and more clustered vacancies.</li>
+<li>The damage energies, from the stopping of Lindhard and Scharff, are 0.78, 3.6 and
+  7.1 keV in tungsten (Liu et al., from SRIM: 0.77, 3.9 and 7.7) and 0.79, 3.7 and
+  7.4 keV in the alloy (0.84, 4.2 and 8.4).</li>
+</ul>
+<h2 id="running-it">Running it<a class="headerlink" href="#running-it" title="Permanent link">&para;</a></h2>
+<p>The four scripts that made this page run the protocols above on one GPU each:</p>
+<ul>
+<li><a href="../radiation/tde.py"><code>tde.py</code></a> <code>MATERIAL ELEMENT COUNT SEED out.json</code>, the threshold
+  displacement energies of <code>COUNT</code> random directions;</li>
+<li><a href="../radiation/cascade.py"><code>cascade.py</code></a> <code>MATERIAL ENERGY RUN out.json</code>, one cascade;</li>
+<li><a href="../radiation/tde_figures.py"><code>tde_figures.py</code></a> and
+  <a href="../radiation/cascade_figures.py"><code>cascade_figures.py</code></a>, the figures and the tables from
+  their results.</li>
+</ul>
+<p>The thresholds of this page took about 47 GPU-hours, the 90 cascades about 30, 20 minutes
+each, on V100, A100, H100 and H200 GPUs of the Triton cluster of Aalto University.</p>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a>.</li>
-<li><a href="../../user-guide/simulation/running/">Molecular dynamics</a>.</li>
-<li><a href="../../user-guide/simulation/adaptive-timestep/">Adaptive time step</a>,
-  <a href="../../user-guide/simulation/controls/">Groups and controls</a> and
-  <a href="../../user-guide/simulation/gpu/">On the GPU</a>.</li>
+<li><a href="../../user-guide/analysis/wigner-seitz/">Wigner–Seitz analysis</a> and
+  <a href="../../user-guide/analysis/clusters/">clusters</a>.</li>
+<li><a href="../../user-guide/simulation/running/">Molecular dynamics</a>,
+  <a href="../../user-guide/simulation/adaptive-timestep/">adaptive time step</a>,
+  <a href="../../user-guide/simulation/controls/">groups and controls</a> and
+  <a href="../../user-guide/simulation/gpu/">on the GPU</a>.</li>
 </ul>
+<div class="admonition quote">
+<p class="admonition-title">Please cite</p>
+<p>The potential and the protocols: <a href="../../reference/references/#liu2025">Liu et al. (2025)</a>;
+arc-dpa: <a href="../../reference/references/#nordlund2018">Nordlund et al. (2018)</a>.</p>
+</div>
 
 
 

@@ -180,6 +180,7 @@ nav:
       - Molecular dynamics:
           - A copper cluster melting: examples/cluster-melting.md
           - A collision cascade in tungsten: examples/radiation-cascade.md
+          - Isotopes of lithium hydride: examples/lih-isotopes.md
           - Shock and spall in copper: examples/shock.md
           - Running LAMMPS from MDAPY: examples/molecular-dynamics.md
       - Properties:

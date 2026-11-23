@@ -35,6 +35,12 @@ territories, *Dalton Trans.* **42**, 8617 (2013).
 [doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
 { #alvarez2013 }
 
+**Anderson et al. (1970).** J. L. Anderson, J. Nasise, K. Phillipson and F. E. Pretzel,
+Isotopic effects on the thermal expansion of lithium hydride, *J. Phys. Chem. Solids*
+**31**, 613 (1970).
+[doi:10.1016/0022-3697(70)90195-2](https://doi.org/10.1016/0022-3697(70)90195-2)
+{ #anderson1970 }
+
 **Bartók, Kondor and Csányi (2013).** A. P. Bartók, R. Kondor and G. Csányi,
 On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
@@ -700,6 +706,14 @@ ultra-efficient and accurate training of neuroevolution potentials (2026).
 model across elements, temperatures and pressures (2024).
 [arXiv:2405.04967](https://arxiv.org/abs/2405.04967)
 { #yang2024 }
+
+**Ying et al. (2025).** P. Ying, W. Zhou, L. Svensson, E. Berger, E. Fransson, F.
+Eriksson, K. Xu, T. Liang, J. Xu, B. Song, S. Chen, P. Erhart and Z. Fan, Highly
+efficient path-integral molecular dynamics simulations with GPUMD using neuroevolution
+potentials: Case studies on thermal properties of materials, *J. Chem. Phys.* **162**,
+064109 (2025).
+[doi:10.1063/5.0241006](https://doi.org/10.1063/5.0241006)
+{ #ying2025 }
 
 **Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
 Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs

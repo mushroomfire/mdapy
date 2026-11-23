@@ -9,9 +9,11 @@ A density functional code is only as useful as it is right. MDAPY's
 3. against all-electron equations of state of 72 elements, from hydrogen to radon, in
    four crystal structures, and of six oxides of 49 metals, by the protocol of
    [Bosoni et al. (2024)](../../reference/references.md#bosoni2024).
+4. against the all-electron equations of state of six magnetic elements with spin,
+   those of the Delta project.
 
-The first two show that MDAPY solves the equations it means to solve. The third
-measures its results against the exact solution of density functional theory with
+The first two show that MDAPY solves the equations it means to solve. The last two
+measure its results against the exact solution of density functional theory with
 the same functional, where what remains is the error of the pseudopotentials.
 
 ## Its own derivatives
@@ -158,6 +160,52 @@ python benchmarks/dft_verification.py figure verification oxides.png oxides --hi
 
 The 288 structures of the elements took 36 GPU-hours, mostly on V100 GPUs, 1 to 22
 minutes each; the 294 oxides 73 GPU-hours.
+
+## Magnetic elements
+
+The protocol above is without spin. The Delta project
+([Lejaeghere et al. 2016](../../reference/references.md#lejaeghere2016)) took six
+elements with their magnetic order: oxygen, chromium and manganese antiferromagnetic
+(the two molecules of oxygen, the corner and the centre of bcc chromium, and the (001)
+planes of manganese in its simpler fcc cell opposed), iron, cobalt and nickel
+ferromagnetic, with WIEN2k as the all-electron reference. MDAPY takes them with spin,
+the first moments of these orders, and the protocol above otherwise; against pw.x on
+the same input (the moments, the mesh, the grids, `conv_thr` 1e-11 Ry) and against
+WIEN2k, with PseudoDojo at its "normal" hints and with SSSP 1.3 precision
+([Prandini et al. 2018](../../reference/references.md#prandini2018)):
+
+| Element | Order | ν against pw.x, PseudoDojo | Δ against WIEN2k, PseudoDojo (meV/atom) | Δ against WIEN2k, SSSP (meV/atom) | \|m\| at V0, PseudoDojo / SSSP (μB/atom) |
+|---|---|---:|---:|---:|---:|
+| O | AFM | 0.0000 | 2.0 | 1.2 | 0.96 / 0.96 |
+| Cr | AFM | 0.0001 | 11.1 | 1.6 | 1.63 / 1.20 |
+| Mn | AFM | 0.0000 | 8.5 | 1.6 | 2.22 / 1.96 |
+| Fe | FM | 0.0045 | 5.1 | 1.7 | 2.41 / 2.28 |
+| Co | FM | 0.0006 | 0.9 | 0.4 | 1.81 / 1.83 |
+| Ni | FM | 0.0000 | 0.8 | 0.3 | 0.75 / 0.75 |
+
+- **The code.** On the same input MDAPY and pw.x give the same equations of state with
+  spin, ν below 0.005.
+- **The pseudopotentials.** Δ is the root of the mean squared difference of two
+  equations of state over ±6 % of the volume, the number of the Delta project. With
+  the standard PseudoDojo, chromium, manganese and iron are 5 to 11 meV per atom from
+  WIEN2k, in pw.x as in MDAPY; with SSSP's files all six are within 2 meV per atom:
+  for labels of magnetic systems, these.
+- **The magnetic state.** With Kerker's preconditioner, nickel of SSSP's ultrasoft file
+  fell to the state without moment at the three largest volumes, from 0.7 Bohr
+  magnetons, 59 to 83 meV per atom above the ferromagnet; the preconditioner of the
+  local density of states (`preconditioner="ldos"`) keeps the moment at every volume,
+  and the row above is of that run.
+
+`benchmarks/dft_magnetic.py` takes the structures and WIEN2k's equations of state from
+the archive of the Delta project:
+
+```bash
+python benchmarks/dft_magnetic.py prepare verification
+python benchmarks/dft_magnetic.py run verification O Cr Mn Fe Co Ni --hint normal
+python benchmarks/dft_magnetic.py run verification O Cr Mn Fe Co --library sssp
+python benchmarks/dft_magnetic.py run verification Ni --library sssp --preconditioner ldos
+python benchmarks/dft_magnetic.py report verification --library sssp
+```
 
 ??? note "Every structure of the elements"
 

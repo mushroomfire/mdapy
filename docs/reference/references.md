@@ -536,6 +536,12 @@ based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
 
+**Prandini et al. (2018).** G. Prandini, A. Marrazzo, I. E. Castelli, N. Mounet and
+N. Marzari, Precision and efficiency in solid-state pseudopotential calculations,
+*npj Comput. Mater.* **4**, 72 (2018).
+[doi:10.1038/s41524-018-0127-2](https://doi.org/10.1038/s41524-018-0127-2)
+{ #prandini2018 }
+
 **Ranganathan and Ostoja-Starzewski (2008).** S. I. Ranganathan and M.
 Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101**,
 055504 (2008).

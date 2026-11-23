@@ -293,3 +293,12 @@ def test_mixed_precision_at_gamma_is_double():
     assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-12)
     with pytest.raises(ValueError, match="precision"):
         scf.run(*args, precision="half", **common)
+
+
+def test_auto_precision_follows_the_double_precision_of_the_gpu():
+    """precision="auto" takes the single-precision steps on GPUs of little
+    double precision alone."""
+    capability = tuple(_dft.device_capability())
+    assert len(capability) == 2 and capability[0] >= 6
+    assert scf.mixed_precision("auto") == (capability not in scf._FULL_DOUBLE)
+    assert scf.mixed_precision("mixed") and not scf.mixed_precision("double")

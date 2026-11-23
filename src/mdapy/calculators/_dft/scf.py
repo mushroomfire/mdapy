@@ -191,6 +191,23 @@ def _hubbard_occupations(becsum, kinds, angular, hubbard_of, spins):
     return out
 
 
+# compute capabilities whose double precision runs at half the rate of single
+# (P100, V100, A100, H100 and GH200, B200); the others, of cards for games and
+# workstations, at 1/32 or 1/64
+_FULL_DOUBLE = {(6, 0), (7, 0), (8, 0), (9, 0), (10, 0)}
+
+
+def mixed_precision(precision: str) -> bool:
+    """Whether a run of this precision ("double", "mixed" or "auto") takes
+    the single-precision steps on the current GPU: "auto" on GPUs whose double
+    precision is a small part of their single."""
+    if precision != "auto":
+        return precision == "mixed"
+    from mdapy_dft_cuda12 import _dft
+
+    return tuple(_dft.device_capability()) not in _FULL_DOUBLE
+
+
 def run(
     cell,
     positions,
@@ -302,11 +319,12 @@ def run(
     085503 (2021)), for cells of metal and vacuum or insulator. precision
     "mixed": the first steps in single precision on k-points of complex
     bands, then double precision to the end; the result holds single (1 for
-    the steps in single precision)."""
+    the steps in single precision); "auto": mixed on GPUs of little double
+    precision (mixed_precision)."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
-    if precision not in ("double", "mixed"):
-        raise ValueError("precision must be 'double' or 'mixed'")
+    if precision not in ("double", "mixed", "auto"):
+        raise ValueError("precision must be 'double', 'mixed' or 'auto'")
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -472,7 +490,7 @@ def run(
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
-        preconditioner == "ldos", precision == "mixed",
+        preconditioner == "ldos", mixed_precision(precision),
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

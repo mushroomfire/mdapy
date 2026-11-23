@@ -151,7 +151,10 @@ class DFT(Calculator):
         ``"double"``, or ``"mixed"``: the first steps of the self-consistent
         field in single precision, the last in double, for GPUs of little
         double precision; the label is that of double precision. Cells of
-        Gamma alone stay in double. Default ``"double"``.
+        Gamma alone stay in double. ``"auto"``: mixed on GPUs whose double
+        precision runs at a small part of the rate of single (cards for games
+        and workstations), double on the others (V100, A100, H100, GH200).
+        Default ``"double"``.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -285,8 +288,8 @@ class DFT(Calculator):
         self.functional = functional
         self.tolerance = float(tolerance)
         self.symmetry = symmetry
-        if precision not in ("double", "mixed"):
-            raise InvalidParameter("precision must be 'double' or 'mixed'")
+        if precision not in ("double", "mixed", "auto"):
+            raise InvalidParameter("precision must be 'double', 'mixed' or 'auto'")
         self.precision = precision
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)

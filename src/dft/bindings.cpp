@@ -205,6 +205,16 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
 NB_MODULE(_dft, m) {
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    // (major, minor) of the compute capability of the current device
+    m.def("device_capability", [] {
+        int device = 0, major = 0, minor = 0;
+        mdapy::dft::check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device),
+                               "cudaDeviceGetAttribute");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device),
+                               "cudaDeviceGetAttribute");
+        return nb::make_tuple(major, minor);
+    });
     m.def("set_device", [](int index) {
         if (index < 0 || index >= mdapy::dft::device_count())
             throw std::invalid_argument("no GPU " + std::to_string(index) + " of the " +

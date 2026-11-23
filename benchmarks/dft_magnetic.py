@@ -15,7 +15,7 @@ project; and the inputs of pw.x for the same volumes, to compare the codes on
 the same input.
 
     python benchmarks/dft_magnetic.py prepare FOLDER
-    python benchmarks/dft_magnetic.py run FOLDER EL [EL ...] [--library sssp] [--hint normal]
+    python benchmarks/dft_magnetic.py run FOLDER EL [EL ...] [--library sssp] [--hint normal] [--preconditioner ldos]
     python benchmarks/dft_magnetic.py qe FOLDER EL [--library sssp] [--hint normal]
     python benchmarks/dft_magnetic.py readqe FOLDER EL [--library sssp] [--hint normal]
     python benchmarks/dft_magnetic.py report FOLDER [--library sssp] [--hint normal]
@@ -147,7 +147,11 @@ def setup(folder: Path, element: str, library: str, hint: str):
 
 
 def run(
-    folder: Path, element: str, library: str = "dojo", hint: str = "normal"
+    folder: Path,
+    element: str,
+    library: str = "dojo",
+    hint: str = "normal",
+    preconditioner: str = "kerker",
 ) -> None:
     from mdapy.calculators._dft import scf
     from mdapy.calculators._dft.upf import read_upf
@@ -160,7 +164,7 @@ def run(
     out = {"element": element, "order": ORDER[element], "atoms": n, "moments_start": moments,
            "pseudopotential": path.name, "cutoff_hartree": cutoff, "density_cutoff_hartree": density,
            "mesh": mesh, "volumes": [], "free_energies_ev": [], "magnetization": [],
-           "absolute_magnetization": [], "steps": [], "seconds": []}  # fmt: skip
+           "absolute_magnetization": [], "steps": [], "seconds": [], "preconditioner": preconditioner}  # fmt: skip
     volume = abs(np.linalg.det(cell))
     for scale in SCALES:
         start = time.time()
@@ -168,7 +172,7 @@ def run(
             cell * scale ** (1 / 3) / BOHR, frac, [0] * n, [pp], cutoff, kgrid=mesh,
             smearing="fermi-dirac", sigma=SMEARING, functional="pbe_pw", density_cutoff=density,
             magmoms=moments, beta=0.4, magnetic_beta=1.0, energy_tolerance=1e-9 * n,
-            density_tolerance=1e-11, max_iterations=300, stress=False,
+            density_tolerance=1e-11, max_iterations=300, stress=False, preconditioner=preconditioner,
         )  # fmt: skip
         if not r["converged"]:
             raise RuntimeError(f"{element} at {scale}: no convergence")
@@ -304,12 +308,13 @@ if __name__ == "__main__":
     command, folder = sys.argv[1], Path(sys.argv[2])
     rest, library = _option(sys.argv[3:], "--library")
     rest, hint = _option(rest, "--hint")
+    rest, preconditioner = _option(rest, "--preconditioner")
     library, hint = library or "dojo", hint or "normal"
     if command == "prepare":
         prepare(folder)
     elif command == "run":
         for element in rest:
-            run(folder, element, library, hint)
+            run(folder, element, library, hint, preconditioner or "kerker")
     elif command == "qe":
         qe_inputs(folder, rest[0], library, hint)
     elif command == "readqe":

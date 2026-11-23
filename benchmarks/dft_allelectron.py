@@ -23,7 +23,8 @@ local density of states (Kerker's lets fcc Ni of GBRV fall to m = 0).
 FOLDER is that of dft_verification.py, prepared by it (pseudo-dojo/ and
 sssp/); SPECIES the folder of Elk's species files; NAME one of STRUCTURES or
 "all". The moments start as given, the same in both codes (in Elk by fields
-in the muffin-tins that fall to zero during the iterations).
+in the muffin-tins that fall to zero during the iterations; the radii of
+the muffin-tins fixed for all the volumes).
 """
 
 import json
@@ -99,6 +100,26 @@ def mesh_of(name: str) -> tuple[int, int, int]:
     )
 
 
+def radius_of(name: str) -> float:
+    """The muffin-tin radius of every atom in Elk, bohr: 0.97 of half the
+    shortest distance between atoms at the smallest volume, at most 2.4, the
+    same at every volume so that the basis does not change along the curve."""
+    cell, _, frac, _ = STRUCTURES[name]
+    rows = cell * SCALES[0] ** (1 / 3)
+    r = np.asarray(frac) @ rows
+    shifts = (
+        np.array(
+            [[i, j, k] for i in (-1, 0, 1) for j in (-1, 0, 1) for k in (-1, 0, 1)]
+        )
+        @ rows
+    )
+    d = np.linalg.norm(
+        r[:, None, None, :] + shifts[None, :, None, :] - r[None, None, :, :], axis=-1
+    )
+    shortest = d[d > 1e-6].min()
+    return min(0.97 * shortest / 2 / BOHR, 2.4)
+
+
 def names_of(name: str) -> list[str]:
     return list(STRUCTURES) if name == "all" else [name]
 
@@ -123,6 +144,7 @@ def elk_inputs(folder: Path, name: str, species: Path) -> None:
                   ["epsengy", "  1.0e-7"], ["reducebf", "  0.8"],
                   ["ngridk", "  " + " ".join(str(k) for k in mesh)],
                   ["avec", *["  " + " ".join(f"{x:.12f}" for x in row) for row in rows]],
+                  ["rmtall", f"  {radius_of(name):.4f}"],
                   ["sppath", f"  '{species.resolve()}/'"]]  # fmt: skip
         atoms = ["atoms", f"  {len(kinds)}"]
         for kind in kinds:

@@ -290,3 +290,16 @@ def test_mixed_precision_gives_the_label_of_double():
     np.testing.assert_allclose(second.forces, first.forces, atol=1e-5)
     with pytest.raises(InvalidParameter, match="precision"):
         DFT(300.0, precision="half", **common)
+
+
+def test_the_preconditioner_of_the_local_density_of_states(folder):
+    """DFT(preconditioner="ldos") reaches the energy and the forces of
+    Kerker's; an unknown one is refused."""
+    kerker = calculator(folder).compute(silicon(), ("energy", "forces"))
+    ldos = calculator(folder, preconditioner="ldos").compute(
+        silicon(), ("energy", "forces")
+    )
+    assert ldos.energy == pytest.approx(kerker.energy, abs=1e-6)
+    np.testing.assert_allclose(ldos.forces, kerker.forces, atol=1e-5)
+    with pytest.raises(InvalidParameter, match="preconditioner"):
+        DFT(300.0, preconditioner="tf")

@@ -252,12 +252,6 @@ of hard spheres, *J. Chem. Phys.* **81**, 3188 (1984).
 [doi:10.1063/1.448024](https://doi.org/10.1063/1.448024)
 { #frenkel1984 }
 
-**Friede et al. (2024).** M. Friede, C. Hölzer, S. Ehlert and S. Grimme, dxtb—An
-efficient and fully differentiable framework for extended tight-binding, *J. Chem.
-Phys.* **161**, 062501 (2024).
-[doi:10.1063/5.0216715](https://doi.org/10.1063/5.0216715)
-{ #friede2024 }
-
 **Goerigk and Grimme (2011).** L. Goerigk and S. Grimme, A thorough benchmark of
 density functional methods for general main group thermochemistry, kinetics, and
 noncovalent interactions, *Phys. Chem. Chem. Phys.* **13**, 6670 (2011).

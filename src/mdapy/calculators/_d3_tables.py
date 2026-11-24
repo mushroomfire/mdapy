@@ -2,21 +2,6 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
-#
-# The tables of this file are derived from tad-dftd3 0.7.0
-# (https://github.com/dftd3/tad-dftd3, "This file is part of tad-dftd3.
-# SPDX-Identifier: Apache-2.0") and tad-mctc 0.8.0
-# (https://github.com/tad-mctc/tad-mctc, "This file is part of tad-mctc.
-# SPDX-Identifier: Apache-2.0. Copyright (C) 2024 Grimme Group"), licensed under
-# the Apache License, Version 2.0, a copy of which is in LICENSES/Apache-2.0.txt
-# of the MDAPY sources and among the license files of its packages. Changed by
-# MDAPY: of the reference C6 (tad_dftd3/reference-c6.pt) only the pairs of
-# existing references of the elements i >= j up to Lr are kept, stored as
-# integers; the reference coordination numbers (tad_dftd3/reference.py), the
-# <r^4>/<r^2> values (tad_dftd3/data/r4r2.py) and the covalent radii
-# (tad_mctc/data/radii.py) are written as literals; the pairwise radii
-# (tad_mctc/data/vdw-pairwise.pt) are converted back to Å and stored as
-# integers.
 
 """The reference data of DFT-D3 for the elements H to Lr, read by
 mdapy.calculators._d3.
@@ -25,7 +10,8 @@ The C6 of the reference systems are those of S. Grimme, J. Antony, S. Ehrlich an
 H. Krieg, J. Chem. Phys. 132, 154104 (2010), with the actinides of L. Wittmann et
 al., Phys. Chem. Chem. Phys. 26, 21379 (2024); the covalent radii are those of P.
 Pyykkö and M. Atsumi, Chem. Eur. J. 15, 186 (2009), with those of metals 10 %
-smaller, as D3 takes them.
+smaller, as D3 takes them. The C6 are stored as integers of a fixed scale, and of
+each pair of elements only those of their existing references.
 """
 
 import base64

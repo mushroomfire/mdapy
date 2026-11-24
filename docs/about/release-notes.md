@@ -2,6 +2,11 @@
 
 ## 2.3.0 (not released)
 
+- The GPU part of MDAPY runs on AMD GPUs: the kernels of the potentials and of
+  molecular dynamics, written for CUDA, compile as they are with HIP of ROCm 6
+  (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
+  whichever GPU part is there. On the Instinct MI250X they give the results of the
+  processor as on NVIDIA GPUs. See [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
 - `mdapy.calculators.D3`, the dispersion correction DFT-D3 of Grimme et al., native on
   the processor and the GPU: Becke–Johnson and zero damping, the parameters of twelve
   functionals or numbers given, the three-body term, the elements H to Lr. Added to

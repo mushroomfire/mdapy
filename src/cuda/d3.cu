@@ -12,7 +12,7 @@
 // references, the pairs, the triangles, the coordination numbers through the
 // C6; each atom gathers its own terms.
 
-#include <cub/cub.cuh>
+#include "cuda/primitives.cuh"
 
 #include <algorithm>
 #include <cmath>
@@ -31,7 +31,6 @@ using calculators::D3Damping;
 using calculators::kD3References;
 
 constexpr int kWarp = 32;
-constexpr unsigned kAll = 0xffffffffu;
 constexpr double kCountSteepness = 16.0;
 constexpr double kWeightWidth = 4.0;
 constexpr double kClosest2 = 1e-12;
@@ -53,7 +52,7 @@ struct Real3w {
 
 __device__ inline double warp_sum(double v) {
     for (int offset = kWarp / 2; offset > 0; offset /= 2) {
-        v += __shfl_down_sync(kAll, v, offset);
+        v += MDAPY_SHUFFLE_DOWN(v, offset);
     }
     return v;
 }
@@ -467,7 +466,7 @@ __global__ void corner_counts(std::int64_t n, Grid<Real> g, Real3w<Real> reach, 
     if (p >= n) return;
     int found = 0;
     each_pair(g, p, reach.v, cut2, lane, [&](bool hit, int, const Real*, Real, int) {
-        found += __popc(__ballot_sync(kAll, hit));
+        found += __popc(MDAPY_BALLOT(hit));
     });
     if (lane == 0) counts[p] = found;
 }
@@ -487,7 +486,7 @@ __global__ void corners_of(std::int64_t first, std::int64_t last, Grid<Real> g, 
     Corner<Real>* out = corners + (offsets[p] - offsets[first]);
     int written = 0;
     each_pair(g, p, reach.v, cut2, lane, [&](bool hit, int q, const Real* v, Real r2, int sj) {
-        const unsigned found = __ballot_sync(kAll, hit);
+        const unsigned found = MDAPY_BALLOT(hit);
         if (hit) {
             Corner<Real>& c = out[written + __popc(found & ((1u << lane) - 1u))];
             pair_c6(t, si, wi, dwi, u, q, c.c6, c.dc6);

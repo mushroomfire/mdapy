@@ -5,7 +5,8 @@
 //
 // MDAPY on an NVIDIA GPU with CUDA: atoms, a neighbor list and potentials
 // held on the device. This header has no CUDA syntax, so that the bindings
-// compile with the host compiler; the kernels are in the .cu files.
+// compile with the host compiler; the kernels are in the .cu files. The same
+// sources compile with HIP for AMD GPUs: see portable.cuh.
 
 #pragma once
 

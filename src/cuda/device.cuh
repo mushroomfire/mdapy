@@ -10,12 +10,12 @@
 
 #include <algorithm>
 
-#include <cuda_runtime.h>
 
 #include <cstddef>
 #include <cstdint>
 
 #include "cuda/cuda.h"
+#include "cuda/portable.cuh"
 
 namespace mdapy::cuda {
 

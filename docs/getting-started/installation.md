@@ -109,6 +109,9 @@ The build compiles for the GPU of the machine, or for those of
 into MDAPY, so that running it needs only the driver of the GPU. See
 [Installing the GPU part](../user-guide/simulation/gpu.md#installing-the-gpu-part).
 
+For an AMD GPU, MDAPY is built with ROCm 6 instead,
+`-Ccmake.define.MDAPY_HIP=ON`: see [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
+
 ## 64-bit atom indices
 
 Atom indices in results such as neighbor lists are 32-bit integers, enough

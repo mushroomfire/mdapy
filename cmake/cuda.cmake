@@ -19,19 +19,8 @@ enable_language(CUDA)
 find_package(CUDAToolkit REQUIRED)
 set(CMAKE_CUDA_STANDARD 17)
 set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-file(GLOB MDAPY_CUDA_KERNELS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/*.cu")
-add_library(mdapy_cuda_kernels STATIC ${MDAPY_CUDA_KERNELS}
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/eam.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/pair.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/d3.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/adp.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/stillinger_weber.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/many_body.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/tersoff.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/meam.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/nep_model.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/parallel.cpp"
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/core/hardware.cpp")
+include("${CMAKE_CURRENT_LIST_DIR}/gpu_sources.cmake")
+add_library(mdapy_cuda_kernels STATIC ${MDAPY_GPU_KERNELS} ${MDAPY_GPU_HOST_SOURCES})
 set_target_properties(mdapy_cuda_kernels PROPERTIES POSITION_INDEPENDENT_CODE ON
   CUDA_VISIBILITY_PRESET hidden CXX_VISIBILITY_PRESET hidden)
 target_include_directories(mdapy_cuda_kernels PUBLIC

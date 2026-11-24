@@ -4,7 +4,8 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // mdapy._cuda: the atoms, neighbor lists and potentials of MDAPY on an NVIDIA
-// GPU. Built only with the CUDA toolkit (CMake option MDAPY_CUDA).
+// GPU. Built only with the CUDA toolkit (CMake option MDAPY_CUDA). With HIP
+// for AMD GPUs (CMake option MDAPY_HIP) the same module is named _hip.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
@@ -75,7 +76,11 @@ Precision precision_of(const std::string& name) {
 
 }  // namespace
 
-NB_MODULE(_cuda, m) {
+#ifndef MDAPY_GPU_MODULE
+#define MDAPY_GPU_MODULE _cuda
+#endif
+
+NB_MODULE(MDAPY_GPU_MODULE, m) {
     nb::exception<mdapy::cuda::NotFinite>(m, "NotFinite");
     m.def("device_name", &mdapy::cuda::device_name);
     m.def("device_count", &mdapy::cuda::device_count);

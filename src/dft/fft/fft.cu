@@ -8,6 +8,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "dft/fft/box_fft.h"
+
 namespace mdapy::dft {
 
 namespace {
@@ -78,11 +80,15 @@ __global__ void gather_add_single_kernel(const cuComplex* boxes, std::size_t poi
 
 void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 
+double* reals(Complex* values) { return reinterpret_cast<double*>(values); }
+float* reals(cuComplex* values) { return reinterpret_cast<float*>(values); }
+
 }  // namespace
 
-Fft::Fft(const Int3& grid) : grid_(grid) {
+Fft::Fft(const Int3& grid, Backend backend) : grid_(grid) {
     for (int i = 0; i < 3; ++i)
         if (grid[i] < 1) throw std::invalid_argument("an FFT grid needs points along every vector");
+    if (backend == Backend::Mdapy && BoxFft::supported(grid)) own_ = std::make_unique<BoxFft>(grid);
 }
 
 Fft::~Fft() {
@@ -116,36 +122,44 @@ cufftHandle Fft::plan(cufftType type, int count) {
 }
 
 void Fft::to_real(Complex* boxes, int count) {
+    if (own_) return own_->inverse(reals(boxes), count);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_INVERSE),
                 "cufftExecZ2Z");
 }
 
 void Fft::to_reciprocal(Complex* boxes, int count) {
+    if (own_) return own_->forward(reals(boxes), count);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_FORWARD),
                 "cufftExecZ2Z");
 }
 
 void Fft::to_real(cuComplex* boxes, int count) {
+    if (own_) return own_->inverse(reals(boxes), count);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_INVERSE), "cufftExecC2C");
 }
 
 void Fft::to_reciprocal(cuComplex* boxes, int count) {
+    if (own_) return own_->forward(reals(boxes), count);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
 }
 
 void Fft::to_real(cuComplex* spectrum, float* values, int count) {
+    if (own_) return own_->inverse(reals(spectrum), values, count);
     check_cufft(cufftExecC2R(plan(CUFFT_C2R, count), spectrum, values), "cufftExecC2R");
 }
 
 void Fft::to_reciprocal(const float* values, cuComplex* spectrum, int count) {
+    if (own_) return own_->forward(values, reals(spectrum), count);
     check_cufft(cufftExecR2C(plan(CUFFT_R2C, count), const_cast<float*>(values), spectrum), "cufftExecR2C");
 }
 
 void Fft::to_real(Complex* spectrum, double* values, int count) {
+    if (own_) return own_->inverse(reals(spectrum), values, count);
     check_cufft(cufftExecZ2D(plan(CUFFT_Z2D, count), spectrum, values), "cufftExecZ2D");
 }
 
 void Fft::to_reciprocal(const double* values, Complex* spectrum, int count) {
+    if (own_) return own_->forward(values, reals(spectrum), count);
     // cuFFT takes a pointer that it does not write for the real-to-complex input
     check_cufft(cufftExecD2Z(plan(CUFFT_D2Z, count), const_cast<double*>(values), spectrum),
                 "cufftExecD2Z");

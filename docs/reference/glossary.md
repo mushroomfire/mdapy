@@ -275,6 +275,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
 | preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level | `preconditioner`, `"kerker"` or `"ldos"` | `mixing_mode`, `imix` |
 | arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU | `precision`, `"double"`, `"mixed"` or `"auto"` | `fp32`, `single_precision` |
+| whose kernels DFT runs on the GPU: MDAPY's own where it has them, or the GPU libraries of the vendor throughout | `backend`, `"mdapy"` or `"vendor"` | `fft`, `library`, `use_cufft` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |

@@ -245,7 +245,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     const Int3 smooth = input.smooth_grid[0] > 0 ? input.smooth_grid : input.grid;
     const bool two_grids = smooth != input.grid;
     const std::size_t points_s = static_cast<std::size_t>(smooth[0]) * smooth[1] * smooth[2];
-    Hamiltonian h(input.lattice, smooth, input.cutoff, input.species, input.atoms, basis);
+    Hamiltonian h(input.lattice, smooth, input.cutoff, input.species, input.atoms, basis, input.backend);
     if (input.gamma) {
         const Vec3& k = input.kpoints.front();
         if (nk != 1 || k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0)
@@ -253,12 +253,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         h.set_gamma(true);
     }
     Potentials pot(input.lattice, input.grid, input.density_cutoff, options.functional, ns, options.xc_threshold,
-                   basis);
+                   basis, input.backend);
     std::unique_ptr<Potentials> pot_s;
     std::size_t ng_s = 0;
     if (two_grids) {
         pot_s = std::make_unique<Potentials>(input.lattice, smooth, 4.0 * input.cutoff, options.functional, ns,
-                                             options.xc_threshold, basis);
+                                             options.xc_threshold, basis, input.backend);
         ng_s = pot_s->sphere().size();
         if (ng_s > pot.sphere().size()) throw std::invalid_argument("the dense grid is smaller than the smooth one");
         for (std::size_t g = 0; g < ng_s; ++g)
@@ -661,15 +661,15 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         double band = 0.0;
         std::exception_ptr error;
         Worker(const Lattice& lattice, const Int3& grid, double cutoff, const std::vector<SpeciesProjectors>& species,
-               const std::vector<Atom>& atoms, const Lattice* basis_)
-            : h(lattice, grid, cutoff, species, atoms, basis_) {}
+               const std::vector<Atom>& atoms, const Lattice* basis_, Backend backend)
+            : h(lattice, grid, cutoff, species, atoms, basis_, backend) {}
     };
     std::vector<std::unique_ptr<Worker>> workers;
     std::vector<DeviceArray<double>> veff_spin;  // the effective potential of each spin on the grid of the bands
     if (threads > 1) {
         for (int i = 0; i < threads; ++i) {
             workers.push_back(std::make_unique<Worker>(input.lattice, smooth, input.cutoff, input.species,
-                                                       input.atoms, basis));
+                                                       input.atoms, basis, input.backend));
             if (ultrasoft) workers.back()->h.set_overlaps(overlaps);
             workers.back()->becsum.resize(spins);
             workers.back()->limits.resize(bands);

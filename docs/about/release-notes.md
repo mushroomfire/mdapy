@@ -2,6 +2,10 @@
 
 ## 2.3.0 (not released)
 
+- `DFT(backend="mdapy")`: the fast Fourier transforms of the DFT are MDAPY's own kernels
+  on the GPU, for the grids and the transforms the plane waves take, in place of those
+  of cuFFT or hipFFT; `backend="vendor"` runs the GPU libraries of the vendor throughout.
+  The results agree to rounding, and `DFT.last["provenance"]` keeps the backend.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

@@ -568,14 +568,14 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // bands there would give an output density worse than the input
     double tolerance = options.first_tolerance > 0.0 ? options.first_tolerance : (restart ? 1e-4 : 1e-2);
     double previous = std::numeric_limits<double>::infinity();
-    // the single-precision phase: complex bands only; the residual norms of
-    // its bands bounded below by twice the rounding of single precision on
-    // the largest |H_GG| (the cutoff), as residuals asked closer to the
-    // rounding stall its Davidson (iron on an RTX A2000: 27 iterations a
-    // solve instead of 2 to 3, and bands too low); left when the residual
-    // of the density is below its tolerance, has not halved in three steps,
-    // or after half the steps allowed
-    bool single_phase = options.mixed_precision && !input.gamma;
+    // the single-precision phase, of complex bands and of the real ones of
+    // Gamma alike; the residual norms of its bands bounded below by twice
+    // the rounding of single precision on the largest |H_GG| (the cutoff),
+    // as residuals asked closer to the rounding stall its Davidson (iron on
+    // an RTX A2000: 27 iterations a solve instead of 2 to 3, and bands too
+    // low); left when the residual of the density is below its tolerance,
+    // has not halved in three steps, or after half the steps allowed
+    bool single_phase = options.mixed_precision;
     std::unique_ptr<DavidsonSingle> single_solver;  // made at its first use
     const double single_floor = 2.4e-7 * std::max(2.0 * input.cutoff, 1.0);
     std::vector<double> single_accuracies;

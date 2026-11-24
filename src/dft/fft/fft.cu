@@ -59,12 +59,14 @@ __global__ void move_kernel(const Complex* from, std::size_t from_points,
     to[b * to_points + to_index[g]] = from[b * from_points + from_index[g]];
 }
 
-__global__ void scatter_single_kernel(const cuComplex* c, std::size_t n, const std::int64_t* box, int count,
-                                      cuComplex* boxes, std::size_t points) {
+__global__ void scatter_single_kernel(const cuComplex* c, std::size_t n, const std::int64_t* box,
+                                      const std::int64_t* partner, int count, cuComplex* boxes, std::size_t points) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (i >= n * count) return;
     const std::size_t b = i / n, g = i % n;
-    boxes[b * points + box[g]] = c[i];
+    const cuComplex value = c[i];
+    boxes[b * points + box[g]] = value;
+    if (partner != nullptr && partner[g] >= 0) boxes[b * points + partner[g]] = cuConjf(value);
 }
 
 __global__ void gather_add_single_kernel(const cuComplex* boxes, std::size_t points, const std::int64_t* box,
@@ -105,8 +107,8 @@ cufftHandle Fft::plan(cufftType type, int count) {
     const int complex_points = static_cast<int>(points());
     const int half = static_cast<int>(spectrum());
     int idist = complex_points, odist = complex_points;
-    if (type == CUFFT_D2Z) odist = half;
-    if (type == CUFFT_Z2D) idist = half;
+    if (type == CUFFT_D2Z || type == CUFFT_R2C) odist = half;
+    if (type == CUFFT_Z2D || type == CUFFT_C2R) idist = half;
     cufftHandle handle{};
     check_cufft(cufftPlanMany(&handle, 3, n, nullptr, 1, idist, nullptr, 1, odist, type, count),
                 "cufftPlanMany");
@@ -131,6 +133,14 @@ void Fft::to_real(cuComplex* boxes, int count) {
 
 void Fft::to_reciprocal(cuComplex* boxes, int count) {
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
+}
+
+void Fft::to_real(cuComplex* spectrum, float* values, int count) {
+    check_cufft(cufftExecC2R(plan(CUFFT_C2R, count), spectrum, values), "cufftExecC2R");
+}
+
+void Fft::to_reciprocal(const float* values, cuComplex* spectrum, int count) {
+    check_cufft(cufftExecR2C(plan(CUFFT_R2C, count), const_cast<float*>(values), spectrum), "cufftExecR2C");
 }
 
 void Fft::to_real(Complex* spectrum, double* values, int count) {
@@ -171,9 +181,14 @@ void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* bo
 
 void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,
              std::size_t points) {
+    scatter(coefficients, n, box, nullptr, count, boxes, points);
+}
+
+void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+             int count, cuComplex* boxes, std::size_t points) {
     check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * points * sizeof(cuComplex)), "cudaMemset");
     if (n == 0 || count == 0) return;
-    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, count, boxes, points);
+    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, partner, count, boxes, points);
     launched("scatter");
 }
 

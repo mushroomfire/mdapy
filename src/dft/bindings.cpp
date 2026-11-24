@@ -36,6 +36,7 @@
 #include "dft/scf/scf.h"
 #include "dft/scf/structure.h"
 #include "dft/solver/davidson.h"
+#include "dft/solver/davidson_single.h"
 #include "dft/xc/xc.h"
 
 namespace nb = nanobind;
@@ -574,21 +575,31 @@ NB_MODULE(_dft, m) {
 
     // the lowest eigenpairs of a Hamiltonian by block Davidson from the guess
     // psi (bands, plane waves): eigenvalues, eigenvectors (bands, plane waves),
-    // iterations, converged bands and the largest residual norm
+    // iterations, converged bands and the largest residual norm; with single,
+    // by the solver of single precision
     m.def(
         "davidson",
         [](mdapy::dft::Hamiltonian& h, Coefficients psi, double tolerance, int tight, double loose_tolerance,
-           int max_iterations, int largest_basis) {
+           int max_iterations, int largest_basis, bool single) {
             const int count = static_cast<int>(psi.shape(0));
             const std::size_t n = psi.shape(1);
             if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
             DeviceArray<Complex> a;
             a.upload(as_device(psi.data()), psi.size());
-            mdapy::dft::Davidson solver;
             std::vector<double> e;
-            const auto r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight,
-                                        loose_tolerance, max_iterations,
-                                        largest_basis > 0 ? largest_basis : 4 * count);
+            mdapy::dft::DavidsonResult r;
+            const int basis = largest_basis > 0 ? largest_basis : 4 * count;
+            if (single) {
+                std::vector<double> tolerances(static_cast<std::size_t>(std::max(count, 0)));
+                for (int b = 0; b < count; ++b)
+                    tolerances[static_cast<std::size_t>(b)] = b < tight || tight < 0 ? tolerance : loose_tolerance;
+                mdapy::dft::DavidsonSingle solver;
+                r = solver.solve(h, a.data(), count, e, tolerances, max_iterations, basis);
+            } else {
+                mdapy::dft::Davidson solver;
+                r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight, loose_tolerance,
+                                 max_iterations, basis);
+            }
             double* values = nullptr;
             auto eigenvalues = new_array<double>({static_cast<std::size_t>(count)}, values);
             std::copy(e.begin(), e.end(), values);
@@ -598,7 +609,8 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(eigenvalues, vectors, r.iterations, r.converged, r.residual);
         },
         nb::arg("h"), nb::arg("psi"), nb::arg("tolerance") = 1e-8, nb::arg("tight") = -1,
-        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0);
+        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0,
+        nb::arg("single") = false);
 
     // the occupations of eigenvalues (k-points, bands): f, the Fermi level,
     // -TS and the lowest empty level

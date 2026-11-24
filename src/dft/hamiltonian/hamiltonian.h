@@ -103,8 +103,10 @@ public:
     void add_overlap(const Complex* p, int count, Complex* spsi);
     void overlap_projections(const Complex* p, int count, Complex* out);
     // The same in single precision, for the bands of the single-precision
-    // steps (k-points with complex bands only): the potential, the projectors
-    // and their strengths and overlaps those set, rounded when they change.
+    // steps: the potential, the projectors and their strengths and overlaps
+    // those set, rounded when they change. With the real bands of Gamma, real
+    // transforms on the half sphere and real projections, (projectors, count)
+    // floats at the start of a buffer of cuComplex.
     void apply(const cuComplex* psi, cuComplex* hpsi, int count);
     void project(const cuComplex* psi, int count, cuComplex* p);
     void apply_local(const cuComplex* psi, cuComplex* hpsi, int count);
@@ -201,6 +203,7 @@ private:
     // single precision: what single() rounds, and its work arrays
     bool single_stale_ = true;
     DeviceArray<float> kinetic_f_, potential_f_;
+    DeviceArray<float> dreal_f_, qreal_f_, values_f_;  // of Gamma, as dreal_, qreal_ and values_
     DeviceArray<cuComplex> beta_f_, dmatrix_f_, qmatrix_f_, boxes_f_, projections_f_, scaled_f_;
 };
 

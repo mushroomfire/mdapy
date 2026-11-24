@@ -51,6 +51,9 @@ public:
     // single-precision steps.
     void to_real(cuComplex* boxes, int count);
     void to_reciprocal(cuComplex* boxes, int count);
+    // Real boxes of single precision, out of place, as those of double.
+    void to_real(cuComplex* spectrum, float* values, int count);
+    void to_reciprocal(const float* values, cuComplex* spectrum, int count);
 
 private:
     cufftHandle plan(cufftType type, int count);
@@ -78,6 +81,8 @@ void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* bo
 // The same of single-precision coefficients and boxes.
 void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,
              std::size_t points);
+void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+             int count, cuComplex* boxes, std::size_t points);
 void gather_add(const cuComplex* boxes, std::size_t points, const std::int64_t* box, std::size_t n, int count,
                 float scale, cuComplex* coefficients);
 

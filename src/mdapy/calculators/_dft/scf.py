@@ -317,8 +317,8 @@ def run(
     (with kerker) or "ldos", from the local density of states at the Fermi
     level of each step (Herbst and Levitt, J. Phys.: Condens. Matter 33,
     085503 (2021)), for cells of metal and vacuum or insulator. precision
-    "mixed": the first steps in single precision on k-points of complex
-    bands, then double precision to the end; the result holds single (1 for
+    "mixed": the first steps in single precision (complex bands, and the
+    real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision)."""
     if preconditioner not in ("kerker", "ldos"):

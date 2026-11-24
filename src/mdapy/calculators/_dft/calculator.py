@@ -150,8 +150,8 @@ class DFT(Calculator):
     precision : str, optional
         ``"double"``, or ``"mixed"``: the first steps of the self-consistent
         field in single precision, the last in double, for GPUs of little
-        double precision; the label is that of double precision. Cells of
-        Gamma alone stay in double. ``"auto"``: mixed on GPUs whose double
+        double precision; the label is that of double precision.
+        ``"auto"``: mixed on GPUs whose double
         precision runs at a small part of the rate of single (cards for games
         and workstations), double on the others (V100, A100, H100, GH200).
         Default ``"double"``.

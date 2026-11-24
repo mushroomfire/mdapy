@@ -7,7 +7,8 @@
 // the first steps of a self-consistent field on GPUs of little double
 // precision: every product, transform, factorization and eigensolver of the
 // subspace in single precision, the norms of the residuals summed in double.
-// Complex bands only (not those of Gamma). The bands come and go in double
+// With the real bands of Gamma the products, the subspace and the projections
+// are real, as in double precision. The bands come and go in double
 // precision; a residual norm below about 1e-7 of the largest |H_GG| is not
 // reached, so that tolerances are bounded below by the caller.
 
@@ -38,6 +39,9 @@ public:
 
 private:
     void eigh(cuComplex* a, int n);  // eigenpairs into values_, vectors into a
+    void eigh_real(float* a, int n);  // the same of a real symmetric matrix, at Gamma
+    // column c of the projections p, cuComplex or real
+    cuComplex* projection(cuComplex* p, std::size_t c) const;
     // out (ka, kb) = a^H b + pa^H q pb (the second without h)
     void gram(Hamiltonian* h, const cuComplex* a, const cuComplex* pa, int ka, const cuComplex* b,
               const cuComplex* pb, int kb, int rows, cuComplex* out);
@@ -48,6 +52,7 @@ private:
 
     cublasHandle_t blas_ = nullptr;
     cusolverDnHandle_t solver_ = nullptr;
+    bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;
     DeviceArray<cuComplex> basis_, hbasis_, pbasis_, pvectors_, vectors_, residual_, subspace_, hsub_, overlap_,
         chol_, work_, qp_, picked_, lapack_, diagonal_r_;

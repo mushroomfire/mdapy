@@ -45,6 +45,13 @@ std::vector<double> real_parts(const std::vector<Complex>& c) {
 
 double* real(Complex* p) { return reinterpret_cast<double*>(p); }
 const double* real(const Complex* p) { return reinterpret_cast<const double*>(p); }
+float* real(cuComplex* p) { return reinterpret_cast<float*>(p); }
+const float* real(const cuComplex* p) { return reinterpret_cast<const float*>(p); }
+
+void sgemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, float alpha,
+           const float* a, int lda, const float* b, int ldb, float beta, float* c, int ldc) {
+    check_blas(cublasSgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasSgemm");
+}
 
 // The real spherical harmonics Y_lm of the direction of (x, y, z), l up to 3
 // and m from -l to l: the sines of m < 0 and the cosines of m > 0; at the
@@ -258,6 +265,12 @@ __global__ void multiply_single_kernel(std::size_t points, int count, const floa
     if (i >= points * count) return;
     const float v = potential[i % points];
     boxes[i] = make_cuComplex(v * boxes[i].x, v * boxes[i].y);
+}
+
+__global__ void multiply_real_single_kernel(std::size_t points, int count, const float* potential, float* values) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i >= points * count) return;
+    values[i] *= potential[i % points];
 }
 
 __global__ void round_real_kernel(std::size_t n, const double* in, float* out) {
@@ -1135,7 +1148,6 @@ void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
 
 void Hamiltonian::single() {
     if (!single_stale_) return;
-    if (gamma_) throw std::logic_error("single precision takes complex bands, not those of Gamma");
     const std::size_t n = sphere_.size(), points = fft_.points(), np = static_cast<std::size_t>(projectors_);
     kinetic_f_.resize(n);
     if (n > 0) round_real_kernel<<<blocks(n), kThreads>>>(n, kinetic_.data(), kinetic_f_.data());
@@ -1153,6 +1165,14 @@ void Hamiltonian::single() {
             qmatrix_f_.resize(np * np);
             round_complex_kernel<<<blocks(np * np), kThreads>>>(np * np, qmatrix_.data(), qmatrix_f_.data());
         }
+        if (gamma_ && dreal_.size() == np * np) {
+            dreal_f_.resize(np * np);
+            round_real_kernel<<<blocks(np * np), kThreads>>>(np * np, dreal_.data(), dreal_f_.data());
+        }
+        if (gamma_ && has_overlap_ && qreal_.size() == np * np) {
+            qreal_f_.resize(np * np);
+            round_real_kernel<<<blocks(np * np), kThreads>>>(np * np, qreal_.data(), qreal_f_.data());
+        }
     }
     check_cuda(cudaGetLastError(), "the single-precision Hamiltonian");
     single_stale_ = false;
@@ -1168,6 +1188,23 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
     // boxes of half the size of those of double precision, twice the bands
     const int step = std::min(2 * batch(), count);
     boxes_f_.reserve(points * static_cast<std::size_t>(step));
+    if (gamma_) {  // real transforms of real bands
+        const std::size_t spectrum = fft_.spectrum();
+        values_f_.reserve(points * static_cast<std::size_t>(step));
+        for (int first = 0; first < count; first += step) {
+            const int m = std::min(step, count - first);
+            const std::size_t offset = n * static_cast<std::size_t>(first);
+            scatter(psi + offset, n, box_.data(), partner_.data(), m, boxes_f_.data(), spectrum);
+            fft_.to_real(boxes_f_.data(), values_f_.data(), m);
+            multiply_real_single_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_f_.data(),
+                                                                         values_f_.data());
+            check_cuda(cudaGetLastError(), "the local potential");
+            fft_.to_reciprocal(values_f_.data(), boxes_f_.data(), m);
+            gather_add(boxes_f_.data(), spectrum, box_.data(), n, m, 1.0f / static_cast<float>(points), hpsi + offset);
+        }
+        gamma_clean(n, count, hpsi);
+        return;
+    }
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
         const std::size_t offset = n * static_cast<std::size_t>(first);
@@ -1183,6 +1220,10 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
 void Hamiltonian::project(const cuComplex* psi, int count, cuComplex* p) {
     if (projectors_ == 0 || count == 0) return;
     single();
+    if (gamma_) {
+        gamma_inner(blas_, sphere_.size(), beta_f_.data(), projectors_, psi, count, real(p), projectors_);
+        return;
+    }
     const cuComplex one = make_cuComplex(1.0f, 0.0f), zero = make_cuComplex(0.0f, 0.0f);
     const int nn = static_cast<int>(sphere_.size());
     check_blas(cublasCgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_f_.data(), nn, psi,
@@ -1203,11 +1244,26 @@ void add_projected(cublasHandle_t blas, const cuComplex* beta, int n, int projec
                            projectors, &one, out, n),
                "cublasCgemm");
 }
+
+// the same of real m and p at Gamma
+void add_projected_real(cublasHandle_t blas, const cuComplex* beta, std::size_t n, int projectors, const float* m,
+                        const float* p, int count, DeviceArray<cuComplex>& scaled, cuComplex* out) {
+    scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
+    float* s = real(scaled.data());
+    sgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, 1.0f, m, projectors, p, projectors, 0.0f, s,
+          projectors);
+    gamma_combine(blas, n, beta, projectors, s, projectors, count, 1.0f, 1.0f, out);
+}
 }  // namespace
 
 void Hamiltonian::add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi) {
     if (projectors_ == 0 || count == 0) return;
     single();
+    if (gamma_) {
+        add_projected_real(blas_, beta_f_.data(), sphere_.size(), projectors_, dreal_f_.data(), real(p), count,
+                           scaled_f_, hpsi);
+        return;
+    }
     add_projected(blas_, beta_f_.data(), static_cast<int>(sphere_.size()), projectors_, dmatrix_f_.data(), p, count,
                   scaled_f_, hpsi);
 }
@@ -1215,6 +1271,11 @@ void Hamiltonian::add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi) {
 void Hamiltonian::add_overlap(const cuComplex* p, int count, cuComplex* spsi) {
     if (!has_overlap_ || projectors_ == 0 || count == 0) return;
     single();
+    if (gamma_) {
+        add_projected_real(blas_, beta_f_.data(), sphere_.size(), projectors_, qreal_f_.data(), real(p), count,
+                           scaled_f_, spsi);
+        return;
+    }
     add_projected(blas_, beta_f_.data(), static_cast<int>(sphere_.size()), projectors_, qmatrix_f_.data(), p, count,
                   scaled_f_, spsi);
 }
@@ -1222,10 +1283,17 @@ void Hamiltonian::add_overlap(const cuComplex* p, int count, cuComplex* spsi) {
 void Hamiltonian::overlap_projections(const cuComplex* p, int count, cuComplex* out) {
     if (projectors_ == 0 || count == 0) return;
     if (!has_overlap_) {
-        check_cuda(cudaMemset(out, 0, static_cast<std::size_t>(projectors_) * count * sizeof(cuComplex)), "cudaMemset");
+        check_cuda(cudaMemset(out, 0, static_cast<std::size_t>(projectors_) * count *
+                                          (gamma_ ? sizeof(float) : sizeof(cuComplex))),
+                   "cudaMemset");
         return;
     }
     single();
+    if (gamma_) {
+        sgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0f, qreal_f_.data(), projectors_,
+              real(p), projectors_, 0.0f, real(out), projectors_);
+        return;
+    }
     const cuComplex one = make_cuComplex(1.0f, 0.0f), zero = make_cuComplex(0.0f, 0.0f);
     check_blas(cublasCgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_f_.data(),
                            projectors_, p, projectors_, &zero, out, projectors_),

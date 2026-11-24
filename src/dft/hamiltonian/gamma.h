@@ -10,7 +10,9 @@
 // the whole sphere is
 //   <a|b> = 2 sum_G Re conj(a_G) b_G - a_0 b_0 = 2 A[2:]^T B[2:] + A[0]^T B[0],
 // which never reads Im c_0. The projections <beta|psi> of real functions are
-// real, (projectors, m) doubles.
+// real, (projectors, m) doubles. Each helper has its counterpart of single
+// precision (cuComplex blocks, real matrices of floats) for the bands of the
+// single-precision steps; gamma_dots sums those in double too.
 
 #pragma once
 
@@ -40,5 +42,14 @@ void gamma_clean(std::size_t n, int count, Complex* c);
 
 // out[c] = <a_c|b_c> over the whole sphere of each of count columns of n
 void gamma_dots(std::size_t n, int count, const Complex* a, const Complex* b, double* out);
+
+// The same in single precision.
+void gamma_inner(cublasHandle_t blas, std::size_t n, const cuComplex* a, int ka, const cuComplex* b, int kb,
+                 float* out, int ldo, float scale = 0.0f);
+void gamma_combine(cublasHandle_t blas, std::size_t n, const cuComplex* a, int k, const float* y, int ldy, int m,
+                   float alpha, float beta, cuComplex* out);
+void gamma_solve(cublasHandle_t blas, std::size_t n, int m, const float* r, cuComplex* out);
+void gamma_clean(std::size_t n, int count, cuComplex* c);
+void gamma_dots(std::size_t n, int count, const cuComplex* a, const cuComplex* b, double* out);
 
 }  // namespace mdapy::dft

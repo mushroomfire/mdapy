@@ -281,18 +281,41 @@ def test_mixed_precision_reaches_the_ground_state_of_double(case):
     np.testing.assert_allclose(mixed["forces"], double["forces"], atol=2e-6)
 
 
-def test_mixed_precision_at_gamma_is_double():
-    """The real bands of Gamma have no single precision: every step in double,
-    the same run; a precision unknown is refused."""
-    pp = read_upf(espresso.pseudo("Si_std.upf"))
-    args = (fcc(5.431), [[0, 0, 0], [0.26, 0.25, 0.24]], [0, 0], [pp], 10.0)
-    common = dict(kgrid=(1, 1, 1), energy_tolerance=1e-11, density_tolerance=1e-13)
+GAMMA_CASES = {
+    # fractions, file, cutoff, options
+    "silicon": ([[0, 0, 0], [0.26, 0.25, 0.24]], "Si_std.upf", 10.0, {}),
+    "aluminium": ([[0.02, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]], "Al_std.upf", 10.0,
+                  {"smearing": "marzari-vanderbilt", "sigma": 0.01}),
+    "aluminium-us": ([[0.02, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]],
+                     "pslibrary/Al.pbe-n-rrkjus_psl.1.0.0.UPF", 12.0, {"smearing": "gaussian", "sigma": 0.01}),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("case", list(GAMMA_CASES))
+def test_mixed_precision_of_the_real_bands_of_gamma(case):
+    """Gamma alone, real bands: the first steps in single precision, the last
+    in double, the energy and the forces of double precision throughout;
+    silicon, and a cube of four aluminium atoms, norm-conserving and
+    ultrasoft (with an overlap). Converged until the spread of the SCF is
+    well below what is asserted. A precision unknown is refused."""
+    fractions, name, cutoff, options = GAMMA_CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    cell = fcc(5.431) if case == "silicon" else np.eye(3) * 4.05 / BOHR
+    args = (cell, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(
+        kgrid=(1, 1, 1), energy_tolerance=1e-11, density_tolerance=1e-13, **options
+    )
     double = scf.run(*args, **common)
     mixed = scf.run(*args, precision="mixed", **common)
-    assert mixed["gamma"] and not any(mixed["single"])
-    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-12)
-    with pytest.raises(ValueError, match="precision"):
-        scf.run(*args, precision="half", **common)
+    assert double["gamma"] and mixed["gamma"]
+    assert double["converged"] and mixed["converged"]
+    assert "single" not in double and 0 < sum(mixed["single"]) < len(mixed["single"])
+    assert mixed["single"][-1] == 0  # the end in double precision
+    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-9)
+    np.testing.assert_allclose(mixed["forces"], double["forces"], atol=2e-6)
+    if case == "silicon":
+        with pytest.raises(ValueError, match="precision"):
+            scf.run(*args, precision="half", **common)
 
 
 def test_auto_precision_follows_the_double_precision_of_the_gpu():

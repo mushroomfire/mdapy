@@ -254,7 +254,7 @@ The rest are programs and conditions of the machine:
 | a LAMMPS built with MPI and the `REPLICA` package, started by `MDAPY_LAMMPS_NEB` with `{n}` for the number of processes, such as `mpirun -np {n} /path/to/lmp` | the nudged elastic band against LAMMPS's `neb`, which runs each image in a partition of its own |
 | Python 3.14 | files compressed with zstd |
 | a German or French locale | numbers under a locale with a decimal comma |
-| `mdapy_dft_cuda12`, the package of MDAPY's DFT built from `dft-cuda12/` with the CUDA toolkit, and an NVIDIA GPU; or built with ROCm (`MDAPY_DFT_HIP`), and an AMD GPU | the plane-wave DFT |
+| the GPU part with its DFT, `mdapy_cuda12._dft` built from `cuda12/` with NVIDIA's cuBLAS, cuFFT and cuSOLVER installed, and an NVIDIA GPU; or `mdapy_rocm6._dft` built from `rocm6/` with ROCm, and an AMD GPU ([below](#the-gpu-part)) | the plane-wave DFT |
 | `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
 | `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR`, with the ultrasoft and PAW files of [pslibrary](https://github.com/dalcorso/pslibrary) 1.0.0 for Al, Si, Fe and Ni made by `ld1.x` from its `us_ps_high.job` and `paw_ps_high.job` in its subfolder `pslibrary`, and the files of [SSSP](https://www.materialscloud.org/discover/sssp) 1.3 precision in its subfolder `sssp` | the DFT against Quantum ESPRESSO, run on the same input |
 | [mpi4py](https://mpi4py.readthedocs.io), with `mpirun` | the DFT on several processes sharing the k-points of one configuration |
@@ -274,6 +274,37 @@ The rest are programs and conditions of the machine:
 - `tests/cpp/thread_checks.cpp` checks the thread pool and the parallel
   kernels without Python; CI runs it under ThreadSanitizer. New parallel
   kernels get a check there.
+
+### The GPU part
+
+The GPU part is a package of its own, built from the same sources: `mdapy-cuda12`
+from `cuda12/` with the CUDA toolkit, and `mdapy-rocm6` from `rocm6/` with ROCm 6. Each
+holds two modules, `_cuda` (or `_hip`) for the potentials and molecular dynamics, and
+`_dft` for the plane-wave DFT. For tests, one architecture builds faster than the list
+of the package's `pyproject.toml`:
+
+```bash
+pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86 -Ccmake.define.MDAPY_WERROR=ON
+pip install nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12   # what _dft loads
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a -Ccmake.define.MDAPY_WERROR=ON
+```
+
+- Building `_dft` needs the development files of cuBLAS, cuFFT, cuSOLVER, cuSPARSE and
+  nvJitLink of the toolkit (`libcublas-dev-12-9` and the like), or hipBLAS, hipFFT and
+  hipSOLVER of ROCm. `-Ccmake.define.MDAPY_DFT=OFF` leaves the DFT out, for a quicker
+  build of the rest; the two packages build it by default.
+- `_cuda` links the CUDA runtime statically and no other library of CUDA, so that
+  molecular dynamics needs only the driver. `_dft` links the CUDA runtime statically
+  too, and cuBLAS, cuFFT and cuSOLVER, with cuBLASLt, cuSPARSE and nvJitLink, as shared
+  libraries, found through its RUNPATH in the folders `nvidia/<library>/lib` that NVIDIA's
+  packages install beside it. The wheels hold none of them: `auditwheel repair` excludes
+  them in `.github/workflows/publish.yml`.
+- With ROCm both modules link the HIP runtime and the libraries of the machine.
+- `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_CUDA=ON` or `MDAPY_HIP=ON` builds the DFT
+  into MDAPY itself, `mdapy._dft`.
+- MDAPY finds `_dft` in the GPU part that its calculators use
+  (`src/mdapy/calculators/_dft/loader.py`, on `_gpu.py`), and the tests of the DFT take it
+  from there (`tests/dft/gpu.py`), skipped without it.
 
 ## Style
 

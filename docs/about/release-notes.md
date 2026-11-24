@@ -135,8 +135,8 @@
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
 - `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
-  NVIDIA GPU, in the package `mdapy-dft-cuda12`, which also builds from source with HIP of
-  ROCm 6 for AMD GPUs (`MDAPY_DFT_HIP`). It gives energies, forces and virials
+  NVIDIA GPU, in the GPU part `mdapy-cuda12`, or on an AMD GPU in `mdapy-rocm6`, built from
+  source with HIP of ROCm 6. It gives energies, forces and virials
   of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF 2, and UPF
   1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
   collinear spin and smearings, DFT+U of Dudarev on norm-conserving
@@ -152,6 +152,11 @@
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
   same input; the functional of the pseudopotentials is taken as Quantum ESPRESSO takes
   it. Under development.
+- The extra `dft`, `pip install "mdapy[cuda12,dft]"`: NVIDIA's cuBLAS, cuFFT and cuSOLVER
+  from NVIDIA's packages, which the DFT in `mdapy-cuda12` loads from where pip puts them;
+  the package holds none of them, and its potentials and molecular dynamics need none.
+  With ROCm the DFT of `mdapy-rocm6` takes the libraries of the machine.
+  `-Ccmake.define.MDAPY_DFT=OFF` builds either package without the DFT.
 - The example [A potential from MDAPY's DFT](../examples/dft-potential.md): generated cells
   of aluminium labelled by MDAPY's DFT, a NEP model trained on them, and its equation of
   state, vacancy, surface and phonons against the DFT's; the elastic constants of

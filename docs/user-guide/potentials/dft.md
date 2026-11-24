@@ -39,19 +39,26 @@ comm=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
-hundred atoms, one at a time. It needs the package `mdapy-dft-cuda12`, built with
-CUDA 12 for GPUs from the V100 on.
-
-For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
-6, from the source of MDAPY, as the same package:
+hundred atoms, one at a time. It runs in the [GPU part](../simulation/gpu.md#installing-the-gpu-part)
+of MDAPY, the package `mdapy-cuda12` for GPUs from the V100 on, with NVIDIA's cuBLAS,
+cuFFT and cuSOLVER, which the extra `dft` installs from NVIDIA's packages (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)):
 
 ```bash
-pip install ./dft-cuda12 -Ccmake.define.MDAPY_DFT_HIP=ON -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+pip install "mdapy[cuda12,dft]"
+```
+
+For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
+6 into the package `mdapy-rocm6`, in a clone of MDAPY:
+
+```bash
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
 ```
 
 `gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
 ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
 the calculations of several threads take turns on the GPU instead of running at once.
+Without the GPU part or its libraries, `DFT` raises an error that says what to install.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

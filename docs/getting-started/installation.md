@@ -97,6 +97,10 @@ NVIDIA GPUs from the V100 on with a driver of version 525 or newer:
 pip install "mdapy[cuda12]"
 ```
 
+The package also holds MDAPY's [plane-wave DFT](../user-guide/potentials/dft.md), which
+needs NVIDIA's cuBLAS, cuFFT and cuSOLVER besides: `pip install "mdapy[cuda12,dft]"`, see
+[NVIDIA's libraries for the DFT](#nvidias-libraries-for-the-dft).
+
 Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
 part in MDAPY itself:
 
@@ -152,11 +156,39 @@ parts raise an error that names the package to install.
 | pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
 | OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
 | LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/potentials/lammps.md), [molecular dynamics](../user-guide/simulation/running.md) and [elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md) |
+| NVIDIA's cuBLAS, cuFFT, cuSOLVER | `pip install "mdapy[cuda12,dft]"` | the [plane-wave DFT](../user-guide/potentials/dft.md) on an NVIDIA GPU, [below](#nvidias-libraries-for-the-dft) |
 
 Extras combine: `pip install "mdapy[plot,symmetry,ase]"`. OVITO's package
 from PyPI warns in a conda environment, where conda's own is preferred, so
 it is not an extra; nor is LAMMPS, whose Python module comes with a build
 of LAMMPS with the packages of styles each user needs.
+
+### NVIDIA's libraries for the DFT
+
+The [plane-wave DFT](../user-guide/potentials/dft.md) in the GPU part, the package
+`mdapy-cuda12`, computes with cuBLAS, cuFFT and cuSOLVER, libraries of CUDA 12 that the
+package does not hold. The extra `dft` installs them:
+
+| Extra | Installs | For |
+|---|---|---|
+| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, with `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12`, which cuSOLVER needs | the DFT on an NVIDIA GPU, on Linux on x86-64 and ARM |
+
+```bash
+pip install "mdapy[cuda12,dft]"
+```
+
+These are NVIDIA's own packages on PyPI, the libraries of CUDA as NVIDIA publishes
+them, which a CUDA build of PyTorch installs too: beside it the DFT needs nothing more.
+They are large, about 1.6 GB to download and 2.3 GB installed.
+Only the DFT on an NVIDIA GPU needs them; potentials and molecular dynamics on the GPU
+use none of them and run without them. The GPU part looks for them where pip puts them,
+in the folder `nvidia` of the environment, after the folders of `LD_LIBRARY_PATH` and
+before those of the system. Without them, `DFT` raises an error that names the command
+above.
+
+On an AMD GPU the DFT of `mdapy-rocm6` takes hipBLAS, hipFFT and hipSOLVER of the ROCm
+installed on the machine, as its potentials take the HIP runtime of ROCm: nothing comes
+from pip.
 
 ## Tests and documentation
 

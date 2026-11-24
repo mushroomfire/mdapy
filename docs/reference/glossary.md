@@ -214,6 +214,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
 | MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
 | device | where a calculator computes: `"cpu"`, or `"cuda"` on a GPU: NVIDIA's with CUDA, or AMD's with ROCm |
+| GPU part | the compiled code of MDAPY for the GPU, the package `mdapy-cuda12` (NVIDIA) or `mdapy-rocm6` (AMD), or built into MDAPY: the module `_cuda` or `_hip` of the potentials and molecular dynamics, and `_dft` of the plane-wave DFT, which with CUDA needs NVIDIA's cuBLAS, cuFFT and cuSOLVER, the extra `dft` |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |

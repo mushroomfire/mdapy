@@ -14,6 +14,9 @@ option(MDAPY_CUDA "The GPU side with CUDA, mdapy._cuda (needs the CUDA toolkit)"
 option(MDAPY_CUDA_ONLY "The GPU side alone, mdapy_cuda12._cuda, for the package mdapy-cuda12" OFF)
 option(MDAPY_CUDA_LINEINFO "The lines of the sources in the GPU kernels, for profilers" ON)
 option(MDAPY_DFT_ONLY "The plane-wave DFT on the GPU alone, mdapy_dft_cuda12._dft, for the package mdapy-dft-cuda12" OFF)
+option(MDAPY_DFT_HIP "The plane-wave DFT compiled with HIP for AMD GPUs (needs ROCm), with MDAPY_DFT_ONLY" OFF)
+option(MDAPY_HIP "The GPU side with HIP for AMD GPUs, mdapy._hip (needs ROCm)" OFF)
+option(MDAPY_HIP_ONLY "The GPU side alone, mdapy_rocm6._hip, for the package mdapy-rocm6" OFF)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -40,6 +43,12 @@ endif()
 if(MDAPY_CUDA_ONLY)
   set(MDAPY_CUDA_PACKAGE mdapy_cuda12)
   include(cmake/cuda.cmake)
+  return()
+endif()
+# The package mdapy-rocm6 (rocm6/pyproject.toml): the same for AMD GPUs.
+if(MDAPY_HIP_ONLY)
+  set(MDAPY_HIP_PACKAGE mdapy_rocm6)
+  include(cmake/hip.cmake)
   return()
 endif()
 
@@ -152,4 +161,10 @@ install(TARGETS _core LIBRARY DESTINATION mdapy)
 if(MDAPY_CUDA)
   set(MDAPY_CUDA_PACKAGE mdapy)
   include(cmake/cuda.cmake)
+endif()
+
+# The GPU side with HIP for AMD GPUs, cmake/hip.cmake, in mdapy itself.
+if(MDAPY_HIP)
+  set(MDAPY_HIP_PACKAGE mdapy)
+  include(cmake/hip.cmake)
 endif()

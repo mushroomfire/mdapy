@@ -1,0 +1,59 @@
+# The package mdapy-rocm6: the GPU part of MDAPY alone for AMD GPUs, built with
+# HIP of ROCm 6 from the sources of MDAPY one directory up, those of
+# mdapy-cuda12. Users install it with pip install "mdapy[rocm6]", at the
+# version of MDAPY; MDAPY loads it for calculators given device="cuda".
+
+[build-system]
+requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mdapy-rocm6"
+dynamic = ["version"]
+description = "The GPU part of MDAPY for AMD GPUs, with ROCm 6"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MPL-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: GPU",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Homepage = "https://github.com/mushroomfire/mdapy"
+Documentation = "https://mushroomfire.github.io/mdapy/user-guide/simulation/gpu/"
+Issues = "https://github.com/mushroomfire/mdapy/issues"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.source-dir = ".."
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp312"
+wheel.packages = ["mdapy_rocm6"]
+cmake.build-type = "Release"
+
+[tool.scikit-build.cmake.define]
+MDAPY_HIP_ONLY = "ON"
+# the machine code of the Instinct MI200 and MI300 series
+CMAKE_HIP_ARCHITECTURES = "gfx90a;gfx942"
+
+[tool.scikit-build.metadata.version]
+provider = "scikit_build_core.metadata.regex"
+input = "../src/mdapy/__init__.py"
+regex = '__version__ = "(?P<value>[^"]+)"'
+
+[[tool.scikit-build.generate]]
+path = "mdapy_rocm6/_version.py"
+location = "install"
+template = '''
+__version__ = "${version}"
+'''

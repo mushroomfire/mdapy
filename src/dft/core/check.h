@@ -9,8 +9,7 @@
 
 #pragma once
 
-#include <cuda_runtime_api.h>
-#include <cufft.h>
+#include "dft/core/portable.h"
 
 namespace mdapy::dft {
 

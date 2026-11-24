@@ -15,6 +15,7 @@
 #include <memory>
 #include <atomic>
 #include <exception>
+#include <cstdlib>
 #include <random>
 #include <thread>
 #include <unordered_map>
@@ -25,6 +26,7 @@
 #include "dft/scf/ions.h"
 #include "dft/scf/potentials.h"
 #include "dft/solver/davidson.h"
+#include "dft/solver/davidson_single.h"
 
 namespace mdapy::dft {
 
@@ -615,6 +617,20 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // bands there would give an output density worse than the input
     double tolerance = options.first_tolerance > 0.0 ? options.first_tolerance : (restart ? 1e-4 : 1e-2);
     double previous = std::numeric_limits<double>::infinity();
+    // the single-precision phase, of complex bands and of the real ones of
+    // Gamma alike; the residual norms of its bands bounded below by twice
+    // the rounding of single precision on the largest |H_GG| (the cutoff),
+    // as residuals asked closer to the rounding stall its Davidson (iron on
+    // an RTX A2000: 27 iterations a solve instead of 2 to 3, and bands too
+    // low); left when the residual of the density is below its tolerance,
+    // has not halved in three steps, or after half the steps allowed
+    bool single_phase = options.mixed_precision;
+    std::unique_ptr<DavidsonSingle> single_solver;  // made at its first use
+    const double single_floor = 2.4e-7 * std::max(2.0 * input.cutoff, 1.0);
+    std::vector<double> single_accuracies;
+    // the memory of the single-precision solver of this thread given back
+    // when the steps in double begin, which need it in large cells
+    auto release_single = [&] { single_solver.reset(); };
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
     std::vector<double> held;
@@ -637,6 +653,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     struct Worker {
         Hamiltonian h;
         Davidson davidson;
+        std::unique_ptr<DavidsonSingle> single;  // made at its first use
         DeviceArray<double> rho;
         std::vector<DeviceArray<double>> becsum;
         std::vector<double> values, limits, w;
@@ -731,6 +748,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     const double f = held.empty() ? (first_held > 0 && b >= first_held ? 0.0 : 1.0)
                                                    : std::abs(held[(s * nk + k) * bands + b]);
                     wk.limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
+                    if (single_phase) wk.limits[b] = std::max(wk.limits[b], single_floor);
                 }
                 const std::size_t row = s * nk + k;
                 if (iteration == 1 && !restart && wk.h.atomic_functions() > 0) {
@@ -759,8 +777,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                                        "cudaMemcpy");
                     }
                 }
-                const auto r = wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
-                                                 options.davidson_iterations, options.davidson_basis * nb);
+                const auto r = single_phase
+                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>()))
+                                         .solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
+                                                     options.davidson_iterations, options.davidson_basis * nb)
+                                   : wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
+                                                       options.davidson_iterations, options.davidson_basis * nb);
                 wk.iterations += r.iterations;
                 std::copy(wk.values.begin(), wk.values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>(row * bands));
@@ -781,10 +803,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     const double f = held.empty() ? (first_held > 0 && b >= first_held ? 0.0 : 1.0)
                                                    : std::abs(held[(s * nk + k) * bands + b]);
                     limits[b] = f > 1e-10 ? std::min(loose, tolerance / std::sqrt(std::min(f, 1.0))) : loose;
+                    if (single_phase) limits[b] = std::max(limits[b], single_floor);
                 }
                 if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);
-                const auto r = davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
-                                              options.davidson_iterations, options.davidson_basis * nb);
+                const auto r = single_phase
+                                   ? (single_solver ? *single_solver
+                                                    : *(single_solver = std::make_unique<DavidsonSingle>()))
+                                         .solve(h, psi[s * nk + k].data(), nb, values, limits,
+                                                         options.davidson_iterations, options.davidson_basis * nb)
+                                   : davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
+                                                    options.davidson_iterations, options.davidson_basis * nb);
                 step.davidson += r.iterations;
                 std::copy(values.begin(), values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands));
@@ -1016,7 +1044,21 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 scale = std::min(1.0, std::max(scale, 1.1 * best * scale));
             mixer.set_scale(scale);
         }
+        result.steps.back().single = single_phase;
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
+        if (single_phase) {
+            // no end in single precision: the next steps in double once its
+            // residual is small enough, stalls, or the steps run out
+            done = false;
+            single_accuracies.push_back(accuracy);
+            const std::size_t m = single_accuracies.size();
+            const bool stalled = m >= 4 && !(single_accuracies[m - 1] < 0.5 * single_accuracies[m - 4]);
+            if (accuracy < options.density_tolerance || stalled || iteration >= options.max_iterations / 2) {
+                single_phase = false;
+                release_single();
+                if (std::getenv("MDAPY_DFT_KEEP_HISTORY") == nullptr) mixer.reset();
+            }
+        }
         if (input.ranks > 1) {  // all pools stop together, when every one has converged
             double count = done ? 1.0 : 0.0;
             sum(&count, 1);
@@ -1158,6 +1200,15 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         // the occupations and the tolerance of the next step
         held = occ.f;
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
+        // single precision no further than its bands can go: the next step
+        // in double once it asks for residuals below the floor; Pulay's
+        // history of rounded densities then cleared (MDAPY_DFT_KEEP_HISTORY
+        // keeps it, to compare)
+        if (single_phase && tolerance < single_floor) {
+            single_phase = false;
+            release_single();
+            if (std::getenv("MDAPY_DFT_KEEP_HISTORY") == nullptr) mixer.reset();
+        }
     }
     clock.lap();
     // the forces: the local term of rho_out, the core charge in V_xc of the

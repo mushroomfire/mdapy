@@ -12,8 +12,7 @@
 
 #pragma once
 
-#include <cuComplex.h>
-#include <cuda_runtime_api.h>
+#include "dft/core/portable.h"
 
 #include <cstddef>
 #include <stdexcept>

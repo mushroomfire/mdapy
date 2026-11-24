@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <cuComplex.h>
+#include "dft/core/portable.h"
 
 #include <deque>
 #include <functional>

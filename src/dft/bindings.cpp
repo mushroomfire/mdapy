@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <cuda_runtime_api.h>
+#include "dft/core/portable.h"
 
 #include "dft/core/check.h"
 #include "dft/core/device.h"
@@ -36,6 +36,7 @@
 #include "dft/scf/scf.h"
 #include "dft/scf/structure.h"
 #include "dft/solver/davidson.h"
+#include "dft/solver/davidson_single.h"
 #include "dft/xc/xc.h"
 
 namespace nb = nanobind;
@@ -203,8 +204,20 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
 }  // namespace
 
 NB_MODULE(_dft, m) {
+    // the runtime of the device this module was built with: "CUDA" or "HIP"
+    m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    // (major, minor) of the compute capability of the current device
+    m.def("device_capability", [] {
+        int device = 0, major = 0, minor = 0;
+        mdapy::dft::check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device),
+                               "cudaDeviceGetAttribute");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device),
+                               "cudaDeviceGetAttribute");
+        return nb::make_tuple(major, minor);
+    });
     m.def("set_device", [](int index) {
         if (index < 0 || index >= mdapy::dft::device_count())
             throw std::invalid_argument("no GPU " + std::to_string(index) + " of the " +
@@ -564,21 +577,31 @@ NB_MODULE(_dft, m) {
 
     // the lowest eigenpairs of a Hamiltonian by block Davidson from the guess
     // psi (bands, plane waves): eigenvalues, eigenvectors (bands, plane waves),
-    // iterations, converged bands and the largest residual norm
+    // iterations, converged bands and the largest residual norm; with single,
+    // by the solver of single precision
     m.def(
         "davidson",
         [](mdapy::dft::Hamiltonian& h, Coefficients psi, double tolerance, int tight, double loose_tolerance,
-           int max_iterations, int largest_basis) {
+           int max_iterations, int largest_basis, bool single) {
             const int count = static_cast<int>(psi.shape(0));
             const std::size_t n = psi.shape(1);
             if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
             DeviceArray<Complex> a;
             a.upload(as_device(psi.data()), psi.size());
-            mdapy::dft::Davidson solver;
             std::vector<double> e;
-            const auto r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight,
-                                        loose_tolerance, max_iterations,
-                                        largest_basis > 0 ? largest_basis : 4 * count);
+            mdapy::dft::DavidsonResult r;
+            const int basis = largest_basis > 0 ? largest_basis : 4 * count;
+            if (single) {
+                std::vector<double> tolerances(static_cast<std::size_t>(std::max(count, 0)));
+                for (int b = 0; b < count; ++b)
+                    tolerances[static_cast<std::size_t>(b)] = b < tight || tight < 0 ? tolerance : loose_tolerance;
+                mdapy::dft::DavidsonSingle solver;
+                r = solver.solve(h, a.data(), count, e, tolerances, max_iterations, basis);
+            } else {
+                mdapy::dft::Davidson solver;
+                r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight, loose_tolerance,
+                                 max_iterations, basis);
+            }
             double* values = nullptr;
             auto eigenvalues = new_array<double>({static_cast<std::size_t>(count)}, values);
             std::copy(e.begin(), e.end(), values);
@@ -588,7 +611,8 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(eigenvalues, vectors, r.iterations, r.converged, r.residual);
         },
         nb::arg("h"), nb::arg("psi"), nb::arg("tolerance") = 1e-8, nb::arg("tight") = -1,
-        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0);
+        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0,
+        nb::arg("single") = false);
 
     // the occupations of eigenvalues (k-points, bands): f, the Fermi level,
     // -TS and the lowest empty level
@@ -630,7 +654,7 @@ NB_MODULE(_dft, m) {
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
-           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos) {
+           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             if (!pools.is_none()) {
@@ -777,6 +801,7 @@ NB_MODULE(_dft, m) {
             opt.adaptive_damping = adaptive_damping;
             opt.first_held = first_held;
             opt.mixing.ldos = ldos;
+            opt.mixed_precision = mixed_precision;
             opt.energy_tolerance = energy_tolerance;
             opt.density_tolerance = density_tolerance;
             opt.max_iterations = max_iterations;
@@ -797,12 +822,13 @@ NB_MODULE(_dft, m) {
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
-            std::vector<int> accepted;
+            std::vector<int> accepted, single;
             std::vector<int> davidson;
             for (const auto& step : r.steps) {
                 energies.push_back(step.energy);
                 output.push_back(step.output_energy);
                 accepted.push_back(step.accepted ? 1 : 0);
+                single.push_back(step.single ? 1 : 0);
                 dampings.push_back(step.damping);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
@@ -847,6 +873,7 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
+            if (mixed_precision) out["single"] = array_of(single, {ns});
             if (adaptive_damping) {
                 out["accepted"] = array_of(accepted, {ns});
                 out["dampings"] = array_of(dampings, {ns});
@@ -884,7 +911,8 @@ NB_MODULE(_dft, m) {
         nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none(),
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
-        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false);
+        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
+        nb::arg("mixed_precision") = false);
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

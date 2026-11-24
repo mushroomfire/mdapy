@@ -32,7 +32,7 @@ namespace {
 
 // radial and angular functions, and Chebyshev polynomials, of each kind
 constexpr int kMaxFunctions = 20;
-constexpr int kWarp = 32;
+constexpr int kWarp = kLanes;  // an atom of the network on a group of lanes
 
 template <class Real>
 struct NepTables {
@@ -335,7 +335,7 @@ __global__ void nep_network(std::int64_t n, std::int64_t centers, const Real4<Re
     const int ti = static_cast<int>(x[i].w);
     Real* row = q + i * dim;
     for (int d = lane; d < dim; d += kWarp) descriptors[d] = row[d];
-    __syncwarp();
+    MDAPY_SYNC_LANES();
     double energy = 0.0;
     for (int k = lane; k < neurons; k += kWarp) {
         const Real* w = t.w0_swapped + static_cast<std::int64_t>(ti) * dim * neurons + k;
@@ -346,7 +346,7 @@ __global__ void nep_network(std::int64_t n, std::int64_t centers, const Real4<Re
         energy += static_cast<double>(w1 * th);
         factor[k] = w1 * (Real(1) - th * th);
     }
-    __syncwarp();
+    MDAPY_SYNC_LANES();
     for (int d = lane; d < dim; d += kWarp) {
         const Real* w = t.w0 + static_cast<std::int64_t>(ti) * neurons * dim + d;
         Real slope = 0;
@@ -354,7 +354,7 @@ __global__ void nep_network(std::int64_t n, std::int64_t centers, const Real4<Re
         row[d] = slope * t.q_scaler[d];
     }
     for (int offset = kWarp / 2; offset > 0; offset /= 2) {
-        energy += __shfl_down_sync(0xffffffffu, energy, offset);
+        energy += MDAPY_SHUFFLE_DOWN(energy, offset);
     }
     if (lane == 0) energies[i] += energy - static_cast<double>(t.b1);
 }

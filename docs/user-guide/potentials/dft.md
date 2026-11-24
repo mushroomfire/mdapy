@@ -2,8 +2,8 @@
 
 !!! warning "Under development"
     MDAPY's density functional theory is new. It takes norm-conserving,
-    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU per
-    configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
+    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU (or AMD GPU, built
+    from source) per configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
 <!-- skip-test -->
@@ -34,13 +34,24 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
-bands=None, seed=0,
-gpu=None, restart=False, symmetry=None, comm=None)` computes the
+bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
+comm=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
 hundred atoms, one at a time. It needs the package `mdapy-dft-cuda12`, built with
 CUDA 12 for GPUs from the V100 on.
+
+For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
+6, from the source of MDAPY, as the same package:
+
+```bash
+pip install ./dft-cuda12 -Ccmake.define.MDAPY_DFT_HIP=ON -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+`gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
+ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
+the calculations of several threads take turns on the GPU instead of running at once.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -66,6 +77,7 @@ CUDA 12 for GPUs from the V100 on.
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
 | `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
 | `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
+| `precision` | str | `"double"` | `"double"`, `"mixed"`, `"auto"` | `"mixed"`: the first steps of the self-consistent field in single precision, the last in double, for GPUs of little double precision (most cards for games and workstations); the label is that of double precision, `last["single_steps"]` the steps in single precision. `"auto"`: mixed on those GPUs, double on V100, A100, H100 and GH200. Mixed precision holds about a tenth more of the GPU's memory at its peak: a cell that only just fits in double runs with `"double"` |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 
 | Attribute or method | Meaning |

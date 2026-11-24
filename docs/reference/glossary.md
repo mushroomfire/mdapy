@@ -213,7 +213,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | ensemble | what a run of molecular dynamics keeps: `"nve"`, `"nvt"`, `"npt"`, `"nph"`, or for a shock `"nphug"` or `"msst"`; see [Ensembles](../user-guide/simulation/ensembles.md) |
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
 | MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
-| device | where a calculator computes: `"cpu"`, or `"cuda"` on an NVIDIA GPU |
+| device | where a calculator computes: `"cpu"`, or `"cuda"` on a GPU: NVIDIA's with CUDA, or AMD's with ROCm |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
@@ -225,6 +225,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | overlay | of `Overlay`: calculators added together, their energies, forces and virials summed, as LAMMPS's `pair_style hybrid/overlay` |
 | beads, ring polymer | of path-integral molecular dynamics: each atom a ring of P beads joined by springs of frequency P k_B T/ħ, each feeling the whole potential, whose averages are those of quantum nuclei as P grows; `beads` of `MolecularDynamics` |
 | centroid | the mean place of the beads of an atom; `md.system` gives the centroids |
+| BZP barostat | the Langevin barostat of Bussi, Zykova-Timan and Parrinello: the rate of the box, of a mass set by `barostat_damping`, pushed by the pressure and damped with noise; with beads it scales the centroids and the box by the centroid-virial pressure, as LAMMPS's `fix pimd/langevin` with `barostat BZP` |
 | centroid-virial estimator | the kinetic energy of quantum nuclei from the forces on the beads and their distances from the centroids, 3Nk_BT/2 − Σ(q−q_c)·F/2P; `kinetic_energy` of path integrals |
 | primary knock-on atom, PKA | the atom a neutron or an ion strikes first, which starts a cascade of collisions in the crystal |
 | indenter | of `Indenter`: a sphere, a cylinder or the region beyond a plane that pushes the atoms inside it out with a force K d², d how far inside, as LAMMPS's `fix indent`; the force of the atoms on it is the load of an indentation |
@@ -273,6 +274,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | smearing of the occupations of DFT and its width (eV) | `smearing`, `sigma` | `ismear`, `degauss` |
 | DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
 | preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level | `preconditioner`, `"kerker"` or `"ldos"` | `mixing_mode`, `imix` |
+| arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU | `precision`, `"double"`, `"mixed"` or `"auto"` | `fp32`, `single_precision` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |

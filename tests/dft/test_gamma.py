@@ -5,7 +5,8 @@
 
 """The real bands of Gamma (half a sphere of plane waves, real transforms and
 real products) against the complex bands at Gamma: H, S and the occupations
-of the projectors on real functions, the lowest eigenpairs, and whole runs of
+of the projectors on real functions, the lowest eigenpairs (in single
+precision too, against those of double), and whole runs of
 norm-conserving, ultrasoft and PAW pseudopotentials, with spin: the energy,
 the eigenvalues, the forces, the stress and the occupations of PAW; a run
 against Quantum ESPRESSO; restarts."""
@@ -121,6 +122,50 @@ def test_the_lowest_eigenpairs():
     # the eigenvectors are real functions of the eigenvalues
     hv = half.apply(v_half)
     np.testing.assert_allclose(hv, e_half[:, None] * v_half, rtol=0, atol=1e-8)
+
+
+@pytest.mark.parametrize("overlap", [False, True])
+@pytest.mark.parametrize(
+    "factor, options", [(1, {}), (4, {"largest_basis": 12, "max_iterations": 400})]
+)
+def test_the_lowest_eigenpairs_in_single_precision(overlap, factor, options):
+    """The single-precision Davidson of real bands on a fixed potential, to
+    the floor of its residuals (as the SCF asks, 2.4e-7 of twice the cutoff):
+    the eigenvalues of the double one, the bands real functions, their
+    residuals in double precision of the size asked; without and with an
+    overlap. With restarts in a basis of twice the bands, to four times the
+    floor: so small a basis does not always reach the floor itself, with
+    complex bands neither."""
+    cutoff = 8.0
+    _, half = pair(cutoff=cutoff, potential=1.0, nonlocal_=1e-3)
+    if overlap:  # a positive overlap near one, as of ultrasoft pseudopotentials
+        rng = np.random.default_rng(1)
+        widths = sum(2 * ell + 1 for ell in (0, 1, 1, 2, 3))
+        q = rng.normal(size=(2, widths, widths))
+        q = 3e-5 * (q @ q.transpose(0, 2, 1))
+        half.set_overlaps(np.ascontiguousarray(q.reshape(-1)))
+    guess = real_bands(half, 6, seed=2)
+    floor = 2.4e-7 * 2 * cutoff
+    e_double, _, _, converged, _ = _dft.davidson(half, guess, tolerance=1e-9)
+    assert converged == 6
+    e, v, _, converged, residual = _dft.davidson(
+        half, guess, tolerance=factor * floor, single=True, **options
+    )
+    assert converged == 6 and residual < factor * floor
+    np.testing.assert_allclose(e, e_double, rtol=0, atol=2 * floor)
+    assert np.all(v[:, 0].imag == 0.0)  # real bands stay real
+    r = half.apply(v) - e[:, None] * half.apply_overlap(v)
+    # the whole sphere from the half: every G but 0 counts twice
+    norms = np.sqrt(2 * np.sum(np.abs(r[:, 1:]) ** 2, axis=1) + np.abs(r[:, 0]) ** 2)
+    assert norms.max() < (factor + 2) * floor
+    # rubbish in Im c_0 of the guess changes nothing
+    dirty = guess.copy()
+    dirty[:, 0] += 0.3j
+    e_dirty, v_dirty, *_ = _dft.davidson(
+        half, dirty, tolerance=factor * floor, single=True, **options
+    )
+    np.testing.assert_array_equal(e_dirty, e)
+    assert np.all(v_dirty[:, 0].imag == 0.0)
 
 
 def cubic_silicon():

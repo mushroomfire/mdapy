@@ -25,6 +25,7 @@ _OPTIONAL = (
     "lammps",
     "matplotlib",
     "mdapy-cuda12",
+    "mdapy-rocm6",
     "ovito",
     "pymatgen-core",
     "seekpath",
@@ -60,11 +61,12 @@ def _gpu_part() -> str:
 
     try:
         found = _gpu.module()
-    except InvalidParameter as error:  # another version of mdapy-cuda12
+    except InvalidParameter as error:  # a package of another version
         return str(error)
     if found is None:
         return "none"
-    where = "built with MDAPY" if found.__name__ == "mdapy._cuda" else "mdapy-cuda12"
+    package = found.__name__.split(".")[0]
+    where = "built with MDAPY" if package == "mdapy" else package.replace("_", "-")
     try:
         device = found.device_name()
     except RuntimeError as error:

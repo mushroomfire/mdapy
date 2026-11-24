@@ -9,6 +9,21 @@
 - `DFT(restart="second_order")`: the density of each step of molecular dynamics is
   extrapolated from the last three steps (Arias, Payne and Joannopoulos), not only
   moved with the free atoms, which takes fewer iterations; `restart=True` is as before.
+- The GPU part of MDAPY runs on AMD GPUs: the kernels of the potentials and of
+  molecular dynamics, written for CUDA, compile as they are with HIP of ROCm 6
+  (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
+  whichever GPU part is there. On the Instinct MI250X they give the results of the
+  processor as on NVIDIA GPUs. See [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
+- The example [Radiation damage in tungsten and MoNbTaVW](../examples/radiation-cascade.md)
+  replaces the collision cascade in tungsten: with the machine-learned potential of Liu
+  et al. (2025), the threshold displacement energies of Mo, Nb, Ta, V and W and of each
+  element in the alloy over all directions, their Figures 3 and 4, and the Frenkel pairs
+  of cascades of 1 to 10 keV against the NRT and arc-dpa models; the four scripts that
+  ran them.
+- The example [Isotopes of lithium hydride](../examples/lih-isotopes.md): path integrals
+  of 40 beads give the lattice of ⁶LiH, ⁷LiH, ⁶LiD, ⁷LiD and ⁷LiT at room temperature,
+  a = A μ^−1/2 + B with A = 0.0495 Å against 0.054 Å measured, where classical nuclei
+  give the same lattice for all five.
 - MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
   their neighbor list with the skin as it is between two builds, instead of the pairs
   within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the
@@ -78,8 +93,12 @@
   records the centroid-virial and primitive kinetic energies and the centroid-virial
   pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
   of the finite ring polymer in closed form, and neon at 20 K the averages of LAMMPS's
-  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. See
-  [Path integrals](../user-guide/simulation/pimd.md).
+  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. At a
+  pressure, `ensemble="npt"` with `barostat="iso"`, the barostat of Bussi,
+  Zykova-Timan and Parrinello scales the centroids and the box by the centroid-virial
+  pressure, as LAMMPS's `barostat BZP`: neon at 20 K and zero pressure takes the volume
+  of LAMMPS, 5763 ± 7 against 5759 ± 7 Å³, and heavy atoms that of the classical
+  crystal. See [Path integrals](../user-guide/simulation/pimd.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their
@@ -116,16 +135,18 @@
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
 - `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
-  NVIDIA GPU, in the package `mdapy-dft-cuda12`. It gives energies, forces and virials
+  NVIDIA GPU, in the package `mdapy-dft-cuda12`, which also builds from source with HIP of
+  ROCm 6 for AMD GPUs (`MDAPY_DFT_HIP`). It gives energies, forces and virials
   of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF 2, and UPF
   1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
   collinear spin and smearings, DFT+U of Dudarev on norm-conserving
   pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
   Gamma, the k-points and spins of one configuration shared by several GPUs
   (`comm`), the k-points of a small cell solved side by side on one GPU and calculations
-  in several threads of one process at once, for labelling training sets; the
-  preconditioner of the local density of states (`preconditioner="ldos"`) for slabs,
-  surfaces and magnetic alloys. The FFT grids
+  in several threads of one process at once, and mixed precision (`precision="mixed"`,
+  single precision in the first steps) for GPUs of little double precision, for
+  labelling training sets; the preconditioner of the local density of states
+  (`preconditioner="ldos"`) for slabs, surfaces and magnetic alloys. The FFT grids
   are those of Quantum ESPRESSO (factors 2, 3 and 5, multiples of the denominators of
   the fractional translations). The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the

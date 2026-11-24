@@ -24,7 +24,7 @@
 
 #pragma once
 
-#include <cublas_v2.h>
+#include "dft/core/portable.h"
 
 #include <vector>
 

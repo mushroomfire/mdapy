@@ -156,6 +156,14 @@ class DFT(Calculator):
         moment of each atom is integrated. Default none: half the shortest
         distance between two atoms of the cell, their periodic images
         included, the same for all atoms, so that the spheres do not overlap.
+    precision : str, optional
+        ``"double"``, or ``"mixed"``: the first steps of the self-consistent
+        field in single precision, the last in double, for GPUs of little
+        double precision; the label is that of double precision.
+        ``"auto"``: mixed on GPUs whose double
+        precision runs at a small part of the rate of single (cards for games
+        and workstations), double on the others (V100, A100, H100, GH200).
+        Default ``"double"``.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -180,7 +188,8 @@ class DFT(Calculator):
         used), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
-        of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid) and
+        of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
+        ``single_steps`` (the steps in single precision) and
         ``provenance``: what makes the labels of a set comparable, the SHA-256
         of each pseudopotential, the cutoff, the mesh, the smearing and its
         width, the functional, the spins, the grid, the bands and U.
@@ -223,6 +232,7 @@ class DFT(Calculator):
         restart: bool | str = False,
         symmetry: bool | None = None,
         moment_radius: float | None = None,
+        precision: str = "double",
         comm: Any = None,
     ):
         if not encut > 0:
@@ -295,6 +305,9 @@ class DFT(Calculator):
         if moment_radius is not None and not moment_radius > 0:
             raise InvalidParameter("moment_radius must be positive")
         self.moment_radius = None if moment_radius is None else float(moment_radius)
+        if precision not in ("double", "mixed", "auto"):
+            raise InvalidParameter("precision must be 'double', 'mixed' or 'auto'")
+        self.precision = precision
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
@@ -460,7 +473,7 @@ class DFT(Calculator):
             hubbard={species.index(e): (label, u / HARTREE)
                      for e, (label, u) in self.hubbard.items() if e in species} or None,
             stress=stress, state=self.__restart_state(),
-            symmetry=self.symmetry, comm=self.comm,
+            symmetry=self.symmetry, comm=self.comm, precision=self.precision,
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])
@@ -494,6 +507,7 @@ class DFT(Calculator):
                 "bands": int(r["bands"]),
                 "hubbard": dict(self.hubbard),
             },
+            "single_steps": int(np.sum(r.get("single", 0))),
         }
         if "hubbard_energy" in r:
             self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE

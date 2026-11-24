@@ -13,7 +13,7 @@
 
 #include <cmath>
 
-#if defined(__CUDACC__)
+#if defined(__CUDACC__) || defined(__HIP__) || defined(__HIPCC__)
 #define MDAPY_HD __host__ __device__ inline
 #else
 #define MDAPY_HD inline

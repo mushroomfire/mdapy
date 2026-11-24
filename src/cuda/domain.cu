@@ -13,9 +13,7 @@
 // index among all; what the controls of a run set on the atoms the caller
 // gives again after.
 
-#include <thrust/iterator/counting_iterator.h>
-
-#include <cub/cub.cuh>
+#include "cuda/primitives.cuh"
 #include <cstring>
 #include <stdexcept>
 #include <type_traits>

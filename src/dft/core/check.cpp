@@ -14,7 +14,7 @@ namespace mdapy::dft {
 void check_cuda(cudaError_t status, const char* call) {
     if (status == cudaSuccess) return;
     if (status == cudaErrorMemoryAllocation) {
-        cudaGetLastError();  // the error is not sticky: clear it
+        static_cast<void>(cudaGetLastError());  // the error is not sticky: clear it
         throw std::bad_alloc();
     }
     throw std::runtime_error(std::string(call) + " failed: " + cudaGetErrorString(status));

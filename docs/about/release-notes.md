@@ -2,6 +2,11 @@
 
 ## 2.3.0 (not released)
 
+- The GPU part of MDAPY runs on AMD GPUs: the kernels of the potentials and of
+  molecular dynamics, written for CUDA, compile as they are with HIP of ROCm 6
+  (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
+  whichever GPU part is there. On the Instinct MI250X they give the results of the
+  processor as on NVIDIA GPUs. See [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
 - The example [Radiation damage in tungsten and MoNbTaVW](../examples/radiation-cascade.md)
   replaces the collision cascade in tungsten: with the machine-learned potential of Liu
   et al. (2025), the threshold displacement energies of Mo, Nb, Ta, V and W and of each

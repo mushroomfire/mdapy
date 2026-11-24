@@ -45,3 +45,12 @@ def test_the_gpu_part_is_of_the_version_of_mdapy():
         == project["tool"]["scikit-build"]["metadata"]["version"]["regex"]
     )
     assert (root / "cuda12" / "LICENSE").read_text() == (root / "LICENSE").read_text()
+    # mdapy-rocm6, the same for AMD GPUs
+    (requirement,) = project["project"]["optional-dependencies"]["rocm6"]
+    assert requirement.startswith(f"mdapy-rocm6=={mdapy.__version__};")
+    amd = tomllib.loads((root / "rocm6" / "pyproject.toml").read_text())
+    assert (
+        amd["tool"]["scikit-build"]["metadata"]
+        == plugin["tool"]["scikit-build"]["metadata"]
+    )
+    assert (root / "rocm6" / "LICENSE").read_text() == (root / "LICENSE").read_text()

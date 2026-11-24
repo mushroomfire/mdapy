@@ -15,8 +15,8 @@ namespace mdapy::cuda {
 
 void check(cudaError_t error, const char* call) {
     if (error != cudaSuccess) {
-        throw std::runtime_error(std::string("CUDA: ") + cudaGetErrorString(error) + " (" +
-                                 call + ")");
+        throw std::runtime_error(std::string(MDAPY_GPU_API ": ") + cudaGetErrorString(error) +
+                                 " (" + call + ")");
     }
 }
 
@@ -25,7 +25,7 @@ DeviceProperties device_properties() {
     const cudaError_t error = cudaGetDeviceCount(&count);
     if (error != cudaSuccess || count == 0) {
         throw std::runtime_error(
-            std::string("no CUDA device: ") +
+            std::string("no " MDAPY_GPU_API " device: ") +
             (error != cudaSuccess ? cudaGetErrorString(error) : "none was found"));
     }
     int device = 0;
@@ -54,8 +54,8 @@ int device_count() {
 void use_device(int device) {
     const int count = device_count();
     if (device < 0 || device >= count) {
-        throw std::invalid_argument("no CUDA device " + std::to_string(device) + " of " +
-                                    std::to_string(count));
+        throw std::invalid_argument("no " MDAPY_GPU_API " device " + std::to_string(device) +
+                                    " of " + std::to_string(count));
     }
     MDAPY_CUDA(cudaSetDevice(device));
 }

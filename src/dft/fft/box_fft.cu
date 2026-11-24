@@ -38,7 +38,7 @@ namespace {
 constexpr int kMaxPasses = 12;
 constexpr std::size_t kMaxShared = 40 * 1024;  // bytes of shared memory of a block
 constexpr int kAhead = 4;  // loads of a thread on their way at a time
-constexpr int kStrided = 0, kContiguous = 1, kRealToComplex = 2, kComplexToReal = 3;
+constexpr int kStrided = 0, kContiguous = 1, kRealToComplex = 2, kComplexToReal = 3, kHalfForward = 4, kHalfInverse = 5;
 
 template <class R>
 struct Cx {
@@ -54,8 +54,8 @@ struct Pass {
 };
 
 struct AxisArgs {
-    int n;              // points of a line
-    int half;           // n / 2 + 1
+    int n;              // points of a line in shared memory, the length of its transform
+    int half;           // components of a line of a real box, its points / 2 + 1
     int passes;
     int log_c;          // lines of a block, as a power of two
     int sj, sc;         // strides in shared memory of the points of a line and of the lines
@@ -233,9 +233,16 @@ __device__ __forceinline__ void run_pass(Cx<R>* shared, const AxisArgs& a, const
 // k < n. source[f]: the place in a line of component f after the passes.
 // Mode kStrided and kContiguous: complex lines in place (in is out).
 // kRealToComplex: n reals a line to n / 2 + 1 components. kComplexToReal: back.
+// kHalfForward and kHalfInverse: the same of lines of an even number 2 n of
+// reals through a complex transform of n points: the reals in pairs are the
+// points z_j = x_(2 j) + i x_(2 j + 1), and with Z their transform and
+// w = exp(-2 pi i / 2 n), the components of the reals are
+//     X_k = ((Z_k + conj Z_(n - k)) - i w^k (Z_k - conj Z_(n - k))) / 2,  k <= n,
+// and back, 2 Z_k = (X_k + conj X_(n - k)) + i conj(w^k) (X_k - conj X_(n - k)).
+// post: exp(-2 pi i k / 2 n), k < 2 n.
 template <class R, int Sign, int Mode>
 __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, const int* __restrict__ source,
-                            const R* in, R* out) {
+                            const Cx<R>* __restrict__ post, const R* in, R* out) {
     extern __shared__ double aligned_shared[];
     Cx<R>* shared = reinterpret_cast<Cx<R>*>(aligned_shared);
     const unsigned lines = 1u << a.log_c, mask = lines - 1u;
@@ -269,7 +276,7 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
         first = static_cast<long long>(blockIdx.x) * lines;
         const long long left = a.lines - first;
         valid = left < static_cast<long long>(lines) ? static_cast<unsigned>(left) : lines;
-        if (Mode == kContiguous) {
+        if (Mode == kContiguous || Mode == kHalfForward) {
             const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + first * n;
             for (unsigned e0 = threadIdx.x; e0 < valid * n; e0 += kAhead * blockDim.x) {
                 Cx<R> value[kAhead];
@@ -321,7 +328,28 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
                     if (e < valid * half) {
                         const unsigned c = __umulhi(e, a.inv_half), f = e - c * half;
                         shared[c * sc + f] = value[i];
-                        if (f > 0 && 2 * f < n) shared[c * sc + n - f] = {value[i].x, -value[i].y};
+                        if (Mode == kComplexToReal && f > 0 && 2 * f < n) shared[c * sc + n - f] = {value[i].x, -value[i].y};
+                    }
+                }
+            }
+            if (Mode == kHalfInverse) {
+                // the components k and n - k of a line, a pair to a thread, to
+                // the points of the complex transform; the imaginary parts of
+                // the components 0 and n count for nothing
+                __syncthreads();
+                const unsigned pairs = (n / 2 + 1) << a.log_c;
+                for (unsigned w = threadIdx.x; w < pairs; w += blockDim.x) {
+                    const unsigned c = w & mask, k = w >> a.log_c, partner = n - k;
+                    if (c >= valid) continue;
+                    Cx<R> x = shared[c * sc + k], y = shared[c * sc + partner];
+                    if (k == 0) x.y = y.y = static_cast<R>(0);
+                    const Cx<R> wk = post[k];
+                    Cx<R> t = mul(Cx<R>{wk.x, -wk.y}, Cx<R>{x.x - y.x, x.y + y.y});
+                    shared[c * sc + k] = {x.x + y.x - t.y, x.y - y.y + t.x};
+                    if (k != 0 && partner != k) {
+                        const Cx<R> wp = post[partner];
+                        t = mul(Cx<R>{wp.x, -wp.y}, Cx<R>{y.x - x.x, y.y + x.y});
+                        shared[c * sc + partner] = {y.x + x.x - t.y, y.y - x.y + t.x};
                     }
                 }
             }
@@ -346,7 +374,7 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
             const unsigned c = e & mask, f = e >> a.log_c;
             if (c < valid) to[f * a.stride + c] = shared[(static_cast<unsigned>(source[f]) << a.log_c) + c];
         }
-    } else if (Mode == kContiguous) {
+    } else if (Mode == kContiguous || Mode == kHalfInverse) {
         Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + first * n;
         for (unsigned e = threadIdx.x; e < valid * n; e += blockDim.x) {
             const unsigned c = __umulhi(e, a.inv_n), f = e - c * n;
@@ -357,6 +385,16 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
         for (unsigned e = threadIdx.x; e < valid * half; e += blockDim.x) {
             const unsigned c = __umulhi(e, a.inv_half), f = e - c * half;
             to[e] = shared[c * sc + static_cast<unsigned>(source[f])];
+        }
+    } else if (Mode == kHalfForward) {
+        Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + first * half;
+        const R halved = static_cast<R>(0.5);
+        for (unsigned e = threadIdx.x; e < valid * half; e += blockDim.x) {
+            const unsigned c = __umulhi(e, a.inv_half), k = e - c * half;
+            const Cx<R> z = shared[c * sc + static_cast<unsigned>(source[k == n ? 0 : k])];
+            const Cx<R> y = shared[c * sc + static_cast<unsigned>(source[k == 0 ? 0 : n - k])];
+            const Cx<R> t = mul(post[k], Cx<R>{z.x - y.x, z.y + y.y});
+            to[e] = {halved * (z.x + y.x + t.y), halved * (z.y - y.y - t.x)};
         }
     } else {
         R* to = out + first * n;
@@ -494,6 +532,8 @@ BoxFft::BoxFft(const std::array<int, 3>& grid) : grid_(grid) {
             if (grid[j] == grid[i]) tables_[i] = tables_[j];
         if (tables_[i] == nullptr) tables_[i] = new Tables(grid[i]);
     }
+    // real boxes of an even third size go through complex lines of half of it
+    if (grid[2] % 2 == 0 && grid[2] >= 4) half_ = new Tables(grid[2] / 2);
 }
 
 BoxFft::~BoxFft() {
@@ -502,6 +542,7 @@ BoxFft::~BoxFft() {
         for (int j = 0; j < i; ++j) shared = shared || tables_[j] == tables_[i];
         if (!shared) delete tables_[i];
     }
+    delete half_;
 }
 
 std::size_t BoxFft::points() const noexcept {
@@ -519,17 +560,16 @@ void BoxFft::tune(int precision, int kind, int log_lines, int threads) {
 
 namespace {
 
-// Lines of a block as a power of two and its threads, for lines of n points of
-// bytes each in shared memory, at least floor lines when they fit.
-void geometry(int n, std::size_t bytes, int kind, const int* tuned, int& log_c, int& threads) {
-    const std::size_t line = static_cast<std::size_t>(kind == kStrided ? n : (n | 1)) * bytes;
+// Lines of a block as a power of two and its threads, for lines of n points
+// that take line bytes of shared memory each, the point bytes in the box.
+void geometry(int n, std::size_t line, std::size_t bytes, int kind, const int* tuned, int& log_c, int& threads) {
     log_c = 0;
     if (tuned[0] > 0) {
         log_c = tuned[0];
     } else {
-        // strided: 128 bytes of each row at least, the line of the cache
         const std::size_t target = 16 * 1024;
         while (log_c < 6 && (line << (log_c + 1)) <= target) ++log_c;
+        // strided: 128 bytes of each row at least, the line of the cache
         if (kind == kStrided)
             while ((bytes << log_c) < 128 && (line << (log_c + 1)) <= kMaxShared) ++log_c;
     }
@@ -543,24 +583,18 @@ void geometry(int n, std::size_t bytes, int kind, const int* tuned, int& log_c, 
     }
 }
 
-template <class R, int Sign, int Mode>
-void launch(const AxisArgs& a, unsigned blocks, int threads, const Cx<R>* roots, const int* source, const R* in,
-            R* out) {
-    const std::size_t line = static_cast<std::size_t>(Mode == kStrided ? a.n : (a.n | 1)) * sizeof(Cx<R>);
-    axis_kernel<R, Sign, Mode><<<blocks, threads, line << a.log_c>>>(a, roots, source, in, out);
-    check(cudaGetLastError(), "the transform of an axis");
-}
-
 }  // namespace
 
 // The lines along an axis whose points are stride apart, columns of them side
 // by side in each of the planes.
 template <class R, int Sign>
 void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride) {
+    if (!(axes_ & (1 << axis))) return;
     const Tables& t = *tables_[axis];
     AxisArgs a = t.args();
     int threads = 0;
-    geometry(t.n, sizeof(Cx<R>), kStrided, tuned_[sizeof(R) == 4][kStrided], a.log_c, threads);
+    const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
+    geometry(t.n, line, sizeof(Cx<R>), kStrided, tuned_[sizeof(R) == 4][kStrided], a.log_c, threads);
     a.sj = 1 << a.log_c;
     a.sc = 1;
     a.columns = static_cast<int>(columns);
@@ -568,31 +602,47 @@ void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, lo
     a.stride = stride;
     a.plane = stride * t.n;
     if (axes_ & 8) a.passes = 0;
-    launch<R, Sign, kStrided>(a, static_cast<unsigned>(planes * a.chunks), threads, t.roots_of(R{}), t.source, boxes,
-                              boxes);
+    axis_kernel<R, Sign, kStrided><<<static_cast<unsigned>(planes * a.chunks), threads, line << a.log_c>>>(
+        a, t.roots_of(R{}), t.source, nullptr, boxes, boxes);
+    check(cudaGetLastError(), "the transform of an axis");
+}
+
+// The lines along the third axis, one after the other: complex in place, or
+// between reals and their components.
+template <class R, int Sign, int Mode>
+void BoxFft::contiguous(const R* in, R* out, long long lines) {
+    if (!(axes_ & 4)) return;
+    const bool halved = Mode == kHalfForward || Mode == kHalfInverse;
+    const Tables& t = halved ? *half_ : *tables_[2];
+    AxisArgs a = t.args();
+    a.half = grid_[2] / 2 + 1;
+    a.inv_half = inverse_of(a.half);
+    a.sj = 1;
+    // an odd number of points between the lines, see the top
+    a.sc = (Mode == kHalfInverse ? a.half : t.n) | 1;
+    a.lines = lines;
+    int threads = 0;
+    const std::size_t line = static_cast<std::size_t>(a.sc) * sizeof(Cx<R>);
+    geometry(t.n, line, sizeof(Cx<R>), kContiguous, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
+    if (axes_ & 8) a.passes = 0;
+    const unsigned blocks = static_cast<unsigned>((lines + (1 << a.log_c) - 1) >> a.log_c);
+    axis_kernel<R, Sign, Mode><<<blocks, threads, line << a.log_c>>>(a, t.roots_of(R{}), t.source,
+                                                                     tables_[2]->roots_of(R{}), in, out);
+    check(cudaGetLastError(), "the transform of an axis");
 }
 
 template <class R>
 void BoxFft::complex_boxes(R* boxes, int count, int sign) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], n3 = grid_[2];
-    const Tables& t = *tables_[2];
-    AxisArgs a = t.args();
-    int threads = 0;
-    geometry(t.n, sizeof(Cx<R>), kContiguous, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
-    a.sj = 1;
-    a.sc = t.n | 1;
-    a.lines = count * n1 * n2;
-    if (axes_ & 8) a.passes = 0;
-    const unsigned blocks = static_cast<unsigned>((a.lines + (1 << a.log_c) - 1) >> a.log_c);
     if (sign < 0) {
-        if (axes_ & 4) launch<R, -1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
-        if (axes_ & 2) strided<R, -1>(boxes, 1, count * n1, n3, n3);
-        if (axes_ & 1) strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
+        contiguous<R, -1, kContiguous>(boxes, boxes, count * n1 * n2);
+        strided<R, -1>(boxes, 1, count * n1, n3, n3);
+        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
     } else {
-        if (axes_ & 4) launch<R, 1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
-        if (axes_ & 2) strided<R, 1>(boxes, 1, count * n1, n3, n3);
-        if (axes_ & 1) strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3);
+        contiguous<R, 1, kContiguous>(boxes, boxes, count * n1 * n2);
+        strided<R, 1>(boxes, 1, count * n1, n3, n3);
+        strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3);
     }
 }
 
@@ -600,15 +650,10 @@ template <class R>
 void BoxFft::real_forward(const R* values, R* spectrum, int count) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
-    const Tables& t = *tables_[2];
-    AxisArgs a = t.args();
-    int threads = 0;
-    geometry(t.n, sizeof(Cx<R>), kContiguous, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
-    a.sj = 1;
-    a.sc = t.n | 1;
-    a.lines = count * n1 * n2;
-    const unsigned blocks = static_cast<unsigned>((a.lines + (1 << a.log_c) - 1) >> a.log_c);
-    launch<R, -1, kRealToComplex>(a, blocks, threads, t.roots_of(R{}), t.source, values, spectrum);
+    if (half_ != nullptr)
+        contiguous<R, -1, kHalfForward>(values, spectrum, count * n1 * n2);
+    else
+        contiguous<R, -1, kRealToComplex>(values, spectrum, count * n1 * n2);
     strided<R, -1>(spectrum, 1, count * n1, half, half);
     strided<R, -1>(spectrum, 0, count, n2 * half, n2 * half);
 }
@@ -619,15 +664,10 @@ void BoxFft::real_inverse(R* spectrum, R* values, int count) {
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
     strided<R, 1>(spectrum, 0, count, n2 * half, n2 * half);
     strided<R, 1>(spectrum, 1, count * n1, half, half);
-    const Tables& t = *tables_[2];
-    AxisArgs a = t.args();
-    int threads = 0;
-    geometry(t.n, sizeof(Cx<R>), kContiguous, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
-    a.sj = 1;
-    a.sc = t.n | 1;
-    a.lines = count * n1 * n2;
-    const unsigned blocks = static_cast<unsigned>((a.lines + (1 << a.log_c) - 1) >> a.log_c);
-    launch<R, 1, kComplexToReal>(a, blocks, threads, t.roots_of(R{}), t.source, spectrum, values);
+    if (half_ != nullptr)
+        contiguous<R, 1, kHalfInverse>(spectrum, values, count * n1 * n2);
+    else
+        contiguous<R, 1, kComplexToReal>(spectrum, values, count * n1 * n2);
 }
 
 void BoxFft::forward(double* boxes, int count) { complex_boxes(boxes, count, -1); }

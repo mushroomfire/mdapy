@@ -70,9 +70,12 @@ private:
     void real_inverse(R* spectrum, R* values, int count);
     template <class R, int Sign>
     void strided(R* boxes, int axis, long long planes, long long columns, long long stride);
+    template <class R, int Sign, int Mode>
+    void contiguous(const R* in, R* out, long long lines);
 
     std::array<int, 3> grid_;
     Tables* tables_[3] = {nullptr, nullptr, nullptr};  // of each axis; equal sizes share one
+    Tables* half_ = nullptr;                           // of half the third size, when it is even
     int tuned_[2][2][2] = {};
     int axes_ = 7;
 };

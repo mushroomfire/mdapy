@@ -63,13 +63,13 @@ __global__ void short_pairs(std::int64_t n, const Real4<Real>* x, Images<Real> i
         }
         short_counts[i] = kept;
     }
-    // every lane of the warp takes part: blocks are whole warps
+    // every lane of the group takes part: blocks are whole groups
     int most = kept;
-    for (int offset = 16; offset > 0; offset >>= 1) {
-        const int other = __shfl_down_sync(0xffffffffu, most, offset);
+    for (int offset = kLanes / 2; offset > 0; offset >>= 1) {
+        const int other = MDAPY_SHUFFLE_DOWN(most, offset);
         most = other > most ? other : most;
     }
-    if ((threadIdx.x & 31u) == 0u) atomicMax(widest, most);
+    if (threadIdx.x % static_cast<unsigned>(kLanes) == 0u) atomicMax(widest, most);
 }
 
 // For each pair (i, j) of the short lists, the place of (j, i) in the list

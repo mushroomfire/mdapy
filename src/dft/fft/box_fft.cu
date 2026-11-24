@@ -704,18 +704,16 @@ void BoxFft::tune(int precision, int kind, int log_lines, int threads) {
 namespace {
 
 // Lines of a block as a power of two and its threads, for lines of n points
-// that take line bytes of shared memory each, the point bytes in the box.
-void geometry(int n, std::size_t line, std::size_t bytes, int kind, const int* tuned, int& log_c, int& threads) {
+// that take line bytes of shared memory each. Measured on an RTX A2000 (see
+// tests/cpp/dft_fft_check.cu, sweep): blocks of at most 20 kB, so that several
+// run on a multiprocessor at a time and the memory always has requests of
+// theirs, and a thread to four points, 256 at most.
+void geometry(int n, std::size_t line, const int* tuned, int& log_c, int& threads) {
     log_c = 0;
-    if (tuned[0] > 0) {
+    if (tuned[0] > 0)
         log_c = tuned[0];
-    } else {
-        const std::size_t target = 16 * 1024;
-        while (log_c < 6 && (line << (log_c + 1)) <= target) ++log_c;
-        // strided: 128 bytes of each row at least, the line of the cache
-        if (kind == kStrided)
-            while ((bytes << log_c) < 128 && (line << (log_c + 1)) <= kMaxShared) ++log_c;
-    }
+    else
+        while (log_c < 6 && (line << (log_c + 1)) <= 20 * 1024) ++log_c;
     while (log_c > 0 && (line << log_c) > kMaxShared) --log_c;
     if (tuned[1] > 0) {
         threads = tuned[1];
@@ -744,7 +742,7 @@ void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, lo
     AxisArgs a = t.args();
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
-    geometry(t.n, line, sizeof(Cx<R>), kStrided, tuned_[sizeof(R) == 4][kStrided], a.log_c, threads);
+    geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], a.log_c, threads);
     a.sj = 1 << a.log_c;
     a.sc = 1;
     a.columns = static_cast<int>(columns);
@@ -773,7 +771,7 @@ void BoxFft::contiguous(const R* in, R* out, long long lines) {
     a.lines = lines;
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(a.sc) * sizeof(Cx<R>);
-    geometry(t.n, line, sizeof(Cx<R>), kContiguous, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
+    geometry(t.n, line, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
     if (axes_ & 8) a.passes = 0;
     const unsigned blocks = static_cast<unsigned>((lines + (1 << a.log_c) - 1) >> a.log_c);
     axis_kernel<R, Sign, Mode><<<blocks, threads, line << a.log_c>>>(a, t.roots_of(R{}), t.source,

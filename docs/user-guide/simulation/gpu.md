@@ -2,9 +2,10 @@
 
 # On the GPU
 
-<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, with the GPU part of MDAPY: see [Installing the GPU part](#installing-the-gpu-part)</p>
+<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, or an AMD GPU with ROCm, with the GPU part of MDAPY: see [Installing the GPU part](#installing-the-gpu-part)</p>
 
-The potentials of MDAPY compute on an NVIDIA GPU with CUDA, and
+The potentials of MDAPY compute on an NVIDIA GPU with CUDA, or on an
+[AMD GPU](#amd-gpus) with ROCm, and
 [molecular dynamics](running.md) with them runs there whole, for systems of
 hundreds of thousands to millions of atoms: `device="cuda"` puts a potential on the
 GPU, and `MolecularDynamics` runs on the GPU with a potential that is there.
@@ -91,6 +92,23 @@ It is compiled for the GPU of the machine; `-Ccmake.define.CMAKE_CUDA_ARCHITECTU
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
 used before an installed `mdapy-cuda12`.
 
+### AMD GPUs
+
+On an AMD GPU the same kernels run through HIP of [ROCm](https://rocm.docs.amd.com):
+MDAPY is built from its source with ROCm 6, which puts the GPU part in MDAPY itself, as
+the module `mdapy._hip`, compiled for the GPUs `CMAKE_HIP_ARCHITECTURES` names, here
+the Instinct MI200 series:
+
+```bash
+pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_HIP=ON -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+The build needs CMake 3.21 or newer, the clang of ROCm (`HIPCXX`) and its hipCUB,
+rocPRIM and rocThrust, and the run its HIP runtime, as `module load rocm` gives them
+on a cluster. The device keeps its name: `device="cuda"` is the GPU, whoever made it,
+and everything on this page holds for both. It is tested on the Instinct MI250X with
+ROCm 6.3.4, against the processor as on NVIDIA GPUs.
+
 ## Potentials
 
 | Calculator | On the GPU |
@@ -104,7 +122,7 @@ used before an installed `mdapy-cuda12`.
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
-| `device` | str | `"cpu"` | `"cpu"`, or `"cuda"` to compute on the GPU |
+| `device` | str | `"cpu"` | `"cpu"`, or `"cuda"` to compute on the GPU, NVIDIA's or AMD's |
 | `precision` | str | `"mixed"` on the GPU | `"mixed"`: the distance and the terms of each pair in single precision, the positions, the velocities and every sum in double, as the GPU package of LAMMPS in mixed precision; or `"double"` throughout. The processor computes in double precision only |
 
 `compute` of a potential on the GPU copies the atoms there, builds a

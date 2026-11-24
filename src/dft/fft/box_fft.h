@@ -76,6 +76,8 @@ private:
     void contiguous(const R* in, R* out, long long lines);
     template <class R, int Sign>
     bool planes(R* boxes, long long count);
+    template <class R, int Sign>
+    bool real_planes(const R* in, R* out, long long count);
 
     std::array<int, 3> grid_;
     Tables* tables_[3] = {nullptr, nullptr, nullptr};  // of each axis; equal sizes share one

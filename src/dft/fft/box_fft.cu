@@ -420,9 +420,11 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
 
 struct PlaneArgs {
     int n2, n3;       // lines of a plane and their points
-    int pitch;        // points between the lines in shared memory, n3 | 1
+    int pitch;        // points between the lines in shared memory, odd
     unsigned inv_n2;  // ceil(2^32 / n2)
     unsigned inv_n3;  // ceil(2^32 / n3)
+    int half;         // real planes: n3 + 1, the components of a line of 2 n3 reals
+    unsigned inv_half;
     int passes2, passes3;
     Pass pass2[kMaxPasses], pass3[kMaxPasses];
 };
@@ -459,6 +461,90 @@ __global__ void plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ roots2
     for (unsigned e = threadIdx.x; e < points; e += blockDim.x) {
         const unsigned f2 = __umulhi(e, a.inv_n3), f3 = e - f2 * n3;
         plane[e] = shared[static_cast<unsigned>(source2[f2]) * pitch + static_cast<unsigned>(source3[f3])];
+    }
+}
+
+// The same of a plane of a real box whose lines have an even number 2 n3 of
+// reals, through complex lines of n3 points (see axis_kernel): forward from the
+// reals to n3 + 1 components a line, then the second axis; inverse the second
+// axis, then back to the reals. Component k < n3 of a line stays where the
+// passes leave point k, source3[k]; component n3 is at n3.
+template <class R, int Sign>
+__global__ void real_plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ roots2, const int* __restrict__ source2,
+                                  const Cx<R>* __restrict__ roots3, const int* __restrict__ source3,
+                                  const Cx<R>* __restrict__ post, const R* in, R* out) {
+    extern __shared__ double aligned_shared[];
+    Cx<R>* shared = reinterpret_cast<Cx<R>*>(aligned_shared);
+    const unsigned n2 = static_cast<unsigned>(a.n2), n3 = static_cast<unsigned>(a.n3), half = static_cast<unsigned>(a.half);
+    const unsigned pitch = static_cast<unsigned>(a.pitch);
+    const unsigned width = Sign < 0 ? n3 : half, points = n2 * width;  // complex numbers of a line and of the plane read
+    const unsigned inv_width = Sign < 0 ? a.inv_n3 : a.inv_half;
+    const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + static_cast<long long>(blockIdx.x) * points;
+    for (unsigned e0 = threadIdx.x; e0 < points; e0 += kAhead * blockDim.x) {
+        Cx<R> value[kAhead];
+#pragma unroll
+        for (int i = 0; i < kAhead; ++i) {
+            const unsigned e = e0 + i * blockDim.x;
+            if (e < points) value[i] = from[e];
+        }
+#pragma unroll
+        for (int i = 0; i < kAhead; ++i) {
+            const unsigned e = e0 + i * blockDim.x;
+            if (e < points) {
+                const unsigned i2 = __umulhi(e, inv_width), i3 = e - i2 * width;
+                shared[i2 * pitch + i3] = value[i];
+            }
+        }
+    }
+    const unsigned pairs = (n3 / 2 + 1) * n2;
+    if (Sign < 0) {
+        run_passes<R, Sign, false>(shared, Lines{n3, n2, 0u, a.inv_n2, 1u, pitch}, a.pass3, a.passes3, roots3, n2);
+        // the points k and n3 - k of a line, a pair to a thread, to its components
+        const R halved = static_cast<R>(0.5);
+        for (unsigned w = threadIdx.x; w < pairs; w += blockDim.x) {
+            const unsigned k = __umulhi(w, a.inv_n2), c = w - k * n2, partner = n3 - k;
+            Cx<R>* line = shared + c * pitch;
+            const unsigned at = static_cast<unsigned>(source3[k]);
+            const unsigned with = k == 0 ? n3 : static_cast<unsigned>(source3[partner]);
+            const Cx<R> z = line[at], y = k == 0 ? z : line[with];
+            Cx<R> t = mul(post[k], Cx<R>{z.x - y.x, z.y + y.y});
+            line[at] = {halved * (z.x + y.x + t.y), halved * (z.y - y.y - t.x)};
+            if (partner != k) {
+                t = mul(post[partner], Cx<R>{y.x - z.x, y.y + z.y});
+                line[with] = {halved * (y.x + z.x + t.y), halved * (y.y - z.y - t.x)};
+            }
+        }
+        run_passes<R, Sign, false>(shared, Lines{n2, half, 0u, a.inv_half, pitch, 1u}, a.pass2, a.passes2, roots2, half);
+        Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + static_cast<long long>(blockIdx.x) * (n2 * half);
+        for (unsigned e = threadIdx.x; e < n2 * half; e += blockDim.x) {
+            const unsigned f2 = __umulhi(e, a.inv_half), k = e - f2 * half;
+            to[e] = shared[static_cast<unsigned>(source2[f2]) * pitch + (k == n3 ? n3 : static_cast<unsigned>(source3[k]))];
+        }
+    } else {
+        run_passes<R, Sign, false>(shared, Lines{n2, half, 0u, a.inv_half, pitch, 1u}, a.pass2, a.passes2, roots2, half);
+        // the components k and n3 - k of a line to the points of its complex
+        // transform; the imaginary parts of the components 0 and n3 count for
+        // nothing
+        for (unsigned w = threadIdx.x; w < pairs; w += blockDim.x) {
+            const unsigned k = __umulhi(w, a.inv_n2), c = w - k * n2, partner = n3 - k;
+            Cx<R>* line = shared + c * pitch;
+            Cx<R> x = line[k], y = line[partner];
+            if (k == 0) x.y = y.y = static_cast<R>(0);
+            const Cx<R> wk = post[k];
+            Cx<R> t = mul(Cx<R>{wk.x, -wk.y}, Cx<R>{x.x - y.x, x.y + y.y});
+            line[k] = {x.x + y.x - t.y, x.y - y.y + t.x};
+            if (k != 0 && partner != k) {
+                const Cx<R> wp = post[partner];
+                t = mul(Cx<R>{wp.x, -wp.y}, Cx<R>{y.x - x.x, y.y + x.y});
+                line[partner] = {y.x + x.x - t.y, y.y - x.y + t.x};
+            }
+        }
+        run_passes<R, Sign, false>(shared, Lines{n3, n2, 0u, a.inv_n2, 1u, pitch}, a.pass3, a.passes3, roots3, n2);
+        Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + static_cast<long long>(blockIdx.x) * (n2 * n3);
+        for (unsigned e = threadIdx.x; e < n2 * n3; e += blockDim.x) {
+            const unsigned i2 = __umulhi(e, a.inv_n3), j = e - i2 * n3;
+            to[e] = shared[static_cast<unsigned>(source2[i2]) * pitch + static_cast<unsigned>(source3[j])];
+        }
     }
 }
 
@@ -640,6 +726,13 @@ void geometry(int n, std::size_t line, std::size_t bytes, int kind, const int* t
     }
 }
 
+// The threads of a block that holds a plane of points.
+int plane_threads(int points, int tuned) {
+    if (tuned > 0) return tuned;
+    const int threads = 64 * ((points / 10 + 63) / 64);
+    return threads < 128 ? 128 : threads > 512 ? 512 : threads;
+}
+
 }  // namespace
 
 // The lines along an axis whose points are stride apart, columns of them side
@@ -705,14 +798,36 @@ bool BoxFft::planes(R* boxes, long long count) {
     a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
     for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
     for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
-    int threads = tuned_[sizeof(R) == 4][2][1];
-    if (threads <= 0) {
-        const long long work = static_cast<long long>(t2.n) * t3.n / 4;
-        threads = static_cast<int>(64 * ((work + 63) / 64));
-        threads = threads < 64 ? 64 : threads > 512 ? 512 : threads;
-    }
-    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), threads, bytes>>>(
-        a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
+    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), plane_threads(t2.n * t3.n, tuned_[sizeof(R) == 4][2][1]),
+                            bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
+    check(cudaGetLastError(), "the transform of the planes");
+    return true;
+}
+
+// The same of the planes of real boxes of an even third size: from the reals
+// to their components and the second axis (Sign -1), or back.
+template <class R, int Sign>
+bool BoxFft::real_planes(const R* in, R* out, long long count) {
+    if (half_ == nullptr) return false;
+    const Tables &t2 = *tables_[1], &t3 = *half_;
+    const int half = t3.n + 1;
+    const std::size_t bytes = static_cast<std::size_t>(t2.n) * (half | 1) * sizeof(Cx<R>);
+    if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+    PlaneArgs a{};
+    a.n2 = t2.n;
+    a.n3 = t3.n;
+    a.pitch = half | 1;
+    a.inv_n2 = inverse_of(t2.n);
+    a.inv_n3 = inverse_of(t3.n);
+    a.half = half;
+    a.inv_half = inverse_of(half);
+    a.passes2 = (axes_ & 8) ? 0 : static_cast<int>(t2.passes.size());
+    a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
+    for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
+    for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
+    real_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), plane_threads(t2.n * half, tuned_[sizeof(R) == 4][2][1]),
+                                 bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source,
+                                          tables_[2]->roots_of(R{}), in, out);
     check(cudaGetLastError(), "the transform of the planes");
     return true;
 }
@@ -740,11 +855,13 @@ template <class R>
 void BoxFft::real_forward(const R* values, R* spectrum, int count) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
-    if (half_ != nullptr)
-        contiguous<R, -1, kHalfForward>(values, spectrum, count * n1 * n2);
-    else
-        contiguous<R, -1, kRealToComplex>(values, spectrum, count * n1 * n2);
-    strided<R, -1>(spectrum, 1, count * n1, half, half);
+    if (!real_planes<R, -1>(values, spectrum, count)) {
+        if (half_ != nullptr)
+            contiguous<R, -1, kHalfForward>(values, spectrum, count * n1 * n2);
+        else
+            contiguous<R, -1, kRealToComplex>(values, spectrum, count * n1 * n2);
+        strided<R, -1>(spectrum, 1, count * n1, half, half);
+    }
     strided<R, -1>(spectrum, 0, count, n2 * half, n2 * half);
 }
 
@@ -753,6 +870,7 @@ void BoxFft::real_inverse(R* spectrum, R* values, int count) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
     strided<R, 1>(spectrum, 0, count, n2 * half, n2 * half);
+    if (real_planes<R, 1>(spectrum, values, count)) return;
     strided<R, 1>(spectrum, 1, count * n1, half, half);
     if (half_ != nullptr)
         contiguous<R, 1, kHalfInverse>(spectrum, values, count * n1 * n2);

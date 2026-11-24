@@ -153,6 +153,85 @@ each GPU.
 
 ### The pure metals
 
+The maps, from the directions and thresholds that `tde.py` keeps: each direction and its
+47 images under the cubic point group, projected stereographically, interpolated
+linearly between them and cut to the standard triangle:
+
+<!-- skip-test -->
+```python
+from itertools import permutations, product
+
+import matplotlib.tri as mtri
+from matplotlib.patches import Polygon
+
+from mdapy.visualization import plot
+
+
+def images(v):
+    """The 48 images of the directions v (n, 3) under the cubic point group,
+    with the index of the direction of each."""
+    out = [
+        v[:, p] * s for p in permutations(range(3)) for s in product((1, -1), repeat=3)
+    ]
+    return np.vstack(out), np.tile(np.arange(len(v)), 48)
+
+
+def project(v):
+    """Stereographic projection from -z of unit vectors with z > 0."""
+    return v[:, 0] / (1 + v[:, 2]), v[:, 1] / (1 + v[:, 2])
+
+
+def triangle():
+    """The outline [001]-[101]-[111]: y = 0, the arc x = z, back along x = y."""
+    t = np.linspace(0, 1, 60)
+    arc = np.stack([np.ones_like(t), t, np.ones_like(t)], axis=1)
+    x, y = project(arc / np.linalg.norm(arc, axis=1)[:, None])
+    return np.vstack([[[0.0, 0.0]], np.stack([x, y], axis=1), [[0.0, 0.0]]])
+
+
+def draw_map(ax, v, e, levels):
+    w, index = images(v / np.linalg.norm(v, axis=1)[:, None])
+    up = w[:, 2] > 0.2
+    x, y = project(w[up])
+    near = (x > -0.15) & (x < 0.65) & (y > -0.15) & (y < 0.55)
+    fill = ax.tricontourf(mtri.Triangulation(x[near], y[near]), e[index[up]][near],
+                          levels=levels, cmap="viridis", extend="both")  # fmt: skip
+    outline = triangle()
+    fill.set_clip_path(Polygon(outline, closed=True, transform=ax.transData))
+    ax.plot(outline[:, 0], outline[:, 1], c="k", lw=0.6)
+    a = np.sort(np.abs(v), axis=1)  # the directions computed, in the triangle
+    x, y = project(
+        np.stack([a[:, 1], a[:, 0], a[:, 2]], axis=1)
+        / np.linalg.norm(a, axis=1)[:, None]
+    )
+    ax.plot(x, y, ".", ms=1.5, c="w", alpha=0.6)
+    for name, xy, ha, va in [("[001]", (0, 0), "right", "top"), ("[101]", (0.4142, 0), "left", "top"),
+                             ("[111]", (0.366, 0.366), "left", "bottom")]:  # fmt: skip
+        ax.annotate(name, xy, ha=ha, va=va, fontsize=6)
+    ax.set(xlim=(-0.04, 0.46), ylim=(-0.04, 0.40), aspect="equal")
+    ax.set_axis_off()
+    return fill
+
+
+# thresholds[element]: (directions (n, 3), E_d (n,)) of the runs of tde.py
+with plot.style():
+    fig, axes = plot.figure("double", 110, nrows=2, ncols=3)
+    for ax, element, label in zip(axes.ravel(), ["Mo", "Nb", "Ta", "V", "W"], "abcde"):
+        v, e = thresholds[element]
+        fill = draw_map(ax, v, e, np.linspace(20, 200, 19))
+        ax.set_title(f"{element}: {e.mean():.0f} eV, {len(e)} directions", fontsize=7)
+        plot.panel_label(ax, label)
+    fig.colorbar(fill, ax=axes.ravel()[:5].tolist(), shrink=0.6, label="$E_d$ (eV)")
+    for element, (v, e) in thresholds.items():
+        axes[1, 2].hist(
+            e, bins=np.arange(0, 260, 10), density=True, histtype="step", label=element
+        )
+    axes[1, 2].set(xlabel="$E_d$ (eV)", ylabel="probability density")
+    axes[1, 2].legend()
+    plot.panel_label(axes[1, 2], "f")
+    plot.save(fig, "images/radiation-tde-metals", formats=("png",))
+```
+
 ![The threshold displacement energies of Mo, Nb, Ta, V and W over the standard triangle of directions, and their distributions](images/radiation-tde-metals.png)
 
 *Figure 3 of Liu et al.: E_d of each direction computed, reduced to the standard
@@ -298,6 +377,82 @@ E_d = 51 eV, the mean threshold displacement energy of the alloy in their Table 
 paper does not say which E_d its fit takes; with this one the model follows their
 cascades from 5 keV on, while the effective threshold of 108 eV that they also give for
 alloys puts it a factor of two below them.
+
+The figure, from the runs of `cascade.py` gathered by energy into `rows`, one for each
+material and energy with the energy of the PKA, the mean damage energy and the mean
+Frenkel pairs with their standard error:
+
+<!-- skip-test -->
+```python
+from matplotlib.ticker import FuncFormatter
+
+# arc-dpa: E_d (eV), b and c; the power laws N = a E^b of Liu et al., E in keV,
+# for tungsten in two parts that cross at 29 keV
+ARC = {"W": (70.0, -0.56, 0.12), "HEA": (51.0, -0.73, 0.21)}
+POWER = {"W": [(2.14, 0.58), (0.16, 1.35)], "HEA": [(1.67, 0.94)]}
+
+
+def nrt(t, e_d):
+    return np.where(t < e_d, 0.0, np.where(t < 2 * e_d / 0.8, 1.0, 0.8 * t / (2 * e_d)))
+
+
+def arc_dpa(t, e_d, b, c):
+    xi = (1 - c) / (2 * e_d / 0.8) ** b * t**b + c
+    return np.where(t < 2 * e_d / 0.8, nrt(t, e_d), nrt(t, e_d) * xi)
+
+
+with plot.style():
+    fig, (left, right) = plot.figure("double", 70, nrows=1, ncols=2)
+    for material, marker, name in [("W", "o", "W"), ("HEA", "s", "MoNbTaVW")]:
+        mine = [r for r in rows if r["material"] == material]
+        e = np.array([r["energy"] for r in mine]) / 1e3  # keV
+        t = np.array([r["damage"] for r in mine])  # eV
+        n, err = (
+            np.array([r["pairs"] for r in mine]),
+            np.array([r["error"] for r in mine]),
+        )
+        line = left.errorbar(
+            e, n, err, fmt=marker, ms=4, capsize=2, label=f"{name}, MDAPY"
+        )[0]
+        grid = np.geomspace(0.8, 1.2 * e.max(), 80)
+        fit = np.max([a * grid**b for a, b in POWER[material]], axis=0)
+        left.plot(
+            grid,
+            fit,
+            "--",
+            c=line.get_color(),
+            lw=0.8,
+            label=f"{name}, fit of Liu et al.",
+        )
+        right.errorbar(
+            t / 1e3, n, err, fmt=marker, ms=4, capsize=2, c=line.get_color(), label=name
+        )
+        g = np.geomspace(300, 1.2 * t.max(), 80)
+        e_d, b, c = ARC[material]
+        right.plot(g / 1e3, arc_dpa(g, e_d, b, c), "-", c=line.get_color(), lw=0.8,
+                   label=f"arc-dpa, $E_d$ = {e_d:.0f} eV")  # fmt: skip
+        right.plot(g / 1e3, nrt(g, e_d), ":", c=line.get_color(), lw=0.8, label="NRT")
+    left.set(
+        xscale="log",
+        yscale="log",
+        xlabel="energy of the PKA (keV)",
+        ylabel="Frenkel pairs",
+    )
+    right.set(
+        xscale="log", yscale="log", xlabel="damage energy (keV)", ylabel="Frenkel pairs"
+    )
+    # plain numbers on the logarithmic axes, the first digits 1, 2, 3 and 5
+    plain = FuncFormatter(lambda x, _: f"{x:g}" if f"{x:g}"[0] in "1235" else "")
+    for ax in (left, right):
+        for axis in (ax.xaxis, ax.yaxis):
+            axis.set_major_formatter(plain)
+            axis.set_minor_formatter(plain)
+    left.legend(fontsize=6)
+    right.legend(fontsize=6)
+    plot.panel_label(left, "a")
+    plot.panel_label(right, "b")
+    plot.save(fig, "images/radiation-cascades", formats=("png",))
+```
 
 ![The Frenkel pairs left by the cascades against the energy of the PKA and against the damage energy](images/radiation-cascades.png)
 

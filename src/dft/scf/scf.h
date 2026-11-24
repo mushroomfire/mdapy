@@ -158,6 +158,7 @@ struct ScfStep {
     bool accepted = true;  // with adaptive damping, whether the step was taken
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
+    int unconverged = 0;     // bands left above their tolerance by Davidson, summed over the k-points
 };
 
 // seconds spent in each part of a run

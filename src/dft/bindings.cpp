@@ -798,7 +798,7 @@ NB_MODULE(_dft, m) {
                               ns_ = static_cast<std::size_t>(spins);
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
             std::vector<int> accepted;
-            std::vector<int> davidson;
+            std::vector<int> davidson, unconverged;
             for (const auto& step : r.steps) {
                 energies.push_back(step.energy);
                 output.push_back(step.output_energy);
@@ -809,6 +809,7 @@ NB_MODULE(_dft, m) {
                 tolerance.push_back(step.tolerance);
                 moments.push_back(step.magnetization);
                 davidson.push_back(step.davidson);
+                unconverged.push_back(step.unconverged);
             }
             const std::size_t ns = r.steps.size();
             nb::dict out;
@@ -845,6 +846,7 @@ NB_MODULE(_dft, m) {
             out["fermi_levels"] = array_of(fermi, {ns});
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
+            out["unconverged"] = array_of(unconverged, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
             if (adaptive_damping) {

@@ -82,6 +82,23 @@ with plot.style():
         for key, color in [("C11", "C0"), ("C12", "C1"), ("C44", "C2")]:
             ax.plot(n, [rows[m][key] for m in n], line, marker="o", ms=3, c=color, lw=0.9,
                     label=f"{key}, {smearing}")  # fmt: skip
+    # the mesh of the labels, 11 k-points along each axis of the cubic cell, and twice as
+    # dense: the elastic constants of the DFT in the properties above (stars; C11 the
+    # larger, as it nearly equals C12 on the labels' mesh); at the right, the models'
+    for k, mesh in (("dft", 11), ("dft-fine", 22)):
+        c = np.asarray(props[k]["elastic_GPa"])
+        for value, color, size in zip((c[0, 0], c[0, 1], c[3, 3]), ("C0", "C1", "C2"), (12, 7, 7)):  # fmt: skip
+            ax.plot(mesh, value, "*", ms=size, c=color, mec="k", mew=0.4, zorder=3)
+        ax.axvline(mesh, c="0.55", lw=0.7, ls=":", zorder=0)
+    for k in ("nep_0", "nep_1"):
+        c = np.asarray(props[k]["elastic_GPa"])
+        for value, color in zip((c[0, 0], c[0, 1], c[3, 3]), ("C0", "C1", "C2")):
+            ax.plot(35, value, "D", ms=4, c=color, mec="k", mew=0.4, zorder=3)
+    ax.text(11.4, 4, "labels", fontsize=6, color="0.3")
+    ax.text(22.4, 4, "twice as dense", fontsize=6, color="0.3")
+    ax.text(35, 4, "NEP", fontsize=6, color="0.3", ha="center")
+    ax.set_xlim(6.5, 36.5)
+    ax.set_xticks([10, 15, 20, 25, 30])  # no tick under the models
     ax.set(
         xlabel="k-points along each axis of the cubic cell",
         ylabel="elastic constant (GPa)",

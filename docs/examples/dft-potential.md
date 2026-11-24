@@ -340,10 +340,23 @@ cubic cell, the DFT gives C11, C12 and C44 of 79, 78 and 28 GPa; with the mesh t
 dense 103, 66 and 31. On meshes from 8 to 32 k-points along each axis of the cubic cell
 of four atoms ([`kconv.py`](dft-potential/kconv.py)):
 
-![C11, C12 and C44 of the DFT against the mesh of k-points, with two smearings](images/dft-potential-kpoints.png)
+![C11, C12 and C44 of the DFT against the mesh of k-points, with two smearings](images/dft-potential-kpoints.png){ width="60%" }
 
 *The elastic constants of the DFT jump with the mesh up to about 20 k-points along each
-axis and settle from 24, at 114, 58 and 33 GPa with 32, the two smearings alike.*
+axis and settle from 24, at 114, 58 and 33 GPa with 32, the two smearings alike. Stars:
+the DFT on the mesh of the labels, 11 k-points along each axis, and on one twice as
+dense; diamonds, at the right: the two models.*
+
+| | C11 (GPa) | C12 (GPa) | C44 (GPa) |
+|---|---:|---:|---:|
+| DFT, the labels' mesh (11³ on the cubic cell) | 79 | 78 | 28 |
+| DFT, k-points twice as dense (22³) | 103 | 66 | 31 |
+| DFT, 24³ | 117 | 57 | 32 |
+| DFT, 32³ | 114 | 58 | 33 |
+| NEP, seed 0 | 117 | 59 | 32 |
+| NEP, seed 1 | 118 | 61 | 35 |
+
+*The DFT with the smearing of Marzari and Vanderbilt of 0.25 eV, as the labels.*
 
 The phonons depend on the mesh far less: with k-points twice as dense they move by
 0.5 % (the table above), where C11 moves by a quarter. A strain of 1 % shifts the energy
@@ -367,9 +380,17 @@ Fermi–Dirac, −TS of about 1 meV per atom or less, or an extrapolation to σ 
 cold smearing the bias is small even where −TS is not. Here MV of 0.25 eV gives the
 same elastic constants as a Gaussian of 0.1 eV on the dense meshes.
 
-The models give 117 and 118 GPa for C11, 59 and 61 for C12, and 32 and 35 for C44:
-close to the converged DFT, which no label computed. That they agree is luck as much as
-learning: the elastic constants of the labels' DFT are not those values. Quantum
+The models give the elastic constants of the converged DFT, though the DFT of their
+labels gives others. They do not learn its finite differences: on the labels' mesh the
+energy of each cell carries an error of the k-points that jumps from cell to cell as
+bands cross the Fermi level, steps as large as the elastic energy of a strain of 1 %.
+The model is a smooth function of the atoms fitted to hundreds of cells strained by up to
+5 %; it cannot follow those steps and averages them out, keeping the smooth curvature
+under them. Fitted to fewer cells, models follow the labels more closely: trained on the
+196 cells within 2 eV per atom of the lowest alone, they gave C11 of 89 to 99 GPa. What
+the fit averages out is the scatter of the labels, not their bias: an error the same in
+every cell, of the pseudopotential, the functional or the smearing, the model learns as
+it is. Quantum
 ESPRESSO on the same cell, pseudopotential, mesh and Gaussian smearing gives C11 of
 156.8 and 123.4 GPa with 16 and 24 k-points along each axis, where MDAPY gives 157.0 and
 123.7: the jumps are aluminium's, not the code's.

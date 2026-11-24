@@ -468,6 +468,7 @@ NB_MODULE(_dft, m) {
         .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
             h.set_k(Vec3{k[0], k[1], k[2]});
         })
+        .def("set_fixed_sphere", &mdapy::dft::Hamiltonian::set_fixed_sphere, nb::arg("k_max"))
         .def("set_potential", [](mdapy::dft::Hamiltonian& h, Grid3 v) {
             DeviceArray<double> d;
             d.upload(v.data(), v.size());

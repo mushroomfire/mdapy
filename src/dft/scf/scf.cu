@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <cstdlib>
 #include <memory>
 #include <atomic>
 #include <exception>
@@ -48,6 +49,12 @@ __global__ void difference_kernel(std::size_t n, const double* a, const double* 
 __global__ void screened_kernel(std::size_t n, const double* d, const double* v, double c, double* out) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (i < n) out[i] = fmax(d[i], 0.0) * (v[i] - c);
+}
+
+// out = d (v - c), d as it is (a difference of two spins)
+__global__ void product_kernel(std::size_t n, const double* d, const double* v, double c, double* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = d[i] * (v[i] - c);
 }
 
 __global__ void clamp_kernel(std::size_t n, double* x) {
@@ -518,6 +525,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // the local density of states of the preconditioner (on the grid of the
     // density, and on the smooth one), and the work of its operator
     DeviceArray<double> ldos_r, ldos_s, ldos_v, ldos_out;
+    // the difference of the two spins of the local density of states, for the
+    // step of the magnetization (experimental: MDAPY_DFT_LDOS_SPIN=1)
+    DeviceArray<double> ldos_m, ldos_ms;
+    const bool ldos_spin = spins == 2 && std::getenv("MDAPY_DFT_LDOS_SPIN") != nullptr;
     DeviceArray<Complex> ldos_g;
     std::vector<Complex> taken_in, delta;
     std::vector<std::vector<double>> taken_becsum, delta_becsum;
@@ -1035,8 +1046,14 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             DeviceArray<double>& acc = two_grids ? ldos_s : ldos_r;
             acc.resize(two_grids ? points_s : points);
             acc.zero();
+            DeviceArray<double>& acc_m = two_grids ? ldos_ms : ldos_m;
+            if (ldos_spin) {
+                ldos_m.resize(points);
+                acc_m.resize(two_grids ? points_s : points);
+                acc_m.zero();
+            }
             const double width = options.sigma;
-            std::vector<double> wd(bands);
+            std::vector<double> wd(bands), wm(bands);
             for (std::size_t k = 0; k < nk && width > 0.0; ++k) {
                 if (!any_mine(k)) continue;
                 h.set_k(input.kpoints[k]);
@@ -1048,6 +1065,10 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                         wd[b] = weights[s * nk + k] * f_max * std::exp(-x * x) / (std::sqrt(3.14159265358979323846) * width);
                     }
                     h.add_density(psi[s * nk + k].data(), nb, wd.data(), acc.data());
+                    if (ldos_spin) {
+                        for (std::size_t b = 0; b < bands; ++b) wm[b] = s == 0 ? wd[b] : -wd[b];
+                        h.add_density(psi[s * nk + k].data(), nb, wm.data(), acc_m.data());
+                    }
                 }
             }
             if (input.ranks > 1) {
@@ -1055,6 +1076,24 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 acc.download(host.data(), host.size());
                 sum(host.data(), host.size());
                 acc.upload(host.data(), host.size());
+                if (ldos_spin) {
+                    acc_m.download(host.data(), host.size());
+                    sum(host.data(), host.size());
+                    acc_m.upload(host.data(), host.size());
+                }
+            }
+            if (ldos_spin) {
+                if (two_grids) {
+                    pot_s->to_sphere(ldos_ms.data(), smooth_g.data(), 1);
+                    components.zero();
+                    check_cuda(cudaMemcpy(components.data(), smooth_g.data(), ng_s * sizeof(Complex),
+                                          cudaMemcpyDeviceToDevice),
+                               "cudaMemcpy");
+                } else {
+                    pot.to_sphere(ldos_m.data(), components.data(), 1);
+                }
+                symmetrizer.density(components.data(), 1);
+                pot.from_sphere(components.data(), ldos_m.data(), 1);
             }
             if (two_grids) {
                 pot_s->to_sphere(ldos_s.data(), smooth_g.data(), 1);
@@ -1097,8 +1136,36 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     };
                     r = gmres(apply, r, 30, 1e-4);
                 });
+                if (ldos_spin) {
+                    // each spin answers the Hartree potential of the step of the
+                    // total density with its own local density of states:
+                    // dm = r_m - (D_up - D_down)(v_c dn - c), c = int D v_c dn / D
+                    mixer.set_magnetic_coupling([&, d_total](const std::vector<Complex>& dn, std::vector<Complex>& dm) {
+                        std::vector<Complex> y(ng);
+                        for (std::size_t g = 0; g < ng; ++g) {
+                            const double g2_ = 2.0 * pot.sphere().kinetic[g];
+                            const double f = g2_ > 0.0 ? 4.0 * 3.14159265358979323846 / g2_ : 0.0;
+                            y[g] = make_cuDoubleComplex(f * dn[g].x, f * dn[g].y);
+                        }
+                        ldos_g.resize(ng);
+                        ldos_v.resize(points);
+                        ldos_out.resize(points);
+                        ldos_g.upload(y.data(), ng);
+                        pot.from_sphere(ldos_g.data(), ldos_v.data(), 1);
+                        const double c = pot.integral(ldos_r.data(), ldos_v.data(), 1) / d_total;
+                        product_kernel<<<blocks(points), kThreads>>>(points, ldos_m.data(), ldos_v.data(), c,
+                                                                      ldos_out.data());
+                        check_cuda(cudaGetLastError(), "the spin response of the local density of states");
+                        pot.to_sphere(ldos_out.data(), ldos_g.data(), 1);
+                        std::vector<Complex> z(ng);
+                        ldos_g.download(z.data(), ng);
+                        for (std::size_t g = 0; g < ng; ++g)
+                            dm[g] = make_cuDoubleComplex(dm[g].x - z[g].x, dm[g].y - z[g].y);
+                    });
+                }
             } else {
                 mixer.set_preconditioner([](std::vector<Complex>&) {});  // no states at the Fermi level: P = 1
+                mixer.set_magnetic_coupling(nullptr);
             }
         }
         if (adaptive) {  // this step taken: what the next trials start from

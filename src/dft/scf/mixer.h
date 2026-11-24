@@ -74,6 +74,11 @@ public:
     // P^-1 on the residual of the total density (its sphere, G = 0 first and
     // zero), in place, in the place of Kerker's; none for Kerker's again
     void set_preconditioner(std::function<void(std::vector<cuDoubleComplex>&)> apply);
+    // with two channels and a preconditioner: the step of the magnetization
+    // dm (its residual, in place) from the step dn the preconditioner gave the
+    // total density; none for the residual alone
+    void set_magnetic_coupling(
+        std::function<void(const std::vector<cuDoubleComplex>& dn, std::vector<cuDoubleComplex>& dm)> couple);
 
 private:
     double dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const;
@@ -85,6 +90,7 @@ private:
     std::size_t n_;
     double scale_ = 1.0;
     std::function<void(std::vector<cuDoubleComplex>&)> preconditioner_;
+    std::function<void(const std::vector<cuDoubleComplex>&, std::vector<cuDoubleComplex>&)> coupling_;
     std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
     std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };

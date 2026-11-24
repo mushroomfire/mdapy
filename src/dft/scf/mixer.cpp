@@ -107,6 +107,11 @@ void Mixer::set_preconditioner(std::function<void(std::vector<cuDoubleComplex>&)
     preconditioner_ = std::move(apply);
 }
 
+void Mixer::set_magnetic_coupling(
+    std::function<void(const std::vector<cuDoubleComplex>&, std::vector<cuDoubleComplex>&)> couple) {
+    coupling_ = std::move(couple);
+}
+
 std::vector<cuDoubleComplex> gmres(
     const std::function<std::vector<cuDoubleComplex>(const std::vector<cuDoubleComplex>&)>& apply,
     const std::vector<cuDoubleComplex>& b, int iterations, double tolerance) {
@@ -308,6 +313,16 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
             rho[j].y += scale_ * options_.beta * total[j].y;
         }
         from = n_;
+        if (coupling_ && channels_ == 2) {
+            std::vector<cuDoubleComplex> dm(res.begin() + static_cast<std::ptrdiff_t>(n_),
+                                            res.begin() + static_cast<std::ptrdiff_t>(2 * n_));
+            coupling_(total, dm);
+            for (std::size_t j = 0; j < n_; ++j) {
+                rho[n_ + j].x += scale_ * precondition_[n_ + j] * dm[j].x;
+                rho[n_ + j].y += scale_ * precondition_[n_ + j] * dm[j].y;
+            }
+            from = 2 * n_;
+        }
     }
     for (std::size_t j = from; j < size; ++j) {
         rho[j].x += scale_ * precondition_[j] * res[j].x;

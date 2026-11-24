@@ -85,6 +85,12 @@ public:
     // The plane waves of k (fractions of the reciprocal vectors) and their
     // projectors.
     void set_k(const Vec3& k);
+    // From the next set_k on, one set of plane waves for every k: those of
+    // |G| <= sqrt(2 cutoff) + k_max (bohr^-1), which hold the sphere of each k
+    // up to k_max; set_k then renews only |k+G|^2 / 2, k+G and the projectors
+    // (the reduced Hamiltonians of a mesh of k-points). 0 returns to the
+    // sphere of each k.
+    void set_fixed_sphere(double k_max);
     // The effective potential V_loc + V_H + V_xc on the grid, real, n1 n2 n3
     // values on the device.
     void set_potential(const double* potential);
@@ -159,6 +165,9 @@ private:
     cublasHandle_t blas_ = nullptr;
     int projectors_ = 0;
 
+    // the plane waves of set_fixed_sphere, when fixed_
+    bool fixed_ = false;
+    Sphere fixed_sphere_;
     // of the k-point
     Sphere sphere_;
     DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)

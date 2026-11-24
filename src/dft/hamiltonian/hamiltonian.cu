@@ -502,11 +502,36 @@ Hamiltonian::~Hamiltonian() {
     if (blas_ != nullptr) cublasDestroy(blas_);
 }
 
+void Hamiltonian::set_fixed_sphere(double k_max) {
+    if (!(k_max >= 0.0)) throw std::invalid_argument("k_max must be 0 or more");
+    if (gamma_mode_ && k_max > 0.0) throw std::invalid_argument("real bands are those of Gamma only");
+    fixed_ = k_max > 0.0;
+    if (!fixed_) return;
+    const double radius = std::sqrt(2.0 * cutoff_) + k_max;
+    fixed_sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, Vec3{0.0, 0.0, 0.0}, 0.5 * radius * radius,
+                                grid_, false);
+}
+
 void Hamiltonian::set_k(const Vec3& k) {
     if (gamma_mode_ && (k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0))
         throw std::invalid_argument("real bands are those of Gamma only");
     gamma_ = gamma_mode_;
-    sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, gamma_);
+    if (fixed_) {
+        sphere_ = fixed_sphere_;
+        for (std::size_t g = 0; g < sphere_.size(); ++g) {
+            double square = 0.0;
+            for (int d = 0; d < 3; ++d) {
+                double x = 0.0;
+                for (int j = 0; j < 3; ++j)
+                    x += (k[static_cast<std::size_t>(j)] + sphere_.miller[g][static_cast<std::size_t>(j)]) *
+                         lattice_.b[static_cast<std::size_t>(j)][static_cast<std::size_t>(d)];
+                square += x * x;
+            }
+            sphere_.kinetic[g] = 0.5 * square;
+        }
+    } else {
+        sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, gamma_);
+    }
     const std::size_t n = sphere_.size();
     kinetic_.assign(sphere_.kinetic.data(), n);
     box_.assign(sphere_.box.data(), n);

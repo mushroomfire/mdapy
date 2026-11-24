@@ -161,6 +161,44 @@ python benchmarks/dft_verification.py figure verification oxides.png oxides --hi
 The 288 structures of the elements took 36 GPU-hours, mostly on V100 GPUs, 1 to 22
 minutes each; the 294 oxides 73 GPU-hours.
 
+### With SSSP
+
+The same protocol with the pseudopotentials of SSSP 1.3 precision
+([Prandini et al. 2018](../../reference/references.md#prandini2018)), norm-conserving,
+ultrasoft and PAW of several libraries, at the cutoffs SSSP recommends (the highest of
+the elements of a structure), against the paper's Quantum ESPRESSO on the same files:
+the 256 structures of 64 elements apart from the lanthanides:
+
+| Structure | ν against Quantum ESPRESSO, median | largest | ν against all-electron, median | of Quantum ESPRESSO |
+|---|---:|---:|---:|---:|
+| FCC | 0.00002 | 0.054 | 0.079 | 0.079 |
+| BCC | 0.00002 | 0.106 | 0.067 | 0.067 |
+| SC | 0.00002 | 0.078 | 0.071 | 0.071 |
+| Diamond | 0.00002 | 0.079 | 0.082 | 0.086 |
+
+248 of them agree to ν < 0.01 and 255 to 0.08. The largest are iridium, 0.030 to 0.106
+over its four structures, and lanthanum, 0.054 to 0.079. Iridium's differences are not
+MDAPY's: at the central volume of fcc iridium, on a mesh of 4³ k-points, Quantum
+ESPRESSO 7.6 on the same input gives every term of the energy within 5 × 10⁻⁷ Ha, the
+total within 1 × 10⁻¹⁰ Ha and the eigenvalues within 2 × 10⁻⁷ Ha. Against all-electron
+results MDAPY's iridium lies at ν 0.025 to 0.058, the paper's at 0.006 to 0.101.
+
+The 56 structures of the lanthanides from cerium to lutetium, for which SSSP takes the
+atompaw PAW datasets of the Wentzcovitch group with the 4f shell in the valence, lie
+0.12 to 1.12 in ν from the paper's Quantum ESPRESSO, and both codes lie far from the
+all-electron results (ν 3.8 in the median for each). The difference to the paper is not
+MDAPY's: Quantum ESPRESSO 7.6 on the same input gives the equation of state of fcc
+europium that MDAPY gives, V0 25.518 Å³, B0 20.32 GPa and B1 3.856 to all these digits
+(ν 0.0000), where the paper's has V0 25.652 Å³ (ν 0.52); and at the central volume of
+fcc lanthanum and europium, on a mesh of 8³ k-points, the two codes agree in each term of
+the energy, the total to 2 × 10⁻¹⁰ Ha. The paper's runs of the lanthanides differ in a
+setting not identified here, and they are left out of the table.
+
+```bash
+python benchmarks/dft_verification.py run verification Fe BCC --library sssp
+python benchmarks/dft_verification.py report verification table.md --library sssp
+```
+
 ## Magnetic elements
 
 The protocol above is without spin. The Delta project

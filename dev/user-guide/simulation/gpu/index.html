@@ -6144,6 +6144,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installing the GPU part">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#amd-gpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AMD GPUs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -10814,6 +10831,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Installing the GPU part">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#amd-gpus" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AMD GPUs
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -10883,8 +10917,9 @@
 <!-- needs: gpu -->
 
 <h1 id="on-the-gpu">On the GPU<a class="headerlink" href="#on-the-gpu" title="Permanent link">&para;</a></h1>
-<p class="runs-on"><strong>Runs on</strong> an NVIDIA GPU, with the GPU part of MDAPY: see <a href="#installing-the-gpu-part">Installing the GPU part</a></p>
-<p>The potentials of MDAPY compute on an NVIDIA GPU with CUDA, and
+<p class="runs-on"><strong>Runs on</strong> an NVIDIA GPU, or an AMD GPU with ROCm, with the GPU part of MDAPY: see <a href="#installing-the-gpu-part">Installing the GPU part</a></p>
+<p>The potentials of MDAPY compute on an NVIDIA GPU with CUDA, or on an
+<a href="#amd-gpus">AMD GPU</a> with ROCm, and
 <a href="../running/">molecular dynamics</a> with them runs there whole, for systems of
 hundreds of thousands to millions of atoms: <code>device="cuda"</code> puts a potential on the
 GPU, and <code>MolecularDynamics</code> runs on the GPU with a potential that is there.</p>
@@ -10954,6 +10989,18 @@ and 13.5), which puts the GPU part in MDAPY itself, as the module <code>mdapy._c
 <p>It is compiled for the GPU of the machine; <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
 used before an installed <code>mdapy-cuda12</code>.</p>
+<h3 id="amd-gpus">AMD GPUs<a class="headerlink" href="#amd-gpus" title="Permanent link">&para;</a></h3>
+<p>On an AMD GPU the same kernels run through HIP of <a href="https://rocm.docs.amd.com">ROCm</a>:
+MDAPY is built from its source with ROCm 6, which puts the GPU part in MDAPY itself, as
+the module <code>mdapy._hip</code>, compiled for the GPUs <code>CMAKE_HIP_ARCHITECTURES</code> names, here
+the Instinct MI200 series:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_HIP<span class="o">=</span>ON<span class="w"> </span>-Ccmake.define.CMAKE_HIP_ARCHITECTURES<span class="o">=</span>gfx90a
+</code></pre></div>
+<p>The build needs CMake 3.21 or newer, the clang of ROCm (<code>HIPCXX</code>) and its hipCUB,
+rocPRIM and rocThrust, and the run its HIP runtime, as <code>module load rocm</code> gives them
+on a cluster. The device keeps its name: <code>device="cuda"</code> is the GPU, whoever made it,
+and everything on this page holds for both. It is tested on the Instinct MI250X with
+ROCm 6.3.4, against the processor as on NVIDIA GPUs.</p>
 <h2 id="potentials">Potentials<a class="headerlink" href="#potentials" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -11003,7 +11050,7 @@ used before an installed <code>mdapy-cuda12</code>.</p>
 <td><code>device</code></td>
 <td>str</td>
 <td><code>"cpu"</code></td>
-<td><code>"cpu"</code>, or <code>"cuda"</code> to compute on the GPU</td>
+<td><code>"cpu"</code>, or <code>"cuda"</code> to compute on the GPU, NVIDIA's or AMD's</td>
 </tr>
 <tr>
 <td><code>precision</code></td>

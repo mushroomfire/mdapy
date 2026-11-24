@@ -713,7 +713,7 @@ void geometry(int n, std::size_t line, const int* tuned, int& log_c, int& thread
     if (tuned[0] > 0)
         log_c = tuned[0];
     else
-        while (log_c < 6 && (line << (log_c + 1)) <= 20 * 1024) ++log_c;
+        while (log_c < 6 && (line << (log_c + 1)) <= 20000) ++log_c;
     while (log_c > 0 && (line << log_c) > kMaxShared) --log_c;
     if (tuned[1] > 0) {
         threads = tuned[1];

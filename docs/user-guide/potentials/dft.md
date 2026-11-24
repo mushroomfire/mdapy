@@ -252,8 +252,8 @@ A magnet can converge to more than one state, and the first moments choose among
 Cells of four atoms of Co2CrNi, started with −1, 1.5 and 0.6 Bohr magnetons on Cr, Co
 and Ni, ended in 6 of 20 cells in states of smaller moments, or none, 50 to 110 meV per
 atom above a ferrimagnetic one; started with twice those moments, as above, all reached
-it, in fewer steps. Where the first moment sits, over the valence or in the d shell,
-made no difference; its size did. Start each atom at or above the moment it is expected
+it, in fewer steps. In these cells it made no difference whether the first moment sat
+over the valence or in the d shell; its size did. Start each atom at or above the moment it is expected
 to carry, its high-spin moment when unsure. A state of small moments, once converged,
 holds: restarted with its magnetization doubled, it came back. Compare
 `last["magnetization"]` and `last["absolute_magnetization"]` across the labels of a set,

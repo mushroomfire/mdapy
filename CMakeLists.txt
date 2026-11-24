@@ -14,6 +14,7 @@ option(MDAPY_CUDA "The GPU side with CUDA, mdapy._cuda (needs the CUDA toolkit)"
 option(MDAPY_CUDA_ONLY "The GPU side alone, mdapy_cuda12._cuda, for the package mdapy-cuda12" OFF)
 option(MDAPY_CUDA_LINEINFO "The lines of the sources in the GPU kernels, for profilers" ON)
 option(MDAPY_DFT_ONLY "The plane-wave DFT on the GPU alone, mdapy_dft_cuda12._dft, for the package mdapy-dft-cuda12" OFF)
+option(MDAPY_DFT_HIP "The plane-wave DFT compiled with HIP for AMD GPUs (needs ROCm), with MDAPY_DFT_ONLY" OFF)
 option(MDAPY_HIP "The GPU side with HIP for AMD GPUs, mdapy._hip (needs ROCm)" OFF)
 option(MDAPY_HIP_ONLY "The GPU side alone, mdapy_rocm6._hip, for the package mdapy-rocm6" OFF)
 set(MDAPY_SANITIZE "" CACHE STRING

@@ -22,7 +22,7 @@
 #include <stdexcept>
 #include <string>
 
-#include <cuda_runtime_api.h>
+#include "dft/core/portable.h"
 
 #include "dft/core/check.h"
 #include "dft/core/device.h"
@@ -204,6 +204,8 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
 }  // namespace
 
 NB_MODULE(_dft, m) {
+    // the runtime of the device this module was built with: "CUDA" or "HIP"
+    m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
     // (major, minor) of the compute capability of the current device

@@ -14,11 +14,14 @@
 
 #pragma once
 
-#if defined(__HIP__) || defined(__HIPCC__)
+// __HIP__ where the clang of ROCm compiles kernels, __HIP_PLATFORM_AMD__ where
+// the host compiler compiles what holds memory of the device (the DFT)
+#if defined(__HIP__) || defined(__HIPCC__) || defined(__HIP_PLATFORM_AMD__)
 
 #include <hip/hip_runtime.h>
 
 #define MDAPY_GPU_API "HIP"
+#define MDAPY_GPU_HIP 1
 
 #define cudaError_t hipError_t
 #define cudaSuccess hipSuccess

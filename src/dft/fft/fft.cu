@@ -5,8 +5,6 @@
 
 #include "dft/fft/fft.h"
 
-#include <cufft.h>
-
 #include <stdexcept>
 #include <vector>
 

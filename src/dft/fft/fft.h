@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <cufft.h>
+#include "dft/core/portable.h"
 
 #include <cstddef>
 #include <cstdint>

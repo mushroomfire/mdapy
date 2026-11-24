@@ -579,6 +579,9 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     std::unique_ptr<DavidsonSingle> single_solver;  // made at its first use
     const double single_floor = 2.4e-7 * std::max(2.0 * input.cutoff, 1.0);
     std::vector<double> single_accuracies;
+    // the memory of the single-precision solver of this thread given back
+    // when the steps in double begin, which need it in large cells
+    auto release_single = [&] { single_solver.reset(); };
     // the occupations of the step before, which weight the tolerance of each
     // band: tolerance / sqrt(|f|), never above the loose one of empty bands
     std::vector<double> held;
@@ -1003,6 +1006,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             const bool stalled = m >= 4 && !(single_accuracies[m - 1] < 0.5 * single_accuracies[m - 4]);
             if (accuracy < options.density_tolerance || stalled || iteration >= options.max_iterations / 2) {
                 single_phase = false;
+                release_single();
                 if (std::getenv("MDAPY_DFT_KEEP_HISTORY") == nullptr) mixer.reset();
             }
         }
@@ -1153,6 +1157,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         // keeps it, to compare)
         if (single_phase && tolerance < single_floor) {
             single_phase = false;
+            release_single();
             if (std::getenv("MDAPY_DFT_KEEP_HISTORY") == nullptr) mixer.reset();
         }
     }

@@ -198,14 +198,12 @@ elements differ in a setting not identified here.
 
 The 56 structures of the lanthanides from cerium to lutetium, for which SSSP takes the
 atompaw PAW datasets of the Wentzcovitch group with the 4f shell in the valence, lie
-0.12 to 1.12 in ν from the paper's Quantum ESPRESSO, and both codes lie far from the
-all-electron results (ν 3.8 in the median for each). The difference to the paper is not
-MDAPY's: Quantum ESPRESSO 7.6 on the same input gives the equation of state of fcc
-europium that MDAPY gives, V0 25.518 Å³, B0 20.32 GPa and B1 3.856 to all these digits
-(ν 0.0000), where the paper's has V0 25.652 Å³ (ν 0.52); and at the central volume of
-fcc lanthanum and europium, on a mesh of 8³ k-points, the two codes agree in each term of
-the energy, the total to 2 × 10⁻¹⁰ Ha. The paper's runs of the lanthanides differ in a
-setting not identified here, and they are left out of the table.
+0.006 to 1.12 in ν from the paper's Quantum ESPRESSO, 0.20 in the median, and both codes
+lie far from the all-electron results (ν 3.8 in the median for each). pw.x 7.6 on
+MDAPY's input decides here too: its equations of state lie within ν 0.0015 of MDAPY's
+in all 56 (0.0001 in the median), its energies within 0.0006 meV per atom at every
+volume, and as far from the paper's as MDAPY's. The paper's runs of the lanthanides
+differ in a setting not identified here, and they are left out of the table above.
 
 ```bash
 python benchmarks/dft_verification.py run verification Fe BCC --library sssp

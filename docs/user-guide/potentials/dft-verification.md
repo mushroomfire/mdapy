@@ -176,12 +176,25 @@ the 256 structures of 64 elements apart from the lanthanides:
 | SC | 0.00002 | 0.078 | 0.071 | 0.071 |
 | Diamond | 0.00002 | 0.079 | 0.082 | 0.086 |
 
-248 of them agree to ν < 0.01 and 255 to 0.08. The largest are iridium, 0.030 to 0.106
-over its four structures, and lanthanum, 0.054 to 0.079. Iridium's differences are not
-MDAPY's: at the central volume of fcc iridium, on a mesh of 4³ k-points, Quantum
-ESPRESSO 7.6 on the same input gives every term of the energy within 5 × 10⁻⁷ Ha, the
-total within 1 × 10⁻¹⁰ Ha and the eigenvalues within 2 × 10⁻⁷ Ha. Against all-electron
-results MDAPY's iridium lies at ν 0.025 to 0.058, the paper's at 0.006 to 0.101.
+248 of them agree to ν < 0.01. Where MDAPY and the paper differ by more, Quantum
+ESPRESSO 7.6 run here on the same input decides: the same files, cutoffs, meshes and
+smearing, the seven volumes of each structure. That is iridium and lanthanum in all four
+structures:
+
+| Structure | ν against the paper | ν of pw.x 7.6 against the paper | ν of pw.x 7.6 against MDAPY |
+|---|---:|---:|---:|
+| Ir FCC | 0.030 | 0.030 | 0.0000 |
+| Ir BCC | 0.106 | 0.106 | 0.0000 |
+| Ir SC | 0.047 | 0.047 | 0.0000 |
+| Ir Diamond | 0.072 | 0.072 | 0.0000 |
+| La FCC | 0.054 | 0.054 | 0.0000 |
+| La BCC | 0.037 | 0.037 | 0.0000 |
+| La SC | 0.078 | 0.078 | 0.0000 |
+| La Diamond | 0.079 | 0.079 | 0.0000 |
+
+pw.x gives MDAPY's equation of state in each, its energies within 0.0002 meV per atom at
+every volume, and lies as far from the paper as MDAPY does: the paper's runs of these two
+elements differ in a setting not identified here.
 
 The 56 structures of the lanthanides from cerium to lutetium, for which SSSP takes the
 atompaw PAW datasets of the Wentzcovitch group with the 4f shell in the valence, lie
@@ -197,6 +210,10 @@ setting not identified here, and they are left out of the table.
 ```bash
 python benchmarks/dft_verification.py run verification Fe BCC --library sssp
 python benchmarks/dft_verification.py report verification table.md --library sssp
+# the second check: pw.x on MDAPY's input, verification/pwx/Ir-BCC/v0.in to v6.in
+python benchmarks/dft_verification_pwx.py inputs verification Ir-BCC
+pw.x -nk 8 -in v0.in > v0.out  # in verification/pwx/Ir-BCC, for each of the seven
+python benchmarks/dft_verification_pwx.py report verification Ir-BCC
 ```
 
 ## Magnetic elements

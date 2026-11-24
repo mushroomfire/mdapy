@@ -493,3 +493,16 @@ def test_native_checks():
     ]:
         with pytest.raises(ValueError, match=message):
             _core.calculators.make_d3(**{**arguments, name: value})
+
+
+def test_the_same_on_any_number_of_threads():
+    """Each atom gathers its own terms: the results do not depend on the
+    threads, to the last bit."""
+    system = crystal()
+    d3 = D3("pbe", three_body=True, three_body_cutoff=8.0)
+    with mdapy.num_threads(1):
+        one = d3.compute(system, PROPERTIES)
+    with mdapy.num_threads(4):
+        four = d3.compute(system, PROPERTIES)
+    for name in PROPERTIES:
+        np.testing.assert_array_equal(getattr(one, name), getattr(four, name))

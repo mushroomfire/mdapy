@@ -83,7 +83,8 @@ with MolecularDynamics(crystal, overlay, timestep=0.0005) as md:
   theirs.
 - On the [GPU](../simulation/gpu.md) the calculators must be MDAPY's potentials with
   `device="cuda"` and the same elements in the same order: they compute in turn on
-  the device, with one neighbor list.
+  the device, with one neighbor list of the largest of their cutoffs; [D3](d3.md)
+  finds its pairs itself and leaves the list to the others.
 - On [many processes](../simulation/processes.md), MDAPY's potentials of the same
   elements in the same order split as each of them splits, with ghosts within the
   largest cutoff; others are computed whole on each process, its atoms and their

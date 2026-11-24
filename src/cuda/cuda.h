@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "calculators/adp.h"
+#include "calculators/d3.h"
 #include "calculators/eam.h"
 #include "calculators/meam.h"
 #include "calculators/nep.h"
@@ -438,6 +439,9 @@ std::unique_ptr<Potential> make_eam(const calculators::EamPotential& potential,
                                     Precision precision);
 std::unique_ptr<Potential> make_pair(const calculators::PairPotential& potential,
                                      Precision precision);
+// D3, which finds its pairs itself (calculators/d3.h)
+std::unique_ptr<Potential> make_d3(const calculators::D3Potential& potential,
+                                   Precision precision);
 std::unique_ptr<Potential> make_adp(const calculators::AdpPotential& potential,
                                     Precision precision);
 std::unique_ptr<Potential> make_stillinger_weber(

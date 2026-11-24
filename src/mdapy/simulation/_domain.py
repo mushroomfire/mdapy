@@ -545,10 +545,16 @@ def _reach(
     tie each atom to its site alone. staged: for the GPU of a process, where
     a potential that computes the atoms of the process alone in stages (EAM,
     the pair potentials) needs the cutoff, and the others twice it."""
-    from mdapy.calculators import ADP, EAM, MEAM, NEP, StillingerWeber, Tersoff
+    from mdapy.calculators import ADP, D3, EAM, MEAM, NEP, StillingerWeber, Tersoff
     from mdapy.calculators._overlay import Overlay
     from mdapy.calculators._pair import _PairCalculator
 
+    parts = calculator.calculators if isinstance(calculator, Overlay) else (calculator,)
+    if any(isinstance(p, D3) for p in parts):
+        raise InvalidParameter(
+            "MDAPY's dynamics on several processes does not split D3, whose pairs "
+            "reach tens of Å: run it on one process"
+        )
     pair = isinstance(calculator, _PairCalculator)
     if isinstance(calculator, Overlay) and calculator._split is not None:
         # split as its calculators, each with its own reach

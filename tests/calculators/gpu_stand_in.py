@@ -707,6 +707,29 @@ class Potential:
         self.compute(atoms, neighbors, h, lo, pbc, True, True, True, heat, centers)
 
 
+class OwnPairs(Potential):
+    """A potential that finds its pairs itself, D3: within its reach,
+    whatever the list of the device, which only sorts the atoms."""
+
+    cutoff = 0.0
+
+    def __init__(self, made, compute, reach):
+        super().__init__(made, compute)
+        self.reach = reach
+
+    def compute(self, atoms, neighbors, h, lo, pbc, energy, virial, atomic, heat=False):
+        self.asked.append((energy, virial, atomic))
+        system = System(atoms.x, Box(h, origin=lo, pbc=pbc))
+        nl = NeighborList.build(system, self.reach)
+        atoms.result = self.compute_native(
+            self.native, atoms.species, np.ascontiguousarray(atoms.x), h,
+            nl.offsets, nl.j, nl.shifts,
+        )  # fmt: skip
+
+    def compute_heat(self, atoms, neighbors, h, lo, pbc):
+        self.compute(atoms, neighbors, h, lo, pbc, True, True, True)
+
+
 class Overlay:
     """Potentials of the stand-in added together, as the device's."""
 
@@ -772,6 +795,10 @@ def stand_in(found=True):
         made = native.make_nep(*arguments[:-1])
         return Potential(made, native.compute_nep, reverse=True, gathered=True)
 
+    def make_d3(*arguments):
+        made = native.make_d3(*arguments[:-1])
+        return OwnPairs(made, native.compute_d3, made.reach)
+
     def make_pair(style, species, cutsq, offset, coefficients, precision):
         made = native.make_pair(style, cutsq, offset, coefficients)
         return Potential(made, native.compute_pair, thin=True)
@@ -794,6 +821,7 @@ def stand_in(found=True):
         make_eam=make_eam,
         make_overlay=Overlay,
         make_pair=make_pair,
+        make_d3=make_d3,
         make_adp=make_adp, make_stillinger_weber=make_stillinger_weber,
         make_tersoff=make_tersoff, make_meam=make_meam, make_nep=make_nep,
         device_name=device_name, device_properties=device_properties,

@@ -194,7 +194,7 @@ the skipped tests and why. A complete run needs the following.
 pip install -e ".[dev]"
 pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
     symfc==1.7.3 seekpath==2.2.2 dscribe==2.1.2 quests==2026.2.22 pymatgen-core networkx \
-    torch torchnep
+    torch torchnep dftd3==1.7.0
 ```
 
 | Package | Tested with it |
@@ -210,6 +210,7 @@ pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
 | [NetworkX](https://networkx.org) | rings, against a brute-force search |
 | [SciPy](https://scipy.org), installed with ASE | splines and curve fits, against SciPy |
 | [torchnep](https://github.com/mushroomfire/torchnep), with [PyTorch](https://pytorch.org) | the files of training and of predictions |
+| [dftd3](https://dftd3.readthedocs.io), the Python package of s-dftd3 | DFT-D3, against s-dftd3 |
 
 [LAMMPS](https://www.lammps.org) stable_30Sep2026 is built from source, with
 its Python module installed from the wheel that the build leaves:

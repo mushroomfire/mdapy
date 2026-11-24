@@ -23,6 +23,7 @@ file(GLOB MDAPY_CUDA_KERNELS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/
 add_library(mdapy_cuda_kernels STATIC ${MDAPY_CUDA_KERNELS}
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/eam.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/pair.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/d3.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/adp.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/stillinger_weber.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/many_body.cpp"

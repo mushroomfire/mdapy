@@ -8,8 +8,10 @@ dynamic = ["version"]
 description = "Analysis and modelling of atomistic simulations"
 readme = "README.md"
 requires-python = ">=3.11"
-license = "MPL-2.0"
-license-files = ["LICENSE"]
+# the tables of D3 (calculators/_d3_tables.py) derive from tad-dftd3 and
+# tad-mctc, under the Apache License 2.0
+license = "MPL-2.0 AND Apache-2.0"
+license-files = ["LICENSE", "LICENSES/Apache-2.0.txt"]
 authors = [{ name = "Yongchao Wu", email = "934313174@qq.com" }]
 dependencies = ["numpy>=2.3.1", "polars>=2"]
 classifiers = [

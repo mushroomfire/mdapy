@@ -2,6 +2,10 @@
 
 ## 2.3.0 (not released)
 
+- `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
+  magnetons, the magnetization density integrated within a sphere around it, of radius
+  `moment_radius` (by default half the shortest distance between two atoms, periodic
+  images included).
 - MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
   their neighbor list with the skin as it is between two builds, instead of the pairs
   within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the

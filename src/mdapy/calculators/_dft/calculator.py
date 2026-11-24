@@ -147,6 +147,11 @@ class DFT(Calculator):
         Use the symmetry of the crystal, found by spglib, to keep the
         irreducible k-points alone and make the density, the forces and the
         stress symmetric. Default None: when spglib is installed.
+    moment_radius : float64, optional
+        With spin, the radius in Å of the spheres within which the magnetic
+        moment of each atom is integrated. Default none: half the shortest
+        distance between two atoms of the cell, their periodic images
+        included, the same for all atoms, so that the spheres do not overlap.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -164,7 +169,11 @@ class DFT(Calculator):
         iterations of the eigensolver over all steps, k-points and spins),
         ``restarted`` (from the one before), ``fermi`` (eV),
         ``magnetization`` and ``absolute_magnetization`` (Bohr magnetons, with
-        spin), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
+        spin), ``magnetic_moments`` ((N,) float64 Bohr magnetons, with spin:
+        the magnetization density, spin up minus spin down of the density on
+        the grid, integrated within a sphere of ``moment_radius`` around each
+        atom, in the order of the atoms) and ``moment_radius`` (Å, the radius
+        used), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
         of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid) and
@@ -209,6 +218,7 @@ class DFT(Calculator):
         gpu: int | None = None,
         restart: bool = False,
         symmetry: bool | None = None,
+        moment_radius: float | None = None,
         comm: Any = None,
     ):
         if not encut > 0:
@@ -278,6 +288,9 @@ class DFT(Calculator):
         self.functional = functional
         self.tolerance = float(tolerance)
         self.symmetry = symmetry
+        if moment_radius is not None and not moment_radius > 0:
+            raise InvalidParameter("moment_radius must be positive")
+        self.moment_radius = None if moment_radius is None else float(moment_radius)
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
@@ -395,6 +408,7 @@ class DFT(Calculator):
         CalculationFailed
             If the self-consistent field does not converge.
         """
+        from mdapy.calculators._dft import moments as moments_of
         from mdapy.calculators._dft import scf
 
         properties = tuple(properties)
@@ -478,6 +492,16 @@ class DFT(Calculator):
         if r["spins"] == 2:
             self.last["magnetization"] = float(r["magnetization"])
             self.last["absolute_magnetization"] = float(r["absolute_magnetization"])
+            # the density is (up, down) in electrons per bohr^3 on the grid of
+            # the atoms' cell; the grid sums to r["magnetization"]
+            radius = self.moment_radius
+            if radius is None:
+                radius = moments_of.default_radius(cell, fractional @ cell)
+            m = (r["density"][0] - r["density"][1]) / BOHR**3
+            self.last["magnetic_moments"] = moments_of.magnetic_moments(
+                m, cell, fractional @ cell, radius
+            )
+            self.last["moment_radius"] = float(radius)
         virial = None
         if stress:
             virial = -r["strain_derivative"] * HARTREE

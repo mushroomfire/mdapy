@@ -123,6 +123,48 @@ def test_spin(folder):
     assert "magnetization" not in plain.last and plain.last["iterations"] > 1
 
 
+def test_magnetic_moments(folder):
+    espresso.pseudo("Fe_std.upf")
+    espresso.pseudo("Cr_std.upf")
+    a = 2.87
+    positions = np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a
+    box = mdapy.Box(np.diag([a, a, a]))
+    iron = mdapy.System(positions, box, elements=["Fe", "Fe"])
+    dft = DFT(
+        16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2), magmoms={"Fe": 2.5}
+    )
+    dft.compute(iron)
+    m = dft.last["magnetic_moments"]
+    assert m.shape == (2,) and m.dtype == np.float64
+    # the default radius: half the distance between nearest neighbors
+    assert dft.last["moment_radius"] == pytest.approx(a * np.sqrt(3) / 4)
+    assert np.all(m > 1.5) and np.all(m < 3.0)
+    assert m[0] == pytest.approx(m[1], abs=1e-4)
+    # the spheres hold most of the total, never more than a little over it
+    assert 0.6 * dft.last["magnetization"] < m.sum() < 1.05 * dft.last["magnetization"]
+    # a given radius is used, and a larger one holds more of a ferromagnet
+    wide = DFT(16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2),
+               magmoms={"Fe": 2.5}, moment_radius=1.4)  # fmt: skip
+    wide.compute(iron)
+    assert wide.last["moment_radius"] == 1.4
+    assert np.all(wide.last["magnetic_moments"] > m)
+    # antiferromagnetic chromium: moments of opposite signs, a total of zero
+    b = 2.88
+    chromium = mdapy.System(np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * b,
+                            mdapy.Box(np.diag([b, b, b])), elements=["Cr", "Cr"])  # fmt: skip
+    afm = DFT(16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2),
+              magmoms=[1.0, -1.0])  # fmt: skip
+    afm.compute(chromium)
+    c = afm.last["magnetic_moments"]
+    assert c[0] > 0.3 and c[1] < -0.3
+    # the two alike, to the convergence of the field (about 1e-3 at its tolerance)
+    assert abs(c[0] + c[1]) < 0.01 * abs(c[0])
+    # without spin there are no moments
+    plain = calculator(folder)
+    plain.compute(silicon())
+    assert "magnetic_moments" not in plain.last
+
+
 def test_the_mixing_with_and_without_spin(folder, monkeypatch):
     """The density mixed by 0.7 without spin, as Quantum ESPRESSO, by 0.4 with
     it, the magnetization by 1.0; a mixing given is kept."""
@@ -170,6 +212,8 @@ def test_errors(folder, tmp_path):
         calculator(folder, magmoms=[1.0]).compute(silicon())
     with pytest.raises(ValueError, match="no GPU 99"):
         calculator(folder, gpu=99).compute(silicon())
+    with pytest.raises(InvalidParameter, match="moment_radius must be positive"):
+        calculator(folder, moment_radius=0.0)
     with pytest.raises(InvalidParameter, match="gpu must be at least 0"):
         calculator(folder, gpu=-1)
     with pytest.raises(CalculationFailed, match="did not converge in 2 steps"):

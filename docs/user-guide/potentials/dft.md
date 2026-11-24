@@ -65,19 +65,26 @@ CUDA 12 for GPUs from the V100 on.
 | `seed` | int32 | 0 | | seed of the random first bands |
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
 | `restart` | bool | `False` | | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; labels of a training set should start cold |
+| `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 
 | Attribute or method | Meaning |
 |---|---|
 | `cutoff` | 0: the calculator needs no neighbor list |
 | `compute(system, properties, *, neighbors=None)` | the free energy in eV, the forces in eV/Å and, when asked, the virial in eV; `neighbors` is not used |
-| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `net_force` (eV/Å), `kpoints`, `grid`, `provenance` |
+| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `provenance` |
 
 The system must be periodic along a, b and c and have an `element` column. The
 energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
 what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
 the cutoff, the mesh, the smearing and its width, the functional, the spins, the
 grid and the bands. Labels of a set should share them.
+
+The magnetic moments are those of the smooth density on the grid, with the
+augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center
+corrections of PAW, within spheres that do not overlap: they depend on the radius, and
+their sum is less than `magnetization`, which counts the whole cell. Compare them across
+labels of a set only with the same `moment_radius`.
 
 ## Many GPUs
 

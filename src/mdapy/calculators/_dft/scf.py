@@ -6,13 +6,13 @@
 """The self-consistent field of a cell on the GPU, in hartree atomic units: the
 setup on the host (the grid, the k-points, V_loc, the core charge and the first
 density from the pseudopotentials, the Ewald energy), then one call of
-mdapy_dft_cuda12 for the whole loop."""
+the module _dft of the GPU part for the whole loop."""
 
 import math
 
 import numpy as np
 
-from . import augmentation, paw, radial
+from . import augmentation, loader, paw, radial
 from . import symmetry as symmetries
 
 _FUNCTIONALS = {
@@ -90,8 +90,7 @@ def first_density(atom_f, positions, kinds, pseudos, miller, magmoms=None):
     n): each times the structure factor of its atoms on the GPU; the
     magnetization is the density of each atom times its moment over its
     valence."""
-    from mdapy_dft_cuda12 import _dft
-
+    _dft = loader.module()
     tau = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)
     m = np.ascontiguousarray(miller, dtype=np.int32)
@@ -203,8 +202,7 @@ def mixed_precision(precision: str) -> bool:
     precision is a small part of their single."""
     if precision != "auto":
         return precision == "mixed"
-    from mdapy_dft_cuda12 import _dft
-
+    _dft = loader.module()
     return tuple(_dft.device_capability()) not in _FULL_DOUBLE
 
 
@@ -268,7 +266,7 @@ def run(
     strain_derivative is dE/d epsilon (3, 3) of a homogeneous strain at fixed
     Miller indices, hartree; basis_cell chooses the plane waves (and the
     sphere of the density), the cell by default, for differences of the energy
-    at a fixed basis; state, a mdapy_dft_cuda12._dft.State, starts the run
+    at a fixed basis; state, a State of the module _dft, starts the run
     from the last one kept in it when they fit and keeps this one (its
     steps, 3 instead of 1, extrapolates the density to second order from the
     last three runs). With
@@ -327,8 +325,7 @@ def run(
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
         raise ValueError("precision must be 'double', 'mixed' or 'auto'")
-    from mdapy_dft_cuda12 import _dft
-
+    _dft = loader.module()
     cell = np.ascontiguousarray(cell, dtype=float)
     positions = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)

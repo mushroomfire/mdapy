@@ -3,9 +3,10 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// mdapy_dft_cuda12._dft: the plane-wave DFT of MDAPY on the GPU. Built only with
-// the CUDA toolkit (CMake option MDAPY_DFT_ONLY). For now its pieces alone,
-// numpy arrays in and out, in hartree atomic units.
+// _dft: the plane-wave DFT of MDAPY on the GPU, in the GPU part beside _cuda or
+// _hip (mdapy_cuda12._dft, mdapy_rocm6._dft; CMake option MDAPY_DFT, built with
+// CUDA or with HIP of ROCm). Its pieces, numpy arrays in and out, in hartree
+// atomic units.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>

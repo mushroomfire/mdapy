@@ -16,9 +16,9 @@ import pytest
 from mdapy.calculators._dft import paw, radial
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso, paw_reference
+from dft import espresso, gpu, paw_reference
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 
 
 def dataset(element):

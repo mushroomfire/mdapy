@@ -178,8 +178,11 @@ def run_mdapy(folder: Path, name: str, label: str, mpi: bool = False) -> None:
 
     comm, rank, size = None, 0, 1
     if mpi:
-        from mdapy_dft_cuda12 import _dft
         from mpi4py import MPI
+
+        from mdapy.calculators._dft import loader
+
+        _dft = loader.module()
 
         comm, rank, size = (
             MPI.COMM_WORLD,

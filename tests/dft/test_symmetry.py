@@ -15,11 +15,11 @@ import pytest
 from mdapy.calculators._dft import angular, paw, scf, symmetry
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso, paw_reference
+from dft import espresso, gpu, paw_reference
 from dft.test_paw import dataset
 
 pytest.importorskip("spglib")
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 
 BOHR = 0.529177210903
 KBAR = 294210.1

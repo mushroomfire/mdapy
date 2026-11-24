@@ -16,7 +16,9 @@ import math
 import numpy as np
 import pytest
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+from dft import gpu
+
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 

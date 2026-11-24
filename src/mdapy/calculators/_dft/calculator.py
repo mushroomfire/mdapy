@@ -4,8 +4,8 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """MDAPY's plane-wave DFT as a calculator: energies, forces and virials of
-periodic cells from norm-conserving, ultrasoft or PAW pseudopotentials on an
-NVIDIA GPU."""
+periodic cells from norm-conserving, ultrasoft or PAW pseudopotentials on a
+GPU."""
 
 import math
 import os
@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator, CalculatorResult
+from mdapy.calculators._dft import loader
 from mdapy.core.system import System
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 
@@ -57,8 +58,9 @@ def _find_pseudopotential(folder: Path, element: str) -> Path:
 
 class DFT(Calculator):
     """Energies, forces and virials from Kohn-Sham density functional theory
-    in plane waves, computed by MDAPY on an NVIDIA GPU (the package
-    ``mdapy-dft-cuda12``), for periodic cells.
+    in plane waves, computed by MDAPY on a GPU (the module ``_dft`` of the
+    package ``mdapy-cuda12`` with NVIDIA's cuBLAS, cuFFT and cuSOLVER, or of
+    ``mdapy-rocm6``), for periodic cells.
 
     Parameters
     ----------
@@ -199,6 +201,12 @@ class DFT(Calculator):
     The energy is the free energy of the smearing, VASP's TOTEN. The virial
     is the derivative at a fixed set of plane waves: it lacks the Pulay
     stress of an incomplete basis, which a higher cutoff makes small.
+
+    Raises
+    ------
+    InvalidParameter
+        If a parameter is out of range, if there is no GPU part with the DFT,
+        or if the libraries of the DFT are missing.
     """
 
     implemented = frozenset({"energy", "forces", "virial"})
@@ -339,6 +347,7 @@ class DFT(Calculator):
             from mpi4py import MPI
 
             self.gpu = comm.Split_type(MPI.COMM_TYPE_SHARED).Get_rank()
+        loader.module()  # the GPU part with the DFT and its libraries, loaded
         self.__state = None
         self.cutoff = 0.0
         self.elements = None
@@ -367,9 +376,7 @@ class DFT(Calculator):
         if not self.restart:
             return None
         if self.__state is None:
-            from mdapy_dft_cuda12 import _dft
-
-            self.__state = _dft.State()
+            self.__state = loader.module().State()
             self.__state.steps = 3 if self.restart == "second_order" else 1
         return self.__state
 
@@ -439,8 +446,7 @@ class DFT(Calculator):
         # the steps that need no pressure
         stress = "virial" in wanted and WITHOUT_VIRIAL not in properties
         if self.gpu is not None:
-            from mdapy_dft_cuda12 import _dft
-
+            _dft = loader.module()
             count = _dft.device_count()
             _dft.set_device(
                 self.gpu % count if self.comm is not None and count > 0 else self.gpu

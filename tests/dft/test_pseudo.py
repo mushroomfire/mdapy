@@ -22,6 +22,8 @@ from mdapy.calculators._dft.ewald import ewald
 from mdapy.calculators._dft.upf import read_upf
 from mdapy.errors import InvalidParameter
 
+from dft import gpu
+
 BOHR = 0.529177210903  # Å
 
 
@@ -385,7 +387,7 @@ def test_functional_of_headers():
 def test_ewald_of_the_extension():
     """The Ewald sum of the extension, whose split grows with the atoms,
     against the NumPy one: a small triclinic cell and 64 atoms."""
-    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+    _dft = gpu.module()
     rng = np.random.default_rng(11)
     for count, cell in [
         (4, np.array([[6.0, 0.3, 0.0], [0.5, 7.0, 0.2], [0.0, -0.4, 6.5]])),
@@ -403,7 +405,7 @@ def test_ewald_of_the_extension():
 def test_first_density_on_the_gpu(tmp_path):
     """The density and magnetization of the free atoms on the sphere, summed
     over the atoms on the GPU, against NumPy."""
-    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+    _dft = gpu.module()
     if _dft.device_count() == 0:
         pytest.skip("no GPU")
     from mdapy.calculators._dft import scf

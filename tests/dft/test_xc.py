@@ -11,7 +11,9 @@ constants of Perdew and Wang and for PBE and PBEsol, polarized and not."""
 import numpy as np
 import pytest
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+from dft import gpu
+
+_dft = gpu.module()
 pylibxc = pytest.importorskip("pylibxc")
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)

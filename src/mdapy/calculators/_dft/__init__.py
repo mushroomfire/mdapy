@@ -5,4 +5,5 @@
 
 """The plane-wave DFT of MDAPY: its parts that run on the processor, the
 pseudopotentials, their radial transforms and the Ewald sum, in hartree atomic
-units; the rest runs on the GPU in mdapy_dft_cuda12. Under development."""
+units; the rest runs on the GPU in the module _dft of the GPU part (loader.py).
+Under development."""

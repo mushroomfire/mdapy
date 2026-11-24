@@ -19,10 +19,10 @@ import pytest
 from mdapy.calculators._dft import radial, scf
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso
+from dft import espresso, gpu
 from dft.hamiltonians import Gaussians, setup
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 

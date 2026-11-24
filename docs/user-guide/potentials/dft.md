@@ -2,8 +2,8 @@
 
 !!! warning "Under development"
     MDAPY's density functional theory is new. It takes norm-conserving,
-    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU per
-    configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
+    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU (or AMD GPU, built
+    from source) per configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
 <!-- skip-test -->
@@ -41,6 +41,17 @@ theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
 hundred atoms, one at a time. It needs the package `mdapy-dft-cuda12`, built with
 CUDA 12 for GPUs from the V100 on.
+
+For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
+6, from the source of MDAPY, as the same package:
+
+```bash
+pip install ./dft-cuda12 -Ccmake.define.MDAPY_DFT_HIP=ON -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+`gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
+ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
+the calculations of several threads take turns on the GPU instead of running at once.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|

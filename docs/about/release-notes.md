@@ -7,6 +7,13 @@
   (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
   whichever GPU part is there. On the Instinct MI250X they give the results of the
   processor as on NVIDIA GPUs. See [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
+- `mdapy.calculators.D3`, the dispersion correction DFT-D3 of Grimme et al., native on
+  the processor and the GPU: Becke–Johnson and zero damping, the parameters of twelve
+  functionals or numbers given, the three-body term, the elements H to Lr. Added to
+  another potential with `Overlay`, in single points and in molecular dynamics. Its
+  results are those of s-dftd3 1.7.0 to rounding with the same constants, and those of
+  LAMMPS's `pair_style dispersion/d3` to the rounding of its tables; on the GPU it finds
+  its pairs itself, for any box. See [DFT-D3 dispersion](../user-guide/potentials/d3.md).
 - The example [Radiation damage in tungsten and MoNbTaVW](../examples/radiation-cascade.md)
   replaces the collision cascade in tungsten: with the machine-learned potential of Liu
   et al. (2025), the threshold displacement energies of Mo, Nb, Ta, V and W and of each

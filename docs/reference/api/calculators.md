@@ -30,6 +30,8 @@
 
 ::: mdapy.calculators.Overlay
 
+::: mdapy.calculators.D3
+
 ::: mdapy.calculators.Springs
 
 ::: mdapy.calculators.NEP

@@ -9,6 +9,7 @@ file(GLOB MDAPY_GPU_KERNELS CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/c
 set(MDAPY_GPU_HOST_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/eam.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/pair.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/d3.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/adp.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/stillinger_weber.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/src/cpp/calculators/many_body.cpp"

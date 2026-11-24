@@ -210,6 +210,8 @@ jobs:
       # freud at its reference version for the comparisons with it, and
       # pymatgen for the conversions
       - run: pip install freud-analysis==3.6.1 pymatgen-core
+      # s-dftd3 at its reference version for the comparisons of D3
+      - run: pip install dftd3==1.7.0
       # phonopy for the comparisons of phonons, phono3py for those of the
       # thermal conductivity (pinned together: a newer phono3py upgrades
       # phonopy), seekpath for the paths

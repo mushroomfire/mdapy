@@ -279,8 +279,10 @@ def test_mixed_precision_gives_the_label_of_double():
     fractions = np.array([[0.01, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
     system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
     pp = {"Al": espresso.pseudo("Al_std.upf")}
+    # at 1e-8 eV either label's forces are 1e-5 eV/Å from the converged ones,
+    # the spread of the SCF itself; at 1e-10 that is well below the 1e-5 asked
     common = dict(pseudopotentials=pp, kpoints=(3, 3, 3), smearing="marzari-vanderbilt", sigma=0.2,
-                  tolerance=1e-8, symmetry=False)  # fmt: skip
+                  tolerance=1e-10, symmetry=False)  # fmt: skip
     double = DFT(300.0, **common)
     mixed = DFT(300.0, precision="mixed", **common)
     first = double.compute(system, ("energy", "forces"))

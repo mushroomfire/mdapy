@@ -238,19 +238,26 @@ magnet from wandering among nearby orders or falling to none:
 from mdapy.calculators import DFT
 from mdapy.errors import CalculationFailed
 
-dft = DFT(600.0, magmoms={"Cr": -1.0, "Co": 1.5, "Ni": 0.6}, preconditioner="ldos")
+dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos")
 try:
     result = dft.compute(cell, ("energy", "forces", "virial"))
 except CalculationFailed:  # slower still: a smaller share of the residual, more steps
-    dft = DFT(600.0, magmoms={"Cr": -1.0, "Co": 1.5, "Ni": 0.6}, preconditioner="ldos",
+    dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos",
               mixing=0.2, max_iterations=200)  # fmt: skip
     result = dft.compute(cell, ("energy", "forces", "virial"))
 print(dft.last["iterations"], dft.last["magnetization"])
 ```
 
-A magnet can converge to more than one state from different first moments:
-compare `last["magnetization"]` and `last["absolute_magnetization"]` across the
-labels of a set, and start them alike.
+A magnet can converge to more than one state, and the first moments choose among them.
+Cells of four atoms of Co2CrNi, started with −1, 1.5 and 0.6 Bohr magnetons on Cr, Co
+and Ni, ended in 6 of 20 cells in states of smaller moments, or none, 50 to 110 meV per
+atom above a ferrimagnetic one; started with twice those moments, as above, all reached
+it, in fewer steps. Where the first moment sits, over the valence or in the d shell,
+made no difference; its size did. Start each atom at or above the moment it is expected
+to carry, its high-spin moment when unsure. A state of small moments, once converged,
+holds: restarted with its magnetization doubled, it came back. Compare
+`last["magnetization"]` and `last["absolute_magnetization"]` across the labels of a set,
+and start them alike.
 
 ## How the results compare with Quantum ESPRESSO
 

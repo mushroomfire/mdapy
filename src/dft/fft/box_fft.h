@@ -1,0 +1,76 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Batched 3D FFTs of boxes of n1 x n2 x n3 points, the third index the fastest,
+// written for the plane-wave DFT alone: sizes that are products of 2, 3, 5 and
+// 7, boxes that follow one another, complex transforms in place and real ones
+// out of place, in double and single precision. The conventions are those of
+// cuFFT: unnormalized, exp(-i ...) forward and exp(+i ...) inverse, and a real
+// box of n1 n2 n3 values has n1 n2 (n3 / 2 + 1) complex components.
+//
+// Complex numbers are pairs (real, imaginary) of the real type, the layout of
+// std::complex, cuDoubleComplex and hipDoubleComplex.
+//
+// One kernel transforms one axis: a block loads whole lines into shared memory,
+// runs every pass of radix 2, 3, 4, 5, 7 or 8 there and stores them, so that a
+// box is read and written three times. The tables of a box (roots of unity and
+// orders) do not depend on the number of boxes.
+
+#pragma once
+
+#include <array>
+#include <cstddef>
+
+namespace mdapy::dft {
+
+class BoxFft {
+public:
+    // Whether every size is a product of 2, 3, 5 and 7 that fits a block.
+    static bool supported(const std::array<int, 3>& grid) noexcept;
+
+    explicit BoxFft(const std::array<int, 3>& grid);
+    ~BoxFft();
+    BoxFft(const BoxFft&) = delete;
+    BoxFft& operator=(const BoxFft&) = delete;
+
+    std::size_t points() const noexcept;    // n1 n2 n3
+    std::size_t spectrum() const noexcept;  // n1 n2 (n3 / 2 + 1)
+
+    // count complex boxes in place: 2 points() reals each.
+    void forward(double* boxes, int count);
+    void inverse(double* boxes, int count);
+    void forward(float* boxes, int count);
+    void inverse(float* boxes, int count);
+
+    // count real boxes of points() values to spectrum() complex components and
+    // back; inverse overwrites its spectrum.
+    void forward(const double* values, double* spectrum, int count);
+    void inverse(double* spectrum, double* values, int count);
+    void forward(const float* values, float* spectrum, int count);
+    void inverse(float* spectrum, float* values, int count);
+
+    // Lines per block (a power of two, as its logarithm) and threads per block
+    // (a multiple of 64) of the kernels of a precision (0 double, 1 single) and
+    // a kind of axis (0 strided, 1 contiguous), instead of the defaults; zeros
+    // give the defaults back. For measurements.
+    void tune(int precision, int kind, int log_lines, int threads);
+
+private:
+    struct Tables;
+    template <class R>
+    void complex_boxes(R* boxes, int count, int sign);
+    template <class R>
+    void real_forward(const R* values, R* spectrum, int count);
+    template <class R>
+    void real_inverse(R* spectrum, R* values, int count);
+    template <class R, int Sign>
+    void strided(R* boxes, int axis, long long planes, long long columns, long long stride);
+
+    std::array<int, 3> grid_;
+    Tables* tables_[3] = {nullptr, nullptr, nullptr};  // of each axis; equal sizes share one
+    int tuned_[2][2][2] = {};
+};
+
+}  // namespace mdapy::dft

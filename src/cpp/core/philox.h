@@ -9,13 +9,14 @@
 // what was drawn before, so that each atom draws its own noise from its global
 // index and the step, whatever thread, device or process computes it, and a run
 // continued from a restart draws what it would have drawn. Compiled by the host
-// compiler and by nvcc alike, so that the processor and the GPU draw the same.
+// compiler, by nvcc and as HIP alike, so that the processor and the GPU draw
+// the same.
 #pragma once
 
 #include <cmath>
 #include <cstdint>
 
-#if defined(__CUDACC__)
+#if defined(__CUDACC__) || defined(__HIP__)
 #define MDAPY_HOST_DEVICE __host__ __device__
 #else
 #define MDAPY_HOST_DEVICE

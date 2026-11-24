@@ -35,6 +35,12 @@ territories, *Dalton Trans.* **42**, 8617 (2013).
 [doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
 { #alvarez2013 }
 
+**Anderson et al. (1970).** J. L. Anderson, J. Nasise, K. Phillipson and F. E. Pretzel,
+Isotopic effects on the thermal expansion of lithium hydride, *J. Phys. Chem. Solids*
+**31**, 613 (1970).
+[doi:10.1016/0022-3697(70)90195-2](https://doi.org/10.1016/0022-3697(70)90195-2)
+{ #anderson1970 }
+
 **Bartók, Kondor and Csányi (2013).** A. P. Bartók, R. Kondor and G. Csányi,
 On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)
@@ -103,6 +109,12 @@ Dislocations* (Oxford University Press, Oxford, 2006).
 using Langevin dynamics, *Phys. Rev. E* **75**, 056707 (2007).
 [doi:10.1103/PhysRevE.75.056707](https://doi.org/10.1103/PhysRevE.75.056707)
 { #bussi2007 }
+
+**Bussi, Zykova-Timan and Parrinello (2009).** G. Bussi, T. Zykova-Timan and M.
+Parrinello, Isothermal-isobaric molecular dynamics using stochastic velocity
+rescaling, *J. Chem. Phys.* **130**, 074101 (2009).
+[doi:10.1063/1.3073889](https://doi.org/10.1063/1.3073889)
+{ #bussi2009 }
 
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
@@ -413,6 +425,12 @@ thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 20544
 [doi:10.1103/PhysRevB.81.205441](https://doi.org/10.1103/PhysRevB.81.205441)
 { #lindsay2010 }
 
+**Liu et al. (2025).** J. Liu, J. Byggmästar, Z. Fan, B. Bai, P. Qian and Y. Su,
+Utilizing a machine-learned potential to explore enhanced radiation tolerance in the
+MoNbTaVW high-entropy alloy, *J. Nucl. Mater.* **616**, 156004 (2025).
+[doi:10.1016/j.jnucmat.2025.156004](https://doi.org/10.1016/j.jnucmat.2025.156004)
+{ #liu2025 }
+
 **Lorch (1969).** E. Lorch, Neutron diffraction by germania, silica and
 radiation-damaged silica glasses, *J. Phys. C: Solid State Phys.* **2**, 229 (1969).
 [doi:10.1088/0022-3719/2/2/305](https://doi.org/10.1088/0022-3719/2/2/305)
@@ -493,6 +511,20 @@ cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
 7556 (1998).
 [doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
 { #nordlund1998 }
+
+**Nordlund et al. (2018).** K. Nordlund, S. J. Zinkle, A. E. Sand, F. Granberg,
+R. S. Averback, R. Stoller, T. Suzudo, L. Malerba, F. Banhart, W. J. Weber, F.
+Willaime, S. L. Dudarev and D. Simeone, Improving atomic displacement and replacement
+calculations with physically realistic damage models, *Nat. Commun.* **9**, 1084
+(2018).
+[doi:10.1038/s41467-018-03415-5](https://doi.org/10.1038/s41467-018-03415-5)
+{ #nordlund2018 }
+
+**Norgett, Robinson and Torrens (1975).** M. J. Norgett, M. T. Robinson and I. M.
+Torrens, A proposed method of calculating displacement dose rates, *Nucl. Eng. Des.*
+**33**, 50 (1975).
+[doi:10.1016/0029-5493(75)90035-7](https://doi.org/10.1016/0029-5493(75)90035-7)
+{ #norgett1975 }
 
 **Nye (1985).** J. F. Nye, *Physical Properties of Crystals: Their Representation by
 Tensors and Matrices* (Oxford University Press, Oxford, 1985).
@@ -793,6 +825,14 @@ ultra-efficient and accurate training of neuroevolution potentials (2026).
 model across elements, temperatures and pressures (2024).
 [arXiv:2405.04967](https://arxiv.org/abs/2405.04967)
 { #yang2024 }
+
+**Ying et al. (2025).** P. Ying, W. Zhou, L. Svensson, E. Berger, E. Fransson, F.
+Eriksson, K. Xu, T. Liang, J. Xu, B. Song, S. Chen, P. Erhart and Z. Fan, Highly
+efficient path-integral molecular dynamics simulations with GPUMD using neuroevolution
+potentials: Case studies on thermal properties of materials, *J. Chem. Phys.* **162**,
+064109 (2025).
+[doi:10.1063/5.0241006](https://doi.org/10.1063/5.0241006)
+{ #ying2025 }
 
 **Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
 Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs

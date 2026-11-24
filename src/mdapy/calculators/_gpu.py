@@ -3,9 +3,11 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Calculators on an NVIDIA GPU: the potential on the device, with the atoms
-and the neighbor list of its last computation kept there."""
+"""Calculators on a GPU, NVIDIA's with CUDA or AMD's with HIP: the potential
+on the device, with the atoms and the neighbor list of its last computation
+kept there."""
 
+import importlib
 import os
 import threading
 from collections.abc import Set
@@ -27,14 +29,17 @@ SKIN = 1.0
 _NO_GPU_PART = (
     "this MDAPY has no GPU part: on Linux on x86-64 or ARM, install it with "
     'pip install "mdapy[cuda12]"; elsewhere, build MDAPY with the CUDA toolkit, '
-    "pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON"
+    "pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON; for an "
+    "AMD GPU, build it with ROCm, -Ccmake.define.MDAPY_HIP=ON"
 )
 
+# the packages of the GPU part: the name pip knows, and the module in each
+PACKAGES = {"mdapy-cuda12": "_cuda", "mdapy-rocm6": "_hip"}
 
-def module() -> Any:
-    """The GPU part: mdapy._cuda of an MDAPY built with the CUDA toolkit, or
-    that of the package mdapy-cuda12 at the version of MDAPY; None without
-    either."""
+
+def _built_in() -> Any:
+    """The GPU part built with MDAPY: mdapy._cuda with the CUDA toolkit, or
+    mdapy._hip with ROCm; None without either."""
     try:
         from mdapy import _cuda
 
@@ -42,19 +47,40 @@ def module() -> Any:
     except ImportError:
         pass
     try:
-        import mdapy_cuda12
+        from mdapy import _hip
+
+        return _hip
     except ImportError:
         return None
+
+
+def module() -> Any:
+    """The GPU part: mdapy._cuda or mdapy._hip of an MDAPY built with the
+    CUDA toolkit or with ROCm, or that of the package mdapy-cuda12 or
+    mdapy-rocm6 at the version of MDAPY, of the two the first that sees a
+    device; None without any."""
+    found = _built_in()
+    if found is not None:
+        return found
     import mdapy
 
-    if mdapy_cuda12.__version__ != mdapy.__version__:
-        raise InvalidParameter(
-            f"mdapy-cuda12 {mdapy_cuda12.__version__} is not the GPU part of MDAPY "
-            f'{mdapy.__version__}: pip install --upgrade "mdapy[cuda12]"'
-        )
-    from mdapy_cuda12 import _cuda
-
-    return _cuda
+    parts = []
+    for name, part in PACKAGES.items():
+        try:
+            package = importlib.import_module(name.replace("-", "_"))
+        except ImportError:
+            continue
+        if package.__version__ != mdapy.__version__:
+            raise InvalidParameter(
+                f"{name} {package.__version__} is not the GPU part of MDAPY "
+                f'{mdapy.__version__}: pip install --upgrade "mdapy[{name[6:]}]"'
+            )
+        parts.append(importlib.import_module(f"{package.__name__}.{part}"))
+    if len(parts) > 1:
+        for part in parts:
+            if part.device_count() > 0:
+                return part
+    return parts[0] if parts else None
 
 
 def _local_rank() -> int | None:

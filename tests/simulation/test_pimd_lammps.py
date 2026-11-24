@@ -6,7 +6,8 @@
 """Path integrals against LAMMPS's fix pimd/langevin, which needs LAMMPS
 with MPI and the REPLICA package, one partition a bead: neon of
 Lennard-Jones at 20 K, its quantum estimators averaged, the same within
-their statistical errors. MDAPY_LAMMPS_NEB gives the command that starts
+their statistical errors, at constant volume and at zero pressure with the
+BZP barostat. MDAPY_LAMMPS_NEB gives the command that starts
 it, with {n} for the number of processes, such as
 ``mpirun -np {n} /path/to/lmp``."""
 
@@ -40,11 +41,16 @@ timestep 0.002
 velocity all create 20.0 4711 dist gaussian mom yes
 fix 1 all pimd/langevin method nmpimd integrator baoab ensemble nvt temp 20.0 &
     thermostat PILE_L 4711 tau 0.1 fixcom no
-thermo_style custom step f_1[3] f_1[5] f_1[7] f_1[10]
+thermo_style custom step f_1[3] f_1[5] f_1[7] f_1[10] vol
 thermo_modify norm no
 thermo 10
 run {steps}
 """
+AT_PRESSURE = INPUT.replace(
+    "ensemble nvt temp 20.0 &\n    thermostat PILE_L 4711 tau 0.1 fixcom no",
+    "ensemble npt temp 20.0 &\n    thermostat PILE_L 4711 tau 0.1 iso 0.0 barostat BZP taup 1.0 "
+    "fixcom no",
+)
 
 
 def mean_and_error(x):
@@ -53,8 +59,8 @@ def mean_and_error(x):
     return x.mean(), blocks.std(ddof=1) / np.sqrt(20)
 
 
-def lammps(tmp_path):
-    (tmp_path / "in.pimd").write_text(INPUT.format(steps=STEPS))
+def lammps(tmp_path, text=INPUT):
+    (tmp_path / "in.pimd").write_text(text.format(steps=STEPS))
     command = COMMAND.format(n=BEADS).split() + [
         "-partition", f"{BEADS}x1", "-in", "in.pimd", "-screen", "none",
     ]  # fmt: skip
@@ -66,7 +72,7 @@ def lammps(tmp_path):
         table = []
         for line in lines[start + 1 :]:
             parts = line.split()
-            if len(parts) != 5:
+            if len(parts) != 6:
                 break
             table.append([float(p) for p in parts])
         rows.append(np.array(table))
@@ -76,11 +82,13 @@ def lammps(tmp_path):
         "primitive_kinetic_energy": rows[0][keep, 2],
         "kinetic_energy": rows[0][keep, 3],
         "pressure": rows[0][keep, 4] * 1e-4,  # bar to GPa
+        "volume": rows[0][keep, 5],
     }
 
 
 def test_neon_as_lammps(tmp_path):
     expected = lammps(tmp_path)
+    del expected["volume"]  # that of the box, the same in both
     neon = build_crystal("fcc", 4.46, elements="Ne", repeat=(4, 4, 4))
     lj = LennardJones({"Ne": (0.0031, 2.74)}, 8.0)
     with MolecularDynamics(neon, lj, timestep=0.002, beads=BEADS) as md:
@@ -95,3 +103,21 @@ def test_neon_as_lammps(tmp_path):
         assert abs(mine - theirs) < 4 * np.hypot(mine_error, their_error), name
     # quantum: the kinetic energy half again the classical
     assert thermo["kinetic_energy"].mean() > 1.4 * classical
+
+
+def test_neon_at_zero_pressure_as_lammps(tmp_path):
+    expected = lammps(tmp_path, AT_PRESSURE)
+    neon = build_crystal("fcc", 4.46, elements="Ne", repeat=(4, 4, 4))
+    lj = LennardJones({"Ne": (0.0031, 2.74)}, 8.0)
+    with MolecularDynamics(neon, lj, timestep=0.002, beads=BEADS) as md:
+        md.velocities(TEMPERATURE, seed=4711)
+        md.run(STEPS, ensemble="npt", thermostat="langevin", temperature=TEMPERATURE,
+               thermostat_damping=0.1, pressure=0.0, barostat="iso",
+               barostat_damping=1.0, seed=4711, thermo=10)  # fmt: skip
+        thermo = md.thermo.filter(md.thermo["step"] > SKIPPED)
+    for name, values in expected.items():
+        mine, mine_error = mean_and_error(thermo[name].to_numpy())
+        theirs, their_error = mean_and_error(values)
+        assert abs(mine - theirs) < 4 * np.hypot(mine_error, their_error), name
+    # the zero-point motion: the quantum crystal larger than its box at the start
+    assert thermo["volume"].mean() > neon.box.volume

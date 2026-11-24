@@ -303,6 +303,34 @@ Time timed(int repeats, Reset reset, Run run) {
     return {ms.front(), ms[ms.size() / 2]};
 }
 
+// Two transforms timed in turn, a repeat of one after a repeat of the other,
+// so that both see the same state of the GPU (its clocks move with the load).
+template <class Reset, class First, class Second>
+std::pair<Time, Time> timed_pair(int repeats, Reset reset, First first, Second second) {
+    cudaEvent_t start, stop;
+    ok(cudaEventCreate(&start), "event");
+    ok(cudaEventCreate(&stop), "event");
+    std::vector<double> ms[2];
+    for (int i = -3; i < repeats; ++i)
+        for (int which = 0; which < 2; ++which) {
+            reset();
+            ok(cudaEventRecord(start), "record");
+            if (which == 0)
+                first();
+            else
+                second();
+            ok(cudaEventRecord(stop), "record");
+            ok(cudaEventSynchronize(stop), "synchronize");
+            float t = 0.0f;
+            ok(cudaEventElapsedTime(&t, start, stop), "elapsed");
+            if (i >= 0) ms[which].push_back(t);
+        }
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+    for (auto& m : ms) std::sort(m.begin(), m.end());
+    return {{ms[0].front(), ms[0][ms[0].size() / 2]}, {ms[1].front(), ms[1][ms[1].size() / 2]}};
+}
+
 void line(const char* name, const std::array<int, 3>& g, int count, Time cu, Time ours) {
     std::printf("%-12s %4d x %4d x %4d  x %3d   cuFFT %8.3f ms (median %8.3f)   ours %8.3f ms (median %8.3f)   ours/cuFFT %5.2f\n",
                 name, g[0], g[1], g[2], count, cu.least, cu.median, ours.least, ours.median, ours.least / cu.least);
@@ -321,14 +349,14 @@ void time_shape(const std::array<int, 3>& g, int count, int repeats, BoxFft* tun
         input.put(noise<R>(nc, 3));
         const cufftHandle h = plan_of(g, Types<R>::complex, count);
         for (int dir = 0; dir < 2; ++dir) {
-            const Time cu = timed(repeats, [&] { a.copy(input); },
-                                  [&] { Types<R>::exec(h, a.p, dir == 0 ? CUFFT_FORWARD : CUFFT_INVERSE); });
-            const Time ours = timed(repeats, [&] { a.copy(input); }, [&] {
-                if (dir == 0)
-                    fft.forward(a.p, count);
-                else
-                    fft.inverse(a.p, count);
-            });
+            const auto [cu, ours] = timed_pair(
+                repeats, [&] { a.copy(input); },
+                [&] { Types<R>::exec(h, a.p, dir == 0 ? CUFFT_FORWARD : CUFFT_INVERSE); }, [&] {
+                    if (dir == 0)
+                        fft.forward(a.p, count);
+                    else
+                        fft.inverse(a.p, count);
+                });
             if (!quiet) line(Types<R>::names[dir], g, count, cu, ours);
             if (out) out[dir] = ours.least / cu.least;
         }
@@ -338,13 +366,16 @@ void time_shape(const std::array<int, 3>& g, int count, int repeats, BoxFft* tun
         Device<R> values(nr), spectrum(nh), keep(nh), back(nr);
         values.put(noise<R>(nr, 4));
         const cufftHandle hf = plan_of(g, Types<R>::to_complex, count), hi = plan_of(g, Types<R>::to_real, count);
-        Time cu = timed(repeats, [] {}, [&] { Types<R>::exec_forward(hf, values.p, spectrum.p); });
-        Time ours = timed(repeats, [] {}, [&] { fft.forward(values.p, spectrum.p, count); });
-        if (!quiet) line(Types<R>::names[2], g, count, cu, ours);
-        if (out) out[2] = ours.least / cu.least;
-        keep.copy(spectrum);
-        cu = timed(repeats, [&] { spectrum.copy(keep); }, [&] { Types<R>::exec_inverse(hi, spectrum.p, back.p); });
-        ours = timed(repeats, [&] { spectrum.copy(keep); }, [&] { fft.inverse(spectrum.p, back.p, count); });
+        std::pair<Time, Time> t = timed_pair(
+            repeats, [] {}, [&] { Types<R>::exec_forward(hf, values.p, spectrum.p); },
+            [&] { fft.forward(values.p, spectrum.p, count); });
+        if (!quiet) line(Types<R>::names[2], g, count, t.first, t.second);
+        if (out) out[2] = t.second.least / t.first.least;
+        Types<R>::exec_forward(hf, values.p, keep.p);
+        t = timed_pair(
+            repeats, [&] { spectrum.copy(keep); }, [&] { Types<R>::exec_inverse(hi, spectrum.p, back.p); },
+            [&] { fft.inverse(spectrum.p, back.p, count); });
+        const Time cu = t.first, ours = t.second;
         if (!quiet) line(Types<R>::names[3], g, count, cu, ours);
         if (out) out[3] = ours.least / cu.least;
         cufftDestroy(hf);
@@ -386,6 +417,22 @@ int main(int argc, char** argv) {
         const int count = std::atoi(argv[5]), repeats = argc > 6 ? std::atoi(argv[6]) : 30;
         time_shape<double>(g, count, repeats);
         time_shape<float>(g, count, repeats);
+        return 0;
+    }
+    if (mode == "axes" && argc >= 6) {  // the time of each axis of the complex transforms
+        const std::array<int, 3> g = {std::atoi(argv[2]), std::atoi(argv[3]), std::atoi(argv[4])};
+        const int count = std::atoi(argv[5]);
+        for (const int mask : {4, 2, 1, 7, 12, 10, 9}) {  // 8: no passes, loads and stores alone
+            BoxFft fft(g);
+            fft.only_axes(mask);
+            Device<double> d(2 * fft.points() * count);
+            Device<float> f(2 * fft.points() * count);
+            ok(cudaMemset(d.p, 0, d.n * 8), "memset");
+            ok(cudaMemset(f.p, 0, f.n * 4), "memset");
+            const Time td = timed(20, [] {}, [&] { fft.forward(d.p, count); });
+            const Time tf = timed(20, [] {}, [&] { fft.forward(f.p, count); });
+            std::printf("axes %d: double %.3f ms, single %.3f ms\n", mask, td.least, tf.least);
+        }
         return 0;
     }
     if (mode == "sweep" && argc >= 8) {

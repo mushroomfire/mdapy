@@ -56,6 +56,9 @@ public:
     // a kind of axis (0 strided, 1 contiguous), instead of the defaults; zeros
     // give the defaults back. For measurements.
     void tune(int precision, int kind, int log_lines, int threads);
+    // Only the axes of a mask (1 the first, 2 the second, 4 the third) are
+    // transformed. For measurements.
+    void only_axes(int mask) { axes_ = mask; }
 
 private:
     struct Tables;
@@ -71,6 +74,7 @@ private:
     std::array<int, 3> grid_;
     Tables* tables_[3] = {nullptr, nullptr, nullptr};  // of each axis; equal sizes share one
     int tuned_[2][2][2] = {};
+    int axes_ = 7;
 };
 
 }  // namespace mdapy::dft

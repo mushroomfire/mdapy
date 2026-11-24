@@ -37,6 +37,7 @@ namespace {
 
 constexpr int kMaxPasses = 12;
 constexpr std::size_t kMaxShared = 40 * 1024;  // bytes of shared memory of a block
+constexpr int kAhead = 4;  // loads of a thread on their way at a time
 constexpr int kStrided = 0, kContiguous = 1, kRealToComplex = 2, kComplexToReal = 3;
 
 template <class R>
@@ -249,34 +250,80 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
         valid = left < lines ? left : lines;
         first = plane * a.plane + chunk * lines;
         const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + first;
-        for (unsigned e = threadIdx.x; e < n * lines; e += blockDim.x) {
-            const unsigned c = e & mask, j = e >> a.log_c;
-            if (c < valid) shared[e] = from[j * a.stride + c];
-        }
+        // kAhead loads of a thread are on their way at a time
+        if ((threadIdx.x & mask) < valid)
+            for (unsigned e0 = threadIdx.x; e0 < n * lines; e0 += kAhead * blockDim.x) {
+                Cx<R> value[kAhead];
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < n * lines) value[i] = from[(e >> a.log_c) * a.stride + (e & mask)];
+                }
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < n * lines) shared[e] = value[i];
+                }
+            }
     } else {
         first = static_cast<long long>(blockIdx.x) * lines;
         const long long left = a.lines - first;
         valid = left < static_cast<long long>(lines) ? static_cast<unsigned>(left) : lines;
         if (Mode == kContiguous) {
             const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + first * n;
-            for (unsigned e = threadIdx.x; e < valid * n; e += blockDim.x) {
-                const unsigned c = __umulhi(e, a.inv_n), j = e - c * n;
-                shared[c * sc + j] = from[e];
+            for (unsigned e0 = threadIdx.x; e0 < valid * n; e0 += kAhead * blockDim.x) {
+                Cx<R> value[kAhead];
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * n) value[i] = from[e];
+                }
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * n) {
+                        const unsigned c = __umulhi(e, a.inv_n), j = e - c * n;
+                        shared[c * sc + j] = value[i];
+                    }
+                }
             }
         } else if (Mode == kRealToComplex) {
             const R* from = in + first * n;
-            for (unsigned e = threadIdx.x; e < valid * n; e += blockDim.x) {
-                const unsigned c = __umulhi(e, a.inv_n), j = e - c * n;
-                shared[c * sc + j] = {from[e], static_cast<R>(0)};
+            for (unsigned e0 = threadIdx.x; e0 < valid * n; e0 += 2 * kAhead * blockDim.x) {
+                R value[2 * kAhead];
+#pragma unroll
+                for (int i = 0; i < 2 * kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * n) value[i] = from[e];
+                }
+#pragma unroll
+                for (int i = 0; i < 2 * kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * n) {
+                        const unsigned c = __umulhi(e, a.inv_n), j = e - c * n;
+                        shared[c * sc + j] = {value[i], static_cast<R>(0)};
+                    }
+                }
             }
         } else {
             // the components n - f are the conjugates of the components f
             const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + first * half;
-            for (unsigned e = threadIdx.x; e < valid * half; e += blockDim.x) {
-                const unsigned c = __umulhi(e, a.inv_half), f = e - c * half;
-                const Cx<R> value = from[e];
-                shared[c * sc + f] = value;
-                if (f > 0 && 2 * f < n) shared[c * sc + n - f] = {value.x, -value.y};
+            for (unsigned e0 = threadIdx.x; e0 < valid * half; e0 += kAhead * blockDim.x) {
+                Cx<R> value[kAhead];
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * half) value[i] = from[e];
+                }
+#pragma unroll
+                for (int i = 0; i < kAhead; ++i) {
+                    const unsigned e = e0 + i * blockDim.x;
+                    if (e < valid * half) {
+                        const unsigned c = __umulhi(e, a.inv_half), f = e - c * half;
+                        shared[c * sc + f] = value[i];
+                        if (f > 0 && 2 * f < n) shared[c * sc + n - f] = {value[i].x, -value[i].y};
+                    }
+                }
             }
         }
     }
@@ -520,6 +567,7 @@ void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, lo
     a.chunks = static_cast<int>((columns + (1 << a.log_c) - 1) >> a.log_c);
     a.stride = stride;
     a.plane = stride * t.n;
+    if (axes_ & 8) a.passes = 0;
     launch<R, Sign, kStrided>(a, static_cast<unsigned>(planes * a.chunks), threads, t.roots_of(R{}), t.source, boxes,
                               boxes);
 }
@@ -535,15 +583,16 @@ void BoxFft::complex_boxes(R* boxes, int count, int sign) {
     a.sj = 1;
     a.sc = t.n | 1;
     a.lines = count * n1 * n2;
+    if (axes_ & 8) a.passes = 0;
     const unsigned blocks = static_cast<unsigned>((a.lines + (1 << a.log_c) - 1) >> a.log_c);
     if (sign < 0) {
-        launch<R, -1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
-        strided<R, -1>(boxes, 1, count * n1, n3, n3);
-        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
+        if (axes_ & 4) launch<R, -1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
+        if (axes_ & 2) strided<R, -1>(boxes, 1, count * n1, n3, n3);
+        if (axes_ & 1) strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
     } else {
-        launch<R, 1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
-        strided<R, 1>(boxes, 1, count * n1, n3, n3);
-        strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3);
+        if (axes_ & 4) launch<R, 1, kContiguous>(a, blocks, threads, t.roots_of(R{}), t.source, boxes, boxes);
+        if (axes_ & 2) strided<R, 1>(boxes, 1, count * n1, n3, n3);
+        if (axes_ & 1) strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3);
     }
 }
 

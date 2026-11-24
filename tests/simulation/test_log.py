@@ -119,7 +119,7 @@ def test_the_machine_is_named():
     report = io.StringIO()
     mdapy.show_versions(file=report)
     for line in report.getvalue().splitlines():
-        rows[line[:15].strip()] = line[15:]
+        rows[line[:21].strip()] = line[21:]
     stream = io.StringIO()
     with MolecularDynamics(copper(3), EAM.zhou(["Cu"]), log=stream) as md:
         md.run(1)

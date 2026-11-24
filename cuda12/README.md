@@ -15,8 +15,8 @@ See [On the GPU](https://mushroomfire.github.io/mdapy/user-guide/simulation/gpu/
 
 The package also holds MDAPY's plane-wave DFT, which needs NVIDIA's cuBLAS, cuFFT and
 cuSOLVER. The extra `dft` installs them from NVIDIA's own packages on PyPI
-(`nvidia-cublas-cu12`, `nvidia-cufft-cu12`, `nvidia-cusolver-cu12`), which a CUDA
-build of PyTorch already has:
+(`nvidia-cublas-cu12`, `nvidia-cufft-cu12`, `nvidia-cusolver-cu12`), which a
+build of PyTorch for CUDA 12 already has:
 
 ```bash
 pip install "mdapy[cuda12,dft]"

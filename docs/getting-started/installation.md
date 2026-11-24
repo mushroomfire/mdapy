@@ -171,14 +171,15 @@ package does not hold. The extra `dft` installs them:
 
 | Extra | Installs | For |
 |---|---|---|
-| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, with `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12`, which cuSOLVER needs | the DFT on an NVIDIA GPU, on Linux on x86-64 and ARM |
+| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, and the packages they depend on, as `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12` of cuSOLVER | the DFT on an NVIDIA GPU, on Linux on x86-64 and ARM |
 
 ```bash
 pip install "mdapy[cuda12,dft]"
 ```
 
 These are NVIDIA's own packages on PyPI, the libraries of CUDA as NVIDIA publishes
-them, which a CUDA build of PyTorch installs too: beside it the DFT needs nothing more.
+them, which a build of PyTorch for CUDA 12 installs too: beside it the DFT needs nothing
+more.
 They are large, about 1.6 GB to download and 2.3 GB installed.
 Only the DFT on an NVIDIA GPU needs them; potentials and molecular dynamics on the GPU
 use none of them and run without them. The GPU part looks for them where pip puts them,

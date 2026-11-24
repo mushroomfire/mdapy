@@ -6,6 +6,9 @@
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic
   images included).
+- `DFT(restart="second_order")`: the density of each step of molecular dynamics is
+  extrapolated from the last three steps (Arias, Payne and Joannopoulos), not only
+  moved with the free atoms, which takes fewer iterations; `restart=True` is as before.
 - MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
   their neighbor list with the skin as it is between two builds, instead of the pairs
   within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the

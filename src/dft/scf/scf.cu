@@ -183,6 +183,37 @@ bool fits(const ScfState* state, const ScfInput& input, int spins, int bands) {
 
 }  // namespace
 
+std::array<double, 2> extrapolation_coefficients(const std::vector<Vec3>& before_last, const std::vector<Vec3>& last,
+                                                 const std::vector<Vec3>& now, const std::vector<Vec3>& next,
+                                                 const Lattice& lattice) {
+    const std::size_t n = now.size();
+    if (before_last.size() != n || last.size() != n || next.size() != n)
+        throw std::invalid_argument("the positions of the same atoms");
+    // the displacement from p to q in bohr, of the nearest images
+    auto move = [&](const Vec3& q, const Vec3& p) {
+        Vec3 r{};
+        for (std::size_t d = 0; d < 3; ++d) {
+            const double f = q[d] - p[d] - std::round(q[d] - p[d]);
+            for (std::size_t c = 0; c < 3; ++c) r[c] += f * lattice.a[d][c];
+        }
+        return r;
+    };
+    double aa = 0.0, ab = 0.0, bb = 0.0, ac = 0.0, bc = 0.0;
+    for (std::size_t i = 0; i < n; ++i) {
+        const Vec3 a = move(now[i], last[i]), b = move(last[i], before_last[i]), c = move(next[i], now[i]);
+        for (std::size_t d = 0; d < 3; ++d) {
+            aa += a[d] * a[d];
+            ab += a[d] * b[d];
+            bb += b[d] * b[d];
+            ac += a[d] * c[d];
+            bc += b[d] * c[d];
+        }
+    }
+    const double det = aa * bb - ab * ab;
+    if (!(det > 1e-8 * aa * bb)) return {1.0, 0.0};
+    return {(ac * bb - bc * ab) / det, (aa * bc - ab * ac) / det};
+}
+
 ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
     const std::size_t points =
         static_cast<std::size_t>(input.grid[0]) * input.grid[1] * input.grid[2];
@@ -504,18 +535,36 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     if (ns == 2) to_total(in_g, ng);
     const std::vector<Complex> atoms_g = in_g;  // of the free atoms where they are
     if (restart) {
-        // the last output density less its free atoms plus these
-        const auto index = match(state->density_miller, pot.sphere().miller);
-        const std::size_t m = state->density_miller.size();
-        for (std::size_t c = 0; c < spins; ++c)
-            for (std::size_t g = 0; g < ng; ++g) {
-                const std::int64_t from = index[g];
-                if (from < 0) continue;
-                const Complex old = state->density[c * m + static_cast<std::size_t>(from)];
-                const Complex free = state->atoms_density[c * m + static_cast<std::size_t>(from)];
-                in_g[c * ng + g] = make_cuDoubleComplex(in_g[c * ng + g].x + old.x - free.x,
-                                                        in_g[c * ng + g].y + old.y - free.y);
+        // the last output density less its free atoms plus these; with more
+        // runs kept, their differences extrapolated to the new positions
+        const std::size_t used = std::min<std::size_t>(state->past.size(), static_cast<std::size_t>(state->steps));
+        double alpha = 0.0, beta = 0.0;
+        if (used >= 2) {
+            alpha = 1.0;
+            if (used >= 3) {
+                std::vector<Vec3> next(input.atoms.size());
+                for (std::size_t i = 0; i < next.size(); ++i) next[i] = input.atoms[i].position;
+                const auto ab = extrapolation_coefficients(state->past[2].positions, state->past[1].positions,
+                                                           state->past[0].positions, next, input.lattice);
+                alpha = ab[0];
+                beta = ab[1];
             }
+        }
+        // d(t+1) = (1 + alpha) d(t) + (beta - alpha) d(t-1) - beta d(t-2)
+        const double weight[3] = {1.0 + alpha, beta - alpha, -beta};
+        for (std::size_t j = 0; j < used; ++j) {
+            const auto& p = state->past[j];
+            const auto index = match(p.miller, pot.sphere().miller);
+            const std::size_t m = p.miller.size();
+            for (std::size_t c = 0; c < spins; ++c)
+                for (std::size_t g = 0; g < ng; ++g) {
+                    const std::int64_t from = index[g];
+                    if (from < 0) continue;
+                    const Complex d = p.difference[c * m + static_cast<std::size_t>(from)];
+                    in_g[c * ng + g] = make_cuDoubleComplex(in_g[c * ng + g].x + weight[j] * d.x,
+                                                            in_g[c * ng + g].y + weight[j] * d.y);
+                }
+        }
         std::vector<Complex> start = in_g;
         if (ns == 2) to_spins(start, ng);
         components.upload(start.data(), start.size());
@@ -1307,9 +1356,20 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         state->kpoints = input.kpoints;
         state->millers = std::move(millers);
         state->psi = std::move(psi);
-        state->density_miller = pot.sphere().miller;
-        state->density = out_g;
-        state->atoms_density = atoms_g;
+        // this run's difference first, then those kept from the runs before
+        // it when this one started from them
+        ScfState::Past latest;
+        latest.miller = pot.sphere().miller;
+        latest.difference.resize(out_g.size());
+        for (std::size_t i = 0; i < out_g.size(); ++i)
+            latest.difference[i] = make_cuDoubleComplex(out_g[i].x - atoms_g[i].x, out_g[i].y - atoms_g[i].y);
+        for (const auto& atom : input.atoms) latest.positions.push_back(atom.position);
+        std::vector<ScfState::Past> past;
+        past.push_back(std::move(latest));
+        if (restart)
+            for (auto& earlier : state->past)
+                if (past.size() < static_cast<std::size_t>(state->steps)) past.push_back(std::move(earlier));
+        state->past = std::move(past);
         state->becsum = mixes_occupations ? becsum : std::vector<std::vector<double>>{};
     }
     result.onecenter = e1;

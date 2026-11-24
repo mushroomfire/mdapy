@@ -35,6 +35,12 @@ territories, *Dalton Trans.* **42**, 8617 (2013).
 [doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
 { #alvarez2013 }
 
+**Arias, Payne and Joannopoulos (1992).** T. A. Arias, M. C. Payne and J. D. Joannopoulos,
+Ab initio molecular-dynamics techniques extended to large-length-scale systems,
+*Phys. Rev. B* **45**, 1538 (1992).
+[doi:10.1103/PhysRevB.45.1538](https://doi.org/10.1103/PhysRevB.45.1538)
+{ #arias1992 }
+
 **Bartók, Kondor and Csányi (2013).** A. P. Bartók, R. Kondor and G. Csányi,
 On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
 [doi:10.1103/PhysRevB.87.184115](https://doi.org/10.1103/PhysRevB.87.184115)

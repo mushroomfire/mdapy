@@ -138,11 +138,15 @@ class DFT(Calculator):
         The GPU of this process, by its index among those it sees. Default
         the first (CUDA_VISIBLE_DEVICES chooses which). Processes on a node
         of several GPUs, each computing its own configurations, take one each.
-    restart : bool, optional
+    restart : bool or str, optional
         Start each computation from the bands and the density of the last,
-        for the steps of a relaxation or of molecular dynamics. Default
-        False: each computation starts cold, as the labels of a training set
-        should.
+        for the steps of a relaxation or of molecular dynamics. True, or
+        "atomic": the density of the last computation less its free atoms,
+        plus the free atoms where they are now. "second_order": that
+        difference extrapolated from the last three computations (Arias,
+        Payne and Joannopoulos), which saves iterations along a smooth path
+        such as molecular dynamics. Default False: each computation starts
+        cold, as the labels of a training set should.
     symmetry : bool, optional
         Use the symmetry of the crystal, found by spglib, to keep the
         irreducible k-points alone and make the density, the forces and the
@@ -216,7 +220,7 @@ class DFT(Calculator):
         bands: int | None = None,
         seed: int = 0,
         gpu: int | None = None,
-        restart: bool = False,
+        restart: bool | str = False,
         symmetry: bool | None = None,
         moment_radius: float | None = None,
         comm: Any = None,
@@ -302,7 +306,11 @@ class DFT(Calculator):
         self.magnetic_mixing = float(magnetic_mixing)
         self.bands = bands
         self.seed = int(seed)
-        self.restart = bool(restart)
+        if restart not in (False, True, "atomic", "second_order"):
+            raise InvalidParameter(
+                "restart must be False, True, 'atomic' or 'second_order'"
+            )
+        self.restart = restart
         if gpu is not None and int(gpu) < 0:
             raise InvalidParameter("gpu must be at least 0")
         self.gpu = None if gpu is None else int(gpu)
@@ -349,6 +357,7 @@ class DFT(Calculator):
             from mdapy_dft_cuda12 import _dft
 
             self.__state = _dft.State()
+            self.__state.steps = 3 if self.restart == "second_order" else 1
         return self.__state
 
     def __mesh(self, cell: np.ndarray) -> tuple[int, int, int]:

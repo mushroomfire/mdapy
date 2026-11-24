@@ -967,5 +967,31 @@ NB_MODULE(_dft, m) {
     nb::class_<mdapy::dft::ScfState>(m, "State")
         .def(nb::init<>())
         .def_prop_ro("valid", [](const mdapy::dft::ScfState& s) { return s.valid; })
-        .def("clear", [](mdapy::dft::ScfState& s) { s = mdapy::dft::ScfState(); });
+        .def_prop_rw(
+            "steps", [](const mdapy::dft::ScfState& s) { return s.steps; },
+            [](mdapy::dft::ScfState& s, int steps) {
+                if (steps != 1 && steps != 3) throw std::invalid_argument("steps must be 1 or 3");
+                s.steps = steps;
+            })
+        .def("clear", [](mdapy::dft::ScfState& s) {
+            const int steps = s.steps;
+            s = mdapy::dft::ScfState();
+            s.steps = steps;
+        });
+
+    // the coefficients of the second-order extrapolation from the positions
+    // (n, 3) in fractions of the cell (3, 3) at the last three steps and the next
+    m.def("extrapolation_coefficients", [](Rows before_last, Rows last, Rows now, Rows next, Rows cell) {
+        auto atoms = [](Rows r) {
+            std::vector<mdapy::dft::Vec3> v(r.shape(0));
+            if (r.shape(1) != 3) throw std::invalid_argument("positions of shape (n, 3)");
+            for (std::size_t i = 0; i < v.size(); ++i) v[i] = {r(i, 0), r(i, 1), r(i, 2)};
+            return v;
+        };
+        if (cell.shape(0) != 3 || cell.shape(1) != 3) throw std::invalid_argument("a cell of shape (3, 3)");
+        const auto lattice = mdapy::dft::Lattice::from_rows(cell.data());
+        const auto ab = mdapy::dft::extrapolation_coefficients(atoms(before_last), atoms(last), atoms(now),
+                                                               atoms(next), lattice);
+        return nb::make_tuple(ab[0], ab[1]);
+    });
 }

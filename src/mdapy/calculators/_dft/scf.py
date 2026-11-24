@@ -251,7 +251,9 @@ def run(
     Miller indices, hartree; basis_cell chooses the plane waves (and the
     sphere of the density), the cell by default, for differences of the energy
     at a fixed basis; state, a mdapy_dft_cuda12._dft.State, starts the run
-    from the last one kept in it when they fit and keeps this one. With
+    from the last one kept in it when they fit and keeps this one (its
+    steps, 3 instead of 1, extrapolates the density to second order from the
+    last three runs). With
     magmoms, the first
     moments of the atoms in Bohr magnetons, the spins are collinear; the
     eigenvalues and occupations are then (2, K, bands) and the density (2, n1,

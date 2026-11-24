@@ -64,7 +64,7 @@ CUDA 12 for GPUs from the V100 on.
 | `symmetry` | bool | `None` | | the symmetry of the crystal, found by [spglib](https://spglib.readthedocs.io): the irreducible k-points alone, the density, the occupations of the projectors, the forces and the stress made symmetric; by default when spglib is installed |
 | `seed` | int32 | 0 | | seed of the random first bands |
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
-| `restart` | bool | `False` | | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; labels of a training set should start cold |
+| `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
 | `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 
@@ -206,8 +206,12 @@ if MPI.COMM_WORLD.Get_rank() == 0:
   by Pulay's method in the metric of Kresse and Furthmüller with Kerker's
   preconditioner. A run that does not converge raises. With `restart`, a run
   starts from the bands of the last, plane wave by plane wave, and from its
-  density with the free atoms moved from where they were to where they are;
-  a run of other k-points, bands, spins or a number of atoms starts cold.
+  density with the free atoms moved from where they were to where they are
+  (`restart=True`, Quantum ESPRESSO's `pot_extrapolation='atomic'`); with
+  `restart="second_order"` the density less its free atoms is extrapolated
+  from the last three runs, d(t+1) = d(t) + α (d(t) − d(t−1)) + β (d(t−1) −
+  d(t−2)), α and β fitted to the displacements of the atoms (one step: the
+  atomic; two: α = 1, β = 0). A run of other k-points, bands, spins or a number of atoms starts cold.
 - **Symmetry:** the operations of the crystal that keep its atoms, their
   kinds and first moments, found by spglib to 1e-5 bohr. The k-points of the
   mesh reduce to the irreducible ones, k equivalent to R^T k and to −k. The

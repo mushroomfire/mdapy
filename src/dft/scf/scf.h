@@ -201,7 +201,8 @@ struct ScfResult {
 // the free atoms on the sphere of the density with its Miller indices. The
 // next run starts from the bands, matched by Miller index, and from the
 // density less the free atoms where they were plus the free atoms where they
-// are. A state of other k-points, bands, spins or atoms, or of complex bands
+// are, or, with steps = 3, that difference extrapolated to second order from
+// the last three runs (Arias, Payne and Joannopoulos). A state of other k-points, bands, spins or atoms, or of complex bands
 // for real ones (and back), is not taken.
 struct ScfState {
     ScfState() = default;
@@ -218,10 +219,28 @@ struct ScfState {
     std::vector<Vec3> kpoints;
     std::vector<std::vector<Int3>> millers;  // of each k-point
     std::vector<DeviceArray<Complex>> psi;   // (s, k) at s nk + k
-    std::vector<Int3> density_miller;
-    std::vector<Complex> density, atoms_density;  // (total, magnetization) on that sphere
+    // the output density less the free atoms (total, magnetization) of the
+    // last runs, newest first, each on its sphere of Miller indices, with the
+    // atoms' positions (fractions) of its run
+    struct Past {
+        std::vector<Int3> miller;
+        std::vector<Complex> difference;
+        std::vector<Vec3> positions;
+    };
+    std::vector<Past> past;
+    int steps = 1;  // runs kept for the extrapolation of the density: 1 (atomic) or 3 (second order)
     std::vector<std::vector<double>> becsum;      // the output occupations of each spin, PAW
 };
+
+// The coefficients (alpha, beta) of the extrapolation d(t+1) = d(t) + alpha
+// (d(t) - d(t-1)) + beta (d(t-1) - d(t-2)) of a quantity that follows the
+// atoms: those that minimize the sum over the atoms of |tau(t+1) - tau(t) -
+// alpha (tau(t) - tau(t-1)) - beta (tau(t-1) - tau(t-2))|^2, the positions in
+// fractions of the lattice and the displacements of the nearest images. (1, 0)
+// when the last two displacements are parallel for every atom.
+std::array<double, 2> extrapolation_coefficients(const std::vector<Vec3>& before_last, const std::vector<Vec3>& last,
+                                                 const std::vector<Vec3>& now, const std::vector<Vec3>& next,
+                                                 const Lattice& lattice);
 
 // state, when given, starts the run from the last one when it fits, and
 // keeps this one for the next.

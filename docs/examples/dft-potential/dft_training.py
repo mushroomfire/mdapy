@@ -6,18 +6,19 @@
 """A NEP model of aluminium trained on labels of MDAPY's DFT, and its properties
 against those of the DFT itself.
 
-    python dft_training.py sets                 # train.xyz, near.xyz and test.xyz, unlabelled
+    python dft_training.py sets                 # train.xyz, near.xyz, near-hcp.xyz and test.xyz, unlabelled
     python dft_training.py atom                 # atom.json: the energy of the isolated atom
     python dft_training.py label SET PART PARTS # labels of the frames i % PARTS == PART of SET
     python dft_training.py train SEED           # nep_SEED/nep_best.txt, its loss.out
     python dft_training.py errors               # errors.json: the models on the test frames
     python dft_training.py properties WHO       # properties-WHO.json, WHO = dft, dft-fine or nep_SEED
+    python dft_training.py hugoniot SEED        # the Hugoniot of nep_SEED into properties-nep_SEED.json
 
 The structures are the "generated + crystals" set of the page on generated
 training sets for aluminium: two thirds of the atoms from generate_structures,
 one third perturbed fcc, bcc and hcp crystals, 4800 atoms; with them fcc
-crystals near equilibrium, 864 atoms; the test frames another generation and
-other crystals, 1200 atoms. The models learn the energies relative to the
+crystals near equilibrium, 864 atoms, and hcp crystals, 216 atoms; the test
+frames another generation and other crystals, 1200 atoms. The models learn the energies relative to the
 isolated atom.
 """
 
@@ -44,7 +45,7 @@ hcp = build_crystal("hcp", 2.86, elements="Al", repeat=(3, 2, 2))
 NEP_IN = """type       1 Al
 version    4
 cutoff     6 4
-n_max      6 6
+n_max      8 8
 basis_size 8 8
 l_max      4 2 0
 neuron     50
@@ -67,6 +68,9 @@ def pseudopotential() -> Path:
 
 
 KSPACING, SMEARING, SIGMA = 0.15, "marzari-vanderbilt", 0.25  # 1/Å, eV
+EV_PER_A3_TO_GPA = 160.21766208
+# the cells within WINDOW eV/atom of the lowest weigh WEIGHT times in the training
+WINDOW, WEIGHT = 2.0, 20.0
 
 
 def dft(kspacing=KSPACING, **extra):
@@ -109,11 +113,16 @@ def crystals(seed, atoms):
     return first(frames, atoms)
 
 
-def near(seed, cells):
-    """fcc near equilibrium: volumes from 90 to 110 %, strains up to 2 %, atoms
-    displaced by 0.03 Å; cells of 4 and of 32 atoms in turn."""
+def near(seed, cells, kind="fcc"):
+    """Crystals near equilibrium: volumes from 90 to 110 %, strains up to 2 %,
+    atoms displaced by 0.03 Å; cells of the unit (4 atoms of fcc, 2 of hcp)
+    and of 2 x 2 x 2 of it in turn."""
     rng = np.random.default_rng(seed)
-    unit = build_crystal("fcc", 4.04, elements="Al")
+    unit = (
+        build_crystal("fcc", 4.04, elements="Al")
+        if kind == "fcc"
+        else build_crystal("hcp", 4.04 / np.sqrt(2), elements="Al")
+    )
     frames = []
     for k in range(cells):
         crystal = unit if k % 2 == 0 else replicate(unit, (2, 2, 2))
@@ -137,12 +146,18 @@ def mixed(parts, shares, budget):
 
 
 def sets():
-    generated = generate_structures("Al", volume=VOLUME, seed=0).structures
-    write("train.xyz", mixed([generated, crystals(50, 4800)], [2, 1], 4800))
-    write("near.xyz", near(51, 48))
-    other = generate_structures("Al", volume=VOLUME, seed=7).structures
-    write("test.xyz", mixed([other, crystals(57, 1200)], [2, 1], 1200))
-    for name in ("train", "near", "test"):
+    """The sets not written yet."""
+    if not Path("train.xyz").exists():
+        generated = generate_structures("Al", volume=VOLUME, seed=0).structures
+        write("train.xyz", mixed([generated, crystals(50, 4800)], [2, 1], 4800))
+    if not Path("near.xyz").exists():
+        write("near.xyz", near(51, 48))
+    if not Path("near-hcp.xyz").exists():
+        write("near-hcp.xyz", near(52, 24, "hcp"))
+    if not Path("test.xyz").exists():
+        other = generate_structures("Al", volume=VOLUME, seed=7).structures
+        write("test.xyz", mixed([other, crystals(57, 1200)], [2, 1], 1200))
+    for name in ("train", "near", "near-hcp", "test"):
         frames = list(read_trajectory(f"{name}.xyz"))
         print(
             name,
@@ -187,19 +202,32 @@ def merged(name):
     return [f.with_info(energy=f.info["energy"] - len(f) * e_atom) for f in frames]
 
 
+def window(frames, lowest):
+    """The frames within WINDOW eV per atom of the energy lowest."""
+    return [f for f in frames if f.info["energy"] / len(f) < lowest + WINDOW]
+
+
+def lowest_energy():
+    """The lowest energy per atom of the training frames."""
+    frames = merged("train") + merged("near") + merged("near-hcp")
+    return min(f.info["energy"] / len(f) for f in frames)
+
+
 def train(seed):
-    """NEP of seed `seed` on the training frames, a tenth of them held out to
-    choose the best epoch; the test frames are not seen."""
+    """NEP of seed `seed` on every training frame, those within WINDOW of the
+    lowest weighing WEIGHT times; a tenth of them held out to choose the best
+    epoch; the test frames are not seen."""
     from torchnep import train_nep
 
     folder = Path(f"nep_{seed}")
     folder.mkdir(exist_ok=True)
-    frames = merged("train") + merged("near")
-    energies = [f.info["energy"] / len(f) for f in frames]
-    low = min(energies) + 0.5
-    frames = [
-        f.with_info(weight=3.0) if e < low else f for f, e in zip(frames, energies)
-    ]
+    every = merged("train") + merged("near") + merged("near-hcp")
+    near = {id(f) for f in window(every, lowest_energy())}
+    frames = [f.with_info(weight=WEIGHT) if id(f) in near else f for f in every]
+    print(
+        f"{len(near)} of {len(every)} frames within {WINDOW} eV/atom, weight {WEIGHT:g}",
+        flush=True,
+    )
     write(folder / "train.xyz", frames)
     atoms = sum(len(f) for f in frames)
     (folder / "nep.in").write_text(
@@ -212,15 +240,21 @@ def train(seed):
 
 
 def errors():
-    """The errors of each model on the test frames."""
+    """The errors of each model on every test frame and on those within WINDOW
+    of the lowest training energy."""
     from mdapy.calculators import NEP
 
-    frames = merged("test")
+    every = merged("test")
+    near = {id(f) for f in window(every, lowest_energy())}
+    print(
+        f"{len(near)} of {len(every)} test frames within {WINDOW} eV/atom", flush=True
+    )
     out = {}
     for folder in sorted(Path(".").glob("nep_*")):
         nep = NEP(str(folder / "nep_best.txt"))
-        de, df, dv, pe, pf = [], [], [], [], []
-        for frame in frames:
+        de, df, dv, pe, pf, inside = [], [], [], [], [], []
+        for frame in every:
+            inside.append(id(frame) in near)
             r = nep.compute(frame, ("energy", "forces", "virial"))
             n = len(frame)
             de.append((r.energy - frame.info["energy"]) / n)
@@ -243,17 +277,17 @@ def errors():
             f"predictions-{folder.name}.npz",
             energies=np.array(pe),
             forces=np.concatenate(pf),
+            inside=np.array(inside),
         )
 
-        def rmse(x):
-            return float(
-                np.sqrt(
-                    np.mean(np.square(np.concatenate([np.atleast_1d(v) for v in x])))
-                )
-            )
+        def rmse(x, keep):
+            x = [np.atleast_1d(v) for v, k in zip(x, keep) if k]
+            return float(np.sqrt(np.mean(np.square(np.concatenate(x)))))
 
-        out[folder.name] = {"energy_mev_per_atom": 1e3 * rmse(de), "force_ev_per_a": rmse(df),
-                            "virial_mev_per_atom": 1e3 * rmse(dv), "frames": len(frames)}  # fmt: skip
+        out[folder.name] = {}
+        for part, keep in (("all", [True] * len(every)), ("window", inside)):
+            out[folder.name][part] = {"energy_mev_per_atom": 1e3 * rmse(de, keep), "force_ev_per_a": rmse(df, keep),
+                                      "virial_mev_per_atom": 1e3 * rmse(dv, keep), "frames": sum(keep)}  # fmt: skip
     Path("errors.json").write_text(json.dumps(out, indent=1))
     print(out)
 
@@ -262,7 +296,11 @@ def properties(who):
     """The properties of the DFT or of a model, each written as soon as it is
     known into properties-WHO.json, those already there kept."""
     from mdapy.calculators import NEP
-    from mdapy.properties.defects import surface_energy, vacancy_formation_energy
+    from mdapy.properties.defects import (
+        stacking_fault_energy,
+        surface_energy,
+        vacancy_formation_energy,
+    )
     from mdapy.properties.elastic import elastic_constants
     from mdapy.properties.phonons import phonons, primitive_cell
 
@@ -326,6 +364,66 @@ def properties(who):
         keep(phonon_labels=[[float(d), str(name)] for d, name in bands.labels],
              phonon_distances=np.asarray(bands.distances).tolist(),
              phonon_frequencies_THz=np.asarray(bands.frequencies).tolist(), phonon_seconds=time.time() - t)  # fmt: skip
+    # the cold crystal compressed to 70 % of its volume
+    if "compression_GPa" not in out:
+        t, ratios, pressures, energies = time.time(), np.linspace(0.70, 1.0, 7), [], []
+        for s in ratios:
+            c = scaled(crystal, s)
+            r = calc.compute(c, ("energy", "virial"))
+            pressures.append(
+                float(np.trace(r.virial) / (3 * c.box.volume) * EV_PER_A3_TO_GPA)
+            )
+            energies.append(float(r.energy / len(c)))
+        keep(compression_ratios=ratios.tolist(), compression_GPa=pressures,
+             compression_energies=energies, compression_seconds=time.time() - t)  # fmt: skip
+    # (111) slipped along [11-2], 12 layers
+    if "gsfe_J_m2" not in out and who != "dft-fine":
+        t = time.time()
+        layers = build_crystal("fcc", out["a0"], elements="Al",
+                               orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)], repeat=(1, 1, 4))  # fmt: skip
+        curve = stacking_fault_energy(
+            layers, calc, [out["a0"] * np.sqrt(6) / 2, 0, 0], points=13, max_force=0.01
+        )
+        keep(gsfe_fraction=np.asarray(curve.fraction).tolist(),
+             gsfe_J_m2=np.asarray(curve.energy).tolist(), gsfe_seconds=time.time() - t)  # fmt: skip
+
+
+def hugoniot(seed):
+    """Points of the Hugoniot of the model of seed `seed`, from the crystal
+    of 2048 atoms at 300 K and no pressure: 20 ps of nphug alike along every
+    axis at each pressure, the last 10 ps averaged."""
+    from mdapy.calculators import NEP
+    from mdapy.simulation import MolecularDynamics
+
+    who = f"nep_{seed}"
+    path = Path(f"properties-{who}.json")
+    out = json.loads(path.read_text())
+    calc = NEP(f"{who}/nep_best.txt")
+    start = time.time()
+    crystal = build_crystal("fcc", out["a0"], elements="Al", repeat=8)
+    with MolecularDynamics(crystal, calc, timestep=0.001) as md:
+        md.velocities(600, seed=1)
+        md.run(10000, ensemble="npt", temperature=300, pressure=0.0, barostat="iso")
+        warm = md.system
+        md.run(0)
+        ambient = md.thermo[-1]
+    reference = (ambient["total_energy"][0], ambient["volume"][0], 0.0)
+    rows = []
+    for pressure in (10.0, 20.0, 30.0, 40.0, 50.0):
+        with MolecularDynamics(warm, calc, timestep=0.001) as md:
+            md.run(20000, ensemble="nphug", pressure=pressure, barostat="iso", hugoniot=reference,
+                   thermostat_damping=0.1, barostat_damping=1.0)  # fmt: skip
+            late = md.thermo.filter(md.thermo["time"] >= 10.0)
+        rows.append({"pressure_GPa": float(late["pressure"].mean()),
+                     "volume_ratio": float(late["volume"].mean() / reference[1]),
+                     "particle_velocity_km_s": float(late["particle_velocity"].mean() / 10),
+                     "shock_velocity_km_s": float(late["shock_velocity"].mean() / 10),
+                     "temperature_K": float(late["temperature"].mean()),
+                     "hugoniot_K": float(late["hugoniot"].mean())})  # fmt: skip
+        print(rows[-1], flush=True)
+    out.update(hugoniot=rows, hugoniot_density=float(len(crystal) * 26.9815385 / 0.602214076 / reference[1]),
+               hugoniot_seconds=time.time() - start)  # fmt: skip
+    path.write_text(json.dumps(out))
 
 
 if __name__ == "__main__":
@@ -343,3 +441,5 @@ if __name__ == "__main__":
         errors()
     elif command == "properties":
         properties(sys.argv[2])
+    elif command == "hugoniot":
+        hugoniot(int(sys.argv[2]))

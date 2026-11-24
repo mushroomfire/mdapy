@@ -430,6 +430,10 @@ on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
 { #maras2016 }
 
+**Marsh (1980).** S. P. Marsh (editor), *LASL Shock Hugoniot Data* (University of
+California Press, Berkeley, 1980).
+{ #marsh1980 }
+
 **Martyna et al. (1994).** G. J. Martyna, D. J. Tobias and M. L. Klein,
 Constant pressure molecular dynamics algorithms, *J. Chem. Phys.* **101**, 4177
 (1994). [doi:10.1063/1.467468](https://doi.org/10.1063/1.467468)

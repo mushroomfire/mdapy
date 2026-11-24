@@ -36,7 +36,7 @@ namespace mdapy::dft {
 namespace {
 
 constexpr int kMaxPasses = 12;
-constexpr std::size_t kMaxShared = 40 * 1024;  // bytes of shared memory of a block
+constexpr std::size_t kMaxShared = 48 * 1024;  // bytes of shared memory of a block
 constexpr int kAhead = 4;  // loads of a thread on their way at a time
 constexpr int kStrided = 0, kContiguous = 1, kRealToComplex = 2, kComplexToReal = 3, kHalfForward = 4, kHalfInverse = 5;
 
@@ -191,24 +191,29 @@ __device__ __forceinline__ void butterfly(Cx<R>* x) {
     }
 }
 
+// The lines of a block in shared memory: count of them of n points, point j of
+// line c at j sj + c sc. The count is a power of two (log) or not (inverse:
+// ceil(2^32 / count), count > 1).
+struct Lines {
+    unsigned n, count, log, inverse, sj, sc;
+};
+
 // One pass over the lines of a block.
-template <class R, int Sign, int Radix>
-__device__ __forceinline__ void run_pass(Cx<R>* shared, const AxisArgs& a, const Pass ps, const Cx<R>* __restrict__ roots,
+template <class R, int Sign, int Radix, bool PowerOfTwo>
+__device__ __forceinline__ void run_pass(Cx<R>* shared, const Lines l, const Pass ps, const Cx<R>* __restrict__ roots,
                                          unsigned valid) {
-    const unsigned mask = (1u << a.log_c) - 1u;
-    const unsigned items = static_cast<unsigned>(a.n / Radix) << a.log_c;
-    const int d = ps.m * a.sj;
+    const unsigned items = (l.n / Radix) * l.count;
+    const unsigned d = static_cast<unsigned>(ps.m) * l.sj;
     for (unsigned w = threadIdx.x; w < items; w += blockDim.x) {
-        const unsigned c = w & mask;
+        const unsigned u = PowerOfTwo ? w >> l.log : __umulhi(w, l.inverse);
+        const unsigned c = PowerOfTwo ? w & (l.count - 1u) : w - u * l.count;
         if (c >= valid) continue;
-        const unsigned u = w >> a.log_c;
         unsigned k = u, j = 0;
         if (ps.m > 1) {
             k = __umulhi(u, ps.inv_m);
             j = u - k * static_cast<unsigned>(ps.m);
         }
-        Cx<R>* at = shared + (k * static_cast<unsigned>(ps.length) + j) * static_cast<unsigned>(a.sj) +
-                    c * static_cast<unsigned>(a.sc);
+        Cx<R>* at = shared + (k * static_cast<unsigned>(ps.length) + j) * l.sj + c * l.sc;
         Cx<R> x[Radix];
 #pragma unroll
         for (int q = 0; q < Radix; ++q) x[q] = at[q * d];
@@ -227,6 +232,25 @@ __device__ __forceinline__ void run_pass(Cx<R>* shared, const AxisArgs& a, const
             for (int q = 1; q < Radix; ++q) at[q * d] = x[q];
         }
     }
+}
+
+// Every pass of the lines of a block, each after a barrier.
+template <class R, int Sign, bool PowerOfTwo>
+__device__ __forceinline__ void run_passes(Cx<R>* shared, const Lines l, const Pass* pass, int passes,
+                                           const Cx<R>* __restrict__ roots, unsigned valid) {
+    for (int p = 0; p < passes; ++p) {
+        __syncthreads();
+        const Pass ps = pass[p];
+        switch (ps.radix) {
+            case 2: run_pass<R, Sign, 2, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            case 3: run_pass<R, Sign, 3, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            case 4: run_pass<R, Sign, 4, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            case 5: run_pass<R, Sign, 5, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            case 7: run_pass<R, Sign, 7, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            default: run_pass<R, Sign, 8, PowerOfTwo>(shared, l, ps, roots, valid); break;
+        }
+    }
+    __syncthreads();
 }
 
 // The transform of one axis of the lines of a block. roots: exp(-2 pi i k / n),
@@ -355,19 +379,8 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
             }
         }
     }
-    for (int p = 0; p < a.passes; ++p) {
-        __syncthreads();
-        const Pass ps = a.pass[p];
-        switch (ps.radix) {
-            case 2: run_pass<R, Sign, 2>(shared, a, ps, roots, valid); break;
-            case 3: run_pass<R, Sign, 3>(shared, a, ps, roots, valid); break;
-            case 4: run_pass<R, Sign, 4>(shared, a, ps, roots, valid); break;
-            case 5: run_pass<R, Sign, 5>(shared, a, ps, roots, valid); break;
-            case 7: run_pass<R, Sign, 7>(shared, a, ps, roots, valid); break;
-            default: run_pass<R, Sign, 8>(shared, a, ps, roots, valid); break;
-        }
-    }
-    __syncthreads();
+    run_passes<R, Sign, true>(shared, Lines{n, lines, static_cast<unsigned>(a.log_c), 0u, static_cast<unsigned>(a.sj), sc},
+                              a.pass, a.passes, roots, valid);
     if (Mode == kStrided) {
         Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + first;
         for (unsigned e = threadIdx.x; e < n * lines; e += blockDim.x) {
@@ -402,6 +415,50 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
             const unsigned c = __umulhi(e, a.inv_n), j = e - c * n;
             to[e] = shared[c * sc + static_cast<unsigned>(source[j])].x;
         }
+    }
+}
+
+struct PlaneArgs {
+    int n2, n3;       // lines of a plane and their points
+    int pitch;        // points between the lines in shared memory, n3 | 1
+    unsigned inv_n2;  // ceil(2^32 / n2)
+    unsigned inv_n3;  // ceil(2^32 / n3)
+    int passes2, passes3;
+    Pass pass2[kMaxPasses], pass3[kMaxPasses];
+};
+
+// The transform of the third and the second axis of a plane of complex points,
+// a plane to a block: one reading and one writing of the box for two axes.
+// Point (i2, i3) is at i2 pitch + i3 of shared memory.
+template <class R, int Sign>
+__global__ void plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ roots2, const int* __restrict__ source2,
+                             const Cx<R>* __restrict__ roots3, const int* __restrict__ source3, R* boxes) {
+    extern __shared__ double aligned_shared[];
+    Cx<R>* shared = reinterpret_cast<Cx<R>*>(aligned_shared);
+    const unsigned n2 = static_cast<unsigned>(a.n2), n3 = static_cast<unsigned>(a.n3), points = n2 * n3;
+    const unsigned pitch = static_cast<unsigned>(a.pitch);
+    Cx<R>* plane = reinterpret_cast<Cx<R>*>(boxes) + static_cast<long long>(blockIdx.x) * points;
+    for (unsigned e0 = threadIdx.x; e0 < points; e0 += kAhead * blockDim.x) {
+        Cx<R> value[kAhead];
+#pragma unroll
+        for (int i = 0; i < kAhead; ++i) {
+            const unsigned e = e0 + i * blockDim.x;
+            if (e < points) value[i] = plane[e];
+        }
+#pragma unroll
+        for (int i = 0; i < kAhead; ++i) {
+            const unsigned e = e0 + i * blockDim.x;
+            if (e < points) {
+                const unsigned i2 = __umulhi(e, a.inv_n3), i3 = e - i2 * n3;
+                shared[i2 * pitch + i3] = value[i];
+            }
+        }
+    }
+    run_passes<R, Sign, false>(shared, Lines{n3, n2, 0u, a.inv_n2, 1u, pitch}, a.pass3, a.passes3, roots3, n2);
+    run_passes<R, Sign, false>(shared, Lines{n2, n3, 0u, a.inv_n3, pitch, 1u}, a.pass2, a.passes2, roots2, n3);
+    for (unsigned e = threadIdx.x; e < points; e += blockDim.x) {
+        const unsigned f2 = __umulhi(e, a.inv_n3), f3 = e - f2 * n3;
+        plane[e] = shared[static_cast<unsigned>(source2[f2]) * pitch + static_cast<unsigned>(source3[f3])];
     }
 }
 
@@ -631,17 +688,50 @@ void BoxFft::contiguous(const R* in, R* out, long long lines) {
     check(cudaGetLastError(), "the transform of an axis");
 }
 
+// The third and the second axis of the planes of complex boxes in one kernel,
+// when a plane fits the shared memory of a block; false when it does not.
+template <class R, int Sign>
+bool BoxFft::planes(R* boxes, long long count) {
+    const Tables &t2 = *tables_[1], &t3 = *tables_[2];
+    const std::size_t bytes = static_cast<std::size_t>(t2.n) * (t3.n | 1) * sizeof(Cx<R>);
+    if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+    PlaneArgs a{};
+    a.n2 = t2.n;
+    a.n3 = t3.n;
+    a.pitch = t3.n | 1;
+    a.inv_n2 = inverse_of(t2.n);
+    a.inv_n3 = inverse_of(t3.n);
+    a.passes2 = (axes_ & 8) ? 0 : static_cast<int>(t2.passes.size());
+    a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
+    for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
+    for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
+    int threads = tuned_[sizeof(R) == 4][2][1];
+    if (threads <= 0) {
+        const long long work = static_cast<long long>(t2.n) * t3.n / 4;
+        threads = static_cast<int>(64 * ((work + 63) / 64));
+        threads = threads < 64 ? 64 : threads > 512 ? 512 : threads;
+    }
+    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), threads, bytes>>>(
+        a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
+    check(cudaGetLastError(), "the transform of the planes");
+    return true;
+}
+
 template <class R>
 void BoxFft::complex_boxes(R* boxes, int count, int sign) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], n3 = grid_[2];
     if (sign < 0) {
-        contiguous<R, -1, kContiguous>(boxes, boxes, count * n1 * n2);
-        strided<R, -1>(boxes, 1, count * n1, n3, n3);
+        if (!planes<R, -1>(boxes, count)) {
+            contiguous<R, -1, kContiguous>(boxes, boxes, count * n1 * n2);
+            strided<R, -1>(boxes, 1, count * n1, n3, n3);
+        }
         strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
     } else {
-        contiguous<R, 1, kContiguous>(boxes, boxes, count * n1 * n2);
-        strided<R, 1>(boxes, 1, count * n1, n3, n3);
+        if (!planes<R, 1>(boxes, count)) {
+            contiguous<R, 1, kContiguous>(boxes, boxes, count * n1 * n2);
+            strided<R, 1>(boxes, 1, count * n1, n3, n3);
+        }
         strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3);
     }
 }

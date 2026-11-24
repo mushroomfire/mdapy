@@ -53,11 +53,13 @@ public:
 
     // Lines per block (a power of two, as its logarithm) and threads per block
     // (a multiple of 64) of the kernels of a precision (0 double, 1 single) and
-    // a kind of axis (0 strided, 1 contiguous), instead of the defaults; zeros
-    // give the defaults back. For measurements.
+    // a kind of kernel (0 strided, 1 contiguous, 2 planes, of which the threads
+    // alone), instead of the defaults; zeros give the defaults back. For
+    // measurements.
     void tune(int precision, int kind, int log_lines, int threads);
     // Only the axes of a mask (1 the first, 2 the second, 4 the third) are
-    // transformed. For measurements.
+    // transformed; with 8 no pass is run (loads and stores alone), with 16 the
+    // second and the third axis each in its own kernel. For measurements.
     void only_axes(int mask) { axes_ = mask; }
 
 private:
@@ -72,11 +74,13 @@ private:
     void strided(R* boxes, int axis, long long planes, long long columns, long long stride);
     template <class R, int Sign, int Mode>
     void contiguous(const R* in, R* out, long long lines);
+    template <class R, int Sign>
+    bool planes(R* boxes, long long count);
 
     std::array<int, 3> grid_;
     Tables* tables_[3] = {nullptr, nullptr, nullptr};  // of each axis; equal sizes share one
     Tables* half_ = nullptr;                           // of half the third size, when it is even
-    int tuned_[2][2][2] = {};
+    int tuned_[2][3][2] = {};
     int axes_ = 7;
 };
 

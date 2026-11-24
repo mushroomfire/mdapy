@@ -412,11 +412,14 @@ int main(int argc, char** argv) {
     const std::string mode = argc > 1 ? argv[1] : "check";
     if (mode == "check") return check();
     if (mode == "bench") return bench(argc > 2 ? std::atoi(argv[2]) : 30);
-    if (mode == "time" && argc >= 6) {
+    if ((mode == "time" || mode == "apart") && argc >= 6) {  // apart: every axis in its own kernel
         const std::array<int, 3> g = {std::atoi(argv[2]), std::atoi(argv[3]), std::atoi(argv[4])};
         const int count = std::atoi(argv[5]), repeats = argc > 6 ? std::atoi(argv[6]) : 30;
-        time_shape<double>(g, count, repeats);
-        time_shape<float>(g, count, repeats);
+        BoxFft fft(g);
+        if (mode == "apart") fft.only_axes(7 | 16);
+        if (argc > 7) fft.tune(0, 2, 0, std::atoi(argv[7])), fft.tune(1, 2, 0, std::atoi(argv[7]));
+        time_shape<double>(g, count, repeats, &fft);
+        time_shape<float>(g, count, repeats, &fft);
         return 0;
     }
     if (mode == "axes" && argc >= 6) {  // the time of each axis of the complex transforms

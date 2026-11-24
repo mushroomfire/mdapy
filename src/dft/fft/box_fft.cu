@@ -126,10 +126,49 @@ __device__ __forceinline__ void four(Cx<R>& x0, Cx<R>& x1, Cx<R>& x2, Cx<R>& x3)
     x3 = sub(b, d);
 }
 
+// y_q = sum_p x_p w_3^(p q) of three values
+template <class R, int Sign>
+__device__ __forceinline__ void three(Cx<R>& x0, Cx<R>& x1, Cx<R>& x2) {
+    const Cx<R> s = add(x1, x2), d = sub(x1, x2);
+    const R h = static_cast<R>(0.8660254037844386467637232);
+    const Cx<R> e = {x0.x - static_cast<R>(0.5) * s.x, x0.y - static_cast<R>(0.5) * s.y};
+    const Cx<R> g = times_i<R, Sign>(Cx<R>{h * d.x, h * d.y});
+    x0 = add(x0, s);
+    x1 = add(e, g);
+    x2 = sub(e, g);
+}
+
 // y_q = sum_p x_p w_r^(p q), in place
 template <class R, int Sign, int Radix>
 __device__ __forceinline__ void butterfly(Cx<R>* x) {
-    if (Radix == 2) {
+    if (Radix == 9) {
+        // two levels of three: the values j, j + 3, j + 6 to three, those of
+        // q times w_9^(j q); then each three of a q to the components q + 3 f
+        const R s = static_cast<R>(Sign);
+        const Cx<R> w1 = {static_cast<R>(0.7660444431189780352023927), s * static_cast<R>(0.6427876096865393263226434)};
+        const Cx<R> w2 = {static_cast<R>(0.1736481776669303488517166), s * static_cast<R>(0.9848077530122080593667430)};
+        const Cx<R> w4 = {static_cast<R>(-0.9396926207859083840541093), s * static_cast<R>(0.3420201433256687330440996)};
+        three<R, Sign>(x[0], x[3], x[6]);
+        three<R, Sign>(x[1], x[4], x[7]);
+        three<R, Sign>(x[2], x[5], x[8]);
+        x[4] = mul(x[4], w1);
+        x[5] = mul(x[5], w2);
+        x[7] = mul(x[7], w2);
+        x[8] = mul(x[8], w4);
+        three<R, Sign>(x[0], x[1], x[2]);
+        three<R, Sign>(x[3], x[4], x[5]);
+        three<R, Sign>(x[6], x[7], x[8]);
+        // component q + 3 f is at 3 q + f
+        Cx<R> t = x[1];
+        x[1] = x[3];
+        x[3] = t;
+        t = x[2];
+        x[2] = x[6];
+        x[6] = t;
+        t = x[5];
+        x[5] = x[7];
+        x[7] = t;
+    } else if (Radix == 2) {
         const Cx<R> a = x[0];
         x[0] = add(a, x[1]);
         x[1] = sub(a, x[1]);
@@ -199,9 +238,11 @@ struct Lines {
 };
 
 // One pass over the lines of a block.
+// place: nullptr, or where each of the lines counted is among the lines of
+// shared memory, when only some of them are transformed.
 template <class R, int Sign, int Radix, bool PowerOfTwo>
 __device__ __forceinline__ void run_pass(Cx<R>* shared, const Lines l, const Pass ps, const Cx<R>* __restrict__ roots,
-                                         unsigned valid) {
+                                         unsigned valid, const int* __restrict__ place = nullptr) {
     const unsigned items = (l.n / Radix) * l.count;
     const unsigned d = static_cast<unsigned>(ps.m) * l.sj;
     for (unsigned w = threadIdx.x; w < items; w += blockDim.x) {
@@ -213,7 +254,8 @@ __device__ __forceinline__ void run_pass(Cx<R>* shared, const Lines l, const Pas
             k = __umulhi(u, ps.inv_m);
             j = u - k * static_cast<unsigned>(ps.m);
         }
-        Cx<R>* at = shared + (k * static_cast<unsigned>(ps.length) + j) * l.sj + c * l.sc;
+        Cx<R>* at = shared + (k * static_cast<unsigned>(ps.length) + j) * l.sj +
+                    (place == nullptr ? c : static_cast<unsigned>(place[c])) * l.sc;
         Cx<R> x[Radix];
 #pragma unroll
         for (int q = 0; q < Radix; ++q) x[q] = at[q * d];
@@ -237,17 +279,19 @@ __device__ __forceinline__ void run_pass(Cx<R>* shared, const Lines l, const Pas
 // Every pass of the lines of a block, each after a barrier.
 template <class R, int Sign, bool PowerOfTwo>
 __device__ __forceinline__ void run_passes(Cx<R>* shared, const Lines l, const Pass* pass, int passes,
-                                           const Cx<R>* __restrict__ roots, unsigned valid) {
+                                           const Cx<R>* __restrict__ roots, unsigned valid,
+                                           const int* __restrict__ place = nullptr) {
     for (int p = 0; p < passes; ++p) {
         __syncthreads();
         const Pass ps = pass[p];
         switch (ps.radix) {
-            case 2: run_pass<R, Sign, 2, PowerOfTwo>(shared, l, ps, roots, valid); break;
-            case 3: run_pass<R, Sign, 3, PowerOfTwo>(shared, l, ps, roots, valid); break;
-            case 4: run_pass<R, Sign, 4, PowerOfTwo>(shared, l, ps, roots, valid); break;
-            case 5: run_pass<R, Sign, 5, PowerOfTwo>(shared, l, ps, roots, valid); break;
-            case 7: run_pass<R, Sign, 7, PowerOfTwo>(shared, l, ps, roots, valid); break;
-            default: run_pass<R, Sign, 8, PowerOfTwo>(shared, l, ps, roots, valid); break;
+            case 2: run_pass<R, Sign, 2, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            case 3: run_pass<R, Sign, 3, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            case 4: run_pass<R, Sign, 4, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            case 5: run_pass<R, Sign, 5, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            case 7: run_pass<R, Sign, 7, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            case 8: run_pass<R, Sign, 8, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
+            default: run_pass<R, Sign, 9, PowerOfTwo>(shared, l, ps, roots, valid, place); break;
         }
     }
     __syncthreads();
@@ -548,6 +592,81 @@ __global__ void real_plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ r
     }
 }
 
+// The same of a plane of a real box whose lines have an odd number n3 of reals,
+// through complex lines of n3 points: forward the reals with no imaginary
+// part, of which the components k <= n3 / 2 are stored; inverse the components
+// (f2, k) with their conjugates at (n2 - f2, n3 - k), of which the real parts
+// are stored. half: n3 / 2 + 1.
+template <class R, int Sign>
+__global__ void odd_plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ roots2, const int* __restrict__ source2,
+                                 const Cx<R>* __restrict__ roots3, const int* __restrict__ source3,
+                                 const R* in, R* out) {
+    extern __shared__ double aligned_shared[];
+    Cx<R>* shared = reinterpret_cast<Cx<R>*>(aligned_shared);
+    const unsigned n2 = static_cast<unsigned>(a.n2), n3 = static_cast<unsigned>(a.n3), half = static_cast<unsigned>(a.half);
+    const unsigned pitch = static_cast<unsigned>(a.pitch);
+    if (Sign < 0) {
+        const R* from = in + static_cast<long long>(blockIdx.x) * (n2 * n3);
+        for (unsigned e0 = threadIdx.x; e0 < n2 * n3; e0 += 2 * kAhead * blockDim.x) {
+            R value[2 * kAhead];
+#pragma unroll
+            for (int i = 0; i < 2 * kAhead; ++i) {
+                const unsigned e = e0 + i * blockDim.x;
+                if (e < n2 * n3) value[i] = from[e];
+            }
+#pragma unroll
+            for (int i = 0; i < 2 * kAhead; ++i) {
+                const unsigned e = e0 + i * blockDim.x;
+                if (e < n2 * n3) {
+                    const unsigned i2 = __umulhi(e, a.inv_n3), i3 = e - i2 * n3;
+                    shared[i2 * pitch + i3] = {value[i], static_cast<R>(0)};
+                }
+            }
+        }
+        run_passes<R, Sign, false>(shared, Lines{n3, n2, 0u, a.inv_n2, 1u, pitch}, a.pass3, a.passes3, roots3, n2);
+        // the second axis of the columns that hold the components k < half alone
+        run_passes<R, Sign, false>(shared, Lines{n2, half, 0u, a.inv_half, pitch, 1u}, a.pass2, a.passes2, roots2, half,
+                                   source3);
+        Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + static_cast<long long>(blockIdx.x) * (n2 * half);
+        for (unsigned e = threadIdx.x; e < n2 * half; e += blockDim.x) {
+            const unsigned f2 = __umulhi(e, a.inv_half), k = e - f2 * half;
+            to[e] = shared[static_cast<unsigned>(source2[f2]) * pitch + static_cast<unsigned>(source3[k])];
+        }
+    } else {
+        const Cx<R>* from = reinterpret_cast<const Cx<R>*>(in) + static_cast<long long>(blockIdx.x) * (n2 * half);
+        for (unsigned e0 = threadIdx.x; e0 < n2 * half; e0 += kAhead * blockDim.x) {
+            Cx<R> value[kAhead];
+#pragma unroll
+            for (int i = 0; i < kAhead; ++i) {
+                const unsigned e = e0 + i * blockDim.x;
+                if (e < n2 * half) value[i] = from[e];
+            }
+#pragma unroll
+            for (int i = 0; i < kAhead; ++i) {
+                const unsigned e = e0 + i * blockDim.x;
+                if (e < n2 * half) {
+                    const unsigned f2 = __umulhi(e, a.inv_half), k = e - f2 * half;
+                    shared[f2 * pitch + k] = value[i];
+                }
+            }
+        }
+        // the second axis of the columns given, whose conjugates are then the
+        // columns n3 - k of each line
+        run_passes<R, Sign, false>(shared, Lines{n2, half, 0u, a.inv_half, pitch, 1u}, a.pass2, a.passes2, roots2, half);
+        for (unsigned w = threadIdx.x; w < n2 * (half - 1); w += blockDim.x) {
+            const unsigned k = __umulhi(w, a.inv_n2), c = w - k * n2;
+            const Cx<R> value = shared[c * pitch + k + 1];
+            shared[c * pitch + n3 - k - 1] = {value.x, -value.y};
+        }
+        run_passes<R, Sign, false>(shared, Lines{n3, n2, 0u, a.inv_n2, 1u, pitch}, a.pass3, a.passes3, roots3, n2);
+        R* to = out + static_cast<long long>(blockIdx.x) * (n2 * n3);
+        for (unsigned e = threadIdx.x; e < n2 * n3; e += blockDim.x) {
+            const unsigned i2 = __umulhi(e, a.inv_n3), j = e - i2 * n3;
+            to[e] = shared[static_cast<unsigned>(source2[i2]) * pitch + static_cast<unsigned>(source3[j])].x;
+        }
+    }
+}
+
 void check(cudaError_t status, const char* what) {
     if (status != cudaSuccess)
         throw std::runtime_error(std::string(what) + ": " + cudaGetErrorString(status));
@@ -568,11 +687,12 @@ std::vector<int> radices(int n) {
     two = twos % 2;
     std::vector<int> out;
     out.insert(out.end(), two, 2);
-    out.insert(out.end(), counts[0], 3);
+    out.insert(out.end(), counts[0] % 2, 3);
     out.insert(out.end(), fours, 4);
     out.insert(out.end(), counts[1], 5);
     out.insert(out.end(), counts[2], 7);
     out.insert(out.end(), eights, 8);
+    out.insert(out.end(), counts[0] / 2, 9);
     return out;
 }
 
@@ -806,6 +926,28 @@ bool BoxFft::planes(R* boxes, long long count) {
 // to their components and the second axis (Sign -1), or back.
 template <class R, int Sign>
 bool BoxFft::real_planes(const R* in, R* out, long long count) {
+    if (grid_[2] % 2 == 1) {
+        const Tables &t2 = *tables_[1], &t3 = *tables_[2];
+        const std::size_t bytes = static_cast<std::size_t>(t2.n) * t3.n * sizeof(Cx<R>);
+        if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+        PlaneArgs a{};
+        a.n2 = t2.n;
+        a.n3 = t3.n;
+        a.pitch = t3.n;
+        a.inv_n2 = inverse_of(t2.n);
+        a.inv_n3 = inverse_of(t3.n);
+        a.half = t3.n / 2 + 1;
+        a.inv_half = inverse_of(a.half);
+        a.passes2 = (axes_ & 8) ? 0 : static_cast<int>(t2.passes.size());
+        a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
+        for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
+        for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
+        odd_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]),
+                                    plane_threads(t2.n * t3.n, tuned_[sizeof(R) == 4][2][1]), bytes>>>(
+            a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, in, out);
+        check(cudaGetLastError(), "the transform of the planes");
+        return true;
+    }
     if (half_ == nullptr) return false;
     const Tables &t2 = *tables_[1], &t3 = *half_;
     const int half = t3.n + 1;

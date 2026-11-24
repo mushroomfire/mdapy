@@ -425,7 +425,7 @@ int main(int argc, char** argv) {
     if (mode == "axes" && argc >= 6) {  // the time of each axis of the complex transforms
         const std::array<int, 3> g = {std::atoi(argv[2]), std::atoi(argv[3]), std::atoi(argv[4])};
         const int count = std::atoi(argv[5]);
-        for (const int mask : {4, 2, 1, 7, 12, 10, 9}) {  // 8: no passes, loads and stores alone
+        for (const int mask : {4, 2, 1, 6, 7, 12, 10, 9, 14, 15, 20, 18, 23}) {  // 8: no passes, loads and stores alone
             BoxFft fft(g);
             fft.only_axes(mask);
             Device<double> d(2 * fft.points() * count);

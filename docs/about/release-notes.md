@@ -73,6 +73,16 @@
   solver takes the whole GPU: Fe72 and Si64 at Gamma run 12 % faster on a GH200, Fe16, Si64
   and Al32 with k-points 8 to 9 %. With MDAPY's kernels the cases of the GH200 take 0.51 to
   1.00 times the time of the vendor's.
+- The eigensolver of MDAPY's kernels makes only the eigenvectors the Davidson solver takes,
+  multiplies each block of reflectors only into the rows it reaches, takes a column of a
+  panel in two launches and the update of a panel as one product, and on the GPUs of full
+  double precision runs every step of a small tridiagonalization in one cooperative launch:
+  on a GH200 it takes 0.78 to 0.92 times the time of cuSOLVER from 154 to 512 rows and 1.15
+  to 1.33 beyond, against 1.3 to 1.6 before. The real transforms of Gamma read and write
+  only the planes of the sphere too, the local potential of the complex bands is taken on
+  the way of the forward transform, and a k-point set again is not made again. With these,
+  the cases of the GH200 take 0.53 to 0.95 times the time of the vendor's: Al108 at Gamma
+  9 % less than before them, Fe16 with k-points 8 %.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

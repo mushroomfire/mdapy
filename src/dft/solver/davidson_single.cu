@@ -149,9 +149,9 @@ DavidsonSingle::DavidsonSingle(Kernels kernels) : blas_(kernels), lapack_(kernel
 
 DavidsonSingle::~DavidsonSingle() = default;
 
-void DavidsonSingle::eigh(cuComplex* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
+void DavidsonSingle::eigh(cuComplex* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
-void DavidsonSingle::eigh_real(float* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
+void DavidsonSingle::eigh_real(float* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
 cuComplex* DavidsonSingle::projection(cuComplex* p, std::size_t c) const {
     const std::size_t offset = static_cast<std::size_t>(projectors_) * c;
@@ -474,9 +474,9 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                                 static_cast<std::size_t>(nbase), cudaMemcpyDeviceToDevice),
                    "cudaMemcpy2D");
         if (gamma_)
-            eigh_real(real(subspace_.data()), nbase);
+            eigh_real(real(subspace_.data()), nbase, count);
         else
-            eigh(subspace_.data(), nbase);
+            eigh(subspace_.data(), nbase, count);
         lambda = eigenvalues_;
         open.clear();
         for (int b = 0; b < count; ++b)

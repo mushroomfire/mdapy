@@ -9,6 +9,7 @@
 #include <complex>
 #include <cstddef>
 #include <cmath>
+#include <mutex>
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -251,7 +252,9 @@ __global__ void mirror_kernel(int n, S* a) {
 constexpr int kStep = 128;    // threads of a block of the tridiagonalization
 constexpr int kFused = 1024;  // the largest matrix of which a step is one launch
 constexpr int kFusedBytes = 8192;  // and the most bytes of a column of it (512 complex numbers of double precision: a V100)
-constexpr int kPanelsFrom = 1024;  // the smallest matrix reduced in panels, complex numbers of double precision
+// the largest of complex double of which all steps are one launch (never with HIP)
+[[maybe_unused]] constexpr int kStepsComplex = 704;
+constexpr int kPanelsFrom = 1536;  // the smallest matrix reduced in panels in single precision on a GPU of little double precision
 constexpr int kFusedSingle = 256;  // the same in single precision on a GPU of little double precision
 
 constexpr int kGroups = 16;   // of the threads of a block, for its sums
@@ -383,85 +386,154 @@ __global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors,
     if (t == 0) p_out[j] = sum;
 }
 
+#if !defined(MDAPY_GPU_HIP)
+// The steps from first to last - 1 of the tridiagonalization in one launch:
+// each is the step of tridiagonal_kernel in one launch (its phase 2), the same
+// numbers in the same order, but the block of a column stays with it from step
+// to step, until the step that makes its column the reflector's; between two
+// steps a block waits until every block of the step has added itself to its
+// count in arrived (zeros at the launch). All blocks must be on the GPU at
+// once, or those that are wait for ever: a cooperative launch, which the
+// driver refuses when the GPU cannot hold them all, one such launch at a time
+// in the process. What other blocks write during the launch (the products of
+// a step, the reflector, its tau, the columns) is read through plain pointers,
+// never the read-only path, and after the fences of the barrier, as the grid
+// barrier of cooperative groups does.
+template <class S>
+__global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* reflectors, S* tau,
+                                         typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* products,
+                                         int* arrived) {
+    using R = typename RealOf<S>::type;
+    extern __shared__ double shared[];
+    S* partial = reinterpret_cast<S*>(shared);
+    const int t = static_cast<int>(threadIdx.x), j = first + 1 + static_cast<int>(blockIdx.x);
+    S* column = a + static_cast<long long>(j) * n;
+    for (int k = first; k < last && k < j; ++k) {
+        const bool lead = j == k + 1;
+        const S* p_in = products + ((k + 1) & 1) * static_cast<long long>(n);  // written by the blocks of the step before
+        S* p_out = products + (k & 1) * static_cast<long long>(n);
+        S* w = partial + kStep + kGroups;  // w_i at i - k
+        S* v = w + (n - k);                // v_i at i - k - 1
+        const S* before = reflectors + static_cast<long long>(k > 0 ? k - 1 : 0) * n;  // the reflector before, v_i at i
+        S early_k[kEarly], early_j[kEarly];
+        for (int s = 0; s < kEarly; ++s) {
+            const int i = k + t + s * kStep;
+            if (i < n) early_k[s] = a[i + static_cast<long long>(k) * n];
+            if (i + 1 < n) early_j[s] = column[i + 1];
+        }
+        const S* pivot = a + static_cast<long long>(k) * n;
+        if (k > 0) {
+            const S factor = tau[k - 1];
+            S sum = from_real(S{}, static_cast<R>(0));
+            for (int i = k + t; i < n; i += kStep) {
+                const S scaled = mul(factor, p_in[i]);
+                w[i - k] = scaled;
+                sum = add(sum, mul(cj(scaled), before[i]));
+            }
+            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, block_sum(partial, sum)));
+            for (int i = k + t; i < n; i += kStep) w[i - k] = add(w[i - k], mul(half, before[i]));
+            __syncthreads();
+        }
+        R tail = static_cast<R>(0);
+        for (int i = k + t, s = 0; i < n; i += kStep, ++s) {
+            S x = s < kEarly ? early_k[s] : pivot[i];
+            if (k > 0) x = sub(x, add(mul(before[i], cj(w[0])), mul(w[i - k], cj(before[k]))));
+            if (i == k) {
+                if (lead) d[k] = re(x);
+            } else {
+                v[i - k - 1] = x;
+                if (i > k + 1) tail += re(x) * re(x) + im(x) * im(x);
+            }
+        }
+        tail = re(block_sum(partial, from_real(S{}, tail)));
+        const S alpha = v[0];
+        S reflection = from_real(S{}, static_cast<R>(0)), scale = from_real(S{}, static_cast<R>(1));
+        R beta = re(alpha);
+        if (tail != static_cast<R>(0) || im(alpha) != static_cast<R>(0)) {
+            const R size = sqrt(re(alpha) * re(alpha) + im(alpha) * im(alpha) + tail);
+            beta = re(alpha) >= static_cast<R>(0) ? -size : size;
+            reflection = mul(sub(from_real(S{}, beta), alpha), from_real(S{}, static_cast<R>(1) / beta));
+            scale = inverse(sub(alpha, from_real(S{}, beta)));
+        }
+        __syncthreads();
+        for (int i = k + 1 + t; i < n; i += kStep)
+            v[i - k - 1] = i == k + 1 ? from_real(S{}, static_cast<R>(1)) : mul(v[i - k - 1], scale);
+        if (lead && t == 0) {
+            tau[k] = reflection;
+            e[k] = beta;
+        }
+        __syncthreads();
+        if (lead)
+            for (int i = k + 1 + t; i < n; i += kStep) reflectors[i + static_cast<long long>(k) * n] = v[i - k - 1];
+        S wj = from_real(S{}, static_cast<R>(0)), vj = wj;
+        if (k > 0) {
+            wj = cj(w[j - k]);
+            vj = cj(before[j]);
+        }
+        S sum = from_real(S{}, static_cast<R>(0));
+        for (int i = k + 1 + t, s = 0; i < n; i += kStep, ++s) {
+            S x = s < kEarly ? early_j[s] : column[i];
+            if (k > 0) {
+                x = sub(x, add(mul(before[i], wj), mul(w[i - k], vj)));
+                column[i] = x;
+            }
+            sum = add(sum, mul(cj(x), v[i - k - 1]));
+        }
+        sum = block_sum(partial, sum);
+        if (t == 0) {
+            p_out[j] = sum;
+            // done with the step; a block that goes on waits for the n - 1 - k of it
+            __threadfence();
+            atomicAdd(arrived + (k - first), 1);
+            if (!lead && k + 1 < last) {
+                const volatile int* count = arrived + (k - first);
+                while (*count < n - 1 - k) {
+                }
+                __threadfence();  // what the blocks wrote before they arrived, seen from here on
+            }
+        }
+        __syncthreads();
+    }
+}
+
+// One launch of tridiagonal_steps_kernel at a time in the process, of whatever
+// type: two could each hold a part of the GPU and wait for the rest.
+std::mutex steps_mutex;
+
+// Whether the GPU holds the n - 1 blocks of tridiagonal_steps_kernel, each with
+// bytes of shared memory, all at once.
+template <class S>
+bool holds_steps(int n, std::size_t bytes) {
+    int device = 0, processors = 0, each = 0, cooperative = 0;
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+    check_cuda(cudaDeviceGetAttribute(&cooperative, cudaDevAttrCooperativeLaunch, device), "cooperative launches");
+    if (cooperative == 0) return false;
+    check_cuda(cudaDeviceGetAttribute(&processors, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
+    check_cuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&each, tridiagonal_steps_kernel<S>, kStep, bytes),
+               "the blocks of a multiprocessor");
+    return n - 1 <= each * processors;
+}
+#endif
+
 // ------------------------------------------- the tridiagonalization in panels
 //
 // For the large matrices, as LAPACK's latrd: kColumns columns are reduced
 // without touching the trailing matrix, which takes them all at the end as a
 // product, b - v w^H - w v^H with v (the reflectors) and w of kColumns columns.
-// A column j, the i-th of its panel (i = j - first), costs three launches:
-// - by rows (panel_rows_kernel), for the reflector j - 1: its product y with
-//   the trailing matrix as it was less v (w^H v) and w (v^H v) of the columns
-//   of the panel before it, times tau: the start of its w; and the column j
-//   with the reflectors of the panel applied, but for a multiple of the
-//   reflector j - 1 that waits for a sum over all rows;
-// - one block (panel_column_kernel): that sum, the end of w and of the
-//   column, and its reflector;
-// - a block to each column beyond j (panel_products_kernel): y = b v of the
-//   new reflector, and a block to each column of w and of v of the panel,
-//   their products with it.
+// A column j, the i-th of its panel (i = j - first), costs two launches:
+// - by rows (panel_rows_kernel): w of the reflector j - 1, from its product y
+//   with the trailing matrix as it was less v (w^H v) and w (v^H v) of the
+//   columns of the panel before it, and the column j with the reflectors of
+//   the panel applied, kept in held with the sums of its squares;
+// - a block to each column beyond j (panel_products_kernel): the reflector of
+//   the column j from held, which every block works out, y = b v, and a block
+//   to each column of w and of v of the panel, their products with it.
 // w (n, kColumns) holds a column to each reflector of the panel, reflectors
 // its v at the column first + c, dots w^H v then v^H v (kColumns each).
 constexpr int kColumns = 32;
 constexpr int kRows = 32;     // rows of a block of panel_rows_kernel
 constexpr int kLanes = 8;     // threads of a row there
-constexpr int kColumn = 256;  // threads of the block of a column
-
-// A block to kRows rows from j, kLanes threads a row which share the columns
-// of the panel. made (the column i - 1 of w) gets tau p, p = y - v g - w h;
-// held the column j less the reflectors before j - 1 and less made; sums, at
-// the block, sum_r conj(made_r) v_r, v the reflector j - 1. With finish (j is
-// past the panel) only made and sums.
-template <class S>
-__global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* __restrict__ a,
-                                  const S* __restrict__ reflectors, S* w, const S* __restrict__ tau,
-                                  const S* __restrict__ y, const S* __restrict__ dots, S* __restrict__ held,
-                                  S* __restrict__ sums) {
-    using R = typename RealOf<S>::type;
-    __shared__ S g[kColumns], h[kColumns], wrow[kColumns], vrow[kColumns], part[2][kRows * kLanes];
-    const int t = static_cast<int>(threadIdx.x), i = j - first, before = i - 1;  // columns before the reflector j - 1
-    const int row = t % kRows, lane = t / kRows, r = j + static_cast<int>(blockIdx.x) * kRows + row;
-    const S zero = from_real(S{}, static_cast<R>(0));
-    const S factor = tau[j - 1];
-    if (t < before) {
-        g[t] = dots[t];
-        h[t] = dots[kColumns + t];
-        wrow[t] = cj(w[j + static_cast<long long>(t) * n]);
-        vrow[t] = cj(reflectors[j + static_cast<long long>(first + t) * n]);
-    }
-    __syncthreads();
-    S p = zero, x = zero;
-    if (r < n)
-        for (int c = lane; c < before; c += kLanes) {
-            const S vc = reflectors[r + static_cast<long long>(first + c) * n], wc = w[r + static_cast<long long>(c) * n];
-            p = add(p, add(mul(vc, g[c]), mul(wc, h[c])));
-            x = add(x, add(mul(vc, wrow[c]), mul(wc, vrow[c])));
-        }
-    part[0][t] = p;
-    part[1][t] = x;
-    __syncthreads();
-    if (lane == 0) {
-        S product = zero;
-        if (r < n) {
-            p = part[0][row];
-            x = part[1][row];
-            for (int l = 1; l < kLanes; ++l) {
-                p = add(p, part[0][row + l * kRows]);
-                x = add(x, part[1][row + l * kRows]);
-            }
-            const S made = mul(factor, sub(y[r], p));
-            w[r + static_cast<long long>(before) * n] = made;
-            if (!finish) held[r] = sub(sub(a[r + static_cast<long long>(j) * n], x), made);
-            product = mul(cj(made), reflectors[r + static_cast<long long>(j - 1) * n]);
-        }
-        part[0][row] = product;
-    }
-    __syncthreads();
-    if (t == 0) {
-        S sum = part[0][0];
-        for (int q = 1; q < kRows; ++q) sum = add(sum, part[0][q]);
-        sums[blockIdx.x] = sum;
-    }
-}
+constexpr int kColumn = kRows * kLanes;  // the threads of its block
 
 // The sum of the values of the kColumn threads of a block, in an order that is
 // always the same; partial holds a value a thread, then one a group of 16.
@@ -481,93 +553,198 @@ __device__ __forceinline__ S column_sum(S* partial, S value) {
     return total;
 }
 
-// One block, kColumn threads, after panel_rows_kernel (when j is not the first
-// of its panel): alpha = -tau / 2 sum_r conj(made_r) v_r from the count sums of
-// its blocks; w of the reflector j - 1 is made + alpha v, and the column j
-// held - (conj(made_j) + 2 Re(alpha)) v. Then the reflector of the column j, its tau, the
-// diagonal element and the subdiagonal one. With finish only w.
+// A block to kRows rows from j, kLanes threads a row which share the columns
+// of the panel. With v the reflector j - 1, tau its factor and p = y - v g -
+// w h (g and h the dots), its w = tau p + alpha v goes to the column i - 1 of
+// w, alpha = -|tau|^2 (v^H y - 2 Re(g^H h)) / 2 being -tau (tau p)^H v / 2 summed
+// over all rows, which every block works out for itself from y and the dots;
+// held gets the column j less v w^H + w v^H of the columns of the panel, and
+// sums, at the block, the squares of its rows from j + 2. The first column of
+// a panel (i = 0) is the column of the matrix. With finish (j is past the
+// panel) only w.
 template <class S>
-__global__ void panel_column_kernel(int n, int j, int first, int finish, const S* __restrict__ a, S* reflectors, S* w,
-                                    S* tau, typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* held,
-                                    const S* __restrict__ sums, int count) {
+__global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* __restrict__ a,
+                                  const S* __restrict__ reflectors, S* w, const S* __restrict__ tau,
+                                  const S* __restrict__ y, const S* __restrict__ dots, S* __restrict__ held,
+                                  S* __restrict__ sums) {
     using R = typename RealOf<S>::type;
-    __shared__ S partial[kColumn + kColumn / 16];
-    const int t = static_cast<int>(threadIdx.x), i = j - first;
+    __shared__ S g[kColumns], h[kColumns], wrow[kColumns], vrow[kColumns], parts[2 * kColumn], scalars[3];
+    S* part[2] = {parts, parts + kColumn};  // the first sum takes both
+    const int t = static_cast<int>(threadIdx.x), i = j - first, before = i - 1;  // columns before the reflector j - 1
+    const int row = t % kRows, lane = t / kRows, r = j + static_cast<int>(blockIdx.x) * kRows + row;
     const S zero = from_real(S{}, static_cast<R>(0));
+    const S* v = reflectors + static_cast<long long>(i > 0 ? j - 1 : 0) * n;
+    S factor = zero, alpha = zero, both = zero, at_j = zero;
     if (i > 0) {
-        const S* before = reflectors + static_cast<long long>(j - 1) * n;
-        S* made = w + static_cast<long long>(i - 1) * n;
-        S sum = zero;
-        for (int q = t; q < count; q += kColumn) sum = add(sum, sums[q]);
-        const S at_j = made[j];  // read by all before the sums, changed after them
-        const S alpha = mul(from_real(S{}, static_cast<R>(-0.5)), mul(tau[j - 1], column_sum(partial, sum)));
-        const S both = add(cj(at_j), from_real(S{}, static_cast<R>(2) * re(alpha)));
-        for (int r = j + t; r < n; r += kColumn) {
-            const S v = before[r];
-            made[r] = add(made[r], mul(alpha, v));
-            if (!finish) held[r] = sub(held[r], mul(both, v));
+        factor = tau[j - 1];
+        if (t < before) {
+            g[t] = dots[t];
+            h[t] = dots[kColumns + t];
+            wrow[t] = cj(w[j + static_cast<long long>(t) * n]);
+            vrow[t] = cj(reflectors[j + static_cast<long long>(first + t) * n]);
         }
-        if (finish) return;
-    } else {
-        for (int r = j + t; r < n; r += kColumn) held[r] = a[r + static_cast<long long>(j) * n];
+        // v^H y over all rows
+        S sum = zero;
+        for (int q = j + t; q < n; q += kEarly * kColumn) {
+            S x[kEarly], u[kEarly];
+#pragma unroll
+            for (int e = 0; e < kEarly; ++e) {
+                const bool in = q + e * kColumn < n;
+                x[e] = in ? y[q + e * kColumn] : zero;
+                u[e] = in ? v[q + e * kColumn] : zero;
+            }
+#pragma unroll
+            for (int e = 0; e < kEarly; ++e) sum = add(sum, mul(cj(u[e]), x[e]));
+        }
+        sum = column_sum(parts, sum);
+        // g^H h, and p of the row j: a thread to each column, the first adds them
+        if (t < before) {
+            parts[t] = mul(cj(g[t]), h[t]);
+            parts[kColumns + t] = add(mul(cj(vrow[t]), g[t]), mul(cj(wrow[t]), h[t]));
+        }
+        __syncthreads();
+        if (t == 0) {
+            S cross = zero, p = zero;
+            for (int c = 0; c < before; ++c) {
+                cross = add(cross, parts[c]);
+                p = add(p, parts[kColumns + c]);
+            }
+            const S made = mul(factor, sub(y[j], p));
+            const R size = re(factor) * re(factor) + im(factor) * im(factor);
+            const R shift = static_cast<R>(-0.5) * size * (re(sum) - static_cast<R>(2) * re(cross));
+            scalars[0] = from_real(S{}, shift);
+            scalars[1] = add(cj(made), from_real(S{}, static_cast<R>(2) * shift));
+            scalars[2] = made;
+        }
+        __syncthreads();
+        alpha = scalars[0];
+        both = scalars[1];
+        at_j = scalars[2];
+    }
+    S p = zero, x = zero;
+    if (r < n)
+        for (int c = lane; c < before; c += kLanes) {
+            const S vc = reflectors[r + static_cast<long long>(first + c) * n], wc = w[r + static_cast<long long>(c) * n];
+            p = add(p, add(mul(vc, g[c]), mul(wc, h[c])));
+            x = add(x, add(mul(vc, wrow[c]), mul(wc, vrow[c])));
+        }
+    part[0][t] = p;
+    part[1][t] = x;
+    __syncthreads();
+    if (lane == 0) {
+        R square = static_cast<R>(0);
+        if (r < n) {
+            p = part[0][row];
+            x = part[1][row];
+            for (int l = 1; l < kLanes; ++l) {
+                p = add(p, part[0][row + l * kRows]);
+                x = add(x, part[1][row + l * kRows]);
+            }
+            S value = finish ? zero : sub(a[r + static_cast<long long>(j) * n], x);
+            if (i > 0) {
+                const S mine = v[r], made = r == j ? at_j : mul(factor, sub(y[r], p));
+                w[r + static_cast<long long>(before) * n] = add(made, mul(alpha, mine));
+                value = sub(sub(value, made), mul(both, mine));
+            }
+            if (!finish) {
+                held[r] = value;
+                if (r >= j + 2) square = re(value) * re(value) + im(value) * im(value);
+            }
+        }
+        part[0][row] = from_real(S{}, square);
     }
     __syncthreads();
-    R tail = static_cast<R>(0);
-    for (int r = j + 2 + t; r < n; r += kColumn) tail += re(held[r]) * re(held[r]) + im(held[r]) * im(held[r]);
-    tail = re(column_sum(partial, from_real(S{}, tail)));
-    if (t == 0) d[j] = re(held[j]);
-    if (j == n - 1) return;
+    if (finish) return;
+    // the squares of the rows: those of each 16, then these sums
+    if (t < kRows / 16) {
+        S sum = part[0][t * 16];
+        for (int q = 1; q < 16; ++q) sum = add(sum, part[0][t * 16 + q]);
+        part[1][t] = sum;
+    }
+    __syncthreads();
+    if (t == 0) {
+        S sum = part[1][0];
+        for (int q = 1; q < kRows / 16; ++q) sum = add(sum, part[1][q]);
+        sums[blockIdx.x] = sum;
+    }
+}
+
+// The reflector of the column j from held, as panel_rows_kernel left it with
+// the count sums of its squares: v = (1, scale held) from the row j + 1, which
+// every block works out and the block of a row writes; with tau, the diagonal
+// element and the subdiagonal one. Then the products with it: a block to each
+// column beyond j, y_c = sum_r conj(a_rc) v_r, then one to each of the columns
+// columns of w and of v of the panel before it, into dots and dots + kColumns.
+// kStep threads, kEarly numbers of the column on their way at a time.
+template <class S>
+__global__ void panel_products_kernel(int n, int j, int first, int columns, int count, const S* __restrict__ a,
+                                      S* reflectors, const S* __restrict__ w, const S* __restrict__ held,
+                                      const S* __restrict__ sums, S* tau, typename RealOf<S>::type* d,
+                                      typename RealOf<S>::type* e, S* __restrict__ y, S* __restrict__ dots) {
+    using R = typename RealOf<S>::type;
+    __shared__ S partial[kStep + kGroups];
+    const int t = static_cast<int>(threadIdx.x), m = n - 1 - j, b = static_cast<int>(blockIdx.x);
+    const S zero = from_real(S{}, static_cast<R>(0)), one = from_real(S{}, static_cast<R>(1));
+    if (b == 0 && t == 0) d[j] = re(held[j]);
+    if (m < 1) return;
+    S sum = zero;
+    for (int q = t; q < count; q += kStep) sum = add(sum, sums[q]);
+    const R tail = re(block_sum(partial, sum));
     const S alpha = held[j + 1];
-    S reflection = zero, scale = from_real(S{}, static_cast<R>(1));
+    S reflection = zero, scale = one;
     R beta = re(alpha);
     if (tail != static_cast<R>(0) || im(alpha) != static_cast<R>(0)) {
         const R size = sqrt(re(alpha) * re(alpha) + im(alpha) * im(alpha) + tail);
         beta = re(alpha) >= static_cast<R>(0) ? -size : size;
+        // tau = (beta - alpha) / beta, v = x / (alpha - beta)
         reflection = mul(sub(from_real(S{}, beta), alpha), from_real(S{}, static_cast<R>(1) / beta));
         scale = inverse(sub(alpha, from_real(S{}, beta)));
     }
-    S* v = reflectors + static_cast<long long>(j) * n;
-    for (int r = j + 1 + t; r < n; r += kColumn) v[r] = r == j + 1 ? from_real(S{}, static_cast<R>(1)) : mul(held[r], scale);
-    if (t == 0) {
+    if (b == 0 && t == 0) {
         tau[j] = reflection;
         e[j] = beta;
     }
-}
-
-// The products with the reflector j, v_r at r: a block to each column beyond
-// j, y_c = sum_r conj(a_rc) v_r, then one to each of the count columns of w
-// and of v of the panel before it, into dots and dots + kColumns. kStep
-// threads, kEarly numbers of the column on their way at a time.
-template <class S>
-__global__ void panel_products_kernel(int n, int j, int first, int count, const S* __restrict__ a,
-                                      const S* __restrict__ reflectors, const S* __restrict__ w, S* __restrict__ y,
-                                      S* __restrict__ dots) {
-    using R = typename RealOf<S>::type;
-    __shared__ S partial[kStep + kGroups];
-    const int t = static_cast<int>(threadIdx.x), m = n - 1 - j, b = static_cast<int>(blockIdx.x);
-    const S* v = reflectors + static_cast<long long>(j) * n;
     const S* column = b < m ? a + static_cast<long long>(j + 1 + b) * n
-                      : b < m + count ? w + static_cast<long long>(b - m) * n
-                                      : reflectors + static_cast<long long>(first + b - m - count) * n;
-    const S zero = from_real(S{}, static_cast<R>(0));
-    S sum = zero;
-    for (int r = j + 1 + t; r < n; r += kEarly * kStep) {
+                      : b < m + columns ? w + static_cast<long long>(b - m) * n
+                                        : reflectors + static_cast<long long>(first + b - m - columns) * n;
+    // v is (1, scale held): the products with held from the row j + 2, the
+    // scale and the row j + 1 at the end
+    sum = zero;
+    for (int r = j + 2 + t; r < n; r += kEarly * kStep) {
         S x[kEarly], u[kEarly];
 #pragma unroll
         for (int q = 0; q < kEarly; ++q) {
             const bool in = r + q * kStep < n;
             x[q] = in ? column[r + q * kStep] : zero;
-            u[q] = in ? v[r + q * kStep] : zero;
+            u[q] = in ? held[r + q * kStep] : zero;
         }
 #pragma unroll
         for (int q = 0; q < kEarly; ++q) sum = add(sum, mul(cj(x[q]), u[q]));
     }
     sum = block_sum(partial, sum);
     if (t != 0) return;
-    if (b < m)
+    sum = add(mul(scale, sum), cj(column[j + 1]));
+    if (b < m) {
         y[j + 1 + b] = sum;
-    else
-        dots[b < m + count ? b - m : kColumns + b - m - count] = sum;
+        reflectors[j + 1 + b + static_cast<long long>(j) * n] = b == 0 ? one : mul(held[j + 1 + b], scale);
+    } else {
+        dots[b < m + columns ? b - m : kColumns + b - m - columns] = sum;
+    }
+}
+
+// p = (v, x) and q = (x, v), width columns of each (rows, 2 width): the
+// product p q^H is v x^H + x v^H, what a panel takes from the trailing matrix,
+// which one product passes once. v and x are stored with ldv and ldx rows.
+template <class S>
+__global__ void pair_kernel(int rows, int width, int ldv, const S* __restrict__ v, int ldx, const S* __restrict__ x,
+                            S* __restrict__ p, S* __restrict__ q) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x, half = static_cast<long long>(rows) * width;
+    if (e >= half) return;
+    const S left = v[e % rows + (e / rows) * ldv], right = x[e % rows + (e / rows) * ldx];
+    p[e] = left;
+    p[half + e] = right;
+    q[e] = right;
+    q[half + e] = left;
 }
 
 constexpr int kReflectors = 64;  // the most of a block of the back-transformation
@@ -838,12 +1015,13 @@ __global__ void gather_kernel(Level a, const R* __restrict__ q, R* __restrict__ 
 // A thread to each element: next is q with the block of each merge replaced by
 // the columns of [product, the deflated columns of q] in the order of their
 // eigenvalues; the first and the last row of each block go to first and last.
+// Only the first columns of the matrix are made.
 template <class R>
-__global__ void assemble_kernel(Level a, const R* __restrict__ q, const R* __restrict__ product,
+__global__ void assemble_kernel(Level a, int columns, const R* __restrict__ q, const R* __restrict__ product,
                                 const int* __restrict__ order, R* __restrict__ next, double* __restrict__ first,
                                 double* __restrict__ last) {
     const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
-    if (e >= static_cast<long long>(a.n) * a.n) return;
+    if (e >= static_cast<long long>(a.n) * columns) return;
     const int p = static_cast<int>(e / a.n), r = static_cast<int>(e % a.n);
     const int offset = a.offset[p], size = a.size[p];
     if (size == 0 || r < offset || r >= offset + size) {
@@ -893,10 +1071,12 @@ void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 // of q (n, n), real numbers of the precision of the matrix: the leaves on the
 // host, then the merges height by height, each height one transfer to the GPU
 // and one from it. With scalars the roots of the merges and their small
-// eigenvectors are found on the GPU, else on the host.
+// eigenvectors are found on the GPU, else on the host. Of the eigenvectors
+// only the first wanted columns are made, which spares most of the product of
+// the last merge.
 template <class R>
 void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, DeviceArray<R>& q, Blas& blas, bool scalars,
-                        int leaf = 32) {
+                        int leaf, int wanted) {
     const int n = static_cast<int>(d.size());
     const std::size_t count = static_cast<std::size_t>(n), size = count * count;
     // scaled to a largest element of one, so that the tolerances are relative
@@ -930,14 +1110,17 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
         return;
     }
     DeviceArray<R> next(size), gathered(size), product(size), u(size);
-    DeviceArray<double> delta, numbers(4 * count), fitted(count), results(3 * count), angles;
+    // what the host gives a height in one transfer: the numbers, the angles
+    // of the rotations, then the integers and the columns of the rotations
+    DeviceArray<double> delta, given, fitted(count), results(3 * count);
+    std::vector<double> pack;
     std::vector<R> host_u;
     std::vector<double> small;
     if (scalars)
         delta.resize(size);
     else
         host_u.resize(size);
-    DeviceArray<int> integers(4 * count), order(count), columns;
+    DeviceArray<int> order(count);
     std::vector<double> host_numbers(4 * count), host_results(3 * count), host_angles, z;
     std::vector<int> host_integers(4 * count), host_columns;
     struct Turned {
@@ -995,18 +1178,21 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
                 }
             }
         }
-        integers.assign(host_integers.data(), host_integers.size());
-        numbers.assign(host_numbers.data(), host_numbers.size());
-        const Level level{n, integers.data(), integers.data() + count, integers.data() + 2 * count,
-                          integers.data() + 3 * count, numbers.data(), numbers.data() + count,
-                          numbers.data() + 2 * count, numbers.data() + 3 * count};
-        if (!turned.empty()) {
-            columns.assign(host_columns.data(), host_columns.size());
-            angles.assign(host_angles.data(), host_angles.size());
-            for (const Turned& t : turned)
-                rotate_kernel<R><<<blocks(t.size), kThreads>>>(n, t.offset, t.size, t.count, columns.data() + 2 * t.first,
-                                                              angles.data() + 2 * t.first, q.data());
-        }
+        const std::size_t turns = host_columns.size();
+        pack.resize(4 * count + turns + (4 * count + turns + 1) / 2);
+        std::copy(host_numbers.begin(), host_numbers.end(), pack.begin());
+        std::copy(host_angles.begin(), host_angles.end(), pack.begin() + static_cast<std::ptrdiff_t>(4 * count));
+        int* whole = reinterpret_cast<int*>(pack.data() + 4 * count + turns);
+        std::copy(host_integers.begin(), host_integers.end(), whole);
+        std::copy(host_columns.begin(), host_columns.end(), whole + 4 * count);
+        given.assign(pack.data(), pack.size());
+        double* numbers = given.data();
+        const int* integers = reinterpret_cast<const int*>(numbers + 4 * count + turns);
+        const Level level{n, integers, integers + count, integers + 2 * count, integers + 3 * count, numbers,
+                          numbers + count, numbers + 2 * count, numbers + 3 * count};
+        for (const Turned& t : turned)
+            rotate_kernel<R><<<blocks(t.size), kThreads>>>(n, t.offset, t.size, t.count, integers + 4 * count + 2 * t.first,
+                                                          numbers + 4 * count + 2 * t.first, q.data());
         if (scalars) {
             secular_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data());
             fit_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data(), fitted.data());
@@ -1021,12 +1207,16 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
             const host::Merge& m = tree.merges[i];
             const int kept = host_integers[2 * count + static_cast<std::size_t>(m.offset)];
             const std::size_t block = static_cast<std::size_t>(m.offset) * count + static_cast<std::size_t>(m.offset);
-            if (kept > 0)
-                blas.gemm(Op::N, Op::N, m.size, kept, kept, static_cast<R>(1), gathered.data() + block, n,
+            // the roots are ascending: those among the first wanted eigenvalues are the first of them
+            const int made = m.size == n ? std::min(kept, wanted) : kept;
+            if (made > 0)
+                blas.gemm(Op::N, Op::N, m.size, made, kept, static_cast<R>(1), gathered.data() + block, n,
                           u.data() + block, n, static_cast<R>(0), product.data() + block, n);
         }
-        assemble_kernel<R><<<elements, kThreads>>>(level, q.data(), product.data(), order.data(), next.data(),
-                                                  results.data() + count, results.data() + 2 * count);
+        const int columns = height == tree.height ? wanted : n;
+        assemble_kernel<R><<<blocks(static_cast<long long>(count) * columns), kThreads>>>(
+            level, columns, q.data(), product.data(), order.data(), next.data(), results.data() + count,
+            results.data() + 2 * count);
         launched("the eigenvectors of the merges");
         std::swap(q, next);
         results.download(host_results.data(), host_results.size());
@@ -1100,8 +1290,8 @@ bool Lapack::full_double() {
 
 // On the host, in double precision, when small; else on the GPU.
 template <class T>
-void Lapack::own_eigh(T* a, int n, std::vector<double>& values) {
-    if (n > host_limit_) return device_eigh(a, n, values);
+void Lapack::own_eigh(T* a, int n, std::vector<double>& values, int wanted) {
+    if (n > host_limit_) return device_eigh(a, n, values, wanted);
     const std::size_t size = static_cast<std::size_t>(n) * n;
     std::vector<T> narrow_host(size);
     download(a, size, narrow_host.data());
@@ -1115,19 +1305,19 @@ void Lapack::own_eigh(T* a, int n, std::vector<double>& values) {
 
 // a = q t q^H on the GPU (reflector after reflector), the eigenpairs of the
 // tridiagonal t by divide and conquer, and q applied to them in blocks of
-// reflectors.
+// reflectors. Of the eigenvectors the first wanted.
 template <class T>
-void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
+void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
     using S = std::remove_pointer_t<decltype(own(a))>;
     using R = typename RealOf<S>::type;
     const std::size_t size = static_cast<std::size_t>(n) * n;
     S* matrix = own(a);
+    mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, matrix);
+    launched("the lower triangle of a matrix");
     // the reflectors as columns (zeros down to the diagonal of each), and p of two steps
     DeviceArray<T> tau(static_cast<std::size_t>(n)), reflectors(size), products(2 * static_cast<std::size_t>(n)), held;
     DeviceArray<R> diagonal(static_cast<std::size_t>(n)), subdiagonal(static_cast<std::size_t>(n));
     reflectors.zero();
-    mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, matrix);
-    launched("the lower triangle of a matrix");
     {
         MDAPY_SPAN("tridiagonal");
         // one launch a step repeats its first part in every block: not where the
@@ -1136,38 +1326,48 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
         const int limit = fused_limit_ >= 0 ? std::min(fused_limit_, kFused)
                           : full_double() ? std::min(kFused, static_cast<int>(kFusedBytes / sizeof(S)))
                           : sizeof(R) == sizeof(float) ? kFusedSingle : 0;
-        const bool fused = n <= limit;
-        if (!fused) held.resize(static_cast<std::size_t>(n));
         const std::size_t sums = (kStep + kGroups) * sizeof(S);
-        // panels from 1024 complex numbers of double precision and 1536 of the
-        // other types (the crossovers of a GH200 and a V100 lie around them); on
-        // a GPU of little double precision in single precision only (an RTX A2000)
+        // all steps in one launch up to 704 complex numbers of double precision
+        // and 1024 of the other types, on a GPU of full double precision that
+        // holds all their blocks at once (measured on a GH200; a V100 holds
+        // those of about 400 rows)
+        bool together = false;
+#if !defined(MDAPY_GPU_HIP)
+        const int most = std::min(sizeof(S) == 2 * sizeof(double) ? kStepsComplex : kFused,
+                                  fused_limit_ >= 0 ? fused_limit_ : kFused);
+        together = n > 2 && n <= most && (together_steps_ > 0 || (together_steps_ < 0 && full_double())) &&
+                   holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S));
+#endif
+        const bool fused = together || n <= limit;
+        if (!fused) held.resize(static_cast<std::size_t>(n));
+        // panels wherever a step is not one launch (measured on a GH200 and a
+        // V100); on a GPU of little double precision in single precision only,
+        // from 1536 (an RTX A2000)
         const int from = panels_from_ >= 0 ? panels_from_
-                         : sizeof(R) == sizeof(double) && !full_double() ? n + 1
-                         : sizeof(S) == 2 * sizeof(double) ? kPanelsFrom : kPanelsFrom + kPanelsFrom / 2;
+                         : full_double() ? 0
+                         : sizeof(R) == sizeof(double) ? n + 1 : kPanelsFrom;
         const bool panels = n >= from && !fused;
         if (panels) {
             DeviceArray<T> w(static_cast<std::size_t>(n) * kColumns), dots(2 * kColumns), sums(blocks(n, kRows));
             const T one = unit(T{}, 1.0), minus = unit(T{}, -1.0);
+            DeviceArray<T> pairs(4 * static_cast<std::size_t>(n) * kColumns);
+            T* right = pairs.data() + 2 * static_cast<std::size_t>(n) * kColumns;
             S* y = own(products.data());
-            // w of the reflector before the column j, which is past the panel when finish
+            // w of the reflector before the column j (which is past the panel
+            // when finish), and the column
             const auto rows = [&](int j, int first, int finish) {
-                const int count = static_cast<int>(blocks(n - j, kRows));
-                if (j > first)
-                    panel_rows_kernel<S><<<static_cast<unsigned>(count), kRows * kLanes>>>(
-                        n, j, first, finish, matrix, own(reflectors.data()), own(w.data()), own(tau.data()), y,
-                        own(dots.data()), own(held.data()), own(sums.data()));
-                panel_column_kernel<S><<<1, kColumn>>>(n, j, first, finish, matrix, own(reflectors.data()), own(w.data()),
-                                                      own(tau.data()), diagonal.data(), subdiagonal.data(),
-                                                      own(held.data()), own(sums.data()), count);
+                panel_rows_kernel<S><<<blocks(n - j, kRows), kRows * kLanes>>>(
+                    n, j, first, finish, matrix, own(reflectors.data()), own(w.data()), own(tau.data()), y,
+                    own(dots.data()), own(held.data()), own(sums.data()));
             };
             for (int first = 0; first < n; first += kColumns) {
                 const int width = std::min(kColumns, n - first);
                 for (int j = first; j < first + width; ++j) {
                     rows(j, first, 0);
-                    if (j + 1 < n)
-                        panel_products_kernel<S><<<static_cast<unsigned>(n - 1 - j + 2 * (j - first)), kStep>>>(
-                            n, j, first, j - first, matrix, own(reflectors.data()), own(w.data()), y, own(dots.data()));
+                    panel_products_kernel<S><<<static_cast<unsigned>(std::max(n - 1 - j + 2 * (j - first), 1)), kStep>>>(
+                        n, j, first, j - first, static_cast<int>(blocks(n - j, kRows)), matrix, own(reflectors.data()),
+                        own(w.data()), own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(),
+                        subdiagonal.data(), y, own(dots.data()));
                 }
                 launched("a panel of the tridiagonalization");
                 const int next = first + width, rest = n - next;
@@ -1175,13 +1375,41 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
                 rows(next, first, 1);
                 launched("the last column of a panel");
                 T* trailing = a + static_cast<std::size_t>(next) * n + next;
-                const T* v2 = reflectors.data() + static_cast<std::size_t>(first) * n + next;
-                const T* w2 = w.data() + next;
-                blas_.gemm(Op::N, Op::C, rest, rest, width, minus, v2, n, w2, n, one, trailing, n);
-                blas_.gemm(Op::N, Op::C, rest, rest, width, minus, w2, n, v2, n, one, trailing, n);
+                // v w^H + w v^H as one product, which passes the trailing matrix once
+                pair_kernel<S><<<blocks(static_cast<long long>(rest) * width), kThreads>>>(
+                    rest, width, n, own(reflectors.data()) + static_cast<std::size_t>(first) * n + next, n,
+                    own(w.data()) + next, own(pairs.data()), own(right));
+                launched("the two halves of the update of a panel");
+                blas_.gemm(Op::N, Op::C, rest, rest, 2 * width, minus, pairs.data(), rest, right, rest, one, trailing, n);
             }
         }
-        for (int k = 0; k < n && !panels; ++k) {
+        int done = 0;  // the steps one launch took together
+#if !defined(MDAPY_GPU_HIP)
+        if (together) {
+            const std::lock_guard<std::mutex> lock(steps_mutex);
+            DeviceArray<int> arrived(static_cast<std::size_t>(n));
+            arrived.zero();
+            // a cooperative launch: the driver starts all blocks at once or
+            // refuses (another process on the GPU, say), and the steps then go
+            // one launch each
+            int zero = 0, last = n - 1;
+            S *reflected = own(reflectors.data()), *taus = own(tau.data()), *both = own(products.data());
+            R *diagonals = diagonal.data(), *subdiagonals = subdiagonal.data();
+            int* counts = arrived.data();
+            void* arguments[] = {&n, &zero, &last, &matrix, &reflected, &taus, &diagonals, &subdiagonals, &both,
+                                 &counts};
+            const cudaError_t status = cudaLaunchCooperativeKernel(
+                reinterpret_cast<const void*>(tridiagonal_steps_kernel<S>), dim3(static_cast<unsigned>(n - 1)),
+                dim3(kStep), arguments, sums + 2 * static_cast<std::size_t>(n) * sizeof(S), cudaStreamPerThread);
+            if (status == cudaSuccess) {
+                done = n - 1;
+                check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "the steps of the tridiagonalization");
+            } else {
+                static_cast<void>(cudaGetLastError());  // refused: nothing ran
+            }
+        }
+#endif
+        for (int k = done; k < n && !panels; ++k) {
             const S* in = own(products.data()) + ((k + 1) & 1) * static_cast<std::size_t>(n);
             S* out = own(products.data()) + (k & 1) * static_cast<std::size_t>(n);
             const unsigned columns = static_cast<unsigned>(std::max(n - 1 - k, 1));
@@ -1209,9 +1437,11 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
     DeviceArray<R> q;
     {
         MDAPY_SPAN("divide");
-        divide_and_conquer(d, e, q, blas_, full_double(), leaf_ > 0 ? leaf_ : n >= 1024 && full_double() ? 16 : 32);
+        divide_and_conquer(d, e, q, blas_, full_double(), leaf_ > 0 ? leaf_ : n >= 1024 && full_double() ? 16 : 32,
+                           wanted);
     }
     values = d;
+    const std::size_t made = static_cast<std::size_t>(n) * wanted;
     // z = h_0 h_1 ... q, the last block of reflectors first: a block is
     // 1 - v t v^H with t upper triangular, t_ii = tau_i and
     // t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i]
@@ -1220,23 +1450,26 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
     // precision is full (measured on a GH200 and a V100: 4 to 9 % from 1024)
     const bool large = n >= 1024 && full_double();
     const int per = reflectors_ > 0 ? std::min(reflectors_, kReflectors) : large ? 64 : 32;
-    DeviceArray<T> z(size), w(static_cast<std::size_t>(n) * per), tw(static_cast<std::size_t>(n) * per),
+    DeviceArray<T> z(made), w(static_cast<std::size_t>(wanted) * per), tw(static_cast<std::size_t>(wanted) * per),
         gram(static_cast<std::size_t>(per) * per), small(static_cast<std::size_t>(per) * per);
-    widen_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(static_cast<long long>(size), q.data(), own(z.data()));
+    widen_kernel<S><<<blocks(static_cast<long long>(made)), kThreads>>>(static_cast<long long>(made), q.data(), own(z.data()));
     launched("the eigenvectors of the tridiagonal matrix");
     const int reflectors_count = n - 1;
     const T one = unit(T{}, 1.0), zero = unit(T{}, 0.0), minus = unit(T{}, -1.0);
     for (int first = reflectors_count > 0 ? ((reflectors_count - 1) / per) * per : -1; first >= 0; first -= per) {
         const int count = std::min(per, reflectors_count - first);
-        const T* v = reflectors.data() + static_cast<std::size_t>(first) * n;
-        blas_.gemm(Op::C, Op::N, count, count, n, one, v, n, v, n, zero, gram.data(), count);
+        // the reflectors of a block are zero down to the row first: the rows below it alone
+        const int rows = n - first - 1;
+        const T* v = reflectors.data() + static_cast<std::size_t>(first) * n + first + 1;
+        T* below = z.data() + first + 1;
+        blas_.gemm(Op::C, Op::N, count, count, rows, one, v, n, v, n, zero, gram.data(), count);
         block_factor_kernel<S><<<1, kReflectors>>>(count, own(tau.data()) + first, own(gram.data()), own(small.data()));
         launched("the factor of a block of reflectors");
-        blas_.gemm(Op::C, Op::N, count, n, n, one, v, n, z.data(), n, zero, w.data(), count);
-        blas_.gemm(Op::N, Op::N, count, n, count, one, small.data(), count, w.data(), count, zero, tw.data(), count);
-        blas_.gemm(Op::N, Op::N, n, n, count, minus, v, n, tw.data(), count, one, z.data(), n);
+        blas_.gemm(Op::C, Op::N, count, wanted, rows, one, v, n, below, n, zero, w.data(), count);
+        blas_.gemm(Op::N, Op::N, count, wanted, count, one, small.data(), count, w.data(), count, zero, tw.data(), count);
+        blas_.gemm(Op::N, Op::N, rows, wanted, count, minus, v, n, tw.data(), count, one, below, n);
     }
-    check_cuda(cudaMemcpy(a, z.data(), size * sizeof(T), cudaMemcpyDeviceToDevice), "cudaMemcpy");
+    check_cuda(cudaMemcpy(a, z.data(), made * sizeof(T), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
 
 // Blocks of kPanel columns on the lower triangle, a = l l^H: the diagonal
@@ -1296,11 +1529,11 @@ int Lapack::own_potrf(T* a, int n) {
 }
 
 #define MDAPY_LAPACK(T, V, VALUES)                                                                           \
-    void Lapack::eigh(T* a, int n, std::vector<double>& values) {                                            \
+    void Lapack::eigh(T* a, int n, std::vector<double>& values, int count) {                                 \
         values.clear();                                                                                      \
         if (n < 1) return;                                                                                   \
         MDAPY_SPAN("eigh");                                                                                  \
-        if (kernels_ == Kernels::Mdapy) return own_eigh(a, n, values);                                       \
+        if (kernels_ == Kernels::Mdapy) return own_eigh(a, n, values, count < 0 || count > n ? n : std::max(count, 1)); \
         VALUES.reserve(static_cast<std::size_t>(n));                                                         \
         vendor_eigh<V>(vendor(), a, n, VALUES.data(), work_, info_, values);                                 \
     }                                                                                                        \

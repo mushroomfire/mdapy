@@ -11,6 +11,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
@@ -281,10 +282,15 @@ void bind_blas(nb::module_& m) {
     // not negative, is the largest matrix MDAPY's kernels take on the host;
     // full_double, when not negative, whether they take the GPU as one of
     // full double precision; panels_from, when not negative, the smallest
-    // matrix they tridiagonalize in panels, none of them with one launch a step
+    // matrix they tridiagonalize in panels, none of them with one launch a step;
+    // together_steps, when not negative, whether the steps of the small
+    // matrices go in one launch;
+    // count, when not negative, the eigenvectors asked for, the lowest: the
+    // other columns hold nothing of use
     m.def(
         "eigh",
-        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from) {
+        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from,
+           int together_steps, int count) {
             const int n = static_cast<int>(a.shape(0));
             if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
             DeviceArray<D> da;
@@ -296,8 +302,9 @@ void bind_blas(nb::module_& m) {
                 lapack.set_fused_limit(0);
                 lapack.set_panels_from(panels_from);
             }
+            if (together_steps >= 0) lapack.set_together_steps(together_steps);
             std::vector<double> values;
-            lapack.eigh(da.data(), n, values);
+            lapack.eigh(da.data(), n, values, count);
             H* out = nullptr;
             auto vectors = columns_of<H>(a.shape(0), a.shape(0), out);
             da.download(reinterpret_cast<D*>(out), da.size());
@@ -307,7 +314,8 @@ void bind_blas(nb::module_& m) {
             return nb::make_tuple(eigenvalues, vectors);
         },
         nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
-        nb::arg("full_double") = -1, nb::arg("panels_from") = -1);
+        nb::arg("full_double") = -1, nb::arg("panels_from") = -1, nb::arg("together_steps") = -1,
+        nb::arg("count") = -1);
     // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
     // which the upper triangle is read; info is not zero when a is not positive
     // definite
@@ -482,7 +490,7 @@ NB_MODULE(_dft, m) {
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
         const int w = fft.window_of(window);
-        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), count, boxes.data(), g, w);
+        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), nullptr, count, boxes.data(), g, w);
         fft.to_real(boxes.data(), count, w);
         std::complex<double>* out = nullptr;
         auto values = new_array<std::complex<double>>(
@@ -494,8 +502,10 @@ NB_MODULE(_dft, m) {
     }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // the values (count, n1, n2, n3) on the grid to the coefficients of a sphere,
     // divided by the points of the grid: the inverse of to_real_space; with
-    // window >= 0, of a sphere within window of 0 along the first index
-    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window) {
+    // window >= 0, of a sphere within window of 0 along the first index; with
+    // field (n1, n2, n3), of the values times it
+    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window,
+                                std::optional<Grid3> field) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         const std::size_t points = points_of(g);
@@ -506,18 +516,25 @@ NB_MODULE(_dft, m) {
         boxes.upload(as_device(v.data()), v.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        fft.to_reciprocal(boxes.data(), count, fft.window_of(window));
+        DeviceArray<double> f;
+        if (field) {
+            if (field->size() != points) throw std::invalid_argument("a field of the grid of the values");
+            f.upload(field->data(), points);
+        }
+        fft.to_reciprocal(boxes.data(), count, fft.window_of(window), field ? f.data() : nullptr);
         mdapy::dft::gather(boxes.data(), points, places.data(), n, count,
                            1.0 / static_cast<double>(points), coefficients.data());
         std::complex<double>* out = nullptr;
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1,
+       nb::arg("field").none() = nb::none());
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
-    // values on the grid, and back
+    // values on the grid, and back; window as to_real_space and to_coefficients
     m.def("to_real_space_gamma",
-          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels) {
+          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels,
+             int window) {
               const Int3 g = grid_of(grid);
               mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
               const std::size_t spectrum = fft.spectrum(), points = fft.points();
@@ -528,10 +545,11 @@ NB_MODULE(_dft, m) {
               DeviceArray<std::int64_t> places, partners;
               places.upload(box.data(), n);
               partners.upload(partner.data(), n);
-              mdapy::dft::scatter(coefficients.data(), n, places.data(), partners.data(), count,
-                                  spec.data(), spectrum);
+              const int w = fft.window_of(window);
+              mdapy::dft::scatter_window(coefficients.data(), n, places.data(), partners.data(), count, spec.data(),
+                                         Int3{g[0], g[1], g[2] / 2 + 1}, w);
               DeviceArray<double> values(count * points);
-              fft.to_real(spec.data(), values.data(), count);
+              fft.to_real(spec.data(), values.data(), count, w);
               double* out = nullptr;
               auto result = new_array<double>(
                   {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -540,8 +558,9 @@ NB_MODULE(_dft, m) {
               values.download(out, values.size());
               return result;
           },
-          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy");
-    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels) {
+          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy",
+          nb::arg("window") = -1);
+    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels, int window) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
@@ -551,7 +570,7 @@ NB_MODULE(_dft, m) {
         DeviceArray<double> values;
         values.upload(v.data(), v.size());
         DeviceArray<Complex> spec(count * spectrum), coefficients(count * n);
-        fft.to_reciprocal(values.data(), spec.data(), count);
+        fft.to_reciprocal(values.data(), spec.data(), count, fft.window_of(window));
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
         mdapy::dft::gather(spec.data(), spectrum, places.data(), n, count,
@@ -560,7 +579,7 @@ NB_MODULE(_dft, m) {
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy");
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // functions on a coarse grid carried to a fine one through their Fourier
     // components, (count, n1, n2, n3) complex values in and out
     m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine, const std::string& kernels) {

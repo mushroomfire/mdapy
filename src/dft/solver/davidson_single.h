@@ -39,8 +39,10 @@ public:
                          const std::vector<double>& tolerances, int max_iterations, int largest_basis);
 
 private:
-    void eigh(cuComplex* a, int n);  // eigenvalues into eigenvalues_, vectors into a
-    void eigh_real(float* a, int n);  // the same of a real symmetric matrix, at Gamma
+    // eigenvalues into eigenvalues_, vectors into a (with count not negative
+    // the first count of them alone)
+    void eigh(cuComplex* a, int n, int count = -1);
+    void eigh_real(float* a, int n, int count = -1);  // the same of a real symmetric matrix, at Gamma
     // column c of the projections p, cuComplex or real
     cuComplex* projection(cuComplex* p, std::size_t c) const;
     // out (ka, kb) = a^H b + pa^H q pb (the second without h)

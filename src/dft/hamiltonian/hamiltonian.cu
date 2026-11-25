@@ -240,27 +240,12 @@ __global__ void kinetic_kernel(std::size_t n, int count, const double* kinetic, 
     hpsi[i] = make_cuDoubleComplex(t * psi[i].x, t * psi[i].y);
 }
 
-__global__ void multiply_kernel(std::size_t points, int count, const double* potential,
-                                Complex* boxes) {
-    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
-    if (i >= points * count) return;
-    const double v = potential[i % points];
-    boxes[i] = make_cuDoubleComplex(v * boxes[i].x, v * boxes[i].y);
-}
-
 __global__ void kinetic_single_kernel(std::size_t n, int count, const float* kinetic, const cuComplex* psi,
                                       cuComplex* hpsi) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (i >= n * count) return;
     const float t = kinetic[i % n];
     hpsi[i] = make_cuComplex(t * psi[i].x, t * psi[i].y);
-}
-
-__global__ void multiply_single_kernel(std::size_t points, int count, const float* potential, cuComplex* boxes) {
-    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
-    if (i >= points * count) return;
-    const float v = potential[i % points];
-    boxes[i] = make_cuComplex(v * boxes[i].x, v * boxes[i].y);
 }
 
 __global__ void multiply_real_single_kernel(std::size_t points, int count, const float* potential, float* values) {
@@ -546,6 +531,10 @@ void Hamiltonian::set_k(const Vec3& k) {
     MDAPY_SPAN("set_k");
     if (gamma_mode_ && (k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0))
         throw std::invalid_argument("real bands are those of Gamma only");
+    // the k-point it holds already: nothing to make again (a run at Gamma, or
+    // of one k-point, sets it twice a step)
+    if (k_set_ && k == k_) return;
+    k_set_ = false;
     gamma_ = gamma_mode_;
     single_stale_ = true;
     // made once for each k-point: its plane waves sorted on the host took
@@ -593,7 +582,11 @@ void Hamiltonian::set_k(const Vec3& k) {
         reciprocal_.dq = species_.front().dq;
         reciprocal_.points = species_.front().points;
     }
-    if (projectors_ == 0 || n == 0) return;
+    if (projectors_ == 0 || n == 0) {
+        k_ = k;
+        k_set_ = true;
+        return;
+    }
     std::vector<Column> columns;
     std::vector<std::int64_t> starts;  // of the tables of each species
     std::int64_t offset = 0;
@@ -632,6 +625,8 @@ void Hamiltonian::set_k(const Vec3& k) {
         n, static_cast<int>(columns.size()), m.data(), rc, cols.data(), tables_.data(), beta_.data());
     check_cuda(cudaGetLastError(), "the projectors");
     reciprocal_ = rc;
+    k_ = k;
+    k_set_ = true;
 }
 
 void Hamiltonian::atomic(Complex* out) const {
@@ -689,13 +684,13 @@ void Hamiltonian::add_density(const Complex* psi, int count, const double* weigh
     boxes_.reserve(points * static_cast<std::size_t>(step));
     weights_.assign(weights, static_cast<std::size_t>(count));
     if (gamma_) {  // real bands: rho += w psi(r)^2
-        const std::size_t spectrum = fft_.spectrum();
+        const int window = fft_.window_of(window_);
         values_.reserve(points * static_cast<std::size_t>(step));
         for (int first = 0; first < count; first += step) {
             const int m = std::min(step, count - first);
-            scatter(psi + n * static_cast<std::size_t>(first), n, box_.data(), partner_.data(), m, boxes_.data(),
-                    spectrum);
-            fft_.to_real(boxes_.data(), values_.data(), m);
+            scatter_window(psi + n * static_cast<std::size_t>(first), n, box_.data(), partner_.data(), m,
+                           boxes_.data(), spectrum_grid(), window);
+            fft_.to_real(boxes_.data(), values_.data(), m, window);
             density_real_kernel<<<blocks(points), kThreads>>>(points, m, values_.data(), weights_.data() + first,
                                                               1.0 / lattice_.volume, rho);
             check_cuda(cudaGetLastError(), "the density of the bands");
@@ -705,7 +700,7 @@ void Hamiltonian::add_density(const Complex* psi, int count, const double* weigh
     const int window = fft_.window_of(window_);
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
-        scatter_window(psi + n * static_cast<std::size_t>(first), n, box_.data(), m, boxes_.data(), fft_.grid(),
+        scatter_window(psi + n * static_cast<std::size_t>(first), n, box_.data(), nullptr, m, boxes_.data(), fft_.grid(),
                        window);
         fft_.to_real(boxes_.data(), m, window);
         density_kernel<<<blocks(points), kThreads>>>(points, m, boxes_.data(), weights_.data() + first,
@@ -1044,15 +1039,16 @@ void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
     boxes_.reserve(points * static_cast<std::size_t>(step));
     if (gamma_) {  // real transforms of real bands
         const std::size_t spectrum = fft_.spectrum();
+        const int window = fft_.window_of(window_);
         values_.reserve(points * static_cast<std::size_t>(step));
         for (int first = 0; first < count; first += step) {
             const int m = std::min(step, count - first);
             const std::size_t offset = n * static_cast<std::size_t>(first);
-            scatter(psi + offset, n, box_.data(), partner_.data(), m, boxes_.data(), spectrum);
-            fft_.to_real(boxes_.data(), values_.data(), m);
+            scatter_window(psi + offset, n, box_.data(), partner_.data(), m, boxes_.data(), spectrum_grid(), window);
+            fft_.to_real(boxes_.data(), values_.data(), m, window);
             multiply_real_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_.data(), values_.data());
             check_cuda(cudaGetLastError(), "the local potential");
-            fft_.to_reciprocal(values_.data(), boxes_.data(), m);
+            fft_.to_reciprocal(values_.data(), boxes_.data(), m, window);
             gather_add(boxes_.data(), spectrum, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
         }
         gamma_clean(n, count, hpsi);
@@ -1062,11 +1058,9 @@ void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
         const std::size_t offset = n * static_cast<std::size_t>(first);
-        scatter_window(psi + offset, n, box_.data(), m, boxes_.data(), fft_.grid(), window);
+        scatter_window(psi + offset, n, box_.data(), nullptr, m, boxes_.data(), fft_.grid(), window);
         fft_.to_real(boxes_.data(), m, window);
-        multiply_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_.data(), boxes_.data());
-        check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_.data(), m, window);
+        fft_.to_reciprocal(boxes_.data(), m, window, potential_.data());  // V psi on the way
         gather_add(boxes_.data(), points, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
     }
 }
@@ -1200,16 +1194,17 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
     boxes_f_.reserve(points * static_cast<std::size_t>(step));
     if (gamma_) {  // real transforms of real bands
         const std::size_t spectrum = fft_.spectrum();
+        const int window = fft_.window_of(window_);
         values_f_.reserve(points * static_cast<std::size_t>(step));
         for (int first = 0; first < count; first += step) {
             const int m = std::min(step, count - first);
             const std::size_t offset = n * static_cast<std::size_t>(first);
-            scatter(psi + offset, n, box_.data(), partner_.data(), m, boxes_f_.data(), spectrum);
-            fft_.to_real(boxes_f_.data(), values_f_.data(), m);
+            scatter_window(psi + offset, n, box_.data(), partner_.data(), m, boxes_f_.data(), spectrum_grid(), window);
+            fft_.to_real(boxes_f_.data(), values_f_.data(), m, window);
             multiply_real_single_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_f_.data(),
                                                                          values_f_.data());
             check_cuda(cudaGetLastError(), "the local potential");
-            fft_.to_reciprocal(values_f_.data(), boxes_f_.data(), m);
+            fft_.to_reciprocal(values_f_.data(), boxes_f_.data(), m, window);
             gather_add(boxes_f_.data(), spectrum, box_.data(), n, m, 1.0f / static_cast<float>(points), hpsi + offset);
         }
         gamma_clean(n, count, hpsi);
@@ -1219,11 +1214,9 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
         const std::size_t offset = n * static_cast<std::size_t>(first);
-        scatter_window(psi + offset, n, box_.data(), m, boxes_f_.data(), fft_.grid(), window);
+        scatter_window(psi + offset, n, box_.data(), nullptr, m, boxes_f_.data(), fft_.grid(), window);
         fft_.to_real(boxes_f_.data(), m, window);
-        multiply_single_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_f_.data(), boxes_f_.data());
-        check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_f_.data(), m, window);
+        fft_.to_reciprocal(boxes_f_.data(), m, window, potential_f_.data());  // V psi on the way
         gather_add(boxes_f_.data(), points, box_.data(), n, m, 1.0f / static_cast<float>(points), hpsi + offset);
     }
 }

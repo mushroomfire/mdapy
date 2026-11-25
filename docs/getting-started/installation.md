@@ -9,6 +9,13 @@ required dependencies are NumPy 2.3.1 or newer and polars 2.
 pip install mdapy
 ```
 
+or, with the three optional packages MDAPY's own features use (matplotlib for plots,
+spglib and seekpath for symmetry), so that every feature works:
+
+```bash
+pip install "mdapy[full]"
+```
+
 This is the usual way. PyPI holds built packages for Linux on x86-64 and on ARM,
 macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
 builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
@@ -143,25 +150,36 @@ python -c "import polars; print(polars.get_index_type())"   # UInt64
 
 ## Optional dependencies
 
-MDAPY needs only NumPy and polars. Other packages, when installed, switch on
-the parts of MDAPY that use them; without them the rest works, and these
-parts raise an error that names the package to install.
+MDAPY needs only NumPy and polars. Three more packages switch on parts of its own
+features, and `pip install "mdapy[full]"` installs them all; without them the rest works,
+and these parts raise an error that names the package to install.
+
+| Package | For |
+|---|---|
+| matplotlib | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
+| spglib | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; the k-points of the [DFT](../user-guide/potentials/dft.md) reduced by symmetry |
+| seekpath | `band_structure("auto")`, the standard path of any crystal |
+
+Running on several processes needs [mpi4py](https://mpi4py.readthedocs.io), installed
+with the MPI of the machine (on a cluster, its own, which knows the network), so it is
+not an extra: molecular dynamics on many processes and the DFT on several GPUs. Without
+it, everything runs in one process.
+
+Exchanging data with other programs needs them, and whoever exchanges has them:
 
 | Package | Install | For |
 |---|---|---|
-| matplotlib | `pip install "mdapy[plot]"` | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
-| spglib, seekpath | `pip install "mdapy[symmetry]"` | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; `band_structure("auto")` |
 | ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and MDAPY |
 | freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
 | pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
 | OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
 | LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/potentials/lammps.md), [molecular dynamics](../user-guide/simulation/running.md) and [elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md) |
-| NVIDIA's cuBLAS, cuFFT, cuSOLVER | `pip install "mdapy[cuda12,dft]"` | the [plane-wave DFT](../user-guide/potentials/dft.md) on an NVIDIA GPU, [below](#nvidias-libraries-for-the-dft) |
 
-Extras combine: `pip install "mdapy[plot,symmetry,ase]"`. OVITO's package
-from PyPI warns in a conda environment, where conda's own is preferred, so
-it is not an extra; nor is LAMMPS, whose Python module comes with a build
-of LAMMPS with the packages of styles each user needs.
+Extras combine: `pip install "mdapy[full,ase]"`, or with the GPU part,
+`pip install "mdapy[full,cuda12]"`. OVITO's package from PyPI warns in a conda
+environment, where conda's own is preferred, so it is not an extra; nor is LAMMPS, whose
+Python module comes with a build of LAMMPS with the packages of styles each user needs.
+The extras `plot` and `symmetry` of earlier versions still work.
 
 ### NVIDIA's libraries for the DFT
 

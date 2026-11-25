@@ -89,7 +89,11 @@ def operations(
         pairs = [(int(k), round(float(m), 8)) for k, m in zip(labels, magmoms)]
         index = {p: i for i, p in enumerate(dict.fromkeys(pairs))}
         labels = np.array([index[p] for p in pairs], dtype=np.int64)
-    found = spglib.get_symmetry((cell, fractions, labels), symprec=tolerance)
+    # it gives None or raises, as a setting of its own says, which phonopy changes
+    try:
+        found = spglib.get_symmetry((cell, fractions, labels), symprec=tolerance)
+    except spglib.SpglibError:
+        found = None
     if found is None:
         rotations, translations = np.eye(3, dtype=np.int32)[None], np.zeros((1, 3))
     else:

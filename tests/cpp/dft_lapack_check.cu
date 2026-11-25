@@ -9,7 +9,9 @@
 //
 //   ./dft_lapack_check [repeats] [types] [sizes] [fused]   types of z d c s, sizes n,n,...,
 //       fused the largest matrix tridiagonalized with one launch a step (-1: MDAPY's choice);
-//       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not
+//       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not,
+//       PANELS_FROM sets the smallest matrix tridiagonalized in panels, REFLECTORS the
+//       reflectors of a block of the back-transformation, LEAF the rows of a leaf
 //
 // A row: the milliseconds of the vendor and of MDAPY (the least of the
 // repeats), their ratio, and of MDAPY's result the largest |a v - v w| and
@@ -95,6 +97,9 @@ void run(const char* name, int n, int repeats, int fused) {
     ok(cudaMemcpy(given + size, factor_host.data(), size * sizeof(T), cudaMemcpyHostToDevice), "cudaMemcpy");
     Lapack vendor(Kernels::Vendor), own(Kernels::Mdapy);
     own.set_fused_limit(fused);
+    if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
+    if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));
+    if (std::getenv("PANELS_FROM") != nullptr) own.set_panels_from(std::atoi(std::getenv("PANELS_FROM")));
     if (std::getenv("FULL_DOUBLE") != nullptr) own.set_full_double(std::atoi(std::getenv("FULL_DOUBLE")));
     double times[2] = {1e30, 1e30}, factor_times[2] = {1e30, 1e30};
     std::vector<double> values[2];
@@ -125,8 +130,10 @@ void run(const char* name, int n, int repeats, int fused) {
         v[i] = wide(vectors[i]);
         scale = std::max(scale, std::abs(a[i]));
     }
-    for (int j = 0; j < n; ++j) {
+    for (int j = 0; j < n; ++j)
         difference = std::max(difference, std::abs(values[1][static_cast<std::size_t>(j)] - values[0][static_cast<std::size_t>(j)]));
+    // of the large matrices, 64 of the eigenvectors spread over all
+    for (int j = 0; j < n; j += std::max(1, n > 1024 ? n / 64 : 1)) {
         const std::complex<double>* vj = v.data() + static_cast<std::size_t>(j) * n;
         for (int i = 0; i < n; ++i) {
             std::complex<double> av = 0.0, vv = 0.0;

@@ -49,6 +49,13 @@
   through two buffers without conflicts of banks: about 0.8 of cuBLAS on the V100, against a
   half before, and faster than cuBLAS in double precision on cards of little double precision.
   The results are those of the vendor's to rounding.
+- The eigensolver of `DFT(kernels="mdapy")` keeps pace with cuSOLVER's on the subspaces of
+  the Davidson solver: a step of the tridiagonalization is one launch, the merges of a
+  height of the divide and conquer go together, with their secular equations on the GPUs
+  of full double precision, and the transforms take the shared memory the GPU gives (227 kB
+  on the GH200). A self-consistent field with MDAPY's kernels takes 0.64 to 1.05 times the
+  time of one with the vendor's on a GH200 and 0.71 to 1.21 on a V100, against 1.00 to 1.52
+  and 0.82 to 1.38 before.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

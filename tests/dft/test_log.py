@@ -9,6 +9,7 @@ real runs, the record in the labels, and a calculator made again from it."""
 
 import io
 import json
+from collections.abc import Mapping
 
 import numpy as np
 import pytest
@@ -22,6 +23,16 @@ from mdapy.io import read, write
 from dft import espresso, gpu
 
 HEADING = ["engine: MDAPY on a GPU", "machine: a machine"]
+
+
+def plain(value):
+    """A value of a system's info, which keeps mappings and lists read-only,
+    as JSON gives it."""
+    if isinstance(value, Mapping):
+        return {k: plain(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [plain(v) for v in value]
+    return value
 
 
 def comments(text):
@@ -133,9 +144,9 @@ def test_the_info_of_a_result_goes_with_the_labels(tmp_path):
         energy=-1.5, forces=np.zeros((1, 3)), info={"dft": record}
     )
     labelled = result.attach(system)
-    assert labelled.info["energy"] == -1.5 and labelled.info["dft"] == record
+    assert labelled.info["energy"] == -1.5 and plain(labelled.info["dft"]) == record
     write(tmp_path / "labels.xyz", labelled)
-    assert read(tmp_path / "labels.xyz").info["dft"] == record
+    assert plain(read(tmp_path / "labels.xyz").info["dft"]) == record
     # without info, as other calculators give it
     plain = CalculatorResult(energy=-1.5).attach(system)
     assert set(plain.info) == {"energy"}
@@ -222,7 +233,7 @@ def test_the_record_gives_the_calculator_again(tmp_path):
     assert again.last["parameters"]["arguments"] == arguments
     # the labels keep it
     write(tmp_path / "labels.xyz", result.attach(aluminium()))
-    assert read(tmp_path / "labels.xyz").info["dft"] == record
+    assert plain(read(tmp_path / "labels.xyz").info["dft"]) == record
 
 
 def test_the_log_of_a_run_that_stops(tmp_path, monkeypatch):

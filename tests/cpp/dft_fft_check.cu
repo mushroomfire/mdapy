@@ -12,6 +12,11 @@
 //   ./dft_fft_check time n1 n2 n3 count [repeats]   one shape
 //   ./dft_fft_check sweep n1 n2 n3 count precision kind   lines and threads of a block
 //
+// The environment variable PLANE_BYTES sets the largest plane of the timed
+// transforms that goes through one kernel (BoxFft::set_plane_bytes), and
+// PLANE_THREADS the threads of its blocks, AXIS_THREADS those of the blocks of
+// the strided axes.
+//
 // Errors are the largest |ours - cuFFT| over the largest |cuFFT| of a transform.
 
 #include <cuda_runtime.h>
@@ -342,6 +347,15 @@ void time_shape(const std::array<int, 3>& g, int count, int repeats, BoxFft* tun
                 double* out = nullptr) {
     BoxFft own(g);
     BoxFft& fft = tuned ? *tuned : own;
+    if (std::getenv("PLANE_BYTES") != nullptr) fft.set_plane_bytes(static_cast<std::size_t>(std::atol(std::getenv("PLANE_BYTES"))));
+    if (std::getenv("AXIS_THREADS") != nullptr) {
+        fft.tune(0, 0, 0, std::atoi(std::getenv("AXIS_THREADS")));
+        fft.tune(1, 0, 0, std::atoi(std::getenv("AXIS_THREADS")));
+    }
+    if (std::getenv("PLANE_THREADS") != nullptr) {
+        fft.tune(0, 2, 0, std::atoi(std::getenv("PLANE_THREADS")));
+        fft.tune(1, 2, 0, std::atoi(std::getenv("PLANE_THREADS")));
+    }
     const std::size_t points = fft.points(), half = fft.spectrum();
     const std::size_t nc = 2 * points * count, nr = points * count, nh = 2 * half * count;
     {

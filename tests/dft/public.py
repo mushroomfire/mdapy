@@ -58,7 +58,11 @@ def path(name: str) -> Path:
     default = Path.home() / ".cache" / "mdapy" / "tests"
     folder = Path(os.environ.get("MDAPY_TEST_CACHE") or default) / "pseudopotentials"
     target = folder / name
-    if target.is_file() and _digest(target.read_bytes()) == digest:
+
+    def cached() -> bool:
+        return target.is_file() and _digest(target.read_bytes()) == digest
+
+    if cached():
         return target
     try:
         with urllib.request.urlopen(site + name, timeout=120) as response:
@@ -71,5 +75,11 @@ def path(name: str) -> Path:
     # whole or not at all, for the workers of pytest-xdist that download it too
     with tempfile.NamedTemporaryFile(dir=folder, delete=False) as part:
         part.write(data)
-    os.replace(part.name, target)
+    try:
+        os.replace(part.name, target)
+    except OSError:
+        # on Windows, while another worker reads the one it put there
+        os.unlink(part.name)
+        if not cached():
+            raise
     return target

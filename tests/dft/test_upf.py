@@ -214,7 +214,7 @@ V1 = [
 @pytest.mark.parametrize(("kind", "change", "message"), V2)
 def test_what_is_refused(tmp_path, kind, change, message):
     path = upf_files.write(tmp_path / "X.upf", kind)
-    path.write_text(change(path.read_text()))
+    path.write_text(change(path.read_text(encoding="utf-8")))
     with pytest.raises(InvalidParameter, match=message):
         read_upf(path)
 
@@ -222,7 +222,7 @@ def test_what_is_refused(tmp_path, kind, change, message):
 @pytest.mark.parametrize(("kind", "change", "message"), V1)
 def test_what_is_refused_of_version_1(tmp_path, kind, change, message):
     path = upf_files.write_v1(tmp_path / "X.upf", kind)
-    path.write_text(change(path.read_text()))
+    path.write_text(change(path.read_text(encoding="utf-8")))
     with pytest.raises(InvalidParameter, match=message):
         read_upf(path)
 
@@ -234,12 +234,17 @@ def test_a_local_potential_alone(tmp_path, version):
     if version == 2:
         path = upf_files.write(tmp_path / "X.upf", "NC")
         text = re.sub(
-            r"<PP_BETA\.\d.*?</PP_BETA\.\d>", "", path.read_text(), flags=re.S
+            r"<PP_BETA\.\d.*?</PP_BETA\.\d>",
+            "",
+            path.read_text(encoding="utf-8"),
+            flags=re.S,
         )
         text = text.replace('number_of_proj="4"', 'number_of_proj="0"')
     else:
         path = upf_files.write_v1(tmp_path / "X.upf", "NC")
-        text = re.sub(r"<PP_BETA>.*?</PP_BETA>", "", path.read_text(), flags=re.S)
+        text = re.sub(
+            r"<PP_BETA>.*?</PP_BETA>", "", path.read_text(encoding="utf-8"), flags=re.S
+        )
         text = replace("    3    4    ", "    3    0    ")(text)
     path.write_text(drop("PP_DIJ")(text))
     pp = read_upf(path)
@@ -253,7 +258,7 @@ def test_a_projector_of_zeros(tmp_path):
     path = upf_files.write(tmp_path / "X.upf", "NC")
     text = re.sub(r"(<PP_BETA\.4[^>]*>).*?(</PP_BETA\.4>)",
                   lambda m: m[1] + "\n" + " ".join(["0.0"] * MESH) + "\n" + m[2],
-                  path.read_text(), flags=re.S)  # fmt: skip
+                  path.read_text(encoding="utf-8"), flags=re.S)  # fmt: skip
     path.write_text(text)
     assert read_upf(path).projectors[3].cutoff_index == 1
 
@@ -261,7 +266,9 @@ def test_a_projector_of_zeros(tmp_path):
 def xml_parts(path):
     """The elements of a UPF file of version 2 by an XML parser, PP_INFO left
     out (its text is not XML): the attributes of each and its numbers."""
-    text = re.sub(r"<PP_INFO>.*?</PP_INFO>", "", path.read_text(), flags=re.S)
+    text = re.sub(
+        r"<PP_INFO>.*?</PP_INFO>", "", path.read_text(encoding="utf-8"), flags=re.S
+    )
     root = ElementTree.fromstring(text)
     return {e.tag: (e.attrib, np.array((e.text or "").split(), dtype=float))
             for e in root.iter()}  # fmt: skip
@@ -378,7 +385,7 @@ def test_ultrasoft_of_gbrv():
     polynomial of the coefficients of their pair."""
     path = public.path("al_pbe_v1.uspp.F.UPF")
     pp = read_upf(path)
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert (
         pp.element == "Al" and pp.valence == 3.0 and pp.functional == "SLA PW PBE PBE"
     )

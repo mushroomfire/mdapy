@@ -399,7 +399,7 @@ __global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors,
 // w (n, kColumns) holds a column to each reflector of the panel, reflectors
 // its v at the column first + c, dots w^H v then v^H v (kColumns each).
 constexpr int kColumns = 32;
-constexpr int kRows = 32;     // rows of a block of panel_rows_kernel
+constexpr int kRows = 128;    // rows of a block of panel_rows_kernel: few blocks, as each reads all of y
 constexpr int kLanes = 8;     // threads of a row there
 constexpr int kColumn = kRows * kLanes;  // the threads of its block
 
@@ -436,8 +436,8 @@ __global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* 
                                   const S* __restrict__ y, const S* __restrict__ dots, S* __restrict__ held,
                                   S* __restrict__ sums) {
     using R = typename RealOf<S>::type;
-    __shared__ S g[kColumns], h[kColumns], wrow[kColumns], vrow[kColumns], part[2][kColumn],
-        partial[kColumn + kColumn / 16], scalars[3];
+    __shared__ S g[kColumns], h[kColumns], wrow[kColumns], vrow[kColumns], parts[2 * kColumn], scalars[3];
+    S* part[2] = {parts, parts + kColumn};  // the first sum takes both
     const int t = static_cast<int>(threadIdx.x), i = j - first, before = i - 1;  // columns before the reflector j - 1
     const int row = t % kRows, lane = t / kRows, r = j + static_cast<int>(blockIdx.x) * kRows + row;
     const S zero = from_real(S{}, static_cast<R>(0));
@@ -464,7 +464,7 @@ __global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* 
 #pragma unroll
             for (int e = 0; e < kEarly; ++e) sum = add(sum, mul(cj(u[e]), x[e]));
         }
-        sum = column_sum(partial, sum);
+        sum = column_sum(parts, sum);
         if (t == 0) {
             // tau p of the row j, and g^H h
             S cross = zero, p = zero;

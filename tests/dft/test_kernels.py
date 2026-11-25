@@ -260,6 +260,43 @@ def test_the_cholesky_factors_agree(dtype, n):
         assert [_dft.cholesky(bad, kernels=k)[0] for k in KERNELS] == [n // 2 + 1] * 2
 
 
+class Device:
+    """A GPU part of an API and a compute capability, for the choices by the GPU."""
+
+    def __init__(self, api, capability):
+        self.api = api
+        self.capability = capability
+
+    def device_capability(self):
+        return self.capability
+
+
+@pytest.mark.parametrize(
+    "api, capability, full",
+    [
+        ("CUDA", (7, 0), True),  # V100
+        ("CUDA", (8, 0), True),  # A100
+        ("CUDA", (9, 0), True),  # H100, GH200
+        ("CUDA", (8, 6), False),  # RTX 30 and the A-series
+        ("CUDA", (8, 9), False),  # RTX 40
+        ("CUDA", (7, 5), False),  # T4
+        ("HIP", (9, 0), True),  # the Instinct series, whatever HIP reports
+        ("HIP", (8, 6), True),
+    ],
+)
+def test_the_kernels_by_the_gpu(monkeypatch, api, capability, full):
+    """kernels="auto" is the vendor's on GPUs of full double precision and
+    MDAPY's on the others, as precision="auto" is double and mixed; a choice
+    given is kept."""
+    monkeypatch.setattr(scf.loader, "module", lambda: Device(api, capability))
+    assert scf.full_double() == full
+    assert scf.kernels_of("auto") == ("vendor" if full else "mdapy")
+    assert scf.mixed_precision("auto") == (not full)
+    assert scf.kernels_of("mdapy") == "mdapy" and scf.kernels_of("vendor") == "vendor"
+    with pytest.raises(ValueError, match="kernels"):
+        scf.kernels_of("other")
+
+
 def test_a_backend_unknown_is_refused():
     cell = np.diag([9.0, 9.5, 10.0])
     _, box, _ = sphere_of(cell, 3.0, (20, 20, 20))
@@ -382,8 +419,16 @@ def test_the_calculator_keeps_its_backend():
     system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
     common = dict(pseudopotentials={"Al": espresso.pseudo("Al_std.upf")}, kpoints=(2, 2, 2), sigma=0.2,
                   functional="pbe_pw", tolerance=1e-10, symmetry=False)  # fmt: skip
-    own, vendor = DFT(300.0, **common), DFT(300.0, kernels="vendor", **common)
+    own, vendor = (
+        DFT(300.0, kernels="mdapy", **common),
+        DFT(300.0, kernels="vendor", **common),
+    )
     assert own.kernels == "mdapy" and vendor.kernels == "vendor"
+    # by default the kernels of the GPU, which the provenance names
+    auto = DFT(300.0, **common)
+    assert auto.kernels == "auto"
+    auto.compute(system, ("energy",))
+    assert auto.last["provenance"]["kernels"] == scf.kernels_of("auto")
     first = own.compute(system, ("energy", "forces", "virial"))
     second = vendor.compute(system, ("energy", "forces", "virial"))
     assert own.last["provenance"]["kernels"] == "mdapy"

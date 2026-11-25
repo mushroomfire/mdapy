@@ -4,10 +4,14 @@
 
 - `DFT(kernels="mdapy")`: the fast Fourier transforms of the DFT are MDAPY's own kernels
   on the GPU, for the grids and the transforms the plane waves take, in place of those
-  of cuFFT or hipFFT, and so is its dense linear algebra (the products of matrices and
+  of cuFFT or hipFFT, and so are its dense linear algebra (the products of matrices and
   the triangular solves of the solver and the projectors), in place of cuBLAS or
-  hipBLAS; `kernels="vendor"` runs the GPU libraries of the vendor throughout.
-  The results agree to rounding, and `DFT.last["provenance"]` keeps the choice.
+  hipBLAS, and the eigenpairs and Cholesky factors of its small matrices;
+  `kernels="vendor"` runs the GPU libraries of the vendor throughout. The default,
+  `kernels="auto"`, takes the faster of the two today: MDAPY's on GPUs of little double
+  precision (cards for games and workstations), the vendor's on the others (V100, A100,
+  H100, GH200, AMD Instinct). The results agree to rounding, and
+  `DFT.last["provenance"]` keeps the kernels that ran.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

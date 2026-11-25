@@ -196,14 +196,34 @@ def _hubbard_occupations(becsum, kinds, angular, hubbard_of, spins):
 _FULL_DOUBLE = {(6, 0), (7, 0), (8, 0), (9, 0), (10, 0)}
 
 
+def full_double() -> bool:
+    """Whether the double precision of the current GPU runs at half the rate
+    of its single: the NVIDIA GPUs of _FULL_DOUBLE, and the AMD GPUs HIP runs
+    on (the Instinct series), whatever capability HIP reports for them."""
+    _dft = loader.module()
+    if _dft.api == "HIP":
+        return True
+    return tuple(_dft.device_capability()) in _FULL_DOUBLE
+
+
 def mixed_precision(precision: str) -> bool:
     """Whether a run of this precision ("double", "mixed" or "auto") takes
     the single-precision steps on the current GPU: "auto" on GPUs whose double
     precision is a small part of their single."""
     if precision != "auto":
         return precision == "mixed"
-    _dft = loader.module()
-    return tuple(_dft.device_capability()) not in _FULL_DOUBLE
+    return not full_double()
+
+
+def kernels_of(kernels: str) -> str:
+    """The kernels of a run asked "mdapy", "vendor" or "auto": "auto" is
+    "vendor" on GPUs of full double precision, where the libraries of the
+    vendor are the faster ones today, and "mdapy" on the others."""
+    if kernels not in ("auto", "mdapy", "vendor"):
+        raise ValueError("kernels must be 'auto', 'mdapy' or 'vendor'")
+    if kernels != "auto":
+        return kernels
+    return "vendor" if full_double() else "mdapy"
 
 
 def run(
@@ -254,7 +274,7 @@ def run(
     first_held: int = 0,
     preconditioner: str = "kerker",
     precision: str = "double",
-    kernels: str = "mdapy",
+    kernels: str = "auto",
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -322,15 +342,18 @@ def run(
     real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
-    it has its own (the FFTs and the dense linear algebra), "vendor": the GPU libraries of the vendor
-    throughout."""
+    it has its own (the FFTs, the dense linear algebra, the eigensolver and
+    the Cholesky factorization of small matrices), "vendor": the GPU libraries
+    of the vendor throughout, "auto": by the GPU (kernels_of); the result
+    holds the one taken as kernels."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
         raise ValueError("precision must be 'double', 'mixed' or 'auto'")
-    if kernels not in ("mdapy", "vendor"):
-        raise ValueError("kernels must be 'mdapy' or 'vendor'")
+    if kernels not in ("auto", "mdapy", "vendor"):
+        raise ValueError("kernels must be 'auto', 'mdapy' or 'vendor'")
     _dft = loader.module()
+    kernels = kernels_of(kernels)
     cell = np.ascontiguousarray(cell, dtype=float)
     positions = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)
@@ -516,6 +539,7 @@ def run(
             result["strain_derivative"] = symmetries.tensor(
                 ops, result["strain_derivative"]
             )
+    result["kernels"] = kernels
     result["net_force"] = forces.mean(axis=0)
     result["forces"] = forces - result["net_force"]
     result.update(

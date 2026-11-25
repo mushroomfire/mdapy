@@ -250,6 +250,7 @@ __global__ void mirror_kernel(int n, S* a) {
 
 constexpr int kStep = 128;    // threads of a block of the tridiagonalization
 constexpr int kFused = 1024;  // the largest matrix of which a step is one launch
+constexpr int kFusedBytes = 8192;  // and the most bytes of a column of it (512 complex numbers of double precision: a V100)
 constexpr int kFusedSingle = 256;  // the same in single precision on a GPU of little double precision
 
 constexpr int kGroups = 16;   // of the threads of a block, for its sums
@@ -945,7 +946,8 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
         // arithmetic of double precision is what the GPU lacks, and there in
         // single precision for the smaller matrices (measured on an RTX A2000)
         const int limit = fused_limit_ >= 0 ? std::min(fused_limit_, kFused)
-                          : full_double() ? kFused : sizeof(R) == sizeof(float) ? kFusedSingle : 0;
+                          : full_double() ? std::min(kFused, static_cast<int>(kFusedBytes / sizeof(S)))
+                          : sizeof(R) == sizeof(float) ? kFusedSingle : 0;
         const bool fused = n <= limit;
         if (!fused) held.resize(static_cast<std::size_t>(n));
         const std::size_t sums = (kStep + kGroups) * sizeof(S);

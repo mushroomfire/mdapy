@@ -12,8 +12,9 @@
 //   kilobytes, and one transfer costs less than the many small kernels of the
 //   GPU would), in double precision whatever the precision of the matrix;
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
-//   reflector after the other, one launch each for matrices up to 1024 (two
-//   beyond, and in double precision on GPUs that have little of it); divide
+//   reflector after the other, one launch each for matrices up to 512 to
+//   1024 by their type (two beyond, and in double precision on GPUs that have
+//   little of it); divide
 //   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
 //   a height of its tree together, their scalar work in double precision on
 //   the GPU when it has full double precision and on the host otherwise, and

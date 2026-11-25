@@ -104,8 +104,11 @@ private:
     DeviceArray<double> partial_;  // the partial results of a split product
     int most_segments_ = 0;
     int processors_ = 0;   // multiprocessors of the GPU; 0 before look()
-    bool tensor_ = false;  // the products of double precision run on the tensor cores of this GPU
-    bool maps_ = false;    // their tiles are copied whole by one instruction (compute capability 9.0)
+    // the products of double precision run on the tensor cores of this GPU, and
+    // their tiles are copied whole by one instruction (compute capability 9.0);
+    // never with HIP
+    [[maybe_unused]] bool tensor_ = false;
+    [[maybe_unused]] bool maps_ = false;
 };
 
 }  // namespace mdapy::dft

@@ -490,11 +490,12 @@ Blas::Blas(Kernels kernels) : kernels_(kernels) {}
 // be those of an older capability than the GPU's, which decide.
 void Blas::look() {
     if (processors_ > 0) return;
-    int device = 0, major = 0, minor = 0, built = 0;
+    int device = 0;
     check_cuda(cudaGetDevice(&device), "cudaGetDevice");
 #if defined(MDAPY_GPU_HIP)
     check_cuda(hipDeviceGetAttribute(&processors_, hipDeviceAttributeMultiprocessorCount, device), "the multiprocessors");
 #else
+    int major = 0, minor = 0, built = 0;
     check_cuda(cudaDeviceGetAttribute(&processors_, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
     check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
     check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
@@ -544,16 +545,16 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     int kTM = Tiles<S>::side * Tiles<S>::mm, kTN = Tiles<S>::side * Tiles<S>::mn, kDepth = Tiles<S>::depth;
 #if !defined(MDAPY_GPU_HIP)
     constexpr bool kTensorType = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
-#else
-    constexpr bool kTensorType = false;
 #endif
     bool tensor = false;
     // the blocks a multiprocessor holds at once: one of 256 threads, more of 64 (0: not counted)
     int per = Tiles<S>::threads > 64 ? 1 : 0;
+#if !defined(MDAPY_GPU_HIP)
     if constexpr (kTensorType) {
         tensor = tensor_;
         if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk, per = DmmaForm<S>::per;
     }
+#endif
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // A small result of long sums: segments of 512 terms or more, as many as
     // give 2048 blocks; of a result so small that these leave multiprocessors
@@ -604,6 +605,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         grid = dim3(grid.y, grid.x, grid.z);
     }
     const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
+#if !defined(MDAPY_GPU_HIP)
     if constexpr (kTensorType) {
         if (tensor) {
             // copies of 16 bytes where every column starts on 16 bytes, as those of complex values do
@@ -627,6 +629,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
             }
         }
     }
+#endif
     if (!tensor) {
         if (trans_a && trans_b)
             launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial);

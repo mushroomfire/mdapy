@@ -24,13 +24,6 @@ constexpr float kDependent = 1e-6f;
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_solver(cusolverStatus_t status, const char* call) {
-    if (status == CUSOLVER_STATUS_SUCCESS) return;
-    if (status == CUSOLVER_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuSOLVER status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 void copy(cuComplex* to, const cuComplex* from, std::size_t count) {
     check_cuda(cudaMemcpy(to, from, count * sizeof(cuComplex), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
@@ -152,49 +145,13 @@ __global__ void gather_real_columns(std::size_t rows, int count, const int* inde
 
 }  // namespace
 
-DavidsonSingle::DavidsonSingle(Kernels kernels) : blas_(kernels) {
-    check_solver(cusolverDnCreate(&solver_), "cusolverDnCreate");
-    check_solver(cusolverDnSetStream(solver_, cudaStreamPerThread), "cusolverDnSetStream");
-    info_.resize(1);
-}
+DavidsonSingle::DavidsonSingle(Kernels kernels) : blas_(kernels), lapack_(kernels) {}
 
-DavidsonSingle::~DavidsonSingle() {
-    if (solver_ != nullptr) cusolverDnDestroy(solver_);
-}
+DavidsonSingle::~DavidsonSingle() = default;
 
-void DavidsonSingle::eigh(cuComplex* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnCheevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnCheevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnCheevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n, values_.data(),
-                                  lapack_.data(), lwork, info_.data()),
-                 "cusolverDnCheevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnCheevd info " +
-                                 std::to_string(info) + ")");
-}
+void DavidsonSingle::eigh(cuComplex* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
 
-void DavidsonSingle::eigh_real(float* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnSsyevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnSsyevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnSsyevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n, values_.data(),
-                                  real(lapack_.data()), lwork, info_.data()),
-                 "cusolverDnSsyevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnSsyevd info " +
-                                 std::to_string(info) + ")");
-}
+void DavidsonSingle::eigh_real(float* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
 
 cuComplex* DavidsonSingle::projection(cuComplex* p, std::size_t c) const {
     const std::size_t offset = static_cast<std::size_t>(projectors_) * c;
@@ -276,24 +233,7 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
         const std::size_t mm = static_cast<std::size_t>(m) * m;
         chol_.reserve(mm);
         copy_bytes(chol_.data(), overlap_.data(), mm * (gamma_ ? sizeof(float) : sizeof(cuComplex)));
-        int lwork = 0;
-        if (gamma_) {
-            check_solver(cusolverDnSpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m, &lwork),
-                         "cusolverDnSpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnSpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m,
-                                          real(lapack_.data()), lwork, info_.data()),
-                         "cusolverDnSpotrf");
-        } else {
-            check_solver(cusolverDnCpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, &lwork),
-                         "cusolverDnCpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnCpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, lapack_.data(), lwork,
-                                          info_.data()),
-                         "cusolverDnCpotrf");
-        }
-        int info = 0;
-        info_.download(&info, 1);
+        const int info = gamma_ ? lapack_.potrf(real(chol_.data()), m) : lapack_.potrf(chol_.data(), m);
         if (info == 0) {
             diagonal_r_.reserve(static_cast<std::size_t>(m));
             std::vector<float> d(static_cast<std::size_t>(m));
@@ -335,7 +275,7 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
             eigh_real(real(overlap_.data()), m);
         else
             eigh(overlap_.data(), m);
-        values_.download(host.data(), host.size());
+        host.assign(eigenvalues_.begin(), eigenvalues_.end());
         const float largest = std::max(host.back(), 1e-30f);
         int first = 0;
         while (first < m && !(host[static_cast<std::size_t>(first)] > kDependent * largest)) ++first;
@@ -538,9 +478,7 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
             eigh_real(real(subspace_.data()), nbase);
         else
             eigh(subspace_.data(), nbase);
-        host.resize(static_cast<std::size_t>(nbase));
-        values_.download(host.data(), host.size());
-        lambda.assign(host.begin(), host.end());
+        lambda = eigenvalues_;
         open.clear();
         for (int b = 0; b < count; ++b)
             if (!done[static_cast<std::size_t>(b)]) open.push_back(b);

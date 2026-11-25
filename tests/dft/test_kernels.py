@@ -171,6 +171,95 @@ def test_the_triangular_solves_agree(dtype, shape):
     assert np.abs(own.astype(wide) @ upper - b).max() < limit * scale
 
 
+def hermitian(rng, n, dtype, values=None):
+    """A Hermitian matrix of noise stored by columns, or the one of the
+    eigenvalues given in a basis of noise."""
+    a = columns(
+        rng,
+        n,
+        n,
+        np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64,
+    )
+    a = a + a.conj().T
+    if values is not None:
+        _, q = np.linalg.eigh(a)
+        a = (q * np.asarray(values, dtype=float)) @ q.conj().T
+        a = (a + a.conj().T) / 2
+    return np.asfortranarray(a, dtype=dtype)
+
+
+# the eigenvalues of each case, by its size: noise, all equal, a few values
+# many times each, close pairs, and a wide range
+SPECTRA = {
+    "noise": lambda n: None,
+    "equal": lambda n: np.full(n, 2.5),
+    "repeated": lambda n: np.arange(n) % 3 - 1.0,
+    "clustered": lambda n: (
+        np.repeat(np.arange((n + 1) // 2), 2)[:n] + 1e-9 * np.arange(n)
+    ),
+    "graded": lambda n: np.logspace(-8, 2, n),
+}
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("spectrum", list(SPECTRA))
+@pytest.mark.parametrize("n", [1, 2, 3, 20, 65, 200])
+def test_the_eigenpairs_agree(dtype, spectrum, n):
+    """Eigenvalues against the library of the vendor and NumPy; eigenvectors by
+    their residuals and their orthonormality, which degenerate eigenvalues
+    leave the only test."""
+    rng = np.random.default_rng(n)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 1e-12
+    a = hermitian(rng, n, dtype, SPECTRA[spectrum](n))
+    garbage = np.asfortranarray(
+        np.triu(a) + np.tril(columns(rng, n, n, dtype), -1)
+    )  # the lower part is not read
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    exact = np.linalg.eigvalsh(a.astype(wide))
+    scale = max(np.abs(exact).max(), 1.0)
+    for kernels in KERNELS:
+        w, v = _dft.eigh(garbage, kernels=kernels)
+        assert v.dtype == dtype and w.dtype == np.float64
+        # ascending; the library of the vendor within rounding in a cluster
+        assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))
+        assert np.abs(w - exact).max() < limit * scale
+        v = v.astype(wide)
+        assert np.abs(a.astype(wide) @ v - v * w).max() < 20 * limit * scale
+        assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("n", [1, 2, 17, 64, 200])
+def test_the_cholesky_factors_agree(dtype, n):
+    """a = r^H r with r upper triangular, the lower part of a neither read nor
+    written; and the pivot named when a is not positive definite."""
+    rng = np.random.default_rng(n + 1)
+    single = dtype in (np.float32, np.complex64)
+    limit = 1e-4 if single else 1e-12
+    b = columns(rng, n + 3, n, dtype)
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    a = np.asfortranarray(
+        b.astype(wide).conj().T @ b.astype(wide) + 0.1 * np.eye(n), dtype=dtype
+    )
+    lower = np.tril(columns(rng, n, n, dtype), -1)
+    given = np.asfortranarray(np.triu(a) + lower)
+    factors = []
+    for kernels in KERNELS:
+        info, r = _dft.cholesky(given, kernels=kernels)
+        assert info == 0 and r.dtype == dtype
+        assert np.array_equal(np.tril(r, -1), lower)
+        u = np.triu(r).astype(wide)
+        assert np.all(np.diagonal(u).real > 0)
+        assert np.abs(u.conj().T @ u - a).max() < limit * np.abs(a).max()
+        factors.append(u)
+    assert np.abs(factors[0] - factors[1]).max() < limit * np.abs(factors[1]).max()
+    if n > 2:
+        bad = given.copy(order="F")
+        bad[n // 2, n // 2] = -1.0
+        assert [_dft.cholesky(bad, kernels=k)[0] for k in KERNELS] == [n // 2 + 1] * 2
+
+
 def test_a_backend_unknown_is_refused():
     cell = np.diag([9.0, 9.5, 10.0])
     _, box, _ = sphere_of(cell, 3.0, (20, 20, 20))

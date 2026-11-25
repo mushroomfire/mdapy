@@ -22,13 +22,6 @@ constexpr double kDependent = 1e-10;  // overlap eigenvalue of a dropped directi
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_solver(cusolverStatus_t status, const char* call) {
-    if (status == CUSOLVER_STATUS_SUCCESS) return;
-    if (status == CUSOLVER_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuSOLVER status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 void copy(Complex* to, const Complex* from, std::size_t count) {
     check_cuda(cudaMemcpy(to, from, count * sizeof(Complex), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
@@ -148,49 +141,13 @@ __global__ void gather_real_columns(std::size_t rows, int count, const int* inde
 
 }  // namespace
 
-Davidson::Davidson(Kernels kernels) : blas_(kernels) {
-    check_solver(cusolverDnCreate(&solver_), "cusolverDnCreate");
-    check_solver(cusolverDnSetStream(solver_, cudaStreamPerThread), "cusolverDnSetStream");
-    info_.resize(1);
-}
+Davidson::Davidson(Kernels kernels) : blas_(kernels), lapack_(kernels) {}
 
-Davidson::~Davidson() {
-    if (solver_ != nullptr) cusolverDnDestroy(solver_);
-}
+Davidson::~Davidson() = default;
 
-void Davidson::eigh(Complex* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnZheevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnZheevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnZheevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                  values_.data(), lapack_.data(), lwork, info_.data()),
-                 "cusolverDnZheevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnZheevd info " +
-                                 std::to_string(info) + ")");
-}
+void Davidson::eigh(Complex* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
 
-void Davidson::eigh_real(double* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnDsyevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnDsyevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnDsyevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n, values_.data(),
-                                  real(lapack_.data()), lwork, info_.data()),
-                 "cusolverDnDsyevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnDsyevd info " +
-                                 std::to_string(info) + ")");
-}
+void Davidson::eigh_real(double* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
 
 Complex* Davidson::projection(Complex* p, std::size_t c) const {
     const std::size_t offset = static_cast<std::size_t>(projectors_) * c;
@@ -277,24 +234,7 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
         const std::size_t mm = static_cast<std::size_t>(m) * m;
         chol_.reserve(mm);
         copy_bytes(chol_.data(), overlap_.data(), mm * (gamma_ ? sizeof(double) : sizeof(Complex)));
-        int lwork = 0;
-        if (gamma_) {
-            check_solver(cusolverDnDpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m, &lwork),
-                         "cusolverDnDpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnDpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m,
-                                          real(lapack_.data()), lwork, info_.data()),
-                         "cusolverDnDpotrf");
-        } else {
-            check_solver(cusolverDnZpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, &lwork),
-                         "cusolverDnZpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnZpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, lapack_.data(), lwork,
-                                          info_.data()),
-                         "cusolverDnZpotrf");
-        }
-        int info = 0;
-        info_.download(&info, 1);
+        const int info = gamma_ ? lapack_.potrf(real(chol_.data()), m) : lapack_.potrf(chol_.data(), m);
         if (info == 0) {
             diagonal_r_.reserve(static_cast<std::size_t>(m));
             std::vector<double> d(static_cast<std::size_t>(m));
@@ -336,8 +276,7 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
             eigh_real(real(overlap_.data()), m);
         else
             eigh(overlap_.data(), m);
-        host.resize(static_cast<std::size_t>(m));
-        values_.download(host.data(), host.size());
+        host = eigenvalues_;
         const double largest = std::max(host.back(), 1e-300);
         int first = 0;
         while (first < m && !(host[static_cast<std::size_t>(first)] > kDependent * largest)) ++first;
@@ -565,8 +504,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
             eigh_real(real(subspace_.data()), nbase);
         else
             eigh(subspace_.data(), nbase);
-        lambda.resize(static_cast<std::size_t>(nbase));
-        values_.download(lambda.data(), lambda.size());
+        lambda = eigenvalues_;
         open.clear();
         for (int b = 0; b < count; ++b)
             if (!done[static_cast<std::size_t>(b)]) open.push_back(b);

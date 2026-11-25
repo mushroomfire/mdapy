@@ -33,6 +33,7 @@
 #include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 
 namespace mdapy::dft {
 
@@ -72,7 +73,7 @@ private:
     // out (ka, kb) = a^H b, plus pa^H q pb with h
     void gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka, const Complex* b, const Complex* pb,
               int kb, int rows, Complex* out);
-    // the eigenvalues (ascending, into values_) and eigenvectors (into a) of
+    // the eigenvalues (ascending, into eigenvalues_) and eigenvectors (into a) of
     // the Hermitian n x n matrix a, of which the upper triangle is read
     void eigh(Complex* a, int n);
     // the same of a real symmetric matrix, at Gamma
@@ -84,14 +85,15 @@ private:
     int projectors_ = 0;
 
     Blas blas_;
-    cusolverDnHandle_t solver_ = nullptr;
-    DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
+    Lapack lapack_;
+    std::vector<double> eigenvalues_;  // of the last eigh
+    DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_;
     DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors
     DeviceArray<Complex> pbasis_, pvectors_, qp_;     // <beta|basis>, <beta|X>, q P, with an overlap
     DeviceArray<Complex> picked_;                     // the eigenvectors of the open bands
     DeviceArray<double> overlap_diagonal_;
-    DeviceArray<double> values_, sums_, energies_, scale_, diagonal_;
-    DeviceArray<int> info_, index_;
+    DeviceArray<double> sums_, energies_, scale_, diagonal_;
+    DeviceArray<int> index_;
 };
 
 }  // namespace mdapy::dft

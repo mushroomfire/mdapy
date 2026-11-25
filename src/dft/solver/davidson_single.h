@@ -20,6 +20,7 @@
 
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 #include "dft/solver/davidson.h"
 
 namespace mdapy::dft {
@@ -38,7 +39,7 @@ public:
                          const std::vector<double>& tolerances, int max_iterations, int largest_basis);
 
 private:
-    void eigh(cuComplex* a, int n);  // eigenpairs into values_, vectors into a
+    void eigh(cuComplex* a, int n);  // eigenvalues into eigenvalues_, vectors into a
     void eigh_real(float* a, int n);  // the same of a real symmetric matrix, at Gamma
     // column c of the projections p, cuComplex or real
     cuComplex* projection(cuComplex* p, std::size_t c) const;
@@ -51,14 +52,15 @@ private:
                        int m, int rows);
 
     Blas blas_;
-    cusolverDnHandle_t solver_ = nullptr;
+    Lapack lapack_;
+    std::vector<double> eigenvalues_;  // of the last eigh
     bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;
     DeviceArray<cuComplex> basis_, hbasis_, pbasis_, pvectors_, vectors_, residual_, subspace_, hsub_, overlap_,
-        chol_, work_, qp_, picked_, lapack_, diagonal_r_;
-    DeviceArray<float> values_, diagonal_, overlap_diagonal_, scale_, energies_;
+        chol_, work_, qp_, picked_, diagonal_r_;
+    DeviceArray<float> diagonal_, overlap_diagonal_, scale_, energies_;
     DeviceArray<double> sums_;
-    DeviceArray<int> index_, info_;
+    DeviceArray<int> index_;
 };
 
 }  // namespace mdapy::dft

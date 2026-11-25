@@ -22,6 +22,7 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "dft/core/portable.h"
 
@@ -30,6 +31,7 @@
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 #include "dft/lattice/lattice.h"
 #include "dft/scf/augmentation.h"
 #include "dft/scf/occupations.h"
@@ -271,6 +273,48 @@ void bind_blas(nb::module_& m) {
             return x;
         },
         nb::arg("b").noconvert(), nb::arg("r").noconvert(), nb::arg("kernels") = "mdapy");
+    // the eigenvalues (ascending) and the eigenvectors (the columns) of a
+    // Hermitian matrix, of which the upper triangle is read; host_limit, when
+    // not negative, is the largest matrix MDAPY's kernels take on the host
+    m.def(
+        "eigh",
+        [](Columns<H> a, const std::string& kernels, int host_limit) {
+            const int n = static_cast<int>(a.shape(0));
+            if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
+            DeviceArray<D> da;
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
+            if (host_limit >= 0) lapack.set_host_limit(host_limit);
+            std::vector<double> values;
+            lapack.eigh(da.data(), n, values);
+            H* out = nullptr;
+            auto vectors = columns_of<H>(a.shape(0), a.shape(0), out);
+            da.download(reinterpret_cast<D*>(out), da.size());
+            double* w = nullptr;
+            auto eigenvalues = new_array<double>({values.size()}, w);
+            std::copy(values.begin(), values.end(), w);
+            return nb::make_tuple(eigenvalues, vectors);
+        },
+        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1);
+    // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
+    // which the upper triangle is read; info is not zero when a is not positive
+    // definite
+    m.def(
+        "cholesky",
+        [](Columns<H> a, const std::string& kernels, int host_limit) {
+            const int n = static_cast<int>(a.shape(0));
+            if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
+            DeviceArray<D> da;
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
+            if (host_limit >= 0) lapack.set_host_limit(host_limit);
+            const int info = lapack.potrf(da.data(), n);
+            H* out = nullptr;
+            auto r = columns_of<H>(a.shape(0), a.shape(0), out);
+            da.download(reinterpret_cast<D*>(out), da.size());
+            return nb::make_tuple(info, r);
+        },
+        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1);
 }
 
 }  // namespace

@@ -151,6 +151,29 @@ def test_the_products_agree(dtype, shape):
         assert not np.array_equal(own, vendor)
 
 
+@pytest.mark.parametrize("dtype", [np.float64, np.complex128])
+@pytest.mark.parametrize(
+    "shape",
+    [(1, 1, 1), (33, 31, 17), (100, 70, 130), (6000, 40, 90), (154, 154, 17640)],
+)
+def test_the_small_blocks_of_the_products(dtype, shape):
+    """The small blocks of the portable products of double precision, which
+    MDAPY takes where its large ones would stand idle on a small result, give
+    the products of the large ones to rounding (GPUs with tensor cores use
+    neither)."""
+    m, n, k = shape
+    rng = np.random.default_rng(7)
+    for ta in "NTC":
+        for tb in "NTC":
+            a = columns(rng, *((m, k) if ta == "N" else (k, m)), dtype)
+            b = columns(rng, *((k, n) if tb == "N" else (n, k)), dtype)
+            small, large = (_dft.product(a, b, ta, tb, small_tiles=s) for s in (1, 0))
+            exact = op(a, ta) @ op(b, tb)
+            scale = max(np.abs(exact).max(), 1.0)
+            assert np.abs(small - exact).max() < 5e-14 * scale
+            assert np.abs(small - large).max() < 5e-14 * scale
+
+
 @pytest.mark.parametrize("dtype", TYPES)
 @pytest.mark.parametrize("shape", [(1, 1), (7, 5), (1000, 17), (3000, 100), (50, 333)])
 def test_the_triangular_solves_agree(dtype, shape):
@@ -215,7 +238,8 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     their residuals and their orthonormality, which degenerate eigenvalues
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
-    the tridiagonalization) and as on one without."""
+    the tridiagonalization) and as on one without, and with the
+    tridiagonalization in panels, which MDAPY takes for the large matrices."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -226,8 +250,19 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
     exact = np.linalg.eigvalsh(a.astype(wide))
     scale = max(np.abs(exact).max(), 1.0)
-    for kernels, full in (("mdapy", 0), ("mdapy", 1), ("vendor", -1)):
-        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, full_double=full)
+    for kernels, full, panels in (
+        ("mdapy", 0, -1),
+        ("mdapy", 1, -1),
+        ("mdapy", 1, 0),
+        ("vendor", -1, -1),
+    ):
+        w, v = _dft.eigh(
+            garbage,
+            kernels=kernels,
+            host_limit=host,
+            full_double=full,
+            panels_from=panels,
+        )
         assert v.dtype == dtype and w.dtype == np.float64
         # ascending; the library of the vendor within rounding in a cluster
         assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))
@@ -235,6 +270,22 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         v = v.astype(wide)
         assert np.abs(a.astype(wide) @ v - v * w).max() < 20 * limit * scale
         assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
+
+
+@pytest.mark.parametrize("dtype, n", [(np.complex128, 1100), (np.float64, 1600)])
+def test_the_eigenpairs_of_large_matrices(dtype, n):
+    """What MDAPY takes for the large matrices on a GPU of full double
+    precision: the tridiagonalization in panels (from 1024 complex numbers and
+    1536 real ones), leaves of 16 rows and blocks of 64 reflectors."""
+    rng = np.random.default_rng(n)
+    a = hermitian(rng, n, dtype, SPECTRA["clustered"](n))
+    exact = np.linalg.eigvalsh(a)
+    scale = max(np.abs(exact).max(), 1.0)
+    w, v = _dft.eigh(a, full_double=1)
+    assert np.all(np.diff(w) >= 0)
+    assert np.abs(w - exact).max() < 1e-12 * scale
+    assert np.abs(a @ v - v * w).max() < 1e-11 * scale
+    assert np.abs(v.conj().T @ v - np.eye(n)).max() < 1e-11
 
 
 @pytest.mark.parametrize("dtype", TYPES)

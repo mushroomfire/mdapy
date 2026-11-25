@@ -229,10 +229,12 @@ nb::ndarray<nb::numpy, H> columns_of(std::size_t rows, std::size_t columns, H*& 
 
 template <class H, class D>
 void bind_blas(nb::module_& m) {
-    // op(a) op(b) of matrices stored by columns
+    // op(a) op(b) of matrices stored by columns; small_tiles, when not negative,
+    // whether the portable products of double precision take their small blocks
     m.def(
         "product",
-        [](Columns<H> a, Columns<H> b, const std::string& ta, const std::string& tb, const std::string& kernels) {
+        [](Columns<H> a, Columns<H> b, const std::string& ta, const std::string& tb, const std::string& kernels,
+           int small_tiles) {
             const mdapy::dft::Op oa = op_of(ta), ob = op_of(tb);
             const int rows = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(0) : a.shape(1));
             const int k = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(1) : a.shape(0));
@@ -243,6 +245,7 @@ void bind_blas(nb::module_& m) {
             da.upload(reinterpret_cast<const D*>(a.data()), a.size());
             db.upload(reinterpret_cast<const D*>(b.data()), b.size());
             mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
+            if (small_tiles >= 0) blas.set_small_tiles(small_tiles > 0 ? 1 : 0);
             D one{}, zero{};
             *reinterpret_cast<decltype(std::real(H{}))*>(&one) = 1;
             blas.gemm(oa, ob, rows, columns, k, one, da.data(), static_cast<int>(std::max<std::size_t>(a.shape(0), 1)),
@@ -254,7 +257,7 @@ void bind_blas(nb::module_& m) {
             return c;
         },
         nb::arg("a").noconvert(), nb::arg("b").noconvert(), nb::arg("ta") = "N", nb::arg("tb") = "N",
-        nb::arg("kernels") = "mdapy");
+        nb::arg("kernels") = "mdapy", nb::arg("small_tiles") = -1);
     // b r^-1 of b (m, n) and the upper triangle of r (n, n)
     m.def(
         "solve_upper",
@@ -277,10 +280,11 @@ void bind_blas(nb::module_& m) {
     // Hermitian matrix, of which the upper triangle is read; host_limit, when
     // not negative, is the largest matrix MDAPY's kernels take on the host;
     // full_double, when not negative, whether they take the GPU as one of
-    // full double precision
+    // full double precision; panels_from, when not negative, the smallest
+    // matrix they tridiagonalize in panels, none of them with one launch a step
     m.def(
         "eigh",
-        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double) {
+        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from) {
             const int n = static_cast<int>(a.shape(0));
             if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
             DeviceArray<D> da;
@@ -288,6 +292,10 @@ void bind_blas(nb::module_& m) {
             mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
             if (host_limit >= 0) lapack.set_host_limit(host_limit);
             if (full_double >= 0) lapack.set_full_double(full_double > 0 ? 1 : 0);
+            if (panels_from >= 0) {
+                lapack.set_fused_limit(0);
+                lapack.set_panels_from(panels_from);
+            }
             std::vector<double> values;
             lapack.eigh(da.data(), n, values);
             H* out = nullptr;
@@ -299,7 +307,7 @@ void bind_blas(nb::module_& m) {
             return nb::make_tuple(eigenvalues, vectors);
         },
         nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
-        nb::arg("full_double") = -1);
+        nb::arg("full_double") = -1, nb::arg("panels_from") = -1);
     // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
     // which the upper triangle is read; info is not zero when a is not positive
     // definite

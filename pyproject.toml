@@ -26,6 +26,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# what MDAPY's own features use beyond NumPy and polars; plot and symmetry are kept
+# for the install commands written before full
+full = ["matplotlib>=3.8", "spglib>=2.5", "seekpath>=2.1"]
 plot = ["matplotlib>=3.8"]
 ase = ["ase>=3.22"]
 symmetry = ["spglib>=2.5", "seekpath>=2.1"]

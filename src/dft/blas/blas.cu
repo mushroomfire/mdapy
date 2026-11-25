@@ -9,9 +9,11 @@
 
 #include "dft/blas/blas.h"
 
+#include <cstdlib>
 #include <new>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 
 #ifdef MDAPY_DFT_BLAS_PROFILE
 #include <algorithm>
@@ -407,9 +409,31 @@ void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, cons
     check_cuda(cudaGetLastError(), "a product of matrices");
 }
 
+#include "dft/blas/dmma.cuh"
+
 }  // namespace
 
 Blas::Blas(Kernels kernels) : kernels_(kernels) {}
+
+// The tensor cores take the products of double precision on the GPUs of full
+// double precision (compute capability 8.0, 9.0 and 10.0: A100, H100 and
+// GH200, B200), not on the others, whose double precision is a small part of
+// their single; MDAPY_DFT_DMMA=0 turns them off, for comparisons.
+bool Blas::tensor_cores() {
+#if defined(MDAPY_GPU_HIP)
+    return false;
+#else
+    if (tensor_ < 0) {
+        int device = 0, major = 0, minor = 0;
+        check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+        check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
+        check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
+        const char* off = std::getenv("MDAPY_DFT_DMMA");
+        tensor_ = (minor == 0 && (major == 8 || major == 9 || major == 10)) && !(off != nullptr && off[0] == '0');
+    }
+    return tensor_ == 1;
+#endif
+}
 
 // made at its first use: a calculation with MDAPY's kernels takes none
 cublasHandle_t Blas::vendor() {
@@ -442,7 +466,17 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     g.stride_a = stride_a;
     g.stride_b = 0;
     g.stride_c = stride_c;
-    constexpr int kTM = kSide * Tiles<S>::mm, kTN = kSide * Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    int kTM = kSide * Tiles<S>::mm, kTN = kSide * Tiles<S>::mn, kDepth = Tiles<S>::depth;
+#if !defined(MDAPY_GPU_HIP)
+    constexpr bool kTensorType = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
+#else
+    constexpr bool kTensorType = false;
+#endif
+    bool tensor = false;
+    if constexpr (kTensorType) {
+        tensor = tensor_cores();
+        if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk;
+    }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // a small result of long sums: segments of at least 512 terms, as many as
     // give about 2048 blocks
@@ -468,14 +502,28 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     const dim3 grid(static_cast<unsigned>((m + kTM - 1) / kTM), static_cast<unsigned>((n + kTN - 1) / kTN),
                     static_cast<unsigned>(g.segments > 1 ? g.segments : batch));
     const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
-    if (trans_a && trans_b)
-        launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial);
-    else if (trans_a)
-        launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial);
-    else if (trans_b)
-        launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial);
-    else
-        launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial);
+    if constexpr (kTensorType) {
+        if (tensor) {
+            if (trans_a && trans_b)
+                launch_dmma<S, true, true>(g, grid, alpha, beta, a, b, c, partial);
+            else if (trans_a)
+                launch_dmma<S, true, false>(g, grid, alpha, beta, a, b, c, partial);
+            else if (trans_b)
+                launch_dmma<S, false, true>(g, grid, alpha, beta, a, b, c, partial);
+            else
+                launch_dmma<S, false, false>(g, grid, alpha, beta, a, b, c, partial);
+        }
+    }
+    if (!tensor) {
+        if (trans_a && trans_b)
+            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial);
+        else if (trans_a)
+            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial);
+        else if (trans_b)
+            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial);
+        else
+            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial);
+    }
     if (g.segments > 1) {
         gather_kernel<S><<<blocks(static_cast<long long>(m) * n, kThreads), kThreads>>>(m, n, g.segments, alpha, beta,
                                                                                        partial, c, ldc);

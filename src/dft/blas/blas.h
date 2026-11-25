@@ -93,11 +93,14 @@ private:
     void own_trsm(int m, int n, const S* r, int ldr, S* b, int ldb);
 
     cublasHandle_t vendor();
+    // whether the products of double precision run on the tensor cores of this GPU
+    bool tensor_cores();
 
     Kernels kernels_;
     cublasHandle_t vendor_ = nullptr;  // of the library of the vendor, made at its first use
     DeviceArray<double> partial_;  // the partial results of a split product
     int most_segments_ = 0;
+    int tensor_ = -1;  // tensor_cores(), found at the first product
 };
 
 }  // namespace mdapy::dft

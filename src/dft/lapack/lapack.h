@@ -12,17 +12,21 @@
 //   kilobytes, and one transfer costs less than the many small kernels of the
 //   GPU would), in double precision whatever the precision of the matrix;
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
-//   reflector after the other, one launch each for matrices up to 512 to
-//   1024 by their type (two beyond, and in double precision on GPUs that have
-//   little of it), and in panels whose products are Blas's from 1024 to 1536;
-//   divide
-//   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
-//   a height of its tree together, their scalar work in double precision on
-//   the GPU when it has full double precision and on the host otherwise, and
-//   their eigenvectors products of Blas; then the reflectors applied to them
-//   in blocks, three products each. Cholesky:
-//   blocks of columns, the diagonal block on the host, the panel by the
-//   triangular solve of Blas and the trailing matrix by its product.
+//   reflector after the other, for matrices up to 512 to 1024 by their type
+//   in one launch whose blocks wait for one another from step to step when
+//   the GPU holds them all at once (an NVIDIA GPU of full double precision),
+//   else a launch a step (two beyond, and in double precision on GPUs that
+//   have little of it), and from there in panels of 32 columns, two launches
+//   a column and one product of Blas a panel; divide and conquer on the
+//   tridiagonal matrix (dft/lapack/divide.h), the merges of a height of its
+//   tree together, their scalar work in double precision on the GPU when it
+//   has full double precision and on the host otherwise, and their
+//   eigenvectors products of Blas; then the reflectors applied to them in
+//   blocks, three products each over the rows a block reaches. When only the
+//   lowest eigenvectors are asked for, the last merge and the reflectors make
+//   those alone. Cholesky: blocks of columns, the diagonal block on the host,
+//   the panel by the triangular solve of Blas and the trailing matrix by its
+//   product.
 //
 // A Lapack belongs to one host thread at a time and works on its default stream.
 
@@ -49,11 +53,14 @@ public:
 
     // The eigenvalues (n, ascending, on the host) and the eigenvectors (the
     // columns of a on return) of a (n, n), of which the upper triangle is
-    // read. Throws if they do not converge.
-    void eigh(Complex* a, int n, std::vector<double>& values);
-    void eigh(cuComplex* a, int n, std::vector<double>& values);
-    void eigh(double* a, int n, std::vector<double>& values);
-    void eigh(float* a, int n, std::vector<double>& values);
+    // read. Throws if they do not converge. With count not negative only the
+    // eigenvectors of the count lowest eigenvalues are asked for: they are the
+    // first count columns of a, and its other columns hold nothing of use
+    // (MDAPY's kernels on the GPU do not make them; the others make all).
+    void eigh(Complex* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(cuComplex* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(double* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(float* a, int n, std::vector<double>& values, int count = -1);
 
     // The upper triangle of a (n, n) replaced by r, a = r^H r; the lower one is
     // not read, and holds nothing of use on return. Returns 0, or j when the
@@ -79,15 +86,18 @@ public:
     void set_reflectors(int count) noexcept { reflectors_ = count; }
     void set_leaf(int rows) noexcept { leaf_ = rows; }
     void set_full_double(int full) noexcept { full_double_ = full; }
+    // Whether the steps of the tridiagonalization of the small matrices go in
+    // one launch (-1: MDAPY's choice; never on AMD GPUs).
+    void set_together_steps(int mode) noexcept { together_steps_ = mode; }
 
 private:
     cusolverDnHandle_t vendor();
     template <class T>
-    void own_eigh(T* a, int n, std::vector<double>& values);
+    void own_eigh(T* a, int n, std::vector<double>& values, int wanted);
     template <class T>
     int own_potrf(T* a, int n);
     template <class T>
-    void device_eigh(T* a, int n, std::vector<double>& values);
+    void device_eigh(T* a, int n, std::vector<double>& values, int wanted);
     template <class T>
     int device_potrf(T* a, int n);
     bool full_double();
@@ -100,6 +110,7 @@ private:
     int host_limit_ = 64;
     int fused_limit_ = -1;
     int panels_from_ = -1;
+    int together_steps_ = -1;
     int reflectors_ = 0;
     int leaf_ = 0;
     int full_double_ = -1;  // whether the GPU runs double precision at half the rate of single; -1 before it is asked

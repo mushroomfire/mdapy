@@ -74,10 +74,11 @@ private:
     void gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka, const Complex* b, const Complex* pb,
               int kb, int rows, Complex* out);
     // the eigenvalues (ascending, into eigenvalues_) and eigenvectors (into a) of
-    // the Hermitian n x n matrix a, of which the upper triangle is read
-    void eigh(Complex* a, int n);
+    // the Hermitian n x n matrix a, of which the upper triangle is read; with
+    // count not negative only the first count eigenvectors are asked for
+    void eigh(Complex* a, int n, int count = -1);
     // the same of a real symmetric matrix, at Gamma
-    void eigh_real(double* a, int n);
+    void eigh_real(double* a, int n, int count = -1);
     // column c of the projections p, Complex or real
     Complex* projection(Complex* p, std::size_t c) const;
 

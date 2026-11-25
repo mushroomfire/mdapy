@@ -11,7 +11,10 @@
 //       fused the largest matrix tridiagonalized with one launch a step (-1: MDAPY's choice);
 //       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not,
 //       PANELS_FROM sets the smallest matrix tridiagonalized in panels, REFLECTORS the
-//       reflectors of a block of the back-transformation, LEAF the rows of a leaf
+//       reflectors of a block of the back-transformation, LEAF the rows of a leaf,
+//       HOST_LIMIT the largest matrix MDAPY solves on the host, STEPS (0 or 1) whether the steps of
+//       the small tridiagonalizations go in one launch,
+//       WANTED the percent of the eigenvectors asked of MDAPY, the lowest (the vendor makes all)
 //
 // A row: the milliseconds of the vendor and of MDAPY (the least of the
 // repeats), their ratio, and of MDAPY's result the largest |a v - v w| and
@@ -97,10 +100,13 @@ void run(const char* name, int n, int repeats, int fused) {
     ok(cudaMemcpy(given + size, factor_host.data(), size * sizeof(T), cudaMemcpyHostToDevice), "cudaMemcpy");
     Lapack vendor(Kernels::Vendor), own(Kernels::Mdapy);
     own.set_fused_limit(fused);
+    if (std::getenv("STEPS") != nullptr) own.set_together_steps(std::atoi(std::getenv("STEPS")));
+    if (std::getenv("HOST_LIMIT") != nullptr) own.set_host_limit(std::atoi(std::getenv("HOST_LIMIT")));
     if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
     if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));
     if (std::getenv("PANELS_FROM") != nullptr) own.set_panels_from(std::atoi(std::getenv("PANELS_FROM")));
     if (std::getenv("FULL_DOUBLE") != nullptr) own.set_full_double(std::atoi(std::getenv("FULL_DOUBLE")));
+    const int wanted = std::getenv("WANTED") != nullptr ? std::max(1, n * std::atoi(std::getenv("WANTED")) / 100) : n;
     double times[2] = {1e30, 1e30}, factor_times[2] = {1e30, 1e30};
     std::vector<double> values[2];
     std::vector<T> vectors(size), factors[2] = {std::vector<T>(size), std::vector<T>(size)};
@@ -109,7 +115,7 @@ void run(const char* name, int n, int repeats, int fused) {
         for (int repeat = 0; repeat < repeats + 1; ++repeat) {
             ok(cudaMemcpy(work, given, size * sizeof(T), cudaMemcpyDeviceToDevice), "cudaMemcpy");
             double start = seconds();
-            lapack.eigh(work, n, values[which]);
+            lapack.eigh(work, n, values[which], which == 1 ? wanted : -1);
             double time = seconds() - start;
             if (repeat > 0) times[which] = std::min(times[which], time);  // the first warms up
             if (which == 1 && repeat == 0)
@@ -133,17 +139,18 @@ void run(const char* name, int n, int repeats, int fused) {
     for (int j = 0; j < n; ++j)
         difference = std::max(difference, std::abs(values[1][static_cast<std::size_t>(j)] - values[0][static_cast<std::size_t>(j)]));
     // of the large matrices, 64 of the eigenvectors spread over all
-    for (int j = 0; j < n; j += std::max(1, n > 1024 ? n / 64 : 1)) {
+    for (int j = 0; j < wanted; j += std::max(1, n > 1024 ? n / 64 : 1)) {
         const std::complex<double>* vj = v.data() + static_cast<std::size_t>(j) * n;
         for (int i = 0; i < n; ++i) {
             std::complex<double> av = 0.0, vv = 0.0;
+            const bool made = i < wanted;
             const std::complex<double>* vi = v.data() + static_cast<std::size_t>(i) * n;
             for (int k = 0; k < n; ++k) {
                 av += a[static_cast<std::size_t>(k) * n + i] * vj[k];
-                vv += std::conj(vi[k]) * vj[k];
+                if (made) vv += std::conj(vi[k]) * vj[k];
             }
             residual = std::max(residual, std::abs(av - values[1][static_cast<std::size_t>(j)] * vj[i]));
-            orthogonality = std::max(orthogonality, std::abs(vv - (i == j ? 1.0 : 0.0)));
+            if (made) orthogonality = std::max(orthogonality, std::abs(vv - (i == j ? 1.0 : 0.0)));
         }
     }
     // of the factors, the upper triangles

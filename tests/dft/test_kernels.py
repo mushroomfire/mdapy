@@ -239,7 +239,9 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
     the tridiagonalization) and as on one without, with the
-    tridiagonalization in panels, which MDAPY takes for the large matrices."""
+    tridiagonalization in panels, which MDAPY takes for the large matrices,
+    and with several columns to a block of their products, as for the
+    largest."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -254,6 +256,7 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         ("mdapy", dict(full_double=0)),
         ("mdapy", dict(full_double=1)),
         ("mdapy", dict(full_double=1, panels_from=0)),
+        ("mdapy", dict(full_double=1, panels_from=0, together_from=0)),
         ("vendor", {}),
     ):
         w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, **options)
@@ -303,6 +306,7 @@ def test_the_lowest_eigenvectors(dtype, spectrum, n, count):
         dict(full_double=0),
         dict(full_double=1),
         dict(full_double=1, panels_from=0),
+        dict(full_double=1, panels_from=0, together_from=0),
     ):
         w, v = _dft.eigh(a, count=count, **options)
         assert v.shape == (n, n) and np.abs(w - exact).max() < limit * scale

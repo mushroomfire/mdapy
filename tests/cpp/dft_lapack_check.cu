@@ -10,8 +10,10 @@
 //   ./dft_lapack_check [repeats] [types] [sizes] [fused]   types of z d c s, sizes n,n,...,
 //       fused the largest matrix tridiagonalized with one launch a step (-1: MDAPY's choice);
 //       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not,
-//       PANELS_FROM sets the smallest matrix tridiagonalized in panels, REFLECTORS the
+//       PANELS_FROM sets the smallest matrix tridiagonalized in panels, TOGETHER_FROM the rows left
+//       from which a block of their products has several columns, REFLECTORS the
 //       reflectors of a block of the back-transformation, LEAF the rows of a leaf,
+//       HOST_LIMIT the largest matrix MDAPY solves on the host,
 //       WANTED the percent of the eigenvectors asked of MDAPY, the lowest (the vendor makes all)
 //
 // A row: the milliseconds of the vendor and of MDAPY (the least of the
@@ -98,8 +100,10 @@ void run(const char* name, int n, int repeats, int fused) {
     ok(cudaMemcpy(given + size, factor_host.data(), size * sizeof(T), cudaMemcpyHostToDevice), "cudaMemcpy");
     Lapack vendor(Kernels::Vendor), own(Kernels::Mdapy);
     own.set_fused_limit(fused);
+    if (std::getenv("HOST_LIMIT") != nullptr) own.set_host_limit(std::atoi(std::getenv("HOST_LIMIT")));
     if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
     if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));
+    if (std::getenv("TOGETHER_FROM") != nullptr) own.set_together_from(std::atoi(std::getenv("TOGETHER_FROM")));
     if (std::getenv("PANELS_FROM") != nullptr) own.set_panels_from(std::atoi(std::getenv("PANELS_FROM")));
     if (std::getenv("FULL_DOUBLE") != nullptr) own.set_full_double(std::atoi(std::getenv("FULL_DOUBLE")));
     const int wanted = std::getenv("WANTED") != nullptr ? std::max(1, n * std::atoi(std::getenv("WANTED")) / 100) : n;

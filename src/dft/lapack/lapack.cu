@@ -537,18 +537,24 @@ __global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* 
     }
 }
 
+constexpr int kTogether = 4;  // the most columns of a block of panel_products_kernel
+constexpr int kTogetherFrom = 3072;  // the rows left from which a block has that many
+
 // The reflector of the column j from held, as panel_rows_kernel left it with
 // the count sums of its squares: v = (1, scale held) from the row j + 1, which
 // every block works out and the block of a row writes; with tau, the diagonal
-// element and the subdiagonal one. Then the products with it: a block to each
-// column beyond j, y_c = sum_r conj(a_rc) v_r, then one to each of the columns
-// columns of w and of v of the panel before it, into dots and dots + kColumns.
-// kStep threads, kEarly numbers of the column on their way at a time.
-template <class S>
-__global__ void panel_products_kernel(int n, int j, int first, int columns, int count, const S* __restrict__ a,
-                                      S* reflectors, const S* __restrict__ w, const S* __restrict__ held,
-                                      const S* __restrict__ sums, S* tau, typename RealOf<S>::type* d,
-                                      typename RealOf<S>::type* e, S* __restrict__ y, S* __restrict__ dots) {
+// element and the subdiagonal one. Then the products with it, sum_r conj(x_r)
+// v_r, of the columns x beyond j of the matrix (into y), then of the columns
+// columns of w and of v of the panel before it (into dots and dots +
+// kColumns): a block to each G of them (1 or kTogether), which reads held once
+// for all of them, the larger part of what a block reads of a large matrix.
+// kStep threads, kEarly numbers of a column on their way at a time.
+template <class S, int G>
+__global__ void panel_products_kernel(int n, int j, int first, int columns, int count,
+                                      const S* __restrict__ a, S* reflectors, const S* __restrict__ w,
+                                      const S* __restrict__ held, const S* __restrict__ sums, S* tau,
+                                      typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* __restrict__ y,
+                                      S* __restrict__ dots) {
     using R = typename RealOf<S>::type;
     __shared__ S partial[kStep + kGroups];
     const int t = static_cast<int>(threadIdx.x), m = n - 1 - j, b = static_cast<int>(blockIdx.x);
@@ -572,34 +578,48 @@ __global__ void panel_products_kernel(int n, int j, int first, int columns, int 
         tau[j] = reflection;
         e[j] = beta;
     }
-    const S* column = b < m ? a + static_cast<long long>(j + 1 + b) * n
-                      : b < m + columns ? w + static_cast<long long>(b - m) * n
-                                        : reflectors + static_cast<long long>(first + b - m - columns) * n;
+    // the columns of the block: those of the matrix beyond j, then of w, then of v
+    const int all = m + 2 * columns;
+    const S* column[G];
+    S sums_of[G];
+#pragma unroll
+    for (int g = 0; g < G; ++g) {
+        const int c = min(b * G + g, all - 1);
+        column[g] = c < m ? a + static_cast<long long>(j + 1 + c) * n
+                    : c < m + columns ? w + static_cast<long long>(c - m) * n
+                                      : reflectors + static_cast<long long>(first + c - m - columns) * n;
+        sums_of[g] = zero;
+    }
     // v is (1, scale held): the products with held from the row j + 2, the
     // scale and the row j + 1 at the end
-    sum = zero;
     for (int r = j + 2 + t; r < n; r += kEarly * kStep) {
-        S x[kEarly], u[kEarly];
+        S x[G][kEarly], u[kEarly];
 #pragma unroll
         for (int q = 0; q < kEarly; ++q) {
             const bool in = r + q * kStep < n;
-            x[q] = in ? column[r + q * kStep] : zero;
             u[q] = in ? held[r + q * kStep] : zero;
+#pragma unroll
+            for (int g = 0; g < G; ++g) x[g][q] = in ? column[g][r + q * kStep] : zero;
         }
 #pragma unroll
-        for (int q = 0; q < kEarly; ++q) sum = add(sum, mul(cj(x[q]), u[q]));
+        for (int g = 0; g < G; ++g)
+#pragma unroll
+            for (int q = 0; q < kEarly; ++q) sums_of[g] = add(sums_of[g], mul(cj(x[g][q]), u[q]));
     }
-    sum = block_sum(partial, sum);
-    if (t != 0) return;
-    sum = add(mul(scale, sum), cj(column[j + 1]));
-    if (b < m) {
-        y[j + 1 + b] = sum;
-        reflectors[j + 1 + b + static_cast<long long>(j) * n] = b == 0 ? one : mul(held[j + 1 + b], scale);
-    } else {
-        dots[b < m + columns ? b - m : kColumns + b - m - columns] = sum;
+    for (int g = 0; g < G; ++g) {
+        const int c = b * G + g;
+        if (c >= all) break;
+        sum = block_sum(partial, sums_of[g]);
+        if (t != 0) continue;
+        sum = add(mul(scale, sum), cj(column[g][j + 1]));
+        if (c < m) {
+            y[j + 1 + c] = sum;
+            reflectors[j + 1 + c + static_cast<long long>(j) * n] = c == 0 ? one : mul(held[j + 1 + c], scale);
+        } else {
+            dots[c < m + columns ? c - m : kColumns + c - m - columns] = sum;
+        }
     }
 }
-
 
 // p = (v, x) and q = (x, v), width columns of each (rows, 2 width): the
 // product p q^H is v x^H + x v^H, what a panel takes from the trailing matrix,
@@ -1205,6 +1225,8 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
             DeviceArray<T> pairs(4 * static_cast<std::size_t>(n) * kColumns);
             T* right = pairs.data() + 2 * static_cast<std::size_t>(n) * kColumns;
             S* y = own(products.data());
+            // several columns to a block of the products while the matrix left is large
+            const int together_from = together_from_ >= 0 ? together_from_ : kTogetherFrom;
             // w of the reflector before the column j (which is past the panel
             // when finish), and the column
             const auto rows = [&](int j, int first, int finish) {
@@ -1216,10 +1238,17 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
                 const int width = std::min(kColumns, n - first);
                 for (int j = first; j < first + width; ++j) {
                     rows(j, first, 0);
-                    panel_products_kernel<S><<<static_cast<unsigned>(std::max(n - 1 - j + 2 * (j - first), 1)), kStep>>>(
-                        n, j, first, j - first, static_cast<int>(blocks(n - j, kRows)), matrix, own(reflectors.data()),
-                        own(w.data()), own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(),
-                        subdiagonal.data(), y, own(dots.data()));
+                    const int all = std::max(n - 1 - j + 2 * (j - first), 1), sums_count = static_cast<int>(blocks(n - j, kRows));
+                    if (n - j >= together_from)
+                        panel_products_kernel<S, kTogether><<<blocks(all, kTogether), kStep>>>(
+                            n, j, first, j - first, sums_count, matrix, own(reflectors.data()), own(w.data()),
+                            own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(), subdiagonal.data(), y,
+                            own(dots.data()));
+                    else
+                        panel_products_kernel<S, 1><<<static_cast<unsigned>(all), kStep>>>(
+                            n, j, first, j - first, sums_count, matrix, own(reflectors.data()), own(w.data()),
+                            own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(), subdiagonal.data(), y,
+                            own(dots.data()));
                 }
                 launched("a panel of the tridiagonalization");
                 const int next = first + width, rest = n - next;

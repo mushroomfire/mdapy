@@ -49,11 +49,14 @@ public:
 
     // The eigenvalues (n, ascending, on the host) and the eigenvectors (the
     // columns of a on return) of a (n, n), of which the upper triangle is
-    // read. Throws if they do not converge.
-    void eigh(Complex* a, int n, std::vector<double>& values);
-    void eigh(cuComplex* a, int n, std::vector<double>& values);
-    void eigh(double* a, int n, std::vector<double>& values);
-    void eigh(float* a, int n, std::vector<double>& values);
+    // read. Throws if they do not converge. With count not negative only the
+    // eigenvectors of the count lowest eigenvalues are asked for: they are the
+    // first count columns of a, and its other columns hold nothing of use
+    // (MDAPY's kernels on the GPU do not make them; the others make all).
+    void eigh(Complex* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(cuComplex* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(double* a, int n, std::vector<double>& values, int count = -1);
+    void eigh(float* a, int n, std::vector<double>& values, int count = -1);
 
     // The upper triangle of a (n, n) replaced by r, a = r^H r; the lower one is
     // not read, and holds nothing of use on return. Returns 0, or j when the
@@ -74,6 +77,15 @@ public:
     void set_fused_limit(int n) noexcept { fused_limit_ = n; }
     // The smallest matrix tridiagonalized in panels (-1: MDAPY's choice).
     void set_panels_from(int n) noexcept { panels_from_ = n; }
+    // The smallest matrix whose panels take their products from one triangle
+    // of the matrix (-1: MDAPY's choice).
+    void set_triangle_from(int n) noexcept { triangle_from_ = n; }
+    // The smallest matrix tridiagonalized in two stages, through a band (-1:
+    // MDAPY's choice), the half width of the band and the sweeps whose
+    // reflectors a block applies to the eigenvectors (0: MDAPY's choice).
+    void set_two_stage_from(int n) noexcept { two_stage_from_ = n; }
+    void set_band(int width) noexcept { band_ = width; }
+    void set_group(int sweeps) noexcept { group_ = sweeps; }
     // The reflectors of a block of the back-transformation and the rows of a
     // leaf of the divide and conquer (0: MDAPY's choice).
     void set_reflectors(int count) noexcept { reflectors_ = count; }
@@ -83,11 +95,11 @@ public:
 private:
     cusolverDnHandle_t vendor();
     template <class T>
-    void own_eigh(T* a, int n, std::vector<double>& values);
+    void own_eigh(T* a, int n, std::vector<double>& values, int wanted);
     template <class T>
     int own_potrf(T* a, int n);
     template <class T>
-    void device_eigh(T* a, int n, std::vector<double>& values);
+    void device_eigh(T* a, int n, std::vector<double>& values, int wanted);
     template <class T>
     int device_potrf(T* a, int n);
     bool full_double();
@@ -100,6 +112,10 @@ private:
     int host_limit_ = 64;
     int fused_limit_ = -1;
     int panels_from_ = -1;
+    int triangle_from_ = -1;
+    int two_stage_from_ = -1;
+    int band_ = 0;
+    int group_ = 0;
     int reflectors_ = 0;
     int leaf_ = 0;
     int full_double_ = -1;  // whether the GPU runs double precision at half the rate of single; -1 before it is asked

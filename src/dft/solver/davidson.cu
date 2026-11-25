@@ -146,9 +146,9 @@ Davidson::Davidson(Kernels kernels) : blas_(kernels), lapack_(kernels) {}
 
 Davidson::~Davidson() = default;
 
-void Davidson::eigh(Complex* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
+void Davidson::eigh(Complex* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
-void Davidson::eigh_real(double* a, int n) { lapack_.eigh(a, n, eigenvalues_); }
+void Davidson::eigh_real(double* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
 Complex* Davidson::projection(Complex* p, std::size_t c) const {
     const std::size_t offset = static_cast<std::size_t>(projectors_) * c;
@@ -500,16 +500,17 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     };
     for (int iteration = 1;; ++iteration) {
         result.iterations = iteration;
-        // Rayleigh-Ritz: the count lowest eigenpairs of basis^H H basis
+        // Rayleigh-Ritz: the count lowest eigenpairs of basis^H H basis (of the
+        // others the eigenvalues alone)
         const std::size_t element = gamma_ ? sizeof(double) : sizeof(Complex);
         check_cuda(cudaMemcpy2D(subspace_.data(), static_cast<std::size_t>(nbase) * element, hsub_.data(),
                                 ld * element, static_cast<std::size_t>(nbase) * element,
                                 static_cast<std::size_t>(nbase), cudaMemcpyDeviceToDevice),
                    "cudaMemcpy2D");
         if (gamma_)
-            eigh_real(real(subspace_.data()), nbase);
+            eigh_real(real(subspace_.data()), nbase, count);
         else
-            eigh(subspace_.data(), nbase);
+            eigh(subspace_.data(), nbase, count);
         lambda = eigenvalues_;
         open.clear();
         for (int b = 0; b < count; ++b)

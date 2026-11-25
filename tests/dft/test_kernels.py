@@ -238,8 +238,10 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     their residuals and their orthonormality, which degenerate eigenvalues
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
-    the tridiagonalization) and as on one without, and with the
-    tridiagonalization in panels, which MDAPY takes for the large matrices."""
+    the tridiagonalization) and as on one without, with the
+    tridiagonalization in panels, with their products from one triangle of
+    the matrix, and with the one in two stages through a band of 8 and of 16
+    rows, which MDAPY takes for the large matrices."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -250,19 +252,16 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
     exact = np.linalg.eigvalsh(a.astype(wide))
     scale = max(np.abs(exact).max(), 1.0)
-    for kernels, full, panels in (
-        ("mdapy", 0, -1),
-        ("mdapy", 1, -1),
-        ("mdapy", 1, 0),
-        ("vendor", -1, -1),
+    for kernels, options in (
+        ("mdapy", dict(full_double=0)),
+        ("mdapy", dict(full_double=1)),
+        ("mdapy", dict(full_double=1, panels_from=0)),
+        ("mdapy", dict(full_double=1, panels_from=0, triangle_from=0)),
+        ("mdapy", dict(full_double=1, two_stage_from=0, band=8)),
+        ("mdapy", dict(full_double=0, two_stage_from=0, band=16)),
+        ("vendor", {}),
     ):
-        w, v = _dft.eigh(
-            garbage,
-            kernels=kernels,
-            host_limit=host,
-            full_double=full,
-            panels_from=panels,
-        )
+        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, **options)
         assert v.dtype == dtype and w.dtype == np.float64
         # ascending; the library of the vendor within rounding in a cluster
         assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))
@@ -272,20 +271,54 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
 
 
+@pytest.mark.parametrize(
+    "options",
+    [{}, dict(triangle_from=0), dict(two_stage_from=0)],
+    ids=["panels", "triangle", "two stages"],
+)
 @pytest.mark.parametrize("dtype, n", [(np.complex128, 1100), (np.float64, 1600)])
-def test_the_eigenpairs_of_large_matrices(dtype, n):
+def test_the_eigenpairs_of_large_matrices(dtype, n, options):
     """What MDAPY takes for the large matrices on a GPU of full double
     precision: the tridiagonalization in panels (from 1024 complex numbers and
-    1536 real ones), leaves of 16 rows and blocks of 64 reflectors."""
+    1536 real ones), their products from the whole matrix or from one
+    triangle, or in two stages through a band of 32 rows; leaves of 16 rows
+    and blocks of 64 reflectors."""
     rng = np.random.default_rng(n)
     a = hermitian(rng, n, dtype, SPECTRA["clustered"](n))
     exact = np.linalg.eigvalsh(a)
     scale = max(np.abs(exact).max(), 1.0)
-    w, v = _dft.eigh(a, full_double=1)
+    w, v = _dft.eigh(a, full_double=1, **options)
     assert np.all(np.diff(w) >= 0)
     assert np.abs(w - exact).max() < 1e-12 * scale
     assert np.abs(a @ v - v * w).max() < 1e-11 * scale
     assert np.abs(v.conj().T @ v - np.eye(n)).max() < 1e-11
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("spectrum", ["noise", "repeated", "clustered"])
+@pytest.mark.parametrize(
+    "n, count", [(70, 1), (70, 2), (200, 37), (200, 200), (515, 257)]
+)
+def test_the_lowest_eigenvectors(dtype, spectrum, n, count):
+    """The eigenvectors of the count lowest eigenvalues alone, as the
+    Rayleigh-Ritz of the bands asks for them: all eigenvalues, and the first
+    count columns by their residuals and their orthonormality, with every way
+    MDAPY's kernels have to the tridiagonal matrix."""
+    rng = np.random.default_rng(n + count)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 1e-12
+    a = hermitian(rng, n, dtype, SPECTRA[spectrum](n))
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    exact = np.linalg.eigvalsh(a.astype(wide))
+    scale = max(np.abs(exact).max(), 1.0)
+    for full, stages in ((0, -1), (1, -1), (1, 0)):
+        w, v = _dft.eigh(
+            a, full_double=full, two_stage_from=stages, band=8, count=count
+        )
+        assert v.shape == (n, n) and np.abs(w - exact).max() < limit * scale
+        v = v[:, :count].astype(wide)
+        assert np.abs(a.astype(wide) @ v - v * w[:count]).max() < 20 * limit * scale
+        assert np.abs(v.conj().T @ v - np.eye(count)).max() < 20 * limit
 
 
 @pytest.mark.parametrize("dtype", TYPES)

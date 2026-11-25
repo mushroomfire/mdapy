@@ -11,8 +11,8 @@ candidate that may stand radiation better.
 This page follows [Liu et al. (2025)](../reference/references.md#liu2025) with their
 machine-learned potential: the threshold displacement energies of the five pure metals
 and of each element in the alloy over all directions, their Figures 3 and 4, and the
-Frenkel pairs that cascades of 1, 5 and 10 keV leave in tungsten and in the alloy, against
-the NRT and arc-dpa models.
+Frenkel pairs that cascades of 1 to 50 keV leave in tungsten and of 1 to 30 keV in the
+alloy, against the NRT and arc-dpa models.
 
 !!! note "The model"
     Liu et al. trained a NEP model of Mo, Nb, Ta, V and W on DFT, with a ZBL repulsion at
@@ -153,6 +153,85 @@ each GPU.
 
 ### The pure metals
 
+The maps, from the directions and thresholds that `tde.py` keeps: each direction and its
+47 images under the cubic point group, projected stereographically, interpolated
+linearly between them and cut to the standard triangle:
+
+<!-- skip-test -->
+```python
+from itertools import permutations, product
+
+import matplotlib.tri as mtri
+from matplotlib.patches import Polygon
+
+from mdapy.visualization import plot
+
+
+def images(v):
+    """The 48 images of the directions v (n, 3) under the cubic point group,
+    with the index of the direction of each."""
+    out = [
+        v[:, p] * s for p in permutations(range(3)) for s in product((1, -1), repeat=3)
+    ]
+    return np.vstack(out), np.tile(np.arange(len(v)), 48)
+
+
+def project(v):
+    """Stereographic projection from -z of unit vectors with z > 0."""
+    return v[:, 0] / (1 + v[:, 2]), v[:, 1] / (1 + v[:, 2])
+
+
+def triangle():
+    """The outline [001]-[101]-[111]: y = 0, the arc x = z, back along x = y."""
+    t = np.linspace(0, 1, 60)
+    arc = np.stack([np.ones_like(t), t, np.ones_like(t)], axis=1)
+    x, y = project(arc / np.linalg.norm(arc, axis=1)[:, None])
+    return np.vstack([[[0.0, 0.0]], np.stack([x, y], axis=1), [[0.0, 0.0]]])
+
+
+def draw_map(ax, v, e, levels):
+    w, index = images(v / np.linalg.norm(v, axis=1)[:, None])
+    up = w[:, 2] > 0.2
+    x, y = project(w[up])
+    near = (x > -0.15) & (x < 0.65) & (y > -0.15) & (y < 0.55)
+    fill = ax.tricontourf(mtri.Triangulation(x[near], y[near]), e[index[up]][near],
+                          levels=levels, cmap="viridis", extend="both")  # fmt: skip
+    outline = triangle()
+    fill.set_clip_path(Polygon(outline, closed=True, transform=ax.transData))
+    ax.plot(outline[:, 0], outline[:, 1], c="k", lw=0.6)
+    a = np.sort(np.abs(v), axis=1)  # the directions computed, in the triangle
+    x, y = project(
+        np.stack([a[:, 1], a[:, 0], a[:, 2]], axis=1)
+        / np.linalg.norm(a, axis=1)[:, None]
+    )
+    ax.plot(x, y, ".", ms=1.5, c="w", alpha=0.6)
+    for name, xy, ha, va in [("[001]", (0, 0), "right", "top"), ("[101]", (0.4142, 0), "left", "top"),
+                             ("[111]", (0.366, 0.366), "left", "bottom")]:  # fmt: skip
+        ax.annotate(name, xy, ha=ha, va=va, fontsize=6)
+    ax.set(xlim=(-0.04, 0.46), ylim=(-0.04, 0.40), aspect="equal")
+    ax.set_axis_off()
+    return fill
+
+
+# thresholds[element]: (directions (n, 3), E_d (n,)) of the runs of tde.py
+with plot.style():
+    fig, axes = plot.figure("double", 110, nrows=2, ncols=3)
+    for ax, element, label in zip(axes.ravel(), ["Mo", "Nb", "Ta", "V", "W"], "abcde"):
+        v, e = thresholds[element]
+        fill = draw_map(ax, v, e, np.linspace(20, 200, 19))
+        ax.set_title(f"{element}: {e.mean():.0f} eV, {len(e)} directions", fontsize=7)
+        plot.panel_label(ax, label)
+    fig.colorbar(fill, ax=axes.ravel()[:5].tolist(), shrink=0.6, label="$E_d$ (eV)")
+    for element, (v, e) in thresholds.items():
+        axes[1, 2].hist(
+            e, bins=np.arange(0, 260, 10), density=True, histtype="step", label=element
+        )
+    axes[1, 2].set(xlabel="$E_d$ (eV)", ylabel="probability density")
+    axes[1, 2].legend()
+    plot.panel_label(axes[1, 2], "f")
+    plot.save(fig, "images/radiation-tde-metals", formats=("png",))
+```
+
 ![The threshold displacement energies of Mo, Nb, Ta, V and W over the standard triangle of directions, and their distributions](images/radiation-tde-metals.png)
 
 *Figure 3 of Liu et al.: E_d of each direction computed, reduced to the standard
@@ -217,10 +296,11 @@ give in their text:
 
 ## Cascades
 
-The protocol of Liu et al., for 1, 5 and 10 keV:
+The protocol of Liu et al., for 1, 2, 5, 10, 20 and 30 keV, and 50 keV in tungsten:
 
-- 50 × 50 × 50 bcc cells, 250 000 atoms, 16 nm wide, relaxed for 10 ps at 300 K and zero
-  pressure; the alloy relaxed once, its runs differing by their PKA;
+- 50 × 50 × 50 bcc cells, 250 000 atoms, 16 nm wide, up to 10 keV, and 100 × 100 × 100,
+  2 000 000 atoms, 32 nm wide, from 20 keV on, relaxed for 10 ps at 300 K and zero
+  pressure; the alloy relaxed once for each size, its runs differing by their PKA;
 - a PKA near the center along a ⟨135⟩ direction, its order and signs varied from run to
   run, away from the open channels of the lattice; in the alloy each element in turn;
 - 50 ps at constant energy, the atoms within 3 lattice constants of the faces at 300 K;
@@ -284,7 +364,8 @@ with MolecularDynamics(shot, gpu, timestep=0.001) as md:
     damage = 5000.0 - md.thermo["electronic_loss"][-1]  # the damage energy, eV
 ```
 
-A cascade of 5 keV takes about 19 minutes on one GPU, the relaxation of the crystal included.
+A cascade of 5 keV takes about 19 minutes on one GPU, the relaxation of the crystal
+included; one of 50 keV in 2 million atoms about 7 hours.
 
 ### The Frenkel pairs against the energy
 
@@ -299,6 +380,82 @@ paper does not say which E_d its fit takes; with this one the model follows thei
 cascades from 5 keV on, while the effective threshold of 108 eV that they also give for
 alloys puts it a factor of two below them.
 
+The figure, from the runs of `cascade.py` gathered by energy into `rows`, one for each
+material and energy with the energy of the PKA, the mean damage energy and the mean
+Frenkel pairs with their standard error:
+
+<!-- skip-test -->
+```python
+from matplotlib.ticker import FuncFormatter
+
+# arc-dpa: E_d (eV), b and c; the power laws N = a E^b of Liu et al., E in keV,
+# for tungsten in two parts that cross at 29 keV
+ARC = {"W": (70.0, -0.56, 0.12), "HEA": (51.0, -0.73, 0.21)}
+POWER = {"W": [(2.14, 0.58), (0.16, 1.35)], "HEA": [(1.67, 0.94)]}
+
+
+def nrt(t, e_d):
+    return np.where(t < e_d, 0.0, np.where(t < 2 * e_d / 0.8, 1.0, 0.8 * t / (2 * e_d)))
+
+
+def arc_dpa(t, e_d, b, c):
+    xi = (1 - c) / (2 * e_d / 0.8) ** b * t**b + c
+    return np.where(t < 2 * e_d / 0.8, nrt(t, e_d), nrt(t, e_d) * xi)
+
+
+with plot.style():
+    fig, (left, right) = plot.figure("double", 70, nrows=1, ncols=2)
+    for material, marker, name in [("W", "o", "W"), ("HEA", "s", "MoNbTaVW")]:
+        mine = [r for r in rows if r["material"] == material]
+        e = np.array([r["energy"] for r in mine]) / 1e3  # keV
+        t = np.array([r["damage"] for r in mine])  # eV
+        n, err = (
+            np.array([r["pairs"] for r in mine]),
+            np.array([r["error"] for r in mine]),
+        )
+        line = left.errorbar(
+            e, n, err, fmt=marker, ms=4, capsize=2, label=f"{name}, MDAPY"
+        )[0]
+        grid = np.geomspace(0.8, 1.2 * e.max(), 80)
+        fit = np.max([a * grid**b for a, b in POWER[material]], axis=0)
+        left.plot(
+            grid,
+            fit,
+            "--",
+            c=line.get_color(),
+            lw=0.8,
+            label=f"{name}, fit of Liu et al.",
+        )
+        right.errorbar(
+            t / 1e3, n, err, fmt=marker, ms=4, capsize=2, c=line.get_color(), label=name
+        )
+        g = np.geomspace(300, 1.2 * t.max(), 80)
+        e_d, b, c = ARC[material]
+        right.plot(g / 1e3, arc_dpa(g, e_d, b, c), "-", c=line.get_color(), lw=0.8,
+                   label=f"arc-dpa, $E_d$ = {e_d:.0f} eV")  # fmt: skip
+        right.plot(g / 1e3, nrt(g, e_d), ":", c=line.get_color(), lw=0.8, label="NRT")
+    left.set(
+        xscale="log",
+        yscale="log",
+        xlabel="energy of the PKA (keV)",
+        ylabel="Frenkel pairs",
+    )
+    right.set(
+        xscale="log", yscale="log", xlabel="damage energy (keV)", ylabel="Frenkel pairs"
+    )
+    # plain numbers on the logarithmic axes, the first digits 1, 2, 3 and 5
+    plain = FuncFormatter(lambda x, _: f"{x:g}" if f"{x:g}"[0] in "1235" else "")
+    for ax in (left, right):
+        for axis in (ax.xaxis, ax.yaxis):
+            axis.set_major_formatter(plain)
+            axis.set_minor_formatter(plain)
+    left.legend(fontsize=6)
+    right.legend(fontsize=6)
+    plot.panel_label(left, "a")
+    plot.panel_label(right, "b")
+    plot.save(fig, "images/radiation-cascades", formats=("png",))
+```
+
 ![The Frenkel pairs left by the cascades against the energy of the PKA and against the damage energy](images/radiation-cascades.png)
 
 *a: the Frenkel pairs left after 50 ps, the mean and its standard error over the runs,
@@ -312,27 +469,39 @@ of the vacancies and of the interstitials in clusters of two or more:
 | Material | E_PKA (keV) | Runs | T_d (keV) | Frenkel pairs | Peak | Vacancies in clusters | Interstitials in clusters |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | MoNbTaVW | 1 | 20 | 0.79 | 4.1 ± 0.3 | 41 | 34 % | 14 % |
+| MoNbTaVW | 2 | 20 | 1.53 | 5.0 ± 0.4 | 105 | 22 % | 10 % |
 | MoNbTaVW | 5 | 20 | 3.73 | 9.1 ± 0.7 | 406 | 36 % | 13 % |
 | MoNbTaVW | 10 | 20 | 7.35 | 13.8 ± 1.1 | 1128 | 45 % | 18 % |
+| MoNbTaVW | 20 | 5 | 13.66 | 31.6 ± 2.1 | 2994 | 38 % | 15 % |
+| MoNbTaVW | 30 | 5 | 20.97 | 38.0 ± 5.7 | 7962 | 38 % | 25 % |
 | W | 1 | 10 | 0.78 | 1.6 ± 0.3 | 9 | 8 % | 27 % |
+| W | 2 | 10 | 1.51 | 2.2 ± 0.2 | 44 | 13 % | 10 % |
 | W | 5 | 10 | 3.63 | 5.1 ± 0.7 | 135 | 13 % | 57 % |
 | W | 10 | 10 | 7.09 | 7.9 ± 0.5 | 403 | 10 % | 54 % |
+| W | 20 | 6 | 13.57 | 14.8 ± 1.4 | 1601 | 17 % | 69 % |
+| W | 30 | 6 | 20.79 | 18.7 ± 2.2 | 3689 | 10 % | 56 % |
+| W | 50 | 6 | 33.25 | 29.8 ± 1.9 | 5842 | 11 % | 70 % |
 
-- **Tungsten** follows the power law of Liu et al. within one standard error at 5 and
-  10 keV and two at 1 keV; arc-dpa, whose parameters Nordlund et al. fitted to other
-  potentials, lies 10 to 20 % above. Of the hundreds of pairs at the peak (135 at
-  5 keV, 400 at 10 keV), all but 5 to 8 recombine as the cascade cools.
+- **Tungsten** follows the two parts of the power law of Liu et al. within two standard
+  errors from 5 keV on, and reaches its steeper part at 50 keV: 29.8 pairs against its
+  31.5, from 18.7 at 30 keV. At 1 and 2 keV it keeps fewer, 1.6 and 2.2 against 2.1 and
+  3.2. arc-dpa, whose parameters Nordlund et al. fitted to other potentials, lies 3 to
+  18 % above from 5 keV on and 40 to 50 % above at 1 and 2 keV. Of the hundreds to
+  thousands of pairs at the peak (135 at 5 keV, 5800 at 50 keV), all but 5 to 30
+  recombine as the cascade cools.
 - **The alloy** keeps more Frenkel pairs than tungsten at every energy, 1.7 to 2.6 times
-  as many, as Liu et al. find over 1 to 150 keV; its peak is three times that of
-  tungsten. At 5 and 10 keV the pairs lie on Liu et al.'s power law; at 1 keV there are
-  4.1 where their law, a fit from 1 to 150 keV, gives 1.7: near the threshold, where
-  the alloy's thresholds, half those of tungsten, count most.
-- **The defects** cluster differently: in tungsten half of the interstitials sit in
-  clusters at 5 and 10 keV, and a tenth of the vacancies; in the alloy a third to nearly
-  a half of the vacancies and a sixth of the interstitials. Liu et al. find the same: fewer
+  as many, as Liu et al. find over 1 to 150 keV; its peak is two to five times that of
+  tungsten. From 5 keV on the pairs lie within about two standard errors of Liu et al.'s
+  power law (31.6 ± 2.1 against 27.9 at 20 keV, 38.0 ± 5.7 against 40.9 at 30 keV); at
+  1 and 2 keV there are 4.1 and 5.0 where their law, a fit from 1 to 150 keV, gives 1.7
+  and 3.2: near the threshold, where the alloy's thresholds, half those of tungsten,
+  count most.
+- **The defects** cluster differently: in tungsten 55 to 70 % of the interstitials sit in
+  clusters from 5 keV on, and 10 to 17 % of the vacancies; in the alloy 22 to 45 % of the
+  vacancies and 10 to 25 % of the interstitials. Liu et al. find the same: fewer
   clustered interstitials in the alloy, under a quarter, and more clustered vacancies.
 - The damage energies, from the stopping of Lindhard and Scharff, are 0.78, 3.6 and
-  7.1 keV in tungsten (Liu et al., from SRIM: 0.77, 3.9 and 7.7) and 0.79, 3.7 and
+  7.1 keV at 1, 5 and 10 keV in tungsten (Liu et al., from SRIM: 0.77, 3.9 and 7.7) and 0.79, 3.7 and
   7.4 keV in the alloy (0.84, 4.2 and 8.4).
 
 ## Running it
@@ -341,13 +510,15 @@ The four scripts that made this page run the protocols above on one GPU each:
 
 - [`tde.py`](radiation/tde.py) `MATERIAL ELEMENT COUNT SEED out.json`, the threshold
   displacement energies of `COUNT` random directions;
-- [`cascade.py`](radiation/cascade.py) `MATERIAL ENERGY RUN out.json`, one cascade;
+- [`cascade.py`](radiation/cascade.py) `MATERIAL ENERGY RUN out.json [SIZE] [PS]`, one
+  cascade in SIZE × SIZE × SIZE cells (50 by default) for PS picoseconds (50);
 - [`tde_figures.py`](radiation/tde_figures.py) and
   [`cascade_figures.py`](radiation/cascade_figures.py), the figures and the tables from
   their results.
 
-The thresholds of this page took about 47 GPU-hours, the 90 cascades about 30, 20 minutes
-each, on V100, A100, H100 and H200 GPUs of the Triton cluster of Aalto University.
+The thresholds of this page took about 47 GPU-hours, the 148 cascades about 245: 20 to
+40 minutes each up to 10 keV, 6 to 8 hours each from 20 keV on, on V100, A100, H100 and
+H200 GPUs of the Triton cluster of Aalto University.
 
 ## See also
 

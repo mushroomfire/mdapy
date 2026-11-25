@@ -3,7 +3,7 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The Frenkel pairs left by the cascades of cascade_hea.py against the energy
+"""The Frenkel pairs left by the cascades of cascade.py against the energy
 of the PKA and the damage energy, with the NRT and arc-dpa models and the
 power laws fitted by Liu et al. (J. Nucl. Mater. 2025), and the clustered
 fractions of the defects.
@@ -23,8 +23,14 @@ from mdapy.visualization import plot
 # E_d (eV), b, c of arc-dpa: W of Nordlund et al. (2018); the alloy's b and c of
 # Liu et al. with E_d its mean threshold displacement energy, 51 eV in their Table 2
 ARC = {"W": (70.0, -0.56, 0.12), "HEA": (51.0, -0.73, 0.21)}
-# N_FP = a E^b, E the energy of the PKA in keV, of Liu et al. (low energies for W)
-POWER = {"W": (2.14, 0.58), "HEA": (1.67, 0.94)}
+# N_FP = a E^b, E the energy of the PKA in keV, of Liu et al.: W in two parts,
+# below and above where the two cross (29 keV), the alloy in one
+POWER = {"W": [(2.14, 0.58), (0.16, 1.35)], "HEA": [(1.67, 0.94)]}
+
+
+def power_law(material, e):
+    """The fit of Liu et al. at the energies e (keV): the larger of the parts."""
+    return np.max([a * e**b for a, b in POWER[material]], axis=0)
 
 
 def nrt(t, e_d):
@@ -80,11 +86,10 @@ def figure(rows, image):
             line = left.errorbar(
                 e, n, err, fmt=marker, ms=4, capsize=2, label=f"{label}, MDAPY"
             )[0]
-            a, b = POWER[material]
-            grid = np.geomspace(0.8, 12, 50)
+            grid = np.geomspace(0.8, 1.2 * e.max(), 80)
             left.plot(
                 grid,
-                a * grid**b,
+                power_law(material, grid),
                 "--",
                 c=line.get_color(),
                 lw=0.8,
@@ -100,7 +105,7 @@ def figure(rows, image):
                 c=line.get_color(),
                 label=label,
             )
-            g = np.geomspace(300, 1e4, 80)
+            g = np.geomspace(300, 1.2 * t.max(), 80)
             e_d, bb, cc = ARC[material]
             right.plot(g / 1e3, arc_dpa(g, e_d, bb, cc), "-", c=line.get_color(), lw=0.8,
                        label=f"arc-dpa, $E_d$ = {e_d:.0f} eV")  # fmt: skip

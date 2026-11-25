@@ -1340,6 +1340,42 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
                          : full_double() ? 0
                          : sizeof(R) == sizeof(double) ? n + 1 : kPanelsFrom;
         const bool panels = n >= from && !fused;
+        if (panels) {
+            DeviceArray<T> w(static_cast<std::size_t>(n) * kColumns), dots(2 * kColumns), sums(blocks(n, kRows));
+            const T one = unit(T{}, 1.0), minus = unit(T{}, -1.0);
+            DeviceArray<T> pairs(4 * static_cast<std::size_t>(n) * kColumns);
+            T* right = pairs.data() + 2 * static_cast<std::size_t>(n) * kColumns;
+            S* y = own(products.data());
+            // w of the reflector before the column j (which is past the panel
+            // when finish), and the column
+            const auto rows = [&](int j, int first, int finish) {
+                panel_rows_kernel<S><<<blocks(n - j, kRows), kRows * kLanes>>>(
+                    n, j, first, finish, matrix, own(reflectors.data()), own(w.data()), own(tau.data()), y,
+                    own(dots.data()), own(held.data()), own(sums.data()));
+            };
+            for (int first = 0; first < n; first += kColumns) {
+                const int width = std::min(kColumns, n - first);
+                for (int j = first; j < first + width; ++j) {
+                    rows(j, first, 0);
+                    panel_products_kernel<S><<<static_cast<unsigned>(std::max(n - 1 - j + 2 * (j - first), 1)), kStep>>>(
+                        n, j, first, j - first, static_cast<int>(blocks(n - j, kRows)), matrix, own(reflectors.data()),
+                        own(w.data()), own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(),
+                        subdiagonal.data(), y, own(dots.data()));
+                }
+                launched("a panel of the tridiagonalization");
+                const int next = first + width, rest = n - next;
+                if (rest < 1) break;
+                rows(next, first, 1);
+                launched("the last column of a panel");
+                T* trailing = a + static_cast<std::size_t>(next) * n + next;
+                // v w^H + w v^H as one product, which passes the trailing matrix once
+                pair_kernel<S><<<blocks(static_cast<long long>(rest) * width), kThreads>>>(
+                    rest, width, n, own(reflectors.data()) + static_cast<std::size_t>(first) * n + next, n,
+                    own(w.data()) + next, own(pairs.data()), own(right));
+                launched("the two halves of the update of a panel");
+                blas_.gemm(Op::N, Op::C, rest, rest, 2 * width, minus, pairs.data(), rest, right, rest, one, trailing, n);
+            }
+        }
         int done = 0;  // the steps one launch took together
 #if !defined(MDAPY_GPU_HIP)
         if (together) {

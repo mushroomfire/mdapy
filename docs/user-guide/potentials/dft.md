@@ -121,7 +121,19 @@ write("labels.xyz", dft.compute(system, ("energy", "forces", "virial")).attach(s
 ```
 
 ```text
-SAMPLE_LOG
+# MDAPY 2.2.0, DFT, 2026-11-25 13:15:35
+# engine: MDAPY on NVIDIA RTX A2000 12GB, compute capability 8.6
+# machine: 12th Gen Intel(R) Core(TM) i5-12600K, 16 logical CPUs, 16 usable, 31.0 GB of memory
+#
+# calculation 1: 4 atoms, Al 4; mesh 2 2 2, 6 k-points, 8 operations, 10 bands, grid 24 24 24
+# parameters: {"mdapy": "2.2.0", "arguments": {"encut": 300.0, "ecutrho": 1200.0, "kpoints": [2, 2, 2], "kspacing": 0.25, "smearing": "gaussian", "sigma": 0.2, "magmoms": null, "hubbard": {}, "functional": "pbe_pw", "tolerance": 1e-06, "max_iterations": 100, "mixing": 0.7, "magnetic_mixing": 1.0, "kerker": 1.5, "preconditioner": "kerker", "bands": 10, "seed": 0, "restart": false, "symmetry": true, "moment_radius": null, "precision": "double", "kernels": "mdapy"}, "pseudopotentials": {"Al": {"file": "Al_std.upf", "sha256": "b02eaa07c5d98f5eeae1bec4155854a7a94ea3635ca6b42e914f3f7ebd6912fb"}}, "internal": {"offset": [0.0, 0.0, 0.0], "minimum": 0.0, "history": 8, "metric_weight": 20.0, "davidson_iterations": 100, "davidson_basis": 2, "correct_forces": true, "magnetic_kerker": 0.0, "atomic_start": true, "kpoint_threads": 0, "first_tolerance": 0.0, "conditioning": 1000000.0, "output_energies": false, "adaptive_damping": false, "first_held": 0}, "environment": {}, "gpu": "NVIDIA RTX A2000 12GB", "processes": 1}
+# calculation  step         free_energy     change   residual  magnetization      fermi  davidson      wall
+            1     1       -250.09668526        nan   4.48e-01         0.0000     8.0558        39      0.11
+            1     2       -250.00546055   9.12e-02   8.03e-02         0.0000     8.0607        30      0.16
+            1     3       -249.97892058   2.65e-02   8.11e-05         0.0000     8.0699        22      0.21
+            1     4       -249.97899110  -7.05e-05   4.58e-07         0.0000     8.0696        38      0.25
+            1     5       -249.97899131  -2.10e-07   2.63e-08         0.0000     8.0696        36      0.29
+# calculation 1: converged in 5 steps, 0.86 s; energy -249.978991 eV, largest force 0.184590 eV/Å, pressure -4.4583 GPa
 ```
 
 `log` takes a path, or a stream such as `sys.stdout`. The first computation of a

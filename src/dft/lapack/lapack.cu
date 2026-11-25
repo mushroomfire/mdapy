@@ -393,8 +393,12 @@ __global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors,
 // to step, until the step that makes its column the reflector's; between two
 // steps a block waits until every block of the step has added itself to its
 // count in arrived (zeros at the launch). All blocks must be on the GPU at
-// once, or those that are wait for ever: the host launches no more of them
-// than the GPU holds, one such launch at a time in the process.
+// once, or those that are wait for ever: a cooperative launch, which the
+// driver refuses when the GPU cannot hold them all, one such launch at a time
+// in the process. What other blocks write during the launch (the products of
+// a step, the reflector, its tau, the columns) is read through plain pointers,
+// never the read-only path, and after the fences of the barrier, as the grid
+// barrier of cooperative groups does.
 template <class S>
 __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* reflectors, S* tau,
                                          typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* products,
@@ -406,8 +410,8 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
     S* column = a + static_cast<long long>(j) * n;
     for (int k = first; k < last && k < j; ++k) {
         const bool lead = j == k + 1;
-        const S* __restrict__ p_in = products + ((k + 1) & 1) * static_cast<long long>(n);
-        S* __restrict__ p_out = products + (k & 1) * static_cast<long long>(n);
+        const S* p_in = products + ((k + 1) & 1) * static_cast<long long>(n);  // written by the blocks of the step before
+        S* p_out = products + (k & 1) * static_cast<long long>(n);
         S* w = partial + kStep + kGroups;  // w_i at i - k
         S* v = w + (n - k);                // v_i at i - k - 1
         const S* before = reflectors + static_cast<long long>(k > 0 ? k - 1 : 0) * n;  // the reflector before, v_i at i
@@ -485,6 +489,7 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
                 const volatile int* count = arrived + (k - first);
                 while (*count < n - 1 - k) {
                 }
+                __threadfence();  // what the blocks wrote before they arrived, seen from here on
             }
         }
         __syncthreads();
@@ -499,8 +504,10 @@ std::mutex steps_mutex;
 // bytes of shared memory, all at once.
 template <class S>
 bool holds_steps(int n, std::size_t bytes) {
-    int device = 0, processors = 0, each = 0;
+    int device = 0, processors = 0, each = 0, cooperative = 0;
     check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+    check_cuda(cudaDeviceGetAttribute(&cooperative, cudaDevAttrCooperativeLaunch, device), "cooperative launches");
+    if (cooperative == 0) return false;
     check_cuda(cudaDeviceGetAttribute(&processors, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
     check_cuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&each, tridiagonal_steps_kernel<S>, kStep, bytes),
                "the blocks of a multiprocessor");
@@ -1382,12 +1389,24 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
             const std::lock_guard<std::mutex> lock(steps_mutex);
             DeviceArray<int> arrived(static_cast<std::size_t>(n));
             arrived.zero();
-            done = n - 1;
-            tridiagonal_steps_kernel<S><<<static_cast<unsigned>(n - 1), kStep, sums + 2 * static_cast<std::size_t>(n) * sizeof(S)>>>(
-                n, 0, done, matrix, own(reflectors.data()), own(tau.data()), diagonal.data(), subdiagonal.data(),
-                own(products.data()), arrived.data());
-            launched("the steps of the tridiagonalization");
-            check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "the steps of the tridiagonalization");
+            // a cooperative launch: the driver starts all blocks at once or
+            // refuses (another process on the GPU, say), and the steps then go
+            // one launch each
+            int zero = 0, last = n - 1;
+            S *reflected = own(reflectors.data()), *taus = own(tau.data()), *both = own(products.data());
+            R *diagonals = diagonal.data(), *subdiagonals = subdiagonal.data();
+            int* counts = arrived.data();
+            void* arguments[] = {&n, &zero, &last, &matrix, &reflected, &taus, &diagonals, &subdiagonals, &both,
+                                 &counts};
+            const cudaError_t status = cudaLaunchCooperativeKernel(
+                reinterpret_cast<const void*>(tridiagonal_steps_kernel<S>), dim3(static_cast<unsigned>(n - 1)),
+                dim3(kStep), arguments, sums + 2 * static_cast<std::size_t>(n) * sizeof(S), cudaStreamPerThread);
+            if (status == cudaSuccess) {
+                done = n - 1;
+                check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "the steps of the tridiagonalization");
+            } else {
+                static_cast<void>(cudaGetLastError());  // refused: nothing ran
+            }
         }
 #endif
         for (int k = done; k < n && !panels; ++k) {

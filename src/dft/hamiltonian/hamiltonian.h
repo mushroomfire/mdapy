@@ -160,6 +160,9 @@ public:
     void atomic(Complex* out) const;
 
 private:
+    // kinetic + mean + sum_ij d_ij Re(b_i conj(b_j)) of each plane wave, kinetic optional
+    void diagonal_of(const double* kinetic, double mean, const Complex* d, double* out) const;
+    mutable DeviceArray<double> diagonal_partial_;  // (atoms, plane waves): the share of each atom
     int batch() const noexcept;  // bands per batch of FFTs
     void single();               // the single-precision copies, when stale
 

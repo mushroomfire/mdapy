@@ -279,26 +279,33 @@ __global__ void round_complex_kernel(std::size_t n, const Complex* in, cuComplex
     if (i < n) out[i] = make_cuComplex(static_cast<float>(in[i].x), static_cast<float>(in[i].y));
 }
 
-// the diagonal of H: kinetic + mean potential + sum over the blocks of D of
-// beta_i(G) D_ij conj(beta_j(G)); blocks (first, width) of each atom
-__global__ void diagonal_kernel(std::size_t n, int atoms, const int* blocks, int projectors,
-                                const double* kinetic, double mean, const Complex* beta,
-                                const Complex* d, double* out) {
+// partial[a n + g] = sum_ij d_ij Re(b_i(g) conj(b_j(g))) over the projectors of
+// atom a: a thread to each plane wave and atom, so that the GPU has work enough
+__global__ void diagonal_atoms_kernel(std::size_t n, const int* blocks, int projectors, const Complex* beta,
+                                      const Complex* d, double* partial) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    const int a = static_cast<int>(blockIdx.y), first = blocks[2 * a], width = blocks[2 * a + 1];
+    double sum = 0.0;
+    for (int j = first; j < first + width; ++j) {
+        const Complex bj = beta[static_cast<std::size_t>(j) * n + g];
+        for (int i = first; i < first + width; ++i) {
+            const double dij = d[static_cast<std::size_t>(j) * projectors + i].x;
+            if (dij == 0.0) continue;
+            const Complex bi = beta[static_cast<std::size_t>(i) * n + g];
+            sum += dij * (bi.x * bj.x + bi.y * bj.y);  // Re(b_i conj(b_j))
+        }
+    }
+    partial[static_cast<std::size_t>(a) * n + g] = sum;
+}
+
+// out = kinetic + mean + the sum of the atoms of partial, in their order
+__global__ void diagonal_sum_kernel(std::size_t n, int atoms, const double* kinetic, double mean,
+                                    const double* partial, double* out) {
     const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (g >= n) return;
     double sum = (kinetic == nullptr ? 0.0 : kinetic[g]) + mean;
-    for (int a = 0; a < atoms; ++a) {
-        const int first = blocks[2 * a], width = blocks[2 * a + 1];
-        for (int j = first; j < first + width; ++j) {
-            const Complex bj = beta[static_cast<std::size_t>(j) * n + g];
-            for (int i = first; i < first + width; ++i) {
-                const double dij = d[static_cast<std::size_t>(j) * projectors + i].x;
-                if (dij == 0.0) continue;
-                const Complex bi = beta[static_cast<std::size_t>(i) * n + g];
-                sum += dij * (bi.x * bj.x + bi.y * bj.y);  // Re(b_i conj(b_j))
-            }
-        }
-    }
+    for (int a = 0; a < atoms; ++a) sum += partial[static_cast<std::size_t>(a) * n + g];
     out[g] = sum;
 }
 
@@ -873,8 +880,7 @@ void Hamiltonian::diagonal(double* out) const {
     const std::size_t n = sphere_.size();
     if (n == 0) return;
     if (potential_.size() != fft_.points()) throw std::logic_error("no potential set");
-    diagonal_kernel<<<blocks(n), kThreads>>>(n, static_cast<int>(atoms_.size()), blocks_device_.data(), projectors_,
-                                             kinetic_.data(), mean_potential_, beta_.data(), dmatrix_.data(), out);
+    diagonal_of(kinetic_.data(), mean_potential_, dmatrix_.data(), out);
     check_cuda(cudaGetLastError(), "the diagonal of H");
 }
 
@@ -887,9 +893,21 @@ void Hamiltonian::overlap_diagonal(double* out) const {
         check_cuda(cudaMemcpy(out, ones.data(), n * sizeof(double), cudaMemcpyHostToDevice), "cudaMemcpy");
         return;
     }
-    diagonal_kernel<<<blocks(n), kThreads>>>(n, static_cast<int>(atoms_.size()), blocks_device_.data(), projectors_,
-                                             nullptr, 1.0, beta_.data(), qmatrix_.data(), out);
+    diagonal_of(nullptr, 1.0, qmatrix_.data(), out);
     check_cuda(cudaGetLastError(), "the diagonal of S");
+}
+
+void Hamiltonian::diagonal_of(const double* kinetic, double mean, const Complex* d, double* out) const {
+    const std::size_t n = sphere_.size();
+    const int atoms = static_cast<int>(atoms_.size());
+    if (atoms > 0 && projectors_ > 0) {
+        diagonal_partial_.reserve(n * static_cast<std::size_t>(atoms));
+        diagonal_atoms_kernel<<<dim3(blocks(n), static_cast<unsigned>(atoms)), kThreads>>>(
+            n, blocks_device_.data(), projectors_, beta_.data(), d, diagonal_partial_.data());
+        check_cuda(cudaGetLastError(), "the projectors of the diagonal");
+    }
+    diagonal_sum_kernel<<<blocks(n), kThreads>>>(n, projectors_ > 0 ? atoms : 0, kinetic, mean,
+                                                 diagonal_partial_.data(), out);
 }
 
 int Hamiltonian::batch() const noexcept {

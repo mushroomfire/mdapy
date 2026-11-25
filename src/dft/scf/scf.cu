@@ -62,6 +62,35 @@ void copy_device(DeviceArray<double>& to, const DeviceArray<double>& from, std::
     check_cuda(cudaMemcpy(to.data(), from.data(), n * sizeof(double), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
 
+void copy_device(DeviceArray<Complex>& to, const Complex* from, std::size_t n) {
+    to.resize(n);
+    check_cuda(cudaMemcpy(to.data(), from, n * sizeof(Complex), cudaMemcpyDeviceToDevice), "cudaMemcpy");
+}
+
+// the (up, down) components of the density on the sphere (n each) to (total,
+// magnetization), and back
+__global__ void to_total_kernel(std::size_t n, const Complex* __restrict__ spins, Complex* __restrict__ total) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    const Complex up = spins[g], down = spins[n + g];
+    total[g] = make_cuDoubleComplex(up.x + down.x, up.y + down.y);
+    total[n + g] = make_cuDoubleComplex(up.x - down.x, up.y - down.y);
+}
+
+__global__ void to_spins_kernel(std::size_t n, const Complex* __restrict__ total, Complex* __restrict__ spins) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    const Complex t = total[g], m = total[n + g];
+    spins[g] = make_cuDoubleComplex(0.5 * (t.x + m.x), 0.5 * (t.y + m.y));
+    spins[n + g] = make_cuDoubleComplex(0.5 * (t.x - m.x), 0.5 * (t.y - m.y));
+}
+
+// out = a + f b
+__global__ void step_along_kernel(std::size_t n, const Complex* a, double f, const Complex* b, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = make_cuDoubleComplex(a[i].x + f * b[i].x, a[i].y + f * b[i].y);
+}
+
 // seconds between laps, the GPU finished
 struct Clock {
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
@@ -525,7 +554,6 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
     // density, and on the smooth one), and the work of its operator
     DeviceArray<double> ldos_r, ldos_s, ldos_v, ldos_out;
     DeviceArray<Complex> ldos_g;
-    std::vector<Complex> taken_in, delta;
     std::vector<std::vector<double>> taken_becsum, delta_becsum;
     double taken_energy = 0.0, taken_accuracy = 0.0, trial = 1.0, scale = 1.0;
     bool any_taken = false;
@@ -576,6 +604,22 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         components.upload(start.data(), start.size());
         pot.from_sphere(components.data(), rho_in.data(), ns);
     }
+    // the densities of the steps on the GPU, (total, magnetization) on the
+    // sphere: the input, the output, the input of the step (for the forces),
+    // and of adaptive damping the input taken and the step from it
+    DeviceArray<Complex> in_d, out_d(spins * ng), last_in_d, taken_in_d, delta_d;
+    in_d.upload(in_g.data(), in_g.size());
+    // the input density of the step from in_d, on the grid
+    const auto density_in = [&]() {
+        if (ns == 2) {
+            to_spins_kernel<<<blocks(ng), kThreads>>>(ng, in_d.data(), components.data());
+            check_cuda(cudaGetLastError(), "the spins of the density");
+        } else {
+            check_cuda(cudaMemcpy(components.data(), in_d.data(), ng * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
+        }
+        pot.from_sphere(components.data(), rho_in.data(), ns);
+    };
     const bool mixes_occupations = paw || hubbard;  // the occupations of the projectors mixed with the density
     if (mixes_occupations) {
         becsum_in = restart && state->becsum.size() == spins ? state->becsum : input.becsum;
@@ -737,7 +781,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         }
         if (hubbard) result.hubbard = hubbard_of(becsum_in, true, &hubbard_vn);
         result.times.potentials += clock.lap();
-        last_in = in_g;
+        copy_device(last_in_d, in_d.data(), in_d.size());
         // the bands
         ScfStep step;
         step.tolerance = tolerance;
@@ -966,10 +1010,16 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             }
         symmetrizer.density(components.data(), ns);
         if (ultrasoft || two_grids || symmetrizer.active()) pot.from_sphere(components.data(), rho_out.data(), ns);
-        components.download(out_g.data(), out_g.size());
-        if (ns == 2) to_total(out_g, ng);
+        if (ns == 2) {
+            to_total_kernel<<<blocks(ng), kThreads>>>(ng, components.data(), out_d.data());
+            check_cuda(cudaGetLastError(), "the total density");
+        } else {
+            check_cuda(cudaMemcpy(out_d.data(), components.data(), ng * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
+        }
         result.times.density += clock.lap();
-        const double accuracy = mixer.residual_energy(in_g, out_g) + (hubbard ? hubbard_residual(becsum_in, becsum) : 0.0);
+        const double accuracy =
+            mixer.residual_energy(in_d.data(), out_d.data()) + (hubbard ? hubbard_residual(becsum_in, becsum) : 0.0);
         if (!std::isfinite(energy) || !std::isfinite(accuracy))
             throw std::runtime_error("the energy or the density is not finite");
         step.energy = energy;
@@ -993,7 +1043,12 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             }
         }
         step.fermi = occ.fermi;
-        step.magnetization = ns == 2 ? out_g[ng].x * input.lattice.volume : 0.0;
+        step.magnetization = 0.0;
+        if (ns == 2) {  // the component G = 0 of the magnetization
+            Complex m0{};
+            check_cuda(cudaMemcpy(&m0, out_d.data() + ng, sizeof(Complex), cudaMemcpyDeviceToHost), "cudaMemcpy");
+            step.magnetization = m0.x * input.lattice.volume;
+        }
         step.memory = pool_memory();
         result.steps.push_back(step);
         result.iterations = iteration;
@@ -1043,16 +1098,14 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                 result.steps.back().accepted = false;
                 result.steps.back().single = single_phase;
                 if (input.on_step) input.on_step(result.steps.back(), iteration);
-                for (std::size_t i = 0; i < in_g.size(); ++i)
-                    in_g[i] = make_cuDoubleComplex(taken_in[i].x + trial * delta[i].x, taken_in[i].y + trial * delta[i].y);
+                step_along_kernel<<<blocks(in_d.size()), kThreads>>>(in_d.size(), taken_in_d.data(), trial,
+                                                                    delta_d.data(), in_d.data());
+                check_cuda(cudaGetLastError(), "a trial of adaptive damping");
                 if (mixes_occupations)
                     for (std::size_t s = 0; s < spins; ++s)
                         for (std::size_t i = 0; i < becsum_in[s].size(); ++i)
                             becsum_in[s][i] = taken_becsum[s][i] + trial * delta_becsum[s][i];
-                std::vector<Complex> next = in_g;
-                if (ns == 2) to_spins(next, ng);
-                components.upload(next.data(), next.size());
-                pot.from_sphere(components.data(), rho_in.data(), ns);
+                density_in();
                 result.times.mixing += clock.lap();
                 continue;
             }
@@ -1169,7 +1222,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             copy_device(taken_out, rho_out, n);
             copy_device(taken_hxc, hxc, n);
             copy_device(taken_hxc_out, hxc_output, n);
-            taken_in = in_g;
+            copy_device(taken_in_d, in_d.data(), in_d.size());
             taken_becsum = becsum_in;
             taken_energy = step.output_energy;
             taken_accuracy = accuracy;
@@ -1193,7 +1246,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                     x_out[i] = becsum[0][i];
                 }
             }
-            in_g = mixer.mix(in_g, out_g, &x, &x_out);
+            mixer.mix(in_d.data(), out_d.data(), in_d.data(), &x, &x_out);
             for (std::size_t i = 0; i < n; ++i) {
                 if (ns == 2) {
                     becsum_in[0][i] = 0.5 * (x[i] + x[n + i]);
@@ -1203,21 +1256,19 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                 }
             }
         } else {
-            in_g = mixer.mix(in_g, out_g);
+            mixer.mix(in_d.data(), out_d.data(), in_d.data());
         }
         if (adaptive) {  // the step of the mixing, of which the trials take a share
-            delta.resize(in_g.size());
-            for (std::size_t i = 0; i < in_g.size(); ++i)
-                delta[i] = make_cuDoubleComplex(in_g[i].x - taken_in[i].x, in_g[i].y - taken_in[i].y);
+            delta_d.resize(in_d.size());
+            step_along_kernel<<<blocks(in_d.size()), kThreads>>>(in_d.size(), in_d.data(), -1.0, taken_in_d.data(),
+                                                                delta_d.data());
+            check_cuda(cudaGetLastError(), "the step of adaptive damping");
             delta_becsum = becsum_in;
             for (std::size_t s = 0; s < delta_becsum.size(); ++s)
                 for (std::size_t i = 0; i < delta_becsum[s].size(); ++i) delta_becsum[s][i] -= taken_becsum[s][i];
         }
         result.times.mixing += clock.lap();
-        std::vector<Complex> next = in_g;
-        if (ns == 2) to_spins(next, ng);
-        components.upload(next.data(), next.size());
-        pot.from_sphere(components.data(), rho_in.data(), ns);
+        density_in();
         // the occupations and the tolerance of the next step
         held = occ.f;
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
@@ -1232,6 +1283,11 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         }
     }
     clock.lap();
+    // the densities of the last step on the host: for the forces, the stress
+    // and the state of the next run
+    out_d.download(out_g.data(), out_g.size());
+    last_in.resize(last_in_d.size());
+    last_in_d.download(last_in.data(), last_in.size());
     keep = result.steps.empty() ? 0 : result.steps.back().memory.in_use;
     // the forces: the local term of rho_out, the core charge in V_xc of the
     // last rho_in (V_Hxc of each spin, averaged, less V_H), the projectors

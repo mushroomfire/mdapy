@@ -267,6 +267,7 @@ def run(
     hubbard=None,
     kpoint_threads: int = 0,
     start_density=None,
+    start_becsum=None,
     first_tolerance: float = 0.0,
     conditioning: float = 1e6,
     output_energies: bool = False,
@@ -323,7 +324,9 @@ def run(
     superposition of the free atoms as the first input density; with
     first_tolerance (hartree) the bands of the first step are solved to that
     residual norm, as a non-self-consistent pass at its potential needs, and
-    with first_held only the first first_held bands of each k-point, those
+    start_becsum, the occupations of the projectors (spins, pairs) as the
+    result's becsum, replaces the first ones of PAW or DFT+U; with
+    first_held only the first first_held bands of each k-point, those
     that may hold electrons; the others to the loose tolerance of empty bands.
     conditioning bounds the condition number of the residual differences
     that Pulay's mixing combines: directions of smaller singular values are
@@ -424,8 +427,6 @@ def run(
         density = np.stack([0.5 * (density + moment), 0.5 * (density - moment)])
     if start_density is not None:
         density = np.asarray(start_density, dtype=float)
-        if density.shape != ((spins,) if spins == 2 else ()) + tuple(grid):
-            raise ValueError("start_density on the grid of the run, with each spin")
     qmax = math.sqrt(2 * cutoff) + 1.0
     tables = [radial.projector_table(pp, qmax, volume) for pp in pseudos]
     # the pseudo-orbitals of the free atoms, for the first bands
@@ -509,6 +510,13 @@ def run(
         becsum = _hubbard_start(
             kinds, angular, hubbard_of, hubbard_electrons, spins, magmoms
         )
+    if start_becsum is not None:
+        start_becsum = np.asarray(start_becsum, dtype=float)
+        if becsum is None or start_becsum.shape != becsum.shape:
+            raise ValueError(
+                "start_becsum takes the occupations (spins, pairs) of PAW or DFT+U"
+            )
+        becsum = start_becsum
     mixed = mixed_precision(precision)
     if on_start is not None:
         on_start({
@@ -517,6 +525,8 @@ def run(
             "operations": 1 if ops is None else len(ops), "gamma": bool(gamma),
             "spins": spins, "electrons": electrons, "kernels": kernels, "mixed": mixed,
         })  # fmt: skip
+    if density.shape != ((spins,) if spins == 2 else ()) + tuple(grid):
+        raise ValueError("start_density on the grid of the run, with each spin")
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,

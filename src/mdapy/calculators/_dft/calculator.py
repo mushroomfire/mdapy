@@ -211,6 +211,11 @@ class DFT(Calculator):
         anew by the first computation of this calculator and added to by the
         next, or a stream such as ``sys.stdout``. Under MPI the first process
         writes it. Default none.
+    start : str or path-like, optional
+        A ground state that ``save`` wrote: the first computation starts from
+        its density (and the occupations of PAW or DFT+U) in place of those
+        of the free atoms. It must be of the same elements, cell, positions,
+        pseudopotentials and grid. Default none.
 
     Attributes
     ----------
@@ -240,6 +245,8 @@ class DFT(Calculator):
         the result's ``info`` keeps it under ``dft`` (see the guide).
     log : str or path-like or stream or None
         The log.
+    start : str or path-like or None
+        The ground state the first computation starts from.
 
     Notes
     -----
@@ -289,6 +296,7 @@ class DFT(Calculator):
         kernels: str = "auto",
         comm: Any = None,
         log: Any = None,
+        start: str | os.PathLike | None = None,
     ):
         from mdapy.calculators._dft import log as logs
 
@@ -401,6 +409,11 @@ class DFT(Calculator):
             self.gpu = comm.Split_type(MPI.COMM_TYPE_SHARED).Get_rank()
         logs.check_target(log)
         self.log = log
+        from mdapy.calculators._dft import ground
+
+        self.start = start
+        self.__start = None if start is None else ground.read(start)
+        self.__ground: dict[str, Any] | None = None
         loader.module()  # the GPU part with the DFT and its libraries, loaded
         self.__writer: Any = None
         self.__calculations = 0
@@ -429,6 +442,29 @@ class DFT(Calculator):
             self.__read[element] = pp
             self.__files[element] = Path(path).name
         return self.__read[element]
+
+    def save(self, path: str | os.PathLike) -> None:
+        """Writes the ground state of the last computation.
+
+        Parameters
+        ----------
+        path : str or path-like
+            The file, written whole or not at all, in NumPy's ``.npz``: the
+            parameters, the structure, the energy, the forces, the density,
+            the occupations of PAW or DFT+U, the k-points and the bands
+            (see the guide). Under MPI the first process writes it.
+
+        Raises
+        ------
+        InvalidParameter
+            Before a computation, or if the file cannot be written.
+        """
+        from mdapy.calculators._dft import ground
+
+        if self.__ground is None:
+            raise InvalidParameter("no computation yet: nothing to save")
+        if self.comm is None or self.comm.Get_rank() == 0:
+            ground.write(path, self.__ground)
 
     def __log_writer(self):
         """The writer of the log, made at the first computation, on the GPU
@@ -587,8 +623,8 @@ class DFT(Calculator):
         CalculationFailed
             If the self-consistent field does not converge.
         """
+        from mdapy.calculators._dft import ground, scf
         from mdapy.calculators._dft import moments as moments_of
-        from mdapy.calculators._dft import scf
 
         properties = tuple(properties)
         wanted = self._check_properties(properties)
@@ -640,12 +676,24 @@ class DFT(Calculator):
             symmetry=self.symmetry, comm=self.comm, precision=self.precision,
             kernels=self.kernels,
         )  # fmt: skip
+        started = self.__start
+        if started is not None:
+            ground.check(started, self.start, elements, cell, system["positions"],
+                         {e: pp.digest for e, pp in zip(species, pseudos)})  # fmt: skip
+            options["start_density"] = started["density"] * BOHR**3
+            if moments is None:
+                options["start_density"] = options["start_density"][0]
+            if "becsum" in started:
+                options["start_becsum"] = started["becsum"]
+            self.__start = None
         self.__calculations += 1
         number = self.__calculations
         writer = self.__log_writer()
         record: dict[str, Any] = {}
 
         def on_start(setup: dict) -> None:
+            if started is not None:
+                ground.check_grid(started, self.start, setup["spins"], setup["grid"])
             record.update(
                 self.__record(pseudos, species, mesh, ecutrho, mixing, radius, setup, options)
             )  # fmt: skip
@@ -691,6 +739,11 @@ class DFT(Calculator):
             summary = (
                 f"converged in {int(r['iterations'])} steps, {elapsed:.2f} s"
                 + ("; from the last ground state" if r["restarted"] else "")
+                + (
+                    f"; from the ground state of {os.fspath(self.start)}"
+                    if started is not None
+                    else ""
+                )
                 + f"; energy {energy:.6f} eV, largest force {largest:.6f} eV/Å"
             )
             if virial is not None:
@@ -737,6 +790,25 @@ class DFT(Calculator):
                 m, cell, fractional @ cell, radius
             )
             self.last["moment_radius"] = float(radius)
+        spin_axis = (lambda a: a) if r["spins"] == 2 else (lambda a: a[None])
+        self.__ground = {
+            "parameters": record,
+            "elements": elements,
+            "cell": np.array(cell, dtype=float),
+            "positions": np.array(system["positions"], dtype=float),
+            "energy": energy,
+            "fermi": self.last["fermi"],
+            "forces": forces,
+            "density": spin_axis(r["density"]) / BOHR**3,
+            "kpoints": np.asarray(r["kpoints"], dtype=float),
+            "weights": np.asarray(r["weights"], dtype=float),
+            "eigenvalues": spin_axis(r["eigenvalues"]) * HARTREE,
+            "occupations": spin_axis(r["occupations"]),
+        }
+        if "becsum" in r:
+            self.__ground["becsum"] = np.asarray(r["becsum"], dtype=float)
+        if "magnetic_moments" in self.last:
+            self.__ground["magnetic_moments"] = self.last["magnetic_moments"]
         return CalculatorResult(
             energy=energy,
             forces=forces,

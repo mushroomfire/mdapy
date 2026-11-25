@@ -22,6 +22,12 @@
   of JSON; nothing more is copied from the GPU, and nothing is reported without a log. A
   run's log and that of its calculator cannot share a file. See
   [the log](../user-guide/potentials/dft.md#the-log-and-the-parameters-of-each-computation).
+- `DFT.save(path)` and `DFT(start=path)`: the ground state of a computation in a file of
+  NumPy's `.npz`, its structure, energy, forces, density, occupations of PAW or DFT+U,
+  k-points and bands with the parameters of the computation, and a computation started
+  from its density, which checks that the structure, the pseudopotentials and the grid
+  are those of the file. See
+  [the ground state in a file](../user-guide/potentials/dft.md#the-ground-state-in-a-file).
 - `DFT.last["parameters"]`: every parameter a computation took, its defaults and
   `"auto"` resolved, the pseudopotentials by SHA-256, and the settings of the
   self-consistent field that `DFT` does not take; `DFT(**parameters["arguments"])` gives

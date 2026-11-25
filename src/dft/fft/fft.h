@@ -3,7 +3,7 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Batched 3D FFTs of cuFFT on boxes of n1 x n2 x n3 points, the third index the
+// Batched 3D FFTs, MDAPY's own or those of cuFFT, on boxes of n1 x n2 x n3 points, the third index the
 // fastest, and the maps between the coefficients of a sphere of plane waves and
 // a box. The conventions:
 //   to_real:        f(r_j) = sum_G c_G exp(+i G.r_j), unnormalized;
@@ -22,16 +22,23 @@
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <utility>
 
+#include "dft/core/kernels.h"
 #include "dft/core/device.h"
 #include "dft/lattice/lattice.h"
 
 namespace mdapy::dft {
 
+class BoxFft;
+
 class Fft {
 public:
-    explicit Fft(const Int3& grid);
+    // With Kernels::Mdapy the transforms are MDAPY's own (BoxFft) when every
+    // size is a product of 2, 3, 5 and 7, as the grids of the DFT are; other
+    // sizes, and Kernels::Vendor take those of the library of the vendor.
+    explicit Fft(const Int3& grid, Kernels kernels = Kernels::Mdapy);
     ~Fft();
     Fft(const Fft&) = delete;
     Fft& operator=(const Fft&) = delete;
@@ -60,6 +67,7 @@ private:
 
     Int3 grid_;
     std::map<std::pair<int, int>, cufftHandle> plans_;  // (type, count) -> plan
+    std::unique_ptr<BoxFft> own_;  // MDAPY's own transforms, when they are the ones used
 };
 
 // The coefficients of count bands of a sphere of n plane waves placed in their

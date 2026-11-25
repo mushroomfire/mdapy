@@ -70,6 +70,8 @@ struct ScfInput {
     std::vector<Vec3> kpoints;  // fractions of the reciprocal vectors
     std::vector<double> weights;  // adding up to one
     bool gamma = false;           // real bands of the one k-point Gamma
+    // MDAPY's own kernels where it has them, or the GPU libraries of the vendor
+    Kernels kernels = Kernels::Mdapy;
     // Pools of processes (one GPU each): the pairs (spin, k-point) p = s nk + k
     // with p % ranks == rank are this one's; allreduce sums count doubles over
     // the pools in place (the densities, the occupations of the projectors,

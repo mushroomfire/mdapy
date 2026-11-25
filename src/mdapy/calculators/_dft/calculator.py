@@ -166,6 +166,13 @@ class DFT(Calculator):
         precision runs at a small part of the rate of single (cards for games
         and workstations), double on the others (V100, A100, H100, GH200).
         Default ``"double"``.
+    kernels : str, optional
+        Whose kernels run on the GPU. ``"mdapy"``: those of MDAPY where it
+        has its own (today the fast Fourier transforms), the GPU libraries of
+        the vendor for the rest. ``"vendor"``: the GPU libraries of the vendor
+        throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS
+        and hipSOLVER on AMD GPUs). The results agree to rounding. Default
+        ``"mdapy"``.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -241,6 +248,7 @@ class DFT(Calculator):
         symmetry: bool | None = None,
         moment_radius: float | None = None,
         precision: str = "double",
+        kernels: str = "mdapy",
         comm: Any = None,
     ):
         if not encut > 0:
@@ -316,6 +324,9 @@ class DFT(Calculator):
         if precision not in ("double", "mixed", "auto"):
             raise InvalidParameter("precision must be 'double', 'mixed' or 'auto'")
         self.precision = precision
+        if kernels not in ("mdapy", "vendor"):
+            raise InvalidParameter("kernels must be 'mdapy' or 'vendor'")
+        self.kernels = kernels
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)
         self.kerker = float(kerker)
@@ -480,6 +491,7 @@ class DFT(Calculator):
                      for e, (label, u) in self.hubbard.items() if e in species} or None,
             stress=stress, state=self.__restart_state(),
             symmetry=self.symmetry, comm=self.comm, precision=self.precision,
+            kernels=self.kernels,
         )  # fmt: skip
         if not r["converged"]:
             steps = len(r["energies"])
@@ -512,6 +524,7 @@ class DFT(Calculator):
                 "grid": tuple(r["grid"]),
                 "bands": int(r["bands"]),
                 "hubbard": dict(self.hubbard),
+                "kernels": self.kernels,
             },
             "single_steps": int(np.sum(r.get("single", 0))),
         }

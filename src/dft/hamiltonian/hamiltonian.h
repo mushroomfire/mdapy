@@ -73,7 +73,7 @@ public:
     // set of Miller indices as the cell strains; the lattice itself by default
     Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
                 std::vector<SpeciesProjectors> species, std::vector<Atom> atoms,
-                const Lattice* basis = nullptr);
+                const Lattice* basis = nullptr, Kernels kernels = Kernels::Mdapy);
     ~Hamiltonian();
     Hamiltonian(const Hamiltonian&) = delete;
     Hamiltonian& operator=(const Hamiltonian&) = delete;

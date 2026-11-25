@@ -79,9 +79,6 @@ public:
     void set_fused_limit(int n) noexcept { fused_limit_ = n; }
     // The smallest matrix tridiagonalized in panels (-1: MDAPY's choice).
     void set_panels_from(int n) noexcept { panels_from_ = n; }
-    // The rows of a matrix left to its panels from which a block has several
-    // of its columns (-1: MDAPY's choice).
-    void set_together_from(int rows) noexcept { together_from_ = rows; }
     // The reflectors of a block of the back-transformation and the rows of a
     // leaf of the divide and conquer (0: MDAPY's choice).
     void set_reflectors(int count) noexcept { reflectors_ = count; }
@@ -111,7 +108,6 @@ private:
     int host_limit_ = 64;
     int fused_limit_ = -1;
     int panels_from_ = -1;
-    int together_from_ = -1;
     int together_steps_ = -1;
     int reflectors_ = 0;
     int leaf_ = 0;

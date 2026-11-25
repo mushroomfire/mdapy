@@ -92,7 +92,7 @@ Without the GPU part or its libraries, `DFT` raises an error that says what to i
 |---|---|
 | `cutoff` | 0: the calculator needs no neighbor list |
 | `compute(system, properties, *, neighbors=None)` | the free energy in eV, the forces in eV/Å and, when asked, the virial in eV; `neighbors` is not used |
-| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `provenance` |
+| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `gpu_memory` (the [memory of the GPU](#memory-of-the-gpu) in MiB), `provenance` |
 
 The system must be periodic along a, b and c and have an `element` column. The
 energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
@@ -152,7 +152,8 @@ write("train.xyz", [s for part in parts for s in part])
 ```
 
 Four to eight threads fill a GPU with cells of a few dozen atoms; a cell of hundreds of
-atoms fills it alone.
+atoms fills it alone. Configurations side by side hold the sum of their
+[memory](#memory-of-the-gpu).
 
 One configuration of many k-points or of two spins can also run on several GPUs:
 with `comm`, the processes share its pairs of spin and k-point, each GPU holding
@@ -171,6 +172,40 @@ result = dft.compute(read("fe54.xyz"), ("energy", "forces", "virial"))
 if MPI.COMM_WORLD.Get_rank() == 0:
     print(result.energy)
 ```
+
+## Memory of the GPU
+
+A configuration holds on the GPU the bands of each of its k-points and spins, n plane
+waves by the bands in complex numbers of 16 bytes, with n about $\Omega\,(2E)^{3/2}/6\pi^2$
+for a cell of Ω bohr³ and `encut` E in hartree (half of that at Γ alone, where the bands
+are real); they take most of its memory when it has many k-points. Besides them it
+holds the projectors of the atoms, the basis of the eigensolver (twice the bands), the
+boxes of the Fourier transforms (256 MiB at most) and the densities and potentials on
+the grid. The CUDA context takes 0.3 to 0.6 GiB more, and the libraries of the vendor
+(`kernels="vendor"`) about 0.4 GiB for each host thread that solves k-points on an H100
+or GH200 (0.05 GiB on a V100): small cells of many k-points run eight. Measured on a
+GH200 with the libraries of the vendor in double precision, for cells perturbed as those
+of a training set, so that time reversal alone reduces their k-points:
+
+| Cell | Cutoff, kspacing | k-points × spins | Bands | In use (GiB) | On the GPU (GiB) |
+|---|---|---|---:|---:|---:|
+| Al4, fcc | 600 eV, 0.15 1/Å | 666 × 1 | 10 | 0.4 | 4.4 |
+| Al32 | 600 eV, 0.15 1/Å | 112 × 1 | 58 | 2.4 | 3.5 |
+| Al108 | 600 eV, Γ | 1 × 1 | 195 | 2.6 | 3.6 |
+| Al108 | 600 eV, 0.15 1/Å | 36 × 1 | 195 | 10.3 | 11.4 |
+| Fe16, bcc, 3 μB | 900 eV, 0.2 1/Å | 112 × 2 | 154 | 6.4 | 7.8 |
+| Fe54, bcc, 3 μB | 900 eV, 0.2 1/Å | 36 × 2 | 519 | 25.0 | 26.8 |
+
+"In use" is the peak of the arrays of the DFT, "on the GPU" that of the device, with the
+context and the libraries. Mixed precision holds 5 to 10 % more. Configurations side by
+side hold the sum of theirs: eight Al32 at once hold 19.2 GiB and fit a V100 of 32 GB,
+sixteen do not. A run keeps what it uses in a memory pool and gives back to the device,
+at its end, what the pool holds beyond the use of its steps: a process holds the memory
+of its last runs, not the most it ever took. `last["gpu_memory"]` holds the largest at
+the end of the steps, in MiB: `in_use` by the arrays of the DFT and `reserved` by its
+pool, of the whole process, the configurations of its threads together, and `device`
+in use on the GPU, by the CUDA context, the libraries and other processes too. See
+[the measurements](../../performance/dft.md#memory).
 
 ## What it computes
 

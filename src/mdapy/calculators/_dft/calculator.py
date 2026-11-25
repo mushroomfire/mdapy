@@ -205,9 +205,10 @@ class DFT(Calculator):
         of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
         ``single_steps`` (the steps in single precision), ``gpu_memory``
         (MiB, float64, the largest at the end of the steps: ``in_use`` by the
-        arrays of the DFT, ``reserved`` by its memory pool, ``device`` by
-        all on the GPU, the CUDA context and the libraries included; of the
-        whole process, the runs of its threads together) and
+        arrays of the DFT and ``reserved`` by its memory pool, of the whole
+        process, the runs of its threads together, and ``device`` in use on
+        the GPU, by the CUDA context, the libraries and other processes too)
+        and
         ``provenance``: what makes the labels of a set comparable, the SHA-256
         of each pseudopotential, the cutoff, the mesh, the smearing and its
         width, the functional, the spins, the grid, the bands and U.

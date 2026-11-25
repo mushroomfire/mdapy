@@ -13,6 +13,15 @@
   precision (cards for games and workstations), the vendor's on the others (V100, A100,
   H100, GH200, AMD Instinct). The results agree to rounding, and
   `DFT.last["provenance"]` keeps the kernels that ran.
+- The DFT gives back the memory of the GPU at the end of each run: its memory pool kept
+  what the arrays freed, for the next ones, until the process ended, so that a process
+  that once ran a large configuration, or many side by side, went on holding their
+  memory (105 GiB of a GH200 during an Al108 that needs 11.4 GiB, after sixteen Fe16 at
+  once). A run now keeps no more than its steps used. `DFT.last["gpu_memory"]` holds
+  the memory in use by the DFT, reserved by its pool and in use on the GPU, in MiB; see
+  [Memory of the GPU](../user-guide/potentials/dft.md#memory-of-the-gpu).
+- The DFT raises the error of a configuration whose bands fail on the host threads of
+  its k-points, as on one thread; after the first bands of the atoms it waited for ever.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

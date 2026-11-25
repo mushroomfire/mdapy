@@ -11177,6 +11177,10 @@ required dependencies are NumPy 2.3.1 or newer and polars 2.</p>
 <h2 id="from-pypi">From PyPI<a class="headerlink" href="#from-pypi" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
 </code></pre></div>
+<p>or, with the three optional packages MDAPY's own features use (matplotlib for plots,
+spglib and seekpath for symmetry), so that every feature works:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[full]"</span>
+</code></pre></div>
 <p>This is the usual way. PyPI holds built packages for Linux on x86-64 and on ARM,
 macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, <code>pip</code>
 builds MDAPY from its source archive, which needs <a href="#what-a-build-needs">the tools below</a>.</p>
@@ -11185,19 +11189,19 @@ processor, MDAPY built from source should work as well, but no package is built 
 and no test runs on them.</p>
 <h2 id="from-a-source-archive">From a source archive<a class="headerlink" href="#from-a-source-archive" title="Permanent link">&para;</a></h2>
 <p>Build the source archive on PyPI, instead of taking a built package:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>mdapy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>mdapy
 </code></pre></div>
 <p>or a source archive you have downloaded:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy-*.tar.gz
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy-*.tar.gz
 </code></pre></div>
 <h2 id="from-git">From git<a class="headerlink" href="#from-git" title="Permanent link">&para;</a></h2>
 <p>For the newest code, directly:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"git+https://github.com/mushroomfire/mdapy.git"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"git+https://github.com/mushroomfire/mdapy.git"</span>
 </code></pre></div>
 <p>or from a clone, which also has the tests and the documentation:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/mushroomfire/mdapy.git
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">cd</span><span class="w"> </span>mdapy
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>pip<span class="w"> </span>install<span class="w"> </span>.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/mushroomfire/mdapy.git
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">cd</span><span class="w"> </span>mdapy
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>pip<span class="w"> </span>install<span class="w"> </span>.
 </code></pre></div>
 <h2 id="what-a-build-needs">What a build needs<a class="headerlink" href="#what-a-build-needs" title="Permanent link">&para;</a></h2>
 <p>Installing from a source archive or from git compiles MDAPY, which needs:</p>
@@ -11242,8 +11246,8 @@ source archives, which takes <a href="#what-a-build-needs">the tools above</a>. 
 usually comes from a module, such as <code>module load gcc</code>. In a <a href="https://conda-forge.org">conda</a>
 environment, get a compiler and NumPy that run on the old system first, and <code>pip</code> then builds
 MDAPY alone:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>compilers<span class="w"> </span>numpy<span class="w"> </span>polars
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>conda<span class="w"> </span>install<span class="w"> </span>-c<span class="w"> </span>conda-forge<span class="w"> </span>compilers<span class="w"> </span>numpy<span class="w"> </span>polars
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy
 </code></pre></div>
 <h2 id="pictures-on-the-gpu">Pictures on the GPU<a class="headerlink" href="#pictures-on-the-gpu" title="Permanent link">&para;</a></h2>
 <p><a href="../../user-guide/visualization/rendering/#on-the-gpu">Pictures</a> are traced on the GPU
@@ -11257,14 +11261,14 @@ without a GPU, pictures are traced on the processor.</p>
 <p><a href="../../user-guide/simulation/gpu/">Potentials and molecular dynamics on the GPU</a>
 need the GPU part of MDAPY, the package <code>mdapy-cuda12</code> on Linux on x86-64 and ARM, for
 NVIDIA GPUs from the V100 on with a driver of version 525 or newer:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12]"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12]"</span>
 </code></pre></div>
 <p>The package also holds MDAPY's <a href="../../user-guide/potentials/dft/">plane-wave DFT</a>, which
 needs NVIDIA's cuBLAS, cuFFT and cuSOLVER besides: <code>pip install "mdapy[cuda12,dft]"</code>, see
 <a href="#nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT</a>.</p>
 <p>Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
 part in MDAPY itself:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>mdapy<span class="w"> </span>--no-binary<span class="w"> </span>mdapy<span class="w"> </span>-Ccmake.define.MDAPY_CUDA<span class="o">=</span>ON
 </code></pre></div>
 <p>The build compiles for the GPU of the machine, or for those of
 <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>, and links the CUDA runtime
@@ -11276,21 +11280,48 @@ into MDAPY, so that running it needs only the driver of the GPU. See
 <p>Atom indices in results such as neighbor lists are 32-bit integers, enough
 for 2,147,483,647 atoms and half the memory of 64-bit ones. For larger
 systems, build MDAPY with 64-bit indices:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>-Ccmake.define.MDAPY_INDEX64<span class="o">=</span>ON
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>pip<span class="w"> </span>install<span class="w"> </span>.<span class="w"> </span>-Ccmake.define.MDAPY_INDEX64<span class="o">=</span>ON
 </code></pre></div>
 <p><code>mdapy.index_dtype</code> tells which build is installed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import mdapy; print(mdapy.index_dtype)"</span><span class="w">   </span><span class="c1"># int64</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import mdapy; print(mdapy.index_dtype)"</span><span class="w">   </span><span class="c1"># int64</span>
 </code></pre></div>
 <p>The table of a <code>System</code> holds a row per atom, and the default runtime of
 polars at most 4,294,967,295 rows. Beyond that, install the 64-bit runtime
 of polars too, which polars then takes by itself:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"polars[rt64]"</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import polars; print(polars.get_index_type())"</span><span class="w">   </span><span class="c1"># UInt64</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"polars[rt64]"</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>python<span class="w"> </span>-c<span class="w"> </span><span class="s2">"import polars; print(polars.get_index_type())"</span><span class="w">   </span><span class="c1"># UInt64</span>
 </code></pre></div>
 <h2 id="optional-dependencies">Optional dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
-<p>MDAPY needs only NumPy and polars. Other packages, when installed, switch on
-the parts of MDAPY that use them; without them the rest works, and these
-parts raise an error that names the package to install.</p>
+<p>MDAPY needs only NumPy and polars. Three more packages switch on parts of its own
+features, and <code>pip install "mdapy[full]"</code> installs them all; without them the rest works,
+and these parts raise an error that names the package to install.</p>
+<table>
+<thead>
+<tr>
+<th>Package</th>
+<th>For</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>matplotlib</td>
+<td>the plots of <a href="../../user-guide/visualization/plots/"><code>mdapy.visualization.plot</code></a></td>
+</tr>
+<tr>
+<td>spglib</td>
+<td>the <a href="../../user-guide/analysis/space-group/">space group</a>; phonons and elastic constants from fewer computations; the k-points of the <a href="../../user-guide/potentials/dft/">DFT</a> reduced by symmetry</td>
+</tr>
+<tr>
+<td>seekpath</td>
+<td><code>band_structure("auto")</code>, the standard path of any crystal</td>
+</tr>
+</tbody>
+</table>
+<p>Running on several processes needs <a href="https://mpi4py.readthedocs.io">mpi4py</a>, installed
+with the MPI of the machine (on a cluster, its own, which knows the network), so it is
+not an extra: molecular dynamics on many processes and the DFT on several GPUs. Without
+it, everything runs in one process.</p>
+<p>Exchanging data with other programs needs them, and whoever exchanges has them:</p>
 <table>
 <thead>
 <tr>
@@ -11300,16 +11331,6 @@ parts raise an error that names the package to install.</p>
 </tr>
 </thead>
 <tbody>
-<tr>
-<td>matplotlib</td>
-<td><code>pip install "mdapy[plot]"</code></td>
-<td>the plots of <a href="../../user-guide/visualization/plots/"><code>mdapy.visualization.plot</code></a></td>
-</tr>
-<tr>
-<td>spglib, seekpath</td>
-<td><code>pip install "mdapy[symmetry]"</code></td>
-<td>the <a href="../../user-guide/analysis/space-group/">space group</a>; phonons and elastic constants from fewer computations; <code>band_structure("auto")</code></td>
-</tr>
 <tr>
 <td>ASE</td>
 <td><code>pip install "mdapy[ase]"</code></td>
@@ -11335,17 +11356,13 @@ parts raise an error that names the package to install.</p>
 <td>its Python module, built with LAMMPS</td>
 <td>the <a href="../../user-guide/potentials/lammps/">LAMMPS calculator</a>, <a href="../../user-guide/simulation/running/">molecular dynamics</a> and <a href="../../user-guide/properties/md-elastic/">elastic constants from molecular dynamics</a></td>
 </tr>
-<tr>
-<td>NVIDIA's cuBLAS, cuFFT, cuSOLVER</td>
-<td><code>pip install "mdapy[cuda12,dft]"</code></td>
-<td>the <a href="../../user-guide/potentials/dft/">plane-wave DFT</a> on an NVIDIA GPU, <a href="#nvidias-libraries-for-the-dft">below</a></td>
-</tr>
 </tbody>
 </table>
-<p>Extras combine: <code>pip install "mdapy[plot,symmetry,ase]"</code>. OVITO's package
-from PyPI warns in a conda environment, where conda's own is preferred, so
-it is not an extra; nor is LAMMPS, whose Python module comes with a build
-of LAMMPS with the packages of styles each user needs.</p>
+<p>Extras combine: <code>pip install "mdapy[full,ase]"</code>, or with the GPU part,
+<code>pip install "mdapy[full,cuda12]"</code>. OVITO's package from PyPI warns in a conda
+environment, where conda's own is preferred, so it is not an extra; nor is LAMMPS, whose
+Python module comes with a build of LAMMPS with the packages of styles each user needs.
+The extras <code>plot</code> and <code>symmetry</code> of earlier versions still work.</p>
 <h3 id="nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT<a class="headerlink" href="#nvidias-libraries-for-the-dft" title="Permanent link">&para;</a></h3>
 <p>The <a href="../../user-guide/potentials/dft/">plane-wave DFT</a> in the GPU part, the package
 <code>mdapy-cuda12</code>, computes with cuBLAS, cuFFT and cuSOLVER, libraries of CUDA 12 that the
@@ -11366,7 +11383,7 @@ package does not hold. The extra <code>dft</code> installs them:</p>
 </tr>
 </tbody>
 </table>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12,dft]"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12,dft]"</span>
 </code></pre></div>
 <p>These are NVIDIA's own packages on PyPI, the libraries of CUDA as NVIDIA publishes
 them, which a build of PyTorch for CUDA 12 installs too: beside it the DFT needs nothing
@@ -11449,11 +11466,11 @@ all:</p>
 <h2 id="development-setup">Development setup<a class="headerlink" href="#development-setup" title="Permanent link">&para;</a></h2>
 <p>An editable install rebuilds nothing on import; rerun the install after
 changing C++ code.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,docs]"</span>
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>pytest<span class="w">                      </span><span class="c1"># run the test suite</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>pytest<span class="w"> </span>--cov<span class="w">                </span><span class="c1"># with coverage (fails below 90 % in total)</span>
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>ruff<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>.
-<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>mkdocs<span class="w"> </span>serve<span class="w">                </span><span class="c1"># preview the documentation</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,docs]"</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>pytest<span class="w">                      </span><span class="c1"># run the test suite</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>pytest<span class="w"> </span>--cov<span class="w">                </span><span class="c1"># with coverage (fails below 90 % in total)</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>ruff<span class="w"> </span>check<span class="w"> </span>.<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>ruff<span class="w"> </span>format<span class="w"> </span>--check<span class="w"> </span>.
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>mkdocs<span class="w"> </span>serve<span class="w">                </span><span class="c1"># preview the documentation</span>
 </code></pre></div>
 <p>The test suite and the coverage rules are described in
 <a href="../../about/contributing/">Contributing</a>.</p>

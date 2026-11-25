@@ -11782,6 +11782,9 @@
 <h1 id="release-notes">Release notes<a class="headerlink" href="#release-notes" title="Permanent link">&para;</a></h1>
 <h2 id="230-not-released">2.3.0 (not released)<a class="headerlink" href="#230-not-released" title="Permanent link">&para;</a></h2>
 <ul>
+<li><code>pip install "mdapy[full]"</code> installs matplotlib, spglib and seekpath, the optional
+  packages MDAPY's own features use, so that every feature works; the extras <code>plot</code> and
+  <code>symmetry</code> still work.</li>
 <li><code>DFT(kernels="mdapy")</code>: the fast Fourier transforms of the DFT are MDAPY's own kernels
   on the GPU, for the grids and the transforms the plane waves take, in place of those
   of cuFFT or hipFFT; <code>kernels="vendor"</code> runs the GPU libraries of the vendor throughout.

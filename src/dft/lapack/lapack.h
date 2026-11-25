@@ -14,7 +14,8 @@
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
 //   reflector after the other, one launch each for matrices up to 512 to
 //   1024 by their type (two beyond, and in double precision on GPUs that have
-//   little of it); divide
+//   little of it), and in panels whose products are Blas's from 1024 to 1536;
+//   divide
 //   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
 //   a height of its tree together, their scalar work in double precision on
 //   the GPU when it has full double precision and on the host otherwise, and

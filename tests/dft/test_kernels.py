@@ -2,7 +2,7 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
-"""The two backends of the DFT: MDAPY's own kernels (the FFTs) against the GPU
+"""The two kernels of the DFT: MDAPY's own kernels (the FFTs) against the GPU
 libraries of the vendor. The transforms agree to rounding on the grids of the
 DFT, and so do whole calculations: norm-conserving, ultrasoft and PAW
 pseudopotentials, k-points and the real bands of Gamma, spin, mixed precision.
@@ -24,7 +24,7 @@ if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 
 BOHR, HARTREE = 0.529177210903, 27.211386245988
-BACKENDS = ("mdapy", "vendor")
+KERNELS = ("mdapy", "vendor")
 
 
 def sphere_of(cell, cutoff, grid, half=False):
@@ -53,16 +53,16 @@ def test_the_transforms_agree(grid):
     cell = np.diag([9.0, 9.5, 10.0])
     _, box, _ = sphere_of(cell, 3.0, grid)
     c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
-    values = [_dft.to_real_space(c, box, list(grid), backend=b) for b in BACKENDS]
+    values = [_dft.to_real_space(c, box, list(grid), kernels=b) for b in KERNELS]
     scale = np.abs(values[1]).max()
     assert np.abs(values[0] - values[1]).max() < 1e-13 * scale
     # two programs differ in the last bits; one program gives the same bits
     assert np.array_equal(values[0], values[1]) == (grid == (22, 24, 20))
     noise = rng.normal(size=(2, *grid)) + 1j * rng.normal(size=(2, *grid))
-    back = [_dft.to_coefficients(noise, box, backend=b) for b in BACKENDS]
+    back = [_dft.to_coefficients(noise, box, kernels=b) for b in KERNELS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
     # the round trip of MDAPY's own
-    again = _dft.to_coefficients(values[0], box, backend="mdapy")
+    again = _dft.to_coefficients(values[0], box, kernels="mdapy")
     assert np.abs(again - c).max() < 1e-13 * np.abs(c).max()
 
 
@@ -84,34 +84,34 @@ def test_the_real_transforms_agree(grid):
     c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
     c[:, 0] = c[:, 0].real  # G = 0, the first of the half sphere, is real
     values = [
-        _dft.to_real_space_gamma(c, box, partner, list(grid), backend=b)
-        for b in BACKENDS
+        _dft.to_real_space_gamma(c, box, partner, list(grid), kernels=b)
+        for b in KERNELS
     ]
     assert np.abs(values[0] - values[1]).max() < 1e-13 * np.abs(values[1]).max()
     noise = rng.normal(size=(2, *grid))
-    back = [_dft.to_coefficients_gamma(noise, box, backend=b) for b in BACKENDS]
+    back = [_dft.to_coefficients_gamma(noise, box, kernels=b) for b in KERNELS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
 
 
 def test_a_backend_unknown_is_refused():
     cell = np.diag([9.0, 9.5, 10.0])
     _, box, _ = sphere_of(cell, 3.0, (20, 20, 20))
-    with pytest.raises(ValueError, match="backend"):
+    with pytest.raises(ValueError, match="kernels"):
         _dft.to_real_space(
-            np.zeros((1, len(box)), dtype=complex), box, [20, 20, 20], backend="other"
+            np.zeros((1, len(box)), dtype=complex), box, [20, 20, 20], kernels="other"
         )
-    with pytest.raises(ValueError, match="backend"):
-        scf.run(np.eye(3) * 8.0, np.zeros((1, 3)), [0], [None], 10.0, backend="other")
-    with pytest.raises(InvalidParameter, match="backend"):
-        DFT(300.0, backend="other")
+    with pytest.raises(ValueError, match="kernels"):
+        scf.run(np.eye(3) * 8.0, np.zeros((1, 3)), [0], [None], 10.0, kernels="other")
+    with pytest.raises(InvalidParameter, match="kernels"):
+        DFT(300.0, kernels="other")
 
 
 def both(cell, positions, kinds, pseudos, cutoff, **options):
-    """The same calculation with each backend, converged tightly."""
+    """The same calculation with each kernels, converged tightly."""
     runs = [
         scf.run(cell, positions, kinds, pseudos, cutoff, energy_tolerance=1e-12, density_tolerance=1e-14,
-                symmetry=False, backend=backend, **options)
-        for backend in BACKENDS
+                symmetry=False, kernels=kernels, **options)
+        for kernels in KERNELS
     ]  # fmt: skip
     assert all(r["converged"] for r in runs)
     return runs
@@ -119,7 +119,7 @@ def both(cell, positions, kinds, pseudos, cutoff, **options):
 
 def agree(own, vendor, atoms, energy=1e-10, forces=1e-9, strain=1e-9, levels=1e-9):
     """Energies (hartree), forces (hartree/bohr) and strain derivatives of the
-    two backends within the tolerances, the first and the last per atom."""
+    two kernels within the tolerances, the first and the last per atom."""
     assert own["grid"] == vendor["grid"] and own["bands"] == vendor["bands"]
     assert own["energy"] == pytest.approx(vendor["energy"], abs=energy * atoms)
     np.testing.assert_allclose(own["forces"], vendor["forces"], rtol=0, atol=forces)
@@ -189,7 +189,7 @@ def test_paw_iron_with_spin(gamma):
 @pytest.mark.parametrize("gamma", [False, True])
 def test_mixed_precision(gamma):
     """The steps in single precision take the single transforms of each
-    backend; the run ends in double precision, at the same result."""
+    kernels; the run ends in double precision, at the same result."""
     cell, positions = cubic_silicon()
     pp = read_upf(espresso.pseudo("Si_std.upf"))
     own, vendor = both(
@@ -207,7 +207,7 @@ def test_mixed_precision(gamma):
 
 
 def test_the_calculator_keeps_its_backend():
-    """DFT(backend=...): "mdapy" by default, kept in the provenance; the
+    """DFT(kernels=...): "mdapy" by default, kept in the provenance; the
     energy, the forces and the virial of the two agree."""
     a = 4.05
     cell = np.diag([a, a, a])
@@ -215,12 +215,12 @@ def test_the_calculator_keeps_its_backend():
     system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
     common = dict(pseudopotentials={"Al": espresso.pseudo("Al_std.upf")}, kpoints=(2, 2, 2), sigma=0.2,
                   functional="pbe_pw", tolerance=1e-10, symmetry=False)  # fmt: skip
-    own, vendor = DFT(300.0, **common), DFT(300.0, backend="vendor", **common)
-    assert own.backend == "mdapy" and vendor.backend == "vendor"
+    own, vendor = DFT(300.0, **common), DFT(300.0, kernels="vendor", **common)
+    assert own.kernels == "mdapy" and vendor.kernels == "vendor"
     first = own.compute(system, ("energy", "forces", "virial"))
     second = vendor.compute(system, ("energy", "forces", "virial"))
-    assert own.last["provenance"]["backend"] == "mdapy"
-    assert vendor.last["provenance"]["backend"] == "vendor"
+    assert own.last["provenance"]["kernels"] == "mdapy"
+    assert vendor.last["provenance"]["kernels"] == "vendor"
     assert first.energy == pytest.approx(second.energy, abs=1e-8)
     np.testing.assert_allclose(first.forces, second.forces, atol=1e-7)
     np.testing.assert_allclose(first.virial, second.virial, atol=1e-6)

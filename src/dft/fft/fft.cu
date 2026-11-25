@@ -85,10 +85,10 @@ float* reals(cuComplex* values) { return reinterpret_cast<float*>(values); }
 
 }  // namespace
 
-Fft::Fft(const Int3& grid, Backend backend) : grid_(grid) {
+Fft::Fft(const Int3& grid, Kernels kernels) : grid_(grid) {
     for (int i = 0; i < 3; ++i)
         if (grid[i] < 1) throw std::invalid_argument("an FFT grid needs points along every vector");
-    if (backend == Backend::Mdapy && BoxFft::supported(grid)) own_ = std::make_unique<BoxFft>(grid);
+    if (kernels == Kernels::Mdapy && BoxFft::supported(grid)) own_ = std::make_unique<BoxFft>(grid);
 }
 
 Fft::~Fft() {

@@ -15,12 +15,12 @@
 
 namespace mdapy::dft {
 
-enum class Backend { Mdapy, Vendor };
+enum class Kernels { Mdapy, Vendor };
 
-inline Backend backend_of(const std::string& name) {
-    if (name == "mdapy") return Backend::Mdapy;
-    if (name == "vendor") return Backend::Vendor;
-    throw std::invalid_argument("the backend is 'mdapy' or 'vendor'");
+inline Kernels kernels_of(const std::string& name) {
+    if (name == "mdapy") return Kernels::Mdapy;
+    if (name == "vendor") return Kernels::Vendor;
+    throw std::invalid_argument("kernels must be 'mdapy' or 'vendor'");
 }
 
 }  // namespace mdapy::dft

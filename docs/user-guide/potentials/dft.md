@@ -35,7 +35,7 @@ Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
 bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
-backend="mdapy", comm=None)` computes the
+kernels="mdapy", comm=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
@@ -78,7 +78,7 @@ the calculations of several threads take turns on the GPU instead of running at 
 | `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
 | `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
 | `precision` | str | `"double"` | `"double"`, `"mixed"`, `"auto"` | `"mixed"`: the first steps of the self-consistent field in single precision, the last in double, for GPUs of little double precision (most cards for games and workstations); the label is that of double precision, `last["single_steps"]` the steps in single precision. `"auto"`: mixed on those GPUs, double on V100, A100, H100 and GH200. Mixed precision holds about a tenth more of the GPU's memory at its peak: a cell that only just fits in double runs with `"double"` |
-| `backend` | str | `"mdapy"` | `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY where it has its own, today the fast Fourier transforms, and the GPU libraries of the vendor for the rest. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; `last["provenance"]` keeps which one ran |
+| `kernels` | str | `"mdapy"` | `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY where it has its own, today the fast Fourier transforms, and the GPU libraries of the vendor for the rest. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; `last["provenance"]` keeps which one ran |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 
 | Attribute or method | Meaning |
@@ -92,7 +92,7 @@ energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
 what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
 the cutoff, the mesh, the smearing and its width, the functional, the spins, the
 grid and the bands. Labels of a set should share them. It also holds the
-`backend`, which changes the results by rounding alone.
+`kernels`, which changes the results by rounding alone.
 
 The magnetic moments are those of the smooth density on the grid, with the
 augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center

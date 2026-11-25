@@ -25,7 +25,7 @@
 #include <memory>
 #include <utility>
 
-#include "dft/core/backend.h"
+#include "dft/core/kernels.h"
 #include "dft/core/device.h"
 #include "dft/lattice/lattice.h"
 
@@ -35,10 +35,10 @@ class BoxFft;
 
 class Fft {
 public:
-    // With the backend Mdapy the transforms are MDAPY's own (BoxFft) when every
+    // With Kernels::Mdapy the transforms are MDAPY's own (BoxFft) when every
     // size is a product of 2, 3, 5 and 7, as the grids of the DFT are; other
-    // sizes, and the backend Vendor, take those of the library of the vendor.
-    explicit Fft(const Int3& grid, Backend backend = Backend::Mdapy);
+    // sizes, and Kernels::Vendor take those of the library of the vendor.
+    explicit Fft(const Int3& grid, Kernels kernels = Kernels::Mdapy);
     ~Fft();
     Fft(const Fft&) = delete;
     Fft& operator=(const Fft&) = delete;

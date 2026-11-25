@@ -461,7 +461,7 @@ __global__ void becsum_real_kernel(int atoms, const int* blocks, const std::size
 
 Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
                          std::vector<SpeciesProjectors> species, std::vector<Atom> atoms, const Lattice* basis,
-                         Backend backend)
+                         Kernels kernels)
     : lattice_(lattice),
       has_basis_(basis != nullptr),
       basis_(basis != nullptr ? *basis : lattice),
@@ -469,7 +469,7 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
       cutoff_(cutoff),
       species_(std::move(species)),
       atoms_(std::move(atoms)),
-      fft_(grid, backend) {
+      fft_(grid, kernels) {
     check_blas(cublasCreate(&blas_), "cublasCreate");
     check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
     // the tables of every species, one after the other

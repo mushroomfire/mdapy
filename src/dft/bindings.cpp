@@ -321,13 +321,13 @@ NB_MODULE(_dft, m) {
 
     // the bands of coefficients (count, n) of a sphere to their values on the
     // grid (count, n1, n2, n3), on the GPU
-    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid, const std::string& backend) {
+    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid, const std::string& kernels) {
         const Int3 g = grid_of(grid);
         const std::size_t points = points_of(g);
         const int count = static_cast<int>(c.shape(0));
         const std::size_t n = c.shape(1);
         if (box.shape(0) != n) throw std::invalid_argument("one place in the box per plane wave");
-        mdapy::dft::Fft fft(g, mdapy::dft::backend_of(backend));
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         DeviceArray<Complex> coefficients, boxes(count * points);
         coefficients.upload(as_device(c.data()), c.size());
         DeviceArray<std::int64_t> places;
@@ -341,16 +341,16 @@ NB_MODULE(_dft, m) {
             out);
         boxes.download(reinterpret_cast<Complex*>(out), boxes.size());
         return values;
-    }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("backend") = "mdapy");
+    }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy");
     // the values (count, n1, n2, n3) on the grid to the coefficients of a sphere,
     // divided by the points of the grid: the inverse of to_real_space
-    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& backend) {
+    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         const std::size_t points = points_of(g);
         const int count = static_cast<int>(v.shape(0));
         const std::size_t n = box.shape(0);
-        mdapy::dft::Fft fft(g, mdapy::dft::backend_of(backend));
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         DeviceArray<Complex> boxes, coefficients(count * n);
         boxes.upload(as_device(v.data()), v.size());
         DeviceArray<std::int64_t> places;
@@ -362,13 +362,13 @@ NB_MODULE(_dft, m) {
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("backend") = "mdapy");
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy");
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
     // values on the grid, and back
     m.def("to_real_space_gamma",
-          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& backend) {
+          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels) {
               const Int3 g = grid_of(grid);
-              mdapy::dft::Fft fft(g, mdapy::dft::backend_of(backend));
+              mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
               const std::size_t spectrum = fft.spectrum(), points = fft.points();
               const int count = static_cast<int>(c.shape(0));
               const std::size_t n = c.shape(1);
@@ -389,11 +389,11 @@ NB_MODULE(_dft, m) {
               values.download(out, values.size());
               return result;
           },
-          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("backend") = "mdapy");
-    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& backend) {
+          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy");
+    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
-        mdapy::dft::Fft fft(g, mdapy::dft::backend_of(backend));
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         const std::size_t spectrum = fft.spectrum(), points = fft.points();
         const int count = static_cast<int>(v.shape(0));
         const std::size_t n = box.shape(0);
@@ -409,15 +409,15 @@ NB_MODULE(_dft, m) {
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("backend") = "mdapy");
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy");
     // functions on a coarse grid carried to a fine one through their Fourier
     // components, (count, n1, n2, n3) complex values in and out
-    m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine, const std::string& backend) {
+    m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine, const std::string& kernels) {
         const Int3 coarse{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                           static_cast<int>(v.shape(3))};
         const Int3 f = grid_of(fine);
         const int count = static_cast<int>(v.shape(0));
-        mdapy::dft::Fft small(coarse, mdapy::dft::backend_of(backend)), large(f, mdapy::dft::backend_of(backend));
+        mdapy::dft::Fft small(coarse, mdapy::dft::kernels_of(kernels)), large(f, mdapy::dft::kernels_of(kernels));
         mdapy::dft::Transfer transfer(coarse, f);
         DeviceArray<Complex> a, b(count * large.points());
         a.upload(as_device(v.data()), v.size());
@@ -434,7 +434,7 @@ NB_MODULE(_dft, m) {
         const double scale = 1.0 / static_cast<double>(small.points());
         for (std::size_t i = 0; i < b.size(); ++i) out[i] *= scale;
         return result;
-    }, nb::arg("v"), nb::arg("fine"), nb::arg("backend") = "mdapy");
+    }, nb::arg("v"), nb::arg("fine"), nb::arg("kernels") = "mdapy");
 
     // the exchange-correlation functional at points: rho (n, 2) the spin
     // densities, sigma (n, 3) the products of their gradients; the energy per
@@ -470,16 +470,16 @@ NB_MODULE(_dft, m) {
         .def("__init__",
              [](mdapy::dft::Hamiltonian* self, Matrix a, std::array<int, 3> grid, double cutoff,
                 nb::list tables, nb::list angular, nb::list dij, double dq, Rows positions,
-                Kinds species, bool gamma, const std::string& backend) {
+                Kinds species, bool gamma, const std::string& kernels) {
                  new (self) mdapy::dft::Hamiltonian(lattice_of(a), grid_of(grid), cutoff,
                                                     species_of(tables, angular, dij, dq),
                                                     atoms_of(positions, species), nullptr,
-                                                    mdapy::dft::backend_of(backend));
+                                                    mdapy::dft::kernels_of(kernels));
                  self->set_gamma(gamma);
              },
              nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("tables"), nb::arg("angular"), nb::arg("dij"),
              nb::arg("dq"), nb::arg("positions"), nb::arg("species"), nb::arg("gamma") = false,
-             nb::arg("backend") = "mdapy")
+             nb::arg("kernels") = "mdapy")
         .def_prop_ro("gamma", &mdapy::dft::Hamiltonian::gamma)
         .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
             h.set_k(Vec3{k[0], k[1], k[2]});
@@ -559,12 +559,12 @@ NB_MODULE(_dft, m) {
     m.def(
         "potentials",
         [](Matrix a, double cutoff, const std::string& name, Spins rho, nb::object core,
-           double threshold, const std::string& backend) {
+           double threshold, const std::string& kernels) {
             const Int3 g{static_cast<int>(rho.shape(1)), static_cast<int>(rho.shape(2)),
                          static_cast<int>(rho.shape(3))};
             const int spins = static_cast<int>(rho.shape(0));
             mdapy::dft::Potentials pot(lattice_of(a), g, cutoff, functional_of(name), spins, threshold, nullptr,
-                                       mdapy::dft::backend_of(backend));
+                                       mdapy::dft::kernels_of(kernels));
             if (!core.is_none()) pot.set_core(nb::cast<Grid3>(core).data());
             DeviceArray<double> r, hxc(rho.size());
             r.upload(rho.data(), rho.size());
@@ -577,7 +577,7 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(result, nb::make_tuple(e.hartree, e.xc, e.hxc_density));
         },
         nb::arg("a"), nb::arg("cutoff"), nb::arg("functional"), nb::arg("rho"),
-        nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10, nb::arg("backend") = "mdapy");
+        nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10, nb::arg("kernels") = "mdapy");
 
     // the lowest eigenpairs of a Hamiltonian by block Davidson from the guess
     // psi (bands, plane waves): eigenvalues, eigenvectors (bands, plane waves),
@@ -659,10 +659,10 @@ NB_MODULE(_dft, m) {
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
            double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision,
-           const std::string& backend) {
+           const std::string& kernels) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
-            in.backend = mdapy::dft::backend_of(backend);
+            in.kernels = mdapy::dft::kernels_of(kernels);
             if (!pools.is_none()) {
                 // (rank, ranks, allreduce): allreduce(x) returns the sum over
                 // the pools of the 1-D float64 array x, run with the GIL; its
@@ -918,7 +918,7 @@ NB_MODULE(_dft, m) {
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
         nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
-        nb::arg("mixed_precision") = false, nb::arg("backend") = "mdapy");
+        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy");
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

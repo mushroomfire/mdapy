@@ -200,13 +200,13 @@ double total(const DeviceArray<double>& sum) {
 }  // namespace
 
 Potentials::Potentials(const Lattice& lattice, const Int3& grid, double cutoff, Functional functional,
-                       int spins, double threshold, const Lattice* basis, Backend backend)
+                       int spins, double threshold, const Lattice* basis, Kernels kernels)
     : lattice_(lattice),
       grid_(grid),
       functional_(functional),
       spins_(spins),
       threshold_(threshold),
-      fft_(grid, backend) {
+      fft_(grid, kernels) {
     if (spins != 1 && spins != 2) throw std::invalid_argument("one or two spins");
     sphere_ = make_sphere(lattice, basis, Vec3{0.0, 0.0, 0.0}, cutoff, grid, false);
     box_.upload(sphere_.box.data(), sphere_.size());

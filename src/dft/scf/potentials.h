@@ -38,7 +38,7 @@ public:
     // strains; the lattice itself by default
     Potentials(const Lattice& lattice, const Int3& grid, double cutoff, Functional functional,
                int spins, double threshold = 1e-10, const Lattice* basis = nullptr,
-               Backend backend = Backend::Mdapy);
+               Kernels kernels = Kernels::Mdapy);
 
     // The core charge on the grid, n1 n2 n3 values on the host; none by default.
     void set_core(const double* core);

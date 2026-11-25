@@ -256,7 +256,7 @@ def run(
     first_held: int = 0,
     preconditioner: str = "kerker",
     precision: str = "double",
-    backend: str = "mdapy",
+    kernels: str = "mdapy",
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -323,15 +323,15 @@ def run(
     "mixed": the first steps in single precision (complex bands, and the
     real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
-    precision (mixed_precision). backend "mdapy": the kernels of MDAPY where
+    precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
     it has its own (the FFTs), "vendor": the GPU libraries of the vendor
     throughout."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
         raise ValueError("precision must be 'double', 'mixed' or 'auto'")
-    if backend not in ("mdapy", "vendor"):
-        raise ValueError("backend must be 'mdapy' or 'vendor'")
+    if kernels not in ("mdapy", "vendor"):
+        raise ValueError("kernels must be 'mdapy' or 'vendor'")
     from mdapy_dft_cuda12 import _dft
 
     cell = np.ascontiguousarray(cell, dtype=float)
@@ -497,7 +497,7 @@ def run(
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
-        preconditioner == "ldos", mixed_precision(precision), backend,
+        preconditioner == "ldos", mixed_precision(precision), kernels,
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

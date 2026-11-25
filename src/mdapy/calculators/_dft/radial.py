@@ -108,6 +108,27 @@ def bessel(l: int, x: np.ndarray) -> np.ndarray:  # noqa: E741
     return out
 
 
+_CHUNK = 256  # rows of q of a block of the transforms
+
+
+def transforms(
+    rows: np.ndarray, ells: list[int], r: np.ndarray, weights: np.ndarray, q: np.ndarray
+) -> np.ndarray:
+    """(len(rows), len(q)): sum_r weights(r) rows_i(r) j_l_i(q r) for each row
+    rows_i of values on the mesh r, with the spherical Bessel function of its
+    l_i: the Simpson integrals of the tables at every q at once, j_l(q r) made
+    once for each l, a block of q at a time."""
+    rows = np.asarray(rows, dtype=float)
+    out = np.empty((len(rows), len(q)))
+    for ell in sorted(set(ells)):
+        which = [i for i, e in enumerate(ells) if e == ell]
+        weighted = rows[which] * weights
+        for start in range(0, len(q), _CHUNK):
+            j = bessel(ell, np.multiply.outer(q[start : start + _CHUNK], r))
+            out[which, start : start + _CHUNK] = np.einsum("qr,kr->kq", j, weighted)
+    return out
+
+
 def _table_points(q: np.ndarray) -> int:
     """The points of a table every DQ that interpolates to the largest q."""
     largest = float(np.max(q)) if len(q) else 0.0
@@ -121,11 +142,13 @@ def local_table(pp, nq: int, volume: float) -> np.ndarray:
     n = reach(pp.r)
     r, rab, z = pp.r[:n], pp.rab[:n], pp.valence
     base = r * pp.local[:n] + z * np.vectorize(math.erf)(r)
+    weighted = base * simpson_weights(rab)
     table = np.empty(nq)
-    table[0] = simpson(base * r, rab)
-    for i in range(1, nq):
-        g = i * DQ
-        table[i] = simpson(base * np.sin(g * r) / g, rab)
+    table[0] = (weighted * r).sum()
+    for start in range(1, nq, _CHUNK):
+        g = DQ * np.arange(start, min(start + _CHUNK, nq))
+        sines = np.sin(np.multiply.outer(g, r))
+        table[start : start + len(g)] = np.einsum("qr,r->q", sines, weighted) / g
     return 4 * math.pi / volume * table
 
 
@@ -175,7 +198,8 @@ def density_table(
     r, rab = pp.r[:n], pp.rab[:n]
     g = f[:n] * (4 * math.pi * r * r if weight_r2 else 1.0)
     return (
-        np.array([simpson(g * bessel(0, DQ * i * r), rab) for i in range(nq)]) / volume
+        transforms(g[None], [0], r, simpson_weights(rab), DQ * np.arange(nq))[0]
+        / volume
     )
 
 
@@ -212,10 +236,10 @@ def augmentation_tables(pp, qmax: float, volume: float) -> tuple[list, np.ndarra
     n = pp.kkbeta
     r, rab = pp.r[:n], pp.rab[:n]
     keys = sorted(pp.augmentation)
-    table = np.empty((len(keys), nq))
-    for i, (_, _, ell) in enumerate(keys):
-        f = pp.augmentation[keys[i]][:n]
-        table[i] = [simpson(f * bessel(ell, qi * r), rab) for qi in q]
+    if not keys:
+        return keys, np.empty((0, nq))
+    rows = np.array([pp.augmentation[k][:n] for k in keys])
+    table = transforms(rows, [ell for _, _, ell in keys], r, simpson_weights(rab), q)
     return keys, 4 * math.pi / volume * table
 
 
@@ -226,12 +250,14 @@ def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
     more for the interpolation."""
     nq = int(qmax / DQ) + 4
     q = DQ * np.arange(nq)
-    table = np.empty((len(pp.projectors), nq))
     n = pp.kkbeta
     r, rab = pp.r[:n], pp.rab[:n]
-    for i, p in enumerate(pp.projectors):
-        rb = p.r_beta[:n]
-        table[i] = [simpson(rb * r * bessel(p.angular, qi * r), rab) for qi in q]
+    if not pp.projectors:
+        return np.empty((0, nq))
+    rows = np.array([p.r_beta[:n] * r for p in pp.projectors])
+    table = transforms(
+        rows, [p.angular for p in pp.projectors], r, simpson_weights(rab), q
+    )
     return 4 * math.pi / math.sqrt(volume) * table
 
 
@@ -243,10 +269,12 @@ def orbital_table(pp, qmax: float, volume: float) -> np.ndarray:
     q = DQ * np.arange(nq)
     n = reach(pp.r)
     r, rab = pp.r[:n], pp.rab[:n]
-    table = np.empty((len(pp.orbitals), nq))
-    for i, o in enumerate(pp.orbitals):
-        rc = o.r_chi[:n]
-        table[i] = [simpson(rc * r * bessel(o.angular, qi * r), rab) for qi in q]
+    if not pp.orbitals:
+        return np.empty((0, nq))
+    rows = np.array([o.r_chi[:n] * r for o in pp.orbitals])
+    table = transforms(
+        rows, [o.angular for o in pp.orbitals], r, simpson_weights(rab), q
+    )
     return 4 * math.pi / math.sqrt(volume) * table
 
 

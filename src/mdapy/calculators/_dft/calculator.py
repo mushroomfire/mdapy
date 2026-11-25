@@ -26,6 +26,26 @@ from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 HARTREE = 27.211386245988  # eV, CODATA 2018
 BOHR = 0.529177210903  # Å, CODATA 2018
 
+# The settings of scf.run with a default, by their units: those in hartree or
+# bohr, with the factor to eV or Å, and those without, so that the record of a
+# computation gives every one in MDAPY's units (a test holds every setting to
+# one of the two)
+SCF_UNITS = {
+    "sigma": HARTREE,
+    "kerker": 1.0 / BOHR,
+    "energy_tolerance": HARTREE,
+    "density_tolerance": HARTREE,
+    "magnetic_kerker": 1.0 / BOHR,
+    "first_tolerance": HARTREE,
+}
+SCF_WITHOUT_UNITS = frozenset({
+    "kgrid", "offset", "smearing", "beta", "minimum", "history", "metric_weight",
+    "max_iterations", "davidson_iterations", "davidson_basis", "seed", "magnetic_beta",
+    "stress", "correct_forces", "atomic_start", "kpoint_threads", "conditioning",
+    "output_energies", "adaptive_damping", "first_held", "preconditioner", "precision",
+    "kernels",
+})  # fmt: skip
+
 _SMEARINGS = (
     "fixed",
     "gaussian",
@@ -537,9 +557,12 @@ class DFT(Calculator):
                 p.default, (bool, int, float, str, tuple)
             ):
                 continue
-            internal[name] = (
-                list(p.default) if isinstance(p.default, tuple) else p.default
-            )
+            value = p.default
+            if isinstance(value, tuple):
+                value = list(value)
+            elif name in SCF_UNITS:
+                value = value * SCF_UNITS[name]
+            internal[name] = value
         _dft = loader.module()
         return {
             "mdapy": __version__,

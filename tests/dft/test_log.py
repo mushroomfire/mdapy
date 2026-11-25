@@ -152,6 +152,22 @@ def test_the_info_of_a_result_goes_with_the_labels(tmp_path):
     assert set(bare.info) == {"energy"}
 
 
+def test_every_setting_of_the_field_has_its_units():
+    # the record gives the settings of scf.run in eV and Å: each one with a
+    # default is either in hartree or bohr, with its factor, or without units
+    import inspect
+
+    from mdapy.calculators._dft import calculator, scf
+
+    settings = {
+        name
+        for name, p in inspect.signature(scf.run).parameters.items()
+        if isinstance(p.default, (bool, int, float, str, tuple))
+    }
+    assert settings == set(calculator.SCF_UNITS) | calculator.SCF_WITHOUT_UNITS
+    assert not set(calculator.SCF_UNITS) & calculator.SCF_WITHOUT_UNITS
+
+
 # -- on a GPU -----------------------------------------------------------------
 
 
@@ -225,6 +241,8 @@ def test_the_record_gives_the_calculator_again(tmp_path):
     assert arguments["functional"] == "pbe_pw" and isinstance(arguments["bands"], int)
     assert record["pseudopotentials"]["Al"]["file"] == "Al_std.upf"
     assert record["internal"]["history"] == 8
+    assert record["internal"]["first_tolerance"] == 0.0
+    assert record["internal"]["metric_weight"] == 20.0
     assert "on_step" not in record["internal"] and "kgrid" not in record["internal"]
     assert record["gpu"] and record["processes"] == 1
     json.dumps(record)  # it is JSON

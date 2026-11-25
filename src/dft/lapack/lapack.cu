@@ -1122,14 +1122,17 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
         return;
     }
     DeviceArray<R> next(size), gathered(size), product(size), u(size);
-    DeviceArray<double> delta, numbers(4 * count), fitted(count), results(3 * count), angles;
+    // what the host gives a height in one transfer: the numbers, the angles
+    // of the rotations, then the integers and the columns of the rotations
+    DeviceArray<double> delta, given, fitted(count), results(3 * count);
+    std::vector<double> pack;
     std::vector<R> host_u;
     std::vector<double> small;
     if (scalars)
         delta.resize(size);
     else
         host_u.resize(size);
-    DeviceArray<int> integers(4 * count), order(count), columns;
+    DeviceArray<int> order(count);
     std::vector<double> host_numbers(4 * count), host_results(3 * count), host_angles, z;
     std::vector<int> host_integers(4 * count), host_columns;
     struct Turned {
@@ -1187,18 +1190,21 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
                 }
             }
         }
-        integers.assign(host_integers.data(), host_integers.size());
-        numbers.assign(host_numbers.data(), host_numbers.size());
-        const Level level{n, integers.data(), integers.data() + count, integers.data() + 2 * count,
-                          integers.data() + 3 * count, numbers.data(), numbers.data() + count,
-                          numbers.data() + 2 * count, numbers.data() + 3 * count};
-        if (!turned.empty()) {
-            columns.assign(host_columns.data(), host_columns.size());
-            angles.assign(host_angles.data(), host_angles.size());
-            for (const Turned& t : turned)
-                rotate_kernel<R><<<blocks(t.size), kThreads>>>(n, t.offset, t.size, t.count, columns.data() + 2 * t.first,
-                                                              angles.data() + 2 * t.first, q.data());
-        }
+        const std::size_t turns = host_columns.size();
+        pack.resize(4 * count + turns + (4 * count + turns + 1) / 2);
+        std::copy(host_numbers.begin(), host_numbers.end(), pack.begin());
+        std::copy(host_angles.begin(), host_angles.end(), pack.begin() + static_cast<std::ptrdiff_t>(4 * count));
+        int* whole = reinterpret_cast<int*>(pack.data() + 4 * count + turns);
+        std::copy(host_integers.begin(), host_integers.end(), whole);
+        std::copy(host_columns.begin(), host_columns.end(), whole + 4 * count);
+        given.assign(pack.data(), pack.size());
+        double* numbers = given.data();
+        const int* integers = reinterpret_cast<const int*>(numbers + 4 * count + turns);
+        const Level level{n, integers, integers + count, integers + 2 * count, integers + 3 * count, numbers,
+                          numbers + count, numbers + 2 * count, numbers + 3 * count};
+        for (const Turned& t : turned)
+            rotate_kernel<R><<<blocks(t.size), kThreads>>>(n, t.offset, t.size, t.count, integers + 4 * count + 2 * t.first,
+                                                          numbers + 4 * count + 2 * t.first, q.data());
         if (scalars) {
             secular_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data());
             fit_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data(), fitted.data());

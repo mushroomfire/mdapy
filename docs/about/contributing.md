@@ -156,6 +156,10 @@ Coverage thresholds:
 
 - **Total:** at least 90 %, enforced by `pytest --cov`.
 - **Per file:** at least 95 %, checked in CI from the JSON coverage report.
+  The compute path of the DFT, `src/mdapy/calculators/_dft/calculator.py` and
+  `scf.py`, runs only in the GPU part on a GPU, which CI lacks: its coverage
+  is measured on a machine with one, `pytest --cov tests/dft`, and CI leaves
+  these two files out of the rule.
 
 ```bash
 pytest --cov --cov-report=term
@@ -257,6 +261,7 @@ The rest are programs and conditions of the machine:
 | a German or French locale | numbers under a locale with a decimal comma |
 | the GPU part with its DFT, `mdapy_cuda12._dft` built from `cuda12/` with NVIDIA's cuBLAS, cuFFT and cuSOLVER installed, and an NVIDIA GPU; or `mdapy_rocm6._dft` built from `rocm6/` with ROCm, and an AMD GPU ([below](#the-gpu-part)) | the plane-wave DFT |
 | `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
+| access to the network, once | the UPF files of the library of [Quantum ESPRESSO](https://pseudopotentials.quantum-espresso.org) and of [GBRV](https://www.physics.rutgers.edu/gbrv/), one of each kind the DFT reads, against their own numbers; `tests/dft/public.py` downloads them into the folder `MDAPY_TEST_CACHE` (default `~/.cache/mdapy/tests`) |
 | `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR`, with the ultrasoft and PAW files of [pslibrary](https://github.com/dalcorso/pslibrary) 1.0.0 for Al, Si, Fe and Ni made by `ld1.x` from its `us_ps_high.job` and `paw_ps_high.job` in its subfolder `pslibrary`, and the files of [SSSP](https://www.materialscloud.org/discover/sssp) 1.3 precision in its subfolder `sssp` | the DFT against Quantum ESPRESSO, run on the same input |
 | [mpi4py](https://mpi4py.readthedocs.io), with `mpirun` | the DFT on several processes sharing the k-points of one configuration |
 

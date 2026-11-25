@@ -489,6 +489,10 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
     }
 }
 
+// One launch of tridiagonal_steps_kernel at a time in the process, of whatever
+// type: two could each hold a part of the GPU and wait for the rest.
+std::mutex steps_mutex;
+
 // Whether the GPU holds the n - 1 blocks of tridiagonal_steps_kernel, each with
 // bytes of shared memory, all at once.
 template <class S>
@@ -1388,10 +1392,7 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
         // on a GPU of full double precision, when it holds all their blocks
         if (fused && n > 2 && (together_steps_ > 0 || (together_steps_ < 0 && full_double())) &&
             holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S))) {
-            // one launch of its kind at a time: two could each hold a part of the
-            // GPU and wait for the rest
-            static std::mutex one;
-            const std::lock_guard<std::mutex> lock(one);
+            const std::lock_guard<std::mutex> lock(steps_mutex);
             DeviceArray<int> arrived(static_cast<std::size_t>(n));
             arrived.zero();
             done = n - 1;

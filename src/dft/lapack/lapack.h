@@ -14,7 +14,8 @@
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
 //   reflector after the other, one launch each for matrices up to 512 to
 //   1024 by their type (two beyond, and in double precision on GPUs that have
-//   little of it); divide
+//   little of it), and in panels whose products are Blas's from 1024 to 1536;
+//   divide
 //   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
 //   a height of its tree together, their scalar work in double precision on
 //   the GPU when it has full double precision and on the host otherwise, and
@@ -71,6 +72,12 @@ public:
     // as one of full double precision (-1: asked of it). For measurements and
     // tests.
     void set_fused_limit(int n) noexcept { fused_limit_ = n; }
+    // The smallest matrix tridiagonalized in panels (-1: MDAPY's choice).
+    void set_panels_from(int n) noexcept { panels_from_ = n; }
+    // The reflectors of a block of the back-transformation and the rows of a
+    // leaf of the divide and conquer (0: MDAPY's choice).
+    void set_reflectors(int count) noexcept { reflectors_ = count; }
+    void set_leaf(int rows) noexcept { leaf_ = rows; }
     void set_full_double(int full) noexcept { full_double_ = full; }
 
 private:
@@ -92,6 +99,9 @@ private:
     // up to about 64, the GPU beyond
     int host_limit_ = 64;
     int fused_limit_ = -1;
+    int panels_from_ = -1;
+    int reflectors_ = 0;
+    int leaf_ = 0;
     int full_double_ = -1;  // whether the GPU runs double precision at half the rate of single; -1 before it is asked
     DeviceArray<Complex> work_;
     DeviceArray<double> values_;

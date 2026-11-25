@@ -87,6 +87,10 @@ public:
     // Products with a long sum are split into at most this many segments
     // (0: the default); 1 for none. For measurements and tests.
     void set_segments(int most) noexcept { most_segments_ = most; }
+    // The small blocks of the portable products of double precision: never
+    // (0), always (1), or where they fit the result better (-1, the default).
+    // For measurements and tests.
+    void set_small_tiles(int mode) noexcept { small_tiles_ = mode; }
 
 private:
     template <class S>
@@ -103,6 +107,7 @@ private:
     cublasHandle_t vendor_ = nullptr;  // of the library of the vendor, made at its first use
     DeviceArray<double> partial_;  // the partial results of a split product
     int most_segments_ = 0;
+    int small_tiles_ = -1;
     int processors_ = 0;   // multiprocessors of the GPU; 0 before look()
     // the products of double precision run on the tensor cores of this GPU, and
     // their tiles are copied whole by one instruction (compute capability 9.0);

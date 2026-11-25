@@ -90,6 +90,7 @@ private:
     int axes_ = 7;
     std::size_t most_shared_ = 0;  // bytes of shared memory a block of this GPU can have
     std::size_t plane_bytes_ = 0;  // the largest plane that goes through one kernel
+    bool narrow_ = false;          // a V100: smaller blocks of the lines of double precision
     int threads_[2][2][2] = {};    // of the blocks of the planes, by precision, direction and complex or real; 0 not asked yet
 };
 

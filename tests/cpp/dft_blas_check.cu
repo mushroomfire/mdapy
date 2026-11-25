@@ -11,6 +11,10 @@
 //   ./dft_blas_check bench [repeats]   the products of the shapes of the DFT
 //   ./dft_blas_check large [repeats]   larger products, of cells of hundreds of atoms
 //   ./dft_blas_check time TYPE OPA OPB m n k [repeats]   one product; TYPE z c d s, OP N T C
+//   ./dft_blas_check solve TYPE m n [repeats]             one triangular solve of m rows and n columns
+//
+// The environment variable SMALL_TILES (0, 1) has the portable products of
+// double precision never or always take their small blocks.
 //
 // Errors are the largest |ours - vendor's| over the largest |vendor's| of a result.
 
@@ -218,6 +222,7 @@ double check_batched(Blas& own, Blas& vendor, Op tb, int m, int n, int k, int ba
 template <class T>
 int check_type(const char* type, double limit) {
     Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
+    if (std::getenv("SMALL_TILES") != nullptr) own.set_small_tiles(std::atoi(std::getenv("SMALL_TILES")));
     Worst gemm, split, trsm, copy;
     const int shapes[][3] = {{1, 1, 1},      {3, 5, 7},       {32, 32, 16},   {33, 31, 17},  {64, 96, 48},
                              {100, 70, 130}, {257, 129, 65},  {1000, 3, 40},  {3, 1000, 40}, {40, 40, 0},
@@ -270,6 +275,7 @@ int check_type(const char* type, double limit) {
 template <class T>
 int check_reals(const char* type, double limit) {
     Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
+    if (std::getenv("SMALL_TILES") != nullptr) own.set_small_tiles(std::atoi(std::getenv("SMALL_TILES")));
     Worst w;
     w.take(check_real<T>(own, vendor, 1, 1, 5), "1 x 1");
     w.take(check_real<T>(own, vendor, 37, 61, 6), "37 x 61");
@@ -285,6 +291,7 @@ int check() {
     failed += check_reals<double>("D", 5e-15) + check_reals<float>("S", 5e-6);
     {
         Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
+        if (std::getenv("SMALL_TILES") != nullptr) own.set_small_tiles(std::atoi(std::getenv("SMALL_TILES")));
         Worst w;
         w.take(check_batched(own, vendor, Op::N, 40, 50, 9, 7, 3), "N, 40 x 50, sum of 9, 7 products");
         w.take(check_batched(own, vendor, Op::T, 33, 16, 50, 5, 4), "T, 33 x 16, sum of 50, 5 products");
@@ -305,6 +312,7 @@ struct Time {
 template <class T>
 void time_gemm(const char* type, Op ta, Op tb, int m, int n, int k, int repeats, const char* what = "") {
     Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
+    if (std::getenv("SMALL_TILES") != nullptr) own.set_small_tiles(std::atoi(std::getenv("SMALL_TILES")));
     const int ra = ta == Op::N ? m : k, ca = ta == Op::N ? k : m;
     const int rb = tb == Op::N ? k : n, cb = tb == Op::N ? n : k;
     Device<T> a(static_cast<std::size_t>(ra) * ca), b(static_cast<std::size_t>(rb) * cb), c(static_cast<std::size_t>(m) * n);
@@ -335,6 +343,45 @@ void time_gemm(const char* type, Op ta, Op tb, int m, int n, int k, int repeats,
                 "   ours/vendor %5.2f   %s\n", type, name_of(ta), name_of(tb), m, n, k, ms[0].front(),
                 flops / ms[0].front() * 1e-6, ms[1].front(), flops / ms[1].front() * 1e-6, ms[1].front() / ms[0].front(),
                 what);
+    std::fflush(stdout);
+}
+
+// b r^-1 of b (m, n) and a well-conditioned upper triangle r, timed in turn
+template <class T>
+void time_trsm(const char* type, int m, int n, int repeats) {
+    Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
+    std::vector<T> r = noise<T>(static_cast<std::size_t>(n) * n, 3);
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < n; ++i) {
+            using R = typename Parts<T>::Real;
+            R* p = reinterpret_cast<R*>(&r[static_cast<std::size_t>(j) * n + i]);
+            for (int q = 0; q < Parts<T>::count; ++q) p[q] *= static_cast<R>(0.5 / std::sqrt(static_cast<double>(n)));
+        }
+        r[static_cast<std::size_t>(j) * n + j] = scalar<T>(1.0 + 0.3 * std::sin(j), 0.0);
+    }
+    Device<T> rd(r.size()), start(static_cast<std::size_t>(m) * n), b(start.n);
+    rd.put(r);
+    start.put(noise<T>(start.n, 4));
+    cudaEvent_t begin, end;
+    ok(cudaEventCreate(&begin), "event");
+    ok(cudaEventCreate(&end), "event");
+    double least[2] = {1e30, 1e30};
+    for (int i = -1; i < repeats; ++i)
+        for (int which = 0; which < 2; ++which) {
+            Blas& blas = which == 0 ? vendor : own;
+            b.copy(start);
+            ok(cudaEventRecord(begin, cudaStreamPerThread), "record");
+            blas.trsm(m, n, rd.p, n, b.p, m);
+            ok(cudaEventRecord(end, cudaStreamPerThread), "record");
+            ok(cudaEventSynchronize(end), "synchronize");
+            float t = 0.0f;
+            ok(cudaEventElapsedTime(&t, begin, end), "elapsed");
+            if (i >= 0) least[which] = std::min(least[which], static_cast<double>(t));
+        }
+    cudaEventDestroy(begin);
+    cudaEventDestroy(end);
+    std::printf("%strsm %6d x %6d   vendor %9.3f ms   ours %9.3f ms   ours/vendor %5.2f\n", type, m, n, least[0], least[1],
+                least[1] / least[0]);
     std::fflush(stdout);
 }
 
@@ -383,6 +430,14 @@ int main(int argc, char** argv) {
                  argc > 8 ? std::atoi(argv[8]) : 10);
         return 0;
     }
-    std::fprintf(stderr, "usage: dft_blas_check check | bench [repeats] | time TYPE OPA OPB m n k [repeats]\n");
+    if (mode == "solve" && argc >= 5) {
+        const int m = std::atoi(argv[3]), n = std::atoi(argv[4]), repeats = argc > 5 ? std::atoi(argv[5]) : 10;
+        if (argv[2][0] == 'z') time_trsm<Complex>("Z", m, n, repeats);
+        if (argv[2][0] == 'c') time_trsm<cuComplex>("C", m, n, repeats);
+        if (argv[2][0] == 'd') time_trsm<double>("D", m, n, repeats);
+        if (argv[2][0] == 's') time_trsm<float>("S", m, n, repeats);
+        return 0;
+    }
+    std::fprintf(stderr, "usage: dft_blas_check check | bench [repeats] | time TYPE OPA OPB m n k [repeats] | solve TYPE m n [repeats]\n");
     return 2;
 }

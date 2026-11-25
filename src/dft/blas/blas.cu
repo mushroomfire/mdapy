@@ -137,6 +137,18 @@ template <>
 struct Tiles<Cx<float>> : Form<4, 4, 16, 8> {};
 template <>
 struct Tiles<Cx<double>> : Form<4, 4, 8, 16> {};
+// For the results of double precision that fill little of the last blocks
+// along an index: blocks of a quarter of the values, four to a multiprocessor
+// where the large ones are one, so that fewer threads stand idle (measured on
+// a V100: 154 x 154 complex values of long sums at 1.5 of cuBLAS with the
+// large blocks, of which three by three hold them with a third of their
+// threads idle).
+template <class S>
+struct SmallTiles : Tiles<S> {};
+template <>
+struct SmallTiles<double> : Form<8, 8, 8, 8> {};
+template <>
+struct SmallTiles<Cx<double>> : Form<4, 4, 8, 8> {};
 
 struct GemmArgs {
     int m, n, k;
@@ -166,11 +178,11 @@ struct GemmArgs {
 // banks. In double precision the rows of the threads alternate (thread u holds
 // the rows u, u + Side, ...): a warp reads the rows of a tile from shared
 // memory without conflicts and writes the result along its columns.
-template <class S, bool TransA, bool TransB>
+template <class S, bool TransA, bool TransB, class F>
 __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
                             const S* __restrict__ b, S* c, S* partial) {
-    constexpr int kMM = Tiles<S>::mm, kMN = Tiles<S>::mn, kDepth = Tiles<S>::depth;
-    constexpr int kSide = Tiles<S>::side, kTeam = Tiles<S>::threads;  // threads of the block
+    constexpr int kMM = F::mm, kMN = F::mn, kDepth = F::depth;
+    constexpr int kSide = F::side, kTeam = F::threads;  // threads of the block
     constexpr int kTM = kSide * kMM, kTN = kSide * kMN;  // values of the result of a block along each index
     constexpr int kLoadsA = kTM * kDepth / kTeam, kLoadsB = kTN * kDepth / kTeam;  // of a thread and a chunk
     constexpr int kLoads = kLoadsA + kLoadsB;
@@ -324,7 +336,7 @@ __global__ void gather_kernel(int m, int n, int segments, const S alpha, const S
 
 // ---------------------------------------------------------------- triangular solve
 
-constexpr int kSolve = 16;  // columns solved at a time, a row to a thread in registers
+constexpr int kSolve = 32;  // columns solved at a time, a row to a thread in registers
 
 // x <- x r^-1 of w <= kSolve columns of the rows of b, r (w, w) upper triangular:
 // x_j = (b_j - sum_(i < j) x_i r_ij) / r_jj
@@ -472,8 +484,17 @@ void launch_ger(int m, int n, S alpha, const S* x, int incx, const S* y, int inc
 }
 
 template <class S, bool TransA, bool TransB>
-void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
-    gemm_kernel<S, TransA, TransB><<<grid, Tiles<S>::threads>>>(g, alpha, beta, a, b, c, partial);
+void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial, bool small) {
+    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
+        if (small) {
+            gemm_kernel<S, TransA, TransB, SmallTiles<S>><<<grid, SmallTiles<S>::threads>>>(g, alpha, beta, a, b, c,
+                                                                                         partial);
+            check_cuda(cudaGetLastError(), "a product of matrices");
+            return;
+        }
+    }
+    static_cast<void>(small);
+    gemm_kernel<S, TransA, TransB, Tiles<S>><<<grid, Tiles<S>::threads>>>(g, alpha, beta, a, b, c, partial);
     check_cuda(cudaGetLastError(), "a product of matrices");
 }
 
@@ -556,6 +577,21 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk, per = DmmaForm<S>::per;
     }
 #endif
+    // The small blocks for results that fill one of them at least, where they
+    // leave a fifth fewer threads idle than the large ones; they read more of
+    // the matrices, which real numbers, two reads a product, bear less: there
+    // only where it is a fifth more at most.
+    bool small = false;
+    if (!tensor && (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) && small_tiles_ != 0) {
+        const int sm = SmallTiles<S>::side * SmallTiles<S>::mm, sn = SmallTiles<S>::side * SmallTiles<S>::mn;
+        // the blocks of a form, the part of them the result fills, and what they read
+        const auto count = [m, n](int tm, int tn) { return static_cast<double>((m + tm - 1) / tm) * ((n + tn - 1) / tn); };
+        const double filled = count(kTM, kTN) * kTM * kTN / (count(sm, sn) * sm * sn);
+        const double read = count(sm, sn) * (sm + sn) / (count(kTM, kTN) * (kTM + kTN));
+        small = small_tiles_ > 0 ||
+                (m >= sm && n >= sn && filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2));
+        if (small) kTM = sm, kTN = sn, kDepth = SmallTiles<S>::depth, per = 0;
+    }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // A small result of long sums: segments of 512 terms or more, as many as
     // give 2048 blocks; of a result so small that these leave multiprocessors
@@ -634,13 +670,13 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
 #endif
     if (!tensor) {
         if (trans_a && trans_b)
-            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial);
+            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial, small);
         else if (trans_a)
-            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial);
+            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial, small);
         else if (trans_b)
-            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial);
+            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial, small);
         else
-            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial);
+            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial, small);
     }
     if (g.segments > 1) {
         gather_kernel<S><<<blocks(static_cast<long long>(m) * n, kThreads), kThreads>>>(m, n, g.segments, alpha, beta,
@@ -649,22 +685,35 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     }
 }
 
-// Blocked: kSolve columns solved in registers, then taken out of the columns
-// to their right by a product.
+// Blocked twice: kSolve columns are solved in registers and taken out of the
+// columns to their right by a product, at once only within their group of
+// kGroup columns; the columns beyond the group take the whole group in one
+// product, so that the thin products, which read and write all they update,
+// stay narrow (measured on a GH200: 692 columns of 59000 rows from 3.1 times
+// cuBLAS to 1.4).
 template <class S>
 void Blas::own_trsm(int m, int n, const S* r, int ldr, S* b, int ldb) {
+    constexpr int kGroup = 64;
     const S one = unit(S{}, 1), minus_one = unit(S{}, -1);
-    for (int j0 = 0; j0 < n; j0 += kSolve) {
-        const int w = n - j0 < kSolve ? n - j0 : kSolve;
-        S* columns = b + static_cast<long long>(j0) * ldb;
-        solve_kernel<S><<<blocks(m, kBlock), kBlock>>>(m, w, r + j0 + static_cast<long long>(j0) * ldr, ldr, columns,
-                                                       ldb);
-        check_cuda(cudaGetLastError(), "a triangular solve");
-        const int rest = n - j0 - w;
-        if (rest > 0)
-            own_gemm<S>(Op::N, Op::N, m, rest, w, minus_one, columns, ldb, 0,
-                        r + j0 + static_cast<long long>(j0 + w) * ldr, ldr, one, columns + static_cast<long long>(w) * ldb,
-                        ldb, 0, 1);
+    for (int g0 = 0; g0 < n; g0 += kGroup) {
+        const int group = n - g0 < kGroup ? n - g0 : kGroup;
+        for (int j0 = g0; j0 < g0 + group; j0 += kSolve) {
+            const int w = g0 + group - j0 < kSolve ? g0 + group - j0 : kSolve;
+            S* columns = b + static_cast<long long>(j0) * ldb;
+            solve_kernel<S><<<blocks(m, kBlock), kBlock>>>(m, w, r + j0 + static_cast<long long>(j0) * ldr, ldr, columns,
+                                                           ldb);
+            check_cuda(cudaGetLastError(), "a triangular solve");
+            const int rest = g0 + group - j0 - w;
+            if (rest > 0)
+                own_gemm<S>(Op::N, Op::N, m, rest, w, minus_one, columns, ldb, 0,
+                            r + j0 + static_cast<long long>(j0 + w) * ldr, ldr, one,
+                            columns + static_cast<long long>(w) * ldb, ldb, 0, 1);
+        }
+        const int beyond = n - g0 - group;
+        if (beyond > 0)
+            own_gemm<S>(Op::N, Op::N, m, beyond, group, minus_one, b + static_cast<long long>(g0) * ldb, ldb, 0,
+                        r + g0 + static_cast<long long>(g0 + group) * ldr, ldr, one,
+                        b + static_cast<long long>(g0 + group) * ldb, ldb, 0, 1);
     }
 }
 

@@ -824,6 +824,13 @@ BoxFft::BoxFft(const std::array<int, 3>& grid) : grid_(grid) {
     if (grid[2] % 2 == 0 && grid[2] >= 4) half_ = new Tables(grid[2] / 2);
     most_shared_ = most_shared();
     plane_bytes_ = most_shared_;
+#if !defined(MDAPY_GPU_HIP)
+    int device = 0, major = 0, minor = 0;
+    check(cudaGetDevice(&device), "cudaGetDevice");
+    check(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
+    check(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
+    narrow_ = major == 7 && minor == 0;
+#endif
 }
 
 void BoxFft::set_plane_bytes(std::size_t bytes) { plane_bytes_ = std::min(bytes, most_shared_); }
@@ -856,16 +863,21 @@ namespace {
 // that take line bytes of shared memory each. Measured on an RTX A2000 (see
 // tests/cpp/dft_fft_check.cu, sweep): blocks of at most 20 kB, so that several
 // run on a multiprocessor at a time and the memory always has requests of
-// theirs, and a thread to four points, 256 at most.
-void geometry(int n, std::size_t line, const int* tuned, int& log_c, int& threads) {
+// theirs, and a thread to four points, 256 at most. narrow: eight lines at
+// most and 256 threads, for lines of 64 points or more in double precision on
+// a V100, measured there (Z2Z of 72^3 from 1.01 of cuFFT to 0.93, of 80^3 from
+// 1.28 to 1.13).
+void geometry(int n, std::size_t line, const int* tuned, bool narrow, int& log_c, int& threads) {
     log_c = 0;
     if (tuned[0] > 0)
         log_c = tuned[0];
     else
-        while (log_c < 6 && (line << (log_c + 1)) <= 20000) ++log_c;
+        while (log_c < (narrow ? 3 : 6) && (line << (log_c + 1)) <= 20000) ++log_c;
     while (log_c > 0 && (line << log_c) > kMaxShared) --log_c;
     if (tuned[1] > 0) {
         threads = tuned[1];
+    } else if (narrow) {
+        threads = 256;
     } else {
         const long long work = (static_cast<long long>(n) << log_c) / 4;
         threads = static_cast<int>(64 * ((work + 63) / 64));
@@ -913,7 +925,7 @@ void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, lo
     AxisArgs a = t.args();
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
-    geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], a.log_c, threads);
+    geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], narrow_ && sizeof(R) == 8 && t.n >= 64, a.log_c, threads);
     a.sj = 1 << a.log_c;
     a.sc = 1;
     a.columns = static_cast<int>(columns);
@@ -942,7 +954,7 @@ void BoxFft::contiguous(const R* in, R* out, long long lines) {
     a.lines = lines;
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(a.sc) * sizeof(Cx<R>);
-    geometry(t.n, line, tuned_[sizeof(R) == 4][kContiguous], a.log_c, threads);
+    geometry(t.n, line, tuned_[sizeof(R) == 4][kContiguous], narrow_ && sizeof(R) == 8 && t.n >= 64, a.log_c, threads);
     if (axes_ & 8) a.passes = 0;
     const unsigned blocks = static_cast<unsigned>((lines + (1 << a.log_c) - 1) >> a.log_c);
     axis_kernel<R, Sign, Mode><<<blocks, threads, line << a.log_c>>>(a, t.roots_of(R{}), t.source,

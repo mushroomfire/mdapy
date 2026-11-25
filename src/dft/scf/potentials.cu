@@ -5,6 +5,8 @@
 
 #include "dft/scf/potentials.h"
 
+#include "dft/core/sums.cuh"
+
 #include <algorithm>
 
 #include <cmath>
@@ -55,6 +57,7 @@ __global__ void divergence_kernel(std::size_t n, const double* g, const Complex*
 }
 
 // V_H(G) = 4 pi rho(G) / G^2, zero at G = 0, and the sum of 4 pi |rho(G)|^2 / G^2
+// of each block (energy[block], added by ordered_sums)
 __global__ void hartree_kernel(std::size_t n, const double* g, const Complex* rho, Complex* v,
                                double* energy) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
@@ -77,10 +80,10 @@ __global__ void hartree_kernel(std::size_t n, const double* g, const Complex* rh
         if (static_cast<int>(threadIdx.x) < s) partial[threadIdx.x] += partial[threadIdx.x + s];
         __syncthreads();
     }
-    if (threadIdx.x == 0) atomicAdd(energy, partial[0]);
+    if (threadIdx.x == 0) energy[blockIdx.x] = partial[0];
 }
 
-// the sum of a[i] b[i], or of a[i] when b is null
+// the sum of a[i] b[i], or of a[i] when b is null, of each block (sum[block])
 __global__ void dot_kernel(std::size_t n, const double* a, const double* b, double* sum) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     double value = 0.0;
@@ -92,7 +95,7 @@ __global__ void dot_kernel(std::size_t n, const double* a, const double* b, doub
         if (static_cast<int>(threadIdx.x) < s) partial[threadIdx.x] += partial[threadIdx.x + s];
         __syncthreads();
     }
-    if (threadIdx.x == 0) atomicAdd(sum, partial[0]);
+    if (threadIdx.x == 0) sum[blockIdx.x] = partial[0];
 }
 
 // the spin densities with half the core each, interleaved as the functionals take them
@@ -161,8 +164,8 @@ __global__ void combine_kernel(std::size_t points, int spin, const double* hartr
     hxc[i] = hartree[i] + v[2 * i + spin] - (divergence == nullptr ? 0.0 : divergence[i]);
 }
 
-// sums (6) += sum over the points of sum_s h_s,a grad n_s,b, h_s the flux of
-// GGA, for the pairs xx yy zz yz xz xy
+// sums (6 a block, sums[6 block + d]) = sum over the points of the block of
+// sum_s h_s,a grad n_s,b, h_s the flux of GGA, for the pairs xx yy zz yz xz xy
 __global__ void gga_stress_kernel(std::size_t points, const double* grads, const double* vs, double* sums) {
     double local[6] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
     const int pairs[6][2] = {{0, 0}, {1, 1}, {2, 2}, {1, 2}, {0, 2}, {0, 1}};
@@ -188,12 +191,13 @@ __global__ void gga_stress_kernel(std::size_t points, const double* grads, const
         __syncthreads();
     }
     if (threadIdx.x == 0)
-        for (int d = 0; d < 6; ++d) atomicAdd(sums + d, partial[d][0]);
+        for (int d = 0; d < 6; ++d) sums[6 * blockIdx.x + d] = partial[d][0];
 }
 
-double total(const DeviceArray<double>& sum) {
+// the sum of the partial sums of count blocks in sum, in their order
+double total(DeviceArray<double>& sum, unsigned count) {
     double host = 0.0;
-    sum.download(&host, 1);
+    ordered_sums<1>(static_cast<int>(count), sum.data(), &host);
     return host;
 }
 
@@ -254,8 +258,9 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     const std::size_t points = fft_.points(), n = sphere_.size();
     const double dv = lattice_.volume / static_cast<double>(points);
     PotentialEnergies out;
+    // the partial sums of the blocks of a kernel, one more for their sum
     DeviceArray<double>& sum = sum_;
-    sum.reserve(1);
+    sum.reserve(std::max(blocks(n), blocks(points)) + 1);
     // the total density on the sphere, and the Hartree potential
     work_.resize(points * 4);
     components_.reserve(2 * n);
@@ -270,10 +275,9 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     }
     DeviceArray<Complex>& vh = vh_;
     vh.reserve(n);
-    sum.zero();
     hartree_kernel<<<blocks(n), kThreads>>>(n, g_.data(), components_.data(), vh.data(), sum.data());
     launched("the Hartree potential");
-    out.hartree = 0.5 * lattice_.volume * total(sum);
+    out.hartree = 0.5 * lattice_.volume * total(sum, blocks(n));
     double* hartree = work_.data();
     from_sphere(vh.data(), hartree, 1);
     // the spin densities with the core, their gradients and sigma
@@ -308,10 +312,9 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
     vs_.resize(3 * points);
     evaluate_xc(functional_, points, rho_.data(), sigma_.data(), threshold_, f_.data(), v_.data(), vs_.data(),
                 spins_ == 2);
-    sum.zero();
     dot_kernel<<<blocks(points), kThreads>>>(points, f_.data(), nullptr, sum.data());
     launched("the XC energy");
-    out.xc = dv * total(sum);
+    out.xc = dv * total(sum, blocks(points));
     // the potential of each spin
     double* divergence = work_.data() + points;
     DeviceArray<double>& h = flux_;
@@ -334,24 +337,22 @@ PotentialEnergies Potentials::compute(const double* rho, double* hxc) {
         combine_kernel<<<blocks(points), kThreads>>>(points, s, hartree, v_.data(), div_ptr,
                                                     hxc + static_cast<std::size_t>(s) * points);
         launched("the potential");
-        sum.zero();
         dot_kernel<<<blocks(points), kThreads>>>(points, hxc + static_cast<std::size_t>(s) * points,
                                                  rho + static_cast<std::size_t>(s) * points, sum.data());
         launched("int V rho");
-        out.hxc_density += dv * total(sum);
+        out.hxc_density += dv * total(sum, blocks(points));
     }
     return out;
 }
 
 double Potentials::integral(const double* a, const double* b, int count) {
     const std::size_t points = fft_.points();
-    DeviceArray<double>& sum = sum_;
-    sum.reserve(1);
-    sum.zero();
     const std::size_t n = points * static_cast<std::size_t>(count);
+    DeviceArray<double>& sum = sum_;
+    sum.reserve(blocks(n) + 1);
     dot_kernel<<<blocks(n), kThreads>>>(n, a, b, sum.data());  // b null: the integral of a
     launched("an integral");
-    return lattice_.volume / static_cast<double>(points) * total(sum);
+    return lattice_.volume / static_cast<double>(points) * total(sum, blocks(n));
 }
 
 std::array<double, 6> Potentials::gga_strain() const {
@@ -359,12 +360,11 @@ std::array<double, 6> Potentials::gga_strain() const {
     if (!xc::gradient(functional_)) return out;
     const std::size_t points = fft_.points();
     if (grads_.size() < 6 * points || vs_.size() < 3 * points) throw std::logic_error("no potential computed");
-    DeviceArray<double> sums(6);
-    sums.zero();
-    gga_stress_kernel<<<std::min<unsigned>(blocks(points), 1024u), kThreads>>>(points, grads_.data(), vs_.data(),
-                                                                                sums.data());
+    const unsigned grid = std::min<unsigned>(blocks(points), 1024u);
+    DeviceArray<double> sums(6 * (static_cast<std::size_t>(grid) + 1));
+    gga_stress_kernel<<<grid, kThreads>>>(points, grads_.data(), vs_.data(), sums.data());
     launched("the stress of GGA");
-    sums.download(out.data(), 6);
+    ordered_sums<6>(static_cast<int>(grid), sums.data(), out.data());
     const double dv = lattice_.volume / static_cast<double>(points);
     for (double& x : out) x *= -dv;
     return out;

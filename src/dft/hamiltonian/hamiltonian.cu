@@ -6,6 +6,7 @@
 #include "dft/hamiltonian/hamiltonian.h"
 
 #include "dft/core/profile.h"
+#include "dft/core/sums.cuh"
 #include "dft/hamiltonian/gamma.h"
 #include "dft/xc/dual.h"
 
@@ -359,6 +360,7 @@ __global__ void shift_kernel(int projectors, int count, const double* e, const C
     dp[i] = make_cuDoubleComplex(dp[i].x - x * qp[i].x, dp[i].y - x * qp[i].y);
 }
 
+// the sum of the x a block takes, total[block]
 __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
     __shared__ double partial[kThreads];
     double s = 0.0;
@@ -371,7 +373,7 @@ __global__ void sum_kernel(std::size_t count, const double* x, double* total) {
         if (static_cast<int>(threadIdx.x) < k) partial[threadIdx.x] += partial[threadIdx.x + k];
         __syncthreads();
     }
-    if (threadIdx.x == 0) atomicAdd(total, partial[0]);
+    if (threadIdx.x == 0) total[blockIdx.x] = partial[0];
 }
 
 __global__ void multiply_real_kernel(std::size_t points, int count, const double* potential, double* values) {
@@ -648,12 +650,12 @@ void Hamiltonian::set_potential(const double* potential) {
     check_cuda(cudaMemcpy(potential_.data(), potential, points * sizeof(double),
                           cudaMemcpyDeviceToDevice),
                "cudaMemcpy of the potential");
+    const unsigned grid = std::min<unsigned>(blocks(points), 1024u);
     DeviceArray<double>& total = total_;
-    total.reserve(1);
-    total.zero();
-    sum_kernel<<<std::min<unsigned>(blocks(points), 1024u), kThreads>>>(points, potential_.data(), total.data());
+    total.reserve(static_cast<std::size_t>(grid) + 1);
+    sum_kernel<<<grid, kThreads>>>(points, potential_.data(), total.data());
     check_cuda(cudaGetLastError(), "the mean potential");
-    total.download(&mean_potential_, 1);
+    ordered_sums<1>(static_cast<int>(grid), total.data(), &mean_potential_);
     mean_potential_ /= static_cast<double>(points);
 }
 

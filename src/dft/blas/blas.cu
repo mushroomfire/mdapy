@@ -103,12 +103,29 @@ __device__ __forceinline__ Cx<R> quotient(Cx<R> a, Cx<R> b) {
 
 // ---------------------------------------------------------------- product
 
-constexpr int kTile = 32;    // values of the result of a block along each index
-constexpr int kMicro = 4;    // of a thread
-constexpr int kDepth = 16;   // terms of the sum in shared memory at a time
-constexpr int kBlock = 64;   // threads: (kTile / kMicro)^2
-constexpr int kLoads = kTile * kDepth / kBlock;  // of a thread and matrix at a time
+constexpr int kBlock = 64;    // threads of a block of a product, 8 x 8
+constexpr int kSide = 8;
 constexpr int kThreads = 256;  // of the small routines
+
+// What a thread and a block of a product hold: each thread MM x MN values of
+// the result in registers, the block (8 MM) x (8 MN) of them, from depth terms
+// of the sum in shared memory at a time. Real numbers take more values a
+// thread than complex ones, which are two each. Measured on an RTX A2000
+// (tests/cpp/dft_blas_check.cu).
+#ifndef MDAPY_BLAS_REAL
+#define MDAPY_BLAS_REAL 8, 8, 16
+#endif
+#ifndef MDAPY_BLAS_COMPLEX
+#define MDAPY_BLAS_COMPLEX 4, 4, 16
+#endif
+template <int MM, int MN, int Depth>
+struct Form {
+    static constexpr int mm = MM, mn = MN, depth = Depth;
+};
+template <class S>
+struct Tiles : Form<MDAPY_BLAS_REAL> {};
+template <class R>
+struct Tiles<Cx<R>> : Form<MDAPY_BLAS_COMPLEX> {};
 
 struct GemmArgs {
     int m, n, k;
@@ -128,9 +145,12 @@ struct GemmArgs {
 template <class S, bool TransA, bool TransB>
 __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
                             const S* __restrict__ b, S* c, S* partial) {
-    __shared__ S as[kDepth * kTile], bs[kDepth * kTile];
+    constexpr int kMM = Tiles<S>::mm, kMN = Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    constexpr int kTM = kSide * kMM, kTN = kSide * kMN;  // values of the result of a block along each index
+    constexpr int kLoadsA = kTM * kDepth / kBlock, kLoadsB = kTN * kDepth / kBlock;  // of a thread at a time
+    __shared__ S as[kDepth * kTM], bs[kDepth * kTN];
     const unsigned tid = threadIdx.x;
-    const unsigned i0 = blockIdx.x * kTile, j0 = blockIdx.y * kTile, z = blockIdx.z;
+    const unsigned i0 = blockIdx.x * kTM, j0 = blockIdx.y * kTN, z = blockIdx.z;
     const unsigned m = static_cast<unsigned>(g.m), n = static_cast<unsigned>(g.n);
     unsigned first = 0, last = static_cast<unsigned>(g.k);
     if (g.segments > 1) {
@@ -141,67 +161,70 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         b += z * g.stride_b;
         c += z * g.stride_c;
     }
-    const unsigned ti = (tid % (kTile / kMicro)) * kMicro, tj = (tid / (kTile / kMicro)) * kMicro;
+    const unsigned ti = (tid % kSide) * kMM, tj = (tid / kSide) * kMN;
     const bool active = i0 + ti < m && j0 + tj < n;
-    S acc[kMicro * kMicro];
+    S acc[kMM * kMN];
 #pragma unroll
-    for (int e = 0; e < kMicro * kMicro; ++e) acc[e] = zero_of(S{});
+    for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
     for (unsigned t0 = first; t0 < last; t0 += kDepth) {
-        S va[kLoads], vb[kLoads];
+        S va[kLoadsA], vb[kLoadsB];
 #pragma unroll
-        for (int q = 0; q < kLoads; ++q) {
+        for (int q = 0; q < kLoadsA; ++q) {
             const unsigned e = tid + q * kBlock;
-            const unsigned i = TransA ? e / kDepth : e % kTile, t = TransA ? e % kDepth : e / kTile;
+            const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
             const bool in = i0 + i < m && t0 + t < last;
             const long long at = TransA ? (t0 + t) + (i0 + i) * g.lda : (i0 + i) + (t0 + t) * g.lda;
             va[q] = in ? a[at] : zero_of(S{});
         }
 #pragma unroll
-        for (int q = 0; q < kLoads; ++q) {
+        for (int q = 0; q < kLoadsB; ++q) {
             const unsigned e = tid + q * kBlock;
-            const unsigned j = TransB ? e % kTile : e / kDepth, t = TransB ? e / kTile : e % kDepth;
+            const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
             const bool in = j0 + j < n && t0 + t < last;
             const long long at = TransB ? (j0 + j) + (t0 + t) * g.ldb : (t0 + t) + (j0 + j) * g.ldb;
             vb[q] = in ? b[at] : zero_of(S{});
         }
 #pragma unroll
-        for (int q = 0; q < kLoads; ++q) {
+        for (int q = 0; q < kLoadsA; ++q) {
             const unsigned e = tid + q * kBlock;
-            const unsigned i = TransA ? e / kDepth : e % kTile, t = TransA ? e % kDepth : e / kTile;
-            as[t * kTile + i] = g.conj_a ? conj_of(va[q]) : va[q];
-            const unsigned j = TransB ? e % kTile : e / kDepth, u = TransB ? e / kTile : e % kDepth;
-            bs[u * kTile + j] = g.conj_b ? conj_of(vb[q]) : vb[q];
+            const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
+            as[t * kTM + i] = g.conj_a ? conj_of(va[q]) : va[q];
+        }
+#pragma unroll
+        for (int q = 0; q < kLoadsB; ++q) {
+            const unsigned e = tid + q * kBlock;
+            const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
+            bs[t * kTN + j] = g.conj_b ? conj_of(vb[q]) : vb[q];
         }
         __syncthreads();
         if (active) {
 #pragma unroll
             for (int t = 0; t < kDepth; ++t) {
-                S x[kMicro], y[kMicro];
+                S x[kMM], y[kMN];
 #pragma unroll
-                for (int p = 0; p < kMicro; ++p) {
-                    x[p] = as[t * kTile + ti + p];
-                    y[p] = bs[t * kTile + tj + p];
-                }
+                for (int p = 0; p < kMM; ++p) x[p] = as[t * kTM + ti + p];
 #pragma unroll
-                for (int p = 0; p < kMicro; ++p)
+                for (int q = 0; q < kMN; ++q) y[q] = bs[t * kTN + tj + q];
 #pragma unroll
-                    for (int q = 0; q < kMicro; ++q) acc[p + q * kMicro] = plus(acc[p + q * kMicro], x[p], y[q]);
+                for (int q = 0; q < kMN; ++q)
+#pragma unroll
+                    for (int p = 0; p < kMM; ++p) acc[p + q * kMM] = plus(acc[p + q * kMM], x[p], y[q]);
             }
         }
         __syncthreads();
     }
     if (!active) return;
 #pragma unroll
-    for (int q = 0; q < kMicro; ++q)
+    for (int q = 0; q < kMN; ++q)
 #pragma unroll
-        for (int p = 0; p < kMicro; ++p) {
+        for (int p = 0; p < kMM; ++p) {
             const unsigned i = i0 + ti + p, j = j0 + tj + q;
             if (i >= m || j >= n) continue;
             if (g.segments > 1) {
-                partial[(static_cast<long long>(z) * n + j) * m + i] = acc[p + q * kMicro];
+                partial[(static_cast<long long>(z) * n + j) * m + i] = acc[p + q * kMM];
             } else {
                 S* to = c + i + j * g.ldc;
-                const S value = product(alpha, acc[p + q * kMicro]);
+                const S value = product(alpha, acc[p + q * kMM]);
                 *to = is_zero(beta) ? value : plus(value, beta, *to);
             }
         }
@@ -411,7 +434,8 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     g.stride_a = stride_a;
     g.stride_b = 0;
     g.stride_c = stride_c;
-    const long long tiles = static_cast<long long>((m + kTile - 1) / kTile) * ((n + kTile - 1) / kTile);
+    constexpr int kTM = kSide * Tiles<S>::mm, kTN = kSide * Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // a small result of long sums: segments of at least 512 terms, as many as
     // give about 2048 blocks
     constexpr long long kWanted = 2048;
@@ -433,7 +457,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         partial_.reserve(values * sizeof(S) / sizeof(double) + 1);
         partial = reinterpret_cast<S*>(partial_.data());
     }
-    const dim3 grid(static_cast<unsigned>((m + kTile - 1) / kTile), static_cast<unsigned>((n + kTile - 1) / kTile),
+    const dim3 grid(static_cast<unsigned>((m + kTM - 1) / kTM), static_cast<unsigned>((n + kTN - 1) / kTN),
                     static_cast<unsigned>(g.segments > 1 ? g.segments : batch));
     const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
     if (trans_a && trans_b)
@@ -526,7 +550,7 @@ struct Probe {
 
 // whether the grid of a product fits: see own_gemm
 bool fits(int n, int batch) {
-    return (n + kTile - 1) / kTile <= 65535 && batch <= 65535;
+    return n / kSide <= 65535 && batch <= 65535;
 }
 
 }  // namespace

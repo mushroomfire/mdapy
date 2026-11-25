@@ -3,12 +3,13 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""The augmentation charges of an ultrasoft pseudopotential on the GPU against
-NumPy: Q_ab(G) from the radial tables, the real harmonics and the Gaunt
-coefficients; the augmented density of becsum and the strengths of a
-potential at atoms off the origin; Omega Q_ab(0) is q_ab of the file; the real
-harmonics against their closed forms and the Gaunt coefficients against their
-orthonormality."""
+"""The augmentation charges of an ultrasoft pseudopotential as the GPU takes
+them, on the processor: the projector functions and their pairs, and the terms
+of each pair, whose Gaunt coefficients give back the products of two
+harmonics and whose sum at G = 0 is q_ab / Omega of the file; and on the GPU
+against NumPy: Q_ab(G) from the radial tables, the real harmonics and the
+Gaunt coefficients; the augmented density of becsum and the strengths of a
+potential at atoms off the origin; Omega Q_ab(0) is q_ab of the file."""
 
 import math
 
@@ -18,37 +19,91 @@ import pytest
 from mdapy.calculators._dft import angular, augmentation, radial
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso, gpu
-
-_dft = gpu.module()
-if _dft.device_count() == 0:
-    pytest.skip("no GPU", allow_module_level=True)
+from dft import espresso, gpu, public, upf_files
 
 BOHR = 0.529177210903
 
 
-def test_harmonics_and_gaunt():
-    rng = np.random.default_rng(0)
-    y = angular.real_harmonics(6, rng.normal(size=(2000, 3)))
-    # Gauss-Legendre times a uniform angle integrate their products exactly
-    g = angular.gaunt(3)
-    small = 16
-    np.testing.assert_allclose(
-        g[:, :, 0] * math.sqrt(4 * math.pi), np.eye(small), atol=1e-13
-    )
-    assert y.shape == (49, 2000)
-    # symmetric in the first two, and zero unless l1 + l2 + L is even
-    np.testing.assert_allclose(g, g.transpose(1, 0, 2), atol=1e-14)
-    for l1 in range(4):
-        for l2 in range(4):
-            for ell in range(7):
-                if (l1 + l2 + ell) % 2 or ell > l1 + l2 or ell < abs(l1 - l2):
-                    block = g[
-                        l1 * l1 : (l1 + 1) ** 2,
-                        l2 * l2 : (l2 + 1) ** 2,
-                        ell * ell : (ell + 1) ** 2,
-                    ]
-                    assert np.abs(block).max() < 1e-13
+def synthetic(tmp_path, kind):
+    return read_upf(upf_files.write(tmp_path / "X.upf", kind))
+
+
+def check_terms(pp, tolerance=1e-9, volume=250.0, qmax=6.0):
+    """The terms of pp against the harmonics, the radial tables and q_ab of the
+    file, to tolerance."""
+    functions = augmentation.functions(pp)
+    assert functions == [(p, b.angular, m) for p, b in enumerate(pp.projectors)
+                         for m in range(-b.angular, b.angular + 1)]  # fmt: skip
+    pairs = augmentation.pairs(pp)
+    n = len(functions)
+    assert pairs == [(a, b) for a in range(n) for b in range(n) if a <= b]
+    data = augmentation.terms(pp, qmax, volume)
+    keys, tables = radial.augmentation_tables(pp, qmax, volume)
+    np.testing.assert_array_equal(data["tables"], tables)
+    assert data["tables"].flags.c_contiguous
+    assert data["functions"] == n and data["lmax"] == 2 * pp.lmax
+    assert data["points"] == tables.shape[1] == int(qmax / radial.DQ) + 4
+    start = data["pair_start"]
+    assert len(start) == len(pairs) + 1 and start[0] == 0
+    assert start[-1] == len(data["term_lm"]) and (np.diff(start) >= 0).all()
+    rng = np.random.default_rng(6)
+    v = rng.normal(size=(30, 3))
+    y = angular.real_harmonics(2 * pp.lmax, v)
+    for k, (a, b) in enumerate(pairs):
+        (pa, la, ma), (pb, lb, mb) = functions[a], functions[b]
+        terms = range(start[k], start[k + 1])
+        for t in terms:
+            ell = data["term_l"][t]
+            assert math.isqrt(data["term_lm"][t]) == ell
+            assert keys[data["term_table"][t]] == (min(pa, pb), max(pa, pb), ell)
+        # with a charge for every L, the terms give back Y_a Y_b
+        present = {ell for ell in range(abs(la - lb), la + lb + 1, 2)
+                   if (min(pa, pb), max(pa, pb), ell) in pp.augmentation}  # fmt: skip
+        if len(present) == (la + lb - abs(la - lb)) // 2 + 1:
+            total = sum(data["term_coef"][t] * y[data["term_lm"][t]] for t in terms)
+            product = y[angular.index(la, ma)] * y[angular.index(lb, mb)]
+            np.testing.assert_allclose(total, product, rtol=0, atol=1e-12)
+        # Omega Q_ab(G = 0): the terms of L = 0 alone, q_ab for one l and m
+        zero = sum(data["term_coef"][t] * data["tables"][data["term_table"][t], 0]
+                   for t in terms if data["term_l"][t] == 0) / math.sqrt(4 * math.pi)  # fmt: skip
+        expected = pp.q[pa, pb] if (la, ma) == (lb, mb) else 0.0
+        assert volume * zero == pytest.approx(expected, abs=tolerance)
+    return data
+
+
+def test_the_terms_of_an_ultrasoft_file(tmp_path):
+    pp = synthetic(tmp_path, "US")
+    data = check_terms(pp)
+    # the projectors s, s, p, d: 1 + 1 + 3 + 5 functions, all their pairs
+    assert data["functions"] == 10 and len(data["pair_start"]) == 56
+
+
+def test_the_terms_of_a_paw_file(tmp_path):
+    """The charge of a vanishing multipole is left out of its pair, which
+    keeps the terms of the other L."""
+    pp = synthetic(tmp_path, "PAW")
+    data = check_terms(pp)
+    i, j, ell = upf_files.VANISHING
+    assert (i, j, ell) not in pp.augmentation
+    functions = augmentation.functions(pp)
+    pairs = augmentation.pairs(pp)
+    for k, (a, b) in enumerate(pairs):
+        if sorted((functions[a][0], functions[b][0])) == [i, j]:
+            ls = data["term_l"][data["pair_start"][k] : data["pair_start"][k + 1]]
+            assert ell not in ls and set(ls) <= {1}
+
+
+@pytest.mark.parametrize(
+    ("name", "tolerance"),
+    [
+        ("Al.pbe-n-rrkjus_psl.1.0.0.UPF", 1e-12),
+        ("Fe.pbe-spn-kjpaw_psl.1.0.0.UPF", 1e-6),
+    ],
+)
+def test_the_terms_of_pslibrary(name, tolerance):
+    """q_ab of the files, to the agreement of their two parts: the pseudized
+    charges of PAW keep their multipoles to 5e-7 (test_upf)."""
+    check_terms(read_upf(public.path(name)), tolerance)
 
 
 def reference_q(pp, sphere_g, tables, data):
@@ -65,6 +120,7 @@ def reference_q(pp, sphere_g, tables, data):
 
 
 def test_iron():
+    _dft = gpu.device()
     path = espresso.pseudo("pslibrary/Fe.pbe-spn-rrkjus_psl.1.0.0.UPF")
     pp = read_upf(path)
     a = 2.87 / BOHR

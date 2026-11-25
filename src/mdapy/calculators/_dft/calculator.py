@@ -203,7 +203,12 @@ class DFT(Calculator):
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
         of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
-        ``single_steps`` (the steps in single precision) and
+        ``single_steps`` (the steps in single precision), ``gpu_memory``
+        (MiB, float64, the largest at the end of the steps: ``in_use`` by the
+        arrays of the DFT and ``reserved`` by its memory pool, of the whole
+        process, the runs of its threads together, and ``device`` in use on
+        the GPU, by the CUDA context, the libraries and other processes too)
+        and
         ``provenance``: what makes the labels of a set comparable, the SHA-256
         of each pseudopotential, the cutoff, the mesh, the smearing and its
         width, the functional, the spins, the grid, the bands and U.
@@ -532,6 +537,14 @@ class DFT(Calculator):
                 "kernels": r["kernels"],
             },
             "single_steps": int(np.sum(r.get("single", 0))),
+            "gpu_memory": {
+                name: float(np.max(r["memory"][key])) / 2**20
+                for name, key in (
+                    ("in_use", "in_use"),
+                    ("reserved", "reserved"),
+                    ("device", "device_used"),
+                )
+            },
         }
         if "hubbard_energy" in r:
             self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE

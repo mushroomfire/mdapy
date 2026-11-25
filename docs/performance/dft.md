@@ -110,6 +110,63 @@ The energies are the same to the last digit printed, 1e-6 eV. What the processes
 share, the density on the grid, the mixing and, for PAW, the one-center terms of every
 atom, every process does in full; it takes the rest of the time.
 
+## Memory
+
+What the DFT holds on the GPU, for cells of a training set: fcc aluminium at 600 eV and
+a kspacing of 0.15 1/Å, bcc iron with spin (3 μB per atom) at 900 eV and 0.2 1/Å,
+Marzari–Vanderbilt smearing of 0.25 eV, PseudoDojo 0.4 norm-conserving
+pseudopotentials, every cell perturbed (each atom displaced by 0.05 Å, the box strained
+by up to 1 %) so that time reversal alone reduces its k-points. "In use" is the peak of
+the arrays of the DFT, the high-water mark of its memory pool; "on the GPU" the peak of
+the memory in use on the device, polled every 0.2 s, with the CUDA context and the
+libraries. On the GH200, with the libraries of the vendor (`kernels="auto"`), the second
+of three cells in a row on one calculator:
+
+| Cell | k-points × spins | Bands | Grid | In use (GiB) | On the GPU (GiB) | Time (s) |
+|---|---|---:|---|---:|---:|---:|
+| Al4 | 666 × 1 | 10 | 36 × 36 × 36 | 0.4 | 4.4 | 4.6 |
+| Al32 | 112 × 1 | 58 | 72 × 72 × 64 | 2.4 | 3.5 | 31.7 |
+| Al32, mixed precision | 112 × 1 | 58 | 72 × 72 × 64 | 2.6 | 3.8 | 30.6 |
+| Al108, Γ | 1 × 1 | 195 | 96 × 100 × 100 | 2.6 | 3.6 | 2.4 |
+| Al108 | 36 × 1 | 195 | 96 × 100 × 100 | 10.3 | 11.4 | 92.4 |
+| Fe16 | 112 × 2 | 154 | 60 × 60 × 60 | 6.4 | 7.8 | 87.6 |
+| Fe16, mixed precision | 112 × 2 | 154 | 60 × 60 × 60 | 6.8 | 8.5 | 80.8 |
+| Fe54 | 36 × 2 | 519 | 90 × 90 × 90 | 25.0 | 26.8 | 254.2 |
+
+Fe54 is the first and only cell of its process. Side by side, from threads of one
+process, each with a calculator of its own:
+
+| Cells at once | GPU | In use (GiB) | On the GPU (GiB) |
+|---|---|---:|---:|
+| 2 Al32 | GH200 | 4.8 | 6.4 |
+| 4 Al32 | GH200 | 9.7 | 13.7 |
+| 8 Al32 | GH200 | 19.2 | 23.7 |
+| 2 Al108 | GH200 | 20.4 | 22.0 |
+| 4 Al108 | GH200 | 40.6 | 44.2 |
+| 8 Al32 | V100 of 32 GB | 19.2 | 20.3 |
+| 16 Al32, 8 of them out of memory | V100 of 32 GB | 31.2 | 31.7 |
+
+- **The bands** of every k-point and spin take most of the memory of a cell of many
+  k-points: about 6.2 GiB of the 10.3 of Al108, 21 of the 25 of Fe54. Al108 at Γ, one
+  k-point of real bands on half the plane waves, holds a quarter of Al108 on its mesh.
+- **The libraries of the vendor** and the CUDA context hold the rest of what is on the
+  GPU: the context about 0.55 GiB on the GH200 (0.3 on the V100), and for each host
+  thread that solves k-points a handle of cuSOLVER (0.28 GiB on the GH200, 0.04 on the
+  V100) and two of cuBLAS (0.06 GiB each, 0.008 on the V100). Al4 runs eight, and holds
+  3.4 GiB of libraries for 0.4 GiB of arrays.
+- **Mixed precision** holds 5 to 10 % more than double.
+- **Side by side**, the cells hold the sum of theirs. Eight Al32 fit a V100 of 32 GB;
+  sixteen need 38 GiB of arrays, and eight of them ran out of memory. Sixteen Al4 hold
+  6.2 GiB of arrays and 13.8 GiB on a V100.
+- **After a run** the pool keeps what its steps used and gives the rest back to the
+  device: after eight Al32 at once it keeps 2.4 GiB, and an Al108 at Γ that follows in
+  the same process holds 3.5 GiB on the GPU.
+- **Fe54** at a kspacing of 0.2 1/Å holds 25 GiB, more than a GPU of 12 GB has, however
+  the memory is managed: 21 GiB are its bands, 72 pairs of k-point and spin of 519 bands.
+  With MDAPY's kernels, on a mesh of 2 × 2 × 2 (8 k-points) it holds 8.6 GiB of arrays,
+  9.4 GiB in its pool, and runs on an RTX A2000 of 12 GB; the perfect crystal, whose
+  symmetry leaves 10 of the k-points of 0.2 1/Å, holds 9.8 GiB, 10.5 GiB in its pool.
+
 ## How it was measured
 
 - The cells are perfect crystals, 2 × 2 × 2 and 3 × 3 × 3 cubic cells of silicon
@@ -150,4 +207,14 @@ On several GPUs, one process each:
 
 ```bash
 mpiexec -n 4 python benchmarks/dft_performance.py mdapy perf Fe54 v100-x4 --mpi
+```
+
+The memory is `benchmarks/dft_memory.py`, with the PseudoDojo files `Al.upf` and
+`Fe.upf` in a folder:
+
+```bash
+python benchmarks/dft_memory.py pseudo memory.jsonl alone Al4,Al32,Al108_gamma,Al108,Fe16 3
+python benchmarks/dft_memory.py pseudo memory.jsonl together Al32 8
+python benchmarks/dft_memory.py pseudo memory.jsonl after Al32 8 Al108_gamma
+python benchmarks/dft_memory.py report memory.jsonl
 ```

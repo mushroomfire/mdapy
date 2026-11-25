@@ -165,6 +165,7 @@ struct ScfStep {
     bool single = false;   // the bands of the step in single precision
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
+    PoolMemory memory;       // of the pool and the device at the end of the step
 };
 
 // seconds spent in each part of a run

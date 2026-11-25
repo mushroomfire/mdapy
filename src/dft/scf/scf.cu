@@ -216,7 +216,11 @@ std::array<double, 2> extrapolation_coefficients(const std::vector<Vec3>& before
     return {(ac * bb - bc * ab) / det, (aa * bc - ab * ac) / det};
 }
 
-ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
+namespace {
+
+// The run itself; keep, the memory of the pool in use at the end of its last
+// step, which the next run of a like cell will want again.
+ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state, std::size_t& keep) {
     const std::size_t points =
         static_cast<std::size_t>(input.grid[0]) * input.grid[1] * input.grid[2];
     const std::size_t nk = input.kpoints.size();
@@ -694,6 +698,11 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
                 } catch (...) {
                     wk->error = std::current_exception();
+                    // the work of its stream done before the thread and its
+                    // stream end, as without an error: a worker that failed
+                    // with work left on its stream (the first bands of the
+                    // atoms) left the run waiting for ever instead of raising
+                    static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
                 }
             });
         }
@@ -977,6 +986,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         step.fermi = occ.fermi;
         step.magnetization = ns == 2 ? out_g[ng].x * input.lattice.volume : 0.0;
+        step.memory = pool_memory();
         result.steps.push_back(step);
         result.iterations = iteration;
         result.energy = energy;
@@ -1211,6 +1221,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
     }
     clock.lap();
+    keep = result.steps.empty() ? 0 : result.steps.back().memory.in_use;
     // the forces: the local term of rho_out, the core charge in V_xc of the
     // last rho_in (V_Hxc of each spin, averaged, less V_H), the projectors
     {
@@ -1435,6 +1446,25 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             result.absolute_magnetization += std::abs(m) * dv;
         }
     }
+    return result;
+}
+
+}  // namespace
+
+ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
+    // the arrays of the run freed, the pool gives back to the device what it
+    // holds beyond the use of the run's steps (all it holds unused when the
+    // run fails), so that a process holds what its runs use and not the most
+    // they ever did
+    std::size_t keep = 0;
+    ScfResult result;
+    try {
+        result = run(input, options, state, keep);
+    } catch (...) {
+        give_back(0);
+        throw;
+    }
+    give_back(keep);
     return result;
 }
 

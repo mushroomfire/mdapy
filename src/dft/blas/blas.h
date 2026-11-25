@@ -10,9 +10,12 @@
 // the kernels of MDAPY they are its own; with those of the vendor, and for what
 // MDAPY has no kernel for, they are cuBLAS's (hipBLAS's on AMD GPUs).
 //
-// MDAPY's product computes a tile of 32 x 32 values of the result per block,
-// each thread 4 x 4 of them in registers, from 16 columns of op(a) and 16 rows
-// of op(b) at a time in shared memory. A product whose result is small and
+// MDAPY's product computes a tile of the result per block (64 x 64 to 128 x
+// 128 values), each thread 8 x 8 real or 4 x 4 complex ones in registers, from
+// 8 or 16 columns of op(a) and rows of op(b) at a time in shared memory. On
+// the NVIDIA GPUs of full double precision (compute capability 8.0, 9.0 and
+// 10.0) the products of double precision run on the tensor cores instead
+// (dmma.cuh): the same sums in another order. A product whose result is small and
 // whose sum is long (the inner products of the bands: a few hundred squared
 // values, each a sum over 1e4 to 1e5 plane waves) is split along the sum: each
 // block sums a segment into a partial result, and a second kernel adds the
@@ -93,14 +96,16 @@ private:
     void own_trsm(int m, int n, const S* r, int ldr, S* b, int ldb);
 
     cublasHandle_t vendor();
-    // whether the products of double precision run on the tensor cores of this GPU
-    bool tensor_cores();
+    // finds what the products ask of the GPU, at the first of them
+    void look();
 
     Kernels kernels_;
     cublasHandle_t vendor_ = nullptr;  // of the library of the vendor, made at its first use
     DeviceArray<double> partial_;  // the partial results of a split product
     int most_segments_ = 0;
-    int tensor_ = -1;  // tensor_cores(), found at the first product
+    int processors_ = 0;   // multiprocessors of the GPU; 0 before look()
+    bool tensor_ = false;  // the products of double precision run on the tensor cores of this GPU
+    bool maps_ = false;    // their tiles are copied whole by one instruction (compute capability 9.0)
 };
 
 }  // namespace mdapy::dft

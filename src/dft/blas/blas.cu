@@ -3,9 +3,10 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Nothing here depends on the size of a warp or of a wavefront: the threads of
-// a block (64, or 256 in the small routines) share the work by their index and
-// meet at barriers of the block.
+// Nothing here depends on the size of a warp or of a wavefront, but the layout
+// in shared memory of the products, chosen for warps of 32, and the products
+// on the tensor cores of NVIDIA (dmma.cuh): the threads of a block (64 or 256)
+// share the work by their index and meet at barriers of the block.
 
 #include "dft/blas/blas.h"
 
@@ -24,6 +25,10 @@
 #include <mutex>
 #include <tuple>
 #include <vector>
+#endif
+
+#if defined(__linux__)
+#include <dlfcn.h>
 #endif
 
 #include "dft/core/check.h"
@@ -106,29 +111,31 @@ __device__ __forceinline__ Cx<R> quotient(Cx<R> a, Cx<R> b) {
 
 // ---------------------------------------------------------------- product
 
-constexpr int kBlock = 64;    // threads of a block of a product, 8 x 8
-constexpr int kSide = 8;
+constexpr int kBlock = 64;     // threads of a block of a triangular solve
 constexpr int kThreads = 256;  // of the small routines
 
 // What a thread and a block of a product hold: each thread MM x MN values of
-// the result in registers, the block (8 MM) x (8 MN) of them, from depth terms
-// of the sum in shared memory at a time. Real numbers take more values a
-// thread than complex ones, which are two each. Measured on an RTX A2000
+// the result in registers, the block of Side x Side threads (Side MM) x
+// (Side MN) of them, from Depth terms of the sum in shared memory at a time.
+// Real numbers take more values a thread than complex ones, which are two
+// each. Single precision measured on an RTX A2000, where every instruction
+// counts; double on a V100, where the memory does: larger blocks, which read
+// less of the matrices for a product, and fewer terms, for the registers
 // (tests/cpp/dft_blas_check.cu).
-#ifndef MDAPY_BLAS_REAL
-#define MDAPY_BLAS_REAL 8, 8, 16
-#endif
-#ifndef MDAPY_BLAS_COMPLEX
-#define MDAPY_BLAS_COMPLEX 4, 4, 16
-#endif
-template <int MM, int MN, int Depth>
+template <int MM, int MN, int Depth, int Side>
 struct Form {
-    static constexpr int mm = MM, mn = MN, depth = Depth;
+    static constexpr int mm = MM, mn = MN, depth = Depth, side = Side, threads = Side * Side;
 };
 template <class S>
-struct Tiles : Form<MDAPY_BLAS_REAL> {};
-template <class R>
-struct Tiles<Cx<R>> : Form<MDAPY_BLAS_COMPLEX> {};
+struct Tiles;
+template <>
+struct Tiles<float> : Form<8, 8, 16, 8> {};
+template <>
+struct Tiles<double> : Form<8, 8, 8, 16> {};
+template <>
+struct Tiles<Cx<float>> : Form<4, 4, 16, 8> {};
+template <>
+struct Tiles<Cx<double>> : Form<4, 4, 8, 16> {};
 
 struct GemmArgs {
     int m, n, k;
@@ -139,21 +146,38 @@ struct GemmArgs {
     int segments, length;
     // not split: block z is product z of a batch
     long long stride_a, stride_b, stride_c;
+    // the tiles of the rows of the result along the second index of the grid of blocks
+    int swap;
 };
 
 // See the top of blas.h. op(a)[i, t] is a[i + t lda], or a[t + i lda] with
 // TransA; op(b)[t, j] is b[t + j ldb], or b[j + t ldb] with TransB: each tile
 // is read along the columns of its matrix. Values outside the matrices are
 // zeros in shared memory, so that the sums take no bounds.
+//
+// The terms come in chunks of kDepth through two buffers in shared memory:
+// while a chunk is summed from one, the next goes to the other, a few values
+// between two terms, each read from memory before the sums of a term and
+// stored after them, so that the sums hide its wait; one barrier a chunk.
+//
+// In shared memory a row of a tile is padded, so that the stores of a warp,
+// which go along the terms for a matrix read along them, meet few conflicts of
+// banks. In double precision the values of a thread lie apart, value p of
+// every thread side by side: a warp reads them without conflicts.
 template <class S, bool TransA, bool TransB>
 __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
                             const S* __restrict__ b, S* c, S* partial) {
     constexpr int kMM = Tiles<S>::mm, kMN = Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    constexpr int kSide = Tiles<S>::side, kTeam = Tiles<S>::threads;  // threads of the block
     constexpr int kTM = kSide * kMM, kTN = kSide * kMN;  // values of the result of a block along each index
-    constexpr int kLoadsA = kTM * kDepth / kBlock, kLoadsB = kTN * kDepth / kBlock;  // of a thread at a time
-    __shared__ S as[kDepth * kTM], bs[kDepth * kTN];
+    constexpr int kLoadsA = kTM * kDepth / kTeam, kLoadsB = kTN * kDepth / kTeam;  // of a thread and a chunk
+    constexpr int kLoads = kLoadsA + kLoadsB;
+    constexpr int kPM = kTM + (sizeof(S) == 4 ? 4 : 2), kPN = kTN + (sizeof(S) == 4 ? 4 : 2);
+    constexpr bool kApart = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
+    __shared__ S as[2][kDepth * kPM], bs[2][kDepth * kPN];
     const unsigned tid = threadIdx.x;
-    const unsigned i0 = blockIdx.x * kTM, j0 = blockIdx.y * kTN, z = blockIdx.z;
+    const unsigned i0 = (g.swap ? blockIdx.y : blockIdx.x) * kTM, j0 = (g.swap ? blockIdx.x : blockIdx.y) * kTN;
+    const unsigned z = blockIdx.z;
     const unsigned m = static_cast<unsigned>(g.m), n = static_cast<unsigned>(g.n);
     unsigned first = 0, last = static_cast<unsigned>(g.k);
     if (g.segments > 1) {
@@ -164,12 +188,13 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         b += z * g.stride_b;
         c += z * g.stride_c;
     }
-    const unsigned ti = (tid % kSide) * kMM, tj = (tid / kSide) * kMN;
+    const unsigned ui = tid % kSide, uj = tid / kSide, ti = ui * kMM, tj = uj * kMN;
     const bool active = i0 + ti < m && j0 + tj < n;
-    S acc[kMM * kMN];
-#pragma unroll
-    for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
-    for (unsigned t0 = first; t0 < last; t0 += kDepth) {
+    const bool inside = i0 + kTM <= m && j0 + kTN <= n;
+    // the place in its row of shared memory of value p of thread u, of threads of mine values
+    auto place = [](unsigned u, unsigned p, int mine) { return kApart ? p * kSide + u : u * mine + p; };
+    // load q of a thread and a chunk, of a and then of b: from memory, and to a buffer
+    auto fetch = [&](int q, unsigned t0, bool whole) {
 #ifdef MDAPY_BLAS_SAME_CHUNK
         // an experiment of tests/cpp/dft_blas_check.sh, not a product: every
         // chunk reads the terms of the first, which stay in the cache, to
@@ -178,49 +203,68 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
 #else
         const unsigned t0_read = t0;
 #endif
-        S va[kLoadsA], vb[kLoadsB];
-#pragma unroll
-        for (int q = 0; q < kLoadsA; ++q) {
-            const unsigned e = tid + q * kBlock;
+        if (q < kLoadsA) {
+            const unsigned e = tid + q * kTeam;
             const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
-            const bool in = i0 + i < m && t0 + t < last;
             const long long at = TransA ? (t0_read + t) + (i0 + i) * g.lda : (i0 + i) + (t0_read + t) * g.lda;
-            va[q] = in ? a[at] : zero_of(S{});
+            const S value = whole || (i0 + i < m && t0 + t < last) ? a[at] : zero_of(S{});
+            return g.conj_a ? conj_of(value) : value;
         }
-#pragma unroll
-        for (int q = 0; q < kLoadsB; ++q) {
-            const unsigned e = tid + q * kBlock;
-            const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
-            const bool in = j0 + j < n && t0 + t < last;
-            const long long at = TransB ? (j0 + j) + (t0_read + t) * g.ldb : (t0_read + t) + (j0 + j) * g.ldb;
-            vb[q] = in ? b[at] : zero_of(S{});
-        }
-#pragma unroll
-        for (int q = 0; q < kLoadsA; ++q) {
-            const unsigned e = tid + q * kBlock;
+        const unsigned e = tid + (q - kLoadsA) * kTeam;
+        const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
+        const long long at = TransB ? (j0 + j) + (t0_read + t) * g.ldb : (t0_read + t) + (j0 + j) * g.ldb;
+        const S value = whole || (j0 + j < n && t0 + t < last) ? b[at] : zero_of(S{});
+        return g.conj_b ? conj_of(value) : value;
+    };
+    auto store = [&](int q, unsigned buffer, S value) {
+        if (q < kLoadsA) {
+            const unsigned e = tid + q * kTeam;
             const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
-            as[t * kTM + i] = g.conj_a ? conj_of(va[q]) : va[q];
-        }
-#pragma unroll
-        for (int q = 0; q < kLoadsB; ++q) {
-            const unsigned e = tid + q * kBlock;
+            as[buffer][t * kPM + place(i / kMM, i % kMM, kMM)] = value;
+        } else {
+            const unsigned e = tid + (q - kLoadsA) * kTeam;
             const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
-            bs[t * kTN + j] = g.conj_b ? conj_of(vb[q]) : vb[q];
+            bs[buffer][t * kPN + place(j / kMN, j % kMN, kMN)] = value;
         }
-        __syncthreads();
+    };
+    S acc[kMM * kMN];
+#pragma unroll
+    for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
+    // the chunk after the one in shared memory waits in registers
+    S stage[kLoads];
+    if (first < last) {
+#pragma unroll
+        for (int q = 0; q < kLoads; ++q) store(q, 0, fetch(q, first, inside && first + kDepth <= last));
+        if (first + kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) stage[q] = fetch(q, first + kDepth, inside && first + 2 * kDepth <= last);
+        }
+    }
+    __syncthreads();
+    unsigned buffer = 0;
+    for (unsigned t0 = first; t0 < last; t0 += kDepth, buffer ^= 1) {
         if (active) {
 #pragma unroll
             for (int t = 0; t < kDepth; ++t) {
                 S x[kMM], y[kMN];
 #pragma unroll
-                for (int p = 0; p < kMM; ++p) x[p] = as[t * kTM + ti + p];
+                for (int p = 0; p < kMM; ++p) x[p] = as[buffer][t * kPM + place(ui, p, kMM)];
 #pragma unroll
-                for (int q = 0; q < kMN; ++q) y[q] = bs[t * kTN + tj + q];
+                for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + place(uj, q, kMN)];
 #pragma unroll
                 for (int q = 0; q < kMN; ++q)
 #pragma unroll
                     for (int p = 0; p < kMM; ++p) acc[p + q * kMM] = plus(acc[p + q * kMM], x[p], y[q]);
             }
+        }
+        // the next chunk to the other buffer, which the sums before these read
+        if (t0 + kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) store(q, buffer ^ 1, stage[q]);
+        }
+        if (t0 + 2 * kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) stage[q] = fetch(q, t0 + 2 * kDepth, inside && t0 + 3 * kDepth <= last);
         }
         __syncthreads();
     }
@@ -241,6 +285,18 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         }
 }
 
+#if !defined(MDAPY_GPU_HIP)
+// the compute capability the kernels of this file were compiled for, as 900
+__global__ void built_kernel(int* built) {
+#if defined(__CUDA_ARCH__)
+    *built = __CUDA_ARCH__;
+#else
+    *built = 0;
+#endif
+}
+#endif
+
+
 // c = alpha (the sum of the partial results, in their order) + beta c
 template <class S>
 __global__ void gather_kernel(int m, int n, int segments, const S alpha, const S beta, const S* __restrict__ partial,
@@ -248,8 +304,17 @@ __global__ void gather_kernel(int m, int n, int segments, const S alpha, const S
     const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
     const long long size = static_cast<long long>(m) * n;
     if (e >= size) return;
-    S total = partial[e];
-    for (int s = 1; s < segments; ++s) total = sum(total, partial[s * size + e]);
+    // read eight at a time, added in their order
+    S total = zero_of(S{});
+    int s = 0;
+    for (; s + 8 <= segments; s += 8) {
+        S part[8];
+#pragma unroll
+        for (int u = 0; u < 8; ++u) part[u] = partial[(s + u) * size + e];
+#pragma unroll
+        for (int u = 0; u < 8; ++u) total = sum(total, part[u]);
+    }
+    for (; s < segments; ++s) total = sum(total, partial[s * size + e]);
     S* to = c + e % m + (e / m) * ldc;
     const S value = product(alpha, total);
     *to = is_zero(beta) ? value : plus(value, beta, *to);
@@ -406,7 +471,7 @@ void launch_ger(int m, int n, S alpha, const S* x, int incx, const S* y, int inc
 
 template <class S, bool TransA, bool TransB>
 void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
-    gemm_kernel<S, TransA, TransB><<<grid, kBlock>>>(g, alpha, beta, a, b, c, partial);
+    gemm_kernel<S, TransA, TransB><<<grid, Tiles<S>::threads>>>(g, alpha, beta, a, b, c, partial);
     check_cuda(cudaGetLastError(), "a product of matrices");
 }
 
@@ -416,24 +481,31 @@ void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, cons
 
 Blas::Blas(Kernels kernels) : kernels_(kernels) {}
 
-// The tensor cores take the products of double precision on the GPUs of full
-// double precision (compute capability 8.0, 9.0 and 10.0: A100, H100 and
-// GH200, B200), not on the others, whose double precision is a small part of
-// their single; MDAPY_DFT_DMMA=0 turns them off, for comparisons.
-bool Blas::tensor_cores() {
+// What the products ask of the GPU, found at the first one. The tensor cores
+// take the products of double precision on the GPUs of full double precision
+// (compute capability 8.0, 9.0 and 10.0: A100, H100 and GH200, B200), not on
+// the others, whose double precision is a small part of their single;
+// MDAPY_DFT_DMMA=0 turns them off, for comparisons. The kernels that run may
+// be those of an older capability than the GPU's, which decide.
+void Blas::look() {
+    if (processors_ > 0) return;
+    int device = 0, major = 0, minor = 0, built = 0;
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice");
 #if defined(MDAPY_GPU_HIP)
-    return false;
+    check_cuda(hipDeviceGetAttribute(&processors_, hipDeviceAttributeMultiprocessorCount, device), "the multiprocessors");
 #else
-    if (tensor_ < 0) {
-        int device = 0, major = 0, minor = 0;
-        check_cuda(cudaGetDevice(&device), "cudaGetDevice");
-        check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
-        check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
-        const char* off = std::getenv("MDAPY_DFT_DMMA");
-        tensor_ = (minor == 0 && (major == 8 || major == 9 || major == 10)) && !(off != nullptr && off[0] == '0');
-    }
-    return tensor_ == 1;
+    check_cuda(cudaDeviceGetAttribute(&processors_, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
+    check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
+    check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
+    partial_.reserve(1);
+    built_kernel<<<1, 1>>>(reinterpret_cast<int*>(partial_.data()));
+    check_cuda(cudaGetLastError(), "the capability of the kernels");
+    check_cuda(cudaMemcpy(&built, partial_.data(), sizeof(int), cudaMemcpyDeviceToHost), "the capability of the kernels");
+    const char* off = std::getenv("MDAPY_DFT_DMMA");
+    tensor_ = minor == 0 && (major == 8 || major == 9 || major == 10) && built >= 800 && !(off != nullptr && off[0] == '0');
+    maps_ = tensor_ && major >= 9 && built >= 900;
 #endif
+    if (processors_ < 1) processors_ = 1;
 }
 
 // made at its first use: a calculation with MDAPY's kernels takes none
@@ -467,7 +539,8 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     g.stride_a = stride_a;
     g.stride_b = 0;
     g.stride_c = stride_c;
-    int kTM = kSide * Tiles<S>::mm, kTN = kSide * Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    look();
+    int kTM = Tiles<S>::side * Tiles<S>::mm, kTN = Tiles<S>::side * Tiles<S>::mn, kDepth = Tiles<S>::depth;
 #if !defined(MDAPY_GPU_HIP)
     constexpr bool kTensorType = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
 #else
@@ -475,16 +548,22 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
 #endif
     bool tensor = false;
     if constexpr (kTensorType) {
-        tensor = tensor_cores();
+        tensor = tensor_;
         if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk;
     }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
-    // a small result of long sums: segments of at least 512 terms, as many as
-    // give about 2048 blocks
-    constexpr long long kWanted = 2048;
-    if (batch == 1 && most_segments_ != 1 && tiles < kWanted && k >= 1024) {
-        long long segments = (kWanted + tiles - 1) / tiles;
-        if (segments > k / 512) segments = k / 512;
+    // A small result of long sums: segments of at least least terms, as many
+    // as give the blocks wanted: four to a multiprocessor of the large blocks
+    // (256 threads), of which it holds one or two, and 2048 of the small ones.
+    // Measured on a GH200, a V100 and an RTX A2000.
+    long long wanted = 2048, least = 512;
+    if (tensor)
+        wanted = 4LL * processors_, least = 256;
+    else if (Tiles<S>::threads > 64)
+        wanted = 4LL * processors_, least = 128;
+    if (batch == 1 && most_segments_ != 1 && tiles < wanted && k >= 2 * least) {
+        long long segments = (wanted + tiles - 1) / tiles;
+        if (segments > k / least) segments = k / least;
         const long long most = most_segments_ > 0 ? most_segments_ : 256;
         if (segments > most) segments = most;
         if (segments > 1) {
@@ -500,37 +579,36 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         partial_.reserve(values * sizeof(S) / sizeof(double) + 1);
         partial = reinterpret_cast<S*>(partial_.data());
     }
-    const dim3 grid(static_cast<unsigned>((m + kTM - 1) / kTM), static_cast<unsigned>((n + kTN - 1) / kTN),
-                    static_cast<unsigned>(g.segments > 1 ? g.segments : batch));
+    dim3 grid(static_cast<unsigned>((m + kTM - 1) / kTM), static_cast<unsigned>((n + kTN - 1) / kTN),
+              static_cast<unsigned>(g.segments > 1 ? g.segments : batch));
+    // The blocks run in the order of the first index of their grid: along
+    // the index of fewer tiles, the blocks at work together share the most of
+    // the two matrices, which then come from the cache.
+    if (grid.y < grid.x && grid.x <= 65535) {
+        g.swap = 1;
+        grid = dim3(grid.y, grid.x, grid.z);
+    }
     const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
     if constexpr (kTensorType) {
         if (tensor) {
-            // real values in pairs of 16 bytes where every column starts on 16 bytes
+            // copies of 16 bytes where every column starts on 16 bytes, as those of complex values do
             const auto even = [](const void* p, long long ld) {
                 return reinterpret_cast<std::uintptr_t>(p) % 16 == 0 && ld % 2 == 0;
             };
-            const bool vec = std::is_same_v<S, double> && even(a, lda) && even(b, ldb) &&
-                             (batch == 1 || stride_a % 2 == 0) && (batch == 1 || stride_c % 2 == 0);
-            const auto launch = [&](auto vector) {
-                constexpr bool V = decltype(vector)::value;
-                if (trans_a && trans_b)
-                    launch_dmma<S, true, true, V>(g, grid, alpha, beta, a, b, c, partial);
-                else if (trans_a)
-                    launch_dmma<S, true, false, V>(g, grid, alpha, beta, a, b, c, partial);
-                else if (trans_b)
-                    launch_dmma<S, false, true, V>(g, grid, alpha, beta, a, b, c, partial);
-                else
-                    launch_dmma<S, false, false, V>(g, grid, alpha, beta, a, b, c, partial);
+            const bool wide = !std::is_same_v<S, double> ||
+                              (even(a, lda) && even(b, ldb) && (batch == 1 || stride_a % 2 == 0));
+            const auto launch = [&](auto copy) {
+                constexpr int C = decltype(copy)::value;
+                if (trans_a && trans_b) return launch_dmma<S, true, true, C>(g, grid, alpha, beta, a, b, c, partial);
+                if (trans_a) return launch_dmma<S, true, false, C>(g, grid, alpha, beta, a, b, c, partial);
+                if (trans_b) return launch_dmma<S, false, true, C>(g, grid, alpha, beta, a, b, c, partial);
+                return launch_dmma<S, false, false, C>(g, grid, alpha, beta, a, b, c, partial);
             };
-            // complex values are copied 16 bytes at a time anyway
-            if constexpr (std::is_same_v<S, double>) {
-                if (vec) {
-                    launch(std::true_type{});
-                } else {
-                    launch(std::false_type{});
-                }
-            } else {
-                launch(std::false_type{});
+            if (!(wide && batch == 1 && maps_ && launch(std::integral_constant<int, kCopyMaps>{}))) {
+                if (wide)
+                    launch(std::integral_constant<int, kCopy16>{});
+                else if constexpr (std::is_same_v<S, double>)
+                    launch(std::integral_constant<int, kCopy8>{});
             }
         }
     }
@@ -624,9 +702,9 @@ struct Probe {
 #define MDAPY_PROBE(routine, ta, tb, m, n, k)
 #endif
 
-// whether the grid of a product fits: see own_gemm
+// whether the grid of a product fits (a tile has 32 columns or more): see own_gemm
 bool fits(int n, int batch) {
-    return n / kSide <= 65535 && batch <= 65535;
+    return n / 32 <= 65535 && batch <= 65535;
 }
 
 }  // namespace

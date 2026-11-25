@@ -4,76 +4,37 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Products of double precision on the tensor cores of NVIDIA GPUs from compute
-// capability 8.0 (mma.sync m8n8k4 of f64, true FP64 in another order of its
-// sums), for blas.cu, which includes it inside its namespace after GemmArgs:
-// real numbers, and complex ones as four real products of their parts.
+// capability 8.0 (mma.sync of f64, true FP64 in another order of its sums),
+// for blas.cu, which includes it inside its namespace after GemmArgs: real
+// numbers, and complex ones as four real products of their parts.
 //
-// A block holds BM x BN values of the result, its warps 32 x 32 each as 4 x 4
-// products of 8 x 8, from BK terms of the sum at a time in shared memory,
-// copied there by cp.async in Stages stages, those outside the matrices zeros.
-// Each matrix is kept in shared memory with the index it is read along in
-// memory contiguous, rows padded to 4 modulo 16 values, so that the copies and
-// the reads of the fragments of a half-warp meet no conflicts of banks.
-// Complex values are kept as their real and imaginary parts apart.
+// A block holds BM x BN values of the result, its warps WM x WN each as
+// products of 16 x 8 (8 x 8 on capability 8.0), from BK terms of the sum at a
+// time in shared memory, there in Stages stages, those outside the matrices
+// zeros. Each matrix is kept in shared memory as it lies in memory, the index
+// it is contiguous along first, complex values as they are, rows padded so
+// that the copies and the reads of the fragments meet no more conflicts of
+// banks than their sizes need.
 
 #if !defined(MDAPY_GPU_HIP)
 
-// a block of BM x BN values of the result from BK terms at a time in Stages
-// stages, its warps WM x WN each
-template <int BM, int BN, int BK, int Stages, int WM, int WN>
+// per: the blocks a multiprocessor is to hold at once, which bounds the registers of a thread
+template <int BM, int BN, int BK, int Stages, int WM, int WN, int Per>
 struct DmmaTiles {
-    static constexpr int bm = BM, bn = BN, bk = BK, stages = Stages, wm = WM, wn = WN;
+    static constexpr int bm = BM, bn = BN, bk = BK, stages = Stages, wm = WM, wn = WN, per = Per;
     static constexpr int threads = (BM / WM) * (BN / WN) * 32;
-    static_assert(WM % 16 == 0 && WN % 8 == 0 && BK % 8 == 0, "the warps hold whole products of 16 x 8 x 8");
+    static_assert(WM % 16 == 0 && WN % 8 == 0 && BK % 4 == 0, "the warps hold whole products of 16 x 8 x 4");
     static_assert(BM * BK % threads == 0 && BN * BK % threads == 0, "the copies share the threads evenly");
 };
-// the tiles of real (R) and complex (C) products, one macro each, for measurements
-#ifndef MDAPY_DMMA_R_BM
-#define MDAPY_DMMA_R_BM 128
-#endif
-#ifndef MDAPY_DMMA_R_BN
-#define MDAPY_DMMA_R_BN 64
-#endif
-#ifndef MDAPY_DMMA_R_BK
-#define MDAPY_DMMA_R_BK 16
-#endif
-#ifndef MDAPY_DMMA_R_STAGES
-#define MDAPY_DMMA_R_STAGES 3
-#endif
-#ifndef MDAPY_DMMA_R_WM
-#define MDAPY_DMMA_R_WM 32
-#endif
-#ifndef MDAPY_DMMA_R_WN
-#define MDAPY_DMMA_R_WN 32
-#endif
-#ifndef MDAPY_DMMA_C_BM
-#define MDAPY_DMMA_C_BM 64
-#endif
-#ifndef MDAPY_DMMA_C_BN
-#define MDAPY_DMMA_C_BN 64
-#endif
-#ifndef MDAPY_DMMA_C_BK
-#define MDAPY_DMMA_C_BK 16
-#endif
-#ifndef MDAPY_DMMA_C_STAGES
-#define MDAPY_DMMA_C_STAGES 2
-#endif
-#ifndef MDAPY_DMMA_C_WM
-#define MDAPY_DMMA_C_WM 32
-#endif
-#ifndef MDAPY_DMMA_C_WN
-#define MDAPY_DMMA_C_WN 16
-#endif
-#define MDAPY_DMMA_REAL MDAPY_DMMA_R_BM, MDAPY_DMMA_R_BN, MDAPY_DMMA_R_BK, MDAPY_DMMA_R_STAGES, MDAPY_DMMA_R_WM, MDAPY_DMMA_R_WN
-#define MDAPY_DMMA_COMPLEX MDAPY_DMMA_C_BM, MDAPY_DMMA_C_BN, MDAPY_DMMA_C_BK, MDAPY_DMMA_C_STAGES, MDAPY_DMMA_C_WM, MDAPY_DMMA_C_WN
+// measured on a GH200 (tests/cpp/dft_blas_check.cu)
 template <class S>
 struct DmmaForm;
 template <>
-struct DmmaForm<double> : DmmaTiles<MDAPY_DMMA_REAL> {
+struct DmmaForm<double> : DmmaTiles<128, 64, 32, 2, 32, 32, 2> {
     static constexpr int parts = 1;
 };
 template <>
-struct DmmaForm<Cx<double>> : DmmaTiles<MDAPY_DMMA_COMPLEX> {
+struct DmmaForm<Cx<double>> : DmmaTiles<64, 64, 16, 2, 32, 16, 2> {
     static constexpr int parts = 2;
 };
 
@@ -93,14 +54,33 @@ template <class S, bool Trans>
 __host__ __device__ constexpr int dmma_size(int rows) {
     return (Trans ? rows : DmmaForm<S>::bk) * dmma_pitch<S, Trans>(rows);
 }
-// the doubles of the shared memory of a block: its stages of a and b
+// the doubles of the shared memory of a block: a barrier of the copies of each
+// stage (in 128 bytes, on which the tiles of the maps start), then its stages
+// of a and b
+template <class S>
+__host__ __device__ constexpr int dmma_bars() {
+    return 16 * ((DmmaForm<S>::stages + 15) / 16);
+}
 template <class S, bool TransA, bool TransB>
 __host__ __device__ constexpr int dmma_shared() {
     using F = DmmaForm<S>;
-    return F::stages * F::parts * (dmma_size<S, TransA>(F::bm) + dmma_size<S, !TransB>(F::bn));
+    return dmma_bars<S>() + F::stages * F::parts * (dmma_size<S, TransA>(F::bm) + dmma_size<S, !TransB>(F::bn));
 }
 
-// Bytes copies 8 or 16 bytes, of which in come from memory and the rest are zeros.
+// Copies Bytes (8 or 16) from memory into shared memory, all of them or the
+// first in with zeros after them.
+template <int Bytes>
+__device__ __forceinline__ void copy_async(double* to, const double* from) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
+    const unsigned address = static_cast<unsigned>(__cvta_generic_to_shared(to));
+    if constexpr (Bytes == 16)
+        asm volatile("cp.async.cg.shared.global [%0], [%1], 16;\n" ::"r"(address), "l"(from));
+    else
+        asm volatile("cp.async.ca.shared.global [%0], [%1], 8;\n" ::"r"(address), "l"(from));
+#else
+    for (unsigned e = 0; e < Bytes / 8; ++e) to[e] = from[e];
+#endif
+}
 template <int Bytes>
 __device__ __forceinline__ void copy_async(double* to, const double* from, unsigned in) {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
@@ -127,71 +107,106 @@ __device__ __forceinline__ void wait_async() {
 #endif
 }
 
-// d += a b of an 8 x 4 by 4 x 8 product: a[g, t], b[t, g], d[g, 2 t + i] of
-// the lane 4 g + t
-__device__ __forceinline__ void mma_884(double& d0, double& d1, double a, double b) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
-    asm volatile("mma.sync.aligned.m8n8k4.row.col.f64.f64.f64.f64 {%0, %1}, {%2}, {%3}, {%0, %1};\n"
-                 : "+d"(d0), "+d"(d1)
-                 : "d"(a), "d"(b));
-#else
-    (void)d0, (void)d1, (void)a, (void)b;
-#endif
-}
-
-// d += a b of a 16 x 4 by 4 x 8 product (compute capability 9.0): a[g + 8 h, t]
-// in a_h, b[t, g], d[g + 8 h, 2 t + i] in d_(2 h + i)
-__device__ __forceinline__ void mma_1684(double* d, double a0, double a1, double b0) {
+// From compute capability 9.0 one instruction copies a whole tile of a matrix
+// (cp.async.bulk.tensor), described to the GPU by a map of the matrix that
+// the driver encodes; values outside the matrix arrive as zeros. A barrier in
+// shared memory (mbarrier) of each stage counts the bytes that have arrived.
+struct alignas(64) DmmaMap {
+    unsigned long long opaque[16];  // CUtensorMap of the driver
+};
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+__device__ __forceinline__ void bar_init(double* bar) {
+    asm volatile("mbarrier.init.shared::cta.b64 [%0], 1;\n" ::"r"(static_cast<unsigned>(__cvta_generic_to_shared(bar))));
+}
+__device__ __forceinline__ void bar_fence() { asm volatile("fence.mbarrier_init.release.cluster;\n" ::); }
+// the barrier completes once bytes more have arrived
+__device__ __forceinline__ void bar_expect(double* bar, unsigned bytes) {
+    asm volatile("mbarrier.arrive.expect_tx.shared::cta.b64 _, [%0], %1;\n" ::"r"(
+                     static_cast<unsigned>(__cvta_generic_to_shared(bar))),
+                 "r"(bytes)
+                 : "memory");
+}
+// waits until the barrier has completed for the time of this parity (0, 1, 0, ...)
+__device__ __forceinline__ void bar_wait(double* bar, unsigned parity) {
+    const unsigned address = static_cast<unsigned>(__cvta_generic_to_shared(bar));
+    unsigned done = 0;
+    while (done == 0)
+        asm volatile("{\n.reg .pred p;\nmbarrier.try_wait.parity.shared::cta.b64 p, [%1], %2;\nselp.u32 %0, 1, 0, p;\n}\n"
+                     : "=r"(done)
+                     : "r"(address), "r"(parity)
+                     : "memory");
+}
+// the box of the map that starts at (along, across) into shared memory
+__device__ __forceinline__ void copy_box(double* to, const DmmaMap* map, int along, int across, double* bar) {
+    asm volatile(
+        "cp.async.bulk.tensor.2d.shared::cluster.global.mbarrier::complete_tx::bytes [%0], [%1, {%2, %3}], [%4];\n" ::"r"(
+            static_cast<unsigned>(__cvta_generic_to_shared(to))),
+        "l"(map), "r"(along), "r"(across), "r"(static_cast<unsigned>(__cvta_generic_to_shared(bar)))
+        : "memory");
+}
+#else
+__device__ __forceinline__ void bar_init(double*) {}
+__device__ __forceinline__ void bar_fence() {}
+__device__ __forceinline__ void bar_expect(double*, unsigned) {}
+__device__ __forceinline__ void bar_wait(double*, unsigned) {}
+__device__ __forceinline__ void copy_box(double*, const DmmaMap*, int, int, double*) {}
+#endif
+
+// The product of an instruction: kDmmaRows x 4 by 4 x 8, the rows 16 on
+// compute capability 9.0 (m16n8k4) and 8 on 8.0 (m8n8k4). The lane 4 g + t
+// holds a[g + 8 v, t] in a[v], b[t, g] in b and d[g + 8 v, 2 t + e] in
+// d[2 v + e]; d += a b.
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+constexpr int kDmmaRows = 16;
+__device__ __forceinline__ void mma(double* d, const double* a, double b) {
     asm volatile("mma.sync.aligned.m16n8k4.row.col.f64.f64.f64.f64 {%0, %1, %2, %3}, {%4, %5}, {%6}, {%0, %1, %2, %3};\n"
                  : "+d"(d[0]), "+d"(d[1]), "+d"(d[2]), "+d"(d[3])
-                 : "d"(a0), "d"(a1), "d"(b0));
-#else
-    (void)d, (void)a0, (void)a1, (void)b0;
-#endif
+                 : "d"(a[0]), "d"(a[1]), "d"(b));
 }
-
-// d += a b of a 16 x 8 by 8 x 8 product (compute capability 9.0): a[g + 8 h,
-// t + 4 w] in a_(h + 2 w), b[t + 4 w, g] in b_w, d as mma_1684
-__device__ __forceinline__ void mma_1688(double* d, const double* a, const double* b) {
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
-    asm volatile(
-        "mma.sync.aligned.m16n8k8.row.col.f64.f64.f64.f64 {%0, %1, %2, %3}, {%4, %5, %6, %7}, {%8, %9}, {%0, %1, %2, "
-        "%3};\n"
-        : "+d"(d[0]), "+d"(d[1]), "+d"(d[2]), "+d"(d[3])
-        : "d"(a[0]), "d"(a[1]), "d"(a[2]), "d"(a[3]), "d"(b[0]), "d"(b[1]));
+#else
+constexpr int kDmmaRows = 8;
+__device__ __forceinline__ void mma(double* d, const double* a, double b) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 800
+    asm volatile("mma.sync.aligned.m8n8k4.row.col.f64.f64.f64.f64 {%0, %1}, {%2}, {%3}, {%0, %1};\n"
+                 : "+d"(d[0]), "+d"(d[1])
+                 : "d"(a[0]), "d"(b));
 #else
     (void)d, (void)a, (void)b;
 #endif
 }
-
-// the instruction of the products on compute capability 9.0: 884, 1684 or 1688
-#ifndef MDAPY_DMMA_SHAPE
-#define MDAPY_DMMA_SHAPE 1688
 #endif
 
-// Vec: the real matrices copied in pairs of values, 16 bytes at a time, for
-// leading dimensions and starts of an even number of values
-template <class S, bool TransA, bool TransB, bool Vec>
-__global__ void __launch_bounds__(DmmaForm<S>::threads)
+// x with its sign changed where flip is the sign bit, as it is where it is zero
+__device__ __forceinline__ double flipped(double x, int flip) {
+    return __hiloint2double(__double2hiint(x) ^ flip, __double2loint(x));
+}
+
+// Copy: how the matrices come to shared memory. kCopy8: 8 bytes a copy, for
+// real matrices with a column that does not start on 16 bytes; kCopy16: 16
+// bytes a copy; kCopyMaps: whole tiles through the maps (compute capability
+// 9.0, columns on 16 bytes, one product).
+constexpr int kCopy8 = 0, kCopy16 = 1, kCopyMaps = 2;
+template <class S, bool TransA, bool TransB, int Copy>
+__global__ void __launch_bounds__(DmmaForm<S>::threads, DmmaForm<S>::per)
     dmma_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,
-                S* partial) {
+                S* partial, const __grid_constant__ DmmaMap map_a, const __grid_constant__ DmmaMap map_b) {
     using F = DmmaForm<S>;
     constexpr int kBM = F::bm, kBN = F::bn, kBK = F::bk, kStages = F::stages, kParts = F::parts;
     constexpr int kWarpsM = kBM / F::wm, kThreads = F::threads;
-    // the rows and columns of products of 8 x 8 of a warp
-    constexpr int kAM = F::wm / 8, kAN = F::wn / 8;
+    // the products of a warp along each index, and the halves of 8 rows of one
+    constexpr int kAM = F::wm / kDmmaRows, kAN = F::wn / 8, kHalves = kDmmaRows / 8;
     // the pitch of the rows of each matrix in shared memory and the values of a stage, of S
     constexpr int kPitchA = dmma_pitch<S, TransA>(kBM), kPitchB = dmma_pitch<S, !TransB>(kBN);
     constexpr int kSizeA = dmma_size<S, TransA>(kBM), kSizeB = dmma_size<S, !TransB>(kBN);
-    extern __shared__ __align__(16) double shared[];
-    double* as = shared;                                // [stage][value][part]
-    double* bs = shared + kStages * kParts * kSizeA;  // [stage][value][part]
+    extern __shared__ __align__(128) double shared[];
+    double* as = shared + dmma_bars<S>();        // [stage][value][part]
+    double* bs = as + kStages * kParts * kSizeA;  // [stage][value][part]
 
     const unsigned tid = threadIdx.x, lane = tid % 32, warp = tid / 32;
     const unsigned gi = lane / 4, ti = lane % 4;
     const unsigned wm = (warp % kWarpsM) * F::wm, wn = (warp / kWarpsM) * F::wn;
-    const unsigned i0 = blockIdx.x * kBM, j0 = blockIdx.y * kBN, z = blockIdx.z;
+    const unsigned i0 = (g.swap ? blockIdx.y : blockIdx.x) * kBM, j0 = (g.swap ? blockIdx.x : blockIdx.y) * kBN;
+    const unsigned z = blockIdx.z;
     const unsigned m = static_cast<unsigned>(g.m), n = static_cast<unsigned>(g.n);
     unsigned first = 0, last = static_cast<unsigned>(g.k);
     if (g.segments > 1) {
@@ -202,241 +217,183 @@ __global__ void __launch_bounds__(DmmaForm<S>::threads)
         b += z * g.stride_b;
         c += z * g.stride_c;
     }
-    const double* ad = reinterpret_cast<const double*>(a);
-    const double* bd = reinterpret_cast<const double*>(b);
     const unsigned chunks = last > first ? (last - first + kBK - 1) / kBK : 0;
 
-    // Each copy takes kUnit values along the index a matrix is contiguous
-    // along, 16 bytes but for real values without Vec. A thread's copies keep
-    // their place in the tiles from chunk to chunk: their offsets in the
-    // matrix without the terms t0, and the values of their unit in the
-    // matrix along the other index, are found once.
-    constexpr int kUnit = kParts == 1 && Vec ? 2 : 1, kBytes = 8 * kParts * kUnit;
+    // Each matrix is copied along the index it is contiguous along in memory,
+    // kUnit values a copy (16 bytes, but for real values with kCopy8), as it
+    // lies in shared memory: copy q of a thread takes the values along,
+    // along + kUnit of the row across + q kStep of the tile.
+    constexpr int kUnit = kParts == 1 && Copy != kCopy8 ? 2 : 1, kBytes = 8 * kParts * kUnit;
+    constexpr int kLineA = (TransA ? kBK : kBM) / kUnit, kLineB = (TransB ? kBN : kBK) / kUnit;
     constexpr int kCopiesA = kBM * kBK / kUnit / kThreads, kCopiesB = kBN * kBK / kUnit / kThreads;
-    static_assert(kCopiesA * kUnit * kThreads == kBM * kBK && kCopiesB * kUnit * kThreads == kBN * kBK,
-                  "the copies share the threads evenly");
-    // the coordinates of copy q of a thread in the tile of a (i, t) and of b (j, t)
-    auto at_a = [&](int q, unsigned& i, unsigned& t) {
-        constexpr int line = (TransA ? kBK : kBM) / kUnit;  // copies along the contiguous index
-        const unsigned e = tid + q * kThreads, along = (e % line) * kUnit, across = e / line;
-        i = TransA ? across : along;
-        t = TransA ? along : across;
-    };
-    auto at_b = [&](int q, unsigned& j, unsigned& t) {
-        constexpr int line = (TransB ? kBN : kBK) / kUnit;
-        const unsigned e = tid + q * kThreads, along = (e % line) * kUnit, across = e / line;
-        j = TransB ? along : across;
-        t = TransB ? across : along;
-    };
-    long long from_a[kCopiesA], from_b[kCopiesB];
+    constexpr int kStepA = kThreads / kLineA, kStepB = kThreads / kLineB;
+    static_assert(kStepA * kLineA == kThreads && kStepB * kLineB == kThreads, "the threads copy whole rows");
+    const unsigned along_a = (tid % kLineA) * kUnit, across_a = tid / kLineA;
+    const unsigned along_b = (tid % kLineB) * kUnit, across_b = tid / kLineB;
+    // the first copies of the thread: in memory at the term 0, and in a stage
+    const double* from_a = reinterpret_cast<const double*>(
+        a + (TransA ? along_a + (i0 + across_a) * g.lda : i0 + along_a + across_a * g.lda));
+    const double* from_b = reinterpret_cast<const double*>(
+        b + (TransB ? j0 + along_b + across_b * g.ldb : along_b + (j0 + across_b) * g.ldb));
+    const long long step_a = kParts * kStepA * g.lda, step_b = kParts * kStepB * g.ldb;
+    const unsigned to_a = (across_a * kPitchA + along_a) * kParts, to_b = (across_b * kPitchB + along_b) * kParts;
+    const bool inside = i0 + kBM <= m && j0 + kBN <= n;
+    const bool active = i0 + wm < m && j0 + wn < n;  // the warp holds values of the result
+    if constexpr (Copy == kCopyMaps) {
+        static_assert(kParts * kSizeA % 16 == 0 && kParts * kSizeB % 16 == 0, "the tiles of the maps start on 128 bytes");
+        if (tid == 0) {
 #pragma unroll
-    for (int q = 0; q < kCopiesA; ++q) {
-        unsigned i, t;
-        at_a(q, i, t);
-        from_a[q] = TransA ? t + (i0 + i) * g.lda : (i0 + i) + t * g.lda;
-    }
-#pragma unroll
-    for (int q = 0; q < kCopiesB; ++q) {
-        unsigned j, t;
-        at_b(q, j, t);
-        from_b[q] = TransB ? j0 + j + t * g.ldb : t + (j0 + j) * g.ldb;
+            for (int s = 0; s < kStages; ++s) bar_init(shared + s);
+            bar_fence();
+        }
+        __syncthreads();
+        // the first thread copies for all: a warp outside the result has nothing to do
+        if (!active) return;
     }
 
     // the terms [t0, t0 + kBK) of the block's rows of op(a) and columns of op(b) into a stage
     auto load = [&](unsigned stage, unsigned t0) {
-        double* to_a = as + stage * kParts * kSizeA;
-        double* to_b = bs + stage * kParts * kSizeB;
-        const bool whole = t0 + kBK <= last;  // no term of the chunk beyond the last
-        const long long shift_a = TransA ? t0 : t0 * g.lda, shift_b = TransB ? t0 * g.ldb : t0;
-        // the values of a unit of copies within the matrix: kUnit, fewer at its end, or none
-        auto values = [](unsigned at, unsigned end) { return at < end ? (at + kUnit <= end ? kUnit : end - at) : 0u; };
+        if constexpr (Copy == kCopyMaps) {
+            // the tiles with their padding, of doubles along the first index of the maps
+            if (tid == 0) {
+                const int term = t0, i = i0, j = j0;
+                bar_expect(shared + stage, 8 * kParts * (kSizeA + kSizeB));
+                copy_box(as + stage * kParts * kSizeA, &map_a, kParts * (TransA ? term : i), TransA ? i : term,
+                         shared + stage);
+                copy_box(bs + stage * kParts * kSizeB, &map_b, kParts * (TransB ? j : term), TransB ? term : j,
+                         shared + stage);
+            }
+            return;
+        }
+        double* sa = as + stage * kParts * kSizeA + to_a;
+        double* sb = bs + stage * kParts * kSizeB + to_b;
+        const long long term = t0;
+        const double* pa = from_a + kParts * (TransA ? term : term * g.lda);
+        const double* pb = from_b + kParts * (TransB ? term * g.ldb : term);
+        if (inside && t0 + kBK <= last) {
+#pragma unroll
+            for (int q = 0; q < kCopiesA; ++q) copy_async<kBytes>(sa + q * kStepA * kPitchA * kParts, pa + q * step_a);
+#pragma unroll
+            for (int q = 0; q < kCopiesB; ++q) copy_async<kBytes>(sb + q * kStepB * kPitchB * kParts, pb + q * step_b);
+            return;
+        }
+        // at the edges: the bytes of a copy within the matrix, zeros after them
+        auto bytes = [](unsigned along, unsigned across, unsigned end_along, unsigned end_across) {
+            if (across >= end_across || along >= end_along) return 0u;
+            return 8u * kParts * (along + kUnit <= end_along ? kUnit : end_along - along);
+        };
+        const unsigned terms = last - t0;
 #pragma unroll
         for (int q = 0; q < kCopiesA; ++q) {
-            unsigned i, t;
-            at_a(q, i, t);
-            // with TransA the unit runs along the terms, else along the rows
-            unsigned count = TransA ? (i0 + i < m ? kUnit : 0u) : values(i0 + i, m);
-            if (!whole) count = TransA ? (count == 0 ? 0u : values(t0 + t, last)) : (t0 + t < last ? count : 0u);
-            const double* from = count > 0 ? ad + (from_a[q] + shift_a) * kParts : ad;
-            copy_async<kBytes>(to_a + (TransA ? i * kPitchA + t : t * kPitchA + i) * kParts, from, count * 8 * kParts);
+            const unsigned across = across_a + q * kStepA;
+            const unsigned in = TransA ? bytes(along_a, across, terms, m - i0) : bytes(along_a, across, m - i0, terms);
+            copy_async<kBytes>(sa + q * kStepA * kPitchA * kParts, in > 0 ? pa + q * step_a : from_a, in);
         }
 #pragma unroll
         for (int q = 0; q < kCopiesB; ++q) {
-            unsigned j, t;
-            at_b(q, j, t);
-            unsigned count = TransB ? values(j0 + j, n) : (j0 + j < n ? kUnit : 0u);
-            if (!whole) count = TransB ? (t0 + t < last ? count : 0u) : (count == 0 ? 0u : values(t0 + t, last));
-            const double* from = count > 0 ? bd + (from_b[q] + shift_b) * kParts : bd;
-            copy_async<kBytes>(to_b + (TransB ? t * kPitchB + j : j * kPitchB + t) * kParts, from, count * 8 * kParts);
+            const unsigned across = across_b + q * kStepB;
+            const unsigned in = TransB ? bytes(along_b, across, n - j0, terms) : bytes(along_b, across, terms, n - j0);
+            copy_async<kBytes>(sb + q * kStepB * kPitchB * kParts, in > 0 ? pb + q * step_b : from_b, in);
         }
     };
 
-    // a value of S in shared memory as its parts
-    auto part = [&](const double* tile, unsigned place, double* to) {
-        if constexpr (kParts == 2) {
-            const double2 v = reinterpret_cast<const double2*>(tile)[place];
-            to[0] = v.x;
-            to[1] = v.y;
-        } else {
-            to[0] = tile[place];
-        }
-    };
-
-    // the accumulators: [p][q][part][2] of the kAM x kAN products of the warp
-    double acc[kAM][kAN][kParts][2];
+    // The sums of a warp: [product along m][along n][part][2 half + e]. Of
+    // complex numbers the real part and minus sign_b times the imaginary one,
+    // with sign the sign of the imaginary part of op(a) or op(b): from
+    // na = -sign_a sign_b ai and nb = -bi they are ar br + na bi and
+    // ar nb + na br, four real products.
+    double acc[kAM][kAN][kParts][2 * kHalves];
 #pragma unroll
-    for (int p = 0; p < kAM; ++p)
+    for (int h = 0; h < kAM; ++h)
 #pragma unroll
         for (int q = 0; q < kAN; ++q)
 #pragma unroll
-            for (int r = 0; r < kParts; ++r) acc[p][q][r][0] = acc[p][q][r][1] = 0.0;
+            for (int r = 0; r < kParts; ++r)
+#pragma unroll
+                for (int e = 0; e < 2 * kHalves; ++e) acc[h][q][r][e] = 0.0;
+    const int flip_a = g.conj_a == g.conj_b ? static_cast<int>(0x80000000u) : 0;
 
 #pragma unroll
     for (int s = 0; s < kStages - 1; ++s) {
         if (static_cast<unsigned>(s) < chunks) load(s, first + s * kBK);
         commit_async();
     }
-    // the signs of the imaginary parts: of op(a) and op(b), conjugated or not
-    const double sign_a = g.conj_a ? -1.0 : 1.0, sign_b = g.conj_b ? -1.0 : 1.0;
     for (unsigned chunk = 0; chunk < chunks; ++chunk) {
-        wait_async<kStages - 2>();
+        if constexpr (Copy == kCopyMaps) {
+            bar_wait(shared + chunk % kStages, (chunk / kStages) & 1);
+        } else {
+            wait_async<kStages - 2>();
+        }
         __syncthreads();
         // the stage computed last is free: the next chunk into it
         const unsigned next = chunk + kStages - 1;
         if (next < chunks) load(next % kStages, first + next * kBK);
         commit_async();
+        if (Copy != kCopyMaps && !active) continue;
         const double* sa = as + (chunk % kStages) * kParts * kSizeA;
         const double* sb = bs + (chunk % kStages) * kParts * kSizeB;
-#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900 && MDAPY_DMMA_SHAPE != 884
-        // the pairs of rows p = 2 h, 2 h + 1 of the accumulators are the halves
-        // of the 16 rows of the products of 16 x 8
-        constexpr int kSteps = MDAPY_DMMA_SHAPE == 1688 ? 8 : 4, kHalves = kSteps / 4;
-#pragma unroll
-        for (int t = 0; t < kBK; t += kSteps) {
-            // fa[h][part][4 w + 2 v + r]... in the order of the fragments: a[g + 8 v, t + 4 w]
-            double fa[kAM / 2][kParts][2 * kHalves], fb[kAN][kParts][kHalves];
-#pragma unroll
-            for (int h = 0; h < kAM / 2; ++h)
-#pragma unroll
-                for (int w = 0; w < kHalves; ++w)
-#pragma unroll
-                    for (int v = 0; v < 2; ++v) {
-                        const unsigned i = wm + h * 16 + v * 8 + gi, k = t + w * 4 + ti;
-                        const unsigned place = TransA ? i * kPitchA + k : k * kPitchA + i;
-                        double value[kParts];
-                        part(sa, place, value);
-#pragma unroll
-                        for (int r = 0; r < kParts; ++r) fa[h][r][2 * w + v] = value[r];
-                    }
-#pragma unroll
-            for (int q = 0; q < kAN; ++q)
-#pragma unroll
-                for (int w = 0; w < kHalves; ++w) {
-                    const unsigned j = wn + q * 8 + gi, k = t + w * 4 + ti;
-                    const unsigned place = TransB ? k * kPitchB + j : j * kPitchB + k;
-                    double value[kParts];
-                    part(sb, place, value);
-#pragma unroll
-                    for (int r = 0; r < kParts; ++r) fb[q][r][w] = value[r];
-                }
-            if constexpr (kParts == 2) {
-#pragma unroll
-                for (int h = 0; h < kAM / 2; ++h)
-#pragma unroll
-                    for (int e = 0; e < 2 * kHalves; ++e) fa[h][1][e] *= sign_a;
-#pragma unroll
-                for (int q = 0; q < kAN; ++q)
-#pragma unroll
-                    for (int w = 0; w < kHalves; ++w) fb[q][1][w] *= sign_b;
-            }
-#pragma unroll
-            for (int h = 0; h < kAM / 2; ++h)
-#pragma unroll
-                for (int q = 0; q < kAN; ++q) {
-                    // the accumulators of rows 2 h and 2 h + 1, in the order of the fragment of d
-                    double d[kParts][4];
-#pragma unroll
-                    for (int r = 0; r < kParts; ++r) {
-                        d[r][0] = acc[2 * h][q][r][0];
-                        d[r][1] = acc[2 * h][q][r][1];
-                        d[r][2] = acc[2 * h + 1][q][r][0];
-                        d[r][3] = acc[2 * h + 1][q][r][1];
-                    }
-                    auto mma = [&](double* to, const double* x, const double* y, double sign) {
-                        if constexpr (kSteps == 8) {
-                            const double xs[4] = {sign * x[0], sign * x[1], sign * x[2], sign * x[3]};
-                            mma_1688(to, xs, y);
-                        } else {
-                            mma_1684(to, sign * x[0], sign * x[1], y[0]);
-                        }
-                    };
-                    mma(d[0], fa[h][0], fb[q][0], 1.0);
-                    if constexpr (kParts == 2) {
-                        mma(d[0], fa[h][1], fb[q][1], -1.0);
-                        mma(d[1], fa[h][0], fb[q][1], 1.0);
-                        mma(d[1], fa[h][1], fb[q][0], 1.0);
-                    }
-#pragma unroll
-                    for (int r = 0; r < kParts; ++r) {
-                        acc[2 * h][q][r][0] = d[r][0];
-                        acc[2 * h][q][r][1] = d[r][1];
-                        acc[2 * h + 1][q][r][0] = d[r][2];
-                        acc[2 * h + 1][q][r][1] = d[r][3];
-                    }
-                }
-        }
-#else
 #pragma unroll
         for (int t = 0; t < kBK; t += 4) {
-            double fa[kAM][kParts], fb[kAN][kParts];
+            // fa: ar, na; fb: br, bi, nb
+            double fa[kAM][kParts][kHalves], fb[kAN][2 * kParts - 1];
 #pragma unroll
-            for (int p = 0; p < kAM; ++p) {
-                const unsigned i = wm + p * 8 + gi, k = t + ti;
-                const unsigned place = TransA ? i * kPitchA + k : k * kPitchA + i;
-                part(sa, place, fa[p]);
-            }
+            for (int h = 0; h < kAM; ++h)
+#pragma unroll
+                for (int v = 0; v < kHalves; ++v) {
+                    const unsigned i = wm + h * kDmmaRows + v * 8 + gi, k = t + ti;
+                    const unsigned place = TransA ? i * kPitchA + k : k * kPitchA + i;
+                    if constexpr (kParts == 2) {
+                        const double2 value = reinterpret_cast<const double2*>(sa)[place];
+                        fa[h][0][v] = value.x;
+                        fa[h][1][v] = flipped(value.y, flip_a);
+                    } else {
+                        fa[h][0][v] = sa[place];
+                    }
+                }
 #pragma unroll
             for (int q = 0; q < kAN; ++q) {
                 const unsigned j = wn + q * 8 + gi, k = t + ti;
                 const unsigned place = TransB ? k * kPitchB + j : j * kPitchB + k;
-                part(sb, place, fb[q]);
-            }
-            if constexpr (kParts == 2) {
-#pragma unroll
-                for (int p = 0; p < kAM; ++p) fa[p][1] *= sign_a;
-#pragma unroll
-                for (int q = 0; q < kAN; ++q) fb[q][1] *= sign_b;
-            }
-#pragma unroll
-            for (int p = 0; p < kAM; ++p)
-#pragma unroll
-                for (int q = 0; q < kAN; ++q) {
-                    mma_884(acc[p][q][0][0], acc[p][q][0][1], fa[p][0], fb[q][0]);
-                    if constexpr (kParts == 2) {
-                        // (ar + i ai)(br + i bi): re ar br - ai bi, im ar bi + ai br
-                        mma_884(acc[p][q][0][0], acc[p][q][0][1], -fa[p][1], fb[q][1]);
-                        mma_884(acc[p][q][1][0], acc[p][q][1][1], fa[p][0], fb[q][1]);
-                        mma_884(acc[p][q][1][0], acc[p][q][1][1], fa[p][1], fb[q][0]);
-                    }
+                if constexpr (kParts == 2) {
+                    const double2 value = reinterpret_cast<const double2*>(sb)[place];
+                    fb[q][0] = value.x;
+                    fb[q][1] = value.y;
+                    fb[q][2] = -value.y;
+                } else {
+                    fb[q][0] = sb[place];
                 }
+            }
+            // every sum once in each pass: a product does not wait for the one before it
+#pragma unroll
+            for (int pass = 0; pass < kParts * kParts; ++pass)
+#pragma unroll
+                for (int h = 0; h < kAM; ++h)
+#pragma unroll
+                    for (int q = 0; q < kAN; ++q) {
+                        if (pass == 0) mma(acc[h][q][0], fa[h][0], fb[q][0]);
+                        if constexpr (kParts == 2) {
+                            if (pass == 1) mma(acc[h][q][1], fa[h][0], fb[q][2]);
+                            if (pass == 2) mma(acc[h][q][0], fa[h][1], fb[q][1]);
+                            if (pass == 3) mma(acc[h][q][1], fa[h][1], fb[q][0]);
+                        }
+                    }
         }
-#endif
     }
     wait_async<0>();
 
 #pragma unroll
-    for (int p = 0; p < kAM; ++p)
+    for (int h = 0; h < kAM; ++h)
 #pragma unroll
         for (int q = 0; q < kAN; ++q)
 #pragma unroll
-            for (int e = 0; e < 2; ++e) {
-                const unsigned i = i0 + wm + p * 8 + gi, j = j0 + wn + q * 8 + 2 * ti + e;
+            for (int e = 0; e < 2 * kHalves; ++e) {
+                const unsigned i = i0 + wm + h * kDmmaRows + (e / 2) * 8 + gi, j = j0 + wn + q * 8 + 2 * ti + e % 2;
                 if (i >= m || j >= n) continue;
                 S value;
                 if constexpr (kParts == 2)
-                    value = {acc[p][q][0][e], acc[p][q][1][e]};
+                    value = {acc[h][q][0][e], g.conj_b ? acc[h][q][1][e] : -acc[h][q][1][e]};
                 else
-                    value = acc[p][q][0][e];
+                    value = acc[h][q][0][e];
                 if (g.segments > 1) {
                     partial[(static_cast<long long>(z) * n + j) * m + i] = value;
                 } else {
@@ -447,16 +404,51 @@ __global__ void __launch_bounds__(DmmaForm<S>::threads)
             }
 }
 
-template <class S, bool TransA, bool TransB, bool Vec>
-void launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
+// The map of a matrix of doubles, along values in each of its across columns
+// stride bytes apart, for boxes of box_along by box_across; false where the
+// driver has none.
+inline bool dmma_map(DmmaMap* map, const void* address, long long along, long long across, long long stride,
+                     int box_along, int box_across) {
+#if defined(__linux__)
+    using Encode = int (*)(DmmaMap*, int, unsigned, void*, const unsigned long long*, const unsigned long long*,
+                           const unsigned*, const unsigned*, int, int, int, int);
+    static const Encode encode = [] {
+        void* driver = dlopen("libcuda.so.1", RTLD_LAZY);
+        return driver == nullptr ? nullptr : reinterpret_cast<Encode>(dlsym(driver, "cuTensorMapEncodeTiled"));
+    }();
+    if (encode == nullptr) return false;
+    const unsigned long long dims[2] = {static_cast<unsigned long long>(along), static_cast<unsigned long long>(across)};
+    const unsigned long long strides[1] = {static_cast<unsigned long long>(stride)};
+    const unsigned box[2] = {static_cast<unsigned>(box_along), static_cast<unsigned>(box_across)}, steps[2] = {1, 1};
+    constexpr int kFloat64 = 8;  // CU_TENSOR_MAP_DATA_TYPE_FLOAT64; no interleave, swizzle or promotion, zeros outside
+    return encode(map, kFloat64, 2, const_cast<void*>(address), dims, strides, box, steps, 0, 0, 0, 0) == 0;
+#else
+    (void)map, (void)address, (void)along, (void)across, (void)stride, (void)box_along, (void)box_across;
+    return false;
+#endif
+}
+
+// false: the maps could not be made, and nothing ran
+template <class S, bool TransA, bool TransB, int Copy>
+bool launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
     using F = DmmaForm<S>;
-    constexpr int threads = F::threads;
+    constexpr int threads = F::threads, parts = F::parts;
     constexpr std::size_t bytes = dmma_shared<S, TransA, TransB>() * sizeof(double);
-    auto kernel = dmma_kernel<S, TransA, TransB, Vec>;
+    DmmaMap map_a{}, map_b{};
+    if constexpr (Copy == kCopyMaps) {
+        constexpr int pitch_a = parts * dmma_pitch<S, TransA>(F::bm), pitch_b = parts * dmma_pitch<S, !TransB>(F::bn);
+        static_assert(pitch_a <= 256 && pitch_b <= 256, "the boxes of the maps hold 256 values along an index");
+        const long long m = g.m, n = g.n, k = g.k, wide = 8 * parts;
+        if (!dmma_map(&map_a, a, parts * (TransA ? k : m), TransA ? m : k, wide * g.lda, pitch_a, TransA ? F::bm : F::bk) ||
+            !dmma_map(&map_b, b, parts * (TransB ? n : k), TransB ? k : n, wide * g.ldb, pitch_b, TransB ? F::bk : F::bn))
+            return false;
+    }
+    auto kernel = dmma_kernel<S, TransA, TransB, Copy>;
     check_cuda(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(bytes)),
                "the shared memory of a product");
-    kernel<<<grid, threads, bytes>>>(g, alpha, beta, a, b, c, partial);
+    kernel<<<grid, threads, bytes>>>(g, alpha, beta, a, b, c, partial, map_a, map_b);
     check_cuda(cudaGetLastError(), "a product");
+    return true;
 }
 
 #endif  // !MDAPY_GPU_HIP

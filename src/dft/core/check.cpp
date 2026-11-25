@@ -80,7 +80,7 @@ Rows& rows() {
 thread_local std::string path;
 
 long long now() {
-    cudaStreamSynchronize(cudaStreamPerThread);
+    static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));  // an error shows at the next call
     return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }

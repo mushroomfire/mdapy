@@ -213,7 +213,9 @@ SPECTRA = {
 def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     """Eigenvalues against the library of the vendor and NumPy; eigenvectors by
     their residuals and their orthonormality, which degenerate eigenvalues
-    leave the only test."""
+    leave the only test. MDAPY's kernels both ways, as on a GPU of full double
+    precision (the scalar work of the merges on the GPU, a launch a step of
+    the tridiagonalization) and as on one without."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -224,8 +226,8 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
     exact = np.linalg.eigvalsh(a.astype(wide))
     scale = max(np.abs(exact).max(), 1.0)
-    for kernels in KERNELS:
-        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host)
+    for kernels, full in (("mdapy", 0), ("mdapy", 1), ("vendor", -1)):
+        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, full_double=full)
         assert v.dtype == dtype and w.dtype == np.float64
         # ascending; the library of the vendor within rounding in a cluster
         assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))

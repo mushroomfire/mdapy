@@ -703,11 +703,11 @@ struct Probe {
     std::chrono::steady_clock::time_point start;
     Probe(const char* routine, Op ta, Op tb, int m, int n, int k)
         : key(std::string(routine) + " " + "NTC"[static_cast<int>(ta)] + "NTC"[static_cast<int>(tb)], m, n, k) {
-        cudaStreamSynchronize(cudaStreamPerThread);
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
         start = std::chrono::steady_clock::now();
     }
     ~Probe() {
-        cudaStreamSynchronize(cudaStreamPerThread);
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         Table& t = table();
         const std::lock_guard<std::mutex> guard(t.lock);

@@ -10,7 +10,6 @@
 #include <cstddef>
 #include <limits>
 #include <numeric>
-#include <stdexcept>
 
 namespace mdapy::dft::host {
 
@@ -33,16 +32,16 @@ double secular_root(int i, int k, const double* d, const double* w2, double rho,
         // psi over the poles up to i, phi over those beyond: f = 1 + rho (psi + phi)
         double psi = 0.0, dpsi = 0.0, phi = 0.0, dphi = 0.0, magnitude = 0.0;
         for (int j = 0; j < k; ++j) {
-            const double dj = (d[j] - d[origin]) - mu;
+            const double dj = (d[j] - d[origin]) - mu, inverse = 1.0 / dj;
             delta[j] = dj;
-            const double t = w2[j] / dj;
+            const double t = w2[j] * inverse;
             magnitude += std::abs(t);
             if (j <= i) {
                 psi += t;
-                dpsi += t / dj;
+                dpsi += t * inverse;
             } else {
                 phi += t;
-                dphi += t / dj;
+                dphi += t * inverse;
             }
         }
         *low = psi;
@@ -120,40 +119,42 @@ double secular_root(int i, int k, const double* d, const double* w2, double rho,
     return d[origin] + mu;
 }
 
-struct Problem {
-    std::vector<double>& d;
-    std::vector<double>& e;
-    Vectors& q;
-    int leaf;
-};
-
-void solve(Problem& t, int offset, int size) {
-    double* d = t.d.data() + offset;
-    if (size <= t.leaf) {
-        std::vector<double> dd(d, d + size), ee(t.e.begin() + offset, t.e.begin() + offset + std::max(size - 1, 0)), z;
-        tridiagonal_ql(dd, ee, z);
-        std::copy(dd.begin(), dd.end(), d);
-        t.q.set(offset, size, z.data());
-        return;
+int cut_block(Tree& tree, std::vector<double>& d, const std::vector<double>& e, int leaf, int offset, int size) {
+    if (size <= leaf) {
+        tree.leaves.push_back(offset);
+        tree.leaves.push_back(size);
+        return 0;
     }
     const int half = size / 2, middle = offset + half;
-    // t = (t_1, t_2) + |rho| u u^T with u the last unit vector of the first
-    // half and, with the sign of rho, the first of the second
-    const double coupling = t.e[middle - 1], rho0 = std::abs(coupling), sign = coupling < 0.0 ? -1.0 : 1.0;
-    t.d[middle - 1] -= rho0;
-    t.d[middle] -= rho0;
-    solve(t, offset, half);
-    solve(t, middle, size - half);
+    const double coupling = e[static_cast<std::size_t>(middle - 1)], rho = std::abs(coupling);
+    d[static_cast<std::size_t>(middle - 1)] -= rho;
+    d[static_cast<std::size_t>(middle)] -= rho;
+    const int height = 1 + std::max(cut_block(tree, d, e, leaf, offset, half), cut_block(tree, d, e, leaf, middle, size - half));
+    tree.merges.push_back({offset, size, half, height, rho, coupling < 0.0 ? -1.0 : 1.0});
+    tree.height = std::max(tree.height, height);
+    return height;
+}
+
+}  // namespace
+
+Tree cut(std::vector<double>& d, const std::vector<double>& e, int leaf) {
+    Tree tree;
+    if (d.empty()) return tree;
+    cut_block(tree, d, e, std::max(leaf, 2), 0, static_cast<int>(d.size()));
+    std::stable_sort(tree.merges.begin(), tree.merges.end(),
+                     [](const Merge& a, const Merge& b) { return a.height < b.height; });
+    return tree;
+}
+
+Deflation deflate(double* d, int size, std::vector<double>& z, double rho0) {
+    Deflation f;
     const std::size_t n = static_cast<std::size_t>(size);
-    std::vector<double> z(n), second(n);
-    t.q.rows(offset, size, middle, z.data(), second.data());
-    for (int j = half; j < size; ++j) z[j] = sign * second[j];
     // z to unit length: its two rows are unit vectors
     double length = 0.0;
     for (const double x : z) length += x * x;
     length = std::sqrt(length);
     for (double& x : z) x /= length;
-    const double rho = rho0 * length * length;
+    f.rho = rho0 * length * length;
     // the poles ascending
     std::vector<int> by(n);
     std::iota(by.begin(), by.end(), 0);
@@ -161,21 +162,20 @@ void solve(Problem& t, int offset, int size) {
     double dmax = 0.0, zmax = 0.0;
     for (int j = 0; j < size; ++j) {
         dmax = std::max(dmax, std::abs(d[j]));
-        zmax = std::max(zmax, std::abs(z[j]));
+        zmax = std::max(zmax, std::abs(z[static_cast<std::size_t>(j)]));
     }
     const double tolerance = 8.0 * kEps * std::max(dmax, zmax);
-    std::vector<int> kept, deflated;
-    std::vector<double> values(n);  // of the columns, the deflated ones final
-    if (rho * zmax <= tolerance) {
+    f.values.assign(n, 0.0);
+    if (f.rho * zmax <= tolerance) {
         // nothing couples the halves
-        for (const int j : by) deflated.push_back(j);
-        for (int j = 0; j < size; ++j) values[j] = d[j];
+        for (const int j : by) f.deflated.push_back(j);
+        for (int j = 0; j < size; ++j) f.values[static_cast<std::size_t>(j)] = d[j];
     } else {
         int candidate = -1;
         for (const int j : by) {
-            if (rho * std::abs(z[j]) <= tolerance) {
-                deflated.push_back(j);
-                values[j] = d[j];
+            if (f.rho * std::abs(z[static_cast<std::size_t>(j)]) <= tolerance) {
+                f.deflated.push_back(j);
+                f.values[static_cast<std::size_t>(j)] = d[j];
                 continue;
             }
             if (candidate < 0) {
@@ -184,125 +184,59 @@ void solve(Problem& t, int offset, int size) {
             }
             // two poles within the tolerance of each other: a rotation leaves
             // the first without a component
-            const double s0 = z[candidate], c0 = z[j], tau = std::hypot(c0, s0), gap = d[j] - d[candidate];
+            const double s0 = z[static_cast<std::size_t>(candidate)], c0 = z[static_cast<std::size_t>(j)];
+            const double tau = std::hypot(c0, s0), gap = d[j] - d[candidate];
             const double c = c0 / tau, s = -s0 / tau;
             if (std::abs(gap * c * s) <= tolerance) {
-                z[j] = tau;
-                z[candidate] = 0.0;
-                t.q.rotate(offset, size, candidate, j, c, s);
+                z[static_cast<std::size_t>(j)] = tau;
+                z[static_cast<std::size_t>(candidate)] = 0.0;
+                f.rotations.push_back({candidate, j, c, s});
                 const double first = d[candidate] * c * c + d[j] * s * s;
                 d[j] = d[candidate] * s * s + d[j] * c * c;
                 d[candidate] = first;
-                deflated.push_back(candidate);
-                values[candidate] = first;
+                f.deflated.push_back(candidate);
+                f.values[static_cast<std::size_t>(candidate)] = first;
             } else {
-                kept.push_back(candidate);
+                f.kept.push_back(candidate);
             }
             candidate = j;
         }
-        if (candidate >= 0) kept.push_back(candidate);
+        if (candidate >= 0) f.kept.push_back(candidate);
     }
-    const int k = static_cast<int>(kept.size());
-    std::vector<double> u(static_cast<std::size_t>(k) * k);
-    std::vector<double> roots(static_cast<std::size_t>(k));
-    if (k > 0) {
-        std::vector<double> pole(static_cast<std::size_t>(k)), w(static_cast<std::size_t>(k)), w2(static_cast<std::size_t>(k));
+    for (const int j : f.kept) {
+        f.pole.push_back(d[j]);
+        f.w.push_back(z[static_cast<std::size_t>(j)]);
+    }
+    return f;
+}
+
+void secular(const Deflation& f, double* roots, double* u) {
+    const int k = static_cast<int>(f.kept.size());
+    if (k == 0) return;
+    const std::size_t count = static_cast<std::size_t>(k);
+    const double* pole = f.pole.data();
+    std::vector<double> w2(count);
+    for (std::size_t j = 0; j < count; ++j) w2[j] = f.w[j] * f.w[j];
+    // column i of u holds d_j - root_i
+    for (int i = 0; i < k; ++i) roots[i] = secular_root(i, k, pole, w2.data(), f.rho, u + static_cast<std::size_t>(i) * count);
+    // w from the roots: w_j^2 = prod_i (root_i - d_j) / (rho prod_(i != j) (d_i - d_j))
+    std::vector<double> fitted(count);
+    for (int j = 0; j < k; ++j) {
+        double product = -u[static_cast<std::size_t>(j) * count + j] / f.rho;
+        for (int i = 0; i < k; ++i)
+            if (i != j) product *= u[static_cast<std::size_t>(i) * count + j] / (pole[j] - pole[i]);
+        fitted[static_cast<std::size_t>(j)] = std::copysign(std::sqrt(std::abs(product)), f.w[static_cast<std::size_t>(j)]);
+    }
+    for (int i = 0; i < k; ++i) {
+        double* column = u + static_cast<std::size_t>(i) * count;
+        double norm = 0.0;
         for (int j = 0; j < k; ++j) {
-            pole[j] = d[kept[j]];
-            w[j] = z[kept[j]];
-            w2[j] = w[j] * w[j];
+            column[j] = fitted[static_cast<std::size_t>(j)] / column[j];
+            norm += column[j] * column[j];
         }
-        // column i of u holds d_j - root_i
-        for (int i = 0; i < k; ++i) roots[i] = secular_root(i, k, pole.data(), w2.data(), rho, u.data() + static_cast<std::size_t>(i) * k);
-        // w from the roots: w_j^2 = prod_i (root_i - d_j) / (rho prod_(i != j) (d_i - d_j))
-        std::vector<double> fitted(static_cast<std::size_t>(k));
-        for (int j = 0; j < k; ++j) {
-            double product = -u[static_cast<std::size_t>(j) * k + j] / rho;
-            for (int i = 0; i < k; ++i)
-                if (i != j) product *= u[static_cast<std::size_t>(i) * k + j] / (pole[j] - pole[i]);
-            fitted[j] = std::copysign(std::sqrt(std::abs(product)), w[j]);
-        }
-        for (int i = 0; i < k; ++i) {
-            double* column = u.data() + static_cast<std::size_t>(i) * k;
-            double norm = 0.0;
-            for (int j = 0; j < k; ++j) {
-                column[j] = fitted[j] / column[j];
-                norm += column[j] * column[j];
-            }
-            norm = std::sqrt(norm);
-            for (int j = 0; j < k; ++j) column[j] /= norm;
-        }
+        norm = 1.0 / std::sqrt(norm);
+        for (int j = 0; j < k; ++j) column[j] *= norm;
     }
-    // the columns [kept u, deflated] ascending by their values
-    std::vector<double> all(n);
-    for (int i = 0; i < k; ++i) all[i] = roots[i];
-    for (std::size_t i = 0; i < deflated.size(); ++i) all[static_cast<std::size_t>(k) + i] = values[deflated[i]];
-    std::vector<int> order(n);
-    std::iota(order.begin(), order.end(), 0);
-    std::stable_sort(order.begin(), order.end(), [&](int a, int b) { return all[a] < all[b]; });
-    t.q.merge(offset, size, kept, u.data(), deflated, order);
-    for (int j = 0; j < size; ++j) d[j] = all[order[j]];
-}
-
-}  // namespace
-
-void divide_and_conquer(std::vector<double>& d, std::vector<double>& e, Vectors& q, int leaf) {
-    const int n = static_cast<int>(d.size());
-    if (n < 1) return;
-    e.resize(d.size());
-    // scaled to a largest element of one, so that the tolerances are relative
-    double scale = 0.0;
-    for (int i = 0; i < n; ++i) scale = std::max({scale, std::abs(d[i]), i + 1 < n ? std::abs(e[i]) : 0.0});
-    if (scale == 0.0) scale = 1.0;
-    for (int i = 0; i < n; ++i) {
-        d[i] /= scale;
-        e[i] /= scale;
-    }
-    Problem t{d, e, q, std::max(leaf, 2)};
-    solve(t, 0, n);
-    for (double& x : d) x *= scale;
-}
-
-void HostVectors::set(int offset, int size, const double* z) {
-    for (int j = 0; j < size; ++j)
-        for (int i = 0; i < size; ++i)
-            q_[static_cast<std::size_t>(offset + j) * n_ + offset + i] = z[static_cast<std::size_t>(j) * size + i];
-}
-
-void HostVectors::rows(int offset, int size, int middle, double* a, double* b) {
-    for (int j = 0; j < size; ++j) {
-        const std::size_t column = static_cast<std::size_t>(offset + j) * n_;
-        a[j] = q_[column + middle - 1];
-        b[j] = q_[column + middle];
-    }
-}
-
-void HostVectors::rotate(int offset, int size, int i, int j, double c, double s) {
-    double* x = q_.data() + static_cast<std::size_t>(offset + i) * n_ + offset;
-    double* y = q_.data() + static_cast<std::size_t>(offset + j) * n_ + offset;
-    for (int r = 0; r < size; ++r) {
-        const double a = x[r], b = y[r];
-        x[r] = c * a + s * b;
-        y[r] = c * b - s * a;
-    }
-}
-
-void HostVectors::merge(int offset, int size, const std::vector<int>& kept, const double* u,
-                        const std::vector<int>& deflated, const std::vector<int>& order) {
-    const std::size_t n = static_cast<std::size_t>(size), k = kept.size();
-    std::vector<double> next(n * n, 0.0);
-    auto column = [&](int j) { return q_.data() + static_cast<std::size_t>(offset + j) * n_ + offset; };
-    for (std::size_t i = 0; i < k; ++i) {
-        double* out = next.data() + i * n;
-        for (std::size_t j = 0; j < k; ++j) {
-            const double weight = u[i * k + j];
-            const double* from = column(kept[j]);
-            for (std::size_t r = 0; r < n; ++r) out[r] += weight * from[r];
-        }
-    }
-    for (std::size_t i = 0; i < deflated.size(); ++i) std::copy(column(deflated[i]), column(deflated[i]) + n, next.data() + (k + i) * n);
-    for (std::size_t j = 0; j < n; ++j)
-        std::copy(next.data() + static_cast<std::size_t>(order[j]) * n, next.data() + static_cast<std::size_t>(order[j] + 1) * n, column(static_cast<int>(j)));
 }
 
 }  // namespace mdapy::dft::host

@@ -12,10 +12,13 @@
 //   kilobytes, and one transfer costs less than the many small kernels of the
 //   GPU would), in double precision whatever the precision of the matrix;
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
-//   reflector after the other; divide and conquer on the tridiagonal matrix,
-//   its scalar work on the host in double precision (dft/lapack/divide.h) and
-//   its eigenvectors on the GPU, each merge a product of Blas; then the
-//   reflectors applied to them in blocks, three products each. Cholesky:
+//   reflector after the other, one launch each for matrices up to 1024 (two
+//   beyond, and in double precision on GPUs that have little of it); divide
+//   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
+//   a height of its tree together, their scalar work in double precision on
+//   the GPU when it has full double precision and on the host otherwise, and
+//   their eigenvectors products of Blas; then the reflectors applied to them
+//   in blocks, three products each. Cholesky:
 //   blocks of columns, the diagonal block on the host, the panel by the
 //   triangular solve of Blas and the trailing matrix by its product.
 //
@@ -62,6 +65,12 @@ public:
     // and tests.
     int host_limit() const noexcept { return host_limit_; }
     void set_host_limit(int n) noexcept { host_limit_ = n; }
+    // The largest matrix of which a step of the tridiagonalization is one
+    // launch (-1: by the GPU and the precision), and whether the GPU is taken
+    // as one of full double precision (-1: asked of it). For measurements and
+    // tests.
+    void set_fused_limit(int n) noexcept { fused_limit_ = n; }
+    void set_full_double(int full) noexcept { full_double_ = full; }
 
 private:
     cusolverDnHandle_t vendor();
@@ -73,6 +82,7 @@ private:
     void device_eigh(T* a, int n, std::vector<double>& values);
     template <class T>
     int device_potrf(T* a, int n);
+    bool full_double();
 
     Kernels kernels_;
     Blas blas_;  // the products and the triangular solves of the large matrices
@@ -80,6 +90,8 @@ private:
     // measured on a V100 (host: one core of its node): the host is the faster
     // up to about 64, the GPU beyond
     int host_limit_ = 64;
+    int fused_limit_ = -1;
+    int full_double_ = -1;  // whether the GPU runs double precision at half the rate of single; -1 before it is asked
     DeviceArray<Complex> work_;
     DeviceArray<double> values_;
     DeviceArray<float> values_single_;

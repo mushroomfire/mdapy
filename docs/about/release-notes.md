@@ -68,6 +68,11 @@
   or PAW pseudopotential took 6 to 7 s at each run before. On a GH200, Fe72 and Si64 at Gamma
   run 15 % faster, Al4 with 112 k-points 35 %, Fe16 and Fe54 with PAW 33 %, and Al108 with
   an ultrasoft pseudopotential 64 %.
+- MDAPY's transforms of the complex bands skip the planes of the box that the sphere of the
+  bands misses, about half of them, and the diagonal of the preconditioner of the Davidson
+  solver takes the whole GPU: Fe72 and Si64 at Gamma run 12 % faster on a GH200, Fe16, Si64
+  and Al32 with k-points 8 to 9 %. With MDAPY's kernels the cases of the GH200 take 0.51 to
+  1.00 times the time of the vendor's.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

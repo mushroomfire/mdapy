@@ -467,8 +467,10 @@ NB_MODULE(_dft, m) {
     });
 
     // the bands of coefficients (count, n) of a sphere to their values on the
-    // grid (count, n1, n2, n3), on the GPU
-    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid, const std::string& kernels) {
+    // grid (count, n1, n2, n3), on the GPU; with window >= 0, the transform of
+    // the planes of the first index within window of 0 (see Fft)
+    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid, const std::string& kernels,
+                              int window) {
         const Int3 g = grid_of(grid);
         const std::size_t points = points_of(g);
         const int count = static_cast<int>(c.shape(0));
@@ -479,8 +481,9 @@ NB_MODULE(_dft, m) {
         coefficients.upload(as_device(c.data()), c.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        mdapy::dft::scatter(coefficients.data(), n, places.data(), nullptr, count, boxes.data(), points);
-        fft.to_real(boxes.data(), count);
+        const int w = fft.window_of(window);
+        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), count, boxes.data(), g, w);
+        fft.to_real(boxes.data(), count, w);
         std::complex<double>* out = nullptr;
         auto values = new_array<std::complex<double>>(
             {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -488,10 +491,11 @@ NB_MODULE(_dft, m) {
             out);
         boxes.download(reinterpret_cast<Complex*>(out), boxes.size());
         return values;
-    }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy");
+    }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // the values (count, n1, n2, n3) on the grid to the coefficients of a sphere,
-    // divided by the points of the grid: the inverse of to_real_space
-    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels) {
+    // divided by the points of the grid: the inverse of to_real_space; with
+    // window >= 0, of a sphere within window of 0 along the first index
+    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         const std::size_t points = points_of(g);
@@ -502,14 +506,14 @@ NB_MODULE(_dft, m) {
         boxes.upload(as_device(v.data()), v.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        fft.to_reciprocal(boxes.data(), count);
+        fft.to_reciprocal(boxes.data(), count, fft.window_of(window));
         mdapy::dft::gather(boxes.data(), points, places.data(), n, count,
                            1.0 / static_cast<double>(points), coefficients.data());
         std::complex<double>* out = nullptr;
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy");
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
     // values on the grid, and back
     m.def("to_real_space_gamma",

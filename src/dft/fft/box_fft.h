@@ -38,11 +38,18 @@ public:
     std::size_t points() const noexcept;    // n1 n2 n3
     std::size_t spectrum() const noexcept;  // n1 n2 (n3 / 2 + 1)
 
-    // count complex boxes in place: 2 points() reals each.
-    void forward(double* boxes, int count);
-    void inverse(double* boxes, int count);
-    void forward(float* boxes, int count);
-    void inverse(float* boxes, int count);
+    // count complex boxes in place: 2 points() reals each. With window >= 0,
+    // boxes of which only the planes of the first index within window of 0
+    // matter (0 to window and n1 - window to n1 - 1), as those of the sphere
+    // of the bands: inverse reads those planes alone, the others taken as
+    // zeros and never read, and forward writes those alone, the others left
+    // as the transform along the first axis made them; about a third less
+    // work and memory traffic with the sphere of the bands in a box of the
+    // density.
+    void forward(double* boxes, int count, int window = -1);
+    void inverse(double* boxes, int count, int window = -1);
+    void forward(float* boxes, int count, int window = -1);
+    void inverse(float* boxes, int count, int window = -1);
 
     // count real boxes of points() values to spectrum() complex components and
     // back; inverse overwrites its spectrum.
@@ -71,15 +78,19 @@ private:
     template <class R>
     void complex_boxes(R* boxes, int count, int sign);
     template <class R>
+    void complex_window(R* boxes, int count, int sign, int window);
+    template <class R>
+    bool plane_fits() const;
+    template <class R>
     void real_forward(const R* values, R* spectrum, int count);
     template <class R>
     void real_inverse(R* spectrum, R* values, int count);
     template <class R, int Sign>
-    void strided(R* boxes, int axis, long long planes, long long columns, long long stride);
+    void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1);
     template <class R, int Sign, int Mode>
     void contiguous(const R* in, R* out, long long lines);
     template <class R, int Sign>
-    bool planes(R* boxes, long long count);
+    bool planes(R* boxes, long long count, int window = -1);
     template <class R, int Sign>
     bool real_planes(const R* in, R* out, long long count);
 

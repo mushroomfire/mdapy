@@ -12,7 +12,6 @@
 //       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not,
 //       PANELS_FROM sets the smallest matrix tridiagonalized in panels, REFLECTORS the
 //       reflectors of a block of the back-transformation, LEAF the rows of a leaf,
-//       TRIANGLE_FROM the smallest matrix whose panels read one triangle,
 //       WANTED the percent of the eigenvectors asked of MDAPY, the lowest (the vendor makes all)
 //
 // A row: the milliseconds of the vendor and of MDAPY (the least of the
@@ -102,7 +101,6 @@ void run(const char* name, int n, int repeats, int fused) {
     if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
     if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));
     if (std::getenv("PANELS_FROM") != nullptr) own.set_panels_from(std::atoi(std::getenv("PANELS_FROM")));
-    if (std::getenv("TRIANGLE_FROM") != nullptr) own.set_triangle_from(std::atoi(std::getenv("TRIANGLE_FROM")));
     if (std::getenv("FULL_DOUBLE") != nullptr) own.set_full_double(std::atoi(std::getenv("FULL_DOUBLE")));
     const int wanted = std::getenv("WANTED") != nullptr ? std::max(1, n * std::atoi(std::getenv("WANTED")) / 100) : n;
     double times[2] = {1e30, 1e30}, factor_times[2] = {1e30, 1e30};

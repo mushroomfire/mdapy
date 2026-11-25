@@ -281,14 +281,13 @@ void bind_blas(nb::module_& m) {
     // not negative, is the largest matrix MDAPY's kernels take on the host;
     // full_double, when not negative, whether they take the GPU as one of
     // full double precision; panels_from, when not negative, the smallest
-    // matrix they tridiagonalize in panels, none of them with one launch a step,
-    // and triangle_from the smallest whose panels read one triangle of it;
+    // matrix they tridiagonalize in panels, none of them with one launch a step;
     // count, when not negative, the eigenvectors asked for, the lowest: the
     // other columns hold nothing of use
     m.def(
         "eigh",
         [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from,
-           int triangle_from, int count) {
+           int count) {
             const int n = static_cast<int>(a.shape(0));
             if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
             DeviceArray<D> da;
@@ -300,7 +299,6 @@ void bind_blas(nb::module_& m) {
                 lapack.set_fused_limit(0);
                 lapack.set_panels_from(panels_from);
             }
-            if (triangle_from >= 0) lapack.set_triangle_from(triangle_from);
             std::vector<double> values;
             lapack.eigh(da.data(), n, values, count);
             H* out = nullptr;
@@ -312,8 +310,7 @@ void bind_blas(nb::module_& m) {
             return nb::make_tuple(eigenvalues, vectors);
         },
         nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
-        nb::arg("full_double") = -1, nb::arg("panels_from") = -1, nb::arg("triangle_from") = -1,
-        nb::arg("count") = -1);
+        nb::arg("full_double") = -1, nb::arg("panels_from") = -1, nb::arg("count") = -1);
     // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
     // which the upper triangle is read; info is not zero when a is not positive
     // definite

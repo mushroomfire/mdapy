@@ -239,8 +239,7 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
     the tridiagonalization) and as on one without, with the
-    tridiagonalization in panels, which MDAPY takes for the large matrices,
-    and with their products from one triangle of the matrix."""
+    tridiagonalization in panels, which MDAPY takes for the large matrices."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -255,7 +254,6 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         ("mdapy", dict(full_double=0)),
         ("mdapy", dict(full_double=1)),
         ("mdapy", dict(full_double=1, panels_from=0)),
-        ("mdapy", dict(full_double=1, panels_from=0, triangle_from=0)),
         ("vendor", {}),
     ):
         w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, **options)
@@ -268,20 +266,16 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
 
 
-@pytest.mark.parametrize(
-    "options", [{}, dict(triangle_from=0)], ids=["panels", "triangle"]
-)
 @pytest.mark.parametrize("dtype, n", [(np.complex128, 1100), (np.float64, 1600)])
-def test_the_eigenpairs_of_large_matrices(dtype, n, options):
+def test_the_eigenpairs_of_large_matrices(dtype, n):
     """What MDAPY takes for the large matrices on a GPU of full double
     precision: the tridiagonalization in panels (from 1024 complex numbers and
-    1536 real ones), their products from the whole matrix or from one
-    triangle, leaves of 16 rows and blocks of 64 reflectors."""
+    1536 real ones), leaves of 16 rows and blocks of 64 reflectors."""
     rng = np.random.default_rng(n)
     a = hermitian(rng, n, dtype, SPECTRA["clustered"](n))
     exact = np.linalg.eigvalsh(a)
     scale = max(np.abs(exact).max(), 1.0)
-    w, v = _dft.eigh(a, full_double=1, **options)
+    w, v = _dft.eigh(a, full_double=1)
     assert np.all(np.diff(w) >= 0)
     assert np.abs(w - exact).max() < 1e-12 * scale
     assert np.abs(a @ v - v * w).max() < 1e-11 * scale
@@ -309,7 +303,6 @@ def test_the_lowest_eigenvectors(dtype, spectrum, n, count):
         dict(full_double=0),
         dict(full_double=1),
         dict(full_double=1, panels_from=0),
-        dict(full_double=1, panels_from=0, triangle_from=0),
     ):
         w, v = _dft.eigh(a, count=count, **options)
         assert v.shape == (n, n) and np.abs(w - exact).max() < limit * scale

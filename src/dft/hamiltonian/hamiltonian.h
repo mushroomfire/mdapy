@@ -26,6 +26,7 @@
 #include <cstdint>
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/lattice/lattice.h"
@@ -82,6 +83,7 @@ public:
     void set_gamma(bool on) noexcept { gamma_mode_ = on; }
     // Whether the bands of the k-point are real.
     bool gamma() const noexcept { return gamma_; }
+    Kernels kernels() const noexcept { return blas_.kernels(); }
     // The plane waves of k (fractions of the reciprocal vectors) and their
     // projectors.
     void set_k(const Vec3& k);
@@ -168,7 +170,7 @@ private:
     std::vector<SpeciesProjectors> species_;
     std::vector<Atom> atoms_;
     Fft fft_;
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     int projectors_ = 0;
 
     // of the k-point

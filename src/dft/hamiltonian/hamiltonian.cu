@@ -24,17 +24,10 @@ unsigned blocks(std::size_t work) {
     return static_cast<unsigned>((work + kThreads - 1) / kThreads);
 }
 
-void check_blas(cublasStatus_t status, const char* call) {
-    if (status == CUBLAS_STATUS_SUCCESS) return;
-    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuBLAS status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 // c = alpha op(a) op(b) + beta c, real, column-major
-void dgemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, double alpha,
+void dgemm(Blas& blas, Op ta, Op tb, int m, int n, int k, double alpha,
            const double* a, int lda, const double* b, int ldb, double beta, double* c, int ldc) {
-    check_blas(cublasDgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasDgemm");
+    blas.gemm(ta, tb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 std::vector<double> real_parts(const std::vector<Complex>& c) {
@@ -48,9 +41,9 @@ const double* real(const Complex* p) { return reinterpret_cast<const double*>(p)
 float* real(cuComplex* p) { return reinterpret_cast<float*>(p); }
 const float* real(const cuComplex* p) { return reinterpret_cast<const float*>(p); }
 
-void sgemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, float alpha,
+void sgemm(Blas& blas, Op ta, Op tb, int m, int n, int k, float alpha,
            const float* a, int lda, const float* b, int ldb, float beta, float* c, int ldc) {
-    check_blas(cublasSgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasSgemm");
+    blas.gemm(ta, tb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 // The real spherical harmonics Y_lm of the direction of (x, y, z), l up to 3
@@ -469,9 +462,8 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
       cutoff_(cutoff),
       species_(std::move(species)),
       atoms_(std::move(atoms)),
-      fft_(grid, kernels) {
-    check_blas(cublasCreate(&blas_), "cublasCreate");
-    check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
+      fft_(grid, kernels),
+      blas_(kernels) {
     // the tables of every species, one after the other
     std::vector<double> all;
     for (const auto& s : species_) {
@@ -537,9 +529,7 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
     blocks_device_.upload(blocks_.data(), blocks_.size());
 }
 
-Hamiltonian::~Hamiltonian() {
-    if (blas_ != nullptr) cublasDestroy(blas_);
-}
+Hamiltonian::~Hamiltonian() = default;
 
 void Hamiltonian::set_k(const Vec3& k) {
     if (gamma_mode_ && (k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0))
@@ -706,13 +696,13 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
         DeviceArray<Complex> qpsi(n * m);
         w.upload(weights, m);
         gamma_inner(blas_, n, beta_.data(), projectors_, psi, count, p.data(), projectors_);
-        dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0, dreal_.data(), projectors_,
+        dgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0, dreal_.data(), projectors_,
               p.data(), projectors_, 0.0, dp.data(), projectors_);
         if (has_overlap_) {
             if (eigenvalues == nullptr)
                 throw std::invalid_argument("the forces of ultrasoft bands need their eigenvalues");
             DeviceArray<double> qpp(np * m), e;
-            dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
+            dgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
                   p.data(), projectors_, 0.0, qpp.data(), projectors_);
             e.upload(eigenvalues, m);
             shift_real_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
@@ -740,19 +730,13 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
     w.upload(weights, m);
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, p.data(), projectors_),
-               "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
-                           projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, psi, nn, zero, p.data(), projectors_);
+    blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, dmatrix_.data(), projectors_, p.data(), projectors_, zero, dp.data(), projectors_);
     if (has_overlap_) {
         // (D - e q) P
         if (eigenvalues == nullptr) throw std::invalid_argument("the forces of ultrasoft bands need their eigenvalues");
         DeviceArray<Complex> qpp(np * m);
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one,
-                               qmatrix_.data(), projectors_, p.data(), projectors_, &zero, qpp.data(), projectors_),
-                   "cublasZgemm");
+        blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, qmatrix_.data(), projectors_, p.data(), projectors_, zero, qpp.data(), projectors_);
         DeviceArray<double> e;
         e.upload(eigenvalues, m);
         shift_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
@@ -762,9 +746,7 @@ void Hamiltonian::nonlocal_forces(const Complex* psi, int count, const double* w
     for (int d = 0; d < 3; ++d) {
         times_q_kernel<<<blocks(n * m), kThreads>>>(n, count, d, q_.data(), psi, qpsi.data());
         check_cuda(cudaGetLastError(), "k+G times the bands");
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn,
-                               qpsi.data(), nn, &zero, qp.data(), projectors_),
-                   "cublasZgemm");
+        blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, qpsi.data(), nn, zero, qp.data(), projectors_);
         projector_sums<<<blocks(np), kThreads>>>(projectors_, count, w.data(), dp.data(), qp.data(), s.data());
         check_cuda(cudaGetLastError(), "the sums of the projectors");
         s.download(sums.data(), np);
@@ -799,13 +781,13 @@ void Hamiltonian::strain_derivative(const Complex* psi, int count, const double*
         DeviceArray<Complex> dbeta(n * np);
         w.upload(weights, m);
         gamma_inner(blas_, n, beta_.data(), projectors_, psi, count, p.data(), projectors_);
-        dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0, dreal_.data(), projectors_,
+        dgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0, dreal_.data(), projectors_,
               p.data(), projectors_, 0.0, dp.data(), projectors_);
         if (has_overlap_) {
             if (eigenvalues == nullptr)
                 throw std::invalid_argument("the stress of ultrasoft bands needs their eigenvalues");
             DeviceArray<double> qpp(np * m), e;
-            dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
+            dgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
                   p.data(), projectors_, 0.0, qpp.data(), projectors_);
             e.upload(eigenvalues, m);
             shift_real_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
@@ -834,18 +816,12 @@ void Hamiltonian::strain_derivative(const Complex* psi, int count, const double*
     w.upload(weights, m);
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, p.data(), projectors_),
-               "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, dmatrix_.data(),
-                           projectors_, p.data(), projectors_, &zero, dp.data(), projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, psi, nn, zero, p.data(), projectors_);
+    blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, dmatrix_.data(), projectors_, p.data(), projectors_, zero, dp.data(), projectors_);
     if (has_overlap_) {  // (D - e q) P
         if (eigenvalues == nullptr) throw std::invalid_argument("the stress of ultrasoft bands needs their eigenvalues");
         DeviceArray<Complex> qpp(np * m);
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one,
-                               qmatrix_.data(), projectors_, p.data(), projectors_, &zero, qpp.data(), projectors_),
-                   "cublasZgemm");
+        blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, qmatrix_.data(), projectors_, p.data(), projectors_, zero, qpp.data(), projectors_);
         DeviceArray<double> e;
         e.upload(eigenvalues, m);
         shift_kernel<<<blocks(np * m), kThreads>>>(projectors_, count, e.data(), qpp.data(), dp.data());
@@ -858,9 +834,7 @@ void Hamiltonian::strain_derivative(const Complex* psi, int count, const double*
         projector_strain_kernel<<<blocks(n * np), kThreads>>>(n, projectors_, miller_.data(), rc, columns_.data(),
                                                               tables_.data(), pairs[d][0], pairs[d][1], dbeta.data());
         check_cuda(cudaGetLastError(), "the strain of the projectors");
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, dbeta.data(), nn, psi,
-                               nn, &zero, dpsi.data(), projectors_),
-                   "cublasZgemm");
+        blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, dbeta.data(), nn, psi, nn, zero, dpsi.data(), projectors_);
         projector_real_sums<<<blocks(np), kThreads>>>(projectors_, count, w.data(), dp.data(), dpsi.data(), s.data());
         check_cuda(cudaGetLastError(), "the sums of the projectors");
         s.download(values.data(), np);
@@ -915,15 +889,9 @@ void Hamiltonian::apply_overlap(const Complex* psi, Complex* spsi, int count) {
     scaled_.reserve(np * static_cast<std::size_t>(count));
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, projections_.data(), projectors_),
-               "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_.data(),
-                           projectors_, projections_.data(), projectors_, &zero, scaled_.data(), projectors_),
-               "cublasZgemm");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, nn, count, projectors_, &one, beta_.data(), nn,
-                           scaled_.data(), projectors_, &one, spsi, nn),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, psi, nn, zero, projections_.data(), projectors_);
+    blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, qmatrix_.data(), projectors_, projections_.data(), projectors_, zero, scaled_.data(), projectors_);
+    blas_.gemm(Op::N, Op::N, nn, count, projectors_, one, beta_.data(), nn, scaled_.data(), projectors_, one, spsi, nn);
 }
 
 namespace {
@@ -998,7 +966,7 @@ void Hamiltonian::add_becsum_device(const Complex* psi, int count, const double*
         gamma_inner(blas_, n, beta_.data(), projectors_, psi, count, pr.data(), projectors_);
         weigh_real_columns<<<blocks(np * m), kThreads>>>(np, count, weights_.data(), pr.data(), pw.data());
         check_cuda(cudaGetLastError(), "the weighted projections");
-        dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, projectors_, projectors_, count, 1.0, pw.data(), projectors_,
+        dgemm(blas_, Op::N, Op::T, projectors_, projectors_, count, 1.0, pw.data(), projectors_,
               pr.data(), projectors_, 0.0, c.data(), projectors_);
         becsum_real_kernel<<<atoms, kThreads>>>(static_cast<int>(atoms), blocks_device_.data(),
                                                 becsum_offsets_.data(), projectors_, c.data(), becsum);
@@ -1008,15 +976,11 @@ void Hamiltonian::add_becsum_device(const Complex* psi, int count, const double*
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(n);
     DeviceArray<Complex> pc(np * m), pw(np * m), c(np * np);
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, pc.data(), projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, psi, nn, zero, pc.data(), projectors_);
     // c = P W P^H, c_ab = sum_n w_n P_an conj(P_bn), of real part becsum_ab
     weigh_columns<<<blocks(np * m), kThreads>>>(np, count, weights_.data(), pc.data(), pw.data());
     check_cuda(cudaGetLastError(), "the weighted projections");
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_C, projectors_, projectors_, count, &one, pw.data(),
-                           projectors_, pc.data(), projectors_, &zero, c.data(), projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::N, Op::C, projectors_, projectors_, count, one, pw.data(), projectors_, pc.data(), projectors_, zero, c.data(), projectors_);
     becsum_kernel<<<atoms, kThreads>>>(static_cast<int>(atoms), blocks_device_.data(), becsum_offsets_.data(),
                                        projectors_, c.data(), becsum);
     check_cuda(cudaGetLastError(), "becsum");
@@ -1067,31 +1031,25 @@ void Hamiltonian::project(const Complex* psi, int count, Complex* p) {
         gamma_inner(blas_, sphere_.size(), beta_.data(), projectors_, psi, count, real(p), projectors_);
         return;
     }
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_.data(), nn, psi, nn,
-                           &zero, p, projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_.data(), nn, psi, nn, zero, p, projectors_);
 }
 
 namespace {
 // out += beta (m p), m (projectors, projectors) on the device
-void add_projected(cublasHandle_t blas, const Complex* beta, int n, int projectors, const Complex* m,
+void add_projected(Blas& blas, const Complex* beta, int n, int projectors, const Complex* m,
                    const Complex* p, int count, DeviceArray<Complex>& scaled, Complex* out) {
     scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
-    check_blas(cublasZgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, &one, m, projectors, p,
-                           projectors, &zero, scaled.data(), projectors),
-               "cublasZgemm");
-    check_blas(cublasZgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, n, count, projectors, &one, beta, n, scaled.data(),
-                           projectors, &one, out, n),
-               "cublasZgemm");
+    blas.gemm(Op::N, Op::N, projectors, count, projectors, one, m, projectors, p, projectors, zero, scaled.data(), projectors);
+    blas.gemm(Op::N, Op::N, n, count, projectors, one, beta, n, scaled.data(), projectors, one, out, n);
 }
 
 // the same of real m and p at Gamma
-void add_projected_real(cublasHandle_t blas, const Complex* beta, std::size_t n, int projectors, const double* m,
+void add_projected_real(Blas& blas, const Complex* beta, std::size_t n, int projectors, const double* m,
                         const double* p, int count, DeviceArray<Complex>& scaled, Complex* out) {
     scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
     double* s = real(scaled.data());
-    dgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, 1.0, m, projectors, p, projectors, 0.0, s,
+    dgemm(blas, Op::N, Op::N, projectors, count, projectors, 1.0, m, projectors, p, projectors, 0.0, s,
           projectors);
     gamma_combine(blas, n, beta, projectors, s, projectors, count, 1.0, 1.0, out);
 }
@@ -1128,13 +1086,11 @@ void Hamiltonian::overlap_projections(const Complex* p, int count, Complex* out)
         return;
     }
     if (gamma_) {
-        dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
+        dgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0, qreal_.data(), projectors_,
               real(p), projectors_, 0.0, real(out), projectors_);
         return;
     }
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_.data(),
-                           projectors_, p, projectors_, &zero, out, projectors_),
-               "cublasZgemm");
+    blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, qmatrix_.data(), projectors_, p, projectors_, zero, out, projectors_);
 }
 
 void Hamiltonian::apply(const Complex* psi, Complex* hpsi, int count) {
@@ -1227,31 +1183,25 @@ void Hamiltonian::project(const cuComplex* psi, int count, cuComplex* p) {
     }
     const cuComplex one = make_cuComplex(1.0f, 0.0f), zero = make_cuComplex(0.0f, 0.0f);
     const int nn = static_cast<int>(sphere_.size());
-    check_blas(cublasCgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, projectors_, count, nn, &one, beta_f_.data(), nn, psi,
-                           nn, &zero, p, projectors_),
-               "cublasCgemm");
+    blas_.gemm(Op::C, Op::N, projectors_, count, nn, one, beta_f_.data(), nn, psi, nn, zero, p, projectors_);
 }
 
 namespace {
 // out += beta (m p) in single precision
-void add_projected(cublasHandle_t blas, const cuComplex* beta, int n, int projectors, const cuComplex* m,
+void add_projected(Blas& blas, const cuComplex* beta, int n, int projectors, const cuComplex* m,
                    const cuComplex* p, int count, DeviceArray<cuComplex>& scaled, cuComplex* out) {
     scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
     const cuComplex one = make_cuComplex(1.0f, 0.0f), zero = make_cuComplex(0.0f, 0.0f);
-    check_blas(cublasCgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, &one, m, projectors, p,
-                           projectors, &zero, scaled.data(), projectors),
-               "cublasCgemm");
-    check_blas(cublasCgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, n, count, projectors, &one, beta, n, scaled.data(),
-                           projectors, &one, out, n),
-               "cublasCgemm");
+    blas.gemm(Op::N, Op::N, projectors, count, projectors, one, m, projectors, p, projectors, zero, scaled.data(), projectors);
+    blas.gemm(Op::N, Op::N, n, count, projectors, one, beta, n, scaled.data(), projectors, one, out, n);
 }
 
 // the same of real m and p at Gamma
-void add_projected_real(cublasHandle_t blas, const cuComplex* beta, std::size_t n, int projectors, const float* m,
+void add_projected_real(Blas& blas, const cuComplex* beta, std::size_t n, int projectors, const float* m,
                         const float* p, int count, DeviceArray<cuComplex>& scaled, cuComplex* out) {
     scaled.reserve(static_cast<std::size_t>(projectors) * static_cast<std::size_t>(count));
     float* s = real(scaled.data());
-    sgemm(blas, CUBLAS_OP_N, CUBLAS_OP_N, projectors, count, projectors, 1.0f, m, projectors, p, projectors, 0.0f, s,
+    sgemm(blas, Op::N, Op::N, projectors, count, projectors, 1.0f, m, projectors, p, projectors, 0.0f, s,
           projectors);
     gamma_combine(blas, n, beta, projectors, s, projectors, count, 1.0f, 1.0f, out);
 }
@@ -1291,14 +1241,12 @@ void Hamiltonian::overlap_projections(const cuComplex* p, int count, cuComplex* 
     }
     single();
     if (gamma_) {
-        sgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, 1.0f, qreal_f_.data(), projectors_,
+        sgemm(blas_, Op::N, Op::N, projectors_, count, projectors_, 1.0f, qreal_f_.data(), projectors_,
               real(p), projectors_, 0.0f, real(out), projectors_);
         return;
     }
     const cuComplex one = make_cuComplex(1.0f, 0.0f), zero = make_cuComplex(0.0f, 0.0f);
-    check_blas(cublasCgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, projectors_, count, projectors_, &one, qmatrix_f_.data(),
-                           projectors_, p, projectors_, &zero, out, projectors_),
-               "cublasCgemm");
+    blas_.gemm(Op::N, Op::N, projectors_, count, projectors_, one, qmatrix_f_.data(), projectors_, p, projectors_, zero, out, projectors_);
 }
 
 void Hamiltonian::apply(const cuComplex* psi, cuComplex* hpsi, int count) {

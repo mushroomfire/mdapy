@@ -2,10 +2,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
-"""The two kernels of the DFT: MDAPY's own kernels (the FFTs) against the GPU
-libraries of the vendor. The transforms agree to rounding on the grids of the
-DFT, and so do whole calculations: norm-conserving, ultrasoft and PAW
-pseudopotentials, k-points and the real bands of Gamma, spin, mixed precision.
+"""The two kernels of the DFT: MDAPY's own kernels (the FFTs and the linear
+algebra) against the GPU libraries of the vendor. The transforms agree to
+rounding on the grids of the DFT, the products and the triangular solves on
+the shapes of the solver and the projectors, and so do whole calculations:
+norm-conserving, ultrasoft and PAW pseudopotentials, k-points and the real
+bands of Gamma, spin, mixed precision.
 """
 
 import numpy as np
@@ -91,6 +93,82 @@ def test_the_real_transforms_agree(grid):
     noise = rng.normal(size=(2, *grid))
     back = [_dft.to_coefficients_gamma(noise, box, kernels=b) for b in KERNELS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
+
+
+def columns(rng, rows, cols, dtype):
+    """A matrix of noise stored by columns."""
+    a = rng.uniform(-1, 1, (rows, cols))
+    if np.issubdtype(dtype, np.complexfloating):
+        a = a + 1j * rng.uniform(-1, 1, (rows, cols))
+    return np.asfortranarray(a, dtype=dtype)
+
+
+def op(a, t):
+    return a if t == "N" else a.T if t == "T" else a.conj().T
+
+
+TYPES = [np.float64, np.float32, np.complex128, np.complex64]
+
+
+# (m, n, k) of c (m, n) = op(a) (m, k) op(b) (k, n): sizes off the tiles of 32,
+# the rotations of the bands (many rows), the inner products (long sums, split
+# along the sum) and the products with the projectors
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 1, 1),
+        (33, 31, 17),
+        (100, 70, 130),
+        (6000, 40, 90),
+        (45, 37, 9000),
+        (130, 7, 20011),
+        (64, 64, 0),
+    ],
+)
+def test_the_products_agree(dtype, shape):
+    m, n, k = shape
+    rng = np.random.default_rng(5)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 5e-14
+    for ta in "NTC":
+        for tb in "NTC":
+            a = columns(rng, *((m, k) if ta == "N" else (k, m)), dtype)
+            b = columns(rng, *((k, n) if tb == "N" else (n, k)), dtype)
+            own, vendor = (_dft.product(a, b, ta, tb, kernels=x) for x in KERNELS)
+            assert own.shape == (m, n) and own.dtype == dtype
+            wide = (
+                np.complex128
+                if np.issubdtype(dtype, np.complexfloating)
+                else np.float64
+            )
+            exact = op(a.astype(wide), ta) @ op(b.astype(wide), tb)
+            scale = max(np.abs(exact).max(), 1.0)
+            assert np.abs(own - vendor).max() < limit * scale
+            assert np.abs(own - exact).max() < limit * scale
+    # the long sums are split, another order than the library's: other bits
+    if k > 5000:
+        assert not np.array_equal(own, vendor)
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("shape", [(1, 1), (7, 5), (1000, 17), (3000, 100), (50, 333)])
+def test_the_triangular_solves_agree(dtype, shape):
+    """b r^-1 with r upper triangular and well conditioned, as the Cholesky
+    factor of the overlap of the bands is; the lower part of r is not read."""
+    m, n = shape
+    rng = np.random.default_rng(6)
+    single = dtype in (np.float32, np.complex64)
+    limit = 1e-4 if single else 1e-12
+    b = columns(rng, m, n, dtype)
+    r = columns(rng, n, n, dtype) * dtype(0.5 / np.sqrt(n))
+    r[np.diag_indices(n)] = 1.0 + 0.3 * np.sin(np.arange(n))
+    own, vendor = (_dft.solve_upper(b, r, kernels=x) for x in KERNELS)
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    upper = np.triu(r.astype(wide))
+    scale = max(np.abs(vendor).max(), 1.0)
+    assert np.abs(own - vendor).max() < limit * scale
+    assert np.abs(own.astype(wide) @ upper - b).max() < limit * scale
 
 
 def test_a_backend_unknown_is_refused():
@@ -221,6 +299,9 @@ def test_the_calculator_keeps_its_backend():
     second = vendor.compute(system, ("energy", "forces", "virial"))
     assert own.last["provenance"]["kernels"] == "mdapy"
     assert vendor.last["provenance"]["kernels"] == "vendor"
+    # two runs stopped at 1e-10 eV are not at the same density: their forces
+    # are within about 1e-6 eV/Å of the converged ones, and of each other (the
+    # runs converged tightly, above, agree to 1e-9 hartree/bohr)
     assert first.energy == pytest.approx(second.energy, abs=1e-8)
-    np.testing.assert_allclose(first.forces, second.forces, atol=1e-7)
-    np.testing.assert_allclose(first.virial, second.virial, atol=1e-6)
+    np.testing.assert_allclose(first.forces, second.forces, atol=5e-6)
+    np.testing.assert_allclose(first.virial, second.virial, atol=2e-5)

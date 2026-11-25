@@ -300,7 +300,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // the bare D for each atom
     std::vector<SpeciesAugmentation> augmented = input.augmentation;
     augmented.resize(input.species.size());
-    Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented);
+    Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented, input.kernels);
     const bool ultrasoft = aug.any();
     // DFT+U: the block of the pseudo-orbital of each Hubbard atom, where it
     // starts among the projector functions of the atom, its l and U
@@ -454,7 +454,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         std::vector<SpeciesOneCenter> data = input.paw;
         data.resize(input.species.size());
         centers = std::make_unique<OneCenter>(std::move(data), kinds, widths, ns, options.functional,
-                                              options.xc_threshold);
+                                              options.xc_threshold, input.kernels);
         one = [&centers](const std::vector<std::vector<double>>& b, std::vector<std::vector<double>>& d) {
             return centers->compute(b, d);
         };
@@ -474,7 +474,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         }
     };
-    Davidson davidson;
+    Davidson davidson(input.kernels);
     // the bands of each spin and k-point, (s, k) at s nk + k, random at the
     // start and the same for both spins, so that a density without
     // magnetization keeps none
@@ -662,7 +662,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         std::exception_ptr error;
         Worker(const Lattice& lattice, const Int3& grid, double cutoff, const std::vector<SpeciesProjectors>& species,
                const std::vector<Atom>& atoms, const Lattice* basis_, Kernels kernels)
-            : h(lattice, grid, cutoff, species, atoms, basis_, kernels) {}
+            : h(lattice, grid, cutoff, species, atoms, basis_, kernels), davidson(kernels) {}
     };
     std::vector<std::unique_ptr<Worker>> workers;
     std::vector<DeviceArray<double>> veff_spin;  // the effective potential of each spin on the grid of the bands
@@ -778,7 +778,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     }
                 }
                 const auto r = single_phase
-                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>()))
+                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>(input.kernels)))
                                          .solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
                                                      options.davidson_iterations, options.davidson_basis * nb)
                                    : wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
@@ -808,7 +808,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);
                 const auto r = single_phase
                                    ? (single_solver ? *single_solver
-                                                    : *(single_solver = std::make_unique<DavidsonSingle>()))
+                                                    : *(single_solver = std::make_unique<DavidsonSingle>(input.kernels)))
                                          .solve(h, psi[s * nk + k].data(), nb, values, limits,
                                                          options.davidson_iterations, options.davidson_basis * nb)
                                    : davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,

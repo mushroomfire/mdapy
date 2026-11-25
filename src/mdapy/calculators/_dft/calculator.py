@@ -168,7 +168,8 @@ class DFT(Calculator):
         Default ``"double"``.
     kernels : str, optional
         Whose kernels run on the GPU. ``"mdapy"``: those of MDAPY where it
-        has its own (today the fast Fourier transforms), the GPU libraries of
+        has its own (today the fast Fourier transforms and the dense linear
+        algebra: products, triangular solves), the GPU libraries of
         the vendor for the rest. ``"vendor"``: the GPU libraries of the vendor
         throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS
         and hipSOLVER on AMD GPUs). The results agree to rounding. Default

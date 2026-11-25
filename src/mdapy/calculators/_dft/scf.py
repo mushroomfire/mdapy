@@ -322,7 +322,7 @@ def run(
     real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
-    it has its own (the FFTs), "vendor": the GPU libraries of the vendor
+    it has its own (the FFTs and the dense linear algebra), "vendor": the GPU libraries of the vendor
     throughout."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")

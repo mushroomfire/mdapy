@@ -77,7 +77,9 @@ private:
     Kernels kernels_;
     Blas blas_;  // the products and the triangular solves of the large matrices
     cusolverDnHandle_t vendor_ = nullptr;  // of the library of the vendor, made at its first use
-    int host_limit_ = 256;
+    // measured on a V100 (host: one core of its node): the host is the faster
+    // up to about 64, the GPU beyond
+    int host_limit_ = 64;
     DeviceArray<Complex> work_;
     DeviceArray<double> values_;
     DeviceArray<float> values_single_;

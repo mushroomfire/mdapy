@@ -201,9 +201,9 @@ SPECTRA = {
 }
 
 
-# (n, the largest matrix MDAPY solves on the host): on the host, and on the
-# GPU (the limit 0), where 33 and 65 are just beyond a leaf of the divide and
-# conquer and a block of reflectors
+# (n, the largest matrix MDAPY solves on the host, -1 for its default of 64):
+# on the host, and on the GPU, where 33 and 65 are just beyond a leaf of the
+# divide and conquer and a block of reflectors
 @pytest.mark.parametrize("dtype", TYPES)
 @pytest.mark.parametrize("spectrum", list(SPECTRA))
 @pytest.mark.parametrize(

@@ -55,7 +55,7 @@ def without_gpu_part(monkeypatch):
      ({"hubbard": {"Fe": (2, 4.0)}}, HUBBARD), ({"hubbard": {"Fe": ("3d", -1.0)}}, HUBBARD),
      ({"moment_radius": 0.0}, "moment_radius must be positive"),
      ({"precision": "single"}, "precision must be 'double', 'mixed' or 'auto'"),
-     ({"kernels": "cufft"}, "kernels must be 'mdapy' or 'vendor'"),
+     ({"kernels": "cufft"}, "kernels must be 'auto', 'mdapy' or 'vendor'"),
      ({"preconditioner": "tf"}, "preconditioner must be 'kerker' or 'ldos'"),
      ({"magnetic_mixing": 0.0}, "magnetic_mixing must be positive"),
      ({"restart": "first_order"}, "restart must be False, True, 'atomic' or 'second_order'"),

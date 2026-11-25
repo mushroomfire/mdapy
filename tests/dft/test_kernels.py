@@ -76,7 +76,9 @@ def test_the_transforms_of_the_planes_of_a_sphere(grid):
     the values of the sphere are those of the whole boxes to the last bit (the
     planes beyond it are never read), and its coefficients from noise those of
     the whole boxes to rounding (the axes in another order); with a plane
-    larger than a block, the whole boxes."""
+    larger than a block, the whole boxes. A field the forward transform takes
+    on its way gives the transform of the values times the field, to the last
+    bit."""
     rng = np.random.default_rng(2)
     cell = np.diag([9.0, 9.5, 10.0])
     miller, box, _ = sphere_of(cell, 3.0, grid)
@@ -91,6 +93,15 @@ def test_the_transforms_of_the_planes_of_a_sphere(grid):
         whole = _dft.to_coefficients(noise, box, kernels=kernels)
         planes = _dft.to_coefficients(noise, box, kernels=kernels, window=window)
         assert np.abs(planes - whole).max() < 1e-13 * np.abs(whole).max()
+        # a field taken on the way of the transform: the values times it first
+        field = rng.uniform(-1.0, 1.0, size=grid)
+        for w in (-1, window):
+            np.testing.assert_array_equal(
+                _dft.to_coefficients(
+                    noise, box, kernels=kernels, window=w, field=field
+                ),
+                _dft.to_coefficients(noise * field, box, kernels=kernels, window=w),
+            )
 
 
 @pytest.mark.parametrize(

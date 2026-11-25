@@ -11,6 +11,7 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
@@ -494,8 +495,10 @@ NB_MODULE(_dft, m) {
     }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // the values (count, n1, n2, n3) on the grid to the coefficients of a sphere,
     // divided by the points of the grid: the inverse of to_real_space; with
-    // window >= 0, of a sphere within window of 0 along the first index
-    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window) {
+    // window >= 0, of a sphere within window of 0 along the first index; with
+    // field (n1, n2, n3), of the values times it
+    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window,
+                                std::optional<Grid3> field) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         const std::size_t points = points_of(g);
@@ -506,14 +509,20 @@ NB_MODULE(_dft, m) {
         boxes.upload(as_device(v.data()), v.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        fft.to_reciprocal(boxes.data(), count, fft.window_of(window));
+        DeviceArray<double> f;
+        if (field) {
+            if (field->size() != points) throw std::invalid_argument("a field of the grid of the values");
+            f.upload(field->data(), points);
+        }
+        fft.to_reciprocal(boxes.data(), count, fft.window_of(window), field ? f.data() : nullptr);
         mdapy::dft::gather(boxes.data(), points, places.data(), n, count,
                            1.0 / static_cast<double>(points), coefficients.data());
         std::complex<double>* out = nullptr;
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1,
+       nb::arg("field").none() = nb::none());
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
     // values on the grid, and back; window as to_real_space and to_coefficients
     m.def("to_real_space_gamma",

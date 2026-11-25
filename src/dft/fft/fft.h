@@ -53,8 +53,11 @@ public:
     // to_reciprocal writes those alone. window_of(w) is the window the
     // transforms take: w with MDAPY's kernels, -1 (whole boxes) with the
     // library of the vendor.
+    // With field (points reals, the same for every box), to_reciprocal
+    // transforms the boxes times it: the local potential of the bands, taken
+    // on the way of MDAPY's transform.
     void to_real(Complex* boxes, int count, int window = -1);
-    void to_reciprocal(Complex* boxes, int count, int window = -1);
+    void to_reciprocal(Complex* boxes, int count, int window = -1, const double* field = nullptr);
     int window_of(int window) const noexcept { return own_ ? window : -1; }
     // Real boxes, out of place; to_real overwrites its spectrum, as cuFFT's
     // complex-to-real transforms do. A window as for the complex boxes, on
@@ -64,7 +67,7 @@ public:
     // Complex boxes of single precision, in place, for the bands of the
     // single-precision steps.
     void to_real(cuComplex* boxes, int count, int window = -1);
-    void to_reciprocal(cuComplex* boxes, int count, int window = -1);
+    void to_reciprocal(cuComplex* boxes, int count, int window = -1, const float* field = nullptr);
     // Real boxes of single precision, out of place, as those of double.
     void to_real(cuComplex* spectrum, float* values, int count, int window = -1);
     void to_reciprocal(const float* values, cuComplex* spectrum, int count, int window = -1);

@@ -70,6 +70,8 @@ struct AxisArgs {
     int window;         // strided: with window >= 0 only the points within window of 0 along the line are read, the
                         // others taken as zeros
     int kept;           // strided: with kept >= 0 only the points within kept of 0 along the line are written
+    const void* field;  // strided along the first axis: with a field, the points times its value at their place in
+                        // the box (the same field for every box) as they are read
     Pass pass[kMaxPasses];
 };
 
@@ -336,11 +338,16 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
 #pragma unroll
                 for (int i = 0; i < kAhead; ++i) {
                     const unsigned e = e0 + i * blockDim.x, j = e >> a.log_c;
-                    if (e < n * lines)
+                    if (e < n * lines) {
                         value[i] = a.window < 0 || j <= static_cast<unsigned>(a.window) ||
                                            j + static_cast<unsigned>(a.window) >= n
                                        ? from[j * a.stride + (e & mask)]
                                        : Cx<R>{static_cast<R>(0), static_cast<R>(0)};
+                        if (a.field != nullptr) {
+                            const R f = static_cast<const R*>(a.field)[chunk * lines + j * a.stride + (e & mask)];
+                            value[i] = Cx<R>{f * value[i].x, f * value[i].y};
+                        }
+                    }
                 }
 #pragma unroll
                 for (int i = 0; i < kAhead; ++i) {
@@ -713,6 +720,16 @@ std::vector<int> radices(int n) {
     return out;
 }
 
+// boxes (count boxes of points complex numbers) times field (points reals)
+template <class R>
+__global__ void field_kernel(long long total, long long points, const R* __restrict__ field, R* boxes) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    if (e >= total) return;
+    const R f = field[e % points];
+    Cx<R>* box = reinterpret_cast<Cx<R>*>(boxes);
+    box[e] = Cx<R>{f * box[e].x, f * box[e].y};
+}
+
 unsigned inverse_of(int n) {  // ceil(2^32 / n), n > 1
     return static_cast<unsigned>(((1ull << 32) + static_cast<unsigned long long>(n) - 1) / static_cast<unsigned long long>(n));
 }
@@ -816,6 +833,7 @@ struct BoxFft::Tables {
         a.inv_half = a.half > 1 ? inverse_of(a.half) : 0u;
         a.window = -1;
         a.kept = -1;
+        a.field = nullptr;
         for (std::size_t i = 0; i < passes.size(); ++i) a.pass[i] = passes[i];
         return a;
     }
@@ -938,12 +956,13 @@ int plane_threads(Kernel kernel, [[maybe_unused]] std::size_t bytes, int points,
 // by side in each of the planes.
 template <class R, int Sign>
 void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window,
-                     int kept) {
+                     int kept, const R* field) {
     if (!(axes_ & (1 << axis))) return;
     const Tables& t = *tables_[axis];
     AxisArgs a = t.args();
     a.window = window;
     a.kept = kept;
+    a.field = field;
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
     geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], narrow_ && sizeof(R) == 8 && t.n >= 64, a.log_c, threads);
@@ -1100,11 +1119,21 @@ bool BoxFft::plane_fits() const {
 // transforms every line along the first axis, then those planes alone. Without
 // a kernel of planes, the whole boxes, the others zeroed first.
 template <class R>
-void BoxFft::complex_window(R* boxes, int count, int sign, int window) {
+void BoxFft::complex_window(R* boxes, int count, int sign, int window, const R* field) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], n3 = grid_[2];
-    if (window < 0 || 2LL * window + 1 >= n1) return complex_boxes(boxes, count, sign);
+    const auto multiply = [&] {  // the boxes times the field, before a transform that cannot take it on its way
+        if (field == nullptr) return;
+        const long long points = n1 * n2 * n3, total = points * count;
+        field_kernel<R><<<static_cast<unsigned>((total + 255) / 256), 256>>>(total, points, field, boxes);
+        check(cudaGetLastError(), "the field of the boxes");
+    };
+    if (window < 0 || 2LL * window + 1 >= n1) {
+        multiply();
+        return complex_boxes(boxes, count, sign);
+    }
     if (!plane_fits<R>()) {
+        multiply();
         if (sign > 0)  // the planes beyond the window to zeros
             for (int b = 0; b < count; ++b)
                 check(cudaMemset(reinterpret_cast<Cx<R>*>(boxes) + (b * n1 + window + 1) * n2 * n3, 0,
@@ -1116,7 +1145,7 @@ void BoxFft::complex_window(R* boxes, int count, int sign, int window) {
         planes<R, 1>(boxes, count, window);
         strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3, window);
     } else {
-        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3, -1, window);
+        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3, -1, window, field);
         planes<R, -1>(boxes, count, window);
     }
 }
@@ -1148,10 +1177,14 @@ void BoxFft::real_inverse(R* spectrum, R* values, int count, int window) {
         contiguous<R, 1, kComplexToReal>(spectrum, values, count * n1 * n2);
 }
 
-void BoxFft::forward(double* boxes, int count, int window) { complex_window(boxes, count, -1, window); }
-void BoxFft::inverse(double* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
-void BoxFft::forward(float* boxes, int count, int window) { complex_window(boxes, count, -1, window); }
-void BoxFft::inverse(float* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
+void BoxFft::forward(double* boxes, int count, int window, const double* field) {
+    complex_window(boxes, count, -1, window, field);
+}
+void BoxFft::inverse(double* boxes, int count, int window) { complex_window<double>(boxes, count, 1, window, nullptr); }
+void BoxFft::forward(float* boxes, int count, int window, const float* field) {
+    complex_window(boxes, count, -1, window, field);
+}
+void BoxFft::inverse(float* boxes, int count, int window) { complex_window<float>(boxes, count, 1, window, nullptr); }
 void BoxFft::forward(const double* values, double* spectrum, int count, int window) {
     real_forward(values, spectrum, count, window);
 }

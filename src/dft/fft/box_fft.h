@@ -46,9 +46,11 @@ public:
     // as the transform along the first axis made them; about a third less
     // work and memory traffic with the sphere of the bands in a box of the
     // density.
-    void forward(double* boxes, int count, int window = -1);
+    // forward with field multiplies the boxes by it first (points reals, the
+    // same for every box), on the way of the transform where it can.
+    void forward(double* boxes, int count, int window = -1, const double* field = nullptr);
     void inverse(double* boxes, int count, int window = -1);
-    void forward(float* boxes, int count, int window = -1);
+    void forward(float* boxes, int count, int window = -1, const float* field = nullptr);
     void inverse(float* boxes, int count, int window = -1);
 
     // count real boxes of points() values to spectrum() complex components and
@@ -81,7 +83,7 @@ private:
     template <class R>
     void complex_boxes(R* boxes, int count, int sign);
     template <class R>
-    void complex_window(R* boxes, int count, int sign, int window);
+    void complex_window(R* boxes, int count, int sign, int window, const R* field);
     template <class R>
     bool plane_fits() const;
     template <class R>
@@ -90,7 +92,7 @@ private:
     void real_inverse(R* spectrum, R* values, int count, int window);
     template <class R, int Sign>
     void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1,
-                 int kept = -1);
+                 int kept = -1, const R* field = nullptr);
     template <class R, int Sign, int Mode>
     void contiguous(const R* in, R* out, long long lines);
     template <class R, int Sign>

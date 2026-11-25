@@ -240,27 +240,12 @@ __global__ void kinetic_kernel(std::size_t n, int count, const double* kinetic, 
     hpsi[i] = make_cuDoubleComplex(t * psi[i].x, t * psi[i].y);
 }
 
-__global__ void multiply_kernel(std::size_t points, int count, const double* potential,
-                                Complex* boxes) {
-    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
-    if (i >= points * count) return;
-    const double v = potential[i % points];
-    boxes[i] = make_cuDoubleComplex(v * boxes[i].x, v * boxes[i].y);
-}
-
 __global__ void kinetic_single_kernel(std::size_t n, int count, const float* kinetic, const cuComplex* psi,
                                       cuComplex* hpsi) {
     const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
     if (i >= n * count) return;
     const float t = kinetic[i % n];
     hpsi[i] = make_cuComplex(t * psi[i].x, t * psi[i].y);
-}
-
-__global__ void multiply_single_kernel(std::size_t points, int count, const float* potential, cuComplex* boxes) {
-    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
-    if (i >= points * count) return;
-    const float v = potential[i % points];
-    boxes[i] = make_cuComplex(v * boxes[i].x, v * boxes[i].y);
 }
 
 __global__ void multiply_real_single_kernel(std::size_t points, int count, const float* potential, float* values) {
@@ -1065,9 +1050,7 @@ void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
         const std::size_t offset = n * static_cast<std::size_t>(first);
         scatter_window(psi + offset, n, box_.data(), nullptr, m, boxes_.data(), fft_.grid(), window);
         fft_.to_real(boxes_.data(), m, window);
-        multiply_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_.data(), boxes_.data());
-        check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_.data(), m, window);
+        fft_.to_reciprocal(boxes_.data(), m, window, potential_.data());  // V psi on the way
         gather_add(boxes_.data(), points, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
     }
 }
@@ -1223,9 +1206,7 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
         const std::size_t offset = n * static_cast<std::size_t>(first);
         scatter_window(psi + offset, n, box_.data(), nullptr, m, boxes_f_.data(), fft_.grid(), window);
         fft_.to_real(boxes_f_.data(), m, window);
-        multiply_single_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_f_.data(), boxes_f_.data());
-        check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_f_.data(), m, window);
+        fft_.to_reciprocal(boxes_f_.data(), m, window, potential_f_.data());  // V psi on the way
         gather_add(boxes_f_.data(), points, box_.data(), n, m, 1.0f / static_cast<float>(points), hpsi + offset);
     }
 }

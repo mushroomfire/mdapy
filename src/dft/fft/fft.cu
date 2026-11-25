@@ -85,6 +85,24 @@ void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 double* reals(Complex* values) { return reinterpret_cast<double*>(values); }
 float* reals(cuComplex* values) { return reinterpret_cast<float*>(values); }
 
+// count boxes of points complex numbers times field (points reals)
+template <class T, class R>
+__global__ void multiply_field_kernel(std::size_t total, std::size_t points, const R* field, T* boxes) {
+    const std::size_t e = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (e >= total) return;
+    const R f = field[e % points];
+    boxes[e].x = f * boxes[e].x;
+    boxes[e].y = f * boxes[e].y;
+}
+
+template <class T, class R>
+void multiply_field(T* boxes, int count, std::size_t points, const R* field) {
+    if (field == nullptr || count < 1) return;
+    const std::size_t total = points * static_cast<std::size_t>(count);
+    multiply_field_kernel<T, R><<<blocks(total), kThreads>>>(total, points, field, boxes);
+    launched("the field of the boxes");
+}
+
 }  // namespace
 
 Fft::Fft(const Int3& grid, Kernels kernels) : grid_(grid) {
@@ -130,9 +148,10 @@ void Fft::to_real(Complex* boxes, int count, int window) {
                 "cufftExecZ2Z");
 }
 
-void Fft::to_reciprocal(Complex* boxes, int count, int window) {
+void Fft::to_reciprocal(Complex* boxes, int count, int window, const double* field) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(reals(boxes), count, window);
+    if (own_) return own_->forward(reals(boxes), count, window, field);
+    multiply_field(boxes, count, points(), field);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_FORWARD),
                 "cufftExecZ2Z");
 }
@@ -143,9 +162,10 @@ void Fft::to_real(cuComplex* boxes, int count, int window) {
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_INVERSE), "cufftExecC2C");
 }
 
-void Fft::to_reciprocal(cuComplex* boxes, int count, int window) {
+void Fft::to_reciprocal(cuComplex* boxes, int count, int window, const float* field) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(reals(boxes), count, window);
+    if (own_) return own_->forward(reals(boxes), count, window, field);
+    multiply_field(boxes, count, points(), field);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
 }
 

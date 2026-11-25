@@ -344,6 +344,21 @@ NB_MODULE(_dft, m) {
                                         std::to_string(mdapy::dft::device_count()) + " this process sees");
         mdapy::dft::check_cuda(cudaSetDevice(index), "cudaSetDevice");
     });
+    // the memory of the stream-ordered pool of the current device (bytes): in
+    // use and reserved, now and at their peaks since reset_memory_peaks, and
+    // the free and total memory of the device
+    m.def("memory", [] {
+        const mdapy::dft::PoolMemory p = mdapy::dft::pool_memory();
+        nb::dict out;
+        out["in_use"] = p.in_use;
+        out["in_use_peak"] = p.in_use_peak;
+        out["reserved"] = p.reserved;
+        out["reserved_peak"] = p.reserved_peak;
+        out["free"] = p.free;
+        out["total"] = p.total;
+        return out;
+    });
+    m.def("reset_memory_peaks", &mdapy::dft::reset_pool_peaks);
 
     m.def("reciprocal", [](Matrix a) {
         const Lattice lattice = lattice_of(a);
@@ -964,7 +979,13 @@ NB_MODULE(_dft, m) {
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
             std::vector<int> accepted, single;
             std::vector<int> davidson;
+            std::vector<std::size_t> in_use, in_use_peak, reserved, reserved_peak, device_used;
             for (const auto& step : r.steps) {
+                in_use.push_back(step.memory.in_use);
+                in_use_peak.push_back(step.memory.in_use_peak);
+                reserved.push_back(step.memory.reserved);
+                reserved_peak.push_back(step.memory.reserved_peak);
+                device_used.push_back(step.memory.total - step.memory.free);
                 energies.push_back(step.energy);
                 output.push_back(step.output_energy);
                 accepted.push_back(step.accepted ? 1 : 0);
@@ -1012,6 +1033,14 @@ NB_MODULE(_dft, m) {
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
             out["magnetizations"] = array_of(moments, {ns});
+            // of the pool and the device at the end of each step, bytes
+            nb::dict memory;
+            memory["in_use"] = array_of(in_use, {ns});
+            memory["in_use_peak"] = array_of(in_use_peak, {ns});
+            memory["reserved"] = array_of(reserved, {ns});
+            memory["reserved_peak"] = array_of(reserved_peak, {ns});
+            memory["device_used"] = array_of(device_used, {ns});
+            out["memory"] = memory;
             if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
             if (mixed_precision) out["single"] = array_of(single, {ns});
             if (adaptive_damping) {

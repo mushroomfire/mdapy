@@ -76,7 +76,9 @@ def test_the_transforms_of_the_planes_of_a_sphere(grid):
     the values of the sphere are those of the whole boxes to the last bit (the
     planes beyond it are never read), and its coefficients from noise those of
     the whole boxes to rounding (the axes in another order); with a plane
-    larger than a block, the whole boxes."""
+    larger than a block, the whole boxes. A field the forward transform takes
+    on its way gives the transform of the values times the field, to the last
+    bit."""
     rng = np.random.default_rng(2)
     cell = np.diag([9.0, 9.5, 10.0])
     miller, box, _ = sphere_of(cell, 3.0, grid)
@@ -91,6 +93,15 @@ def test_the_transforms_of_the_planes_of_a_sphere(grid):
         whole = _dft.to_coefficients(noise, box, kernels=kernels)
         planes = _dft.to_coefficients(noise, box, kernels=kernels, window=window)
         assert np.abs(planes - whole).max() < 1e-13 * np.abs(whole).max()
+        # a field taken on the way of the transform: the values times it first
+        field = rng.uniform(-1.0, 1.0, size=grid)
+        for w in (-1, window):
+            np.testing.assert_array_equal(
+                _dft.to_coefficients(
+                    noise, box, kernels=kernels, window=w, field=field
+                ),
+                _dft.to_coefficients(noise * field, box, kernels=kernels, window=w),
+            )
 
 
 @pytest.mark.parametrize(
@@ -118,6 +129,33 @@ def test_the_real_transforms_agree(grid):
     noise = rng.normal(size=(2, *grid))
     back = [_dft.to_coefficients_gamma(noise, box, kernels=b) for b in KERNELS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
+
+
+@pytest.mark.parametrize(
+    "grid", [(27, 27, 27), (36, 30, 24), (48, 45, 75), (90, 90, 96)]
+)
+def test_the_real_transforms_of_the_planes_of_a_sphere(grid):
+    """The real transforms of Gamma with only the planes of the half sphere:
+    the values and the coefficients are those of the whole spectra to the last
+    bit, the planes beyond it neither read nor written."""
+    rng = np.random.default_rng(3)
+    cell = np.diag([9.0, 9.5, 10.0])
+    miller, box, partner = sphere_of(cell, 3.0, grid, half=True)
+    window = int(np.abs(np.asarray(miller)[:, 0]).max())
+    assert 2 * window + 1 < grid[0]
+    c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
+    c[:, 0] = c[:, 0].real
+    noise = rng.normal(size=(2, *grid))
+    for kernels in KERNELS:
+        args = (c, box, partner, list(grid))
+        np.testing.assert_array_equal(
+            _dft.to_real_space_gamma(*args, kernels=kernels, window=window),
+            _dft.to_real_space_gamma(*args, kernels=kernels),
+        )
+        np.testing.assert_array_equal(
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels, window=window),
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels),
+        )
 
 
 def columns(rng, rows, cols, dtype):

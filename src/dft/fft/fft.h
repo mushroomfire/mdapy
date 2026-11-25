@@ -53,20 +53,24 @@ public:
     // to_reciprocal writes those alone. window_of(w) is the window the
     // transforms take: w with MDAPY's kernels, -1 (whole boxes) with the
     // library of the vendor.
+    // With field (points reals, the same for every box), to_reciprocal
+    // transforms the boxes times it: the local potential of the bands, taken
+    // on the way of MDAPY's transform.
     void to_real(Complex* boxes, int count, int window = -1);
-    void to_reciprocal(Complex* boxes, int count, int window = -1);
+    void to_reciprocal(Complex* boxes, int count, int window = -1, const double* field = nullptr);
     int window_of(int window) const noexcept { return own_ ? window : -1; }
     // Real boxes, out of place; to_real overwrites its spectrum, as cuFFT's
-    // complex-to-real transforms do.
-    void to_real(Complex* spectrum, double* values, int count);
-    void to_reciprocal(const double* values, Complex* spectrum, int count);
+    // complex-to-real transforms do. A window as for the complex boxes, on
+    // the planes of the spectra.
+    void to_real(Complex* spectrum, double* values, int count, int window = -1);
+    void to_reciprocal(const double* values, Complex* spectrum, int count, int window = -1);
     // Complex boxes of single precision, in place, for the bands of the
     // single-precision steps.
     void to_real(cuComplex* boxes, int count, int window = -1);
-    void to_reciprocal(cuComplex* boxes, int count, int window = -1);
+    void to_reciprocal(cuComplex* boxes, int count, int window = -1, const float* field = nullptr);
     // Real boxes of single precision, out of place, as those of double.
-    void to_real(cuComplex* spectrum, float* values, int count);
-    void to_reciprocal(const float* values, cuComplex* spectrum, int count);
+    void to_real(cuComplex* spectrum, float* values, int count, int window = -1);
+    void to_reciprocal(const float* values, cuComplex* spectrum, int count, int window = -1);
 
 private:
     cufftHandle plan(cufftType type, int count);
@@ -92,13 +96,14 @@ void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, s
 void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
                 int count, double scale, Complex* coefficients);
 
-// scatter of complex boxes of the grid for a transform with a window (see
-// Fft): with window >= 0 only the planes of the first index within window of 0
-// are zeroed first, the planes the transform reads; with window < 0 all.
-void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, int count, Complex* boxes,
-                    const Int3& grid, int window);
-void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count,
-                    cuComplex* boxes, const Int3& grid, int window);
+// scatter of boxes of the sizes grid (the spectra of real boxes, with partner)
+// for a transform with a window (see Fft): with window >= 0 only the planes of
+// the first index within window of 0 are zeroed first, the planes the
+// transform reads; with window < 0 all.
+void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+                    int count, Complex* boxes, const Int3& grid, int window);
+void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box,
+                    const std::int64_t* partner, int count, cuComplex* boxes, const Int3& grid, int window);
 
 // The same of single-precision coefficients and boxes.
 void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,

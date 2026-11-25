@@ -129,9 +129,12 @@ def test_available(monkeypatch):
     assert not symmetry.available()
 
 
-def test_the_identity_alone():
+@pytest.mark.parametrize("old_handling", [True, False])
+def test_the_identity_alone(monkeypatch, old_handling):
     """For a cell taken without symmetry, and where spglib finds none (two
-    atoms on one point, which it refuses)."""
+    atoms on one point, which it refuses): it gives None or raises, as its
+    setting says, which phonopy changes when it is imported."""
+    monkeypatch.setattr(spglib.error, "OLD_ERROR_HANDLING", old_handling)
     ops = symmetry.identity(3)
     assert len(ops) == 1 and ops.rotations.dtype == np.int32
     np.testing.assert_array_equal(ops.rotations[0], np.eye(3))

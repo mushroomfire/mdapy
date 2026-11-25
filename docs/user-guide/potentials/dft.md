@@ -181,7 +181,7 @@ print(again.compute(frame).energy, frame.info["energy"])
 | `mdapy` | the version of MDAPY |
 | `arguments` | the arguments of `DFT` that give the same computation: those of the table above but `pseudopotentials`, `gpu`, `comm`, `log` and `start` |
 | `pseudopotentials` | of each element, the name of its file and its SHA-256: another file of the same name is another pseudopotential |
-| `internal` | the settings of the self-consistent field that `DFT` does not take, such as the 8 steps of the history of Pulay's mixing |
+| `internal` | the settings of the self-consistent field that `DFT` does not take, such as the 8 steps of the history of Pulay's mixing, by their names and in their units inside, hartree and bohr |
 | `environment` | the variables `MDAPY_DFT_*` that were set |
 | `gpu`, `processes` | the GPU, and the processes of `comm` |
 

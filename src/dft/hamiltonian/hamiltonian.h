@@ -24,6 +24,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "dft/blas/blas.h"
@@ -175,6 +176,9 @@ private:
 
     // of the k-point
     Sphere sphere_;
+    // the spheres of the k-points set so far: each is made once, and the
+    // steps of an SCF come back to the same k-points
+    std::vector<std::pair<Vec3, Sphere>> spheres_;
     DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)

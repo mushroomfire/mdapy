@@ -116,7 +116,7 @@ def test_errors(monkeypatch):
 @pytest.mark.parametrize("old_handling", [True, False])
 def test_atoms_that_overlap(monkeypatch, old_handling):
     # spglib gives None or raises, as this setting says
-    monkeypatch.setattr(spglib, "OLD_ERROR_HANDLING", old_handling)
+    monkeypatch.setattr(spglib.error, "OLD_ERROR_HANDLING", old_handling)
     positions = [[1.0, 1, 1], [1.0, 1, 1]]
     system = mdapy.System(positions, mdapy.Box(10.0), elements="Cu")
     with pytest.raises(InvalidParameter, match="no symmetry"):

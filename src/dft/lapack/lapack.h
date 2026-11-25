@@ -80,12 +80,6 @@ public:
     // The smallest matrix whose panels take their products from one triangle
     // of the matrix (-1: MDAPY's choice).
     void set_triangle_from(int n) noexcept { triangle_from_ = n; }
-    // The smallest matrix tridiagonalized in two stages, through a band (-1:
-    // MDAPY's choice), the half width of the band and the sweeps whose
-    // reflectors a block applies to the eigenvectors (0: MDAPY's choice).
-    void set_two_stage_from(int n) noexcept { two_stage_from_ = n; }
-    void set_band(int width) noexcept { band_ = width; }
-    void set_group(int sweeps) noexcept { group_ = sweeps; }
     // The reflectors of a block of the back-transformation and the rows of a
     // leaf of the divide and conquer (0: MDAPY's choice).
     void set_reflectors(int count) noexcept { reflectors_ = count; }
@@ -113,9 +107,6 @@ private:
     int fused_limit_ = -1;
     int panels_from_ = -1;
     int triangle_from_ = -1;
-    int two_stage_from_ = -1;
-    int band_ = 0;
-    int group_ = 0;
     int reflectors_ = 0;
     int leaf_ = 0;
     int full_double_ = -1;  // whether the GPU runs double precision at half the rate of single; -1 before it is asked

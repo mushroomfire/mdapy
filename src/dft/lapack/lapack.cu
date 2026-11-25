@@ -1193,8 +1193,6 @@ float unit(float, double x) { return static_cast<float>(x); }
 
 constexpr int kPanel = 64;       // columns of a block of the Cholesky factorization
 
-#include "dft/lapack/band.cuh"
-
 }  // namespace
 
 Lapack::Lapack(Kernels kernels) : kernels_(kernels), blas_(kernels) { info_.resize(1); }
@@ -1254,22 +1252,11 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
     S* matrix = own(a);
     mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, matrix);
     launched("the lower triangle of a matrix");
-    const bool two = n >= (two_stage_from_ >= 0 ? two_stage_from_ : n + 1);
-    TwoStage<T> stages;
-    std::vector<double> d, e;
     // the reflectors as columns (zeros down to the diagonal of each), and p of two steps
-    DeviceArray<T> tau, reflectors, products, held;
-    if (two) {
-        MDAPY_SPAN("tridiagonal");
-        two_stage_tridiagonal(blas_, a, n, band_ == 8 || band_ == 16 ? band_ : 32, stages, d, e);
-    } else {
-        tau.resize(static_cast<std::size_t>(n));
-        reflectors.resize(size);
-        products.resize(2 * static_cast<std::size_t>(n));
-        reflectors.zero();
-    }
+    DeviceArray<T> tau(static_cast<std::size_t>(n)), reflectors(size), products(2 * static_cast<std::size_t>(n)), held;
     DeviceArray<R> diagonal(static_cast<std::size_t>(n)), subdiagonal(static_cast<std::size_t>(n));
-    if (!two) {
+    reflectors.zero();
+    {
         MDAPY_SPAN("tridiagonal");
         // one launch a step repeats its first part in every block: not where the
         // arithmetic of double precision is what the GPU lacks, and there in
@@ -1356,13 +1343,11 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
         }
         launched("the tridiagonalization");
     }
-    if (!two) {
-        std::vector<R> host(static_cast<std::size_t>(n));
-        diagonal.download(host.data(), host.size());
-        d.assign(host.begin(), host.end());
-        subdiagonal.download(host.data(), host.size());
-        e.assign(host.begin(), host.end() - 1);
-    }
+    std::vector<R> host(static_cast<std::size_t>(n));
+    diagonal.download(host.data(), host.size());
+    std::vector<double> d(host.begin(), host.end());
+    subdiagonal.download(host.data(), host.size());
+    std::vector<double> e(host.begin(), host.end() - 1);
     // the eigenpairs of t
     DeviceArray<R> q;
     {
@@ -1372,14 +1357,6 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
     }
     values = d;
     const std::size_t made = static_cast<std::size_t>(n) * wanted;
-    if (two) {
-        DeviceArray<T> z(made);
-        widen_kernel<S><<<blocks(static_cast<long long>(made)), kThreads>>>(static_cast<long long>(made), q.data(), own(z.data()));
-        launched("the eigenvectors of the tridiagonal matrix");
-        two_stage_back(blas_, a, n, stages, z.data(), wanted, std::clamp(group_ > 0 ? group_ : stages.b, 1, stages.b));
-        check_cuda(cudaMemcpy(a, z.data(), made * sizeof(T), cudaMemcpyDeviceToDevice), "cudaMemcpy");
-        return;
-    }
     // z = h_0 h_1 ... q, the last block of reflectors first: a block is
     // 1 - v t v^H with t upper triangular, t_ii = tau_i and
     // t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i]

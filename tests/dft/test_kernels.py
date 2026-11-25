@@ -239,9 +239,8 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
     the tridiagonalization) and as on one without, with the
-    tridiagonalization in panels, with their products from one triangle of
-    the matrix, and with the one in two stages through a band of 8 and of 16
-    rows, which MDAPY takes for the large matrices."""
+    tridiagonalization in panels, which MDAPY takes for the large matrices,
+    and with their products from one triangle of the matrix."""
     rng = np.random.default_rng(n)
     single = dtype in (np.float32, np.complex64)
     limit = 2e-5 if single else 1e-12
@@ -257,8 +256,6 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
         ("mdapy", dict(full_double=1)),
         ("mdapy", dict(full_double=1, panels_from=0)),
         ("mdapy", dict(full_double=1, panels_from=0, triangle_from=0)),
-        ("mdapy", dict(full_double=1, two_stage_from=0, band=8)),
-        ("mdapy", dict(full_double=0, two_stage_from=0, band=16)),
         ("vendor", {}),
     ):
         w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, **options)
@@ -272,17 +269,14 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
 
 
 @pytest.mark.parametrize(
-    "options",
-    [{}, dict(triangle_from=0), dict(two_stage_from=0)],
-    ids=["panels", "triangle", "two stages"],
+    "options", [{}, dict(triangle_from=0)], ids=["panels", "triangle"]
 )
 @pytest.mark.parametrize("dtype, n", [(np.complex128, 1100), (np.float64, 1600)])
 def test_the_eigenpairs_of_large_matrices(dtype, n, options):
     """What MDAPY takes for the large matrices on a GPU of full double
     precision: the tridiagonalization in panels (from 1024 complex numbers and
     1536 real ones), their products from the whole matrix or from one
-    triangle, or in two stages through a band of 32 rows; leaves of 16 rows
-    and blocks of 64 reflectors."""
+    triangle, leaves of 16 rows and blocks of 64 reflectors."""
     rng = np.random.default_rng(n)
     a = hermitian(rng, n, dtype, SPECTRA["clustered"](n))
     exact = np.linalg.eigvalsh(a)
@@ -311,10 +305,13 @@ def test_the_lowest_eigenvectors(dtype, spectrum, n, count):
     wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
     exact = np.linalg.eigvalsh(a.astype(wide))
     scale = max(np.abs(exact).max(), 1.0)
-    for full, stages in ((0, -1), (1, -1), (1, 0)):
-        w, v = _dft.eigh(
-            a, full_double=full, two_stage_from=stages, band=8, count=count
-        )
+    for options in (
+        dict(full_double=0),
+        dict(full_double=1),
+        dict(full_double=1, panels_from=0),
+        dict(full_double=1, panels_from=0, triangle_from=0),
+    ):
+        w, v = _dft.eigh(a, count=count, **options)
         assert v.shape == (n, n) and np.abs(w - exact).max() < limit * scale
         v = v[:, :count].astype(wide)
         assert np.abs(a.astype(wide) @ v - v * w[:count]).max() < 20 * limit * scale

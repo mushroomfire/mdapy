@@ -11326,7 +11326,11 @@ generated from them.</p>
 <p>Coverage thresholds:</p>
 <ul>
 <li><strong>Total:</strong> at least 90 %, enforced by <code>pytest --cov</code>.</li>
-<li><strong>Per file:</strong> at least 95 %, checked in CI from the JSON coverage report.</li>
+<li><strong>Per file:</strong> at least 95 %, checked in CI from the JSON coverage report.
+  The compute path of the DFT, <code>src/mdapy/calculators/_dft/calculator.py</code> and
+  <code>scf.py</code>, runs only in the GPU part on a GPU, which CI lacks: its coverage
+  is measured on a machine with one, <code>pytest --cov tests/dft</code>, and CI leaves
+  these two files out of the rule.</li>
 </ul>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pytest<span class="w"> </span>--cov<span class="w"> </span>--cov-report<span class="o">=</span>term
 </code></pre></div>
@@ -11533,6 +11537,10 @@ its Python module installed from the wheel that the build leaves:</p>
 <tr>
 <td><code>pylibxc</code>, the Python module of <a href="https://libxc.gitlab.io">libxc</a>, a CPU build</td>
 <td>the functionals of the DFT, against libxc</td>
+</tr>
+<tr>
+<td>access to the network, once</td>
+<td>the UPF files of the library of <a href="https://pseudopotentials.quantum-espresso.org">Quantum ESPRESSO</a> and of <a href="https://www.physics.rutgers.edu/gbrv/">GBRV</a>, one of each kind the DFT reads, against their own numbers; <code>tests/dft/public.py</code> downloads them into the folder <code>MDAPY_TEST_CACHE</code> (default <code>~/.cache/mdapy/tests</code>)</td>
 </tr>
 <tr>
 <td><code>pw.x</code> of <a href="https://www.quantum-espresso.org">Quantum ESPRESSO</a> 7.6 on the <code>PATH</code>, and the <a href="http://www.pseudo-dojo.org">PseudoDojo</a> norm-conserving pseudopotentials (PBE, standard) in the folder <code>MDAPY_PSEUDO_DIR</code>, with the ultrasoft and PAW files of <a href="https://github.com/dalcorso/pslibrary">pslibrary</a> 1.0.0 for Al, Si, Fe and Ni made by <code>ld1.x</code> from its <code>us_ps_high.job</code> and <code>paw_ps_high.job</code> in its subfolder <code>pslibrary</code>, and the files of <a href="https://www.materialscloud.org/discover/sssp">SSSP</a> 1.3 precision in its subfolder <code>sssp</code></td>

@@ -42,6 +42,13 @@
   [Memory of the GPU](../user-guide/potentials/dft.md#memory-of-the-gpu).
 - The DFT raises the error of a configuration whose bands fail on the host threads of
   its k-points, as on one thread; after the first bands of the atoms it waited for ever.
+- `DFT(kernels="mdapy")` takes the FP64 tensor cores of the A100, H100, GH200 and B200 for
+  its products of double precision, and copies their tiles whole on Hopper; on the GH200 its
+  products of real numbers run as fast as cuBLAS's and those of complex numbers at about 0.9
+  of their speed, against a fifth before. Its products on the other GPUs, and with HIP, go
+  through two buffers without conflicts of banks: about 0.8 of cuBLAS on the V100, against a
+  half before, and faster than cuBLAS in double precision on cards of little double precision.
+  The results are those of the vendor's to rounding.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

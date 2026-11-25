@@ -167,13 +167,21 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
 #pragma unroll
     for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
     for (unsigned t0 = first; t0 < last; t0 += kDepth) {
+#ifdef MDAPY_BLAS_SAME_CHUNK
+        // an experiment of tests/cpp/dft_blas_check.sh, not a product: every
+        // chunk reads the terms of the first, which stay in the cache, to
+        // tell the bandwidth from the arithmetic
+        const unsigned t0_read = first;
+#else
+        const unsigned t0_read = t0;
+#endif
         S va[kLoadsA], vb[kLoadsB];
 #pragma unroll
         for (int q = 0; q < kLoadsA; ++q) {
             const unsigned e = tid + q * kBlock;
             const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
             const bool in = i0 + i < m && t0 + t < last;
-            const long long at = TransA ? (t0 + t) + (i0 + i) * g.lda : (i0 + i) + (t0 + t) * g.lda;
+            const long long at = TransA ? (t0_read + t) + (i0 + i) * g.lda : (i0 + i) + (t0_read + t) * g.lda;
             va[q] = in ? a[at] : zero_of(S{});
         }
 #pragma unroll
@@ -181,7 +189,7 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
             const unsigned e = tid + q * kBlock;
             const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
             const bool in = j0 + j < n && t0 + t < last;
-            const long long at = TransB ? (j0 + j) + (t0 + t) * g.ldb : (t0 + t) + (j0 + j) * g.ldb;
+            const long long at = TransB ? (j0 + j) + (t0_read + t) * g.ldb : (t0_read + t) + (j0 + j) * g.ldb;
             vb[q] = in ? b[at] : zero_of(S{});
         }
 #pragma unroll

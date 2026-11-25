@@ -14,6 +14,7 @@ import pytest
 
 import mdapy
 from mdapy.calculators._dft import ground
+from mdapy.calculators._dft.calculator import HARTREE
 from mdapy.errors import InvalidParameter
 
 from dft import espresso, gpu
@@ -199,8 +200,12 @@ def test_a_computation_started_from_it(tmp_path):
     warm = calculator(start=path, log=stream_log)
     again = warm.compute(aluminium())
     assert again.energy == pytest.approx(result.energy, abs=1e-8)
-    np.testing.assert_allclose(again.forces, result.forces, atol=1e-6)
-    assert warm.last["iterations"] < cold.last["iterations"]
+    # the forces of a run are good to about the root of its tolerance
+    np.testing.assert_allclose(again.forces, result.forces, atol=1e-5)
+    # its first bands solved tightly in the converged potential
+    assert warm.last["iterations"] <= cold.last["iterations"] / 2
+    first = warm.last["parameters"]["internal"]["first_tolerance"]
+    assert first == pytest.approx(1e-4 * HARTREE)
     assert f"from the ground state of {path}" in stream_log.read_text()
     assert "start" not in warm.last["parameters"]["arguments"]
     # the next computation starts cold, as without it
@@ -244,4 +249,4 @@ def test_spin_and_the_occupations_of_paw(tmp_path):
     assert ground.read(tmp_path / "si.npz")["becsum"].shape[0] == 1
     warm = DFT(300.0, start=tmp_path / "si.npz", **settings)
     assert warm.compute(silicon).energy == pytest.approx(first.energy, abs=1e-7)
-    assert warm.last["iterations"] < paw.last["iterations"]
+    assert warm.last["iterations"] <= paw.last["iterations"] / 2

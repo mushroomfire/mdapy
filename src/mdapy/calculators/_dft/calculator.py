@@ -38,6 +38,10 @@ SCF_UNITS = {
     "magnetic_kerker": 1.0 / BOHR,
     "first_tolerance": HARTREE,
 }
+# hartree: the residual of the bands of the first step of a computation from a
+# ground state of a file, as the SCF takes it from the state of the one before
+_STARTED_TOLERANCE = 1e-4
+
 SCF_WITHOUT_UNITS = frozenset({
     "kgrid", "offset", "smearing", "beta", "minimum", "history", "metric_weight",
     "max_iterations", "davidson_iterations", "davidson_basis", "seed", "magnetic_beta",
@@ -553,11 +557,13 @@ class DFT(Calculator):
         }
         internal = {}
         for name, p in inspect.signature(scf.run).parameters.items():
-            if name in options or not isinstance(
+            # first_tolerance is set for a start from a file, a setting of the
+            # field still
+            if (name in options and name != "first_tolerance") or not isinstance(
                 p.default, (bool, int, float, str, tuple)
             ):
                 continue
-            value = p.default
+            value = options.get(name, p.default)
             if isinstance(value, tuple):
                 value = list(value)
             elif name in SCF_UNITS:
@@ -708,6 +714,11 @@ class DFT(Calculator):
                 options["start_density"] = options["start_density"][0]
             if "becsum" in started:
                 options["start_becsum"] = started["becsum"]
+            # the bands of the first step solved as tightly as from the state
+            # of the computation before: from the free atoms' orbitals in a
+            # converged potential, loose bands would undo the density (Al4 3
+            # steps instead of 12, PAW Si2 4 instead of 15)
+            options["first_tolerance"] = _STARTED_TOLERANCE
             self.__start = None
         self.__calculations += 1
         number = self.__calculations

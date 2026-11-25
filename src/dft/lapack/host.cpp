@@ -5,6 +5,8 @@
 
 #include "dft/lapack/host.h"
 
+#include "dft/lapack/divide.h"
+
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -205,6 +207,14 @@ int potrf_of(S* a, int n) {
 }
 
 }  // namespace
+
+void tridiagonal_ql(std::vector<double>& d, std::vector<double>& e, std::vector<double>& z) {
+    const int n = static_cast<int>(d.size());
+    z.assign(static_cast<std::size_t>(n) * n, 0.0);
+    for (int i = 0; i < n; ++i) z[static_cast<std::size_t>(i) * n + i] = 1.0;
+    e.resize(d.size());
+    ql(d, e, z.data(), n);
+}
 
 void eigh(std::complex<double>* a, int n, double* w) { eigh_of(a, n, w); }
 void eigh(double* a, int n, double* w) { eigh_of(a, n, w); }

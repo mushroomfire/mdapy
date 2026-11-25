@@ -92,6 +92,7 @@ one name everywhere.
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | label | A reference energy, force or virial of a frame, usually from DFT, that a model is trained to predict. |
+| parameters of a computation | Every parameter a computation of DFT took, its defaults and `"auto"` resolved, with the SHA-256 of its pseudopotentials: `DFT.last["parameters"]`, kept with each label in `info["dft"]`. |
 | parity plot | The predictions of a model against the labels, one point each; on the diagonal where they agree. |
 | committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
 | model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
@@ -334,7 +335,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | system whose atoms the frames of a trajectory move | `topology=` | `topology_file`, `data` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
-| a log of a run or a minimization, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo` | `logfile`, `log_file`, `verbose` |
+| a log of a run, a minimization or the self-consistent field of DFT, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo`, those of DFT are its steps | `logfile`, `log_file`, `verbose` |
 | convergence of a minimization or a band | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
 | the images of a band between its two states, and the constant of its springs (eV/Å²) | `images`, `spring` | `nimages`, `n_images`, `k`, `kspring` |
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |

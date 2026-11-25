@@ -16,6 +16,17 @@
   precision (cards for games and workstations), the vendor's on the others (V100, A100,
   H100, GH200, AMD Instinct). The results agree to rounding, and
   `DFT.last["provenance"]` keeps the kernels that ran.
+- `DFT(log=...)`: every step of the self-consistent field of each computation, its free
+  energy, change, residual, magnetization, Fermi level and iterations of the eigensolver,
+  as rows that `numpy.loadtxt` reads, with the parameters of each computation as one line
+  of JSON; nothing more is copied from the GPU, and nothing is reported without a log. A
+  run's log and that of its calculator cannot share a file. See
+  [the log](../user-guide/potentials/dft.md#the-log-and-the-parameters-of-each-computation).
+- `DFT.last["parameters"]`: every parameter a computation took, its defaults and
+  `"auto"` resolved, the pseudopotentials by SHA-256, and the settings of the
+  self-consistent field that `DFT` does not take; `DFT(**parameters["arguments"])` gives
+  the computation again. `CalculatorResult.info` holds it under `dft`, and `attach` adds
+  `info` to the frame's, so that each label keeps how it was computed.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

@@ -13,7 +13,7 @@ for f in src/dft/blas/blas.cu src/dft/core/check.cpp tests/cpp/dft_blas_check.cu
         nvcc $FLAGS -c -o $o $f
     fi
 done
-nvcc -o build/blas/dft_blas_check build/blas/blas.o build/blas/check.o build/blas/dft_blas_check.o -L$E/lib -lcublas -lcufft \
+nvcc -o build/blas/dft_blas_check build/blas/blas.o build/blas/check.o build/blas/dft_blas_check.o -L$E/lib -lcublas -lcufft -ldl \
     -Xlinker -rpath -Xlinker $E/lib
 echo "blas.o $(stat -c %s build/blas/blas.o) bytes"
 [ $# -gt 0 ] && ./build/blas/dft_blas_check "$@"

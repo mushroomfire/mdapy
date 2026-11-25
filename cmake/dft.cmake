@@ -79,7 +79,7 @@ if(MDAPY_DFT_API STREQUAL "HIP")
 else()
   set_target_properties(mdapy_dft PROPERTIES CUDA_VISIBILITY_PRESET hidden)
   target_link_libraries(mdapy_dft PUBLIC CUDA::cudart_static CUDA::cufft CUDA::cublas
-    CUDA::cublasLt CUDA::cusolver "${MDAPY_cusparse_LIBRARY}" "${MDAPY_nvJitLink_LIBRARY}")
+    CUDA::cublasLt CUDA::cusolver "${MDAPY_cusparse_LIBRARY}" "${MDAPY_nvJitLink_LIBRARY}" ${CMAKE_DL_LIBS})
   # the default stream of each host thread, so that runs on several threads (as
   # the SCFs of several configurations) overlap on the GPU instead of taking turns
   target_compile_definitions(mdapy_dft PUBLIC CUDA_API_PER_THREAD_DEFAULT_STREAM=1)

@@ -9,6 +9,7 @@
 //
 //   ./dft_blas_check check             every routine, type and transposition on a set of shapes
 //   ./dft_blas_check bench [repeats]   the products of the shapes of the DFT
+//   ./dft_blas_check large [repeats]   larger products, of cells of hundreds of atoms
 //   ./dft_blas_check time TYPE OPA OPB m n k [repeats]   one product; TYPE z c d s, OP N T C
 //
 // Errors are the largest |ours - vendor's| over the largest |vendor's| of a result.
@@ -328,8 +329,12 @@ void time_gemm(const char* type, Op ta, Op tb, int m, int n, int k, int repeats,
     cudaEventDestroy(start);
     cudaEventDestroy(stop);
     for (auto& v : ms) std::sort(v.begin(), v.end());
-    std::printf("%sgemm %s%s %6d x %6d, sum of %6d   vendor %9.3f ms   ours %9.3f ms   ours/vendor %5.2f   %s\n", type,
-                name_of(ta), name_of(tb), m, n, k, ms[0].front(), ms[1].front(), ms[1].front() / ms[0].front(), what);
+    // floating-point operations: 2 a multiply-add of reals, 8 of complex numbers
+    const double flops = 2.0 * Parts<T>::count * Parts<T>::count * m * n * static_cast<double>(k);
+    std::printf("%sgemm %s%s %6d x %6d, sum of %6d   vendor %9.3f ms %7.0f GFLOP/s   ours %9.3f ms %7.0f GFLOP/s"
+                "   ours/vendor %5.2f   %s\n", type, name_of(ta), name_of(tb), m, n, k, ms[0].front(),
+                flops / ms[0].front() * 1e-6, ms[1].front(), flops / ms[1].front() * 1e-6, ms[1].front() / ms[0].front(),
+                what);
     std::fflush(stdout);
 }
 
@@ -352,6 +357,25 @@ int main(int argc, char** argv) {
     if (mode == "bench") {
         const int repeats = argc > 2 ? std::atoi(argv[2]) : 10;
         for (const Shape& s : dft_shapes()) time_any(s.type, s.ta, s.tb, s.m, s.n, s.k, repeats, s.what);
+        return 0;
+    }
+    if (mode == "large") {
+        // larger products than those of the profile, as cells of hundreds of atoms take
+        const int repeats = argc > 2 ? std::atoi(argv[2]) : 10;
+        const Shape shapes[] = {
+            {"projections", 'z', Op::C, Op::N, 200, 200, 20000},
+            {"projections", 'z', Op::C, Op::N, 1000, 1500, 30000},
+            {"projections, thin", 'z', Op::C, Op::N, 13, 64, 10000},
+            {"rotation", 'z', Op::N, Op::N, 30000, 500, 500},
+            {"rotation", 'z', Op::N, Op::N, 100000, 1500, 2000},
+            {"overlaps", 'z', Op::C, Op::N, 500, 500, 30000},
+            {"square", 'z', Op::N, Op::N, 2000, 2000, 2000},
+            {"projections", 'd', Op::T, Op::N, 1000, 1500, 30000},
+            {"rotation", 'd', Op::N, Op::N, 100000, 1500, 2000},
+            {"overlaps", 'd', Op::T, Op::N, 500, 500, 30000},
+            {"square", 'd', Op::N, Op::N, 4000, 4000, 4000},
+        };
+        for (const Shape& s : shapes) time_any(s.type, s.ta, s.tb, s.m, s.n, s.k, repeats, s.what);
         return 0;
     }
     if (mode == "time" && argc >= 8) {

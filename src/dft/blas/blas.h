@@ -109,6 +109,9 @@ private:
     // never with HIP
     [[maybe_unused]] bool tensor_ = false;
     [[maybe_unused]] bool maps_ = false;
+    // the kernels of those products that were let take their shared memory, by
+    // type, transpositions and way of copying
+    [[maybe_unused]] bool asked_[2][2][2][3] = {};
 };
 
 }  // namespace mdapy::dft

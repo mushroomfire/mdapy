@@ -32,6 +32,7 @@
 #endif
 
 #include "dft/core/check.h"
+#include "dft/core/profile.h"
 
 namespace mdapy::dft {
 
@@ -616,10 +617,11 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
                               (even(a, lda) && even(b, ldb) && (batch == 1 || stride_a % 2 == 0));
             const auto launch = [&](auto copy) {
                 constexpr int C = decltype(copy)::value;
-                if (trans_a && trans_b) return launch_dmma<S, true, true, C>(g, grid, alpha, beta, a, b, c, partial);
-                if (trans_a) return launch_dmma<S, true, false, C>(g, grid, alpha, beta, a, b, c, partial);
-                if (trans_b) return launch_dmma<S, false, true, C>(g, grid, alpha, beta, a, b, c, partial);
-                return launch_dmma<S, false, false, C>(g, grid, alpha, beta, a, b, c, partial);
+                bool& asked = asked_[std::is_same_v<S, double>][trans_a][trans_b][C];
+                if (trans_a && trans_b) return launch_dmma<S, true, true, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                if (trans_a) return launch_dmma<S, true, false, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                if (trans_b) return launch_dmma<S, false, true, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                return launch_dmma<S, false, false, C>(g, grid, alpha, beta, a, b, c, partial, asked);
             };
             if (!(wide && batch == 1 && maps_ && launch(std::integral_constant<int, kCopyMaps>{}))) {
                 if (wide)
@@ -702,11 +704,11 @@ struct Probe {
     std::chrono::steady_clock::time_point start;
     Probe(const char* routine, Op ta, Op tb, int m, int n, int k)
         : key(std::string(routine) + " " + "NTC"[static_cast<int>(ta)] + "NTC"[static_cast<int>(tb)], m, n, k) {
-        cudaStreamSynchronize(cudaStreamPerThread);
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
         start = std::chrono::steady_clock::now();
     }
     ~Probe() {
-        cudaStreamSynchronize(cudaStreamPerThread);
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
         const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
         Table& t = table();
         const std::lock_guard<std::mutex> guard(t.lock);
@@ -716,6 +718,8 @@ struct Probe {
     }
 };
 #define MDAPY_PROBE(routine, ta, tb, m, n, k) const Probe probe(routine, ta, tb, m, n, k)
+#elif defined(MDAPY_DFT_PROFILE)
+#define MDAPY_PROBE(routine, ta, tb, m, n, k) MDAPY_SPAN(routine)
 #else
 #define MDAPY_PROBE(routine, ta, tb, m, n, k)
 #endif

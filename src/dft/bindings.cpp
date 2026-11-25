@@ -275,16 +275,19 @@ void bind_blas(nb::module_& m) {
         nb::arg("b").noconvert(), nb::arg("r").noconvert(), nb::arg("kernels") = "mdapy");
     // the eigenvalues (ascending) and the eigenvectors (the columns) of a
     // Hermitian matrix, of which the upper triangle is read; host_limit, when
-    // not negative, is the largest matrix MDAPY's kernels take on the host
+    // not negative, is the largest matrix MDAPY's kernels take on the host;
+    // full_double, when not negative, whether they take the GPU as one of
+    // full double precision
     m.def(
         "eigh",
-        [](Columns<H> a, const std::string& kernels, int host_limit) {
+        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double) {
             const int n = static_cast<int>(a.shape(0));
             if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
             DeviceArray<D> da;
             da.upload(reinterpret_cast<const D*>(a.data()), a.size());
             mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
             if (host_limit >= 0) lapack.set_host_limit(host_limit);
+            if (full_double >= 0) lapack.set_full_double(full_double > 0 ? 1 : 0);
             std::vector<double> values;
             lapack.eigh(da.data(), n, values);
             H* out = nullptr;
@@ -295,7 +298,8 @@ void bind_blas(nb::module_& m) {
             std::copy(values.begin(), values.end(), w);
             return nb::make_tuple(eigenvalues, vectors);
         },
-        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1);
+        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
+        nb::arg("full_double") = -1);
     // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
     // which the upper triangle is read; info is not zero when a is not positive
     // definite

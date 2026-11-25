@@ -6,14 +6,16 @@
 // The eigenpairs of a real symmetric tridiagonal matrix by divide and conquer
 // (Cuppen; Gu and Eisenstat): the matrix is cut in two, the halves solved, and
 // their eigenpairs merged, which is the eigenproblem of a diagonal matrix plus
-// a matrix of rank one. The scalar work is here, on the host, in double
-// precision: the tree, the deflation (small components, and equal poles
-// rotated together, so that equal eigenvalues cost nothing), the secular
-// equation of each root from its nearer pole, and the vector of the rank-one
-// term recomputed from the roots (Löwner's formula), which makes the vectors
-// orthogonal to rounding. The eigenvectors themselves, an (n, n) matrix, belong
-// to whoever implements Vectors: the host for the tests and small matrices, the
-// GPU for large ones, where each merge is one product of matrices.
+// a matrix of rank one. Here is what the host does of it, in double precision:
+// the tree of the cuts, the leaves (by the QL iteration), and the deflation of
+// each merge (small components, and equal poles rotated together, so that
+// equal eigenvalues cost nothing). The rest of a merge: the secular equation
+// of each root from its nearer pole, the vector of the rank-one term
+// recomputed from the roots (Löwner's formula), which makes the vectors
+// orthogonal to rounding, and the eigenvectors, a product of matrices. On the
+// GPUs of full double precision all of it is theirs (dft/lapack/lapack.cu),
+// every merge of a height of the tree at a time; for the others the roots and
+// the small matrix of the product are found here, and the GPU has the product.
 
 #pragma once
 
@@ -21,45 +23,48 @@
 
 namespace mdapy::dft::host {
 
-// The matrix q (n, n) of the eigenvectors, block diagonal while the tree is
-// climbed: a block is the size rows and columns from offset.
-class Vectors {
-public:
-    virtual ~Vectors() = default;
-    // The block set to z (size, size), stored by columns.
-    virtual void set(int offset, int size, const double* z) = 0;
-    // Row first and row last of the two blocks that meet at middle: the last
-    // row of the block [offset, middle) into a, the first of [middle, offset +
-    // size) into b, size numbers each (zeros outside their block).
-    virtual void rows(int offset, int size, int middle, double* a, double* b) = 0;
-    // Columns i and j of the block replaced by c q_i + s q_j and c q_j - s q_i.
-    virtual void rotate(int offset, int size, int i, int j, double c, double s) = 0;
-    // The block replaced by the columns of [q[:, kept] u, q[:, deflated]] in
-    // the order given: u is (k, k) with k kept columns, stored by columns.
-    virtual void merge(int offset, int size, const std::vector<int>& kept, const double* u,
-                       const std::vector<int>& deflated, const std::vector<int>& order) = 0;
+// A merge of the tree: the block of size rows and columns from offset, of
+// which the first half was solved apart from the rest.
+struct Merge {
+    int offset, size, half;
+    int height;    // one more than the higher of its halves, leaves being at 0
+    double rho;    // the size of the element cut
+    double sign;   // and its sign
 };
 
-// The eigenvalues (d on return, ascending) of the tridiagonal matrix of
-// diagonal d (n) and subdiagonal e (n - 1), and its eigenvectors as the columns
-// of q. Blocks of leaf rows or fewer are solved by the QL iteration.
-void divide_and_conquer(std::vector<double>& d, std::vector<double>& e, Vectors& q, int leaf = 32);
-
-// q on the host: an (n, n) array stored by columns.
-class HostVectors : public Vectors {
-public:
-    explicit HostVectors(int n) : n_(n), q_(static_cast<std::size_t>(n) * n, 0.0) {}
-    void set(int offset, int size, const double* z) override;
-    void rows(int offset, int size, int middle, double* a, double* b) override;
-    void rotate(int offset, int size, int i, int j, double c, double s) override;
-    void merge(int offset, int size, const std::vector<int>& kept, const double* u, const std::vector<int>& deflated,
-               const std::vector<int>& order) override;
-    const std::vector<double>& data() const noexcept { return q_; }
-
-private:
-    int n_;
-    std::vector<double> q_;
+struct Tree {
+    std::vector<Merge> merges;  // in the order of their heights
+    std::vector<int> leaves;    // offset and size of each
+    int height = 0;
 };
+
+// The tree of a matrix of diagonal d (n) and subdiagonal e, cut down to blocks
+// of leaf rows or fewer; d is left as the diagonals of the leaves: at a cut
+// t = (t_1, t_2) + |rho| u u^T, u the last unit vector of the first half and,
+// with the sign of rho, the first of the second.
+Tree cut(std::vector<double>& d, const std::vector<double>& e, int leaf);
+
+// What a merge keeps for its secular equation and what is final already.
+struct Deflation {
+    struct Rotation {
+        int i, j;     // columns i and j replaced by c q_i + s q_j and c q_j - s q_i
+        double c, s;
+    };
+    std::vector<Rotation> rotations;  // in their order
+    std::vector<int> kept, deflated;  // the columns, the kept by ascending pole
+    std::vector<double> pole, w;      // of the kept: the pole, and the component of the unit vector
+    std::vector<double> values;       // (size) the eigenvalues of the deflated columns
+    double rho = 0.0;                 // of the unit vector
+};
+
+// The deflation of the merge of d (size, the eigenvalues of the two halves,
+// those of rotated columns replaced) with the rank-one term rho0 z z^T; z
+// (size) is scaled to unit length.
+Deflation deflate(double* d, int size, std::vector<double>& z, double rho0);
+
+// The roots (the kept eigenvalues, ascending) of the secular equation of a
+// merge, and u (kept, kept; by columns) the eigenvectors of its kept columns.
+void secular(const Deflation& f, double* roots, double* u);
 
 // The eigenpairs of the tridiagonal matrix d, e by the QL iteration: d
 // ascending and z (n, n) its eigenvectors, by columns.

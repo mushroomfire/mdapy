@@ -429,9 +429,9 @@ inline bool dmma_map(DmmaMap* map, const void* address, long long along, long lo
 #endif
 }
 
-// false: the maps could not be made, and nothing ran
+// false: the maps could not be made, and nothing ran; asked: whether the kernel was let take its shared memory
 template <class S, bool TransA, bool TransB, int Copy>
-bool launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
+bool launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial, bool& asked) {
     using F = DmmaForm<S>;
     constexpr int threads = F::threads, parts = F::parts;
     constexpr std::size_t bytes = dmma_shared<S, TransA, TransB>() * sizeof(double);
@@ -445,8 +445,13 @@ bool launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, cons
             return false;
     }
     auto kernel = dmma_kernel<S, TransA, TransB, Copy>;
-    check_cuda(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(bytes)),
-               "the shared memory of a product");
+    // asked once by each Blas of each kernel: the call waits for the driver, which the host threads of the
+    // k-points share
+    if (!asked) {
+        check_cuda(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(bytes)),
+                   "the shared memory of a product");
+        asked = true;
+    }
     kernel<<<grid, threads, bytes>>>(g, alpha, beta, a, b, c, partial, map_a, map_b);
     check_cuda(cudaGetLastError(), "a product");
     return true;

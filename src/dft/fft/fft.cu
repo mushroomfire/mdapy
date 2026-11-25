@@ -5,6 +5,8 @@
 
 #include "dft/fft/fft.h"
 
+#include "dft/core/profile.h"
+
 #include <stdexcept>
 #include <vector>
 
@@ -122,43 +124,51 @@ cufftHandle Fft::plan(cufftType type, int count) {
 }
 
 void Fft::to_real(Complex* boxes, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->inverse(reals(boxes), count);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_INVERSE),
                 "cufftExecZ2Z");
 }
 
 void Fft::to_reciprocal(Complex* boxes, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->forward(reals(boxes), count);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_FORWARD),
                 "cufftExecZ2Z");
 }
 
 void Fft::to_real(cuComplex* boxes, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->inverse(reals(boxes), count);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_INVERSE), "cufftExecC2C");
 }
 
 void Fft::to_reciprocal(cuComplex* boxes, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->forward(reals(boxes), count);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
 }
 
 void Fft::to_real(cuComplex* spectrum, float* values, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->inverse(reals(spectrum), values, count);
     check_cufft(cufftExecC2R(plan(CUFFT_C2R, count), spectrum, values), "cufftExecC2R");
 }
 
 void Fft::to_reciprocal(const float* values, cuComplex* spectrum, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->forward(values, reals(spectrum), count);
     check_cufft(cufftExecR2C(plan(CUFFT_R2C, count), const_cast<float*>(values), spectrum), "cufftExecR2C");
 }
 
 void Fft::to_real(Complex* spectrum, double* values, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->inverse(reals(spectrum), values, count);
     check_cufft(cufftExecZ2D(plan(CUFFT_Z2D, count), spectrum, values), "cufftExecZ2D");
 }
 
 void Fft::to_reciprocal(const double* values, Complex* spectrum, int count) {
+    MDAPY_SPAN("fft");
     if (own_) return own_->forward(values, reals(spectrum), count);
     // cuFFT takes a pointer that it does not write for the real-to-complex input
     check_cufft(cufftExecD2Z(plan(CUFFT_D2Z, count), const_cast<double*>(values), spectrum),
@@ -167,6 +177,7 @@ void Fft::to_reciprocal(const double* values, Complex* spectrum, int count) {
 
 void scatter(const Complex* coefficients, std::size_t n, const std::int64_t* box,
              const std::int64_t* partner, int count, Complex* boxes, std::size_t points) {
+    MDAPY_SPAN("scatter");
     check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * points * sizeof(Complex)),
                "cudaMemset");
     if (n == 0 || count == 0) return;
@@ -177,6 +188,7 @@ void scatter(const Complex* coefficients, std::size_t n, const std::int64_t* box
 
 void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
             int count, double scale, Complex* coefficients) {
+    MDAPY_SPAN("gather");
     if (n == 0 || count == 0) return;
     gather_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale,
                                                    coefficients);
@@ -185,6 +197,7 @@ void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, s
 
 void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
                 int count, double scale, Complex* coefficients) {
+    MDAPY_SPAN("gather");
     if (n == 0 || count == 0) return;
     gather_add_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale,
                                                        coefficients);
@@ -193,11 +206,13 @@ void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* bo
 
 void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,
              std::size_t points) {
+    MDAPY_SPAN("scatter");
     scatter(coefficients, n, box, nullptr, count, boxes, points);
 }
 
 void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
              int count, cuComplex* boxes, std::size_t points) {
+    MDAPY_SPAN("scatter");
     check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * points * sizeof(cuComplex)), "cudaMemset");
     if (n == 0 || count == 0) return;
     scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, partner, count, boxes, points);
@@ -206,6 +221,7 @@ void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* b
 
 void gather_add(const cuComplex* boxes, std::size_t points, const std::int64_t* box, std::size_t n, int count,
                 float scale, cuComplex* coefficients) {
+    MDAPY_SPAN("gather");
     if (n == 0 || count == 0) return;
     gather_add_single_kernel<<<blocks(n * count), kThreads>>>(boxes, points, box, n, count, scale, coefficients);
     launched("gather_add");
@@ -239,6 +255,7 @@ Transfer::Transfer(const Int3& coarse, const Int3& fine) {
 }
 
 void Transfer::to_fine(const Complex* coarse, Complex* fine, int count) const {
+    MDAPY_SPAN("transfer");
     check_cuda(
         cudaMemset(fine, 0, static_cast<std::size_t>(count) * fine_points_ * sizeof(Complex)),
         "cudaMemset");
@@ -250,6 +267,7 @@ void Transfer::to_fine(const Complex* coarse, Complex* fine, int count) const {
 }
 
 void Transfer::to_coarse(const Complex* fine, Complex* coarse, int count) const {
+    MDAPY_SPAN("transfer");
     check_cuda(
         cudaMemset(coarse, 0, static_cast<std::size_t>(count) * coarse_points_ * sizeof(Complex)),
         "cudaMemset");

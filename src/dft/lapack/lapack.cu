@@ -13,9 +13,11 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "dft/core/check.h"
+#include "dft/core/profile.h"
 #include "dft/lapack/divide.h"
 #include "dft/lapack/host.h"
 
@@ -246,124 +248,160 @@ __global__ void mirror_kernel(int n, S* a) {
         a[e] = from_real(S{}, re(a[e]));
 }
 
-// Step k of the tridiagonalization, one block: the reflector of the column k
-// below the diagonal, h = 1 - tau v v^H with v_0 = 1 and h^H x = beta e_1
-// (LAPACK's larfg); v replaces the column, tau, the diagonal element and beta
-// (the subdiagonal element) are kept.
+constexpr int kStep = 128;    // threads of a block of the tridiagonalization
+constexpr int kFused = 1024;  // the largest matrix of which a step is one launch
+constexpr int kFusedBytes = 8192;  // and the most bytes of a column of it (512 complex numbers of double precision: a V100)
+constexpr int kFusedSingle = 256;  // the same in single precision on a GPU of little double precision
+
+constexpr int kGroups = 16;   // of the threads of a block, for its sums
+constexpr int kEarly = 4;     // numbers of a column a thread asks for ahead
+
+// The sum of the values of the threads of a block, in an order that is always
+// the same: each of kGroups threads adds those of a group, and every thread
+// the sums of the groups. partial holds a value a thread, then one a group.
 template <class S>
-__global__ void reflector_kernel(int n, int k, S* a, S* tau, typename RealOf<S>::type* d,
-                                 typename RealOf<S>::type* e) {
-    using R = typename RealOf<S>::type;
-    __shared__ R partial[kThreads];
-    __shared__ S scale;
-    S* column = a + static_cast<long long>(k) * n;
-    R sum = static_cast<R>(0);
-    for (int i = k + 2 + static_cast<int>(threadIdx.x); i < n; i += kThreads) {
-        const S x = column[i];
-        sum += re(x) * re(x) + im(x) * im(x);
-    }
-    partial[threadIdx.x] = sum;
+__device__ __forceinline__ S block_sum(S* partial, S value) {
+    constexpr int kGroup = kStep / kGroups;
+    const int t = static_cast<int>(threadIdx.x);
+    partial[t] = value;
     __syncthreads();
-    for (int width = kThreads / 2; width > 0; width >>= 1) {
-        if (static_cast<int>(threadIdx.x) < width) partial[threadIdx.x] += partial[threadIdx.x + width];
-        __syncthreads();
+    if (t < kGroups) {
+        S sum = partial[t * kGroup];
+        for (int i = 1; i < kGroup; ++i) sum = add(sum, partial[t * kGroup + i]);
+        partial[kStep + t] = sum;
     }
-    if (threadIdx.x == 0) {
-        const S alpha = column[k + 1];
-        const R tail = partial[0];
-        d[k] = re(column[k]);
-        if (tail == static_cast<R>(0) && im(alpha) == static_cast<R>(0)) {
-            tau[k] = from_real(S{}, static_cast<R>(0));
-            e[k] = re(alpha);
-            scale = from_real(S{}, static_cast<R>(1));
-        } else {
+    __syncthreads();
+    S total = partial[kStep];
+    for (int i = 1; i < kGroups; ++i) total = add(total, partial[kStep + i]);
+    return total;
+}
+
+// Step k of the tridiagonalization. The reflector k, h = 1 - tau v v^H with
+// v_(k + 1) = 1 and h^H x = beta e_1 (LAPACK's larfg), is that of the column k
+// below the diagonal; it is kept as the column k of reflectors (zeros down to
+// the diagonal), with tau, the diagonal element and beta, the subdiagonal one.
+// The trailing block b (the indices beyond k) becomes b - v w^H - w v^H with
+// w = tau p - (tau / 2) ((tau p)^H v) v and p = b v, which the step after
+// applies, column by column: a step has two parts,
+// - the first, of numbers of the order of n: w of the reflector before from
+//   its p (p_in), the column k with that reflector applied, and its reflector;
+// - the second, a block to each column j beyond k: the reflector before
+//   applied to the column, and p_j = sum_i conj(a_ij) v_i of the new one (p_out).
+// phase 2 is both in one launch of n - 1 - k blocks (one for the last column):
+// every block works the first part out for itself in its shared memory,
+// 2 (n - k) numbers after those of block_sum, all with the same result, and
+// the first block writes it. phase 0 is the first part alone, in one block
+// that writes w into held and v into reflectors, and phase 1 the second, which
+// reads them there: for matrices beyond the shared memory of a block.
+template <class S>
+__global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors, S* tau,
+                                   typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* held,
+                                   const S* __restrict__ p_in, S* __restrict__ p_out) {
+    using R = typename RealOf<S>::type;
+    extern __shared__ double shared[];
+    S* partial = reinterpret_cast<S*>(shared);
+    const int t = static_cast<int>(threadIdx.x);
+    S* w = phase == 2 ? partial + kStep + kGroups : held;  // w_i at i - k
+    S* v = phase == 2 ? partial + kStep + kGroups + (n - k) : reflectors + static_cast<long long>(k) * n + k + 1;  // v_i at i - k - 1
+    const S* before = reflectors + static_cast<long long>(k > 0 ? k - 1 : 0) * n;  // the reflector before, v_i at i
+    const int j = k + 1 + static_cast<int>(blockIdx.x);
+    // the first numbers of a thread of the columns k and j are asked for at
+    // once, so that they are there when their turn comes
+    S early_k[kEarly], early_j[kEarly];
+    if (phase == 2)
+        for (int s = 0; s < kEarly; ++s) {
+            const int i = k + t + s * kStep;
+            if (i < n) early_k[s] = a[i + static_cast<long long>(k) * n];
+            if (i + 1 < n) early_j[s] = a[i + 1 + static_cast<long long>(j) * n];
+        }
+    if (phase != 1) {
+        const S* column = a + static_cast<long long>(k) * n;
+        if (k > 0) {
+            const S factor = tau[k - 1];
+            S sum = from_real(S{}, static_cast<R>(0));
+            for (int i = k + t; i < n; i += kStep) {
+                const S scaled = mul(factor, p_in[i]);
+                w[i - k] = scaled;
+                sum = add(sum, mul(cj(scaled), before[i]));
+            }
+            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, block_sum(partial, sum)));
+            for (int i = k + t; i < n; i += kStep) w[i - k] = add(w[i - k], mul(half, before[i]));
+            __syncthreads();
+        }
+        R tail = static_cast<R>(0);
+        for (int i = k + t, s = 0; i < n; i += kStep, ++s) {
+            S x = phase == 2 && s < kEarly ? early_k[s] : column[i];
+            if (k > 0) x = sub(x, add(mul(before[i], cj(w[0])), mul(w[i - k], cj(before[k]))));
+            if (i == k) {
+                if (blockIdx.x == 0) d[k] = re(x);
+            } else {
+                v[i - k - 1] = x;
+                if (i > k + 1) tail += re(x) * re(x) + im(x) * im(x);
+            }
+        }
+        if (k == n - 1) return;
+        tail = re(block_sum(partial, from_real(S{}, tail)));
+        const S alpha = v[0];
+        S reflection = from_real(S{}, static_cast<R>(0)), scale = from_real(S{}, static_cast<R>(1));
+        R beta = re(alpha);
+        if (tail != static_cast<R>(0) || im(alpha) != static_cast<R>(0)) {
             const R size = sqrt(re(alpha) * re(alpha) + im(alpha) * im(alpha) + tail);
-            const R beta = re(alpha) >= static_cast<R>(0) ? -size : size;
+            beta = re(alpha) >= static_cast<R>(0) ? -size : size;
             // tau = (beta - alpha) / beta, v = x / (alpha - beta)
-            const S difference = sub(from_real(S{}, beta), alpha);
-            tau[k] = mul(difference, from_real(S{}, static_cast<R>(1) / beta));
+            reflection = mul(sub(from_real(S{}, beta), alpha), from_real(S{}, static_cast<R>(1) / beta));
             scale = inverse(sub(alpha, from_real(S{}, beta)));
+        }
+        __syncthreads();
+        for (int i = k + 1 + t; i < n; i += kStep)
+            v[i - k - 1] = i == k + 1 ? from_real(S{}, static_cast<R>(1)) : mul(v[i - k - 1], scale);
+        if (blockIdx.x == 0 && t == 0) {
+            tau[k] = reflection;
             e[k] = beta;
         }
-        column[k + 1] = from_real(S{}, static_cast<R>(1));
-    }
-    __syncthreads();
-    const S factor = scale;
-    for (int i = k + 2 + static_cast<int>(threadIdx.x); i < n; i += kThreads) column[i] = mul(column[i], factor);
-}
-
-// p_i = sum_j conj(a_ji) v_j over the trailing block (the indices beyond k),
-// v the column k: a block to each i, along its column.
-template <class S>
-__global__ void column_products_kernel(int n, int k, const S* __restrict__ a, S* __restrict__ p) {
-    __shared__ S partial[kThreads / 2];
-    const int i = k + 1 + static_cast<int>(blockIdx.x);
-    const S* column = a + static_cast<long long>(i) * n;
-    const S* v = a + static_cast<long long>(k) * n;
-    S sum = from_real(S{}, static_cast<typename RealOf<S>::type>(0));
-    for (int j = k + 1 + static_cast<int>(threadIdx.x); j < n; j += kThreads / 2) sum = add(sum, mul(cj(column[j]), v[j]));
-    partial[threadIdx.x] = sum;
-    __syncthreads();
-    for (int width = kThreads / 4; width > 0; width >>= 1) {
-        if (static_cast<int>(threadIdx.x) < width) partial[threadIdx.x] = add(partial[threadIdx.x], partial[threadIdx.x + width]);
         __syncthreads();
+        if (phase == 0) return;
+        if (blockIdx.x == 0)
+            for (int i = k + 1 + t; i < n; i += kStep) reflectors[i + static_cast<long long>(k) * n] = v[i - k - 1];
     }
-    if (threadIdx.x == 0) p[i] = partial[0];
-}
-
-// w = tau p - (tau / 2) ((tau p)^H v) v, in p, one block.
-template <class S>
-__global__ void update_vector_kernel(int n, int k, const S* __restrict__ a, const S* __restrict__ tau, S* p) {
-    using R = typename RealOf<S>::type;
-    __shared__ S partial[kThreads];
-    __shared__ S half;
-    const S* v = a + static_cast<long long>(k) * n;
-    const S t = tau[k];
+    S* column = a + static_cast<long long>(j) * n;
+    S wj = from_real(S{}, static_cast<R>(0)), vj = wj;
+    if (k > 0) {
+        wj = cj(w[j - k]);
+        vj = cj(before[j]);
+    }
     S sum = from_real(S{}, static_cast<R>(0));
-    for (int i = k + 1 + static_cast<int>(threadIdx.x); i < n; i += kThreads) {
-        const S scaled = mul(t, p[i]);
-        p[i] = scaled;
-        sum = add(sum, mul(cj(scaled), v[i]));
+    for (int i = k + 1 + t, s = 0; i < n; i += kStep, ++s) {
+        S x = phase == 2 && s < kEarly ? early_j[s] : column[i];
+        if (k > 0) {
+            x = sub(x, add(mul(before[i], wj), mul(w[i - k], vj)));
+            column[i] = x;
+        }
+        sum = add(sum, mul(cj(x), v[i - k - 1]));
     }
-    partial[threadIdx.x] = sum;
-    __syncthreads();
-    for (int width = kThreads / 2; width > 0; width >>= 1) {
-        if (static_cast<int>(threadIdx.x) < width) partial[threadIdx.x] = add(partial[threadIdx.x], partial[threadIdx.x + width]);
-        __syncthreads();
-    }
-    if (threadIdx.x == 0) half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(t, partial[0]));
-    __syncthreads();
-    const S factor = half;
-    for (int i = k + 1 + static_cast<int>(threadIdx.x); i < n; i += kThreads) p[i] = add(p[i], mul(factor, v[i]));
+    sum = block_sum(partial, sum);
+    if (t == 0) p_out[j] = sum;
 }
 
-// The trailing block b <- b - v w^H - w v^H.
-template <class S>
-__global__ void rank_two_kernel(int n, int k, S* a, const S* __restrict__ w) {
-    const long long m = n - k - 1;
-    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
-    if (e >= m * m) return;
-    const long long i = k + 1 + e % m, j = k + 1 + e / m;
-    const S* v = a + static_cast<long long>(k) * n;
-    S* at = a + i + j * n;
-    *at = sub(*at, add(mul(v[i], cj(w[j])), mul(w[i], cj(v[j]))));
-}
+constexpr int kReflectors = 32;  // of a block of the back-transformation
 
+// The triangular factor t (count, count) of a block of reflectors,
+// 1 - v t v^H: t_ii = tau_i and t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i],
+// from gram = v^H v. A row of t needs only itself: a thread to each.
 template <class S>
-__global__ void last_diagonal_kernel(int n, const S* a, typename RealOf<S>::type* d) {
-    if (threadIdx.x == 0 && blockIdx.x == 0) d[n - 1] = re(a[static_cast<long long>(n) * n - 1]);
-}
-
-// The reflectors first .. first + count as the columns of v (n, count): zeros
-// down to the diagonal of each, one below it, then what a holds.
-template <class S>
-__global__ void reflectors_kernel(int n, int first, int count, const S* __restrict__ a, S* __restrict__ v) {
+__global__ void block_factor_kernel(int count, const S* __restrict__ tau, const S* __restrict__ gram, S* __restrict__ t) {
     using R = typename RealOf<S>::type;
-    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
-    if (e >= static_cast<long long>(n) * count) return;
-    const int i = static_cast<int>(e % n), c = static_cast<int>(e / n), k = first + c;
-    v[e] = i <= k ? from_real(S{}, static_cast<R>(0))
-                  : i == k + 1 ? from_real(S{}, static_cast<R>(1)) : a[i + static_cast<long long>(k) * n];
+    const int r = static_cast<int>(threadIdx.x);
+    if (r >= count) return;
+    S row[kReflectors];
+    for (int i = 0; i < r; ++i) t[r + i * count] = from_real(S{}, static_cast<R>(0));
+    row[r] = tau[r];
+    t[r + r * count] = row[r];
+    for (int i = r + 1; i < count; ++i) {
+        S sum = from_real(S{}, static_cast<R>(0));
+        for (int c = r; c < i; ++c) sum = add(sum, mul(row[c], gram[c + i * count]));
+        row[i] = mul(sub(from_real(S{}, static_cast<R>(0)), tau[i]), sum);
+        t[r + i * count] = row[i];
+    }
 }
 
 // z (n, n) of the type of the matrix from the real q.
@@ -373,35 +411,281 @@ __global__ void widen_kernel(long long size, const typename RealOf<S>::type* __r
     if (e < size) z[e] = from_real(S{}, q[e]);
 }
 
-// Columns i and j of rows numbers: c q_i + s q_j and c q_j - s q_i.
-template <class R>
-__global__ void rotate_kernel(int rows, R* x, R* y, R c, R s) {
-    const int r = blockIdx.x * blockDim.x + threadIdx.x;
-    if (r >= rows) return;
-    const R a = x[r], b = y[r];
-    x[r] = c * a + s * b;
-    y[r] = c * b - s * a;
+// ------------------------------------------------- the divide and conquer
+//
+// The merges of one height of the tree at a time. Everything of a merge is
+// found by the position p of a row or column of the matrix: the offset, the
+// size and the count of kept columns of the merge that holds p (size 0 where
+// none does), and at the position offset + c what belongs to its column c in
+// the order [kept, deflated]: the column it comes from (source), and of a kept
+// one its pole and its component w of the unit vector, of a deflated one its
+// eigenvalue (all, where the roots of the kept join them).
+struct Level {
+    int n;
+    const int* offset;
+    const int* size;
+    const int* kept;
+    const int* source;
+    const double* pole;
+    const double* w;
+    const double* rho;
+    double* all;
+};
+
+constexpr int kSecular = 64;  // threads of the block of a root
+
+// f = 1 + rho (psi + phi) of the secular equation of root i at d_origin + mu:
+// psi over the poles up to i, phi over those beyond, their slopes, and the size
+// of the terms; the threads of the block share the poles, the first adds their
+// sums (row 5 of part) and all read them.
+__device__ __forceinline__ double secular_value(int i, int k, const double* __restrict__ d, const double* __restrict__ w,
+                                                double rho, int origin, double mu, double (*part)[kSecular],
+                                                double& psi, double& dpsi, double& phi, double& dphi, double& size) {
+    double sum[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    const double shift = d[origin];
+    for (int j = static_cast<int>(threadIdx.x); j < k; j += kSecular) {
+        const double inverse = 1.0 / ((d[j] - shift) - mu);
+        const double term = w[j] * w[j] * inverse;
+        sum[4] += fabs(term);
+        if (j <= i) {
+            sum[0] += term;
+            sum[1] += term * inverse;
+        } else {
+            sum[2] += term;
+            sum[3] += term * inverse;
+        }
+    }
+    for (int q = 0; q < 5; ++q) part[q][threadIdx.x] = sum[q];
+    __syncthreads();
+    if (threadIdx.x == 0)
+        for (int q = 0; q < 5; ++q) {
+            double total = part[q][0];
+            for (int x = 1; x < kSecular; ++x) total += part[q][x];
+            part[5][q] = total;
+        }
+    __syncthreads();
+    for (int q = 0; q < 5; ++q) sum[q] = part[5][q];
+    psi = sum[0];
+    dpsi = sum[1];
+    phi = sum[2];
+    dphi = sum[3];
+    size = 1.0 + rho * sum[4];
+    return 1.0 + rho * (sum[0] + sum[2]);
 }
 
-// out (rows, count): column c is column index[c] of the block of q.
-template <class R>
-__global__ void gather_columns_kernel(int rows, int count, const R* __restrict__ q, long long ld,
-                                      const int* __restrict__ index, R* __restrict__ out) {
-    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
-    if (e >= static_cast<long long>(rows) * count) return;
-    out[e] = q[e % rows + index[e / rows] * ld];
+// A block to each position: root i (of k) of 1 + rho sum_j w_j^2 / (d_j - x) = 0,
+// rho > 0 and d ascending and distinct: the one between d_i and d_(i + 1), or
+// beyond d_(k - 1) for the last. Column i of delta (at the block of the merge)
+// holds d_j - x, each from the nearer pole so that it is accurate; the root
+// goes to all.
+__global__ void secular_kernel(Level a, double* __restrict__ delta) {
+    const int p = static_cast<int>(blockIdx.x), offset = a.offset[p], k = a.kept[p], i = p - offset;
+    if (a.size[p] == 0 || i >= k) return;
+    __shared__ double part[6][kSecular];
+    const double* d = a.pole + offset;
+    const double* w = a.w + offset;
+    const double rho = a.rho[p];
+    const bool last = i == k - 1;
+    double gap = 0.0;
+    if (last) {
+        double norm = 0.0;
+        for (int j = static_cast<int>(threadIdx.x); j < k; j += kSecular) norm += w[j] * w[j];
+        part[0][threadIdx.x] = norm;
+        __syncthreads();
+        if (threadIdx.x == 0) {
+            norm = part[0][0];
+            for (int x = 1; x < kSecular; ++x) norm += part[0][x];
+            part[5][0] = norm;
+        }
+        __syncthreads();
+        gap = rho * part[5][0];
+    } else {
+        gap = d[i + 1] - d[i];
+    }
+    double psi, dpsi, phi, dphi, size;
+    // the sign of the function at the middle chooses the pole the root is nearer to
+    int origin = i;
+    if (!last && secular_value(i, k, d, w, rho, i, 0.5 * gap, part, psi, dpsi, phi, dphi, size) < 0.0) origin = i + 1;
+    // the root as d_origin + mu, mu within (lo, hi)
+    double lo = origin == i ? 0.0 : -gap, hi = origin == i ? gap : 0.0;
+    if (!last) {
+        if (origin == i)
+            hi = 0.5 * gap;
+        else
+            lo = -0.5 * gap;
+    }
+    double mu = 0.5 * (lo + hi);
+    const double eps = 2.220446049250313e-16;
+    for (int iteration = 0; iteration < 200; ++iteration) {
+        const double f = secular_value(i, k, d, w, rho, origin, mu, part, psi, dpsi, phi, dphi, size);
+        if (fabs(f) <= 8.0 * eps * size) break;
+        if (f < 0.0)
+            lo = mu;
+        else
+            hi = mu;
+        if (hi - lo <= 2.0 * eps * fmax(fabs(lo), fabs(hi))) {
+            mu = 0.5 * (lo + hi);
+            break;
+        }
+        // psi and phi each as a constant plus a simple pole, at d_i and at
+        // d_(i + 1), with their values and slopes here: the root of the
+        // resulting quadratic within the bracket, or its middle
+        const double di = (d[i] - d[origin]) - mu;                      // d_i - x
+        const double dn = last ? 0.0 : (d[i + 1] - d[origin]) - mu;     // d_(i + 1) - x
+        const double pp = dpsi * di * di, s = psi - dpsi * di;          // psi ~ s + pp / (d_i - x)
+        const double q = last ? 0.0 : dphi * dn * dn, r = last ? 0.0 : phi - dphi * dn;
+        const double constant = 1.0 + rho * (s + r);
+        double next = 0.5 * (lo + hi);
+        bool found = false;
+        if (last || q == 0.0) {
+            // constant + rho pp / (d_i - x) = 0: d_i - x = -rho pp / constant
+            if (constant > 0.0) {
+                next = mu + (di + rho * pp / constant);
+                found = true;
+            }
+        } else {
+            // constant (di - t)(dn - t) + rho pp (dn - t) + rho q (di - t) = 0 in the step t = x_new - x
+            const double qa = constant;
+            const double qb = -(constant * (di + dn) + rho * (pp + q));
+            const double qc = constant * di * dn + rho * (pp * dn + q * di);
+            const double disc = qb * qb - 4.0 * qa * qc;
+            if (disc >= 0.0) {
+                const double root = sqrt(disc);
+                const double big = qb >= 0.0 ? -(qb + root) / 2.0 : -(qb - root) / 2.0;
+                const double t1 = qa != 0.0 ? big / qa : qc / (-qb), t2 = big != 0.0 ? qc / big : t1;
+                if (mu + t1 > lo && mu + t1 < hi) {
+                    next = mu + t1;
+                    found = true;
+                } else if (mu + t2 > lo && mu + t2 < hi) {
+                    next = mu + t2;
+                    found = true;
+                }
+            }
+        }
+        if (!found || !(next > lo && next < hi)) next = 0.5 * (lo + hi);
+        mu = next;
+    }
+    double* column = delta + static_cast<long long>(p) * a.n + offset;
+    for (int j = static_cast<int>(threadIdx.x); j < k; j += kSecular) column[j] = (d[j] - d[origin]) - mu;
+    if (threadIdx.x == 0) a.all[p] = d[origin] + mu;
 }
 
-// out (rows, rows): column j is column order[j] of [product (rows, kept),
-// then the columns deflated[.] of the block of q].
+// A block to each position: w of the kept column j from the roots,
+// w_j^2 = prod_i (root_i - d_j) / (rho prod_(i != j) (d_i - d_j)), with the sign
+// it had; the threads share the roots, and the first multiplies their products.
+__global__ void fit_kernel(Level a, const double* __restrict__ delta, double* __restrict__ fitted) {
+    const int p = static_cast<int>(blockIdx.x), offset = a.offset[p], k = a.kept[p], j = p - offset;
+    if (a.size[p] == 0 || j >= k) return;
+    __shared__ double part[kSecular];
+    const double* d = a.pole + offset;
+    const double* row = delta + static_cast<long long>(offset) * a.n + p;  // d_j - root_i, i after i
+    double product = 1.0;
+    for (int i = static_cast<int>(threadIdx.x); i < k; i += kSecular)
+        if (i != j) product *= row[static_cast<long long>(i) * a.n] / (d[j] - d[i]);
+    part[threadIdx.x] = product;
+    __syncthreads();
+    if (threadIdx.x != 0) return;
+    product = -row[static_cast<long long>(j) * a.n] / a.rho[p];
+    for (int x = 0; x < kSecular; ++x) product *= part[x];
+    fitted[p] = copysign(sqrt(fabs(product)), a.w[p]);
+}
+
+// A block to each position: the eigenvector of root i of the merge in the
+// kept columns, w_j / (d_j - root_i) at unit length, as column i of u (at the
+// block of the merge), in the precision of the vectors; the threads share the
+// rows, and the first adds their squares.
 template <class R>
-__global__ void assemble_kernel(int rows, int kept, const R* __restrict__ product, const R* __restrict__ q, long long ld,
-                                const int* __restrict__ deflated, const int* __restrict__ order, R* __restrict__ out) {
+__global__ void vectors_kernel(Level a, double* __restrict__ delta, const double* __restrict__ fitted, R* __restrict__ u) {
+    const int p = static_cast<int>(blockIdx.x), offset = a.offset[p], k = a.kept[p];
+    if (a.size[p] == 0 || p - offset >= k) return;
+    __shared__ double part[kSecular + 1];
+    double* column = delta + static_cast<long long>(p) * a.n + offset;
+    R* out = u + static_cast<long long>(p) * a.n + offset;
+    double norm = 0.0;
+    for (int j = static_cast<int>(threadIdx.x); j < k; j += kSecular) {
+        const double x = fitted[offset + j] / column[j];
+        column[j] = x;
+        norm += x * x;
+    }
+    part[threadIdx.x] = norm;
+    __syncthreads();
+    if (threadIdx.x == 0) {
+        norm = part[0];
+        for (int x = 1; x < kSecular; ++x) norm += part[x];
+        part[kSecular] = 1.0 / sqrt(norm);
+    }
+    __syncthreads();
+    norm = part[kSecular];
+    for (int j = static_cast<int>(threadIdx.x); j < k; j += kSecular) out[j] = static_cast<R>(column[j] * norm);
+}
+
+// A thread to each position: the place of the column c of [roots, deflated]
+// among the eigenvalues of its merge ascending (equal ones in their order):
+// order at that place is c, and sorted its eigenvalue.
+__global__ void order_kernel(Level a, int* __restrict__ order, double* __restrict__ sorted) {
+    const int p = static_cast<int>(blockIdx.x * blockDim.x + threadIdx.x);
+    if (p >= a.n) return;
+    const int offset = a.offset[p], size = a.size[p], c = p - offset;
+    if (size == 0) return;
+    const double* all = a.all + offset;
+    const double value = all[c];
+    int place = 0;
+    for (int b = 0; b < size; ++b) place += all[b] < value || (all[b] == value && b < c) ? 1 : 0;
+    order[offset + place] = c;
+    sorted[offset + place] = value;
+}
+
+// A thread to each element: the kept columns of the block of each merge, in
+// their order, as the first columns of the same block of gathered.
+template <class R>
+__global__ void gather_kernel(Level a, const R* __restrict__ q, R* __restrict__ gathered) {
     const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
-    if (e >= static_cast<long long>(rows) * rows) return;
-    const long long r = e % rows;
-    const int from = order[e / rows];
-    out[e] = from < kept ? product[r + static_cast<long long>(from) * rows] : q[r + deflated[from - kept] * ld];
+    if (e >= static_cast<long long>(a.n) * a.n) return;
+    const int p = static_cast<int>(e / a.n), r = static_cast<int>(e % a.n);
+    const int offset = a.offset[p], size = a.size[p];
+    if (size == 0 || p - offset >= a.kept[p] || r < offset || r >= offset + size) return;
+    gathered[e] = q[r + static_cast<long long>(offset + a.source[p]) * a.n];
+}
+
+// A thread to each element: next is q with the block of each merge replaced by
+// the columns of [product, the deflated columns of q] in the order of their
+// eigenvalues; the first and the last row of each block go to first and last.
+template <class R>
+__global__ void assemble_kernel(Level a, const R* __restrict__ q, const R* __restrict__ product,
+                                const int* __restrict__ order, R* __restrict__ next, double* __restrict__ first,
+                                double* __restrict__ last) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    if (e >= static_cast<long long>(a.n) * a.n) return;
+    const int p = static_cast<int>(e / a.n), r = static_cast<int>(e % a.n);
+    const int offset = a.offset[p], size = a.size[p];
+    if (size == 0 || r < offset || r >= offset + size) {
+        next[e] = q[e];
+        return;
+    }
+    const int from = order[p];
+    const R value = from < a.kept[p] ? product[r + static_cast<long long>(offset + from) * a.n]
+                                     : q[r + static_cast<long long>(offset + a.source[offset + from]) * a.n];
+    next[e] = value;
+    if (r == offset) first[p] = static_cast<double>(value);
+    if (r == offset + size - 1) last[p] = static_cast<double>(value);
+}
+
+// A thread to each row of a block: its columns i and j (positions, count pairs
+// one after the other in columns) replaced by c q_i + s q_j and c q_j - s q_i,
+// in their order.
+template <class R>
+__global__ void rotate_kernel(int n, int offset, int size, int count, const int* __restrict__ columns,
+                              const double* __restrict__ angles, R* q) {
+    const int r = static_cast<int>(blockIdx.x * blockDim.x + threadIdx.x);
+    if (r >= size) return;
+    for (int m = 0; m < count; ++m) {
+        R* x = q + static_cast<long long>(columns[2 * m]) * n + offset + r;
+        R* y = q + static_cast<long long>(columns[2 * m + 1]) * n + offset + r;
+        const R c = static_cast<R>(angles[2 * m]), s = static_cast<R>(angles[2 * m + 1]);
+        const R xa = *x, yb = *y;
+        *x = c * xa + s * yb;
+        *y = c * yb - s * xa;
+    }
 }
 
 // The upper triangle from the lower one, outside the diagonal blocks of
@@ -416,79 +700,160 @@ __global__ void upper_from_lower_kernel(int n, int block, S* a) {
 
 void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 
-// The eigenvectors of the divide and conquer on the GPU, real numbers of the
-// precision of the matrix.
+// The eigenvalues (d on return, ascending) of the tridiagonal matrix of
+// diagonal d (n) and subdiagonal e (n - 1), and its eigenvectors as the columns
+// of q (n, n), real numbers of the precision of the matrix: the leaves on the
+// host, then the merges height by height, each height one transfer to the GPU
+// and one from it. With scalars the roots of the merges and their small
+// eigenvectors are found on the GPU, else on the host.
 template <class R>
-class DeviceVectors : public host::Vectors {
-public:
-    DeviceVectors(int n, Blas& blas) : n_(n), blas_(blas) {
-        q_.resize(static_cast<std::size_t>(n) * n);
-        q_.zero();
-    }
-    R* data() noexcept { return q_.data(); }
-
-    void set(int offset, int size, const double* z) override {
-        const std::size_t count = static_cast<std::size_t>(size) * size;
-        std::vector<R> host(z, z + count);
-        check_cuda(cudaMemcpy2D(block(offset), pitch(), host.data(), static_cast<std::size_t>(size) * sizeof(R),
-                                static_cast<std::size_t>(size) * sizeof(R), static_cast<std::size_t>(size),
-                                cudaMemcpyHostToDevice),
-                   "cudaMemcpy2D to the GPU");
-    }
-    void rows(int offset, int size, int middle, double* a, double* b) override {
-        std::vector<R> host(static_cast<std::size_t>(size));
-        for (int which = 0; which < 2; ++which) {
-            // one number of each column: a row
-            const R* from = q_.data() + static_cast<std::size_t>(offset) * n_ + (middle - 1 + which);
-            check_cuda(cudaMemcpy2D(host.data(), sizeof(R), from, pitch(), sizeof(R), static_cast<std::size_t>(size),
-                                    cudaMemcpyDeviceToHost),
-                       "cudaMemcpy2D from the GPU");
-            std::copy(host.begin(), host.end(), which == 0 ? a : b);
+void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, DeviceArray<R>& q, Blas& blas, bool scalars,
+                        int leaf = 32) {
+    const int n = static_cast<int>(d.size());
+    const std::size_t count = static_cast<std::size_t>(n), size = count * count;
+    // scaled to a largest element of one, so that the tolerances are relative
+    double scale = 0.0;
+    for (int i = 0; i < n; ++i) scale = std::max({scale, std::abs(d[i]), i + 1 < n ? std::abs(e[i]) : 0.0});
+    if (scale == 0.0) scale = 1.0;
+    std::vector<double> cut_e(e);
+    for (double& x : d) x /= scale;
+    for (double& x : cut_e) x /= scale;
+    const host::Tree tree = host::cut(d, cut_e, leaf);
+    // the leaves, and of every block the first and the last row of its vectors
+    std::vector<R> start(size, static_cast<R>(0));
+    std::vector<double> first(count), last(count), values, below, vectors;
+    for (std::size_t i = 0; i < tree.leaves.size(); i += 2) {
+        const int offset = tree.leaves[i], rows = tree.leaves[i + 1];
+        values.assign(d.begin() + offset, d.begin() + offset + rows);
+        below.assign(cut_e.begin() + offset, cut_e.begin() + offset + std::max(rows - 1, 0));
+        host::tridiagonal_ql(values, below, vectors);
+        std::copy(values.begin(), values.end(), d.begin() + offset);
+        for (int j = 0; j < rows; ++j) {
+            const double* column = vectors.data() + static_cast<std::size_t>(j) * rows;
+            for (int r = 0; r < rows; ++r)
+                start[static_cast<std::size_t>(offset + j) * count + offset + r] = static_cast<R>(column[r]);
+            first[static_cast<std::size_t>(offset + j)] = column[0];
+            last[static_cast<std::size_t>(offset + j)] = column[rows - 1];
         }
     }
-    void rotate(int offset, int size, int i, int j, double c, double s) override {
-        rotate_kernel<R><<<blocks(size), kThreads>>>(size, block(offset) + static_cast<std::size_t>(i) * n_,
-                                                    block(offset) + static_cast<std::size_t>(j) * n_,
-                                                    static_cast<R>(c), static_cast<R>(s));
-        launched("a rotation of two eigenvectors");
+    q.upload(start.data(), size);
+    if (tree.merges.empty()) {
+        for (double& x : d) x *= scale;
+        return;
     }
-    void merge(int offset, int size, const std::vector<int>& kept, const double* u, const std::vector<int>& deflated,
-               const std::vector<int>& order) override {
-        const int k = static_cast<int>(kept.size());
-        const std::size_t rows = static_cast<std::size_t>(size);
-        next_.reserve(rows * rows);
-        order_.assign(order.data(), order.size());
-        deflated_.reserve(1);
-        if (!deflated.empty()) deflated_.assign(deflated.data(), deflated.size());
-        if (k > 0) {
-            kept_.assign(kept.data(), kept.size());
-            gathered_.reserve(rows * k);
-            product_.reserve(rows * k);
-            const std::vector<R> host(u, u + static_cast<std::size_t>(k) * k);
-            u_.assign(host.data(), host.size());
-            gather_columns_kernel<R><<<blocks(static_cast<long long>(rows) * k), kThreads>>>(
-                size, k, block(offset), n_, kept_.data(), gathered_.data());
-            launched("the eigenvectors kept");
-            blas_.gemm(Op::N, Op::N, size, k, k, static_cast<R>(1), gathered_.data(), size, u_.data(), k,
-                       static_cast<R>(0), product_.data(), size);
+    DeviceArray<R> next(size), gathered(size), product(size), u(size);
+    DeviceArray<double> delta, numbers(4 * count), fitted(count), results(3 * count), angles;
+    std::vector<R> host_u;
+    std::vector<double> small;
+    if (scalars)
+        delta.resize(size);
+    else
+        host_u.resize(size);
+    DeviceArray<int> integers(4 * count), order(count), columns;
+    std::vector<double> host_numbers(4 * count), host_results(3 * count), host_angles, z;
+    std::vector<int> host_integers(4 * count), host_columns;
+    struct Turned {
+        int offset, size, first, count;  // the rotations of a merge, from first
+    };
+    std::vector<Turned> turned;
+    const unsigned positions = blocks(n), elements = blocks(static_cast<long long>(size));
+    std::size_t at = 0;
+    for (int height = 1; height <= tree.height; ++height) {
+        std::fill(host_integers.begin(), host_integers.end(), 0);
+        host_angles.clear();
+        host_columns.clear();
+        turned.clear();
+        const std::size_t begin = at;
+        for (; at < tree.merges.size() && tree.merges[at].height == height; ++at) {
+            const host::Merge& m = tree.merges[at];
+            const std::size_t o = static_cast<std::size_t>(m.offset);
+            // the last row of the first half and, with the sign of the cut, the first of the second
+            z.resize(static_cast<std::size_t>(m.size));
+            for (int j = 0; j < m.size; ++j) z[static_cast<std::size_t>(j)] = j < m.half ? last[o + j] : m.sign * first[o + j];
+            const host::Deflation f = host::deflate(d.data() + m.offset, m.size, z, m.rho);
+            const int kept = static_cast<int>(f.kept.size());
+            for (int c = 0; c < m.size; ++c) {
+                const std::size_t p = o + static_cast<std::size_t>(c);
+                host_integers[p] = m.offset;
+                host_integers[count + p] = m.size;
+                host_integers[2 * count + p] = kept;
+                host_numbers[2 * count + p] = f.rho;
+                if (c < kept) {
+                    host_integers[3 * count + p] = f.kept[static_cast<std::size_t>(c)];
+                    host_numbers[p] = f.pole[static_cast<std::size_t>(c)];
+                    host_numbers[count + p] = f.w[static_cast<std::size_t>(c)];
+                } else {
+                    const int from = f.deflated[static_cast<std::size_t>(c - kept)];
+                    host_integers[3 * count + p] = from;
+                    host_numbers[3 * count + p] = f.values[static_cast<std::size_t>(from)];
+                }
+            }
+            if (!scalars && kept > 0) {
+                // the roots beside the eigenvalues of the deflated columns, u at the block of the merge
+                small.resize(static_cast<std::size_t>(kept) * kept);
+                host::secular(f, host_numbers.data() + 3 * count + o, small.data());
+                for (int i = 0; i < kept; ++i)
+                    for (int j = 0; j < kept; ++j)
+                        host_u[(o + static_cast<std::size_t>(i)) * count + o + static_cast<std::size_t>(j)] =
+                            static_cast<R>(small[static_cast<std::size_t>(i) * kept + j]);
+            }
+            if (!f.rotations.empty()) {
+                turned.push_back({m.offset, m.size, static_cast<int>(host_columns.size() / 2), static_cast<int>(f.rotations.size())});
+                for (const auto& r : f.rotations) {
+                    host_columns.push_back(m.offset + r.i);
+                    host_columns.push_back(m.offset + r.j);
+                    host_angles.push_back(r.c);
+                    host_angles.push_back(r.s);
+                }
+            }
         }
-        assemble_kernel<R><<<blocks(static_cast<long long>(rows) * rows), kThreads>>>(
-            size, k, product_.data(), block(offset), n_, deflated_.data(), order_.data(), next_.data());
-        launched("the eigenvectors of a merge");
-        check_cuda(cudaMemcpy2D(block(offset), pitch(), next_.data(), rows * sizeof(R), rows * sizeof(R), rows,
-                                cudaMemcpyDeviceToDevice),
-                   "cudaMemcpy2D");
+        integers.assign(host_integers.data(), host_integers.size());
+        numbers.assign(host_numbers.data(), host_numbers.size());
+        const Level level{n, integers.data(), integers.data() + count, integers.data() + 2 * count,
+                          integers.data() + 3 * count, numbers.data(), numbers.data() + count,
+                          numbers.data() + 2 * count, numbers.data() + 3 * count};
+        if (!turned.empty()) {
+            columns.assign(host_columns.data(), host_columns.size());
+            angles.assign(host_angles.data(), host_angles.size());
+            for (const Turned& t : turned)
+                rotate_kernel<R><<<blocks(t.size), kThreads>>>(n, t.offset, t.size, t.count, columns.data() + 2 * t.first,
+                                                              angles.data() + 2 * t.first, q.data());
+        }
+        if (scalars) {
+            secular_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data());
+            fit_kernel<<<static_cast<unsigned>(n), kSecular>>>(level, delta.data(), fitted.data());
+            vectors_kernel<R><<<static_cast<unsigned>(n), kSecular>>>(level, delta.data(), fitted.data(), u.data());
+        } else {
+            u.assign(host_u.data(), size);
+        }
+        order_kernel<<<positions, kThreads>>>(level, order.data(), results.data());
+        gather_kernel<R><<<elements, kThreads>>>(level, q.data(), gathered.data());
+        launched("the merges of the divide and conquer");
+        for (std::size_t i = begin; i < at; ++i) {
+            const host::Merge& m = tree.merges[i];
+            const int kept = host_integers[2 * count + static_cast<std::size_t>(m.offset)];
+            const std::size_t block = static_cast<std::size_t>(m.offset) * count + static_cast<std::size_t>(m.offset);
+            if (kept > 0)
+                blas.gemm(Op::N, Op::N, m.size, kept, kept, static_cast<R>(1), gathered.data() + block, n,
+                          u.data() + block, n, static_cast<R>(0), product.data() + block, n);
+        }
+        assemble_kernel<R><<<elements, kThreads>>>(level, q.data(), product.data(), order.data(), next.data(),
+                                                  results.data() + count, results.data() + 2 * count);
+        launched("the eigenvectors of the merges");
+        std::swap(q, next);
+        results.download(host_results.data(), host_results.size());
+        for (std::size_t i = begin; i < at; ++i) {
+            const host::Merge& m = tree.merges[i];
+            const std::size_t o = static_cast<std::size_t>(m.offset);
+            for (std::size_t c = 0; c < static_cast<std::size_t>(m.size); ++c) {
+                d[o + c] = host_results[o + c];
+                first[o + c] = host_results[count + o + c];
+                last[o + c] = host_results[2 * count + o + c];
+            }
+        }
     }
-
-private:
-    R* block(int offset) { return q_.data() + static_cast<std::size_t>(offset) * n_ + offset; }
-    std::size_t pitch() const { return static_cast<std::size_t>(n_) * sizeof(R); }
-
-    int n_;
-    Blas& blas_;
-    DeviceArray<R> q_, next_, gathered_, product_, u_;
-    DeviceArray<int> kept_, deflated_, order_;
-};
+    for (double& x : d) x *= scale;
+}
 
 // the scalars of the kernels have the layout of those of the libraries
 Cx<double>* own(Complex* p) { return reinterpret_cast<Cx<double>*>(p); }
@@ -510,7 +875,6 @@ cuComplex unit(cuComplex, double x) { return make_cuComplex(static_cast<float>(x
 double unit(double, double x) { return x; }
 float unit(float, double x) { return static_cast<float>(x); }
 
-constexpr int kReflectors = 32;  // of a block of the back-transformation
 constexpr int kPanel = 64;       // columns of a block of the Cholesky factorization
 
 }  // namespace
@@ -530,6 +894,22 @@ cusolverDnHandle_t Lapack::vendor() {
     return vendor_;
 }
 
+// The NVIDIA GPUs of compute capability 6.0 to 10.0, and the AMD GPUs HIP runs on.
+bool Lapack::full_double() {
+    if (full_double_ < 0) {
+#if defined(MDAPY_GPU_HIP)
+        full_double_ = 1;
+#else
+        int device = 0, major = 0, minor = 0;
+        check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+        check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
+        check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
+        full_double_ = minor == 0 && major >= 6 && major <= 10 ? 1 : 0;
+#endif
+    }
+    return full_double_ == 1;
+}
+
 // On the host, in double precision, when small; else on the GPU.
 template <class T>
 void Lapack::own_eigh(T* a, int n, std::vector<double>& values) {
@@ -546,69 +926,82 @@ void Lapack::own_eigh(T* a, int n, std::vector<double>& values) {
 }
 
 // a = q t q^H on the GPU (reflector after reflector), the eigenpairs of the
-// tridiagonal t by divide and conquer (scalars on the host, vectors on the
-// GPU), and q applied to them in blocks of reflectors.
+// tridiagonal t by divide and conquer, and q applied to them in blocks of
+// reflectors.
 template <class T>
 void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
     using S = std::remove_pointer_t<decltype(own(a))>;
     using R = typename RealOf<S>::type;
     const std::size_t size = static_cast<std::size_t>(n) * n;
     S* matrix = own(a);
-    DeviceArray<T> tau(static_cast<std::size_t>(n)), vector(static_cast<std::size_t>(n));
+    // the reflectors as columns (zeros down to the diagonal of each), and p of two steps
+    DeviceArray<T> tau(static_cast<std::size_t>(n)), reflectors(size), products(2 * static_cast<std::size_t>(n)), held;
     DeviceArray<R> diagonal(static_cast<std::size_t>(n)), subdiagonal(static_cast<std::size_t>(n));
+    reflectors.zero();
     mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, matrix);
     launched("the lower triangle of a matrix");
-    for (int k = 0; k + 1 < n; ++k) {
-        const long long m = n - k - 1;
-        reflector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), diagonal.data(), subdiagonal.data());
-        column_products_kernel<S><<<static_cast<unsigned>(m), kThreads / 2>>>(n, k, matrix, own(vector.data()));
-        update_vector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), own(vector.data()));
-        rank_two_kernel<S><<<blocks(m * m), kThreads>>>(n, k, matrix, own(vector.data()));
+    {
+        MDAPY_SPAN("tridiagonal");
+        // one launch a step repeats its first part in every block: not where the
+        // arithmetic of double precision is what the GPU lacks, and there in
+        // single precision for the smaller matrices (measured on an RTX A2000)
+        const int limit = fused_limit_ >= 0 ? std::min(fused_limit_, kFused)
+                          : full_double() ? std::min(kFused, static_cast<int>(kFusedBytes / sizeof(S)))
+                          : sizeof(R) == sizeof(float) ? kFusedSingle : 0;
+        const bool fused = n <= limit;
+        if (!fused) held.resize(static_cast<std::size_t>(n));
+        const std::size_t sums = (kStep + kGroups) * sizeof(S);
+        for (int k = 0; k < n; ++k) {
+            const S* in = own(products.data()) + ((k + 1) & 1) * static_cast<std::size_t>(n);
+            S* out = own(products.data()) + (k & 1) * static_cast<std::size_t>(n);
+            const unsigned columns = static_cast<unsigned>(std::max(n - 1 - k, 1));
+            if (fused) {
+                tridiagonal_kernel<S><<<columns, kStep, sums + 2 * static_cast<std::size_t>(n - k) * sizeof(S)>>>(
+                    n, k, 2, matrix, own(reflectors.data()), own(tau.data()), diagonal.data(), subdiagonal.data(),
+                    nullptr, in, out);
+                continue;
+            }
+            tridiagonal_kernel<S><<<1, kStep, sums>>>(n, k, 0, matrix, own(reflectors.data()), own(tau.data()),
+                                                     diagonal.data(), subdiagonal.data(), own(held.data()), in, out);
+            if (k + 1 < n)
+                tridiagonal_kernel<S><<<columns, kStep, sums>>>(n, k, 1, matrix, own(reflectors.data()),
+                                                               own(tau.data()), diagonal.data(), subdiagonal.data(),
+                                                               own(held.data()), in, out);
+        }
+        launched("the tridiagonalization");
     }
-    last_diagonal_kernel<S><<<1, 64>>>(n, matrix, diagonal.data());
-    launched("the tridiagonalization");
     std::vector<R> host(static_cast<std::size_t>(n));
     diagonal.download(host.data(), host.size());
     std::vector<double> d(host.begin(), host.end());
     subdiagonal.download(host.data(), host.size());
     std::vector<double> e(host.begin(), host.end() - 1);
-    std::vector<T> tau_host(static_cast<std::size_t>(n));
-    tau.download(tau_host.data(), tau_host.size());
     // the eigenpairs of t
-    DeviceVectors<R> q(n, blas_);
-    host::divide_and_conquer(d, e, q);
+    DeviceArray<R> q;
+    {
+        MDAPY_SPAN("divide");
+        divide_and_conquer(d, e, q, blas_, full_double());
+    }
     values = d;
     // z = h_0 h_1 ... q, the last block of reflectors first: a block is
     // 1 - v t v^H with t upper triangular, t_ii = tau_i and
     // t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i]
-    DeviceArray<T> z(size), v(static_cast<std::size_t>(n) * kReflectors), w(static_cast<std::size_t>(n) * kReflectors),
-        tw(static_cast<std::size_t>(n) * kReflectors), small(static_cast<std::size_t>(kReflectors) * kReflectors);
+    MDAPY_SPAN("back");
+    DeviceArray<T> z(size), w(static_cast<std::size_t>(n) * kReflectors), tw(static_cast<std::size_t>(n) * kReflectors),
+        gram(static_cast<std::size_t>(kReflectors) * kReflectors), small(static_cast<std::size_t>(kReflectors) * kReflectors);
     widen_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(static_cast<long long>(size), q.data(), own(z.data()));
     launched("the eigenvectors of the tridiagonal matrix");
-    const int reflectors = n - 1;
+    const int reflectors_count = n - 1;
     const T one = unit(T{}, 1.0), zero = unit(T{}, 0.0), minus = unit(T{}, -1.0);
-    for (int first = reflectors > 0 ? ((reflectors - 1) / kReflectors) * kReflectors : -1; first >= 0; first -= kReflectors) {
-        const int count = std::min(kReflectors, reflectors - first);
-        reflectors_kernel<S><<<blocks(static_cast<long long>(n) * count), kThreads>>>(n, first, count, matrix, own(v.data()));
-        launched("a block of reflectors");
-        blas_.gemm(Op::C, Op::N, count, count, n, one, v.data(), n, v.data(), n, zero, small.data(), count);
-        std::vector<T> gram(static_cast<std::size_t>(count) * count);
-        small.download(gram.data(), gram.size());
-        std::vector<std::complex<double>> t(static_cast<std::size_t>(count) * count, 0.0);
-        for (int i = 0; i < count; ++i) {
-            const std::complex<double> ti = host_of(tau_host[static_cast<std::size_t>(first + i)]);
-            for (int r = 0; r < i; ++r) {
-                std::complex<double> sum = 0.0;
-                for (int c = r; c < i; ++c) sum += t[static_cast<std::size_t>(c) * count + r] * host_of(gram[static_cast<std::size_t>(i) * count + c]);
-                t[static_cast<std::size_t>(i) * count + r] = -ti * sum;
-            }
-            t[static_cast<std::size_t>(i) * count + i] = ti;
-        }
-        for (std::size_t i = 0; i < gram.size(); ++i) device_of(t[i], gram[i]);
-        small.assign(gram.data(), gram.size());
-        blas_.gemm(Op::C, Op::N, count, n, n, one, v.data(), n, z.data(), n, zero, w.data(), count);
+    for (int first = reflectors_count > 0 ? ((reflectors_count - 1) / kReflectors) * kReflectors : -1; first >= 0;
+         first -= kReflectors) {
+        const int count = std::min(kReflectors, reflectors_count - first);
+        const T* v = reflectors.data() + static_cast<std::size_t>(first) * n;
+        blas_.gemm(Op::C, Op::N, count, count, n, one, v, n, v, n, zero, gram.data(), count);
+        block_factor_kernel<S><<<1, kReflectors>>>(count, own(tau.data()) + first, own(gram.data()), own(small.data()));
+        launched("the factor of a block of reflectors");
+        blas_.gemm(Op::C, Op::N, count, n, n, one, v, n, z.data(), n, zero, w.data(), count);
         blas_.gemm(Op::N, Op::N, count, n, count, one, small.data(), count, w.data(), count, zero, tw.data(), count);
-        blas_.gemm(Op::N, Op::N, n, n, count, minus, v.data(), n, tw.data(), count, one, z.data(), n);
+        blas_.gemm(Op::N, Op::N, n, n, count, minus, v, n, tw.data(), count, one, z.data(), n);
     }
     check_cuda(cudaMemcpy(a, z.data(), size * sizeof(T), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
@@ -673,12 +1066,14 @@ int Lapack::own_potrf(T* a, int n) {
     void Lapack::eigh(T* a, int n, std::vector<double>& values) {                                            \
         values.clear();                                                                                      \
         if (n < 1) return;                                                                                   \
+        MDAPY_SPAN("eigh");                                                                                  \
         if (kernels_ == Kernels::Mdapy) return own_eigh(a, n, values);                                       \
         VALUES.reserve(static_cast<std::size_t>(n));                                                         \
         vendor_eigh<V>(vendor(), a, n, VALUES.data(), work_, info_, values);                                 \
     }                                                                                                        \
     int Lapack::potrf(T* a, int n) {                                                                         \
         if (n < 1) return 0;                                                                                 \
+        MDAPY_SPAN("potrf");                                                                                 \
         if (kernels_ == Kernels::Mdapy) return own_potrf(a, n);                                              \
         return vendor_potrf<V>(vendor(), a, n, work_, info_);                                                \
     }

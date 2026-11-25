@@ -61,6 +61,10 @@ public:
     // transformed; with 8 no pass is run (loads and stores alone), with 16 the
     // second and the third axis each in its own kernel. For measurements.
     void only_axes(int mask) { axes_ = mask; }
+    // The planes that take up to this many bytes of shared memory go through
+    // one kernel (never more than a block of the GPU can have). For
+    // measurements.
+    void set_plane_bytes(std::size_t bytes);
 
 private:
     struct Tables;
@@ -84,6 +88,9 @@ private:
     Tables* half_ = nullptr;                           // of half the third size, when it is even
     int tuned_[2][3][2] = {};
     int axes_ = 7;
+    std::size_t most_shared_ = 0;  // bytes of shared memory a block of this GPU can have
+    std::size_t plane_bytes_ = 0;  // the largest plane that goes through one kernel
+    int threads_[2][2][2] = {};    // of the blocks of the planes, by precision, direction and complex or real; 0 not asked yet
 };
 
 }  // namespace mdapy::dft

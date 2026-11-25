@@ -9,6 +9,16 @@
 #include <stdexcept>
 #include <string>
 
+#ifdef MDAPY_DFT_PROFILE
+#include <chrono>
+#include <cstdio>
+#include <map>
+#include <mutex>
+#include <utility>
+
+#include "dft/core/profile.h"
+#endif
+
 namespace mdapy::dft {
 
 void check_cuda(cudaError_t status, const char* call) {
@@ -44,3 +54,61 @@ int device_count() {
 }
 
 }  // namespace mdapy::dft
+
+#ifdef MDAPY_DFT_PROFILE
+namespace mdapy::dft {
+
+namespace {
+
+struct Rows {
+    std::mutex lock;
+    std::map<std::string, std::pair<long long, double>> rows;
+    void print(const char* label) {
+        const std::lock_guard<std::mutex> guard(lock);
+        for (const auto& [path, value] : rows)
+            std::fprintf(stderr, "SPAN %s %s %lld %.6f\n", label, path.c_str(), value.first, value.second);
+        rows.clear();
+    }
+    ~Rows() { print("end"); }
+};
+
+Rows& rows() {
+    static Rows r;
+    return r;
+}
+
+thread_local std::string path;
+
+long long now() {
+    static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));  // an error shows at the next call
+    return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+}  // namespace
+
+Span::Span(const char* name) : length_(path.size()) {
+    rows();  // made before the first span ends
+    path += '/';
+    path += name;
+    start_ = now();
+}
+
+Span::~Span() {
+    const double seconds = 1e-9 * static_cast<double>(now() - start_);
+    Rows& r = rows();
+    {
+        const std::lock_guard<std::mutex> guard(r.lock);
+        auto& row = r.rows[path];
+        ++row.first;
+        row.second += seconds;
+    }
+    path.resize(length_);
+}
+
+}  // namespace mdapy::dft
+
+extern "C" __attribute__((visibility("default"))) void mdapy_dft_profile(const char* label) {
+    mdapy::dft::rows().print(label);
+}
+#endif

@@ -24,6 +24,7 @@
 
 #include "dft/fft/box_fft.h"
 
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -36,7 +37,7 @@ namespace mdapy::dft {
 namespace {
 
 constexpr int kMaxPasses = 12;
-constexpr std::size_t kMaxShared = 48 * 1024;  // bytes of shared memory of a block
+constexpr std::size_t kMaxShared = 48 * 1024;  // bytes of shared memory a block has without asking
 constexpr int kAhead = 4;  // loads of a thread on their way at a time
 constexpr int kStrided = 0, kContiguous = 1, kRealToComplex = 2, kComplexToReal = 3, kHalfForward = 4, kHalfInverse = 5;
 
@@ -700,6 +701,30 @@ unsigned inverse_of(int n) {  // ceil(2^32 / n), n > 1
     return static_cast<unsigned>(((1ull << 32) + static_cast<unsigned long long>(n) - 1) / static_cast<unsigned long long>(n));
 }
 
+// The bytes of shared memory a block of the GPU can have: more than
+// kMaxShared when a kernel asks (allow), on the NVIDIA GPUs that have it.
+std::size_t most_shared() {
+#if defined(MDAPY_GPU_HIP)
+    return kMaxShared;
+#else
+    int device = 0, bytes = 0;
+    check(cudaGetDevice(&device), "cudaGetDevice");
+    check(cudaDeviceGetAttribute(&bytes, cudaDevAttrMaxSharedMemoryPerBlockOptin, device), "the shared memory of a block");
+    return std::max(static_cast<std::size_t>(bytes), kMaxShared);
+#endif
+}
+
+// A kernel may take as much shared memory as the GPU gives, more than
+// kMaxShared.
+template <class Kernel>
+void allow([[maybe_unused]] Kernel kernel, [[maybe_unused]] std::size_t most) {
+#if !defined(MDAPY_GPU_HIP)
+    if (most > kMaxShared)
+        check(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(most)),
+              "the shared memory of a block");
+#endif
+}
+
 template <class T>
 T* uploaded(const std::vector<T>& host) {
     void* memory = nullptr;
@@ -797,7 +822,11 @@ BoxFft::BoxFft(const std::array<int, 3>& grid) : grid_(grid) {
     }
     // real boxes of an even third size go through complex lines of half of it
     if (grid[2] % 2 == 0 && grid[2] >= 4) half_ = new Tables(grid[2] / 2);
+    most_shared_ = most_shared();
+    plane_bytes_ = most_shared_;
 }
+
+void BoxFft::set_plane_bytes(std::size_t bytes) { plane_bytes_ = std::min(bytes, most_shared_); }
 
 BoxFft::~BoxFft() {
     for (int i = 0; i < 3; ++i) {
@@ -844,9 +873,31 @@ void geometry(int n, std::size_t line, const int* tuned, int& log_c, int& thread
     }
 }
 
-// The threads of a block that holds a plane of points.
-int plane_threads(int points, int tuned) {
-    if (tuned > 0) return tuned;
+// The threads of a block that holds a plane of points: a multiple of 64 with
+// eight points or more to a thread, 640 at most, that puts the most threads on
+// a multiprocessor at a time, which its shared memory and its registers limit
+// (measured on a GH200: Z2Z of 72^3 at 0.95 of cuFFT with 448 threads, two
+// blocks a multiprocessor, and at 1.17 with 512, one block). Where the GPU
+// does not tell, a thread to ten points, 128 to 512. The kernel is first
+// let take the shared memory the GPU gives. Asked once of each kernel by a
+// BoxFft, which keeps the answer: the calls wait for the driver, which the
+// host threads of the k-points share.
+template <class Kernel>
+int plane_threads(Kernel kernel, [[maybe_unused]] std::size_t bytes, int points, std::size_t shared) {
+    allow(kernel, shared);
+#if !defined(MDAPY_GPU_HIP)
+    int best = 0, most = 0;
+    for (int threads = 128; threads <= 640 && (threads == 128 || threads <= points / 8); threads += 64) {
+        int blocks = 0;
+        if (cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blocks, kernel, threads, bytes) != cudaSuccess) break;
+        if (blocks * threads > most) {
+            most = blocks * threads;
+            best = threads;
+        }
+    }
+    if (best > 0) return best;
+    static_cast<void>(cudaGetLastError());
+#endif
     const int threads = 64 * ((points / 10 + 63) / 64);
     return threads < 128 ? 128 : threads > 512 ? 512 : threads;
 }
@@ -905,7 +956,7 @@ template <class R, int Sign>
 bool BoxFft::planes(R* boxes, long long count) {
     const Tables &t2 = *tables_[1], &t3 = *tables_[2];
     const std::size_t bytes = static_cast<std::size_t>(t2.n) * (t3.n | 1) * sizeof(Cx<R>);
-    if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+    if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
     PlaneArgs a{};
     a.n2 = t2.n;
     a.n3 = t3.n;
@@ -916,8 +967,10 @@ bool BoxFft::planes(R* boxes, long long count) {
     a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
     for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
     for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
-    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), plane_threads(t2.n * t3.n, tuned_[sizeof(R) == 4][2][1]),
-                            bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
+    int& threads = threads_[sizeof(R) == 4][Sign > 0][0];
+    if (threads == 0) threads = plane_threads(plane_kernel<R, Sign>, bytes, t2.n * t3.n, most_shared_);
+    const int tuned = tuned_[sizeof(R) == 4][2][1];
+    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), tuned > 0 ? tuned : threads, bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
     check(cudaGetLastError(), "the transform of the planes");
     return true;
 }
@@ -929,7 +982,7 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
     if (grid_[2] % 2 == 1) {
         const Tables &t2 = *tables_[1], &t3 = *tables_[2];
         const std::size_t bytes = static_cast<std::size_t>(t2.n) * t3.n * sizeof(Cx<R>);
-        if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+        if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
         PlaneArgs a{};
         a.n2 = t2.n;
         a.n3 = t3.n;
@@ -942,8 +995,10 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
         a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
         for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
         for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
-        odd_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]),
-                                    plane_threads(t2.n * t3.n, tuned_[sizeof(R) == 4][2][1]), bytes>>>(
+        int& threads = threads_[sizeof(R) == 4][Sign > 0][1];
+        if (threads == 0) threads = plane_threads(odd_plane_kernel<R, Sign>, bytes, t2.n * t3.n, most_shared_);
+        const int tuned = tuned_[sizeof(R) == 4][2][1];
+        odd_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), tuned > 0 ? tuned : threads, bytes>>>(
             a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, in, out);
         check(cudaGetLastError(), "the transform of the planes");
         return true;
@@ -952,7 +1007,7 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
     const Tables &t2 = *tables_[1], &t3 = *half_;
     const int half = t3.n + 1;
     const std::size_t bytes = static_cast<std::size_t>(t2.n) * (half | 1) * sizeof(Cx<R>);
-    if (bytes > kMaxShared || (axes_ & 6) != 6 || (axes_ & 16)) return false;
+    if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
     PlaneArgs a{};
     a.n2 = t2.n;
     a.n3 = t3.n;
@@ -965,8 +1020,10 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
     a.passes3 = (axes_ & 8) ? 0 : static_cast<int>(t3.passes.size());
     for (std::size_t i = 0; i < t2.passes.size(); ++i) a.pass2[i] = t2.passes[i];
     for (std::size_t i = 0; i < t3.passes.size(); ++i) a.pass3[i] = t3.passes[i];
-    real_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), plane_threads(t2.n * half, tuned_[sizeof(R) == 4][2][1]),
-                                 bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source,
+    int& threads = threads_[sizeof(R) == 4][Sign > 0][1];
+    if (threads == 0) threads = plane_threads(real_plane_kernel<R, Sign>, bytes, t2.n * half, most_shared_);
+    const int tuned = tuned_[sizeof(R) == 4][2][1];
+    real_plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), tuned > 0 ? tuned : threads, bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source,
                                           tables_[2]->roots_of(R{}), in, out);
     check(cudaGetLastError(), "the transform of the planes");
     return true;

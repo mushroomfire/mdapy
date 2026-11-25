@@ -343,7 +343,7 @@ def run(
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
     it has its own (the FFTs, the dense linear algebra, the eigensolver and
-    the Cholesky factorization of small matrices), "vendor": the GPU libraries
+    the Cholesky factorization), "vendor": the GPU libraries
     of the vendor throughout, "auto": by the GPU (kernels_of); the result
     holds the one taken as kernels."""
     if preconditioner not in ("kerker", "ldos"):

@@ -6,7 +6,8 @@
   on the GPU, for the grids and the transforms the plane waves take, in place of those
   of cuFFT or hipFFT, and so are its dense linear algebra (the products of matrices and
   the triangular solves of the solver and the projectors), in place of cuBLAS or
-  hipBLAS, and the eigenpairs and Cholesky factors of its small matrices;
+  hipBLAS, and its Hermitian eigensolver and Cholesky factorization, in place of
+  cuSOLVER or hipSOLVER;
   `kernels="vendor"` runs the GPU libraries of the vendor throughout. The default,
   `kernels="auto"`, takes the faster of the two today: MDAPY's on GPUs of little double
   precision (cards for games and workstations), the vendor's on the others (V100, A100,

@@ -168,9 +168,9 @@ class DFT(Calculator):
         Default ``"double"``.
     kernels : str, optional
         Whose kernels run on the GPU. ``"mdapy"``: those of MDAPY where it
-        has its own (today the fast Fourier transforms, the dense linear
-        algebra and the eigenpairs and Cholesky factors of small matrices),
-        the GPU libraries of the vendor for the rest. ``"vendor"``: the GPU
+        has its own (the fast Fourier transforms, the dense linear algebra,
+        the Hermitian eigensolver and the Cholesky factorization: all the DFT
+        takes from them today), the GPU libraries of the vendor for the rest. ``"vendor"``: the GPU
         libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on
         NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). ``"auto"``:
         the faster of the two today, ``"mdapy"`` on GPUs whose double

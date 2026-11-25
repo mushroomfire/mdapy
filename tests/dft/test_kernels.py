@@ -278,9 +278,9 @@ def test_the_cholesky_factors_agree(dtype, n, host):
     if n > 2:
         bad = given.copy(order="F")
         bad[n // 2, n // 2] = -1.0
-        assert [
-            _dft.cholesky(bad, kernels=k, host_limit=host)[0] for k in KERNELS
-        ] == [n // 2 + 1] * 2
+        assert [_dft.cholesky(bad, kernels=k, host_limit=host)[0] for k in KERNELS] == [
+            n // 2 + 1
+        ] * 2
 
 
 class Device:

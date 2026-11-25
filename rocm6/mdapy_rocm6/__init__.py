@@ -5,8 +5,9 @@
 
 """The GPU part of MDAPY for AMD GPUs, built with HIP of ROCm 6 for Linux on
 x86-64: MDAPY loads its module ``_hip`` for calculators given
-``device="cuda"``. Install it with ``pip install "mdapy[rocm6]"``, at the
-version of MDAPY."""
+``device="cuda"``, and its module ``_dft`` for the plane-wave DFT, which needs
+hipBLAS, hipFFT and hipSOLVER of ROCm. Install it with
+``pip install "mdapy[rocm6]"``, at the version of MDAPY."""
 
 from mdapy_rocm6._version import __version__
 

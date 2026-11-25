@@ -2,6 +2,17 @@
 
 ## 2.3.0 (not released)
 
+- `DFT(kernels="mdapy")`: the fast Fourier transforms of the DFT are MDAPY's own kernels
+  on the GPU, for the grids and the transforms the plane waves take, in place of those
+  of cuFFT or hipFFT; `kernels="vendor"` runs the GPU libraries of the vendor throughout.
+  The results agree to rounding, and `DFT.last["provenance"]` keeps the choice.
+- `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
+  magnetons, the magnetization density integrated within a sphere around it, of radius
+  `moment_radius` (by default half the shortest distance between two atoms, periodic
+  images included).
+- `DFT(restart="second_order")`: the density of each step of molecular dynamics is
+  extrapolated from the last three steps (Arias, Payne and Joannopoulos), not only
+  moved with the free atoms, which takes fewer iterations; `restart=True` is as before.
 - The GPU part of MDAPY runs on AMD GPUs: the kernels of the potentials and of
   molecular dynamics, written for CUDA, compile as they are with HIP of ROCm 6
   (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
@@ -134,6 +145,33 @@
   of Waasmaier and Kirfel (1995), and `neutron_scattering_lengths(elements,
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
+- `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
+  NVIDIA GPU, in the GPU part `mdapy-cuda12`, or on an AMD GPU in `mdapy-rocm6`, built from
+  source with HIP of ROCm 6. It gives energies, forces and virials
+  of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF 2, and UPF
+  1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
+  collinear spin and smearings, DFT+U of Dudarev on norm-conserving
+  pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
+  Gamma, the k-points and spins of one configuration shared by several GPUs
+  (`comm`), the k-points of a small cell solved side by side on one GPU and calculations
+  in several threads of one process at once, and mixed precision (`precision="mixed"`,
+  single precision in the first steps) for GPUs of little double precision, for
+  labelling training sets; the preconditioner of the local density of states
+  (`preconditioner="ldos"`) for slabs, surfaces and magnetic alloys. The FFT grids
+  are those of Quantum ESPRESSO (factors 2, 3 and 5, multiples of the denominators of
+  the fractional translations). The energies, forces,
+  stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
+  same input; the functional of the pseudopotentials is taken as Quantum ESPRESSO takes
+  it. Under development.
+- The extra `dft`, `pip install "mdapy[cuda12,dft]"`: NVIDIA's cuBLAS, cuFFT and cuSOLVER
+  from NVIDIA's packages, which the DFT in `mdapy-cuda12` loads from where pip puts them;
+  the package holds none of them, and its potentials and molecular dynamics need none.
+  With ROCm the DFT of `mdapy-rocm6` takes the libraries of the machine.
+  `-Ccmake.define.MDAPY_DFT=OFF` builds either package without the DFT.
+- The example [A potential from MDAPY's DFT](../examples/dft-potential.md): generated cells
+  of aluminium labelled by MDAPY's DFT, a NEP model trained on them, and its equation of
+  state, vacancy, surface and phonons against the DFT's; the elastic constants of
+  aluminium against the mesh of k-points.
 
 ## 2.2.0
 

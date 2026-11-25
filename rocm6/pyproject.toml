@@ -1,7 +1,10 @@
 # The package mdapy-rocm6: the GPU part of MDAPY alone for AMD GPUs, built with
 # HIP of ROCm 6 from the sources of MDAPY one directory up, those of
 # mdapy-cuda12. Users install it with pip install "mdapy[rocm6]", at the
-# version of MDAPY; MDAPY loads it for calculators given device="cuda".
+# version of MDAPY; MDAPY loads its module _hip for calculators given
+# device="cuda", and its module _dft for the plane-wave DFT, which needs hipBLAS,
+# hipFFT and hipSOLVER of ROCm on the machine. -Ccmake.define.MDAPY_DFT=OFF
+# builds _hip alone.
 
 [build-system]
 requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]
@@ -43,6 +46,7 @@ cmake.build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 MDAPY_HIP_ONLY = "ON"
+MDAPY_DFT = "ON"
 # the machine code of the Instinct MI200 and MI300 series
 CMAKE_HIP_ARCHITECTURES = "gfx90a;gfx942"
 

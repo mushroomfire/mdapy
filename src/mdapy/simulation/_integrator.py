@@ -921,7 +921,13 @@ class _Native:
         from mdapy.simulation import _domain
 
         self.__comm = comm  # of the processes it is split among, or None
-        on_gpu = getattr(calculator, "device", "cpu") == "cuda"
+        # the steps on the GPU with MDAPY's potentials there; other calculators
+        # on the GPU (DFT, models of torch) take seconds or milliseconds a call,
+        # and the steps of their atoms run on the processor
+        on_gpu = (
+            getattr(calculator, "device", "cpu") == "cuda"
+            and getattr(calculator, "_on_device", None) is not None
+        )
         if self.__comm is None and on_gpu:
             self.__atoms: Any = _device.DeviceAtoms(
                 calculator, system, x, v, masses, _SKIN, self.__movable, self.__rotation

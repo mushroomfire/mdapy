@@ -41,3 +41,7 @@
 ::: mdapy.calculators.LAMMPS
 
 ::: mdapy.calculators.VASP
+
+## Density functional theory
+
+::: mdapy.calculators.DFT

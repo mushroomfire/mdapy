@@ -192,6 +192,7 @@ nav:
       - Machine-learned potentials:
           - A machine-learned potential for CrCoNi: examples/crconi.md
           - Generated training sets for aluminium: examples/aluminium-training.md
+          - A potential from MDAPY's DFT: examples/dft-potential.md
       - Many calculations:
           - Screening alloys in many processes: examples/high-throughput.md
           - Sharing neighbor lists: examples/neighbor-lists.md
@@ -286,6 +287,8 @@ nav:
           - NEP: user-guide/potentials/nep.md
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md
+          - Plane-wave DFT: user-guide/potentials/dft.md
+          - Verification of the DFT: user-guide/potentials/dft-verification.md
       - Simulation:
           - user-guide/simulation/index.md
           - Running:
@@ -375,6 +378,7 @@ nav:
       - Building structures: performance/builders.md
       - Molecular dynamics on the GPU: performance/gpu.md
       - Molecular dynamics on many processes: performance/mpi.md
+      - Plane-wave DFT: performance/dft.md
   - Reference:
       - Python API:
           - Overview: reference/api/index.md

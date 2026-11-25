@@ -5,8 +5,11 @@
 
 """The GPU part of MDAPY, built with CUDA 12 for NVIDIA GPUs from the V100 on,
 for Linux on x86-64 and ARM:
-MDAPY loads its module ``_cuda`` for calculators given ``device="cuda"``.
-Install it with ``pip install "mdapy[cuda12]"``, at the version of MDAPY."""
+MDAPY loads its module ``_cuda`` for calculators given ``device="cuda"``, and
+its module ``_dft`` for the plane-wave DFT. Install it with
+``pip install "mdapy[cuda12]"``, at the version of MDAPY, and with
+``pip install "mdapy[cuda12,dft]"`` for the DFT, which needs NVIDIA's cuBLAS,
+cuFFT and cuSOLVER."""
 
 from mdapy_cuda12._version import __version__
 

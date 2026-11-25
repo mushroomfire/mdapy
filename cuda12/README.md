@@ -12,3 +12,14 @@ pip install "mdapy[cuda12]"
 
 MDAPY then runs its potentials and molecular dynamics on the GPU with `device="cuda"`.
 See [On the GPU](https://mushroomfire.github.io/mdapy/user-guide/simulation/gpu/).
+
+The package also holds MDAPY's plane-wave DFT, which needs NVIDIA's cuBLAS, cuFFT and
+cuSOLVER. The extra `dft` installs them from NVIDIA's own packages on PyPI
+(`nvidia-cublas-cu12`, `nvidia-cufft-cu12`, `nvidia-cusolver-cu12`), which a
+build of PyTorch for CUDA 12 already has:
+
+```bash
+pip install "mdapy[cuda12,dft]"
+```
+
+See [Plane-wave DFT](https://mushroomfire.github.io/mdapy/user-guide/potentials/dft/).

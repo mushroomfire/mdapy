@@ -26,11 +26,16 @@ _OPTIONAL = (
     "matplotlib",
     "mdapy-cuda12",
     "mdapy-rocm6",
+    "nvidia-cublas-cu12",
+    "nvidia-cufft-cu12",
+    "nvidia-cusolver-cu12",
     "ovito",
     "pymatgen-core",
     "seekpath",
     "spglib",
 )
+# the column of the names: the longest, nvidia-cusolver-cu12, and a space
+_WIDTH = 21
 
 
 def _installed(package: str) -> str:
@@ -112,6 +117,7 @@ def show_versions(file: TextIO | None = None) -> None:
         tuple((package, _installed(package)) for package in _OPTIONAL),
     )
     text = "\n\n".join(
-        "\n".join(f"{name:<15}{value}" for name, value in block) for block in blocks
+        "\n".join(f"{name:<{_WIDTH}}{value}" for name, value in block)
+        for block in blocks
     )
     print(text, file=file)

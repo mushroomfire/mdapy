@@ -1,0 +1,362 @@
+# Plane-wave DFT
+
+!!! warning "Under development"
+    MDAPY's density functional theory is new. It takes norm-conserving,
+    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU (or AMD GPU, built
+    from source) per configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
+    input, as [below](#how-the-results-compare-with-quantum-espresso).
+
+<!-- skip-test -->
+```python
+import json
+from pathlib import Path
+
+from mdapy.calculators import DFT
+from mdapy.io import read, write
+
+dft = DFT(
+    600.0,  # eV, the cutoff of the plane waves
+    pseudopotentials="pseudo-dojo/nc-sr-04_pbe_standard",  # Al.upf, Ni.upf, ...
+    kspacing=0.2,  # 1/Å
+    smearing="marzari-vanderbilt",
+    sigma=0.1,  # eV
+    magmoms={"Ni": 0.6},
+)
+frames = []
+for path in sorted(Path("structures").glob("*.xyz")):
+    system = read(path)
+    frames.append(dft.compute(system, ("energy", "forces", "virial")).attach(system))
+write("train.xyz", frames)  # energy, virial and forces of each frame
+# the settings that make these labels comparable with others
+Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
+```
+
+`DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
+smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
+max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
+bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
+kernels="mdapy", comm=None)` computes the
+energies, forces and virials of periodic cells by Kohn–Sham density functional
+theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
+MDAPY. It suits the labels of training sets: configurations of up to a few
+hundred atoms, one at a time. It runs in the [GPU part](../simulation/gpu.md#installing-the-gpu-part)
+of MDAPY, the package `mdapy-cuda12` for GPUs from the V100 on, with NVIDIA's cuBLAS,
+cuFFT and cuSOLVER, which the extra `dft` installs from NVIDIA's packages (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)):
+
+```bash
+pip install "mdapy[cuda12,dft]"
+```
+
+For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
+6 into the package `mdapy-rocm6`, in a clone of MDAPY:
+
+```bash
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+`gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
+ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
+the calculations of several threads take turns on the GPU instead of running at once.
+Without the GPU part or its libraries, `DFT` raises an error that says what to install.
+
+| Name | Type | Default | Unit | Meaning |
+|---|---|---|---|---|
+| `encut` | float64 | | eV | the kinetic energy cutoff of the plane waves, as VASP's ENCUT |
+| `ecutrho` | float64 | 4 `encut`, 8 with ultrasoft or PAW pseudopotentials | eV | the cutoff of the density, as QE's ecutrho |
+| `pseudopotentials` | mapping or path | `$MDAPY_PSEUDO_DIR` | | UPF files by element, or a folder with `{element}.upf` or one `{element}_*.upf` of each element |
+| `kpoints` | (3,) int32 | `None` | | a Gamma-centered mesh of k-points |
+| `kspacing` | float64 | 0.25 | 1/Å | without `kpoints`, the largest spacing of the mesh, 2π included, as VASP's KSPACING |
+| `smearing` | str | `"gaussian"` | | `"gaussian"`, `"fermi-dirac"`, `"methfessel-paxton"` (first order), `"marzari-vanderbilt"`, or `"fixed"` for insulators |
+| `sigma` | float64 | 0.1 | eV | the width of the smearing |
+| `magmoms` | mapping or (N,) float64 | `None` | Bohr magneton | the first magnetic moments, by element or one per atom; with them the spins are collinear |
+| `hubbard` | mapping of str to (str, float64) | `None` | eV | DFT+U: for an element the label of one of its pseudo-orbitals, such as `"3d"`, and U |
+| `functional` | str | that of the pseudopotentials, as Quantum ESPRESSO takes it | | `"pbe"`, `"pbe_pw"`, `"pbesol"`, `"pbesol_pw"`, `"lda_pw"` or `"lda_pw_mod"` |
+| `tolerance` | float64 | 1e-6 | eV | the self-consistent field stops when the energy changes by less and the Hartree energy of the change of the density is below it |
+| `max_iterations` | int32 | 100 | | the steps of the self-consistent field before it fails |
+| `mixing` | float64 | None | | the share of the residual of the density taken at each step; None for 0.7 without spin, as Quantum ESPRESSO, and 0.4 with it |
+| `magnetic_mixing` | float64 | 1.0 | | with spin, the share of the residual of the magnetization taken at each step, as VASP's AMIX_MAG |
+| `kerker` | float64 | 1.5 | 1/Å | the wave vector of Kerker's preconditioner of the mixing, 0 for none |
+| `preconditioner` | str | `"kerker"` | `"kerker"`, `"ldos"` | of the mixing of the total density: `"ldos"` from the local density of states at the Fermi level of each step ([Herbst and Levitt 2021](../../reference/references.md#herbst2021)), which screens the metal and not the vacuum or the insulator of a cell: slabs, surfaces, and magnetic alloys whose moments Kerker's lets wander or fall |
+| `bands` | int32 | `None` | | bands per k-point and spin; by default four or 10 % more than the occupied ones for fixed occupations, else the larger of 1.2 N/2 and N/2 + 4 for N electrons |
+| `symmetry` | bool | `None` | | the symmetry of the crystal, found by [spglib](https://spglib.readthedocs.io): the irreducible k-points alone, the density, the occupations of the projectors, the forces and the stress made symmetric; by default when spglib is installed |
+| `seed` | int32 | 0 | | seed of the random first bands |
+| `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
+| `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
+| `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
+| `precision` | str | `"double"` | `"double"`, `"mixed"`, `"auto"` | `"mixed"`: the first steps of the self-consistent field in single precision, the last in double, for GPUs of little double precision (most cards for games and workstations); the label is that of double precision, `last["single_steps"]` the steps in single precision. `"auto"`: mixed on those GPUs, double on V100, A100, H100 and GH200. Mixed precision holds about a tenth more of the GPU's memory at its peak: a cell that only just fits in double runs with `"double"` |
+| `kernels` | str | `"mdapy"` | `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY where it has its own, today the fast Fourier transforms, and the GPU libraries of the vendor for the rest. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; `last["provenance"]` keeps which one ran |
+| `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
+
+| Attribute or method | Meaning |
+|---|---|
+| `cutoff` | 0: the calculator needs no neighbor list |
+| `compute(system, properties, *, neighbors=None)` | the free energy in eV, the forces in eV/Å and, when asked, the virial in eV; `neighbors` is not used |
+| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `provenance` |
+
+The system must be periodic along a, b and c and have an `element` column. The
+energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
+what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
+the cutoff, the mesh, the smearing and its width, the functional, the spins, the
+grid and the bands. Labels of a set should share them. It also holds the
+`kernels`, which changes the results by rounding alone.
+
+The magnetic moments are those of the smooth density on the grid, with the
+augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center
+corrections of PAW, within spheres that do not overlap: they depend on the radius, and
+their sum is less than `magnetization`, which counts the whole cell. Compare them across
+labels of a set only with the same `moment_radius`.
+
+## Many GPUs
+
+A configuration runs on one GPU. Many configurations, as the labels of a
+training set, share the GPUs of a machine as processes of their own, one GPU
+each, started by `mpirun`:
+
+<!-- skip-test -->
+```python
+from mpi4py import MPI
+
+from mdapy.calculators import DFT
+from mdapy.io import read, write
+
+rank, size = MPI.COMM_WORLD.Get_rank(), MPI.COMM_WORLD.Get_size()
+dft = DFT(600.0, kspacing=0.2, gpu=rank % 4)  # 4 GPUs on each machine
+mine = [read(f"structures/{i}.xyz") for i in range(rank, 1000, size)]
+labelled = [dft.compute(s, ("energy", "forces", "virial")).attach(s) for s in mine]
+write(f"train-{rank}.xyz", labelled)
+```
+
+A small cell leaves most of a GPU idle. Its k-points are solved side by side on threads
+of the processor by themselves, and several configurations share one GPU from threads of
+one process, each with a calculator of its own:
+
+<!-- skip-test -->
+```python
+from concurrent.futures import ThreadPoolExecutor
+
+from mdapy.calculators import DFT
+from mdapy.io import read_trajectory, write
+
+structures = list(read_trajectory("structures.xyz"))
+
+
+def label(part):
+    dft = DFT(600.0, kspacing=0.2)
+    return [dft.compute(s, ("energy", "forces", "virial")).attach(s) for s in part]
+
+
+with ThreadPoolExecutor(4) as pool:
+    parts = list(pool.map(label, [structures[i::4] for i in range(4)]))
+write("train.xyz", [s for part in parts for s in part])
+```
+
+Four to eight threads fill a GPU with cells of a few dozen atoms; a cell of hundreds of
+atoms fills it alone.
+
+One configuration of many k-points or of two spins can also run on several GPUs:
+with `comm`, the processes share its pairs of spin and k-point, each GPU holding
+the bands of its own, and every process gets the whole result. This pays when a
+configuration has at least as many such pairs as GPUs.
+
+<!-- skip-test -->
+```python
+from mpi4py import MPI
+
+from mdapy.calculators import DFT
+from mdapy.io import read
+
+dft = DFT(600.0, kpoints=(4, 4, 4), magmoms={"Fe": 2.5}, comm=MPI.COMM_WORLD)
+result = dft.compute(read("fe54.xyz"), ("energy", "forces", "virial"))
+if MPI.COMM_WORLD.Get_rank() == 0:
+    print(result.energy)
+```
+
+## What it computes
+
+- **Plane waves** of kinetic energy up to `encut` at each k-point of the mesh;
+  k-points related by time reversal count once. The bands live on the FFT grid
+  of four times the cutoff, the density and the potentials on that of
+  `ecutrho`, chosen as Quantum ESPRESSO chooses them: along each vector at
+  least 2 m + 1 points, m the largest Miller index of the sphere, with 2, 3
+  and 5 as the only factors, and with the symmetry a multiple of the
+  denominators of its fractional translations (4 in diamond). When the mesh is Γ alone, as for
+  large cells, the bands are real: they keep half of the plane waves, the
+  other half being their complex conjugates, with real Fourier transforms and
+  real products of the bands, for the same results in less time and half the
+  memory.
+- **Pseudopotentials:** in UPF 2, norm-conserving, ultrasoft or PAW, with
+  their projectors, the core charge of the nonlinear core correction and,
+  ultrasoft and PAW, their augmentation charges by angular momentum
+  (`q_with_l`, as the files of a recent `ld1.x` or of atompaw); and in UPF 1,
+  norm-conserving or ultrasoft, such as GBRV's, whose augmentation charges are
+  pseudized inside `rinner` as Quantum ESPRESSO pseudizes them. Every file of
+  SSSP 1.3 is read, and its folder can be given as `pseudopotentials`. The
+  tested ones are PseudoDojo's norm-conserving tables, the ultrasoft and PAW
+  files of pslibrary 1.0.0, GBRV's ultrasoft tungsten and atompaw's lanthanum.
+- **Ultrasoft pseudopotentials** solve H ψ = ε S ψ with the overlap
+  S = 1 + Σ |β⟩ q ⟨β|; the strengths of the projectors of each atom follow the
+  potential at every step, and the density adds the augmentation charges.
+- **PAW** adds to that the one-center terms of each atom, on its radial mesh:
+  the all-electron and pseudo densities of the occupations of its projectors,
+  their Hartree and exchange-correlation energies, and the strengths these
+  add to the projectors. The occupations are mixed along with the density, as
+  Quantum ESPRESSO mixes them. The energy is Quantum ESPRESSO's total energy,
+  without the energy of the frozen core.
+- **Exchange and correlation:** LDA (Perdew–Wang), PBE and PBEsol, with and
+  without spin. `"pbe_pw"` is PBE on Perdew and Wang's correlation with the
+  constants of their paper, as Quantum ESPRESSO's PBE, and the default for PBE
+  pseudopotentials. `"pbe"` uses those of libxc; the two differ by about 1e-6 of
+  the correlation energy, 0.01 to 0.25 meV per atom. `"pbesol_pw"` and `"pbesol"`
+  are PBEsol likewise; a PBEsol run may take PBE
+  pseudopotentials, as Quantum ESPRESSO's `input_dft` does, but PBEsol ones
+  are better.
+- **DFT+U** of [Dudarev et al. (1998)](../../reference/references.md#dudarev1998):
+  E_U = Σ (U/2) Tr[n(1 − n)] over the Hubbard atoms and spins, n the
+  occupations of the pseudo-orbital named in `hubbard` on Quantum ESPRESSO's
+  atomic projectors, the pseudo-orbitals as they are, neither orthogonalized
+  nor normalized ([Cococcioni and de Gironcoli 2005](../../reference/references.md#cococcioni2005)).
+  The occupations start as Quantum ESPRESSO starts them, the majority spin
+  filled first, and are mixed with the density; the forces and the stress
+  include them. U belongs to its projectors: values fitted with those of
+  other codes, such as the spheres of VASP's PAW or the orthogonalized
+  orbitals of Quantum ESPRESSO's linear response, do not carry over.
+  Norm-conserving pseudopotentials only, for now.
+- **The self-consistent field:** the bands by block Davidson, from the
+  pseudo-orbitals of the free atoms at the start, the density mixed
+  by Pulay's method in the metric of Kresse and Furthmüller with Kerker's
+  preconditioner. A run that does not converge raises. With `restart`, a run
+  starts from the bands of the last, plane wave by plane wave, and from its
+  density with the free atoms moved from where they were to where they are
+  (`restart=True`, Quantum ESPRESSO's `pot_extrapolation='atomic'`); with
+  `restart="second_order"` the density less its free atoms is extrapolated
+  from the last three runs, d(t+1) = d(t) + α (d(t) − d(t−1)) + β (d(t−1) −
+  d(t−2)), α and β fitted to the displacements of the atoms (one step: the
+  atomic; two: α = 1, β = 0). A run of other k-points, bands, spins or a number of atoms starts cold.
+- **Symmetry:** the operations of the crystal that keep its atoms, their
+  kinds and first moments, found by spglib to 1e-5 bohr. The k-points of the
+  mesh reduce to the irreducible ones, k equivalent to R^T k and to −k. The
+  output density is the average of its images on the sphere of reciprocal
+  space, so the fractional translations need not fit the FFT grid; the
+  occupations of the projectors and the one-center strengths of PAW are averaged
+  with the rotations of the real harmonics, and the forces and the stress over
+  the operations. A configuration without symmetry, as most of a training set,
+  runs on the mesh with time reversal alone.
+- **Forces** with Quantum ESPRESSO's correction for a density not quite
+  self-consistent. Their mean, which only the FFT grid leaves, is taken out
+  and kept in `last["net_force"]`.
+- **The virial** is the derivative of the energy under a strain that keeps the
+  Miller indices of the plane waves. It lacks the Pulay stress of an
+  incomplete basis: test the cutoff, as with VASP, by the change of the stress.
+
+The constructor raises `InvalidParameter` for a cutoff, width, tolerance or
+mesh that is not positive, an unknown smearing, or a folder that does not
+exist. `compute` raises `InvalidParameter` for a box that is not periodic
+along a, b and c, an element without a pseudopotential, or a moment for each
+atom of the wrong number; `ValueError` for a Hubbard orbital that is not in
+the file or a Hubbard element with an ultrasoft or PAW pseudopotential; `MissingProperty` without an `element` column;
+and [`CalculationFailed`](../../reference/api/utilities.md#mdapy.errors.CalculationFailed)
+when the self-consistent field does not converge, with its last energies.
+
+## When the self-consistent field does not converge
+
+The defaults suit bulk cells. Cells of metal and vacuum, surfaces, vacancies,
+and magnetic alloys converge better with the preconditioner of the local density
+of states, which screens the metal and not the vacuum, and keeps the moments of a
+magnet from wandering among nearby orders or falling to none:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.errors import CalculationFailed
+
+dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos")
+try:
+    result = dft.compute(cell, ("energy", "forces", "virial"))
+except CalculationFailed:  # slower still: a smaller share of the residual, more steps
+    dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos",
+              mixing=0.2, max_iterations=200)  # fmt: skip
+    result = dft.compute(cell, ("energy", "forces", "virial"))
+print(dft.last["iterations"], dft.last["magnetization"])
+```
+
+A magnet can converge to more than one state, and the first moments choose among them.
+Cells of four atoms of Co2CrNi, started with −1, 1.5 and 0.6 Bohr magnetons on Cr, Co
+and Ni, ended in 6 of 20 cells in states of smaller moments, or none, 50 to 110 meV per
+atom above a ferrimagnetic one; started with twice those moments, as above, all reached
+it, in fewer steps. In these cells it made no difference whether the first moment sat
+over the valence or in the d shell; its size did. Start each atom at or above the moment it is expected
+to carry, its high-spin moment when unsure. A state of small moments, once converged,
+holds: restarted with its magnetization doubled, it came back. Compare
+`last["magnetization"]` and `last["absolute_magnetization"]` across the labels of a set,
+and start them alike.
+
+## How the results compare with Quantum ESPRESSO
+
+Its [speed against Quantum ESPRESSO](../../performance/dft.md) on GPUs and processors is on
+its own page. The [verification](dft-verification.md) adds the equations of state of 72 elements against
+all-electron codes.
+
+Quantum ESPRESSO 7.6 (`pw.x`) runs on the same cells, PseudoDojo files, cutoff,
+k-points, FFT grid and smearing, with `pbe_pw`. The tests run it each time. The
+differences:
+
+| | Silicon, diamond, aluminium (four smearings) | bcc iron, fcc nickel, antiferromagnetic chromium, with spin |
+|---|---|---|
+| total energy and each of its terms | below 1e-7 hartree per atom | below 1e-7 hartree per atom once the rounded constant below is allowed for |
+| eigenvalues of the occupied bands, Fermi level | below 1e-7 hartree | below 1e-6 hartree |
+| forces | below 1e-7 hartree/bohr | |
+| stress, in sheared cells | 0.003 kbar | 0.02 kbar |
+| magnetization | | below 1e-4 Bohr magneton |
+
+With the ultrasoft files of pslibrary 1.0.0, on one grid and on two (`ecutrho`
+4 and 8 times `encut`), silicon and aluminium agree in every term of the
+energy, the occupied eigenvalues and the Fermi level to 1e-7 hartree and in
+the forces to 1e-7 hartree/bohr; bcc iron with spin in the energy to 1e-7
+hartree per atom once the rounded constant is allowed for, and in the
+magnetization to 1e-6 Bohr magneton. The stress of sheared silicon agrees to
+0.01 kbar, that of sheared iron with spin to 0.03 kbar, and both with
+differences of strained cells at a fixed basis to 1e-7 hartree.
+
+With the PAW files of pslibrary 1.0.0 (`ecutrho` 8 times `encut`),
+aluminium, silicon of two displaced atoms and bcc iron with spin agree in the
+energy to 1e-8 hartree per atom (iron once the rounded constant is allowed
+for), in the occupied eigenvalues to 1e-7 hartree, in the forces to 1e-7
+hartree/bohr, in the stress to 0.01 kbar and, iron, in the magnetization to
+1e-6 Bohr magneton.
+
+With DFT+U against Quantum ESPRESSO's `HUBBARD (atomic)`, antiferromagnetic NiO
+of four displaced atoms with U = 6 eV on the 3d of nickel, and two displaced
+atoms of copper without spin with U = 4 eV, agree in the energy to 1e-8 hartree
+per atom (NiO once the rounded constant is allowed for), in the Hubbard energy
+to the 8 digits Quantum ESPRESSO prints, in the traces of the occupations to
+1e-5, in the forces to 1e-6 hartree/bohr, in the stress to 0.003 kbar, in the
+occupied eigenvalues to 1e-6 hartree and, NiO, in the magnetization to 1e-6
+Bohr magneton.
+
+What differs is Quantum ESPRESSO's own:
+
+- Its Ewald sum is converged to about 1e-7 Ry.
+- Its spin-polarized PBE correlation takes γ = 0.031091, rounded, where its
+  paramagnetic one takes (1 − ln 2)/π². This moves the energy of iron by 1e-6
+  hartree, and with PAW by 4e-6 more through the one-center densities. A NumPy
+  evaluation of the difference on MDAPY's densities accounts for it to 1e-8.
+
+The forces also agree with differences of the energy of displaced atoms, to 1e-7
+hartree/bohr. The stress agrees with differences of strained cells whose plane
+waves keep their Miller indices, to 5e-8 hartree.
+
+!!! quote "Please cite"
+    The pseudopotentials ([van Setten et al. 2018](../../reference/references.md#vansetten2018)
+    for PseudoDojo) and the functional ([Perdew and Wang 1992](../../reference/references.md#perdew1992),
+    [Perdew et al. 1996](../../reference/references.md#perdew1996), and for PBEsol
+    [Perdew et al. 2008](../../reference/references.md#perdew2008)); the methods:
+    [Davidson (1975)](../../reference/references.md#davidson1975),
+    [Kresse and Furthmüller (1996)](../../reference/references.md#kresse1996),
+    [Kerker (1981)](../../reference/references.md#kerker1981),
+    [White and Bird (1994)](../../reference/references.md#white1994),
+    [Nielsen and Martin (1985)](../../reference/references.md#nielsen1985),
+    [Methfessel and Paxton (1989)](../../reference/references.md#methfessel1989),
+    [Marzari et al. (1999)](../../reference/references.md#marzari1999).
+    The comparisons are with Quantum ESPRESSO
+    ([Giannozzi et al. 2017](../../reference/references.md#giannozzi2017)).

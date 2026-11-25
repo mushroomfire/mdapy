@@ -79,6 +79,11 @@ It runs on NVIDIA GPUs from the V100 on (compute capability 7.0: V100, T4, A100,
 RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
 or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
 into it, and newer drivers run it too.
+The package also holds the [plane-wave DFT](../potentials/dft.md), which computes with
+NVIDIA's cuBLAS, cuFFT and cuSOLVER: the extra `dft` installs them from NVIDIA's packages,
+`pip install "mdapy[cuda12,dft]"` (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)).
+Everything else on this page runs without them.
 `mdapy.show_versions()` names the GPU part and the GPU it found, in its row
 `GPU part`. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
@@ -90,7 +95,9 @@ pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
 
 It is compiled for the GPU of the machine; `-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
-used before an installed `mdapy-cuda12`.
+used before an installed `mdapy-cuda12`. On Linux, `-Ccmake.define.MDAPY_DFT=ON` builds
+the DFT into MDAPY too, as `mdapy._dft`, with cuBLAS, cuFFT and cuSOLVER of the toolkit
+for the build and those of the extra `dft` (or of `LD_LIBRARY_PATH`) for the run.
 
 ### AMD GPUs
 
@@ -108,6 +115,17 @@ rocPRIM and rocThrust, and the run its HIP runtime, as `module load rocm` gives 
 on a cluster. The device keeps its name: `device="cuda"` is the GPU, whoever made it,
 and everything on this page holds for both. It is tested on the Instinct MI250X with
 ROCm 6.3.4, against the processor as on NVIDIA GPUs.
+
+The same GPU part with the [plane-wave DFT](../potentials/dft.md) is the package
+`mdapy-rocm6`, built in a clone of MDAPY from its folder `rocm6`:
+
+```bash
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+Its DFT takes hipBLAS, hipFFT and hipSOLVER of the machine's ROCm, for the build and
+the run alike; `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above builds the DFT
+into MDAPY itself instead.
 
 ## Potentials
 
@@ -152,7 +170,11 @@ that seed.
 
 ## Molecular dynamics
 
-`MolecularDynamics` with a potential on the GPU runs every ensemble, `"nve"`, `"nvt"`,
+`MolecularDynamics` with a potential of the table above on the GPU runs the steps
+there too. Other calculators on the GPU, such as the [plane-wave DFT](../potentials/dft.md)
+and models of torch, compute there and return their forces; the steps of their atoms
+run on the processor, which costs nothing beside them. A potential on the GPU runs
+every ensemble, `"nve"`, `"nvt"`,
 `"npt"` and `"nph"`, with every barostat and both thermostats, as
 [MDAPY's own dynamics](ensembles.md#how-mdapy-integrates) does on the
 processor. Along every periodic direction the box must be thicker than twice the

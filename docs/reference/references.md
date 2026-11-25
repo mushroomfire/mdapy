@@ -41,6 +41,12 @@ Isotopic effects on the thermal expansion of lithium hydride, *J. Phys. Chem. So
 [doi:10.1016/0022-3697(70)90195-2](https://doi.org/10.1016/0022-3697(70)90195-2)
 { #anderson1970 }
 
+**Arias, Payne and Joannopoulos (1992).** T. A. Arias, M. C. Payne and J. D. Joannopoulos,
+Ab initio molecular-dynamics techniques extended to large-length-scale systems,
+*Phys. Rev. B* **45**, 1538 (1992).
+[doi:10.1103/PhysRevB.45.1538](https://doi.org/10.1103/PhysRevB.45.1538)
+{ #arias1992 }
+
 **Axilrod and Teller (1943).** B. M. Axilrod and E. Teller, Interaction of the van
 der Waals type between three atoms, *J. Chem. Phys.* **11**, 299 (1943).
 [doi:10.1063/1.1723844](https://doi.org/10.1063/1.1723844)
@@ -96,6 +102,15 @@ A. Hollocou, Hierarchical graph clustering using node pair sampling,
 Crystal Lattices* (Oxford University Press, Oxford, 1954).
 { #born1954 }
 
+**Bosoni et al. (2024).** E. Bosoni et al., How to verify the precision of
+density-functional-theory implementations via reproducible and universal
+workflows, *Nat. Rev. Phys.* **6**, 45 (2024).
+[doi:10.1038/s42254-023-00655-3](https://doi.org/10.1038/s42254-023-00655-3); the
+data: Materials Cloud Archive
+[doi:10.24435/materialscloud:s4-3h](https://doi.org/10.24435/materialscloud:s4-3h)
+(CC BY 4.0)
+{ #bosoni2024 }
+
 **Brandenburg et al. (2016).** J. G. Brandenburg, J. E. Bates, J. Sun and J. P.
 Perdew, Benchmark tests of a strongly constrained semilocal functional with a
 long-range dispersion correction, *Phys. Rev. B* **94**, 115144 (2016).
@@ -132,6 +147,12 @@ Manolopoulos, Efficient stochastic thermostatting of path integral molecular dyn
 [doi:10.1063/1.3489925](https://doi.org/10.1063/1.3489925)
 { #ceriotti2010 }
 
+**Cococcioni and de Gironcoli (2005).** M. Cococcioni and S. de Gironcoli,
+Linear response approach to the calculation of the effective interaction
+parameters in the LDA+U method, *Phys. Rev. B* **71**, 035105 (2005).
+[doi:10.1103/PhysRevB.71.035105](https://doi.org/10.1103/PhysRevB.71.035105)
+{ #cococcioni2005 }
+
 **Cordero et al. (2008).** B. Cordero, V. Gómez, A. E. Platero-Prats, M. Revés,
 J. Echeverría, E. Cremades, F. Barragán and S. Alvarez, Covalent radii
 revisited, *Dalton Trans.*, 2832 (2008).
@@ -142,6 +163,12 @@ revisited, *Dalton Trans.*, 2832 (2008).
 *Phys. Rev.* **77**, 669 (1950).
 [doi:10.1103/PhysRev.77.669](https://doi.org/10.1103/PhysRev.77.669)
 { #cowley1950 }
+
+**Davidson (1975).** E. R. Davidson, The iterative calculation of a few of the
+lowest eigenvalues and corresponding eigenvectors of large real-symmetric
+matrices, *J. Comput. Phys.* **17**, 87 (1975).
+[doi:10.1016/0021-9991(75)90065-0](https://doi.org/10.1016/0021-9991(75)90065-0)
+{ #davidson1975 }
 
 **Daw and Baskes (1984).** M. S. Daw and M. I. Baskes, Embedded-atom method:
 derivation and application to impurities, surfaces, and other defects in
@@ -154,6 +181,12 @@ based interatomic potential for amorphous carbon, *Phys. Rev. B* **95**, 094203
 (2017).
 [doi:10.1103/PhysRevB.95.094203](https://doi.org/10.1103/PhysRevB.95.094203)
 { #deringer2017 }
+
+**Dudarev et al. (1998).** S. L. Dudarev, G. A. Botton, S. Y. Savrasov, C. J.
+Humphreys and A. P. Sutton, Electron-energy-loss spectra and the structural
+stability of nickel oxide: An LSDA+U study, *Phys. Rev. B* **57**, 1505 (1998).
+[doi:10.1103/PhysRevB.57.1505](https://doi.org/10.1103/PhysRevB.57.1505)
+{ #dudarev1998 }
 
 **Edelsbrunner and Mücke (1994).** H. Edelsbrunner and E. P. Mücke,
 Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
@@ -232,6 +265,12 @@ network models of solids, *Phys. Rev. B* **44**, 4925 (1991).
 [doi:10.1103/PhysRevB.44.4925](https://doi.org/10.1103/PhysRevB.44.4925)
 { #franzblau1991 }
 
+**Giannozzi et al. (2017).** P. Giannozzi et al., Advanced capabilities for
+materials modelling with Quantum ESPRESSO, *J. Phys.: Condens. Matter* **29**,
+465901 (2017).
+[doi:10.1088/1361-648X/aa8f79](https://doi.org/10.1088/1361-648X/aa8f79)
+{ #giannozzi2017 }
+
 **Guénolé et al. (2020).** J. Guénolé, W. G. Nöhring, A. Vaid, F. Houllé,
 Z. Xie, A. Prakash and E. Bitzek, Assessment and optimization of the fast
 inertial relaxation engine (FIRE) for energy minimization in atomistic
@@ -293,6 +332,12 @@ saddle points, *J. Chem. Phys.* **113**, 9978 (2000).
 [doi:10.1063/1.1323224](https://doi.org/10.1063/1.1323224)
 { #henkelman2000b }
 
+**Herbst and Levitt (2021).** M. F. Herbst and A. Levitt, Black-box inhomogeneous
+preconditioning for self-consistent field iterations in density functional theory,
+*J. Phys.: Condens. Matter* **33**, 085503 (2021).
+[doi:10.1088/1361-648X/abcbdb](https://doi.org/10.1088/1361-648X/abcbdb)
+{ #herbst2021 }
+
 **Himanen et al. (2020).** L. Himanen, M. O. J. Jäger, E. V. Morooka,
 F. Federici Canova, Y. S. Ranawat, D. Z. Gao, P. Rinke and A. S. Foster,
 DScribe: Library of descriptors for machine learning in materials science,
@@ -346,6 +391,12 @@ indentation, *Phys. Rev. B* **58**, 11085 (1998).
 [doi:10.1103/PhysRevB.58.11085](https://doi.org/10.1103/PhysRevB.58.11085)
 { #kelchner1998 }
 
+**Kerker (1981).** G. P. Kerker, Efficient iteration scheme for
+self-consistent pseudopotential calculations, *Phys. Rev. B* **23**, 3082
+(1981).
+[doi:10.1103/PhysRevB.23.3082](https://doi.org/10.1103/PhysRevB.23.3082)
+{ #kerker1981 }
+
 **Kresse and Furthmüller (1996).** G. Kresse and J. Furthmüller, Efficient
 iterative schemes for ab initio total-energy calculations using a
 plane-wave basis set, *Phys. Rev. B* **54**, 11169 (1996).
@@ -389,6 +440,11 @@ elastic properties and intrinsic strength of monolayer graphene, *Science* **321
 [doi:10.1126/science.1157996](https://doi.org/10.1126/science.1157996)
 { #lee2008 }
 
+**Lejaeghere et al. (2016).** K. Lejaeghere et al., Reproducibility in
+density functional theory calculations of solids, *Science* **351**, aad3000
+(2016). [doi:10.1126/science.aad3000](https://doi.org/10.1126/science.aad3000)
+{ #lejaeghere2016 }
+
 **Lin et al. (2008).** Z. Lin, R. A. Johnson and L. V. Zhigilei,
 Computational study of the generation of crystal defects in a bcc metal
 target irradiated by short laser pulses, *Phys. Rev. B* **77**, 214108
@@ -428,15 +484,31 @@ on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
 { #maras2016 }
 
+**Marsh (1980).** S. P. Marsh (editor), *LASL Shock Hugoniot Data* (University of
+California Press, Berkeley, 1980).
+{ #marsh1980 }
+
 **Martyna et al. (1994).** G. J. Martyna, D. J. Tobias and M. L. Klein,
 Constant pressure molecular dynamics algorithms, *J. Chem. Phys.* **101**, 4177
 (1994). [doi:10.1063/1.467468](https://doi.org/10.1063/1.467468)
 { #martyna1994 }
 
+**Marzari et al. (1999).** N. Marzari, D. Vanderbilt, A. De Vita and
+M. C. Payne, Thermal contraction and disordering of the Al(110) surface,
+*Phys. Rev. Lett.* **82**, 3296 (1999).
+[doi:10.1103/PhysRevLett.82.3296](https://doi.org/10.1103/PhysRevLett.82.3296)
+{ #marzari1999 }
+
 **Meija et al. (2016).** J. Meija et al., Atomic weights of the elements 2013
 (IUPAC Technical Report), *Pure Appl. Chem.* **88**, 265 (2016).
 [doi:10.1515/pac-2015-0305](https://doi.org/10.1515/pac-2015-0305)
 { #meija2016 }
+
+**Methfessel and Paxton (1989).** M. Methfessel and A. T. Paxton,
+High-precision sampling for Brillouin-zone integration in metals, *Phys. Rev.
+B* **40**, 3616 (1989).
+[doi:10.1103/PhysRevB.40.3616](https://doi.org/10.1103/PhysRevB.40.3616)
+{ #methfessel1989 }
 
 **Mickel et al. (2013).** W. Mickel, S. C. Kapfer, G. E. Schröder-Turk and
 K. Mecke, Shortcomings of the bond orientational order parameters for the
@@ -479,6 +551,11 @@ water in simulations: the CHILL+ algorithm, *J. Phys. Chem. B* **119**, 9369
 (2015). [doi:10.1021/jp510289t](https://doi.org/10.1021/jp510289t)
 { #nguyen2015 }
 
+**Nielsen and Martin (1985).** O. H. Nielsen and R. M. Martin, Quantum-mechanical
+theory of stress and force, *Phys. Rev. B* **32**, 3780 (1985).
+[doi:10.1103/PhysRevB.32.3780](https://doi.org/10.1103/PhysRevB.32.3780)
+{ #nielsen1985 }
+
 **Nordlund et al. (1998).** K. Nordlund, M. Ghaly, R. S. Averback, M.
 Caturla, T. Diaz de la Rubia and J. Tarus, Defect production in collision
 cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
@@ -517,11 +594,36 @@ reference system in fluid-phase free-energy calculations, *J. Chem. Phys.* **145
 [doi:10.1063/1.4967775](https://doi.org/10.1063/1.4967775)
 { #paulaleite2016 }
 
+**Perdew and Wang (1992).** J. P. Perdew and Y. Wang, Accurate and simple
+analytic representation of the electron-gas correlation energy, *Phys. Rev. B*
+**45**, 13244 (1992).
+[doi:10.1103/PhysRevB.45.13244](https://doi.org/10.1103/PhysRevB.45.13244)
+{ #perdew1992 }
+
+**Perdew et al. (1996).** J. P. Perdew, K. Burke and M. Ernzerhof,
+Generalized gradient approximation made simple, *Phys. Rev. Lett.* **77**,
+3865 (1996).
+[doi:10.1103/PhysRevLett.77.3865](https://doi.org/10.1103/PhysRevLett.77.3865)
+{ #perdew1996 }
+
+**Perdew et al. (2008).** J. P. Perdew, A. Ruzsinszky, G. I. Csonka, O. A.
+Vydrov, G. E. Scuseria, L. A. Constantin, X. Zhou and K. Burke, Restoring the
+density-gradient expansion for exchange in solids and surfaces, *Phys. Rev.
+Lett.* **100**, 136406 (2008).
+[doi:10.1103/PhysRevLett.100.136406](https://doi.org/10.1103/PhysRevLett.100.136406)
+{ #perdew2008 }
+
 **Piaggi and Parrinello (2017).** P. M. Piaggi and M. Parrinello, Entropy
 based fingerprint for local crystalline order, *J. Chem. Phys.* **147**,
 114112 (2017).
 [doi:10.1063/1.4998408](https://doi.org/10.1063/1.4998408)
 { #piaggi2017 }
+
+**Prandini et al. (2018).** G. Prandini, A. Marrazzo, I. E. Castelli, N. Mounet and
+N. Marzari, Precision and efficiency in solid-state pseudopotential calculations,
+*npj Comput. Mater.* **4**, 72 (2018).
+[doi:10.1038/s41524-018-0127-2](https://doi.org/10.1038/s41524-018-0127-2)
+{ #prandini2018 }
 
 **Pyykkö and Atsumi (2009).** P. Pyykkö and M. Atsumi, Molecular single-bond
 covalent radii for elements 1–118, *Chem. Eur. J.* **15**, 186 (2009).
@@ -715,6 +817,13 @@ lattice vibrations on substitutional alloy thermodynamics, *Rev. Mod. Phys.* **7
 [doi:10.1103/RevModPhys.74.11](https://doi.org/10.1103/RevModPhys.74.11)
 { #vandewalle2002 }
 
+**van Setten et al. (2018).** M. J. van Setten, M. Giantomassi, E. Bousquet,
+M. J. Verstraete, D. R. Hamann, X. Gonze and G.-M. Rignanese, The PseudoDojo:
+training and grading a 85 element optimized norm-conserving pseudopotential
+table, *Comput. Phys. Commun.* **226**, 39 (2018).
+[doi:10.1016/j.cpc.2018.01.012](https://doi.org/10.1016/j.cpc.2018.01.012)
+{ #vansetten2018 }
+
 **Varvenne et al. (2016).** C. Varvenne, A. Luque, W. G. Nöhring and
 W. A. Curtin, Average-atom interatomic potential for random alloys,
 *Phys. Rev. B* **93**, 104201 (2016).
@@ -743,6 +852,12 @@ scattering-factor functions for free atoms and ions, *Acta Cryst.* **A51**, 416
 **Wallace (1972).** D. C. Wallace, *Thermodynamics of Crystals* (Wiley,
 New York, 1972).
 { #wallace1972 }
+
+**White and Bird (1994).** J. A. White and D. M. Bird, Implementation of
+gradient-corrected exchange-correlation potentials in Car-Parrinello
+total-energy calculations, *Phys. Rev. B* **50**, 4954 (1994).
+[doi:10.1103/PhysRevB.50.4954](https://doi.org/10.1103/PhysRevB.50.4954)
+{ #white1994 }
 
 **Wittmann et al. (2024).** L. Wittmann, I. Gordiy, M. Friede, B. Helmich-Paris,
 S. Grimme, A. Hansen and M. Bursch, Extension of the D3 and D4 London dispersion

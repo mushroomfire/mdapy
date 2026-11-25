@@ -1,0 +1,351 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""The calculator DFT: its results in eV and Å are those of the
+self-consistent field in hartree and bohr; rotations, reordering and lattice
+translations of the atoms change nothing but the directions of the forces; the
+mesh of kspacing as VASP's; spins from the first moments; its errors."""
+
+import os
+
+import numpy as np
+import pytest
+
+import mdapy
+from mdapy.calculators import DFT
+from mdapy.calculators._dft import scf
+from mdapy.calculators._dft.calculator import BOHR, HARTREE
+from mdapy.calculators._dft.upf import read_upf
+from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
+
+from dft import espresso, gpu
+
+_dft = gpu.module()
+if _dft.device_count() == 0:
+    pytest.skip("no GPU", allow_module_level=True)
+
+FRACTIONS = np.array([[0.01, -0.02, 0.0], [0.27, 0.25, 0.23]])
+
+
+def silicon_cell():
+    h = 5.431 / 2
+    return np.array([[0, h, h], [h, 0, h], [h, h, 0]])
+
+
+def silicon(cell=None, fractions=FRACTIONS):
+    cell = silicon_cell() if cell is None else cell
+    return mdapy.System(
+        fractions @ cell, mdapy.Box(cell), elements=["Si"] * len(fractions)
+    )
+
+
+@pytest.fixture(scope="module")
+def folder():
+    espresso.pseudo("Si_std.upf")
+    return os.environ["MDAPY_PSEUDO_DIR"]
+
+
+def calculator(folder, **options):
+    settings = dict(encut=12 * HARTREE, kpoints=(2, 2, 2), smearing="fixed", functional="pbe_pw",
+                    tolerance=1e-10, pseudopotentials=folder)  # fmt: skip
+    settings.update(options)
+    return DFT(**settings)
+
+
+def test_the_units(folder):
+    result = calculator(folder, gpu=0).compute(
+        silicon(), ("energy", "forces", "virial")
+    )
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [pp], 12.0, kgrid=(2, 2, 2),
+                functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-8)
+    np.testing.assert_allclose(result.forces, r["forces"] * HARTREE / BOHR, atol=1e-7)
+    np.testing.assert_allclose(
+        result.virial, -r["strain_derivative"] * HARTREE, atol=1e-6
+    )
+    # the stress of MDAPY, positive under tension, against QE's, positive under pressure
+    assert result.stress.trace() < 0  # this cutoff leaves silicon compressed
+
+
+def test_symmetries(folder):
+    dft = calculator(folder)
+    base = dft.compute(silicon())
+    rng = np.random.default_rng(3)
+    q, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+    rotated = dft.compute(silicon(silicon_cell() @ q.T))
+    assert rotated.energy == pytest.approx(base.energy, abs=1e-8)
+    np.testing.assert_allclose(rotated.forces, base.forces @ q.T, atol=1e-6)
+    swapped = dft.compute(silicon(fractions=FRACTIONS[::-1] + [1.0, -2.0, 3.0]))
+    assert swapped.energy == pytest.approx(base.energy, abs=1e-8)
+    np.testing.assert_allclose(swapped.forces, base.forces[::-1], atol=1e-6)
+    # a translation that is not of the FFT grid moves the atoms against it:
+    # the energy changes only by the ripple of the grid
+    moved = dft.compute(silicon(fractions=FRACTIONS + 0.0123))
+    assert moved.energy == pytest.approx(base.energy, abs=1e-4)
+
+
+def test_kspacing_as_vasp(folder):
+    dft = calculator(folder, kpoints=None, kspacing=0.5, tolerance=1e-6)
+    dft.compute(silicon())
+    b = 2 * np.pi * np.linalg.norm(np.linalg.inv(silicon_cell()).T, axis=1)
+    assert dft.last["kpoints"] == tuple(int(np.ceil(x / 0.5)) for x in b)
+    provenance = dft.last["provenance"]
+    assert (
+        provenance["pseudopotentials"]["Si"]
+        == read_upf(espresso.pseudo("Si_std.upf")).digest
+    )
+    assert (
+        provenance["kpoints"] == dft.last["kpoints"]
+        and provenance["functional"] == "pbe_pw"
+    )
+    assert provenance["encut"] == 12 * HARTREE and provenance["spins"] == 1
+
+
+def test_spin(folder):
+    espresso.pseudo("Fe_std.upf")
+    a = 2.87
+    box = mdapy.Box(np.diag([a, a, a]))
+    iron = mdapy.System(
+        np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a, box, elements=["Fe", "Fe"]
+    )
+    dft = DFT(
+        16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2), magmoms={"Fe": 2.5}
+    )
+    result = dft.compute(iron)
+    assert dft.last["magnetization"] > 2.0 and dft.last["absolute_magnetization"] > 2.0
+    np.testing.assert_allclose(result.forces, 0.0, atol=1e-4)
+    plain = calculator(folder)
+    plain.compute(silicon())
+    assert "magnetization" not in plain.last and plain.last["iterations"] > 1
+
+
+def test_magnetic_moments(folder):
+    espresso.pseudo("Fe_std.upf")
+    espresso.pseudo("Cr_std.upf")
+    a = 2.87
+    positions = np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a
+    box = mdapy.Box(np.diag([a, a, a]))
+    iron = mdapy.System(positions, box, elements=["Fe", "Fe"])
+    dft = DFT(
+        16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2), magmoms={"Fe": 2.5}
+    )
+    dft.compute(iron)
+    m = dft.last["magnetic_moments"]
+    assert m.shape == (2,) and m.dtype == np.float64
+    # the default radius: half the distance between nearest neighbors
+    assert dft.last["moment_radius"] == pytest.approx(a * np.sqrt(3) / 4)
+    assert np.all(m > 1.5) and np.all(m < 3.0)
+    assert m[0] == pytest.approx(m[1], abs=1e-4)
+    # the spheres hold most of the total, never more than a little over it
+    assert 0.6 * dft.last["magnetization"] < m.sum() < 1.05 * dft.last["magnetization"]
+    # a given radius is used, and a larger one holds more of a ferromagnet
+    wide = DFT(16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2),
+               magmoms={"Fe": 2.5}, moment_radius=1.4)  # fmt: skip
+    wide.compute(iron)
+    assert wide.last["moment_radius"] == 1.4
+    assert np.all(wide.last["magnetic_moments"] > m)
+    # antiferromagnetic chromium: moments of opposite signs, a total of zero
+    b = 2.88
+    chromium = mdapy.System(np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * b,
+                            mdapy.Box(np.diag([b, b, b])), elements=["Cr", "Cr"])  # fmt: skip
+    afm = DFT(16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2),
+              magmoms=[1.0, -1.0])  # fmt: skip
+    afm.compute(chromium)
+    c = afm.last["magnetic_moments"]
+    assert c[0] > 0.3 and c[1] < -0.3
+    # the two alike, to the convergence of the field (about 1e-3 at its tolerance)
+    assert abs(c[0] + c[1]) < 0.01 * abs(c[0])
+    # without spin there are no moments
+    plain = calculator(folder)
+    plain.compute(silicon())
+    assert "magnetic_moments" not in plain.last
+
+
+def test_the_mixing_with_and_without_spin(folder, monkeypatch):
+    """The density mixed by 0.7 without spin, as Quantum ESPRESSO, by 0.4 with
+    it, the magnetization by 1.0; a mixing given is kept."""
+    seen = []
+
+    class Seen(Exception):
+        pass
+
+    def spy(*args, **options):
+        seen.append((options["beta"], options["magnetic_beta"]))
+        raise Seen
+
+    monkeypatch.setattr(scf, "run", spy)
+    for options in (
+        {},
+        {"magmoms": {"Si": 1.0}},
+        {"magmoms": [1.0, 0.0], "mixing": 0.2},
+    ):
+        with pytest.raises(Seen):
+            calculator(folder, **options).compute(silicon())
+    assert seen == [(0.7, 1.0), (0.4, 1.0), (0.2, 1.0)]
+    with pytest.raises(InvalidParameter, match="0 < mixing <= 1"):
+        calculator(folder, mixing=1.5)
+
+
+def test_errors(folder, tmp_path):
+    with pytest.raises(InvalidParameter, match="encut must be positive"):
+        DFT(0.0, pseudopotentials=folder)
+    with pytest.raises(InvalidParameter, match="smearing must be one of"):
+        DFT(300.0, pseudopotentials=folder, smearing="cold")
+    with pytest.raises(InvalidParameter, match="kpoints must be three integers"):
+        DFT(300.0, pseudopotentials=folder, kpoints=(2, 2))
+    with pytest.raises(InvalidParameter, match="is not a folder"):
+        DFT(300.0, pseudopotentials=tmp_path / "nowhere")
+    with pytest.raises(InvalidParameter, match="periodic along a, b and c"):
+        cell = silicon_cell()
+        system = mdapy.System(FRACTIONS @ cell, mdapy.Box(cell, pbc=(True, True, False)),
+                              elements=["Si", "Si"])  # fmt: skip
+        calculator(folder).compute(system)
+    with pytest.raises(InvalidParameter, match="one pseudopotential of Xe"):
+        xenon = mdapy.System(FRACTIONS @ silicon_cell(), mdapy.Box(silicon_cell()),
+                             elements=["Xe", "Xe"])  # fmt: skip
+        calculator(folder).compute(xenon)
+    with pytest.raises(InvalidParameter, match="magmoms holds 1 moments for 2 atoms"):
+        calculator(folder, magmoms=[1.0]).compute(silicon())
+    with pytest.raises(ValueError, match="no GPU 99"):
+        calculator(folder, gpu=99).compute(silicon())
+    with pytest.raises(InvalidParameter, match="moment_radius must be positive"):
+        calculator(folder, moment_radius=0.0)
+    with pytest.raises(InvalidParameter, match="gpu must be at least 0"):
+        calculator(folder, gpu=-1)
+    with pytest.raises(CalculationFailed, match="did not converge in 2 steps"):
+        calculator(folder, max_iterations=2).compute(silicon())
+    with pytest.raises(MissingProperty, match="element column"):
+        calculator(folder).compute(
+            mdapy.System(FRACTIONS @ silicon_cell(), mdapy.Box(silicon_cell()))
+        )
+
+
+def test_restart(folder):
+    # the forces of a run are good to about the root of its tolerance, which
+    # bounds the density residual by its Hartree energy
+    dft = calculator(folder, restart=True, tolerance=1e-10)
+    cold = calculator(folder, tolerance=1e-10)
+    first = dft.compute(silicon())
+    assert not dft.last["restarted"]
+    moved = silicon(fractions=FRACTIONS + [[0.003, 0.0, -0.002], [0.0, 0.004, 0.001]])
+    warm = dft.compute(moved)
+    assert dft.last["restarted"]
+    steps = dft.last["iterations"]
+    reference = cold.compute(moved)
+    # the density of the last run takes no more steps than a cold start from
+    # the free atoms and their orbitals
+    assert steps <= cold.last["iterations"]
+    assert warm.energy == pytest.approx(reference.energy, abs=1e-7)
+    np.testing.assert_allclose(warm.forces, reference.forces, atol=1e-5)
+    assert first.energy != warm.energy
+    # another number of atoms starts cold
+    bigger = mdapy.System(np.vstack([FRACTIONS, FRACTIONS + 0.5]) @ silicon_cell(),
+                          mdapy.Box(2 * silicon_cell()), elements=["Si"] * 4)  # fmt: skip
+    dft.compute(bigger)
+    assert not dft.last["restarted"]
+
+
+def test_molecular_dynamics(folder):
+    """MDAPY's dynamics with the DFT as its calculator, the steps on the
+    processor, each computation from the bands and the density of the last:
+    the total energy of NVE holds, and the potential energy of the last step
+    is that of a cold start."""
+    from mdapy.simulation import MolecularDynamics
+
+    dft = calculator(folder, restart=True)
+    with MolecularDynamics(silicon(), dft, timestep=0.002) as md:
+        md.velocities(600.0, seed=1)
+        md.run(10, ensemble="nve", thermo=1)
+        thermo, last = md.thermo, md.system
+    assert dft.last["restarted"]
+    assert np.ptp(thermo["total_energy"].to_numpy()) < 2e-3
+    # without the virial when the dynamics needs no pressure
+    from mdapy.calculators._base import WITHOUT_VIRIAL
+
+    assert (
+        dft.compute(last, ("energy", "forces", "virial", WITHOUT_VIRIAL)).virial is None
+    )
+    cold = calculator(folder).compute(last)
+    assert thermo["potential_energy"][-1] == pytest.approx(cold.energy, abs=1e-6)
+
+
+def test_ultrasoft(folder):
+    path = espresso.pseudo("pslibrary/Si.pbe-n-rrkjus_psl.1.0.0.UPF")
+    dft = DFT(12 * HARTREE, ecutrho=96 * HARTREE, pseudopotentials={"Si": path}, kpoints=(2, 2, 2),
+              smearing="fixed", functional="pbe_pw", tolerance=1e-10)  # fmt: skip
+    result = dft.compute(silicon())
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [read_upf(path)], 12.0, kgrid=(2, 2, 2),
+                density_cutoff=96.0, functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-8)
+    assert dft.last["provenance"]["ecutrho"] == 96 * HARTREE
+    with_virial = dft.compute(silicon(), ("energy", "forces", "virial"))
+    np.testing.assert_allclose(
+        with_virial.virial, -r["strain_derivative"] * HARTREE, atol=1e-6
+    )
+    with pytest.raises(InvalidParameter, match="ecutrho must be at least 4 encut"):
+        DFT(300.0, ecutrho=600.0, pseudopotentials=folder)
+
+
+def test_paw_and_its_restart(folder):
+    """PAW silicon through the calculator, as the self-consistent field gives
+    it; a restart from the last occupations of the projectors too."""
+    path = espresso.pseudo("pslibrary/Si.pbe-n-kjpaw_psl.1.0.0.UPF")
+    settings = dict(pseudopotentials={"Si": path}, kpoints=(2, 2, 2), smearing="fixed",
+                    functional="pbe_pw", tolerance=1e-10)  # fmt: skip
+    dft = DFT(12 * HARTREE, restart=True, **settings)
+    result = dft.compute(silicon())
+    r = scf.run(silicon_cell() / BOHR, FRACTIONS, [0, 0], [read_upf(path)], 12.0, kgrid=(2, 2, 2),
+                functional="pbe_pw", energy_tolerance=1e-10 / HARTREE,
+                density_tolerance=1e-10 / HARTREE)  # fmt: skip
+    assert result.energy == pytest.approx(r["energy"] * HARTREE, abs=1e-7)
+    assert dft.last["provenance"]["ecutrho"] is None
+    moved = silicon(fractions=FRACTIONS + [[0.003, 0.0, -0.002], [0.0, 0.004, 0.001]])
+    warm = dft.compute(moved)
+    assert dft.last["restarted"]
+    steps = dft.last["iterations"]
+    fresh = DFT(12 * HARTREE, **settings)
+    cold = fresh.compute(moved)
+    assert steps <= fresh.last["iterations"]
+    assert warm.energy == pytest.approx(cold.energy, abs=1e-6)
+    np.testing.assert_allclose(warm.forces, cold.forces, atol=1e-5)
+
+
+def test_mixed_precision_gives_the_label_of_double():
+    """DFT(precision="mixed"): the energy and the forces of double precision,
+    some steps in single; a precision unknown is refused."""
+    a = 4.05
+    cell = np.diag([a, a, a])
+    fractions = np.array([[0.01, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
+    system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
+    pp = {"Al": espresso.pseudo("Al_std.upf")}
+    # at 1e-8 eV either label's forces are 1e-5 eV/Å from the converged ones,
+    # the spread of the SCF itself; at 1e-10 that is well below the 1e-5 asked
+    common = dict(pseudopotentials=pp, kpoints=(3, 3, 3), smearing="marzari-vanderbilt", sigma=0.2,
+                  tolerance=1e-10, symmetry=False)  # fmt: skip
+    double = DFT(300.0, **common)
+    mixed = DFT(300.0, precision="mixed", **common)
+    first = double.compute(system, ("energy", "forces"))
+    second = mixed.compute(system, ("energy", "forces"))
+    assert mixed.last["single_steps"] > 0 and double.last["single_steps"] == 0
+    assert second.energy == pytest.approx(first.energy, abs=1e-6)
+    np.testing.assert_allclose(second.forces, first.forces, atol=1e-5)
+    with pytest.raises(InvalidParameter, match="precision"):
+        DFT(300.0, precision="half", **common)
+
+
+def test_the_preconditioner_of_the_local_density_of_states(folder):
+    """DFT(preconditioner="ldos") reaches the energy and the forces of
+    Kerker's; an unknown one is refused."""
+    kerker = calculator(folder).compute(silicon(), ("energy", "forces"))
+    ldos = calculator(folder, preconditioner="ldos").compute(
+        silicon(), ("energy", "forces")
+    )
+    assert ldos.energy == pytest.approx(kerker.energy, abs=1e-6)
+    np.testing.assert_allclose(ldos.forces, kerker.forces, atol=1e-5)
+    with pytest.raises(InvalidParameter, match="preconditioner"):
+        DFT(300.0, preconditioner="tf")

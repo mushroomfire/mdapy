@@ -214,6 +214,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
 | MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
 | device | where a calculator computes: `"cpu"`, or `"cuda"` on a GPU: NVIDIA's with CUDA, or AMD's with ROCm |
+| GPU part | the compiled code of MDAPY for the GPU, the package `mdapy-cuda12` (NVIDIA) or `mdapy-rocm6` (AMD), or built into MDAPY: the module `_cuda` or `_hip` of the potentials and molecular dynamics, and `_dft` of the plane-wave DFT, which with CUDA needs NVIDIA's cuBLAS, cuFFT and cuSOLVER, the extra `dft` |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
@@ -271,6 +272,14 @@ column of fixed-size arrays of length 3 and use the plural name.
 |---|---|---|
 | cutoff radius (Å) | `cutoff` | `rc`, `r_cut` |
 | cutoff per pair of elements | `cutoffs`, dict of (str, str) to float64 | `rc_dict` |
+| kinetic energy cutoff of the plane waves of DFT (eV), as VASP's ENCUT | `encut` | `cutoff`, `ecutwfc` |
+| largest spacing of a mesh of k-points (1/Å, 2π included), as VASP's KSPACING | `kspacing` | `kpoint_density`, `kdens` |
+| first magnetic moments of the atoms of DFT (Bohr magnetons) | `magmoms` | `magmom`, `starting_magnetization` |
+| smearing of the occupations of DFT and its width (eV) | `smearing`, `sigma` | `ismear`, `degauss` |
+| DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
+| preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level | `preconditioner`, `"kerker"` or `"ldos"` | `mixing_mode`, `imix` |
+| arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU | `precision`, `"double"`, `"mixed"` or `"auto"` | `fp32`, `single_precision` |
+| whose kernels DFT runs on the GPU: MDAPY's own where it has them, or the GPU libraries of the vendor throughout | `kernels`, `"mdapy"` or `"vendor"` | `backend`, `fft`, `library`, `use_cufft` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |

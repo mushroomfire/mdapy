@@ -12,29 +12,35 @@ mp.show_versions()
 ```
 
 ```text
-MDAPY          2.0.0
-Atom indices   32 bits
-Python         3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:19:24) [Clang 20.1.8 ]
-Platform       macOS-27.0.1-arm64-arm-64bit-Mach-O
+MDAPY                2.0.0
+Atom indices         32 bits
+Python               3.13.16 | packaged by Anaconda, Inc. | (main, Oct  1 2026, 20:19:24) [Clang 20.1.8 ]
+Platform             macOS-27.0.1-arm64-arm-64bit-Mach-O
 
-CPU            Apple M5
-Logical CPUs   10, 10 usable
-MDAPY threads  10
-Memory         24.0 GB
-GPU            Apple M5 (Metal, ray tracing)
-FFmpeg         not found
+CPU                  Apple M5
+Logical CPUs         10, 10 usable
+MDAPY threads        10
+Memory               24.0 GB
+GPU                  Apple M5 (Metal, ray tracing)
+GPU part             none
+FFmpeg               not found
 
-numpy          2.5.4 (accelerate)
-polars         2.0.0
+numpy                2.5.4 (accelerate)
+polars               2.0.0
 
-ase            3.29.0
-freud-analysis 3.6.1
-lammps         2026.9.30
-matplotlib     3.11.2
-ovito          3.17.1
-pymatgen-core  2026.10.16
-seekpath       2.2.2
-spglib         not installed
+ase                  3.29.0
+freud-analysis       3.6.1
+lammps               2026.9.30
+matplotlib           3.11.2
+mdapy-cuda12         not installed
+mdapy-rocm6          not installed
+nvidia-cublas-cu12   not installed
+nvidia-cufft-cu12    not installed
+nvidia-cusolver-cu12 not installed
+ovito                3.17.1
+pymatgen-core        2026.10.16
+seekpath             2.2.2
+spglib               not installed
 ```
 
 ## Parameters

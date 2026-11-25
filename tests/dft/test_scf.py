@@ -1,0 +1,327 @@
+# Copyright (c) 2022-2026, Yongchao Wu
+# This Source Code Form is subject to the terms of the Mozilla Public License,
+# v. 2.0. If a copy of the MPL was not distributed with this file, You can
+# obtain one at https://mozilla.org/MPL/2.0/.
+
+"""The self-consistent field on the GPU against Quantum ESPRESSO run live with
+the same PseudoDojo pseudopotentials, cutoff and k-points: silicon and diamond
+with fixed occupations, aluminium with each smearing. The total energy, its
+terms, the eigenvalues and the Fermi level."""
+
+import math
+
+import numpy as np
+import pytest
+
+from mdapy.calculators._dft import scf
+from mdapy.calculators._dft.upf import read_upf
+
+from dft import espresso, gpu
+
+_dft = gpu.module()
+if _dft.device_count() == 0:
+    pytest.skip("no GPU", allow_module_level=True)
+
+BOHR = 0.529177210903
+
+
+def fcc(a):
+    h = a / 2 / BOHR
+    return np.array([[0, h, h], [h, 0, h], [h, h, 0]])
+
+
+def compare(cell, positions, symbols, cutoff, kgrid, smearing="fixed", sigma=0.0,
+            functional="pbe_pw", extra=""):  # fmt: skip
+    """Our SCF and QE's: the terms of the energy to 1e-7 hartree per atom (QE's
+    Ewald sum is good to about 1e-7 rydberg), the eigenvalues of the bands that
+    hold electrons and the Fermi level to 1e-7 hartree, the same plane waves
+    and grid. extra goes into QE's &system."""
+    files = {s: espresso.pseudo(f"{s}_std.upf") for s in dict.fromkeys(symbols)}
+    kinds = [list(files).index(s) for s in symbols]
+    pseudos = [read_upf(f) for f in files.values()]
+    kpoints, weights = _dft.monkhorst_pack(list(kgrid), [0.0, 0.0, 0.0], True)
+    qe = espresso.run(
+        cell, positions, symbols, files, cutoff, kpoints, weights, smearing, sigma,
+        conv_thr=1e-14, extra=extra,
+    )  # fmt: skip
+    # on QE's grid, which ours equals but is given here to be sure
+    ours = scf.run(
+        cell, positions, kinds, pseudos, cutoff, kgrid=kgrid, smearing=smearing,
+        sigma=sigma, functional=functional, grid=qe["grid"], density_tolerance=1e-14,
+        energy_tolerance=1e-12, symmetry=False
+    )  # fmt: skip
+    assert ours["converged"]
+    assert [len(_dft.sphere(cell, list(k), cutoff, ours["grid"])[0])
+            for k in kpoints] == qe["plane_waves"]  # fmt: skip
+    n = len(symbols)
+    for key in ["energy", "band", "one_electron", "hartree", "xc", "ewald"]:
+        assert ours[key] == pytest.approx(qe[key], abs=1e-7 * n), key
+    if smearing != "fixed":
+        assert ours["entropy"] == pytest.approx(qe["entropy"], abs=1e-7 * n)
+    # the bands that hold electrons; the empty ones are converged loosely
+    width = qe["eigenvalues"].shape[1]
+    held = ours["occupations"][:, :width] > 1e-6
+    np.testing.assert_allclose(
+        ours["eigenvalues"][:, :width][held], qe["eigenvalues"][held], atol=1e-7
+    )
+    assert ours["fermi"] == pytest.approx(qe["fermi"], abs=1e-7)
+    return ours
+
+
+def test_silicon():
+    r = compare(
+        fcc(5.431), [[0, 0, 0], [0.27, 0.25, 0.25]], ["Si", "Si"], 20.0, (4, 4, 4)
+    )
+    assert r["iterations"] <= 15
+
+
+def test_silicon_pbesol():
+    """PBEsol on the PBE pseudopotential, as QE's input_dft = 'PBESOL'."""
+    compare(fcc(5.431), [[0, 0, 0], [0.27, 0.25, 0.25]], ["Si", "Si"], 20.0, (4, 4, 4),
+            functional="pbesol_pw", extra=", input_dft = 'PBESOL'")  # fmt: skip
+
+
+def test_diamond():
+    compare(fcc(3.567), [[0, 0, 0], [0.25, 0.25, 0.25]], ["C", "C"], 25.0, (3, 3, 3))
+
+
+@pytest.mark.parametrize(
+    "smearing", ["gaussian", "methfessel-paxton", "marzari-vanderbilt", "fermi-dirac"]
+)
+def test_aluminium(smearing):
+    compare(fcc(4.05), [[0, 0, 0]], ["Al"], 15.0, (6, 6, 6), smearing, 0.01)
+
+
+def test_the_bands_by_default():
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+    r = scf.run(fcc(5.431), [[0, 0, 0], [0.25, 0.25, 0.25]], [0, 0], [pp], 8.0,
+                density_tolerance=1e-8, symmetry=False)  # fmt: skip
+    assert r["bands"] == 8 and r["converged"]
+    assert math.isclose(r["occupations"][:, :4].sum(), 4.0)
+    r = scf.run(fcc(5.431), [[0, 0, 0], [0.25, 0.25, 0.25]], [0, 0], [pp], 8.0,
+                smearing="gaussian", sigma=0.01, density_tolerance=1e-8, symmetry=False)  # fmt: skip
+    assert r["bands"] == 8
+
+
+def test_the_conditioning_of_the_mixing():
+    """A tighter bound on the condition number of the history of Pulay's
+    mixing reaches the same ground state; a bound below 1 is refused."""
+    pp = read_upf(espresso.pseudo("Si_std.upf"))
+    cell = fcc(5.431) @ np.diag([1.01, 1.0, 0.99])
+    args = (cell, [[0, 0, 0], [0.27, 0.25, 0.23]], [0, 0], [pp], 12.0)
+    common = dict(kgrid=(3, 3, 3), energy_tolerance=1e-12, density_tolerance=1e-14,
+                  symmetry=False)  # fmt: skip
+    usual = scf.run(*args, **common)
+    tight = scf.run(*args, conditioning=1e2, **common)
+    assert usual["converged"] and tight["converged"]
+    assert tight["energy"] == pytest.approx(usual["energy"], abs=1e-10)
+    with pytest.raises(ValueError, match="conditioning"):
+        scf.run(*args, conditioning=0.5, **common)
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_the_energies_of_the_outputs(case):
+    """The Kohn-Sham free energy of the output of each step is above that of
+    the ground state, variational (within the residuals of the bands), and
+    meets the Harris-Foulkes energy of the inputs at convergence."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    r = scf.run(base, fractions, [0] * len(fractions), [pp], cutoff, kgrid=(3, 3, 3),
+                functional="pbe_pw", energy_tolerance=1e-12, density_tolerance=1e-14,
+                symmetry=False, output_energies=True, **options)  # fmt: skip
+    assert r["converged"]
+    out = np.asarray(r["output_energies"])
+    assert out.shape == np.asarray(r["energies"]).shape
+    assert out[-1] == pytest.approx(r["energy"], abs=1e-9)
+    assert (out >= r["energy"] - 1e-7).all()
+    assert "output_energies" not in scf.run(
+        base, fractions, [0] * len(fractions), [pp], cutoff, kgrid=(2, 2, 2),
+        functional="pbe_pw", symmetry=False, **options,
+    )  # fmt: skip
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_adaptive_damping_reaches_the_ground_state(case):
+    """Adaptive damping ends where the fixed damping does, every step taken
+    lower in energy or in residual than the one it came from."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    common = dict(kgrid=(3, 3, 3), functional="pbe_pw", energy_tolerance=1e-12,
+                  density_tolerance=1e-14, symmetry=False, **options)  # fmt: skip
+    args = (base, fractions, [0] * len(fractions), [pp], cutoff)
+    fixed = scf.run(*args, **common)
+    adaptive = scf.run(*args, adaptive_damping=True, **common)
+    assert fixed["converged"] and adaptive["converged"]
+    assert adaptive["energy"] == pytest.approx(fixed["energy"], abs=1e-9)
+    taken = np.flatnonzero(adaptive["accepted"])
+    out, acc = np.asarray(adaptive["output_energies"]), np.asarray(adaptive["accuracy"])
+    for before, after in zip(taken[:-1], taken[1:]):
+        assert out[after] < out[before] or acc[after] < acc[before]
+
+
+def test_adaptive_damping_against_charge_sloshing():
+    """An elongated cell of aluminium without Kerker's preconditioner, where
+    the residual of long wavelengths sloshes: steps are taken back and tried
+    closer, and the run reaches the state of the preconditioned one."""
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    a = 4.04 / BOHR
+    cell = np.diag([a, a, 4 * a])
+    base = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
+    fractions = np.concatenate([(base + [0, 0, k]) * [1, 1, 0.25] for k in range(4)])
+    fractions[0] += 0.01
+    args = (cell, fractions, [0] * 16, [pp], 10.0)
+    common = dict(kgrid=(3, 3, 1), smearing="gaussian", sigma=0.01, functional="pbe_pw",
+                  energy_tolerance=1e-10, density_tolerance=1e-12, symmetry=False,
+                  max_iterations=60)  # fmt: skip
+    reference = scf.run(*args, **common)
+    sloshing = scf.run(*args, kerker=0.0, beta=0.8, adaptive_damping=True, **common)
+    assert reference["converged"] and sloshing["converged"]
+    assert sloshing["energy"] == pytest.approx(reference["energy"], abs=1e-8)
+    assert min(sloshing["dampings"]) < 1.0 and not all(sloshing["accepted"])
+
+
+def test_a_pass_on_the_bands_held():
+    """A non-self-consistent pass at the potential of a coarse density solves
+    the empty bands loosely with first_held: the same energy, fewer
+    iterations of Davidson."""
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    cell = fcc(4.04) @ np.diag([1.02, 1.0, 0.98])
+    args = (cell, [[0, 0, 0]], [0], [pp], 12.0)
+    common = dict(smearing="marzari-vanderbilt", sigma=0.01, functional="pbe_pw",
+                  symmetry=False, bands=8)  # fmt: skip
+    coarse = scf.run(*args, kgrid=(4, 4, 4), density_tolerance=1e-12, **common)
+    held = int((coarse["occupations"] > 1e-10).sum(axis=-1).max()) + 1
+    assert held < 8
+    passes = [scf.run(*args, kgrid=(8, 8, 8), start_density=coarse["density"], max_iterations=1,
+                      first_tolerance=1e-5, first_held=h, **common) for h in (0, held)]  # fmt: skip
+    assert passes[1]["energies"][0] == pytest.approx(passes[0]["energies"][0], abs=1e-8)
+    assert passes[1]["davidson"][0] < passes[0]["davidson"][0]
+    with pytest.raises(ValueError, match="first_held"):
+        scf.run(*args, kgrid=(2, 2, 2), first_held=-1, **common)
+
+
+def test_the_ldos_preconditioner_on_a_slab():
+    """A slab of aluminium with as much vacuum: the preconditioner of the local
+    density of states screens the metal and not the vacuum, and takes far
+    fewer steps than Kerker's to the same ground state."""
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    a = 4.04 / BOHR
+    base = np.array([[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
+    fractions = np.concatenate([(base + [0, 0, k]) * [1, 1, 0.125] for k in range(4)])
+    fractions[0] += 0.01
+    args = (np.diag([a, a, 8 * a]), fractions, [0] * 16, [pp], 10.0)
+    common = dict(kgrid=(3, 3, 1), smearing="gaussian", sigma=0.01, functional="pbe_pw",
+                  energy_tolerance=1e-10, density_tolerance=1e-12, symmetry=False)  # fmt: skip
+    kerker = scf.run(*args, **common)
+    ldos = scf.run(*args, preconditioner="ldos", **common)
+    assert kerker["converged"] and ldos["converged"]
+    assert ldos["energy"] == pytest.approx(kerker["energy"], abs=1e-8)
+    assert len(ldos["energies"]) < 0.7 * len(kerker["energies"])
+    with pytest.raises(ValueError, match="preconditioner"):
+        scf.run(*args, preconditioner="tf", **common)
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_the_ldos_preconditioner_reaches_the_ground_state(case):
+    """With fixed occupations (no states at the Fermi level, so simple mixing),
+    ultrasoft on two grids, and PAW with spin and symmetry: the ground state
+    of Kerker's preconditioner."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    args = (base, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(kgrid=(3, 3, 3), functional="pbe_pw", energy_tolerance=1e-12,
+                  density_tolerance=1e-14, **options)  # fmt: skip
+    kerker = scf.run(*args, **common)
+    ldos = scf.run(*args, preconditioner="ldos", **common)
+    assert kerker["converged"] and ldos["converged"]
+    assert ldos["energy"] == pytest.approx(kerker["energy"], abs=1e-9)
+
+
+def test_the_ldos_preconditioner_keeps_the_moment_of_nickel():
+    """fcc nickel with GBRV's ultrasoft file at 104 % of its volume, from
+    0.7 Bohr magnetons on 31^3 k-points: Kerker's preconditioner with Pulay's
+    mixing falls there into the state without moment, 39 meV higher; the
+    preconditioner of the local density of states ends in the ferromagnet."""
+    pp = read_upf(espresso.pseudo("gbrv/ni_pbe_v1.4.uspp.F.UPF"))
+    a = (4 * 11.380) ** (1 / 3)
+    cell = fcc(a)  # the primitive cell of the cube of edge a
+    r = scf.run(cell, [[0, 0, 0]], [0], [pp], 12.5, kgrid=(31, 31, 31), smearing="fermi-dirac",
+                sigma=0.00225, functional="pbe_pw", density_cutoff=100.0, magmoms=[0.7], beta=0.4,
+                magnetic_beta=1.0, energy_tolerance=1e-9, density_tolerance=1e-11,
+                max_iterations=100, stress=False, preconditioner="ldos")  # fmt: skip
+    assert r["converged"]
+    assert r["magnetization"] == pytest.approx(0.6385, abs=2e-3)
+    assert r["energy"] == pytest.approx(-171.24373783, abs=2e-7)
+
+
+@pytest.mark.parametrize("case", ["silicon", "aluminium-us", "iron-paw"])
+def test_mixed_precision_reaches_the_ground_state_of_double(case):
+    """The first steps in single precision, the last in double: the energy and
+    the forces of double precision throughout, norm-conserving, ultrasoft and
+    PAW with spin, the k-points on threads."""
+    from dft.test_threads import CASES
+
+    base, fractions, name, cutoff, options = CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    args = (base, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(kgrid=(4, 4, 4), functional="pbe_pw", energy_tolerance=1e-11,
+                  density_tolerance=1e-13, symmetry=False, **options)  # fmt: skip
+    double = scf.run(*args, **common)
+    mixed = scf.run(*args, precision="mixed", **common)
+    assert double["converged"] and mixed["converged"]
+    assert "single" not in double and 0 < sum(mixed["single"]) < len(mixed["single"])
+    assert mixed["single"][-1] == 0  # the end in double precision
+    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-9)
+    np.testing.assert_allclose(mixed["forces"], double["forces"], atol=2e-6)
+
+
+GAMMA_CASES = {
+    # fractions, file, cutoff, options
+    "silicon": ([[0, 0, 0], [0.26, 0.25, 0.24]], "Si_std.upf", 10.0, {}),
+    "aluminium": ([[0.02, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]], "Al_std.upf", 10.0,
+                  {"smearing": "marzari-vanderbilt", "sigma": 0.01}),
+    "aluminium-us": ([[0.02, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]],
+                     "pslibrary/Al.pbe-n-rrkjus_psl.1.0.0.UPF", 12.0, {"smearing": "gaussian", "sigma": 0.01}),
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("case", list(GAMMA_CASES))
+def test_mixed_precision_of_the_real_bands_of_gamma(case):
+    """Gamma alone, real bands: the first steps in single precision, the last
+    in double, the energy and the forces of double precision throughout;
+    silicon, and a cube of four aluminium atoms, norm-conserving and
+    ultrasoft (with an overlap). Converged until the spread of the SCF is
+    well below what is asserted. A precision unknown is refused."""
+    fractions, name, cutoff, options = GAMMA_CASES[case]
+    pp = read_upf(espresso.pseudo(name))
+    cell = fcc(5.431) if case == "silicon" else np.eye(3) * 4.05 / BOHR
+    args = (cell, fractions, [0] * len(fractions), [pp], cutoff)
+    common = dict(
+        kgrid=(1, 1, 1), energy_tolerance=1e-11, density_tolerance=1e-13, **options
+    )
+    double = scf.run(*args, **common)
+    mixed = scf.run(*args, precision="mixed", **common)
+    assert double["gamma"] and mixed["gamma"]
+    assert double["converged"] and mixed["converged"]
+    assert "single" not in double and 0 < sum(mixed["single"]) < len(mixed["single"])
+    assert mixed["single"][-1] == 0  # the end in double precision
+    assert mixed["energy"] == pytest.approx(double["energy"], abs=1e-9)
+    np.testing.assert_allclose(mixed["forces"], double["forces"], atol=2e-6)
+    if case == "silicon":
+        with pytest.raises(ValueError, match="precision"):
+            scf.run(*args, precision="half", **common)
+
+
+def test_auto_precision_follows_the_double_precision_of_the_gpu():
+    """precision="auto" takes the single-precision steps on GPUs of little
+    double precision alone."""
+    capability = tuple(_dft.device_capability())
+    assert len(capability) == 2 and capability[0] >= 6
+    assert scf.mixed_precision("auto") == (capability not in scf._FULL_DOUBLE)
+    assert scf.mixed_precision("mixed") and not scf.mixed_precision("double")

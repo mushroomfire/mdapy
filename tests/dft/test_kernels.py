@@ -201,10 +201,16 @@ SPECTRA = {
 }
 
 
+# (n, the largest matrix MDAPY solves on the host): on the host, and on the
+# GPU (the limit 0), where 33 and 65 are just beyond a leaf of the divide and
+# conquer and a block of reflectors
 @pytest.mark.parametrize("dtype", TYPES)
 @pytest.mark.parametrize("spectrum", list(SPECTRA))
-@pytest.mark.parametrize("n", [1, 2, 3, 20, 65, 200])
-def test_the_eigenpairs_agree(dtype, spectrum, n):
+@pytest.mark.parametrize(
+    "n, host", [(1, -1), (2, -1), (3, -1), (20, -1), (65, -1), (200, -1), (1, 0), (2, 0), (3, 0), (33, 0), (65, 0),
+                 (200, 0), (300, -1), (515, -1)]
+)  # fmt: skip
+def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     """Eigenvalues against the library of the vendor and NumPy; eigenvectors by
     their residuals and their orthonormality, which degenerate eigenvalues
     leave the only test."""
@@ -219,7 +225,7 @@ def test_the_eigenpairs_agree(dtype, spectrum, n):
     exact = np.linalg.eigvalsh(a.astype(wide))
     scale = max(np.abs(exact).max(), 1.0)
     for kernels in KERNELS:
-        w, v = _dft.eigh(garbage, kernels=kernels)
+        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host)
         assert v.dtype == dtype and w.dtype == np.float64
         # ascending; the library of the vendor within rounding in a cluster
         assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))
@@ -230,10 +236,26 @@ def test_the_eigenpairs_agree(dtype, spectrum, n):
 
 
 @pytest.mark.parametrize("dtype", TYPES)
-@pytest.mark.parametrize("n", [1, 2, 17, 64, 200])
-def test_the_cholesky_factors_agree(dtype, n):
-    """a = r^H r with r upper triangular, the lower part of a neither read nor
-    written; and the pivot named when a is not positive definite."""
+@pytest.mark.parametrize(
+    "n, host",
+    [
+        (1, -1),
+        (2, -1),
+        (17, -1),
+        (64, -1),
+        (200, -1),
+        (1, 0),
+        (2, 0),
+        (64, 0),
+        (65, 0),
+        (200, 0),
+        (400, -1),
+    ],
+)
+def test_the_cholesky_factors_agree(dtype, n, host):
+    """a = r^H r with r upper triangular, the lower part of a not read; and the
+    pivot named when a is not positive definite. On the host, and on the GPU
+    (the limit 0) in blocks of 64 columns."""
     rng = np.random.default_rng(n + 1)
     single = dtype in (np.float32, np.complex64)
     limit = 1e-4 if single else 1e-12
@@ -246,9 +268,8 @@ def test_the_cholesky_factors_agree(dtype, n):
     given = np.asfortranarray(np.triu(a) + lower)
     factors = []
     for kernels in KERNELS:
-        info, r = _dft.cholesky(given, kernels=kernels)
+        info, r = _dft.cholesky(given, kernels=kernels, host_limit=host)
         assert info == 0 and r.dtype == dtype
-        assert np.array_equal(np.tril(r, -1), lower)
         u = np.triu(r).astype(wide)
         assert np.all(np.diagonal(u).real > 0)
         assert np.abs(u.conj().T @ u - a).max() < limit * np.abs(a).max()
@@ -257,7 +278,9 @@ def test_the_cholesky_factors_agree(dtype, n):
     if n > 2:
         bad = given.copy(order="F")
         bad[n // 2, n // 2] = -1.0
-        assert [_dft.cholesky(bad, kernels=k)[0] for k in KERNELS] == [n // 2 + 1] * 2
+        assert [
+            _dft.cholesky(bad, kernels=k, host_limit=host)[0] for k in KERNELS
+        ] == [n // 2 + 1] * 2
 
 
 class Device:

@@ -5,12 +5,19 @@
 //
 // The eigenpairs of the Hermitian matrices and the Cholesky factors of the
 // positive definite ones of the DFT, matrices of the GPU stored by columns, in
-// double and single precision, complex and real. With the kernels of MDAPY
-// they are its own: matrices up to host_limit() on the host (dft/lapack/host.h;
-// they are kilobytes, and one transfer costs less than the many small kernels
-// of the GPU would), in double precision whatever the precision of the matrix.
-// With the kernels of the vendor, and for larger matrices, cuSOLVER's
-// (hipSOLVER's on AMD GPUs).
+// double and single precision, complex and real. With the kernels of the
+// vendor they are cuSOLVER's (hipSOLVER's on AMD GPUs). With those of MDAPY
+// they are its own:
+// - matrices up to host_limit() on the host (dft/lapack/host.h; they are
+//   kilobytes, and one transfer costs less than the many small kernels of the
+//   GPU would), in double precision whatever the precision of the matrix;
+// - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
+//   reflector after the other; divide and conquer on the tridiagonal matrix,
+//   its scalar work on the host in double precision (dft/lapack/divide.h) and
+//   its eigenvectors on the GPU, each merge a product of Blas; then the
+//   reflectors applied to them in blocks, three products each. Cholesky:
+//   blocks of columns, the diagonal block on the host, the panel by the
+//   triangular solve of Blas and the trailing matrix by its product.
 //
 // A Lapack belongs to one host thread at a time and works on its default stream.
 
@@ -20,6 +27,7 @@
 
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/core/kernels.h"
 
@@ -42,9 +50,9 @@ public:
     void eigh(double* a, int n, std::vector<double>& values);
     void eigh(float* a, int n, std::vector<double>& values);
 
-    // The upper triangle of a (n, n) replaced by r, a = r^H r. Returns 0, or j
-    // when the leading minor of order j is not positive definite; a is then of
-    // no use.
+    // The upper triangle of a (n, n) replaced by r, a = r^H r; the lower one is
+    // not read, and holds nothing of use on return. Returns 0, or j when the
+    // leading minor of order j is not positive definite; a is then of no use.
     int potrf(Complex* a, int n);
     int potrf(cuComplex* a, int n);
     int potrf(double* a, int n);
@@ -61,8 +69,13 @@ private:
     void own_eigh(T* a, int n, std::vector<double>& values);
     template <class T>
     int own_potrf(T* a, int n);
+    template <class T>
+    void device_eigh(T* a, int n, std::vector<double>& values);
+    template <class T>
+    int device_potrf(T* a, int n);
 
     Kernels kernels_;
+    Blas blas_;  // the products and the triangular solves of the large matrices
     cusolverDnHandle_t vendor_ = nullptr;  // of the library of the vendor, made at its first use
     int host_limit_ = 256;
     DeviceArray<Complex> work_;

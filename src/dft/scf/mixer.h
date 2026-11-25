@@ -85,7 +85,13 @@ private:
     std::size_t n_;
     double scale_ = 1.0;
     std::function<void(std::vector<cuDoubleComplex>&)> preconditioner_;
-    std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
+    // the input and the residual of the last step, and the differences of
+    // those of the steps kept (d rho_i, d R_i, the newest last) with their
+    // products, products_[i][j] = <d R_i, d R_j> for j <= i: a step adds one
+    // difference and its products with the others instead of all of them again
+    std::vector<cuDoubleComplex> last_input_, last_residual_;
+    std::deque<std::vector<cuDoubleComplex>> input_steps_, residual_steps_;
+    std::deque<std::vector<double>> products_;
     std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };
 

@@ -97,8 +97,11 @@ Mixer::Mixer(std::vector<double> g2, double volume, int channels, MixingOptions 
 }
 
 void Mixer::reset() {
-    inputs_.clear();
-    residuals_.clear();
+    last_input_.clear();
+    last_residual_.clear();
+    input_steps_.clear();
+    residual_steps_.clear();
+    products_.clear();
     extra_inputs_.clear();
     extra_residuals_.clear();
 }
@@ -225,22 +228,37 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
     if (along != (extra_out != nullptr) || (along && (extra->size() != extra_out->size() ||
                                                       extra->size() % static_cast<std::size_t>(channels_) != 0)))
         throw std::invalid_argument("the components that come along: their input and output, channels of one size");
-    if (along != !extra_inputs_.empty() && !inputs_.empty())
+    if (along != !extra_inputs_.empty() && !last_input_.empty())
         throw std::invalid_argument("components that come along in every step or none");
     std::vector<cuDoubleComplex> r(size);
     for (std::size_t i = 0; i < size; ++i) r[i] = make_cuDoubleComplex(out[i].x - in[i].x, out[i].y - in[i].y);
-    inputs_.push_back(in);
-    residuals_.push_back(r);
+    if (!last_input_.empty()) {  // the difference from the last step, and its products with those kept
+        std::vector<cuDoubleComplex> dr(size), drho(size);
+        for (std::size_t j = 0; j < size; ++j) {
+            dr[j] = make_cuDoubleComplex(r[j].x - last_residual_[j].x, r[j].y - last_residual_[j].y);
+            drho[j] = make_cuDoubleComplex(in[j].x - last_input_[j].x, in[j].y - last_input_[j].y);
+        }
+        std::vector<double> row(residual_steps_.size() + 1);
+        for (std::size_t j = 0; j < residual_steps_.size(); ++j) row[j] = dot(dr, residual_steps_[j]);
+        row.back() = dot(dr, dr);
+        residual_steps_.push_back(std::move(dr));
+        input_steps_.push_back(std::move(drho));
+        products_.push_back(std::move(row));
+        while (static_cast<int>(residual_steps_.size()) > options_.history) {
+            residual_steps_.pop_front();
+            input_steps_.pop_front();
+            products_.pop_front();
+            for (auto& p : products_) p.erase(p.begin());
+        }
+    }
+    last_input_ = in;
+    last_residual_ = r;
     if (along) {
         std::vector<double> er(extra->size());
         for (std::size_t i = 0; i < er.size(); ++i) er[i] = (*extra_out)[i] - (*extra)[i];
         extra_inputs_.push_back(*extra);
         extra_residuals_.push_back(std::move(er));
-    }
-    while (static_cast<int>(inputs_.size()) > options_.history + 1) {
-        inputs_.pop_front();
-        residuals_.pop_front();
-        if (along) {
+        while (static_cast<int>(extra_inputs_.size()) > options_.history + 1) {
             extra_inputs_.pop_front();
             extra_residuals_.pop_front();
         }
@@ -250,30 +268,17 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
         x = extra_inputs_.back();
         xr = extra_residuals_.back();
     }
-    const int m = static_cast<int>(inputs_.size()) - 1;  // differences
+    const int m = static_cast<int>(residual_steps_.size());  // differences
     std::vector<cuDoubleComplex> rho = in, res = r;
     if (m > 0) {
-        std::vector<std::vector<cuDoubleComplex>> dr(static_cast<std::size_t>(m)), drho(static_cast<std::size_t>(m));
-        for (int i = 0; i < m; ++i) {
-            auto& a = dr[static_cast<std::size_t>(i)];
-            auto& b = drho[static_cast<std::size_t>(i)];
-            a.resize(size);
-            b.resize(size);
-            const auto& r0 = residuals_[static_cast<std::size_t>(i)];
-            const auto& r1 = residuals_[static_cast<std::size_t>(i + 1)];
-            const auto& p0 = inputs_[static_cast<std::size_t>(i)];
-            const auto& p1 = inputs_[static_cast<std::size_t>(i + 1)];
-            for (std::size_t j = 0; j < size; ++j) {
-                a[j] = make_cuDoubleComplex(r1[j].x - r0[j].x, r1[j].y - r0[j].y);
-                b[j] = make_cuDoubleComplex(p1[j].x - p0[j].x, p1[j].y - p0[j].y);
-            }
-        }
+        const auto& dr = residual_steps_;
+        const auto& drho = input_steps_;
         std::vector<double> a(static_cast<std::size_t>(m * m)), b(static_cast<std::size_t>(m));
         for (int i = 0; i < m; ++i) {
             b[static_cast<std::size_t>(i)] = dot(dr[static_cast<std::size_t>(i)], r);
             for (int j = 0; j <= i; ++j)
                 a[static_cast<std::size_t>(i * m + j)] = a[static_cast<std::size_t>(j * m + i)] =
-                    dot(dr[static_cast<std::size_t>(i)], dr[static_cast<std::size_t>(j)]);
+                    products_[static_cast<std::size_t>(i)][static_cast<std::size_t>(j)];
         }
         // A = dR^T dR: its eigenvalues are the squares of the singular values
         const std::vector<double> gamma =
@@ -290,11 +295,13 @@ std::vector<cuDoubleComplex> Mixer::mix(const std::vector<cuDoubleComplex>& in,
                     xr[j] -= c * (r1[j] - r0[j]);
                 }
             }
+            const cuDoubleComplex* pi = drho[static_cast<std::size_t>(i)].data();
+            const cuDoubleComplex* ri = dr[static_cast<std::size_t>(i)].data();
             for (std::size_t j = 0; j < size; ++j) {
-                rho[j].x -= c * drho[static_cast<std::size_t>(i)][j].x;
-                rho[j].y -= c * drho[static_cast<std::size_t>(i)][j].y;
-                res[j].x -= c * dr[static_cast<std::size_t>(i)][j].x;
-                res[j].y -= c * dr[static_cast<std::size_t>(i)][j].y;
+                rho[j].x -= c * pi[j].x;
+                rho[j].y -= c * pi[j].y;
+                res[j].x -= c * ri[j].x;
+                res[j].y -= c * ri[j].y;
             }
         }
     }

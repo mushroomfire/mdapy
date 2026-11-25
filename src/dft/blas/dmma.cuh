@@ -18,15 +18,63 @@
 
 #if !defined(MDAPY_GPU_HIP)
 
+// a block of BM x BN values of the result from BK terms at a time in Stages
+// stages, its warps WM x WN each
+template <int BM, int BN, int BK, int Stages, int WM, int WN>
+struct DmmaTiles {
+    static constexpr int bm = BM, bn = BN, bk = BK, stages = Stages, wm = WM, wn = WN;
+    static constexpr int threads = (BM / WM) * (BN / WN) * 32;
+    static_assert(WM % 16 == 0 && WN % 8 == 0 && BK % 8 == 0, "the warps hold whole products of 16 x 8 x 8");
+    static_assert(BM * BK % threads == 0 && BN * BK % threads == 0, "the copies share the threads evenly");
+};
+// the tiles of real (R) and complex (C) products, one macro each, for measurements
+#ifndef MDAPY_DMMA_R_BM
+#define MDAPY_DMMA_R_BM 128
+#endif
+#ifndef MDAPY_DMMA_R_BN
+#define MDAPY_DMMA_R_BN 128
+#endif
+#ifndef MDAPY_DMMA_R_BK
+#define MDAPY_DMMA_R_BK 16
+#endif
+#ifndef MDAPY_DMMA_R_STAGES
+#define MDAPY_DMMA_R_STAGES 3
+#endif
+#ifndef MDAPY_DMMA_R_WM
+#define MDAPY_DMMA_R_WM 32
+#endif
+#ifndef MDAPY_DMMA_R_WN
+#define MDAPY_DMMA_R_WN 32
+#endif
+#ifndef MDAPY_DMMA_C_BM
+#define MDAPY_DMMA_C_BM 64
+#endif
+#ifndef MDAPY_DMMA_C_BN
+#define MDAPY_DMMA_C_BN 64
+#endif
+#ifndef MDAPY_DMMA_C_BK
+#define MDAPY_DMMA_C_BK 16
+#endif
+#ifndef MDAPY_DMMA_C_STAGES
+#define MDAPY_DMMA_C_STAGES 3
+#endif
+#ifndef MDAPY_DMMA_C_WM
+#define MDAPY_DMMA_C_WM 32
+#endif
+#ifndef MDAPY_DMMA_C_WN
+#define MDAPY_DMMA_C_WN 32
+#endif
+#define MDAPY_DMMA_REAL MDAPY_DMMA_R_BM, MDAPY_DMMA_R_BN, MDAPY_DMMA_R_BK, MDAPY_DMMA_R_STAGES, MDAPY_DMMA_R_WM, MDAPY_DMMA_R_WN
+#define MDAPY_DMMA_COMPLEX MDAPY_DMMA_C_BM, MDAPY_DMMA_C_BN, MDAPY_DMMA_C_BK, MDAPY_DMMA_C_STAGES, MDAPY_DMMA_C_WM, MDAPY_DMMA_C_WN
 template <class S>
 struct DmmaForm;
 template <>
-struct DmmaForm<double> {
-    static constexpr int bm = 128, bn = 128, bk = 16, stages = 3, parts = 1;
+struct DmmaForm<double> : DmmaTiles<MDAPY_DMMA_REAL> {
+    static constexpr int parts = 1;
 };
 template <>
-struct DmmaForm<Cx<double>> {
-    static constexpr int bm = 64, bn = 64, bk = 16, stages = 3, parts = 2;
+struct DmmaForm<Cx<double>> : DmmaTiles<MDAPY_DMMA_COMPLEX> {
+    static constexpr int parts = 2;
 };
 
 // the doubles of the shared memory of a block: its stages of the parts of a and b
@@ -104,12 +152,14 @@ __device__ __forceinline__ void mma_1688(double* d, const double* a, const doubl
 #endif
 
 template <class S, bool TransA, bool TransB>
-__global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32) * 32)
+__global__ void __launch_bounds__(DmmaForm<S>::threads)
     dmma_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,
                 S* partial) {
     using F = DmmaForm<S>;
     constexpr int kBM = F::bm, kBN = F::bn, kBK = F::bk, kStages = F::stages, kParts = F::parts;
-    constexpr int kWarpsM = kBM / 32, kThreads = kWarpsM * (kBN / 32) * 32;
+    constexpr int kWarpsM = kBM / F::wm, kThreads = F::threads;
+    // the rows and columns of products of 8 x 8 of a warp
+    constexpr int kAM = F::wm / 8, kAN = F::wn / 8;
     // the pitch of the rows of each matrix in shared memory and the doubles of a stage of one part
     constexpr int kPitchA = TransA ? kBK + 4 : kBM + 4, kPitchB = TransB ? kBN + 4 : kBK + 4;
     constexpr int kSizeA = TransA ? kBM * kPitchA : kBK * kPitchA, kSizeB = TransB ? kBK * kPitchB : kBN * kPitchB;
@@ -119,7 +169,7 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
 
     const unsigned tid = threadIdx.x, lane = tid % 32, warp = tid / 32;
     const unsigned gi = lane / 4, ti = lane % 4;
-    const unsigned wm = (warp % kWarpsM) * 32, wn = (warp / kWarpsM) * 32;
+    const unsigned wm = (warp % kWarpsM) * F::wm, wn = (warp / kWarpsM) * F::wn;
     const unsigned i0 = blockIdx.x * kBM, j0 = blockIdx.y * kBN, z = blockIdx.z;
     const unsigned m = static_cast<unsigned>(g.m), n = static_cast<unsigned>(g.n);
     unsigned first = 0, last = static_cast<unsigned>(g.k);
@@ -161,12 +211,12 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
         }
     };
 
-    // the accumulators: [p][q][part][2] of the 4 x 4 products of the warp
-    double acc[4][4][kParts][2];
+    // the accumulators: [p][q][part][2] of the kAM x kAN products of the warp
+    double acc[kAM][kAN][kParts][2];
 #pragma unroll
-    for (int p = 0; p < 4; ++p)
+    for (int p = 0; p < kAM; ++p)
 #pragma unroll
-        for (int q = 0; q < 4; ++q)
+        for (int q = 0; q < kAN; ++q)
 #pragma unroll
             for (int r = 0; r < kParts; ++r) acc[p][q][r][0] = acc[p][q][r][1] = 0.0;
 
@@ -193,9 +243,9 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
 #pragma unroll
         for (int t = 0; t < kBK; t += kSteps) {
             // fa[h][part][4 w + 2 v + r]... in the order of the fragments: a[g + 8 v, t + 4 w]
-            double fa[2][kParts][2 * kHalves], fb[4][kParts][kHalves];
+            double fa[kAM / 2][kParts][2 * kHalves], fb[kAN][kParts][kHalves];
 #pragma unroll
-            for (int h = 0; h < 2; ++h)
+            for (int h = 0; h < kAM / 2; ++h)
 #pragma unroll
                 for (int w = 0; w < kHalves; ++w)
 #pragma unroll
@@ -206,7 +256,7 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
                         for (int r = 0; r < kParts; ++r) fa[h][r][2 * w + v] = sa[r * kSizeA + place];
                     }
 #pragma unroll
-            for (int q = 0; q < 4; ++q)
+            for (int q = 0; q < kAN; ++q)
 #pragma unroll
                 for (int w = 0; w < kHalves; ++w) {
                     const unsigned j = wn + q * 8 + gi, k = t + w * 4 + ti;
@@ -216,18 +266,18 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
                 }
             if constexpr (kParts == 2) {
 #pragma unroll
-                for (int h = 0; h < 2; ++h)
+                for (int h = 0; h < kAM / 2; ++h)
 #pragma unroll
                     for (int e = 0; e < 2 * kHalves; ++e) fa[h][1][e] *= sign_a;
 #pragma unroll
-                for (int q = 0; q < 4; ++q)
+                for (int q = 0; q < kAN; ++q)
 #pragma unroll
                     for (int w = 0; w < kHalves; ++w) fb[q][1][w] *= sign_b;
             }
 #pragma unroll
-            for (int h = 0; h < 2; ++h)
+            for (int h = 0; h < kAM / 2; ++h)
 #pragma unroll
-                for (int q = 0; q < 4; ++q) {
+                for (int q = 0; q < kAN; ++q) {
                     // the accumulators of rows 2 h and 2 h + 1, in the order of the fragment of d
                     double d[kParts][4];
 #pragma unroll
@@ -263,16 +313,16 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
 #else
 #pragma unroll
         for (int t = 0; t < kBK; t += 4) {
-            double fa[4][kParts], fb[4][kParts];
+            double fa[kAM][kParts], fb[kAN][kParts];
 #pragma unroll
-            for (int p = 0; p < 4; ++p) {
+            for (int p = 0; p < kAM; ++p) {
                 const unsigned i = wm + p * 8 + gi, k = t + ti;
                 const unsigned place = TransA ? i * kPitchA + k : k * kPitchA + i;
 #pragma unroll
                 for (int r = 0; r < kParts; ++r) fa[p][r] = sa[r * kSizeA + place];
             }
 #pragma unroll
-            for (int q = 0; q < 4; ++q) {
+            for (int q = 0; q < kAN; ++q) {
                 const unsigned j = wn + q * 8 + gi, k = t + ti;
                 const unsigned place = TransB ? k * kPitchB + j : j * kPitchB + k;
 #pragma unroll
@@ -280,14 +330,14 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
             }
             if constexpr (kParts == 2) {
 #pragma unroll
-                for (int p = 0; p < 4; ++p) fa[p][1] *= sign_a;
+                for (int p = 0; p < kAM; ++p) fa[p][1] *= sign_a;
 #pragma unroll
-                for (int q = 0; q < 4; ++q) fb[q][1] *= sign_b;
+                for (int q = 0; q < kAN; ++q) fb[q][1] *= sign_b;
             }
 #pragma unroll
-            for (int p = 0; p < 4; ++p)
+            for (int p = 0; p < kAM; ++p)
 #pragma unroll
-                for (int q = 0; q < 4; ++q) {
+                for (int q = 0; q < kAN; ++q) {
                     mma_884(acc[p][q][0][0], acc[p][q][0][1], fa[p][0], fb[q][0]);
                     if constexpr (kParts == 2) {
                         // (ar + i ai)(br + i bi): re ar br - ai bi, im ar bi + ai br
@@ -302,9 +352,9 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
     wait_async<0>();
 
 #pragma unroll
-    for (int p = 0; p < 4; ++p)
+    for (int p = 0; p < kAM; ++p)
 #pragma unroll
-        for (int q = 0; q < 4; ++q)
+        for (int q = 0; q < kAN; ++q)
 #pragma unroll
             for (int e = 0; e < 2; ++e) {
                 const unsigned i = i0 + wm + p * 8 + gi, j = j0 + wn + q * 8 + 2 * ti + e;
@@ -327,7 +377,7 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
 template <class S, bool TransA, bool TransB>
 void launch_dmma(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
     using F = DmmaForm<S>;
-    constexpr int threads = (F::bm / 32) * (F::bn / 32) * 32;
+    constexpr int threads = F::threads;
     constexpr std::size_t bytes = dmma_shared<S, TransA, TransB>() * sizeof(double);
     auto kernel = dmma_kernel<S, TransA, TransB>;
     check_cuda(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, static_cast<int>(bytes)),

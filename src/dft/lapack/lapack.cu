@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "dft/core/check.h"
+#include "dft/core/profile.h"
 #include "dft/lapack/divide.h"
 #include "dft/lapack/host.h"
 
@@ -558,15 +559,18 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
     DeviceArray<R> diagonal(static_cast<std::size_t>(n)), subdiagonal(static_cast<std::size_t>(n));
     mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, matrix);
     launched("the lower triangle of a matrix");
-    for (int k = 0; k + 1 < n; ++k) {
-        const long long m = n - k - 1;
-        reflector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), diagonal.data(), subdiagonal.data());
-        column_products_kernel<S><<<static_cast<unsigned>(m), kThreads / 2>>>(n, k, matrix, own(vector.data()));
-        update_vector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), own(vector.data()));
-        rank_two_kernel<S><<<blocks(m * m), kThreads>>>(n, k, matrix, own(vector.data()));
+    {
+        MDAPY_SPAN("tridiagonal");
+        for (int k = 0; k + 1 < n; ++k) {
+            const long long m = n - k - 1;
+            reflector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), diagonal.data(), subdiagonal.data());
+            column_products_kernel<S><<<static_cast<unsigned>(m), kThreads / 2>>>(n, k, matrix, own(vector.data()));
+            update_vector_kernel<S><<<1, kThreads>>>(n, k, matrix, own(tau.data()), own(vector.data()));
+            rank_two_kernel<S><<<blocks(m * m), kThreads>>>(n, k, matrix, own(vector.data()));
+        }
+        last_diagonal_kernel<S><<<1, 64>>>(n, matrix, diagonal.data());
+        launched("the tridiagonalization");
     }
-    last_diagonal_kernel<S><<<1, 64>>>(n, matrix, diagonal.data());
-    launched("the tridiagonalization");
     std::vector<R> host(static_cast<std::size_t>(n));
     diagonal.download(host.data(), host.size());
     std::vector<double> d(host.begin(), host.end());
@@ -576,11 +580,15 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values) {
     tau.download(tau_host.data(), tau_host.size());
     // the eigenpairs of t
     DeviceVectors<R> q(n, blas_);
-    host::divide_and_conquer(d, e, q);
+    {
+        MDAPY_SPAN("divide");
+        host::divide_and_conquer(d, e, q);
+    }
     values = d;
     // z = h_0 h_1 ... q, the last block of reflectors first: a block is
     // 1 - v t v^H with t upper triangular, t_ii = tau_i and
     // t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i]
+    MDAPY_SPAN("back");
     DeviceArray<T> z(size), v(static_cast<std::size_t>(n) * kReflectors), w(static_cast<std::size_t>(n) * kReflectors),
         tw(static_cast<std::size_t>(n) * kReflectors), small(static_cast<std::size_t>(kReflectors) * kReflectors);
     widen_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(static_cast<long long>(size), q.data(), own(z.data()));
@@ -673,12 +681,14 @@ int Lapack::own_potrf(T* a, int n) {
     void Lapack::eigh(T* a, int n, std::vector<double>& values) {                                            \
         values.clear();                                                                                      \
         if (n < 1) return;                                                                                   \
+        MDAPY_SPAN("eigh");                                                                                  \
         if (kernels_ == Kernels::Mdapy) return own_eigh(a, n, values);                                       \
         VALUES.reserve(static_cast<std::size_t>(n));                                                         \
         vendor_eigh<V>(vendor(), a, n, VALUES.data(), work_, info_, values);                                 \
     }                                                                                                        \
     int Lapack::potrf(T* a, int n) {                                                                         \
         if (n < 1) return 0;                                                                                 \
+        MDAPY_SPAN("potrf");                                                                                 \
         if (kernels_ == Kernels::Mdapy) return own_potrf(a, n);                                              \
         return vendor_potrf<V>(vendor(), a, n, work_, info_);                                                \
     }

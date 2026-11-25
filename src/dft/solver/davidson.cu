@@ -5,6 +5,7 @@
 
 #include "dft/solver/davidson.h"
 
+#include "dft/core/profile.h"
 #include "dft/hamiltonian/gamma.h"
 
 #include <algorithm>
@@ -156,6 +157,7 @@ Complex* Davidson::projection(Complex* p, std::size_t c) const {
 
 void Davidson::gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka, const Complex* b,
                      const Complex* pb, int kb, int rows, Complex* out) {
+    MDAPY_SPAN("gram");
     if (gamma_) {  // real, over the whole sphere
         double* o = real(out);
         gamma_inner(blas_, static_cast<std::size_t>(rows), a, ka, b, kb, o, ka);
@@ -177,6 +179,7 @@ void Davidson::gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka,
 
 int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv, int n, Complex* w, Complex* pw,
                              int m, int rows) {
+    MDAPY_SPAN("orthonormalize");
     if (m == 0) return 0;
     const bool general = h != nullptr;
     const int np = general ? h->projectors() : 0;
@@ -324,6 +327,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
 
 DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vector<double>& eigenvalues,
                                const std::vector<double>& tolerances, int max_iterations, int largest_basis) {
+    MDAPY_SPAN("davidson");
     const int rows = static_cast<int>(h.plane_waves());
     if (count < 1 || count > rows) throw std::invalid_argument("from one band to as many as the plane waves");
     if (tolerances.size() != static_cast<std::size_t>(count)) throw std::invalid_argument("a tolerance for each band");
@@ -355,6 +359,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     Complex* pb = general ? pbasis_.data() : nullptr;
     // H of columns first ... first + m of the basis, their projections at hand
     auto apply = [&](int first, int m) {
+        MDAPY_SPAN("apply");
         Complex* w = basis_.data() + n * static_cast<std::size_t>(first);
         Complex* hw = hbasis_.data() + n * static_cast<std::size_t>(first);
         if (!general) {
@@ -401,6 +406,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     const std::size_t ld = static_cast<std::size_t>(most);
     hsub_.reserve(ld * ld);
     auto grow = [&](int first, int columns) {
+        MDAPY_SPAN("grow");
         if (gamma_) {
             gamma_inner(blas_, n, basis_.data(), first + columns, hbasis_.data() + n * static_cast<std::size_t>(first),
                         columns, real(hsub_.data()) + ld * static_cast<std::size_t>(first), most);
@@ -422,6 +428,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
     // which[i]) and their squared norms into residuals[b]; with all, X, HX,
     // SX and the projections of X of every band too
     auto residuals_of = [&](const std::vector<int>& which, bool all) {
+        MDAPY_SPAN("residuals");
         const int m = static_cast<int>(which.size());
         if (m == 0) return;
         if (gamma_) {

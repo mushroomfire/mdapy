@@ -5,6 +5,8 @@
 
 #include "dft/hamiltonian/gamma.h"
 
+#include "dft/core/profile.h"
+
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -62,6 +64,7 @@ __global__ void dots_single_kernel(std::size_t n, const cuComplex* a, const cuCo
 
 void gamma_inner(Blas& blas, std::size_t n, const Complex* a, int ka, const Complex* b, int kb,
                  double* out, int ldo, double scale) {
+    MDAPY_SPAN("gamma_inner");
     if (ka == 0 || kb == 0) return;
     const int rows = static_cast<int>(2 * n);
     const double two = 2.0, one = 1.0;
@@ -80,24 +83,28 @@ void gamma_inner(Blas& blas, std::size_t n, const Complex* a, int ka, const Comp
 
 void gamma_combine(Blas& blas, std::size_t n, const Complex* a, int k, const double* y, int ldy, int m,
                    double alpha, double beta, Complex* out) {
+    MDAPY_SPAN("gamma_combine");
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
     blas.gemm(Op::N, Op::N, rows, m, k, alpha, reinterpret_cast<const double*>(a), rows, y, ldy, beta, reinterpret_cast<double*>(out), rows);
 }
 
 void gamma_solve(Blas& blas, std::size_t n, int m, const double* r, Complex* out) {
+    MDAPY_SPAN("gamma_solve");
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
     blas.trsm(rows, m, r, m, reinterpret_cast<double*>(out), rows);
 }
 
 void gamma_clean(std::size_t n, int count, Complex* c) {
+    MDAPY_SPAN("gamma_clean");
     if (count == 0 || n == 0) return;
     clean_kernel<<<static_cast<unsigned>((count + kThreads - 1) / kThreads), kThreads>>>(n, count, c);
     check_cuda(cudaGetLastError(), "Im c_0 of Gamma");
 }
 
 void gamma_dots(std::size_t n, int count, const Complex* a, const Complex* b, double* out) {
+    MDAPY_SPAN("gamma_dots");
     if (count == 0) return;
     dots_kernel<<<static_cast<unsigned>(count), kThreads>>>(n, a, b, out);
     check_cuda(cudaGetLastError(), "the products of Gamma");
@@ -105,6 +112,7 @@ void gamma_dots(std::size_t n, int count, const Complex* a, const Complex* b, do
 
 void gamma_inner(Blas& blas, std::size_t n, const cuComplex* a, int ka, const cuComplex* b, int kb,
                  float* out, int ldo, float scale) {
+    MDAPY_SPAN("gamma_inner");
     if (ka == 0 || kb == 0) return;
     const int rows = static_cast<int>(2 * n);
     const float two = 2.0f, one = 1.0f;
@@ -122,24 +130,28 @@ void gamma_inner(Blas& blas, std::size_t n, const cuComplex* a, int ka, const cu
 
 void gamma_combine(Blas& blas, std::size_t n, const cuComplex* a, int k, const float* y, int ldy, int m,
                    float alpha, float beta, cuComplex* out) {
+    MDAPY_SPAN("gamma_combine");
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
     blas.gemm(Op::N, Op::N, rows, m, k, alpha, reinterpret_cast<const float*>(a), rows, y, ldy, beta, reinterpret_cast<float*>(out), rows);
 }
 
 void gamma_solve(Blas& blas, std::size_t n, int m, const float* r, cuComplex* out) {
+    MDAPY_SPAN("gamma_solve");
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
     blas.trsm(rows, m, r, m, reinterpret_cast<float*>(out), rows);
 }
 
 void gamma_clean(std::size_t n, int count, cuComplex* c) {
+    MDAPY_SPAN("gamma_clean");
     if (count == 0 || n == 0) return;
     clean_single_kernel<<<static_cast<unsigned>((count + kThreads - 1) / kThreads), kThreads>>>(n, count, c);
     check_cuda(cudaGetLastError(), "Im c_0 of Gamma");
 }
 
 void gamma_dots(std::size_t n, int count, const cuComplex* a, const cuComplex* b, double* out) {
+    MDAPY_SPAN("gamma_dots");
     if (count == 0) return;
     dots_single_kernel<<<static_cast<unsigned>(count), kThreads>>>(n, a, b, out);
     check_cuda(cudaGetLastError(), "the products of Gamma");

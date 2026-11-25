@@ -32,6 +32,7 @@
 #endif
 
 #include "dft/core/check.h"
+#include "dft/core/profile.h"
 
 namespace mdapy::dft {
 
@@ -716,6 +717,8 @@ struct Probe {
     }
 };
 #define MDAPY_PROBE(routine, ta, tb, m, n, k) const Probe probe(routine, ta, tb, m, n, k)
+#elif defined(MDAPY_DFT_PROFILE)
+#define MDAPY_PROBE(routine, ta, tb, m, n, k) MDAPY_SPAN(routine)
 #else
 #define MDAPY_PROBE(routine, ta, tb, m, n, k)
 #endif

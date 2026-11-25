@@ -5,6 +5,7 @@
 
 #include "dft/hamiltonian/hamiltonian.h"
 
+#include "dft/core/profile.h"
 #include "dft/hamiltonian/gamma.h"
 #include "dft/xc/dual.h"
 
@@ -532,6 +533,7 @@ Hamiltonian::Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff
 Hamiltonian::~Hamiltonian() = default;
 
 void Hamiltonian::set_k(const Vec3& k) {
+    MDAPY_SPAN("set_k");
     if (gamma_mode_ && (k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0))
         throw std::invalid_argument("real bands are those of Gamma only");
     gamma_ = gamma_mode_;
@@ -609,6 +611,7 @@ void Hamiltonian::set_k(const Vec3& k) {
 }
 
 void Hamiltonian::atomic(Complex* out) const {
+    MDAPY_SPAN("atomic");
     const std::size_t n = sphere_.size();
     if (atomic_ == 0 || n == 0) return;
     std::vector<Column> columns;
@@ -638,6 +641,7 @@ void Hamiltonian::atomic(Complex* out) const {
 }
 
 void Hamiltonian::set_potential(const double* potential) {
+    MDAPY_SPAN("set_potential");
     single_stale_ = true;
     const std::size_t points = fft_.points();
     potential_.resize(points);
@@ -654,6 +658,7 @@ void Hamiltonian::set_potential(const double* potential) {
 }
 
 void Hamiltonian::add_density(const Complex* psi, int count, const double* weights, double* rho) {
+    MDAPY_SPAN("add_density");
     const std::size_t n = sphere_.size(), points = fft_.points();
     if (n == 0 || count == 0) return;
     const int step = std::min(batch(), count);
@@ -845,6 +850,7 @@ void Hamiltonian::strain_derivative(const Complex* psi, int count, const double*
 }
 
 void Hamiltonian::diagonal(double* out) const {
+    MDAPY_SPAN("diagonal");
     const std::size_t n = sphere_.size();
     if (n == 0) return;
     if (potential_.size() != fft_.points()) throw std::logic_error("no potential set");
@@ -854,6 +860,7 @@ void Hamiltonian::diagonal(double* out) const {
 }
 
 void Hamiltonian::overlap_diagonal(double* out) const {
+    MDAPY_SPAN("diagonal");
     const std::size_t n = sphere_.size();
     if (n == 0) return;
     if (!has_overlap_) {
@@ -913,6 +920,7 @@ std::vector<Complex> dense_of(const std::vector<int>& blocks, int projectors, co
 }  // namespace
 
 void Hamiltonian::set_strengths(const std::vector<double>& blocks) {
+    MDAPY_SPAN("set_strengths");
     single_stale_ = true;
     const auto d = dense_of(blocks_, projectors_, blocks);
     dmatrix_.assign(d.data(), d.size());
@@ -947,6 +955,7 @@ void Hamiltonian::add_becsum(const Complex* psi, int count, const double* weight
 }
 
 void Hamiltonian::add_becsum_device(const Complex* psi, int count, const double* weights, double* becsum) {
+    MDAPY_SPAN("add_becsum");
     const std::size_t n = sphere_.size(), np = static_cast<std::size_t>(projectors_), m = static_cast<std::size_t>(count);
     if (n == 0 || count == 0 || projectors_ == 0) return;
     if (becsum_offsets_.size() != atoms_.size()) {  // where the pairs of each atom start
@@ -987,6 +996,7 @@ void Hamiltonian::add_becsum_device(const Complex* psi, int count, const double*
 }
 
 void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
+    MDAPY_SPAN("apply_local");
     const std::size_t n = sphere_.size(), points = fft_.points();
     if (n == 0 || count == 0) return;
     if (potential_.size() != points) throw std::logic_error("no potential set");
@@ -1024,6 +1034,7 @@ void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
 }
 
 void Hamiltonian::project(const Complex* psi, int count, Complex* p) {
+    MDAPY_SPAN("project");
     if (projectors_ == 0 || count == 0) return;
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     const int nn = static_cast<int>(sphere_.size());
@@ -1056,6 +1067,7 @@ void add_projected_real(Blas& blas, const Complex* beta, std::size_t n, int proj
 }  // namespace
 
 void Hamiltonian::add_nonlocal(const Complex* p, int count, Complex* hpsi) {
+    MDAPY_SPAN("add_nonlocal");
     if (projectors_ == 0 || count == 0) return;
     if (gamma_) {
         add_projected_real(blas_, beta_.data(), sphere_.size(), projectors_, dreal_.data(), real(p), count, scaled_,
@@ -1067,6 +1079,7 @@ void Hamiltonian::add_nonlocal(const Complex* p, int count, Complex* hpsi) {
 }
 
 void Hamiltonian::add_overlap(const Complex* p, int count, Complex* spsi) {
+    MDAPY_SPAN("add_overlap");
     if (!has_overlap_ || projectors_ == 0 || count == 0) return;
     if (gamma_) {
         add_projected_real(blas_, beta_.data(), sphere_.size(), projectors_, qreal_.data(), real(p), count, scaled_,
@@ -1078,6 +1091,7 @@ void Hamiltonian::add_overlap(const Complex* p, int count, Complex* spsi) {
 }
 
 void Hamiltonian::overlap_projections(const Complex* p, int count, Complex* out) {
+    MDAPY_SPAN("overlap_projections");
     if (projectors_ == 0 || count == 0) return;
     const Complex one = make_cuDoubleComplex(1.0, 0.0), zero = make_cuDoubleComplex(0.0, 0.0);
     if (!has_overlap_) {
@@ -1136,6 +1150,7 @@ void Hamiltonian::single() {
 }
 
 void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) {
+    MDAPY_SPAN("apply_local");
     const std::size_t n = sphere_.size(), points = fft_.points();
     if (n == 0 || count == 0) return;
     if (potential_.size() != points) throw std::logic_error("no potential set");
@@ -1175,6 +1190,7 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
 }
 
 void Hamiltonian::project(const cuComplex* psi, int count, cuComplex* p) {
+    MDAPY_SPAN("project");
     if (projectors_ == 0 || count == 0) return;
     single();
     if (gamma_) {
@@ -1208,6 +1224,7 @@ void add_projected_real(Blas& blas, const cuComplex* beta, std::size_t n, int pr
 }  // namespace
 
 void Hamiltonian::add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi) {
+    MDAPY_SPAN("add_nonlocal");
     if (projectors_ == 0 || count == 0) return;
     single();
     if (gamma_) {
@@ -1220,6 +1237,7 @@ void Hamiltonian::add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi) {
 }
 
 void Hamiltonian::add_overlap(const cuComplex* p, int count, cuComplex* spsi) {
+    MDAPY_SPAN("add_overlap");
     if (!has_overlap_ || projectors_ == 0 || count == 0) return;
     single();
     if (gamma_) {
@@ -1232,6 +1250,7 @@ void Hamiltonian::add_overlap(const cuComplex* p, int count, cuComplex* spsi) {
 }
 
 void Hamiltonian::overlap_projections(const cuComplex* p, int count, cuComplex* out) {
+    MDAPY_SPAN("overlap_projections");
     if (projectors_ == 0 || count == 0) return;
     if (!has_overlap_) {
         check_cuda(cudaMemset(out, 0, static_cast<std::size_t>(projectors_) * count *

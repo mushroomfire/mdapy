@@ -283,13 +283,14 @@ void bind_blas(nb::module_& m) {
     // full double precision; panels_from, when not negative, the smallest
     // matrix they tridiagonalize in panels, none of them with one launch a step,
     // and together_from the rows left from which their products take several
-    // columns to a block;
+    // columns to a block; together_steps, when not negative, whether the steps
+    // of the small matrices go in one launch;
     // count, when not negative, the eigenvectors asked for, the lowest: the
     // other columns hold nothing of use
     m.def(
         "eigh",
         [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from,
-           int together_from, int count) {
+           int together_from, int together_steps, int count) {
             const int n = static_cast<int>(a.shape(0));
             if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
             DeviceArray<D> da;
@@ -302,6 +303,7 @@ void bind_blas(nb::module_& m) {
                 lapack.set_panels_from(panels_from);
             }
             if (together_from >= 0) lapack.set_together_from(together_from);
+            if (together_steps >= 0) lapack.set_together_steps(together_steps);
             std::vector<double> values;
             lapack.eigh(da.data(), n, values, count);
             H* out = nullptr;
@@ -314,7 +316,7 @@ void bind_blas(nb::module_& m) {
         },
         nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
         nb::arg("full_double") = -1, nb::arg("panels_from") = -1, nb::arg("together_from") = -1,
-        nb::arg("count") = -1);
+        nb::arg("together_steps") = -1, nb::arg("count") = -1);
     // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
     // which the upper triangle is read; info is not zero when a is not positive
     // definite

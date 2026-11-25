@@ -13,7 +13,8 @@
 //       PANELS_FROM sets the smallest matrix tridiagonalized in panels, TOGETHER_FROM the rows left
 //       from which a block of their products has several columns, REFLECTORS the
 //       reflectors of a block of the back-transformation, LEAF the rows of a leaf,
-//       HOST_LIMIT the largest matrix MDAPY solves on the host,
+//       HOST_LIMIT the largest matrix MDAPY solves on the host, STEPS (0 or 1) whether the steps of
+//       the small tridiagonalizations go in one launch,
 //       WANTED the percent of the eigenvectors asked of MDAPY, the lowest (the vendor makes all)
 //
 // A row: the milliseconds of the vendor and of MDAPY (the least of the
@@ -100,6 +101,7 @@ void run(const char* name, int n, int repeats, int fused) {
     ok(cudaMemcpy(given + size, factor_host.data(), size * sizeof(T), cudaMemcpyHostToDevice), "cudaMemcpy");
     Lapack vendor(Kernels::Vendor), own(Kernels::Mdapy);
     own.set_fused_limit(fused);
+    if (std::getenv("STEPS") != nullptr) own.set_together_steps(std::atoi(std::getenv("STEPS")));
     if (std::getenv("HOST_LIMIT") != nullptr) own.set_host_limit(std::atoi(std::getenv("HOST_LIMIT")));
     if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
     if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));

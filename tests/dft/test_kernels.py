@@ -238,7 +238,7 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     their residuals and their orthonormality, which degenerate eigenvalues
     leave the only test. MDAPY's kernels both ways, as on a GPU of full double
     precision (the scalar work of the merges on the GPU, a launch a step of
-    the tridiagonalization) and as on one without, with the
+    the tridiagonalization or one for all steps) and as on one without, with the
     tridiagonalization in panels, which MDAPY takes for the large matrices,
     and with several columns to a block of their products, as for the
     largest."""
@@ -254,7 +254,8 @@ def test_the_eigenpairs_agree(dtype, spectrum, n, host):
     scale = max(np.abs(exact).max(), 1.0)
     for kernels, options in (
         ("mdapy", dict(full_double=0)),
-        ("mdapy", dict(full_double=1)),
+        ("mdapy", dict(full_double=1, together_steps=0)),
+        ("mdapy", dict(full_double=1, together_steps=1)),
         ("mdapy", dict(full_double=1, panels_from=0)),
         ("mdapy", dict(full_double=1, panels_from=0, together_from=0)),
         ("vendor", {}),
@@ -283,6 +284,28 @@ def test_the_eigenpairs_of_large_matrices(dtype, n):
     assert np.abs(w - exact).max() < 1e-12 * scale
     assert np.abs(a @ v - v * w).max() < 1e-11 * scale
     assert np.abs(v.conj().T @ v - np.eye(n)).max() < 1e-11
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("n", [70, 300])
+def test_the_steps_in_one_launch(dtype, n):
+    """The tridiagonalization of a small matrix with all its steps in one
+    launch, whose blocks wait for one another (never on AMD GPUs, where the
+    option changes nothing): the same bits at every run, and the eigenpairs of
+    a launch a step within rounding."""
+    rng = np.random.default_rng(n)
+    a = hermitian(rng, n, dtype)
+    limit = 2e-5 if dtype in (np.float32, np.complex64) else 1e-12
+    w, v = _dft.eigh(a, full_double=1, together_steps=1)
+    again = _dft.eigh(a, full_double=1, together_steps=1)
+    assert np.array_equal(w, again[0]) and np.array_equal(v, again[1])
+    apart = _dft.eigh(a, full_double=1, together_steps=0)
+    scale = max(np.abs(w).max(), 1.0)
+    assert np.abs(w - apart[0]).max() < limit * scale
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    v = v.astype(wide)
+    assert np.abs(a.astype(wide) @ v - v * w).max() < 20 * limit * scale
+    assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
 
 
 @pytest.mark.parametrize("dtype", TYPES)

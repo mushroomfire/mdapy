@@ -9,6 +9,7 @@
 #include <complex>
 #include <cstddef>
 #include <cmath>
+#include <mutex>
 #include <new>
 #include <stdexcept>
 #include <string>
@@ -382,6 +383,124 @@ __global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors,
     sum = block_sum(partial, sum);
     if (t == 0) p_out[j] = sum;
 }
+
+#if !defined(MDAPY_GPU_HIP)
+// The steps from first to last - 1 of the tridiagonalization in one launch:
+// each is the step of tridiagonal_kernel in one launch (its phase 2), the same
+// numbers in the same order, but the block of a column stays with it from step
+// to step, until the step that makes its column the reflector's; between two
+// steps a block waits until every block of the step has added itself to its
+// count in arrived (zeros at the launch). All blocks must be on the GPU at
+// once, or those that are wait for ever: the host launches no more of them
+// than the GPU holds, one such launch at a time in the process.
+template <class S>
+__global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* reflectors, S* tau,
+                                         typename RealOf<S>::type* d, typename RealOf<S>::type* e, S* products,
+                                         int* arrived) {
+    using R = typename RealOf<S>::type;
+    extern __shared__ double shared[];
+    S* partial = reinterpret_cast<S*>(shared);
+    const int t = static_cast<int>(threadIdx.x), j = first + 1 + static_cast<int>(blockIdx.x);
+    S* column = a + static_cast<long long>(j) * n;
+    for (int k = first; k < last && k < j; ++k) {
+        const bool lead = j == k + 1;
+        const S* __restrict__ p_in = products + ((k + 1) & 1) * static_cast<long long>(n);
+        S* __restrict__ p_out = products + (k & 1) * static_cast<long long>(n);
+        S* w = partial + kStep + kGroups;  // w_i at i - k
+        S* v = w + (n - k);                // v_i at i - k - 1
+        const S* before = reflectors + static_cast<long long>(k > 0 ? k - 1 : 0) * n;  // the reflector before, v_i at i
+        S early_k[kEarly], early_j[kEarly];
+        for (int s = 0; s < kEarly; ++s) {
+            const int i = k + t + s * kStep;
+            if (i < n) early_k[s] = a[i + static_cast<long long>(k) * n];
+            if (i + 1 < n) early_j[s] = column[i + 1];
+        }
+        const S* pivot = a + static_cast<long long>(k) * n;
+        if (k > 0) {
+            const S factor = tau[k - 1];
+            S sum = from_real(S{}, static_cast<R>(0));
+            for (int i = k + t; i < n; i += kStep) {
+                const S scaled = mul(factor, p_in[i]);
+                w[i - k] = scaled;
+                sum = add(sum, mul(cj(scaled), before[i]));
+            }
+            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, block_sum(partial, sum)));
+            for (int i = k + t; i < n; i += kStep) w[i - k] = add(w[i - k], mul(half, before[i]));
+            __syncthreads();
+        }
+        R tail = static_cast<R>(0);
+        for (int i = k + t, s = 0; i < n; i += kStep, ++s) {
+            S x = s < kEarly ? early_k[s] : pivot[i];
+            if (k > 0) x = sub(x, add(mul(before[i], cj(w[0])), mul(w[i - k], cj(before[k]))));
+            if (i == k) {
+                if (lead) d[k] = re(x);
+            } else {
+                v[i - k - 1] = x;
+                if (i > k + 1) tail += re(x) * re(x) + im(x) * im(x);
+            }
+        }
+        tail = re(block_sum(partial, from_real(S{}, tail)));
+        const S alpha = v[0];
+        S reflection = from_real(S{}, static_cast<R>(0)), scale = from_real(S{}, static_cast<R>(1));
+        R beta = re(alpha);
+        if (tail != static_cast<R>(0) || im(alpha) != static_cast<R>(0)) {
+            const R size = sqrt(re(alpha) * re(alpha) + im(alpha) * im(alpha) + tail);
+            beta = re(alpha) >= static_cast<R>(0) ? -size : size;
+            reflection = mul(sub(from_real(S{}, beta), alpha), from_real(S{}, static_cast<R>(1) / beta));
+            scale = inverse(sub(alpha, from_real(S{}, beta)));
+        }
+        __syncthreads();
+        for (int i = k + 1 + t; i < n; i += kStep)
+            v[i - k - 1] = i == k + 1 ? from_real(S{}, static_cast<R>(1)) : mul(v[i - k - 1], scale);
+        if (lead && t == 0) {
+            tau[k] = reflection;
+            e[k] = beta;
+        }
+        __syncthreads();
+        if (lead)
+            for (int i = k + 1 + t; i < n; i += kStep) reflectors[i + static_cast<long long>(k) * n] = v[i - k - 1];
+        S wj = from_real(S{}, static_cast<R>(0)), vj = wj;
+        if (k > 0) {
+            wj = cj(w[j - k]);
+            vj = cj(before[j]);
+        }
+        S sum = from_real(S{}, static_cast<R>(0));
+        for (int i = k + 1 + t, s = 0; i < n; i += kStep, ++s) {
+            S x = s < kEarly ? early_j[s] : column[i];
+            if (k > 0) {
+                x = sub(x, add(mul(before[i], wj), mul(w[i - k], vj)));
+                column[i] = x;
+            }
+            sum = add(sum, mul(cj(x), v[i - k - 1]));
+        }
+        sum = block_sum(partial, sum);
+        if (t == 0) {
+            p_out[j] = sum;
+            // done with the step; a block that goes on waits for the n - 1 - k of it
+            __threadfence();
+            atomicAdd(arrived + (k - first), 1);
+            if (!lead && k + 1 < last) {
+                const volatile int* count = arrived + (k - first);
+                while (*count < n - 1 - k) {
+                }
+            }
+        }
+        __syncthreads();
+    }
+}
+
+// Whether the GPU holds the n - 1 blocks of tridiagonal_steps_kernel, each with
+// bytes of shared memory, all at once.
+template <class S>
+bool holds_steps(int n, std::size_t bytes) {
+    int device = 0, processors = 0, each = 0;
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+    check_cuda(cudaDeviceGetAttribute(&processors, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
+    check_cuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&each, tridiagonal_steps_kernel<S>, kStep, bytes),
+               "the blocks of a multiprocessor");
+    return n - 1 <= each * processors;
+}
+#endif
 
 // ------------------------------------------- the tridiagonalization in panels
 //
@@ -1264,7 +1383,26 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
                 blas_.gemm(Op::N, Op::C, rest, rest, 2 * width, minus, pairs.data(), rest, right, rest, one, trailing, n);
             }
         }
-        for (int k = 0; k < n && !panels; ++k) {
+        int done = 0;  // the steps one launch took together
+#if !defined(MDAPY_GPU_HIP)
+        // on a GPU of full double precision, when it holds all their blocks
+        if (fused && n > 2 && (together_steps_ > 0 || (together_steps_ < 0 && full_double())) &&
+            holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S))) {
+            // one launch of its kind at a time: two could each hold a part of the
+            // GPU and wait for the rest
+            static std::mutex one;
+            const std::lock_guard<std::mutex> lock(one);
+            DeviceArray<int> arrived(static_cast<std::size_t>(n));
+            arrived.zero();
+            done = n - 1;
+            tridiagonal_steps_kernel<S><<<static_cast<unsigned>(n - 1), kStep, sums + 2 * static_cast<std::size_t>(n) * sizeof(S)>>>(
+                n, 0, done, matrix, own(reflectors.data()), own(tau.data()), diagonal.data(), subdiagonal.data(),
+                own(products.data()), arrived.data());
+            launched("the steps of the tridiagonalization");
+            check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "the steps of the tridiagonalization");
+        }
+#endif
+        for (int k = done; k < n && !panels; ++k) {
             const S* in = own(products.data()) + ((k + 1) & 1) * static_cast<std::size_t>(n);
             S* out = own(products.data()) + (k & 1) * static_cast<std::size_t>(n);
             const unsigned columns = static_cast<unsigned>(std::max(n - 1 - k, 1));

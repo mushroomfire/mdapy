@@ -11,8 +11,8 @@ candidate that may stand radiation better.
 This page follows [Liu et al. (2025)](../reference/references.md#liu2025) with their
 machine-learned potential: the threshold displacement energies of the five pure metals
 and of each element in the alloy over all directions, their Figures 3 and 4, and the
-Frenkel pairs that cascades of 1, 5 and 10 keV leave in tungsten and in the alloy, against
-the NRT and arc-dpa models.
+Frenkel pairs that cascades of 1 to 50 keV leave in tungsten and of 1 to 30 keV in the
+alloy, against the NRT and arc-dpa models.
 
 !!! note "The model"
     Liu et al. trained a NEP model of Mo, Nb, Ta, V and W on DFT, with a ZBL repulsion at
@@ -296,10 +296,11 @@ give in their text:
 
 ## Cascades
 
-The protocol of Liu et al., for 1, 5 and 10 keV:
+The protocol of Liu et al., for 1, 2, 5, 10, 20 and 30 keV, and 50 keV in tungsten:
 
-- 50 × 50 × 50 bcc cells, 250 000 atoms, 16 nm wide, relaxed for 10 ps at 300 K and zero
-  pressure; the alloy relaxed once, its runs differing by their PKA;
+- 50 × 50 × 50 bcc cells, 250 000 atoms, 16 nm wide, up to 10 keV, and 100 × 100 × 100,
+  2 000 000 atoms, 32 nm wide, from 20 keV on, relaxed for 10 ps at 300 K and zero
+  pressure; the alloy relaxed once for each size, its runs differing by their PKA;
 - a PKA near the center along a ⟨135⟩ direction, its order and signs varied from run to
   run, away from the open channels of the lattice; in the alloy each element in turn;
 - 50 ps at constant energy, the atoms within 3 lattice constants of the faces at 300 K;
@@ -363,7 +364,8 @@ with MolecularDynamics(shot, gpu, timestep=0.001) as md:
     damage = 5000.0 - md.thermo["electronic_loss"][-1]  # the damage energy, eV
 ```
 
-A cascade of 5 keV takes about 19 minutes on one GPU, the relaxation of the crystal included.
+A cascade of 5 keV takes about 19 minutes on one GPU, the relaxation of the crystal
+included; one of 50 keV in 2 million atoms about 7 hours.
 
 ### The Frenkel pairs against the energy
 
@@ -467,27 +469,39 @@ of the vacancies and of the interstitials in clusters of two or more:
 | Material | E_PKA (keV) | Runs | T_d (keV) | Frenkel pairs | Peak | Vacancies in clusters | Interstitials in clusters |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | MoNbTaVW | 1 | 20 | 0.79 | 4.1 ± 0.3 | 41 | 34 % | 14 % |
+| MoNbTaVW | 2 | 20 | 1.53 | 5.0 ± 0.4 | 105 | 22 % | 10 % |
 | MoNbTaVW | 5 | 20 | 3.73 | 9.1 ± 0.7 | 406 | 36 % | 13 % |
 | MoNbTaVW | 10 | 20 | 7.35 | 13.8 ± 1.1 | 1128 | 45 % | 18 % |
+| MoNbTaVW | 20 | 5 | 13.66 | 31.6 ± 2.1 | 2994 | 38 % | 15 % |
+| MoNbTaVW | 30 | 5 | 20.97 | 38.0 ± 5.7 | 7962 | 38 % | 25 % |
 | W | 1 | 10 | 0.78 | 1.6 ± 0.3 | 9 | 8 % | 27 % |
+| W | 2 | 10 | 1.51 | 2.2 ± 0.2 | 44 | 13 % | 10 % |
 | W | 5 | 10 | 3.63 | 5.1 ± 0.7 | 135 | 13 % | 57 % |
 | W | 10 | 10 | 7.09 | 7.9 ± 0.5 | 403 | 10 % | 54 % |
+| W | 20 | 6 | 13.57 | 14.8 ± 1.4 | 1601 | 17 % | 69 % |
+| W | 30 | 6 | 20.79 | 18.7 ± 2.2 | 3689 | 10 % | 56 % |
+| W | 50 | 6 | 33.25 | 29.8 ± 1.9 | 5842 | 11 % | 70 % |
 
-- **Tungsten** follows the power law of Liu et al. within one standard error at 5 and
-  10 keV and two at 1 keV; arc-dpa, whose parameters Nordlund et al. fitted to other
-  potentials, lies 10 to 20 % above. Of the hundreds of pairs at the peak (135 at
-  5 keV, 400 at 10 keV), all but 5 to 8 recombine as the cascade cools.
+- **Tungsten** follows the two parts of the power law of Liu et al. within two standard
+  errors from 5 keV on, and reaches its steeper part at 50 keV: 29.8 pairs against its
+  31.5, from 18.7 at 30 keV. At 1 and 2 keV it keeps fewer, 1.6 and 2.2 against 2.1 and
+  3.2. arc-dpa, whose parameters Nordlund et al. fitted to other potentials, lies 3 to
+  18 % above from 5 keV on and 40 to 50 % above at 1 and 2 keV. Of the hundreds to
+  thousands of pairs at the peak (135 at 5 keV, 5800 at 50 keV), all but 5 to 30
+  recombine as the cascade cools.
 - **The alloy** keeps more Frenkel pairs than tungsten at every energy, 1.7 to 2.6 times
-  as many, as Liu et al. find over 1 to 150 keV; its peak is three times that of
-  tungsten. At 5 and 10 keV the pairs lie on Liu et al.'s power law; at 1 keV there are
-  4.1 where their law, a fit from 1 to 150 keV, gives 1.7: near the threshold, where
-  the alloy's thresholds, half those of tungsten, count most.
-- **The defects** cluster differently: in tungsten half of the interstitials sit in
-  clusters at 5 and 10 keV, and a tenth of the vacancies; in the alloy a third to nearly
-  a half of the vacancies and a sixth of the interstitials. Liu et al. find the same: fewer
+  as many, as Liu et al. find over 1 to 150 keV; its peak is two to five times that of
+  tungsten. From 5 keV on the pairs lie within about two standard errors of Liu et al.'s
+  power law (31.6 ± 2.1 against 27.9 at 20 keV, 38.0 ± 5.7 against 40.9 at 30 keV); at
+  1 and 2 keV there are 4.1 and 5.0 where their law, a fit from 1 to 150 keV, gives 1.7
+  and 3.2: near the threshold, where the alloy's thresholds, half those of tungsten,
+  count most.
+- **The defects** cluster differently: in tungsten 55 to 70 % of the interstitials sit in
+  clusters from 5 keV on, and 10 to 17 % of the vacancies; in the alloy 22 to 45 % of the
+  vacancies and 10 to 25 % of the interstitials. Liu et al. find the same: fewer
   clustered interstitials in the alloy, under a quarter, and more clustered vacancies.
 - The damage energies, from the stopping of Lindhard and Scharff, are 0.78, 3.6 and
-  7.1 keV in tungsten (Liu et al., from SRIM: 0.77, 3.9 and 7.7) and 0.79, 3.7 and
+  7.1 keV at 1, 5 and 10 keV in tungsten (Liu et al., from SRIM: 0.77, 3.9 and 7.7) and 0.79, 3.7 and
   7.4 keV in the alloy (0.84, 4.2 and 8.4).
 
 ## Running it
@@ -496,13 +510,15 @@ The four scripts that made this page run the protocols above on one GPU each:
 
 - [`tde.py`](radiation/tde.py) `MATERIAL ELEMENT COUNT SEED out.json`, the threshold
   displacement energies of `COUNT` random directions;
-- [`cascade.py`](radiation/cascade.py) `MATERIAL ENERGY RUN out.json`, one cascade;
+- [`cascade.py`](radiation/cascade.py) `MATERIAL ENERGY RUN out.json [SIZE] [PS]`, one
+  cascade in SIZE × SIZE × SIZE cells (50 by default) for PS picoseconds (50);
 - [`tde_figures.py`](radiation/tde_figures.py) and
   [`cascade_figures.py`](radiation/cascade_figures.py), the figures and the tables from
   their results.
 
-The thresholds of this page took about 47 GPU-hours, the 90 cascades about 30, 20 minutes
-each, on V100, A100, H100 and H200 GPUs of the Triton cluster of Aalto University.
+The thresholds of this page took about 47 GPU-hours, the 148 cascades about 245: 20 to
+40 minutes each up to 10 keV, 6 to 8 hours each from 20 keV on, on V100, A100, H100 and
+H200 GPUs of the Triton cluster of Aalto University.
 
 ## See also
 

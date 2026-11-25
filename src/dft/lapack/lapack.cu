@@ -252,7 +252,8 @@ __global__ void mirror_kernel(int n, S* a) {
 constexpr int kStep = 128;    // threads of a block of the tridiagonalization
 constexpr int kFused = 1024;  // the largest matrix of which a step is one launch
 constexpr int kFusedBytes = 8192;  // and the most bytes of a column of it (512 complex numbers of double precision: a V100)
-constexpr int kStepsComplex = 704;  // the largest of complex double of which all steps are one launch
+// the largest of complex double of which all steps are one launch (never with HIP)
+[[maybe_unused]] constexpr int kStepsComplex = 704;
 constexpr int kPanelsFrom = 1536;  // the smallest matrix reduced in panels in single precision on a GPU of little double precision
 constexpr int kFusedSingle = 256;  // the same in single precision on a GPU of little double precision
 

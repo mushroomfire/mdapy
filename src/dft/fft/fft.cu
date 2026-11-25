@@ -188,22 +188,33 @@ void scatter(const Complex* coefficients, std::size_t n, const std::int64_t* box
 
 namespace {
 
+__device__ inline Complex zero_of(const Complex*) { return make_cuDoubleComplex(0.0, 0.0); }
+__device__ inline cuComplex zero_of(const cuComplex*) { return make_cuComplex(0.0f, 0.0f); }
+
+// The planes of the first index within window of 0 of count boxes to zeros,
+// in one launch: (2 window + 1) plane values a box.
+template <class T>
+__global__ void zero_planes_kernel(std::size_t total, std::size_t plane, int n1, int window, T* boxes) {
+    const std::size_t e = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (e >= total) return;
+    const std::size_t w = 2 * static_cast<std::size_t>(window) + 1, per = w * plane;
+    const std::size_t box = e / per, rest = e - box * per, i = rest / plane;
+    const std::size_t x = i <= static_cast<std::size_t>(window) ? i : static_cast<std::size_t>(n1) - (w - i);
+    boxes[(box * static_cast<std::size_t>(n1) + x) * plane + (rest - i * plane)] = zero_of(boxes);
+}
+
 // count boxes of the grid to zeros, or only their planes of the first index
 // within window of 0
 template <class T>
 void zero_window(T* boxes, int count, const Int3& grid, int window) {
-    const std::size_t plane = static_cast<std::size_t>(grid[1]) * grid[2] * sizeof(T),
-                      box = static_cast<std::size_t>(grid[0]) * plane;
+    const std::size_t plane = static_cast<std::size_t>(grid[1]) * grid[2];
     if (window < 0 || 2 * window + 1 >= grid[0]) {
-        check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * box), "cudaMemset");
+        check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * grid[0] * plane * sizeof(T)), "cudaMemset");
         return;
     }
-    char* first = reinterpret_cast<char*>(boxes);
-    check_cuda(cudaMemset2D(first, box, 0, static_cast<std::size_t>(window + 1) * plane, static_cast<std::size_t>(count)),
-               "cudaMemset2D");
-    check_cuda(cudaMemset2D(first + static_cast<std::size_t>(grid[0] - window) * plane, box, 0,
-                            static_cast<std::size_t>(window) * plane, static_cast<std::size_t>(count)),
-               "cudaMemset2D");
+    const std::size_t total = static_cast<std::size_t>(count) * (2 * static_cast<std::size_t>(window) + 1) * plane;
+    zero_planes_kernel<T><<<blocks(total), kThreads>>>(total, plane, grid[0], window, boxes);
+    launched("the planes of the sphere to zeros");
 }
 
 }  // namespace

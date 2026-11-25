@@ -370,7 +370,6 @@ OneCenter::~OneCenter() = default;
 
 void OneCenter::gemm(bool trans_b, int m, int n, int k, const double* a, int lda, long long stride_a,
                      const double* b, int ldb, double beta, double* c, int ldc, long long stride_c, int batch) {
-    const double one = 1.0;
     blas_.gemm_batched(trans_b ? Op::T : Op::N, m, n, k, a, lda, stride_a, b, ldb, beta, c, ldc, stride_c, batch);
 }
 

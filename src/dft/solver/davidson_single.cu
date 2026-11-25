@@ -258,7 +258,6 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
                 if (gamma_) {
                     gamma_solve(blas_, r, m, real(chol_.data()), w);
                     if (general) {
-                        const float one = 1.0f;
                         blas_.trsm(np, m, real(chol_.data()), m, real(pw), np);
                     }
                 } else {

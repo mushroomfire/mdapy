@@ -88,7 +88,6 @@ void gamma_combine(Blas& blas, std::size_t n, const Complex* a, int k, const dou
 void gamma_solve(Blas& blas, std::size_t n, int m, const double* r, Complex* out) {
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
-    const double one = 1.0;
     blas.trsm(rows, m, r, m, reinterpret_cast<double*>(out), rows);
 }
 
@@ -131,7 +130,6 @@ void gamma_combine(Blas& blas, std::size_t n, const cuComplex* a, int k, const f
 void gamma_solve(Blas& blas, std::size_t n, int m, const float* r, cuComplex* out) {
     if (m == 0 || n == 0) return;
     const int rows = static_cast<int>(2 * n);
-    const float one = 1.0f;
     blas.trsm(rows, m, r, m, reinterpret_cast<float*>(out), rows);
 }
 

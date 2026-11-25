@@ -9,6 +9,7 @@
 
 #include "dft/blas/blas.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <new>
 #include <stdexcept>
@@ -504,14 +505,33 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
     if constexpr (kTensorType) {
         if (tensor) {
-            if (trans_a && trans_b)
-                launch_dmma<S, true, true>(g, grid, alpha, beta, a, b, c, partial);
-            else if (trans_a)
-                launch_dmma<S, true, false>(g, grid, alpha, beta, a, b, c, partial);
-            else if (trans_b)
-                launch_dmma<S, false, true>(g, grid, alpha, beta, a, b, c, partial);
-            else
-                launch_dmma<S, false, false>(g, grid, alpha, beta, a, b, c, partial);
+            // real values in pairs of 16 bytes where every column starts on 16 bytes
+            const auto even = [](const void* p, long long ld) {
+                return reinterpret_cast<std::uintptr_t>(p) % 16 == 0 && ld % 2 == 0;
+            };
+            const bool vec = std::is_same_v<S, double> && even(a, lda) && even(b, ldb) &&
+                             (batch == 1 || stride_a % 2 == 0) && (batch == 1 || stride_c % 2 == 0);
+            const auto launch = [&](auto vector) {
+                constexpr bool V = decltype(vector)::value;
+                if (trans_a && trans_b)
+                    launch_dmma<S, true, true, V>(g, grid, alpha, beta, a, b, c, partial);
+                else if (trans_a)
+                    launch_dmma<S, true, false, V>(g, grid, alpha, beta, a, b, c, partial);
+                else if (trans_b)
+                    launch_dmma<S, false, true, V>(g, grid, alpha, beta, a, b, c, partial);
+                else
+                    launch_dmma<S, false, false, V>(g, grid, alpha, beta, a, b, c, partial);
+            };
+            // complex values are copied 16 bytes at a time anyway
+            if constexpr (std::is_same_v<S, double>) {
+                if (vec) {
+                    launch(std::true_type{});
+                } else {
+                    launch(std::false_type{});
+                }
+            } else {
+                launch(std::false_type{});
+            }
         }
     }
     if (!tensor) {

@@ -16,6 +16,12 @@
 // that the copies and the reads of the fragments meet no more conflicts of
 // banks than their sizes need.
 
+// Copy of the kernel: how the matrices come to shared memory. kCopy8: 8 bytes
+// a copy, for real matrices with a column that does not start on 16 bytes;
+// kCopy16: 16 bytes a copy; kCopyMaps: whole tiles through the maps (compute
+// capability 9.0, columns on 16 bytes, one product).
+constexpr int kCopy8 = 0, kCopy16 = 1, kCopyMaps = 2;
+
 #if !defined(MDAPY_GPU_HIP)
 
 // per: the blocks a multiprocessor is to hold at once, which bounds the registers of a thread
@@ -181,11 +187,6 @@ __device__ __forceinline__ double flipped(double x, int flip) {
     return __hiloint2double(__double2hiint(x) ^ flip, __double2loint(x));
 }
 
-// Copy: how the matrices come to shared memory. kCopy8: 8 bytes a copy, for
-// real matrices with a column that does not start on 16 bytes; kCopy16: 16
-// bytes a copy; kCopyMaps: whole tiles through the maps (compute capability
-// 9.0, columns on 16 bytes, one product).
-constexpr int kCopy8 = 0, kCopy16 = 1, kCopyMaps = 2;
 template <class S, bool TransA, bool TransB, int Copy>
 __global__ void __launch_bounds__(DmmaForm<S>::threads, DmmaForm<S>::per)
     dmma_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,

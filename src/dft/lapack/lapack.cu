@@ -399,7 +399,7 @@ __global__ void tridiagonal_kernel(int n, int k, int phase, S* a, S* reflectors,
 // w (n, kColumns) holds a column to each reflector of the panel, reflectors
 // its v at the column first + c, dots w^H v then v^H v (kColumns each).
 constexpr int kColumns = 32;
-constexpr int kRows = 128;    // rows of a block of panel_rows_kernel: few blocks, as each reads all of y
+constexpr int kRows = 32;     // rows of a block of panel_rows_kernel
 constexpr int kLanes = 8;     // threads of a row there
 constexpr int kColumn = kRows * kLanes;  // the threads of its block
 
@@ -465,12 +465,17 @@ __global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* 
             for (int e = 0; e < kEarly; ++e) sum = add(sum, mul(cj(u[e]), x[e]));
         }
         sum = column_sum(parts, sum);
+        // g^H h, and p of the row j: a thread to each column, the first adds them
+        if (t < before) {
+            parts[t] = mul(cj(g[t]), h[t]);
+            parts[kColumns + t] = add(mul(cj(vrow[t]), g[t]), mul(cj(wrow[t]), h[t]));
+        }
+        __syncthreads();
         if (t == 0) {
-            // tau p of the row j, and g^H h
             S cross = zero, p = zero;
             for (int c = 0; c < before; ++c) {
-                cross = add(cross, mul(cj(g[c]), h[c]));
-                p = add(p, add(mul(cj(vrow[c]), g[c]), mul(cj(wrow[c]), h[c])));
+                cross = add(cross, parts[c]);
+                p = add(p, parts[kColumns + c]);
             }
             const S made = mul(factor, sub(y[j], p));
             const R size = re(factor) * re(factor) + im(factor) * im(factor);
@@ -517,9 +522,17 @@ __global__ void panel_rows_kernel(int n, int j, int first, int finish, const S* 
         part[0][row] = from_real(S{}, square);
     }
     __syncthreads();
-    if (t == 0 && !finish) {
-        S sum = part[0][0];
-        for (int q = 1; q < kRows; ++q) sum = add(sum, part[0][q]);
+    if (finish) return;
+    // the squares of the rows: those of each 16, then these sums
+    if (t < kRows / 16) {
+        S sum = part[0][t * 16];
+        for (int q = 1; q < 16; ++q) sum = add(sum, part[0][t * 16 + q]);
+        part[1][t] = sum;
+    }
+    __syncthreads();
+    if (t == 0) {
+        S sum = part[1][0];
+        for (int q = 1; q < kRows / 16; ++q) sum = add(sum, part[1][q]);
         sums[blockIdx.x] = sum;
     }
 }
@@ -562,20 +575,23 @@ __global__ void panel_products_kernel(int n, int j, int first, int columns, int 
     const S* column = b < m ? a + static_cast<long long>(j + 1 + b) * n
                       : b < m + columns ? w + static_cast<long long>(b - m) * n
                                         : reflectors + static_cast<long long>(first + b - m - columns) * n;
+    // v is (1, scale held): the products with held from the row j + 2, the
+    // scale and the row j + 1 at the end
     sum = zero;
-    for (int r = j + 1 + t; r < n; r += kEarly * kStep) {
+    for (int r = j + 2 + t; r < n; r += kEarly * kStep) {
         S x[kEarly], u[kEarly];
 #pragma unroll
         for (int q = 0; q < kEarly; ++q) {
-            const int at = r + q * kStep;
-            x[q] = at < n ? column[at] : zero;
-            u[q] = at >= n ? zero : at == j + 1 ? one : mul(held[at], scale);
+            const bool in = r + q * kStep < n;
+            x[q] = in ? column[r + q * kStep] : zero;
+            u[q] = in ? held[r + q * kStep] : zero;
         }
 #pragma unroll
         for (int q = 0; q < kEarly; ++q) sum = add(sum, mul(cj(x[q]), u[q]));
     }
     sum = block_sum(partial, sum);
     if (t != 0) return;
+    sum = add(mul(scale, sum), cj(column[j + 1]));
     if (b < m) {
         y[j + 1 + b] = sum;
         reflectors[j + 1 + b + static_cast<long long>(j) * n] = b == 0 ? one : mul(held[j + 1 + b], scale);

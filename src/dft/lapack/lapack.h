@@ -14,15 +14,17 @@
 // - larger ones on the GPU. Eigenpairs: Householder tridiagonalization, a
 //   reflector after the other, one launch each for matrices up to 512 to
 //   1024 by their type (two beyond, and in double precision on GPUs that have
-//   little of it), and in panels whose products are Blas's from 1024 to 1536;
-//   divide
-//   and conquer on the tridiagonal matrix (dft/lapack/divide.h), the merges of
-//   a height of its tree together, their scalar work in double precision on
-//   the GPU when it has full double precision and on the host otherwise, and
-//   their eigenvectors products of Blas; then the reflectors applied to them
-//   in blocks, three products each. Cholesky:
-//   blocks of columns, the diagonal block on the host, the panel by the
-//   triangular solve of Blas and the trailing matrix by its product.
+//   little of it), and from there in panels of 32 columns, two launches a
+//   column and one product of Blas a panel; divide and conquer on the
+//   tridiagonal matrix (dft/lapack/divide.h), the merges of a height of its
+//   tree together, their scalar work in double precision on the GPU when it
+//   has full double precision and on the host otherwise, and their
+//   eigenvectors products of Blas; then the reflectors applied to them in
+//   blocks, three products each over the rows a block reaches. When only the
+//   lowest eigenvectors are asked for, the last merge and the reflectors make
+//   those alone. Cholesky: blocks of columns, the diagonal block on the host,
+//   the panel by the triangular solve of Blas and the trailing matrix by its
+//   product.
 //
 // A Lapack belongs to one host thread at a time and works on its default stream.
 

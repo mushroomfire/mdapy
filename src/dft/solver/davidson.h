@@ -30,6 +30,7 @@
 
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
 
@@ -43,7 +44,8 @@ struct DavidsonResult {
 
 class Davidson {
 public:
-    Davidson();
+    // kernels: MDAPY's own linear algebra, or that of the library of the vendor
+    explicit Davidson(Kernels kernels = Kernels::Mdapy);
     ~Davidson();
     Davidson(const Davidson&) = delete;
     Davidson& operator=(const Davidson&) = delete;
@@ -81,7 +83,7 @@ private:
     bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;
 
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     cusolverDnHandle_t solver_ = nullptr;
     DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
     DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors

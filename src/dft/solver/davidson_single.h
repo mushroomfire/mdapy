@@ -26,7 +26,8 @@ namespace mdapy::dft {
 
 class DavidsonSingle {
 public:
-    DavidsonSingle();
+    // kernels: MDAPY's own linear algebra, or that of the library of the vendor
+    explicit DavidsonSingle(Kernels kernels = Kernels::Mdapy);
     ~DavidsonSingle();
     DavidsonSingle(const DavidsonSingle&) = delete;
     DavidsonSingle& operator=(const DavidsonSingle&) = delete;
@@ -49,7 +50,7 @@ private:
     int orthonormalize(Hamiltonian* h, const cuComplex* v, const cuComplex* pv, int n, cuComplex* w, cuComplex* pw,
                        int m, int rows);
 
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     cusolverDnHandle_t solver_ = nullptr;
     bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;

@@ -22,13 +22,6 @@ constexpr double kTwoPi = 6.28318530717958647692528676655900577;
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_blas(cublasStatus_t status, const char* call) {
-    if (status == CUBLAS_STATUS_SUCCESS) return;
-    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuBLAS status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 struct Terms {
     const int *pair_start, *lm, *l, *table;
     const double *coef, *tables;
@@ -161,8 +154,8 @@ __global__ void force_weight_kernel(std::size_t first, std::size_t count, int pa
 }  // namespace
 
 Augmentation::Augmentation(const Lattice& lattice, const Sphere& sphere, const std::vector<Atom>& atoms,
-                           std::vector<SpeciesAugmentation> species)
-    : lattice_(lattice), n_(sphere.size()), atoms_(atoms), species_(std::move(species)) {
+                           std::vector<SpeciesAugmentation> species, Kernels kernels)
+    : lattice_(lattice), n_(sphere.size()), atoms_(atoms), species_(std::move(species)), blas_(kernels) {
     members_.resize(species_.size());
     offsets_.resize(species_.size());
     std::size_t offset = 0;
@@ -208,16 +201,9 @@ Augmentation::Augmentation(const Lattice& lattice, const Sphere& sphere, const s
             for (int k = 0; k < 3; ++k) tau.push_back(atoms_[static_cast<std::size_t>(a)].position[static_cast<std::size_t>(k)]);
         d.tau.upload(tau.data(), tau.size());
     }
-    if (any_) {
-        cublasStatus_t status = cublasCreate(&blas_);
-        if (status == CUBLAS_STATUS_SUCCESS) status = cublasSetStream(blas_, cudaStreamPerThread);
-        if (status != CUBLAS_STATUS_SUCCESS) throw std::runtime_error("cublasCreate failed");
-    }
 }
 
-Augmentation::~Augmentation() {
-    if (blas_ != nullptr) cublasDestroy(blas_);
-}
+Augmentation::~Augmentation() = default;
 
 void Augmentation::block_q(int species, std::size_t first, std::size_t count, Complex* out) {
     const auto& sp = species_[static_cast<std::size_t>(species)];
@@ -280,9 +266,7 @@ void Augmentation::add_density(const std::vector<double>& becsum, Complex* rho) 
             work_.reserve(count * pairs);
             block_q(static_cast<int>(s), first, count, q_.data());
             block_phases(static_cast<int>(s), first, count, phases_.data());
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, pairs, static_cast<int>(count), na, &one,
-                                   bd.data(), pairs, phases_.data(), na, &zero, work_.data(), pairs),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::N, pairs, static_cast<int>(count), na, one, bd.data(), pairs, phases_.data(), na, zero, work_.data(), pairs);
             contract_kernel<<<blocks(count), kThreads>>>(first, count, pairs, q_.data(), work_.data(), rho);
             check_cuda(cudaGetLastError(), "the augmented density");
         }
@@ -312,9 +296,7 @@ std::vector<double> Augmentation::strengths(const Complex* v) {
             weight_kernel<<<blocks(count * pairs), kThreads>>>(first, count, pairs, q_.data(), v, work_.data());
             check_cuda(cudaGetLastError(), "the weights of the augmentation");
             // values (pairs, atoms) += work (pairs, count) E^T (count, atoms)
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, pairs, na, static_cast<int>(count), &one,
-                                   work_.data(), pairs, phases_.data(), na, &one, values_.data(), pairs),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::T, pairs, na, static_cast<int>(count), one, work_.data(), pairs, phases_.data(), na, one, values_.data(), pairs);
         }
         std::vector<Complex> host(static_cast<std::size_t>(pairs) * na);
         values_.download(host.data(), host.size());
@@ -347,9 +329,7 @@ std::vector<double> Augmentation::forces(const Complex* v, const std::vector<dou
                 force_weight_kernel<<<blocks(count * pairs), kThreads>>>(first, count, pairs, d, g_.data(), q_.data(),
                                                                        v, work_.data());
                 check_cuda(cudaGetLastError(), "the weights of the forces of the augmentation");
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, pairs, na, static_cast<int>(count), &one,
-                                       work_.data(), pairs, phases_.data(), na, &one, values_.data(), pairs),
-                           "cublasZgemm");
+                blas_.gemm(Op::N, Op::T, pairs, na, static_cast<int>(count), one, work_.data(), pairs, phases_.data(), na, one, values_.data(), pairs);
             }
             std::vector<Complex> host(static_cast<std::size_t>(pairs) * na);
             values_.download(host.data(), host.size());
@@ -390,9 +370,7 @@ std::array<double, 6> Augmentation::strain(const Complex* v, const std::vector<d
                 strain_weight_kernel<<<blocks(count), kThreads>>>(first, count, g_.data(), t, pairs6[k][0], pairs6[k][1],
                                                                   lattice_.volume, v, work_.data());
                 check_cuda(cudaGetLastError(), "the strain of the augmentation");
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_T, pairs, na, static_cast<int>(count), &one,
-                                       work_.data(), pairs, phases_.data(), na, &one, values_.data(), pairs),
-                           "cublasZgemm");
+                blas_.gemm(Op::N, Op::T, pairs, na, static_cast<int>(count), one, work_.data(), pairs, phases_.data(), na, one, values_.data(), pairs);
             }
             std::vector<Complex> host(static_cast<std::size_t>(pairs) * na);
             values_.download(host.data(), host.size());

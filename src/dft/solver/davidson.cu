@@ -22,13 +22,6 @@ constexpr double kDependent = 1e-10;  // overlap eigenvalue of a dropped directi
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_blas(cublasStatus_t status, const char* call) {
-    if (status == CUBLAS_STATUS_SUCCESS) return;
-    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuBLAS status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 void check_solver(cusolverStatus_t status, const char* call) {
     if (status == CUSOLVER_STATUS_SUCCESS) return;
     if (status == CUSOLVER_STATUS_ALLOC_FAILED) throw std::bad_alloc();
@@ -51,9 +44,9 @@ void copy_bytes(void* to, const void* from, std::size_t bytes) {
     check_cuda(cudaMemcpy(to, from, bytes, cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
 
-void dgemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, double alpha,
+void dgemm(Blas& blas, Op ta, Op tb, int m, int n, int k, double alpha,
            const double* a, int lda, const double* b, int ldb, double beta, double* c, int ldc) {
-    check_blas(cublasDgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasDgemm");
+    blas.gemm(ta, tb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 // one block per column c: dots[c] = sum a b, real
@@ -155,9 +148,7 @@ __global__ void gather_real_columns(std::size_t rows, int count, const int* inde
 
 }  // namespace
 
-Davidson::Davidson() {
-    check_blas(cublasCreate(&blas_), "cublasCreate");
-    check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
+Davidson::Davidson(Kernels kernels) : blas_(kernels) {
     check_solver(cusolverDnCreate(&solver_), "cusolverDnCreate");
     check_solver(cusolverDnSetStream(solver_, cudaStreamPerThread), "cusolverDnSetStream");
     info_.resize(1);
@@ -165,7 +156,6 @@ Davidson::Davidson() {
 
 Davidson::~Davidson() {
     if (solver_ != nullptr) cusolverDnDestroy(solver_);
-    if (blas_ != nullptr) cublasDestroy(blas_);
 }
 
 void Davidson::eigh(Complex* a, int n) {
@@ -216,19 +206,16 @@ void Davidson::gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka,
         const int np = h->projectors();
         qp_.reserve(static_cast<std::size_t>(np) * kb);
         h->overlap_projections(pb, kb, qp_.data());
-        dgemm(blas_, CUBLAS_OP_T, CUBLAS_OP_N, ka, kb, np, 1.0, real(pa), np, real(qp_.data()), np, 1.0, o, ka);
+        dgemm(blas_, Op::T, Op::N, ka, kb, np, 1.0, real(pa), np, real(qp_.data()), np, 1.0, o, ka);
         return;
     }
     // out (ka, kb) = a^H b + pa^H q pb
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, rows, &kOne, a, rows, b, rows, &kZero, out, ka),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, ka, kb, rows, kOne, a, rows, b, rows, kZero, out, ka);
     if (h == nullptr) return;
     const int np = h->projectors();
     qp_.reserve(static_cast<std::size_t>(np) * kb);
     h->overlap_projections(pb, kb, qp_.data());
-    check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, np, &kOne, pa, np, qp_.data(), np, &kOne, out,
-                           ka),
-               "cublasZgemm");
+    blas_.gemm(Op::C, Op::N, ka, kb, np, kOne, pa, np, qp_.data(), np, kOne, out, ka);
 }
 
 int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv, int n, Complex* w, Complex* pw,
@@ -277,16 +264,12 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
             gram(h, v, pv, n, w, pw, m, rows, overlap_.data());
             const double* o = real(overlap_.data());
             gamma_combine(blas_, r, v, n, o, n, m, -1.0, 1.0, w);
-            if (general) dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, n, -1.0, real(pv), np, o, n, 1.0, real(pw), np);
+            if (general) dgemm(blas_, Op::N, Op::N, np, m, n, -1.0, real(pv), np, o, n, 1.0, real(pw), np);
         } else if (n > 0) {  // w -= v (v^H S w), pw likewise
             gram(h, v, pv, n, w, pw, m, rows, overlap_.data());
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, n, &kMinus, v, rows, overlap_.data(),
-                                   n, &kOne, w, rows),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::N, rows, m, n, kMinus, v, rows, overlap_.data(), n, kOne, w, rows);
             if (general)
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, n, &kMinus, pv, np, overlap_.data(),
-                                       n, &kOne, pw, np),
-                           "cublasZgemm");
+                blas_.gemm(Op::N, Op::N, np, m, n, kMinus, pv, np, overlap_.data(), n, kOne, pw, np);
         }
         gram(h, w, pw, m, w, pw, m, rows, overlap_.data());
         // Cholesky QR, w <- w R^-1 with w^H S w = R^H R, while R is well
@@ -316,11 +299,11 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
             diagonal_r_.reserve(static_cast<std::size_t>(m));
             std::vector<double> d(static_cast<std::size_t>(m));
             if (gamma_) {
-                check_blas(cublasDcopy(blas_, m, real(chol_.data()), m + 1, real(diagonal_r_.data()), 1), "cublasDcopy");
+                blas_.copy(m, real(chol_.data()), m + 1, real(diagonal_r_.data()), 1);
                 check_cuda(cudaMemcpy(d.data(), diagonal_r_.data(), d.size() * sizeof(double), cudaMemcpyDeviceToHost),
                            "cudaMemcpy");
             } else {
-                check_blas(cublasZcopy(blas_, m, chol_.data(), m + 1, diagonal_r_.data(), 1), "cublasZcopy");
+                blas_.copy(m, chol_.data(), m + 1, diagonal_r_.data(), 1);
                 std::vector<Complex> z(static_cast<std::size_t>(m));
                 diagonal_r_.download(z.data(), z.size());
                 for (std::size_t i = 0; i < z.size(); ++i) d[i] = z[i].x;
@@ -336,18 +319,12 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
                     gamma_solve(blas_, r, m, real(chol_.data()), w);
                     if (general) {
                         const double one = 1.0;
-                        check_blas(cublasDtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                               CUBLAS_DIAG_NON_UNIT, np, m, &one, real(chol_.data()), m, real(pw), np),
-                                   "cublasDtrsm");
+                        blas_.trsm(np, m, real(chol_.data()), m, real(pw), np);
                     }
                 } else {
-                    check_blas(cublasZtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                           CUBLAS_DIAG_NON_UNIT, rows, m, &kOne, chol_.data(), m, w, rows),
-                               "cublasZtrsm");
+                    blas_.trsm(rows, m, chol_.data(), m, w, rows);
                     if (general)
-                        check_blas(cublasZtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                               CUBLAS_DIAG_NON_UNIT, np, m, &kOne, chol_.data(), m, pw, np),
-                                   "cublasZtrsm");
+                        blas_.trsm(np, m, chol_.data(), m, pw, np);
                 }
                 continue;
             }
@@ -378,7 +355,7 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
                 check_cuda(cudaGetLastError(), "the orthonormal columns");
                 copy(w, work_.data(), r * kept);
             } else {
-                dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, kept, m, 1.0, real(pw), np, q, m, 0.0, real(work_.data()), np);
+                dgemm(blas_, Op::N, Op::N, np, kept, m, 1.0, real(pw), np, q, m, 0.0, real(work_.data()), np);
                 scale_real_columns<<<blocks(p * kept), kThreads>>>(p, kept, scale_.data(), real(work_.data()));
                 check_cuda(cudaGetLastError(), "the orthonormal columns");
                 copy_bytes(pw, work_.data(), p * kept * sizeof(double));
@@ -388,10 +365,7 @@ int Davidson::orthonormalize(Hamiltonian* h, const Complex* v, const Complex* pv
             Complex* target = part == 0 ? w : pw;
             const int length = part == 0 ? rows : np;
             const std::size_t l = static_cast<std::size_t>(length);
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, length, kept, m, &kOne, target, length,
-                                   overlap_.data() + static_cast<std::size_t>(first) * m, m, &kZero, work_.data(),
-                                   length),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::N, length, kept, m, kOne, target, length, overlap_.data() + static_cast<std::size_t>(first) * m, m, kZero, work_.data(), length);
             scale_columns<<<blocks(l * kept), kThreads>>>(l, kept, scale_.data(), work_.data());
             check_cuda(cudaGetLastError(), "the orthonormal columns");
             copy(target, work_.data(), l * kept);
@@ -494,10 +468,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
                         columns, real(hsub_.data()) + ld * static_cast<std::size_t>(first), most);
             return;
         }
-        check_blas(cublasZgemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, first + columns, columns, rows, &kOne,
-                               basis_.data(), rows, hbasis_.data() + n * static_cast<std::size_t>(first), rows,
-                               &kZero, hsub_.data() + ld * static_cast<std::size_t>(first), most),
-                   "cublasZgemm");
+        blas_.gemm(Op::C, Op::N, first + columns, columns, rows, kOne, basis_.data(), rows, hbasis_.data() + n * static_cast<std::size_t>(first), rows, kZero, hsub_.data() + ld * static_cast<std::size_t>(first), most);
     };
     grow(0, nbase);
     Complex* x = vectors_.data();
@@ -527,7 +498,7 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
             gamma_combine(blas_, n, hbasis_.data(), nbase, yr, nbase, m, 1.0, 0.0, hx);
             gamma_combine(blas_, n, basis_.data(), nbase, yr, nbase, m, 1.0, 0.0, sx);
             if (general) {
-                dgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, nbase, 1.0, real(pb), np, yr, nbase, 0.0, real(px), np);
+                dgemm(blas_, Op::N, Op::N, np, m, nbase, 1.0, real(pb), np, yr, nbase, 0.0, real(px), np);
                 if (all) copy(x, sx, n * static_cast<std::size_t>(m));
                 h.add_overlap(px, m, sx);
             }
@@ -540,17 +511,11 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
                 check_cuda(cudaGetLastError(), "the open eigenvectors");
                 y = picked_.data();
             }
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, hbasis_.data(), rows, y, nbase,
-                                   &kZero, hx, rows),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::N, rows, m, nbase, kOne, hbasis_.data(), rows, y, nbase, kZero, hx, rows);
             // S X: X with the overlap of its projections
-            check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, &kOne, basis_.data(), rows, y, nbase,
-                                   &kZero, sx, rows),
-                       "cublasZgemm");
+            blas_.gemm(Op::N, Op::N, rows, m, nbase, kOne, basis_.data(), rows, y, nbase, kZero, sx, rows);
             if (general) {
-                check_blas(cublasZgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, nbase, &kOne, pb, np, y, nbase, &kZero, px,
-                                       np),
-                           "cublasZgemm");
+                blas_.gemm(Op::N, Op::N, np, m, nbase, kOne, pb, np, y, nbase, kZero, px, np);
                 if (all) copy(x, sx, n * static_cast<std::size_t>(m));
                 h.add_overlap(px, m, sx);
             }
@@ -646,15 +611,14 @@ DavidsonResult Davidson::solve(Hamiltonian& h, Complex* psi, int count, std::vec
                     check_cuda(cudaMemset2D(hsub_.data(), ld * sizeof(double), 0, bands * sizeof(double), bands),
                                "cudaMemset2D");
                     energies_.assign(lambda.data(), bands);
-                    check_blas(cublasDcopy(blas_, count, energies_.data(), 1, real(hsub_.data()), most + 1),
-                               "cublasDcopy");
+                    blas_.copy(count, energies_.data(), 1, real(hsub_.data()), most + 1);
                 } else {
                     check_cuda(cudaMemset2D(hsub_.data(), ld * sizeof(Complex), 0, bands * sizeof(Complex), bands),
                                "cudaMemset2D");
                     std::vector<Complex> diag(bands);
                     for (std::size_t b = 0; b < bands; ++b) diag[b] = make_cuDoubleComplex(lambda[b], 0.0);
                     picked_.assign(diag.data(), bands);
-                    check_blas(cublasZcopy(blas_, count, picked_.data(), 1, hsub_.data(), most + 1), "cublasZcopy");
+                    blas_.copy(count, picked_.data(), 1, hsub_.data(), most + 1);
                 }
             }
         }

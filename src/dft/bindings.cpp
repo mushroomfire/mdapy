@@ -25,6 +25,7 @@
 
 #include "dft/core/portable.h"
 
+#include "dft/blas/blas.h"
 #include "dft/core/check.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
@@ -202,6 +203,76 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
     return nb::object(result.cast());
 }
 
+mdapy::dft::Op op_of(const std::string& name) {
+    if (name == "N") return mdapy::dft::Op::N;
+    if (name == "T") return mdapy::dft::Op::T;
+    if (name == "C") return mdapy::dft::Op::C;
+    throw std::invalid_argument("a matrix is taken as it is (N), transposed (T) or conjugate transposed (C)");
+}
+
+// The linear algebra of the DFT on matrices of the host stored by columns, for
+// the tests: H the scalars of the host (float64, float32, complex128,
+// complex64), D those of the GPU with the same layout.
+template <class H>
+using Columns = nb::ndarray<const H, nb::ndim<2>, nb::f_contig, nb::device::cpu>;
+
+template <class H>
+nb::ndarray<nb::numpy, H> columns_of(std::size_t rows, std::size_t columns, H*& data) {
+    data = new H[std::max<std::size_t>(rows * columns, 1)];
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<H*>(p); });
+    const std::size_t shape[2] = {rows, columns};
+    const std::int64_t strides[2] = {1, static_cast<std::int64_t>(rows)};
+    return nb::ndarray<nb::numpy, H>(data, 2, shape, owner, strides);
+}
+
+template <class H, class D>
+void bind_blas(nb::module_& m) {
+    // op(a) op(b) of matrices stored by columns
+    m.def(
+        "product",
+        [](Columns<H> a, Columns<H> b, const std::string& ta, const std::string& tb, const std::string& kernels) {
+            const mdapy::dft::Op oa = op_of(ta), ob = op_of(tb);
+            const int rows = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(0) : a.shape(1));
+            const int k = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(1) : a.shape(0));
+            const int kb = static_cast<int>(ob == mdapy::dft::Op::N ? b.shape(0) : b.shape(1));
+            const int columns = static_cast<int>(ob == mdapy::dft::Op::N ? b.shape(1) : b.shape(0));
+            if (k != kb) throw std::invalid_argument("the columns of op(a) are the rows of op(b)");
+            DeviceArray<D> da, db, dc(static_cast<std::size_t>(rows) * columns);
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            db.upload(reinterpret_cast<const D*>(b.data()), b.size());
+            mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
+            D one{}, zero{};
+            *reinterpret_cast<decltype(std::real(H{}))*>(&one) = 1;
+            blas.gemm(oa, ob, rows, columns, k, one, da.data(), static_cast<int>(std::max<std::size_t>(a.shape(0), 1)),
+                      db.data(), static_cast<int>(std::max<std::size_t>(b.shape(0), 1)), zero, dc.data(),
+                      std::max(rows, 1));
+            H* out = nullptr;
+            auto c = columns_of<H>(static_cast<std::size_t>(rows), static_cast<std::size_t>(columns), out);
+            dc.download(reinterpret_cast<D*>(out), dc.size());
+            return c;
+        },
+        nb::arg("a").noconvert(), nb::arg("b").noconvert(), nb::arg("ta") = "N", nb::arg("tb") = "N",
+        nb::arg("kernels") = "mdapy");
+    // b r^-1 of b (m, n) and the upper triangle of r (n, n)
+    m.def(
+        "solve_upper",
+        [](Columns<H> b, Columns<H> r, const std::string& kernels) {
+            const int rows = static_cast<int>(b.shape(0)), n = static_cast<int>(b.shape(1));
+            if (r.shape(0) != b.shape(1) || r.shape(1) != b.shape(1))
+                throw std::invalid_argument("r is square, of the columns of b");
+            DeviceArray<D> db, dr;
+            db.upload(reinterpret_cast<const D*>(b.data()), b.size());
+            dr.upload(reinterpret_cast<const D*>(r.data()), r.size());
+            mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
+            blas.trsm(rows, n, dr.data(), std::max(n, 1), db.data(), std::max(rows, 1));
+            H* out = nullptr;
+            auto x = columns_of<H>(b.shape(0), b.shape(1), out);
+            db.download(reinterpret_cast<D*>(out), db.size());
+            return x;
+        },
+        nb::arg("b").noconvert(), nb::arg("r").noconvert(), nb::arg("kernels") = "mdapy");
+}
+
 }  // namespace
 
 NB_MODULE(_dft, m) {
@@ -209,6 +280,10 @@ NB_MODULE(_dft, m) {
     m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    bind_blas<double, double>(m);
+    bind_blas<float, float>(m);
+    bind_blas<std::complex<double>, Complex>(m);
+    bind_blas<std::complex<float>, cuComplex>(m);
     // (major, minor) of the compute capability of the current device
     m.def("device_capability", [] {
         int device = 0, major = 0, minor = 0;
@@ -600,10 +675,10 @@ NB_MODULE(_dft, m) {
                 std::vector<double> tolerances(static_cast<std::size_t>(std::max(count, 0)));
                 for (int b = 0; b < count; ++b)
                     tolerances[static_cast<std::size_t>(b)] = b < tight || tight < 0 ? tolerance : loose_tolerance;
-                mdapy::dft::DavidsonSingle solver;
+                mdapy::dft::DavidsonSingle solver(h.kernels());
                 r = solver.solve(h, a.data(), count, e, tolerances, max_iterations, basis);
             } else {
-                mdapy::dft::Davidson solver;
+                mdapy::dft::Davidson solver(h.kernels());
                 r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight, loose_tolerance,
                                  max_iterations, basis);
             }
@@ -928,14 +1003,15 @@ NB_MODULE(_dft, m) {
     nb::class_<mdapy::dft::OneCenter>(m, "OneCenter")
         .def("__init__",
              [](mdapy::dft::OneCenter* self, nb::list species, std::vector<int> kinds, std::vector<int> widths,
-                int spins, const std::string& functional, double threshold) {
+                int spins, const std::string& functional, double threshold, const std::string& kernels) {
                  std::vector<mdapy::dft::SpeciesOneCenter> all;
                  for (nb::handle item : species) all.push_back(paw_of(item));
                  new (self) mdapy::dft::OneCenter(std::move(all), std::move(kinds), std::move(widths), spins,
-                                                  functional_of(functional), threshold);
+                                                  functional_of(functional), threshold,
+                                                  mdapy::dft::kernels_of(kernels));
              },
              nb::arg("species"), nb::arg("kinds"), nb::arg("widths"), nb::arg("spins"), nb::arg("functional"),
-             nb::arg("threshold") = 1e-10)
+             nb::arg("threshold") = 1e-10, nb::arg("kernels") = "mdapy")
         .def("compute", [](mdapy::dft::OneCenter& x, Rows becsum) {
             std::vector<std::vector<double>> d;
             mdapy::dft::OneCenterEnergies parts;
@@ -962,12 +1038,15 @@ NB_MODULE(_dft, m) {
     nb::class_<mdapy::dft::Augmentation>(m, "Augmentation")
         .def("__init__",
              [](mdapy::dft::Augmentation* self, Matrix a, double cutoff, std::array<int, 3> grid, Rows positions,
-                Kinds species, nb::list kinds) {
+                Kinds species, nb::list kinds, const std::string& kernels) {
                  std::vector<mdapy::dft::SpeciesAugmentation> all;
                  for (std::size_t s = 0; s < nb::len(kinds); ++s) all.push_back(augmentation_of(kinds[s]));
                  const auto sphere = mdapy::dft::make_sphere(lattice_of(a), Vec3{0.0, 0.0, 0.0}, cutoff, grid_of(grid), false);
-                 new (self) mdapy::dft::Augmentation(lattice_of(a), sphere, atoms_of(positions, species), std::move(all));
-             })
+                 new (self) mdapy::dft::Augmentation(lattice_of(a), sphere, atoms_of(positions, species), std::move(all),
+                                                     mdapy::dft::kernels_of(kernels));
+             },
+             nb::arg("a"), nb::arg("cutoff"), nb::arg("grid"), nb::arg("positions"), nb::arg("species"),
+             nb::arg("kinds"), nb::arg("kernels") = "mdapy")
         .def("overlaps", [](const mdapy::dft::Augmentation& x, int s) {
             const auto q = x.overlaps(s);
             return array_of(q, {q.size()});

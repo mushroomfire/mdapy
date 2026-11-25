@@ -13,6 +13,16 @@
 #include <stdexcept>
 #include <string>
 
+#ifdef MDAPY_DFT_BLAS_PROFILE
+#include <algorithm>
+#include <chrono>
+#include <cstdio>
+#include <map>
+#include <mutex>
+#include <tuple>
+#include <vector>
+#endif
+
 #include "dft/core/check.h"
 
 namespace mdapy::dft {
@@ -372,9 +382,15 @@ void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, cons
 
 }  // namespace
 
-Blas::Blas(Kernels kernels) : kernels_(kernels) {
-    check_blas(cublasCreate(&vendor_), "cublasCreate");
-    check_blas(cublasSetStream(vendor_, cudaStreamPerThread), "cublasSetStream");
+Blas::Blas(Kernels kernels) : kernels_(kernels) {}
+
+// made at its first use: a calculation with MDAPY's kernels takes none
+cublasHandle_t Blas::vendor() {
+    if (vendor_ == nullptr) {
+        check_blas(cublasCreate(&vendor_), "cublasCreate");
+        check_blas(cublasSetStream(vendor_, cudaStreamPerThread), "cublasSetStream");
+    }
+    return vendor_;
 }
 
 Blas::~Blas() {
@@ -460,6 +476,58 @@ void Blas::own_trsm(int m, int n, const S* r, int ldr, S* b, int ldb) {
 
 namespace {
 
+#ifdef MDAPY_DFT_BLAS_PROFILE
+// Built with -DMDAPY_DFT_BLAS_PROFILE, every product and solve waits for the
+// GPU before and after, and the process prints at its end the calls of each
+// shape and their seconds, the longest first: the shapes of a calculation.
+struct Probe {
+    using Key = std::tuple<std::string, int, int, int>;
+    struct Table {
+        std::mutex lock;
+        std::map<Key, std::pair<long long, double>> rows;
+        ~Table() {
+            std::vector<std::pair<double, Key>> order;
+            double total = 0.0;
+            for (const auto& [key, value] : rows) {
+                order.push_back({value.second, key});
+                total += value.second;
+            }
+            std::sort(order.rbegin(), order.rend());
+            std::fprintf(stderr, "BLAS %.3f s in all\n", total);
+            for (std::size_t i = 0; i < order.size() && i < 60; ++i) {
+                const Key& key = order[i].second;
+                std::fprintf(stderr, "BLAS %-10s %7d x %7d, %7d  calls %8lld  %9.3f s  %5.1f %%\n",
+                             std::get<0>(key).c_str(), std::get<1>(key), std::get<2>(key), std::get<3>(key),
+                             rows[key].first, order[i].first, 100.0 * order[i].first / total);
+            }
+        }
+    };
+    static Table& table() {
+        static Table t;
+        return t;
+    }
+    Key key;
+    std::chrono::steady_clock::time_point start;
+    Probe(const char* routine, Op ta, Op tb, int m, int n, int k)
+        : key(std::string(routine) + " " + "NTC"[static_cast<int>(ta)] + "NTC"[static_cast<int>(tb)], m, n, k) {
+        cudaStreamSynchronize(cudaStreamPerThread);
+        start = std::chrono::steady_clock::now();
+    }
+    ~Probe() {
+        cudaStreamSynchronize(cudaStreamPerThread);
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        Table& t = table();
+        const std::lock_guard<std::mutex> guard(t.lock);
+        auto& row = t.rows[key];
+        ++row.first;
+        row.second += seconds;
+    }
+};
+#define MDAPY_PROBE(routine, ta, tb, m, n, k) const Probe probe(routine, ta, tb, m, n, k)
+#else
+#define MDAPY_PROBE(routine, ta, tb, m, n, k)
+#endif
+
 // whether the grid of a product fits: see own_gemm
 bool fits(int n, int batch) {
     return (n + kTile - 1) / kTile <= 65535 && batch <= 65535;
@@ -467,23 +535,25 @@ bool fits(int n, int batch) {
 
 }  // namespace
 
-#define MDAPY_GEMM(T, CAST)                                                                                         \
+#define MDAPY_GEMM(T, CAST, NAME)                                                                                       \
     void Blas::gemm(Op ta, Op tb, int m, int n, int k, T alpha, const T* a, int lda, const T* b, int ldb, T beta,   \
                     T* c, int ldc) {                                                                                \
         if (m < 1 || n < 1) return;                                                                                 \
+        MDAPY_PROBE(NAME "gemm", ta, tb, m, n, k);                                                                  \
         if (kernels_ == Kernels::Mdapy && fits(n, 1))                                                               \
             own_gemm(ta, tb, m, n, k, CAST(alpha), CAST(a), lda, 0, CAST(b), ldb, CAST(beta), CAST(c), ldc, 0, 1);  \
         else                                                                                                        \
-            check_blas(vendor_gemm(vendor_, vendor_op(ta), vendor_op(tb), m, n, k, alpha, a, lda, b, ldb, beta, c,  \
+            check_blas(vendor_gemm(vendor(), vendor_op(ta), vendor_op(tb), m, n, k, alpha, a, lda, b, ldb, beta, c,  \
                                    ldc),                                                                            \
                        "gemm");                                                                                     \
     }                                                                                                               \
     void Blas::trsm(int m, int n, const T* r, int ldr, T* b, int ldb) {                                             \
         if (m < 1 || n < 1) return;                                                                                 \
+        MDAPY_PROBE(NAME "trsm", Op::N, Op::N, m, n, 0);                                                            \
         if (kernels_ == Kernels::Mdapy)                                                                             \
             own_trsm(m, n, CAST(r), ldr, CAST(b), ldb);                                                             \
         else                                                                                                        \
-            check_blas(vendor_trsm(vendor_, m, n, r, ldr, b, ldb), "trsm");                                         \
+            check_blas(vendor_trsm(vendor(), m, n, r, ldr, b, ldb), "trsm");                                         \
     }
 
 namespace {
@@ -495,21 +565,22 @@ const float* own(const float* p) { return p; }
 float* own(float* p) { return p; }
 }  // namespace
 
-MDAPY_GEMM(Complex, own)
-MDAPY_GEMM(cuComplex, own)
-MDAPY_GEMM(double, own)
-MDAPY_GEMM(float, own)
+MDAPY_GEMM(Complex, own, "Z")
+MDAPY_GEMM(cuComplex, own, "C")
+MDAPY_GEMM(double, own, "D")
+MDAPY_GEMM(float, own, "S")
 #undef MDAPY_GEMM
 
 void Blas::gemm_batched(Op tb, int m, int n, int k, const double* a, int lda, long long stride_a, const double* b,
                         int ldb, double beta, double* c, int ldc, long long stride_c, int batch) {
     if (m < 1 || n < 1 || batch < 1) return;
+    MDAPY_PROBE("Dbatched", Op::N, tb, m, n, k);
     if (kernels_ == Kernels::Mdapy && fits(n, batch)) {
         own_gemm<double>(Op::N, tb, m, n, k, 1.0, a, lda, stride_a, b, ldb, beta, c, ldc, stride_c, batch);
         return;
     }
     const double one = 1.0;
-    check_blas(cublasDgemmStridedBatched(vendor_, CUBLAS_OP_N, vendor_op(tb), m, n, k, &one, a, lda, stride_a, b, ldb,
+    check_blas(cublasDgemmStridedBatched(vendor(), CUBLAS_OP_N, vendor_op(tb), m, n, k, &one, a, lda, stride_a, b, ldb,
                                          0, &beta, c, ldc, stride_c, batch),
                "gemmStridedBatched");
 }
@@ -519,7 +590,7 @@ void Blas::gemm_batched(Op tb, int m, int n, int k, const double* a, int lda, lo
         if (kernels_ == Kernels::Mdapy)                                            \
             launch_copy(n, own(x), incx, own(y), incy);                            \
         else if (n > 0)                                                            \
-            check_blas(VENDOR(vendor_, n, x, incx, y, incy), "copy");              \
+            check_blas(VENDOR(vendor(), n, x, incx, y, incy), "copy");              \
     }
 MDAPY_COPY(Complex, cublasZcopy)
 MDAPY_COPY(cuComplex, cublasCcopy)
@@ -532,13 +603,13 @@ MDAPY_COPY(float, cublasScopy)
         if (kernels_ == Kernels::Mdapy)                                                                            \
             launch_scal(n, alpha, x);                                                                              \
         else if (n > 0)                                                                                            \
-            check_blas(SCAL(vendor_, n, &alpha, x, 1), "scal");                                                    \
+            check_blas(SCAL(vendor(), n, &alpha, x, 1), "scal");                                                    \
     }                                                                                                              \
     void Blas::ger(int m, int n, T alpha, const T* x, int incx, const T* y, int incy, T* a, int lda) {             \
         if (kernels_ == Kernels::Mdapy)                                                                            \
             launch_ger(m, n, alpha, x, incx, y, incy, a, lda);                                                     \
         else if (m > 0 && n > 0)                                                                                   \
-            check_blas(GER(vendor_, m, n, &alpha, x, incx, y, incy, a, lda), "ger");                               \
+            check_blas(GER(vendor(), m, n, &alpha, x, incx, y, incy, a, lda), "ger");                               \
     }
 MDAPY_REAL(double, cublasDscal, cublasDger)
 MDAPY_REAL(float, cublasSscal, cublasSger)

@@ -56,6 +56,10 @@
   on the GH200). A self-consistent field with MDAPY's kernels takes 0.64 to 1.05 times the
   time of one with the vendor's on a GH200 and 0.71 to 1.21 on a V100, against 1.00 to 1.52
   and 0.82 to 1.38 before.
+- With MDAPY's kernels the same DFT computation on the same GPU gives the same numbers to the
+  last bit at each run: its sums over the blocks of a kernel go in their order, and the host
+  threads of the k-points add up the density of the same k-points in the same order. Two
+  runs differed by up to 1.6e-12 hartree before.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

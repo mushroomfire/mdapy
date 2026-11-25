@@ -676,6 +676,21 @@ __global__ void panel_triangle_kernel(int n, int j, int first, int count, int ti
     parts[c0 + t + static_cast<long long>(columns + band) * n] = sum;
 }
 
+// p = (v, x) and q = (x, v), width columns of each (rows, 2 width): the
+// product p q^H is v x^H + x v^H, what a panel takes from the trailing matrix,
+// which one product passes once. v and x are stored with ldv and ldx rows.
+template <class S>
+__global__ void pair_kernel(int rows, int width, int ldv, const S* __restrict__ v, int ldx, const S* __restrict__ x,
+                            S* __restrict__ p, S* __restrict__ q) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x, half = static_cast<long long>(rows) * width;
+    if (e >= half) return;
+    const S left = v[e % rows + (e / rows) * ldv], right = x[e % rows + (e / rows) * ldx];
+    p[e] = left;
+    p[half + e] = right;
+    q[e] = right;
+    q[half + e] = left;
+}
+
 constexpr int kReflectors = 64;  // the most of a block of the back-transformation
 
 // The triangular factor t (count, count) of a block of reflectors,
@@ -1280,6 +1295,8 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
                 parts.resize(static_cast<std::size_t>(n) * (blocks(n, kTileColumns) + blocks(n, kTileRows)));
             const S* tiled = triangle ? own(parts.data()) : nullptr;
             const T one = unit(T{}, 1.0), minus = unit(T{}, -1.0);
+            DeviceArray<T> pairs(4 * static_cast<std::size_t>(n) * kColumns);
+            T* right = pairs.data() + 2 * static_cast<std::size_t>(n) * kColumns;
             S* y = own(products.data());
             // w of the reflector before the column j, which is past the panel when finish
             const auto rows = [&](int j, int first, int finish) {
@@ -1312,10 +1329,12 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
                 rows(next, first, 1);
                 launched("the last column of a panel");
                 T* trailing = a + static_cast<std::size_t>(next) * n + next;
-                const T* v2 = reflectors.data() + static_cast<std::size_t>(first) * n + next;
-                const T* w2 = w.data() + next;
-                blas_.gemm(Op::N, Op::C, rest, rest, width, minus, v2, n, w2, n, one, trailing, n);
-                blas_.gemm(Op::N, Op::C, rest, rest, width, minus, w2, n, v2, n, one, trailing, n);
+                // v w^H + w v^H as one product, which passes the trailing matrix once
+                pair_kernel<S><<<blocks(static_cast<long long>(rest) * width), kThreads>>>(
+                    rest, width, n, own(reflectors.data()) + static_cast<std::size_t>(first) * n + next, n,
+                    own(w.data()) + next, own(pairs.data()), own(right));
+                launched("the two halves of the update of a panel");
+                blas_.gemm(Op::N, Op::C, rest, rest, 2 * width, minus, pairs.data(), rest, right, rest, one, trailing, n);
             }
         }
         for (int k = 0; k < n && !panels; ++k) {

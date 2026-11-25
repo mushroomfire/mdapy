@@ -106,21 +106,6 @@ __global__ void band_column_kernel(int n, int first, int b, int k, S* a, S* refl
     }
 }
 
-// p = (v, x) and q = (x, v), width columns of each: of the product p q^H, the
-// two halves of what a panel takes from the trailing matrix. v is stored with
-// the rows of the matrix, x, p and q with theirs.
-template <class S>
-__global__ void pair_kernel(int rows, int width, int n, const S* __restrict__ v, const S* __restrict__ x,
-                            S* __restrict__ p, S* __restrict__ q) {
-    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x, half = static_cast<long long>(rows) * width;
-    if (e >= half) return;
-    const S left = v[e % rows + (e / rows) * n], right = x[e];
-    p[e] = left;
-    p[half + e] = right;
-    q[e] = right;
-    q[half + e] = left;
-}
-
 // The band of a after its panels, band[i - j + j rows] = a_ij for
 // 0 <= i - j <= b (the diagonal real) and zero below, where the chase needs
 // room: the elements at b below the diagonal of the columns that got a
@@ -371,7 +356,7 @@ void two_stage_tridiagonal(Blas& blas, T* a, int n, int b, TwoStage<T>& kept, st
             blas.gemm(Op::N, Op::N, below, made, made, half, v, n, middle, made, one, y.data(), below);
             // v x^H + x v^H as one product, which passes the trailing matrix once
             pair_kernel<S><<<blocks(static_cast<long long>(below) * made), kThreads>>>(
-                below, made, n, own(v), own(y.data()), own(w.data()), own(w.data()) + 2 * count * width);
+                below, made, n, own(v), below, own(y.data()), own(w.data()), own(w.data()) + 2 * count * width);
             launched("the two halves of the update of a panel");
             blas.gemm(Op::N, Op::C, below, below, 2 * made, minus, w.data(), below, w.data() + 2 * count * width, below,
                       one, trailing, n);

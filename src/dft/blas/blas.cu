@@ -162,8 +162,9 @@ struct GemmArgs {
 //
 // In shared memory a row of a tile is padded, so that the stores of a warp,
 // which go along the terms for a matrix read along them, meet few conflicts of
-// banks. In double precision the values of a thread lie apart, value p of
-// every thread side by side: a warp reads them without conflicts.
+// banks. In double precision the rows of the threads alternate (thread u holds
+// the rows u, u + Side, ...): a warp reads the rows of a tile from shared
+// memory without conflicts and writes the result along its columns.
 template <class S, bool TransA, bool TransB>
 __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
                             const S* __restrict__ b, S* c, S* partial) {
@@ -173,7 +174,7 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
     constexpr int kLoadsA = kTM * kDepth / kTeam, kLoadsB = kTN * kDepth / kTeam;  // of a thread and a chunk
     constexpr int kLoads = kLoadsA + kLoadsB;
     constexpr int kPM = kTM + (sizeof(S) == 4 ? 4 : 2), kPN = kTN + (sizeof(S) == 4 ? 4 : 2);
-    constexpr bool kApart = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
+    constexpr bool kAlternate = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
     __shared__ S as[2][kDepth * kPM], bs[2][kDepth * kPN];
     const unsigned tid = threadIdx.x;
     const unsigned i0 = (g.swap ? blockIdx.y : blockIdx.x) * kTM, j0 = (g.swap ? blockIdx.x : blockIdx.y) * kTN;
@@ -188,12 +189,14 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         b += z * g.stride_b;
         c += z * g.stride_c;
     }
-    const unsigned ui = tid % kSide, uj = tid / kSide, ti = ui * kMM, tj = uj * kMN;
-    const bool active = i0 + ti < m && j0 + tj < n;
+    // row p of the thread in the tile, and its first column
+    const unsigned ui = tid % kSide, tj = (tid / kSide) * kMN;
+    auto row = [ui](unsigned p) { return kAlternate ? ui + p * kSide : ui * kMM + p; };
+    const bool active = i0 + row(0) < m && j0 + tj < n;
     const bool inside = i0 + kTM <= m && j0 + kTN <= n;
-    // the place in its row of shared memory of value p of thread u, of threads of mine values
-    auto place = [](unsigned u, unsigned p, int mine) { return kApart ? p * kSide + u : u * mine + p; };
-    // load q of a thread and a chunk, of a and then of b: from memory, and to a buffer
+    // Load q of a thread and a chunk, of a and then of b: from memory, and to
+    // a buffer. A value is first used in its store: until then the thread
+    // does not wait for it.
     auto fetch = [&](int q, unsigned t0, bool whole) {
 #ifdef MDAPY_BLAS_SAME_CHUNK
         // an experiment of tests/cpp/dft_blas_check.sh, not a product: every
@@ -207,24 +210,22 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
             const unsigned e = tid + q * kTeam;
             const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
             const long long at = TransA ? (t0_read + t) + (i0 + i) * g.lda : (i0 + i) + (t0_read + t) * g.lda;
-            const S value = whole || (i0 + i < m && t0 + t < last) ? a[at] : zero_of(S{});
-            return g.conj_a ? conj_of(value) : value;
+            return whole || (i0 + i < m && t0 + t < last) ? a[at] : zero_of(S{});
         }
         const unsigned e = tid + (q - kLoadsA) * kTeam;
         const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
         const long long at = TransB ? (j0 + j) + (t0_read + t) * g.ldb : (t0_read + t) + (j0 + j) * g.ldb;
-        const S value = whole || (j0 + j < n && t0 + t < last) ? b[at] : zero_of(S{});
-        return g.conj_b ? conj_of(value) : value;
+        return whole || (j0 + j < n && t0 + t < last) ? b[at] : zero_of(S{});
     };
     auto store = [&](int q, unsigned buffer, S value) {
         if (q < kLoadsA) {
             const unsigned e = tid + q * kTeam;
             const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
-            as[buffer][t * kPM + place(i / kMM, i % kMM, kMM)] = value;
+            as[buffer][t * kPM + i] = g.conj_a ? conj_of(value) : value;
         } else {
             const unsigned e = tid + (q - kLoadsA) * kTeam;
             const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
-            bs[buffer][t * kPN + place(j / kMN, j % kMN, kMN)] = value;
+            bs[buffer][t * kPN + j] = g.conj_b ? conj_of(value) : value;
         }
     };
     S acc[kMM * kMN];
@@ -248,9 +249,9 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
             for (int t = 0; t < kDepth; ++t) {
                 S x[kMM], y[kMN];
 #pragma unroll
-                for (int p = 0; p < kMM; ++p) x[p] = as[buffer][t * kPM + place(ui, p, kMM)];
+                for (int p = 0; p < kMM; ++p) x[p] = as[buffer][t * kPM + row(p)];
 #pragma unroll
-                for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + place(uj, q, kMN)];
+                for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + tj + q];
 #pragma unroll
                 for (int q = 0; q < kMN; ++q)
 #pragma unroll
@@ -273,7 +274,7 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
     for (int q = 0; q < kMN; ++q)
 #pragma unroll
         for (int p = 0; p < kMM; ++p) {
-            const unsigned i = i0 + ti + p, j = j0 + tj + q;
+            const unsigned i = i0 + row(p), j = j0 + tj + q;
             if (i >= m || j >= n) continue;
             if (g.segments > 1) {
                 partial[(static_cast<long long>(z) * n + j) * m + i] = acc[p + q * kMM];
@@ -552,18 +553,20 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk;
     }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
-    // A small result of long sums: segments of at least least terms, as many
-    // as give the blocks wanted: four to a multiprocessor of the large blocks
-    // (256 threads), of which it holds one or two, and 2048 of the small ones.
-    // Measured on a GH200, a V100 and an RTX A2000.
-    long long wanted = 2048, least = 512;
-    if (tensor)
-        wanted = 4LL * processors_, least = 256;
-    else if (Tiles<S>::threads > 64)
-        wanted = 4LL * processors_, least = 128;
-    if (batch == 1 && most_segments_ != 1 && tiles < wanted && k >= 2 * least) {
-        long long segments = (wanted + tiles - 1) / tiles;
-        if (segments > k / least) segments = k / least;
+    // A small result of long sums: segments of 512 terms or more, as many as
+    // give 2048 blocks; of a result so small that these leave multiprocessors
+    // idle, shorter segments, of 64 terms or more, as many as give each two
+    // blocks. Measured on a GH200, a V100 and an RTX A2000.
+    constexpr long long kWanted = 2048, kLeast = 512, kEach = 2, kShort = 64;
+    if (batch == 1 && most_segments_ != 1 && tiles < kWanted && k >= 2 * kShort) {
+        long long segments = (kWanted + tiles - 1) / tiles;
+        if (segments > k / kLeast) segments = k / kLeast;
+        if (segments < 1) segments = 1;
+        const long long busy = kEach * processors_;
+        if (tiles * segments < busy) {
+            segments = (busy + tiles - 1) / tiles;
+            if (segments > k / kShort) segments = k / kShort;
+        }
         const long long most = most_segments_ > 0 ? most_segments_ : 256;
         if (segments > most) segments = most;
         if (segments > 1) {

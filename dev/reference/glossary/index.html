@@ -2331,6 +2331,8 @@
       
         
       
+        
+      
     
     
     
@@ -2419,6 +2421,34 @@
     
   
     Generated training sets for aluminium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/dft-potential/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A potential from MDAPY's DFT
   
 
     
@@ -5452,6 +5482,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -5728,6 +5764,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../user-guide/potentials/d3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DFT-D3 dispersion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../user-guide/potentials/nep/" class="md-nav__link">
         
   
@@ -5792,6 +5856,62 @@
     
   
     VASP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/potentials/dft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plane-wave DFT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/potentials/dft-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification of the DFT
   
 
     
@@ -8912,6 +9032,8 @@
       
         
       
+        
+      
     
     
     
@@ -9084,6 +9206,34 @@
     
   
     Molecular dynamics on many processes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../performance/dft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plane-wave DFT
   
 
     
@@ -11751,6 +11901,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>where a calculator computes: <code>"cpu"</code>, or <code>"cuda"</code> on a GPU: NVIDIA's with CUDA, or AMD's with ROCm</td>
 </tr>
 <tr>
+<td>GPU part</td>
+<td>the compiled code of MDAPY for the GPU, the package <code>mdapy-cuda12</code> (NVIDIA) or <code>mdapy-rocm6</code> (AMD), or built into MDAPY: the module <code>_cuda</code> or <code>_hip</code> of the potentials and molecular dynamics, and <code>_dft</code> of the plane-wave DFT, which with CUDA needs NVIDIA's cuBLAS, cuFFT and cuSOLVER, the extra <code>dft</code></td>
+</tr>
+<tr>
 <td>mixed precision</td>
 <td>on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double</td>
 </tr>
@@ -11785,6 +11939,18 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <tr>
 <td>overlay</td>
 <td>of <code>Overlay</code>: calculators added together, their energies, forces and virials summed, as LAMMPS's <code>pair_style hybrid/overlay</code></td>
+</tr>
+<tr>
+<td>DFT-D3, <code>D3</code></td>
+<td>the dispersion correction of Grimme et al. (2010): pairs −s6 C6/r⁶ − s8 C8/r⁸, damped at short distances, with C6 interpolated from reference systems by the coordination number of each atom, and optionally the three-body term of Axilrod, Teller and Muto</td>
+</tr>
+<tr>
+<td>damping (of D3)</td>
+<td>how D3 takes away its pairs at short distances: Becke–Johnson (<code>"bj"</code>, rational) replaces rⁿ by rⁿ + R0ⁿ, so that a pair levels off; zero damping (<code>"zero"</code>) multiplies each term by 1/(1 + 6 (r/s_r R0)^−α), so that it goes to zero</td>
+</tr>
+<tr>
+<td>coordination number (of D3)</td>
+<td>the number of neighbors of an atom counted by 1/(1 + e^(−16 ((R_cov,i + R_cov,j)/r − 1))) over the atoms within <code>cn_cutoff</code>, which picks the C6 of its reference systems</td>
 </tr>
 <tr>
 <td>beads, ring polymer</td>
@@ -11959,6 +12125,46 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>cutoff per pair of elements</td>
 <td><code>cutoffs</code>, dict of (str, str) to float64</td>
 <td><code>rc_dict</code></td>
+</tr>
+<tr>
+<td>kinetic energy cutoff of the plane waves of DFT (eV), as VASP's ENCUT</td>
+<td><code>encut</code></td>
+<td><code>cutoff</code>, <code>ecutwfc</code></td>
+</tr>
+<tr>
+<td>largest spacing of a mesh of k-points (1/Å, 2π included), as VASP's KSPACING</td>
+<td><code>kspacing</code></td>
+<td><code>kpoint_density</code>, <code>kdens</code></td>
+</tr>
+<tr>
+<td>first magnetic moments of the atoms of DFT (Bohr magnetons)</td>
+<td><code>magmoms</code></td>
+<td><code>magmom</code>, <code>starting_magnetization</code></td>
+</tr>
+<tr>
+<td>smearing of the occupations of DFT and its width (eV)</td>
+<td><code>smearing</code>, <code>sigma</code></td>
+<td><code>ismear</code>, <code>degauss</code></td>
+</tr>
+<tr>
+<td>DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element</td>
+<td><code>hubbard</code>, dict of str to (str, float64)</td>
+<td><code>ldau</code>, <code>hubbard_u</code>, <code>U</code></td>
+</tr>
+<tr>
+<td>preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level</td>
+<td><code>preconditioner</code>, <code>"kerker"</code> or <code>"ldos"</code></td>
+<td><code>mixing_mode</code>, <code>imix</code></td>
+</tr>
+<tr>
+<td>arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU</td>
+<td><code>precision</code>, <code>"double"</code>, <code>"mixed"</code> or <code>"auto"</code></td>
+<td><code>fp32</code>, <code>single_precision</code></td>
+</tr>
+<tr>
+<td>whose kernels DFT runs on the GPU: MDAPY's own where it has them, or the GPU libraries of the vendor throughout</td>
+<td><code>kernels</code>, <code>"mdapy"</code> or <code>"vendor"</code></td>
+<td><code>backend</code>, <code>fft</code>, <code>library</code>, <code>use_cufft</code></td>
 </tr>
 <tr>
 <td>number of nearest neighbors</td>

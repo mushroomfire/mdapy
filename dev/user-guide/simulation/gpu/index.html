@@ -2333,6 +2333,8 @@
       
         
       
+        
+      
     
     
     
@@ -2421,6 +2423,34 @@
     
   
     Generated training sets for aluminium
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/dft-potential/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    A potential from MDAPY's DFT
   
 
     
@@ -5465,6 +5495,12 @@
       
         
       
+        
+      
+        
+      
+        
+      
     
     
     
@@ -5744,6 +5780,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../potentials/d3/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    DFT-D3 dispersion
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../potentials/nep/" class="md-nav__link">
         
   
@@ -5808,6 +5872,62 @@
     
   
     VASP
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../potentials/dft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plane-wave DFT
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../potentials/dft-verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Verification of the DFT
   
 
     
@@ -9069,6 +9189,8 @@
       
         
       
+        
+      
     
     
     
@@ -9241,6 +9363,34 @@
     
   
     Molecular dynamics on many processes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../performance/dft/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Plane-wave DFT
   
 
     
@@ -10980,6 +11130,11 @@ version:</p>
 RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
 or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
 into it, and newer drivers run it too.
+The package also holds the <a href="../../potentials/dft/">plane-wave DFT</a>, which computes with
+NVIDIA's cuBLAS, cuFFT and cuSOLVER: the extra <code>dft</code> installs them from NVIDIA's packages,
+<code>pip install "mdapy[cuda12,dft]"</code> (see
+<a href="../../../getting-started/installation/#nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT</a>).
+Everything else on this page runs without them.
 <code>mdapy.show_versions()</code> names the GPU part and the GPU it found, in its row
 <code>GPU part</code>. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
@@ -10988,7 +11143,9 @@ and 13.5), which puts the GPU part in MDAPY itself, as the module <code>mdapy._c
 </code></pre></div>
 <p>It is compiled for the GPU of the machine; <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
-used before an installed <code>mdapy-cuda12</code>.</p>
+used before an installed <code>mdapy-cuda12</code>. On Linux, <code>-Ccmake.define.MDAPY_DFT=ON</code> builds
+the DFT into MDAPY too, as <code>mdapy._dft</code>, with cuBLAS, cuFFT and cuSOLVER of the toolkit
+for the build and those of the extra <code>dft</code> (or of <code>LD_LIBRARY_PATH</code>) for the run.</p>
 <h3 id="amd-gpus">AMD GPUs<a class="headerlink" href="#amd-gpus" title="Permanent link">&para;</a></h3>
 <p>On an AMD GPU the same kernels run through HIP of <a href="https://rocm.docs.amd.com">ROCm</a>:
 MDAPY is built from its source with ROCm 6, which puts the GPU part in MDAPY itself, as
@@ -11001,6 +11158,13 @@ rocPRIM and rocThrust, and the run its HIP runtime, as <code>module load rocm</c
 on a cluster. The device keeps its name: <code>device="cuda"</code> is the GPU, whoever made it,
 and everything on this page holds for both. It is tested on the Instinct MI250X with
 ROCm 6.3.4, against the processor as on NVIDIA GPUs.</p>
+<p>The same GPU part with the <a href="../../potentials/dft/">plane-wave DFT</a> is the package
+<code>mdapy-rocm6</code>, built in a clone of MDAPY from its folder <code>rocm6</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span>./rocm6<span class="w"> </span>-Ccmake.define.CMAKE_HIP_ARCHITECTURES<span class="o">=</span>gfx90a
+</code></pre></div>
+<p>Its DFT takes hipBLAS, hipFFT and hipSOLVER of the machine's ROCm, for the build and
+the run alike; <code>-Ccmake.define.MDAPY_DFT=ON</code> beside <code>MDAPY_HIP=ON</code> above builds the DFT
+into MDAPY itself instead.</p>
 <h2 id="potentials">Potentials<a class="headerlink" href="#potentials" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -11106,7 +11270,11 @@ its speed in single precision. Langevin dynamics draws its random forces on the 
 a seed gives the same run there every time, but not the run of the processor with
 that seed.</p>
 <h2 id="molecular-dynamics">Molecular dynamics<a class="headerlink" href="#molecular-dynamics" title="Permanent link">&para;</a></h2>
-<p><code>MolecularDynamics</code> with a potential on the GPU runs every ensemble, <code>"nve"</code>, <code>"nvt"</code>,
+<p><code>MolecularDynamics</code> with a potential of the table above on the GPU runs the steps
+there too. Other calculators on the GPU, such as the <a href="../../potentials/dft/">plane-wave DFT</a>
+and models of torch, compute there and return their forces; the steps of their atoms
+run on the processor, which costs nothing beside them. A potential on the GPU runs
+every ensemble, <code>"nve"</code>, <code>"nvt"</code>,
 <code>"npt"</code> and <code>"nph"</code>, with every barostat and both thermostats, as
 <a href="../ensembles/#how-mdapy-integrates">MDAPY's own dynamics</a> does on the
 processor. Along every periodic direction the box must be thicker than twice the

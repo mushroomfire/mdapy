@@ -37,6 +37,47 @@ inline void keep_pool() {
     (void)kept;
 }
 
+// The memory of the stream-ordered pool of the current device, bytes: in use
+// by the arrays of the whole process and reserved by the pool from the
+// device, now and at their largest since reset_pool_peaks; and the free and
+// total memory of the device, cudaMemGetInfo's.
+struct PoolMemory {
+    std::size_t in_use = 0, in_use_peak = 0, reserved = 0, reserved_peak = 0;
+    std::size_t free = 0, total = 0;
+};
+
+inline cudaMemPool_t current_pool() {
+    int device = 0;
+    cudaMemPool_t pool{};
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+    check_cuda(cudaDeviceGetDefaultMemPool(&pool, device), "cudaDeviceGetDefaultMemPool");
+    return pool;
+}
+
+inline PoolMemory pool_memory() {
+    const cudaMemPool_t pool = current_pool();
+    auto get = [&](cudaMemPoolAttr attribute) {
+        unsigned long long value = 0;
+        check_cuda(cudaMemPoolGetAttribute(pool, attribute, &value), "cudaMemPoolGetAttribute");
+        return static_cast<std::size_t>(value);
+    };
+    PoolMemory m;
+    m.in_use = get(cudaMemPoolAttrUsedMemCurrent);
+    m.in_use_peak = get(cudaMemPoolAttrUsedMemHigh);
+    m.reserved = get(cudaMemPoolAttrReservedMemCurrent);
+    m.reserved_peak = get(cudaMemPoolAttrReservedMemHigh);
+    check_cuda(cudaMemGetInfo(&m.free, &m.total), "cudaMemGetInfo");
+    return m;
+}
+
+// the peaks of pool_memory set to the present values
+inline void reset_pool_peaks() {
+    const cudaMemPool_t pool = current_pool();
+    unsigned long long zero = 0;
+    check_cuda(cudaMemPoolSetAttribute(pool, cudaMemPoolAttrUsedMemHigh, &zero), "cudaMemPoolSetAttribute");
+    check_cuda(cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReservedMemHigh, &zero), "cudaMemPoolSetAttribute");
+}
+
 template <class T>
 class DeviceArray {
 public:

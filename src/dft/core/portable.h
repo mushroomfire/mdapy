@@ -40,6 +40,14 @@
 #define cudaDeviceGetDefaultMemPool hipDeviceGetDefaultMemPool
 #define cudaMemPoolSetAttribute hipMemPoolSetAttribute
 #define cudaMemPoolAttrReleaseThreshold hipMemPoolAttrReleaseThreshold
+#define cudaMemPoolGetAttribute hipMemPoolGetAttribute
+#define cudaMemPoolAttr hipMemPoolAttr
+#define cudaMemPoolAttrUsedMemCurrent hipMemPoolAttrUsedMemCurrent
+#define cudaMemPoolAttrUsedMemHigh hipMemPoolAttrUsedMemHigh
+#define cudaMemPoolAttrReservedMemCurrent hipMemPoolAttrReservedMemCurrent
+#define cudaMemPoolAttrReservedMemHigh hipMemPoolAttrReservedMemHigh
+#define cudaMemPoolTrimTo hipMemPoolTrimTo
+#define cudaMemGetInfo hipMemGetInfo
 #define cudaMemcpy2D hipMemcpy2D
 #define cudaMemset2D hipMemset2D
 #define cudaDeviceGetAttribute hipDeviceGetAttribute

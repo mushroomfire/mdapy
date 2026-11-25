@@ -977,6 +977,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         step.fermi = occ.fermi;
         step.magnetization = ns == 2 ? out_g[ng].x * input.lattice.volume : 0.0;
+        step.memory = pool_memory();
         result.steps.push_back(step);
         result.iterations = iteration;
         result.energy = energy;

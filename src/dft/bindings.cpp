@@ -779,7 +779,7 @@ NB_MODULE(_dft, m) {
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
            double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision,
-           const std::string& kernels) {
+           const std::string& kernels, nb::object on_step) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             in.kernels = mdapy::dft::kernels_of(kernels);
@@ -882,6 +882,20 @@ NB_MODULE(_dft, m) {
             if (!onecenter.is_none() || !paw.is_none() || !hubbard.is_none()) {
                 if (becsum.is_none()) throw std::invalid_argument("PAW and DFT+U need the first occupations becsum");
                 in.becsum = spins_of(nb::cast<Rows>(becsum));
+            }
+            if (!on_step.is_none()) {
+                // a callable of (step, energy, accuracy, magnetization, fermi,
+                // davidson, single, accepted) after each step, in hartree, run
+                // with the GIL; its errors come back as errors of the run
+                nb::object f = on_step;
+                in.on_step = [f](const mdapy::dft::ScfStep& s, int iteration) {
+                    nb::gil_scoped_acquire gil;
+                    try {
+                        f(iteration, s.energy, s.accuracy, s.magnetization, s.fermi, s.davidson, s.single, s.accepted);
+                    } catch (nb::python_error& error) {
+                        throw std::runtime_error(std::string("the log of a step: ") + error.what());
+                    }
+                };
             }
             if (!onecenter.is_none()) {
                 // a callable of becsum (spins, pairs) giving (E^1, D (spins, pairs)),
@@ -1038,7 +1052,7 @@ NB_MODULE(_dft, m) {
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
         nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
-        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy");
+        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy", nb::arg("on_step").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

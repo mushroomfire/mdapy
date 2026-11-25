@@ -7,14 +7,17 @@
 periodic cells from norm-conserving, ultrasoft or PAW pseudopotentials on a
 GPU."""
 
+import inspect
 import math
 import os
+import time
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from mdapy import units
 from mdapy.calculators._base import WITHOUT_VIRIAL, Calculator, CalculatorResult
 from mdapy.calculators._dft import loader
 from mdapy.core.system import System
@@ -54,6 +57,24 @@ def _find_pseudopotential(folder: Path, element: str) -> Path:
             "give them by element"
         )
     return found[0]
+
+
+def _description(elements, species, mesh, setup) -> str:
+    """The line of a computation in the log: its atoms, k-points, bands and
+    grid."""
+    formula = " ".join(f"{e} {elements.count(e)}" for e in species)
+    text = (
+        f"{len(elements)} atoms, {formula}; mesh {' '.join(map(str, mesh))}, "
+        f"{setup['kpoints']} k-points, {setup['operations']} operations, "
+        f"{setup['bands']} bands, grid {' '.join(map(str, setup['grid']))}"
+    )
+    if tuple(setup["smooth_grid"]) != tuple(setup["grid"]):
+        text += f", bands on {' '.join(map(str, setup['smooth_grid']))}"
+    if setup["spins"] == 2:
+        text += ", collinear spins"
+    if setup["gamma"]:
+        text += ", real bands at Gamma"
+    return text
 
 
 class DFT(Calculator):
@@ -184,6 +205,12 @@ class DFT(Calculator):
         the same system and gets the whole result. Without ``gpu``, each takes
         the GPU of its rank among the processes of its node. Default none: one
         process.
+    log : str or path-like or stream, optional
+        Where every step of the self-consistent field of each computation is
+        written, with the parameters the computation took: a file, written
+        anew by the first computation of this calculator and added to by the
+        next, or a stream such as ``sys.stdout``. Under MPI the first process
+        writes it. Default none.
 
     Attributes
     ----------
@@ -203,10 +230,16 @@ class DFT(Calculator):
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
         of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
-        ``single_steps`` (the steps in single precision) and
+        ``single_steps`` (the steps in single precision),
         ``provenance``: what makes the labels of a set comparable, the SHA-256
         of each pseudopotential, the cutoff, the mesh, the smearing and its
-        width, the functional, the spins, the grid, the bands and U.
+        width, the functional, the spins, the grid, the bands and U,
+        ``calculation`` (its number among the computations of this
+        calculator, as the log counts them) and ``parameters``: every
+        parameter the computation took, defaults and ``"auto"`` resolved, as
+        the result's ``info`` keeps it under ``dft`` (see the guide).
+    log : str or path-like or stream or None
+        The log.
 
     Notes
     -----
@@ -255,7 +288,10 @@ class DFT(Calculator):
         precision: str = "double",
         kernels: str = "auto",
         comm: Any = None,
+        log: Any = None,
     ):
+        from mdapy.calculators._dft import log as logs
+
         if not encut > 0:
             raise InvalidParameter("encut must be positive")
         if smearing not in _SMEARINGS:
@@ -363,12 +399,17 @@ class DFT(Calculator):
             from mpi4py import MPI
 
             self.gpu = comm.Split_type(MPI.COMM_TYPE_SHARED).Get_rank()
+        logs.check_target(log)
+        self.log = log
         loader.module()  # the GPU part with the DFT and its libraries, loaded
+        self.__writer: Any = None
+        self.__calculations = 0
         self.__state = None
         self.cutoff = 0.0
         self.elements = None
         self.last: dict[str, Any] = {}
         self.__read: dict[str, Any] = {}
+        self.__files: dict[str, str] = {}
 
     def __pseudopotential(self, element: str):
         from mdapy.calculators._dft.upf import read_upf
@@ -386,7 +427,100 @@ class DFT(Calculator):
                     f"{path} is a pseudopotential of {pp.element}, not {element}"
                 )
             self.__read[element] = pp
+            self.__files[element] = Path(path).name
         return self.__read[element]
+
+    def __log_writer(self):
+        """The writer of the log, made at the first computation, on the GPU
+        it runs on."""
+        from mdapy.calculators._dft import log as logs
+
+        if self.__writer is None:
+            active = self.comm is None or self.comm.Get_rank() == 0
+            if self.log is None or not active:
+                self.__writer = logs.Writer(None, [])
+            else:
+                from mdapy.simulation._log import _machine
+
+                _dft = loader.module()
+                gpu = _dft.device_name()
+                if _dft.api != "HIP":
+                    major, minor = _dft.device_capability()
+                    gpu += f", compute capability {major}.{minor}"
+                ranks = 1 if self.comm is None else self.comm.Get_size()
+                if ranks > 1:
+                    gpu += f"; {ranks} processes, one GPU each"
+                self.__writer = logs.Writer(
+                    self.log, [f"engine: MDAPY on {gpu}", f"machine: {_machine()}"]
+                )
+        return self.__writer
+
+    def __record(self, pseudos, species, mesh, ecutrho, mixing, radius, setup, options):
+        """Every parameter a computation took, defaults and "auto" resolved:
+        the arguments of DFT that give it again, the pseudopotentials by
+        SHA-256, the settings of scf.run that DFT does not set, and the
+        variables MDAPY_DFT_* of the environment."""
+        from mdapy import __version__
+        from mdapy.calculators._dft import scf
+        from mdapy.calculators._dft import symmetry as symmetries
+
+        magmoms = self.magmoms
+        if isinstance(magmoms, Mapping):
+            magmoms = {str(e): float(m) for e, m in magmoms.items()}
+        elif magmoms is not None:
+            magmoms = [float(m) for m in magmoms]
+        arguments = {
+            "encut": self.encut,
+            "ecutrho": ecutrho,
+            "kpoints": list(mesh),
+            "kspacing": self.kspacing,
+            "smearing": self.smearing,
+            "sigma": self.sigma,
+            "magmoms": magmoms,
+            "hubbard": {e: [label, u] for e, (label, u) in self.hubbard.items()},
+            "functional": self.functional or scf.functional_of(pseudos),
+            "tolerance": self.tolerance,
+            "max_iterations": self.max_iterations,
+            "mixing": mixing,
+            "magnetic_mixing": self.magnetic_mixing,
+            "kerker": self.kerker,
+            "preconditioner": self.preconditioner,
+            "bands": int(setup["bands"]),
+            "seed": self.seed,
+            "restart": self.restart,
+            "symmetry": symmetries.available()
+            if self.symmetry is None
+            else bool(self.symmetry),
+            "moment_radius": None if radius is None else float(radius),
+            "precision": "mixed" if setup["mixed"] else "double",
+            "kernels": setup["kernels"],
+        }
+        internal = {}
+        for name, p in inspect.signature(scf.run).parameters.items():
+            if name in options or not isinstance(
+                p.default, (bool, int, float, str, tuple)
+            ):
+                continue
+            internal[name] = (
+                list(p.default) if isinstance(p.default, tuple) else p.default
+            )
+        _dft = loader.module()
+        return {
+            "mdapy": __version__,
+            "arguments": arguments,
+            "pseudopotentials": {
+                e: {"file": self.__files[e], "sha256": pp.digest}
+                for e, pp in zip(species, pseudos)
+            },
+            "internal": internal,
+            "environment": {
+                k: v
+                for k, v in sorted(os.environ.items())
+                if k.startswith("MDAPY_DFT_")
+            },
+            "gpu": _dft.device_name(),
+            "processes": 1 if self.comm is None else int(self.comm.Get_size()),
+        }
 
     def __restart_state(self):
         if not self.restart:
@@ -482,9 +616,17 @@ class DFT(Calculator):
         mixing = self.mixing
         if mixing is None:
             mixing = 0.7 if moments is None else 0.4
-        r = scf.run(
-            cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE,
-            density_cutoff=None if self.ecutrho is None else self.ecutrho / HARTREE,
+        radius = None
+        if moments is not None:
+            radius = self.moment_radius
+            if radius is None:
+                radius = moments_of.default_radius(cell, fractional @ cell)
+        ecutrho = self.ecutrho
+        if ecutrho is None:
+            # ultrasoft augmentation charges need more of the density
+            ecutrho = (8.0 if any(pp.ultrasoft for pp in pseudos) else 4.0) * self.encut
+        options = dict(
+            density_cutoff=ecutrho / HARTREE,
             kgrid=mesh, smearing=self.smearing, sigma=self.sigma / HARTREE,
             bands=self.bands, beta=mixing, kerker=self.kerker * BOHR, preconditioner=self.preconditioner,
             magnetic_beta=self.magnetic_mixing,
@@ -498,8 +640,39 @@ class DFT(Calculator):
             symmetry=self.symmetry, comm=self.comm, precision=self.precision,
             kernels=self.kernels,
         )  # fmt: skip
+        self.__calculations += 1
+        number = self.__calculations
+        writer = self.__log_writer()
+        record: dict[str, Any] = {}
+
+        def on_start(setup: dict) -> None:
+            record.update(
+                self.__record(pseudos, species, mesh, ecutrho, mixing, radius, setup, options)
+            )  # fmt: skip
+            if writer.on:
+                writer.start(
+                    number, _description(elements, species, mesh, setup), record
+                )
+
+        def on_step(
+            step, energy, accuracy, magnetization, fermi, davidson, single, accepted
+        ):
+            writer.step(step, energy * HARTREE, accuracy * HARTREE, magnetization,
+                        fermi * HARTREE, davidson, single, accepted)  # fmt: skip
+
+        began = time.perf_counter()
+        try:
+            r = scf.run(
+                cell / BOHR, fractional, kinds, pseudos, self.encut / HARTREE, **options,
+                on_start=on_start, on_step=on_step if writer.on else None,
+            )  # fmt: skip
+        except BaseException as error:
+            writer.end(f"stopped: {type(error).__name__}: {error}")
+            raise
+        elapsed = time.perf_counter() - began
         if not r["converged"]:
             steps = len(r["energies"])
+            writer.end(f"not converged in {steps} steps, {elapsed:.2f} s")
             tail = ", ".join(
                 f"{e * HARTREE:.8f} eV ({a * HARTREE:.1e})"
                 for e, a in zip(r["energies"][-4:], r["accuracy"][-4:])
@@ -508,7 +681,24 @@ class DFT(Calculator):
                 f"the self-consistent field did not converge in {steps} steps; the last "
                 f"energies (and the Hartree energies of the change of the density): {tail}"
             )
+        energy = float(r["energy"]) * HARTREE
+        forces = r["forces"] * HARTREE / BOHR
+        virial = None
+        if stress:
+            virial = -r["strain_derivative"] * HARTREE
+        if writer.on:
+            largest = float(np.linalg.norm(forces, axis=1).max())
+            summary = (
+                f"converged in {int(r['iterations'])} steps, {elapsed:.2f} s"
+                + ("; from the last ground state" if r["restarted"] else "")
+                + f"; energy {energy:.6f} eV, largest force {largest:.6f} eV/Å"
+            )
+            if virial is not None:
+                pressure = np.trace(virial) / (3 * system.box.volume)
+                summary += f", pressure {pressure * units.EV_PER_A3_TO_GPA:.4f} GPa"
+            writer.end(summary)
         self.last = {
+            "calculation": number,
             "iterations": int(r["iterations"]),
             "davidson": int(np.sum(r["davidson"])),
             "restarted": bool(r["restarted"]),
@@ -531,6 +721,7 @@ class DFT(Calculator):
                 "hubbard": dict(self.hubbard),
                 "kernels": r["kernels"],
             },
+            "parameters": record,
             "single_steps": int(np.sum(r.get("single", 0))),
         }
         if "hubbard_energy" in r:
@@ -541,20 +732,15 @@ class DFT(Calculator):
             self.last["absolute_magnetization"] = float(r["absolute_magnetization"])
             # the density is (up, down) in electrons per bohr^3 on the grid of
             # the atoms' cell; the grid sums to r["magnetization"]
-            radius = self.moment_radius
-            if radius is None:
-                radius = moments_of.default_radius(cell, fractional @ cell)
             m = (r["density"][0] - r["density"][1]) / BOHR**3
             self.last["magnetic_moments"] = moments_of.magnetic_moments(
                 m, cell, fractional @ cell, radius
             )
             self.last["moment_radius"] = float(radius)
-        virial = None
-        if stress:
-            virial = -r["strain_derivative"] * HARTREE
         return CalculatorResult(
-            energy=float(r["energy"]) * HARTREE,
-            forces=r["forces"] * HARTREE / BOHR,
+            energy=energy,
+            forces=forces,
             virial=virial,
             volume=system.box.volume,
+            info={"dft": record},
         )

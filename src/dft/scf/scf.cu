@@ -1023,6 +1023,8 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 trial *= u;
                 ++trials;
                 result.steps.back().accepted = false;
+                result.steps.back().single = single_phase;
+                if (input.on_step) input.on_step(result.steps.back(), iteration);
                 for (std::size_t i = 0; i < in_g.size(); ++i)
                     in_g[i] = make_cuDoubleComplex(taken_in[i].x + trial * delta[i].x, taken_in[i].y + trial * delta[i].y);
                 if (mixes_occupations)
@@ -1045,6 +1047,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             mixer.set_scale(scale);
         }
         result.steps.back().single = single_phase;
+        if (input.on_step) input.on_step(result.steps.back(), iteration);
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
         if (single_phase) {
             // no end in single precision: the next steps in double once its

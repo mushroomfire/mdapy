@@ -106,6 +106,9 @@ class CalculatorResult(Result):
         (N, 3, 3) float64 virials in eV; they sum to ``virial``.
     volume : float64 or None
         Volume of the box in Å³, which gives ``stress``.
+    info : dict or None
+        What the calculator keeps with its labels, such as the parameters of
+        a DFT under ``dft``.
     """
 
     energy: float | None = None
@@ -114,6 +117,7 @@ class CalculatorResult(Result):
     virial: np.ndarray | None = None
     atomic_virials: np.ndarray | None = None
     volume: float | None = None
+    info: dict | None = None
 
     @property
     def stress(self) -> np.ndarray:
@@ -133,13 +137,15 @@ class CalculatorResult(Result):
         """The system with these values as columns and information.
 
         ``forces``, ``atomic_energies`` and ``atomic_virials`` become
-        columns; ``energy`` and ``virial`` become entries of ``info``.
+        columns; ``energy``, ``virial`` and the entries of ``info`` become
+        entries of the system's ``info``.
         """
         info = {
             name: getattr(self, name)
             for name in ("energy", "virial")
             if getattr(self, name) is not None
         }
+        info.update(self.info or {})
         return system.with_columns(self).with_info(**info)
 
 

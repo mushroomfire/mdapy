@@ -26,7 +26,7 @@ from mdapy.elements import SYMBOLS, atomic_masses
 from mdapy.errors import Cancelled, InvalidParameter, MissingProperty
 from mdapy.simulation import _controls, _domain, _restart
 from mdapy.simulation._integrator import _Native
-from mdapy.simulation._log import _Log, _machine
+from mdapy.simulation._log import _apart, _Log, _machine
 from mdapy.simulation._pimd import _RingPolymer
 
 _ENSEMBLES = ("nve", "nvt", "npt", "nph", "nphug", "msst")
@@ -972,6 +972,7 @@ class MolecularDynamics:
         else:
             self.__engine = _Native(system, potential, timestep, shared)
         try:
+            _apart(log, potential)
             self.__log = _Log(log, active=self.__engine.writes)
         except InvalidParameter:
             self.__engine.close()
@@ -1230,6 +1231,7 @@ class MolecularDynamics:
             For a file that is not a restart file of this version of MDAPY,
             a potential of another kind than the file's, or too few others.
         """
+        _apart(log, potential)
         state, names = _restart.read(path, [potential, *others])
         if names and not names[0].startswith(type(potential).__name__ + "("):
             raise InvalidParameter(

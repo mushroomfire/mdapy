@@ -275,6 +275,8 @@ def run(
     preconditioner: str = "kerker",
     precision: str = "double",
     kernels: str = "auto",
+    on_start=None,
+    on_step=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -345,7 +347,13 @@ def run(
     it has its own (the FFTs, the dense linear algebra, the eigensolver and
     the Cholesky factorization), "vendor": the GPU libraries
     of the vendor throughout, "auto": by the GPU (kernels_of); the result
-    holds the one taken as kernels."""
+    holds the one taken as kernels. on_start(setup), before the loop, gets a
+    dict of what the run takes: grid, smooth_grid, density_cutoff (hartree),
+    bands, kpoints (their number), operations, gamma, spins, electrons,
+    kernels and mixed (the precision); on_step(step, energy, accuracy,
+    magnetization, fermi, davidson, single, accepted), after each step, its
+    number from 1 and its values in hartree, as the result's histories
+    (a log of the run)."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
@@ -501,6 +509,14 @@ def run(
         becsum = _hubbard_start(
             kinds, angular, hubbard_of, hubbard_electrons, spins, magmoms
         )
+    mixed = mixed_precision(precision)
+    if on_start is not None:
+        on_start({
+            "grid": grid, "smooth_grid": smooth_grid, "density_cutoff": density_cutoff,
+            "bands": bands, "kpoints": len(kpoints),
+            "operations": 1 if ops is None else len(ops), "gamma": bool(gamma),
+            "spins": spins, "electrons": electrons, "kernels": kernels, "mixed": mixed,
+        })  # fmt: skip
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
@@ -517,7 +533,7 @@ def run(
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
-        preconditioner == "ldos", mixed_precision(precision), kernels,
+        preconditioner == "ldos", mixed, kernels, on_step,
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

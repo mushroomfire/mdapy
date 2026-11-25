@@ -67,6 +67,8 @@ struct AxisArgs {
     long long stride;   // strided: between the points of a line
     long long plane;    // strided: points of a plane, n columns
     long long lines;    // contiguous: all the lines
+    int window;         // strided: with window >= 0 only the points within window of 0 along the line are read, the
+                        // others taken as zeros
     Pass pass[kMaxPasses];
 };
 
@@ -332,8 +334,12 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
                 Cx<R> value[kAhead];
 #pragma unroll
                 for (int i = 0; i < kAhead; ++i) {
-                    const unsigned e = e0 + i * blockDim.x;
-                    if (e < n * lines) value[i] = from[(e >> a.log_c) * a.stride + (e & mask)];
+                    const unsigned e = e0 + i * blockDim.x, j = e >> a.log_c;
+                    if (e < n * lines)
+                        value[i] = a.window < 0 || j <= static_cast<unsigned>(a.window) ||
+                                           j + static_cast<unsigned>(a.window) >= n
+                                       ? from[j * a.stride + (e & mask)]
+                                       : Cx<R>{static_cast<R>(0), static_cast<R>(0)};
                 }
 #pragma unroll
                 for (int i = 0; i < kAhead; ++i) {
@@ -464,6 +470,8 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
 }
 
 struct PlaneArgs {
+    int n1;           // planes of a box
+    int window;       // with window >= 0 only the planes within window of 0, 2 window + 1 a box, else all
     int n2, n3;       // lines of a plane and their points
     int pitch;        // points between the lines in shared memory, odd
     unsigned inv_n2;  // ceil(2^32 / n2)
@@ -484,7 +492,13 @@ __global__ void plane_kernel(const PlaneArgs a, const Cx<R>* __restrict__ roots2
     Cx<R>* shared = reinterpret_cast<Cx<R>*>(aligned_shared);
     const unsigned n2 = static_cast<unsigned>(a.n2), n3 = static_cast<unsigned>(a.n3), points = n2 * n3;
     const unsigned pitch = static_cast<unsigned>(a.pitch);
-    Cx<R>* plane = reinterpret_cast<Cx<R>*>(boxes) + static_cast<long long>(blockIdx.x) * points;
+    long long index = blockIdx.x;  // of the plane among those of the boxes
+    if (a.window >= 0) {
+        const unsigned w = 2u * static_cast<unsigned>(a.window) + 1u, box = blockIdx.x / w, i = blockIdx.x - box * w;
+        index = static_cast<long long>(box) * a.n1 +
+                (i <= static_cast<unsigned>(a.window) ? i : static_cast<unsigned>(a.n1) - (w - i));
+    }
+    Cx<R>* plane = reinterpret_cast<Cx<R>*>(boxes) + index * points;
     for (unsigned e0 = threadIdx.x; e0 < points; e0 += kAhead * blockDim.x) {
         Cx<R> value[kAhead];
 #pragma unroll
@@ -798,6 +812,7 @@ struct BoxFft::Tables {
         a.passes = static_cast<int>(passes.size());
         a.inv_n = n > 1 ? inverse_of(n) : 0u;
         a.inv_half = a.half > 1 ? inverse_of(a.half) : 0u;
+        a.window = -1;
         for (std::size_t i = 0; i < passes.size(); ++i) a.pass[i] = passes[i];
         return a;
     }
@@ -919,10 +934,11 @@ int plane_threads(Kernel kernel, [[maybe_unused]] std::size_t bytes, int points,
 // The lines along an axis whose points are stride apart, columns of them side
 // by side in each of the planes.
 template <class R, int Sign>
-void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride) {
+void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window) {
     if (!(axes_ & (1 << axis))) return;
     const Tables& t = *tables_[axis];
     AxisArgs a = t.args();
+    a.window = window;
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
     geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], narrow_ && sizeof(R) == 8 && t.n >= 64, a.log_c, threads);
@@ -965,11 +981,13 @@ void BoxFft::contiguous(const R* in, R* out, long long lines) {
 // The third and the second axis of the planes of complex boxes in one kernel,
 // when a plane fits the shared memory of a block; false when it does not.
 template <class R, int Sign>
-bool BoxFft::planes(R* boxes, long long count) {
+bool BoxFft::planes(R* boxes, long long count, int window) {
+    if (!plane_fits<R>()) return false;
     const Tables &t2 = *tables_[1], &t3 = *tables_[2];
     const std::size_t bytes = static_cast<std::size_t>(t2.n) * (t3.n | 1) * sizeof(Cx<R>);
-    if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
     PlaneArgs a{};
+    a.n1 = grid_[0];
+    a.window = window;
     a.n2 = t2.n;
     a.n3 = t3.n;
     a.pitch = t3.n | 1;
@@ -982,7 +1000,9 @@ bool BoxFft::planes(R* boxes, long long count) {
     int& threads = threads_[sizeof(R) == 4][Sign > 0][0];
     if (threads == 0) threads = plane_threads(plane_kernel<R, Sign>, bytes, t2.n * t3.n, most_shared_);
     const int tuned = tuned_[sizeof(R) == 4][2][1];
-    plane_kernel<R, Sign><<<static_cast<unsigned>(count * grid_[0]), tuned > 0 ? tuned : threads, bytes>>>(a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
+    const long long per = window >= 0 ? 2LL * window + 1 : grid_[0];  // planes of a box
+    plane_kernel<R, Sign><<<static_cast<unsigned>(count * per), tuned > 0 ? tuned : threads, bytes>>>(
+        a, t2.roots_of(R{}), t2.source, t3.roots_of(R{}), t3.source, boxes);
     check(cudaGetLastError(), "the transform of the planes");
     return true;
 }
@@ -996,6 +1016,7 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
         const std::size_t bytes = static_cast<std::size_t>(t2.n) * t3.n * sizeof(Cx<R>);
         if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
         PlaneArgs a{};
+        a.window = -1;
         a.n2 = t2.n;
         a.n3 = t3.n;
         a.pitch = t3.n;
@@ -1021,6 +1042,7 @@ bool BoxFft::real_planes(const R* in, R* out, long long count) {
     const std::size_t bytes = static_cast<std::size_t>(t2.n) * (half | 1) * sizeof(Cx<R>);
     if (bytes > plane_bytes_ || (axes_ & 6) != 6 || (axes_ & 16)) return false;
     PlaneArgs a{};
+    a.window = -1;
     a.n2 = t2.n;
     a.n3 = t3.n;
     a.pitch = half | 1;
@@ -1060,6 +1082,40 @@ void BoxFft::complex_boxes(R* boxes, int count, int sign) {
     }
 }
 
+// Whether a plane of complex points fits a block and its kernel may run.
+template <class R>
+bool BoxFft::plane_fits() const {
+    const std::size_t bytes = static_cast<std::size_t>(tables_[1]->n) * (tables_[2]->n | 1) * sizeof(Cx<R>);
+    return bytes <= plane_bytes_ && (axes_ & 6) == 6 && !(axes_ & 16);
+}
+
+// complex_boxes of boxes of which only the planes within window of 0 matter:
+// the inverse transforms those planes along the second and the third axis and
+// reads them alone along the first, the others taken as zeros; the forward
+// transforms every line along the first axis, then those planes alone. Without
+// a kernel of planes, the whole boxes, the others zeroed first.
+template <class R>
+void BoxFft::complex_window(R* boxes, int count, int sign, int window) {
+    if (count < 1) return;
+    const long long n1 = grid_[0], n2 = grid_[1], n3 = grid_[2];
+    if (window < 0 || 2LL * window + 1 >= n1) return complex_boxes(boxes, count, sign);
+    if (!plane_fits<R>()) {
+        if (sign > 0)  // the planes beyond the window to zeros
+            for (int b = 0; b < count; ++b)
+                check(cudaMemset(reinterpret_cast<Cx<R>*>(boxes) + (b * n1 + window + 1) * n2 * n3, 0,
+                                 static_cast<std::size_t>((n1 - 2 * window - 1) * n2 * n3) * sizeof(Cx<R>)),
+                      "cudaMemset");
+        return complex_boxes(boxes, count, sign);
+    }
+    if (sign > 0) {
+        planes<R, 1>(boxes, count, window);
+        strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3, window);
+    } else {
+        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
+        planes<R, -1>(boxes, count, window);
+    }
+}
+
 template <class R>
 void BoxFft::real_forward(const R* values, R* spectrum, int count) {
     if (count < 1) return;
@@ -1087,10 +1143,10 @@ void BoxFft::real_inverse(R* spectrum, R* values, int count) {
         contiguous<R, 1, kComplexToReal>(spectrum, values, count * n1 * n2);
 }
 
-void BoxFft::forward(double* boxes, int count) { complex_boxes(boxes, count, -1); }
-void BoxFft::inverse(double* boxes, int count) { complex_boxes(boxes, count, 1); }
-void BoxFft::forward(float* boxes, int count) { complex_boxes(boxes, count, -1); }
-void BoxFft::inverse(float* boxes, int count) { complex_boxes(boxes, count, 1); }
+void BoxFft::forward(double* boxes, int count, int window) { complex_window(boxes, count, -1, window); }
+void BoxFft::inverse(double* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
+void BoxFft::forward(float* boxes, int count, int window) { complex_window(boxes, count, -1, window); }
+void BoxFft::inverse(float* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
 void BoxFft::forward(const double* values, double* spectrum, int count) { real_forward(values, spectrum, count); }
 void BoxFft::inverse(double* spectrum, double* values, int count) { real_inverse(spectrum, values, count); }
 void BoxFft::forward(const float* values, float* spectrum, int count) { real_forward(values, spectrum, count); }

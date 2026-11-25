@@ -179,6 +179,7 @@ private:
     // the spheres of the k-points set so far: each is made once, and the
     // steps of an SCF come back to the same k-points
     std::vector<std::pair<Vec3, Sphere>> spheres_;
+    int window_ = -1;  // the largest |m| of the first Miller index of the sphere: the planes of its boxes that matter
     DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)

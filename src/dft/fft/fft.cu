@@ -123,29 +123,29 @@ cufftHandle Fft::plan(cufftType type, int count) {
     return handle;
 }
 
-void Fft::to_real(Complex* boxes, int count) {
+void Fft::to_real(Complex* boxes, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->inverse(reals(boxes), count);
+    if (own_) return own_->inverse(reals(boxes), count, window);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_INVERSE),
                 "cufftExecZ2Z");
 }
 
-void Fft::to_reciprocal(Complex* boxes, int count) {
+void Fft::to_reciprocal(Complex* boxes, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(reals(boxes), count);
+    if (own_) return own_->forward(reals(boxes), count, window);
     check_cufft(cufftExecZ2Z(plan(CUFFT_Z2Z, count), boxes, boxes, CUFFT_FORWARD),
                 "cufftExecZ2Z");
 }
 
-void Fft::to_real(cuComplex* boxes, int count) {
+void Fft::to_real(cuComplex* boxes, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->inverse(reals(boxes), count);
+    if (own_) return own_->inverse(reals(boxes), count, window);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_INVERSE), "cufftExecC2C");
 }
 
-void Fft::to_reciprocal(cuComplex* boxes, int count) {
+void Fft::to_reciprocal(cuComplex* boxes, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(reals(boxes), count);
+    if (own_) return own_->forward(reals(boxes), count, window);
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
 }
 
@@ -183,6 +183,48 @@ void scatter(const Complex* coefficients, std::size_t n, const std::int64_t* box
     if (n == 0 || count == 0) return;
     scatter_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, partner, count, boxes,
                                                     points);
+    launched("scatter");
+}
+
+namespace {
+
+// count boxes of the grid to zeros, or only their planes of the first index
+// within window of 0
+template <class T>
+void zero_window(T* boxes, int count, const Int3& grid, int window) {
+    const std::size_t plane = static_cast<std::size_t>(grid[1]) * grid[2] * sizeof(T),
+                      box = static_cast<std::size_t>(grid[0]) * plane;
+    if (window < 0 || 2 * window + 1 >= grid[0]) {
+        check_cuda(cudaMemset(boxes, 0, static_cast<std::size_t>(count) * box), "cudaMemset");
+        return;
+    }
+    char* first = reinterpret_cast<char*>(boxes);
+    check_cuda(cudaMemset2D(first, box, 0, static_cast<std::size_t>(window + 1) * plane, static_cast<std::size_t>(count)),
+               "cudaMemset2D");
+    check_cuda(cudaMemset2D(first + static_cast<std::size_t>(grid[0] - window) * plane, box, 0,
+                            static_cast<std::size_t>(window) * plane, static_cast<std::size_t>(count)),
+               "cudaMemset2D");
+}
+
+}  // namespace
+
+void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, int count, Complex* boxes,
+                    const Int3& grid, int window) {
+    MDAPY_SPAN("scatter");
+    zero_window(boxes, count, grid, window);
+    if (n == 0 || count == 0) return;
+    const std::size_t points = static_cast<std::size_t>(grid[0]) * grid[1] * grid[2];
+    scatter_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, nullptr, count, boxes, points);
+    launched("scatter");
+}
+
+void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count,
+                    cuComplex* boxes, const Int3& grid, int window) {
+    MDAPY_SPAN("scatter");
+    zero_window(boxes, count, grid, window);
+    if (n == 0 || count == 0) return;
+    const std::size_t points = static_cast<std::size_t>(grid[0]) * grid[1] * grid[2];
+    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, nullptr, count, boxes, points);
     launched("scatter");
 }
 

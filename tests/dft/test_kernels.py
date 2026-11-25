@@ -69,6 +69,31 @@ def test_the_transforms_agree(grid):
 
 
 @pytest.mark.parametrize(
+    "grid", [(27, 27, 27), (36, 30, 25), (45, 48, 80), (90, 90, 96)]
+)
+def test_the_transforms_of_the_planes_of_a_sphere(grid):
+    """The transforms of boxes of which only the planes of the sphere matter:
+    the values of the sphere are those of the whole boxes to the last bit (the
+    planes beyond it are never read), and its coefficients from noise those of
+    the whole boxes to rounding (the axes in another order); with a plane
+    larger than a block, the whole boxes."""
+    rng = np.random.default_rng(2)
+    cell = np.diag([9.0, 9.5, 10.0])
+    miller, box, _ = sphere_of(cell, 3.0, grid)
+    window = int(np.abs(np.asarray(miller)[:, 0]).max())
+    assert 2 * window + 1 < grid[0]
+    c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
+    for kernels in KERNELS:
+        whole = _dft.to_real_space(c, box, list(grid), kernels=kernels)
+        planes = _dft.to_real_space(c, box, list(grid), kernels=kernels, window=window)
+        np.testing.assert_array_equal(planes, whole)
+        noise = rng.normal(size=(2, *grid)) + 1j * rng.normal(size=(2, *grid))
+        whole = _dft.to_coefficients(noise, box, kernels=kernels)
+        planes = _dft.to_coefficients(noise, box, kernels=kernels, window=window)
+        assert np.abs(planes - whole).max() < 1e-13 * np.abs(whole).max()
+
+
+@pytest.mark.parametrize(
     "grid",
     [
         (27, 27, 27),

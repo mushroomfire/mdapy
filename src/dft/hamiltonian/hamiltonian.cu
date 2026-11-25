@@ -11,6 +11,7 @@
 #include "dft/xc/dual.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cmath>
 #include <stdexcept>
 #include <string>
@@ -554,6 +555,8 @@ void Hamiltonian::set_k(const Vec3& k) {
     }
     sphere_ = *known;
     const std::size_t n = sphere_.size();
+    window_ = 0;
+    for (const auto& m : sphere_.miller) window_ = std::max(window_, std::abs(m[0]));
     kinetic_.assign(sphere_.kinetic.data(), n);
     box_.assign(sphere_.box.data(), n);
     if (gamma_) partner_.assign(sphere_.partner.data(), n);
@@ -692,10 +695,12 @@ void Hamiltonian::add_density(const Complex* psi, int count, const double* weigh
         }
         return;
     }
+    const int window = fft_.window_of(window_);
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
-        scatter(psi + n * static_cast<std::size_t>(first), n, box_.data(), nullptr, m, boxes_.data(), points);
-        fft_.to_real(boxes_.data(), m);
+        scatter_window(psi + n * static_cast<std::size_t>(first), n, box_.data(), m, boxes_.data(), fft_.grid(),
+                       window);
+        fft_.to_real(boxes_.data(), m, window);
         density_kernel<<<blocks(points), kThreads>>>(points, m, boxes_.data(), weights_.data() + first,
                                                      1.0 / lattice_.volume, rho);
         check_cuda(cudaGetLastError(), "the density of the bands");
@@ -1035,14 +1040,15 @@ void Hamiltonian::apply_local(const Complex* psi, Complex* hpsi, int count) {
         gamma_clean(n, count, hpsi);
         return;
     }
+    const int window = fft_.window_of(window_);
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
         const std::size_t offset = n * static_cast<std::size_t>(first);
-        scatter(psi + offset, n, box_.data(), nullptr, m, boxes_.data(), points);
-        fft_.to_real(boxes_.data(), m);
+        scatter_window(psi + offset, n, box_.data(), m, boxes_.data(), fft_.grid(), window);
+        fft_.to_real(boxes_.data(), m, window);
         multiply_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_.data(), boxes_.data());
         check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_.data(), m);
+        fft_.to_reciprocal(boxes_.data(), m, window);
         gather_add(boxes_.data(), points, box_.data(), n, m, 1.0 / static_cast<double>(points), hpsi + offset);
     }
 }
@@ -1191,14 +1197,15 @@ void Hamiltonian::apply_local(const cuComplex* psi, cuComplex* hpsi, int count) 
         gamma_clean(n, count, hpsi);
         return;
     }
+    const int window = fft_.window_of(window_);
     for (int first = 0; first < count; first += step) {
         const int m = std::min(step, count - first);
         const std::size_t offset = n * static_cast<std::size_t>(first);
-        scatter(psi + offset, n, box_.data(), m, boxes_f_.data(), points);
-        fft_.to_real(boxes_f_.data(), m);
+        scatter_window(psi + offset, n, box_.data(), m, boxes_f_.data(), fft_.grid(), window);
+        fft_.to_real(boxes_f_.data(), m, window);
         multiply_single_kernel<<<blocks(points * m), kThreads>>>(points, m, potential_f_.data(), boxes_f_.data());
         check_cuda(cudaGetLastError(), "the local potential");
-        fft_.to_reciprocal(boxes_f_.data(), m);
+        fft_.to_reciprocal(boxes_f_.data(), m, window);
         gather_add(boxes_f_.data(), points, box_.data(), n, m, 1.0f / static_cast<float>(points), hpsi + offset);
     }
 }

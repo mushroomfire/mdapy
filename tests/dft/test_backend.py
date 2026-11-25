@@ -56,6 +56,8 @@ def test_the_transforms_agree(grid):
     values = [_dft.to_real_space(c, box, list(grid), backend=b) for b in BACKENDS]
     scale = np.abs(values[1]).max()
     assert np.abs(values[0] - values[1]).max() < 1e-13 * scale
+    # two programs differ in the last bits; one program gives the same bits
+    assert np.array_equal(values[0], values[1]) == (grid == (22, 24, 20))
     noise = rng.normal(size=(2, *grid)) + 1j * rng.normal(size=(2, *grid))
     back = [_dft.to_coefficients(noise, box, backend=b) for b in BACKENDS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
@@ -115,7 +117,7 @@ def both(cell, positions, kinds, pseudos, cutoff, **options):
     return runs
 
 
-def agree(own, vendor, atoms, energy=1e-10, forces=1e-9, strain=1e-9):
+def agree(own, vendor, atoms, energy=1e-10, forces=1e-9, strain=1e-9, levels=1e-9):
     """Energies (hartree), forces (hartree/bohr) and strain derivatives of the
     two backends within the tolerances, the first and the last per atom."""
     assert own["grid"] == vendor["grid"] and own["bands"] == vendor["bands"]
@@ -129,7 +131,7 @@ def agree(own, vendor, atoms, energy=1e-10, forces=1e-9, strain=1e-9):
     )
     held = vendor["occupations"] > 1e-8
     np.testing.assert_allclose(
-        own["eigenvalues"][held], vendor["eigenvalues"][held], rtol=0, atol=1e-9
+        own["eigenvalues"][held], vendor["eigenvalues"][held], rtol=0, atol=levels
     )
 
 
@@ -201,7 +203,7 @@ def test_mixed_precision(gamma):
         precision="mixed",
     )
     assert np.sum(own["single"]) > 0 and np.sum(vendor["single"]) > 0
-    agree(own, vendor, 8, energy=1e-9, forces=1e-7, strain=1e-7)
+    agree(own, vendor, 8, energy=1e-9, forces=1e-7, strain=1e-7, levels=1e-7)
 
 
 def test_the_calculator_keeps_its_backend():

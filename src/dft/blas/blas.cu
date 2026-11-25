@@ -316,25 +316,21 @@ cublasStatus_t vendor_gemm(cublasHandle_t h, cublasOperation_t ta, cublasOperati
     return cublasSgemm(h, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc);
 }
 
-constexpr cublasSideMode_t kRight = CUBLAS_SIDE_RIGHT;
-constexpr cublasFillMode_t kUpper = CUBLAS_FILL_MODE_UPPER;
-constexpr cublasDiagType_t kNonUnit = CUBLAS_DIAG_NON_UNIT;
-
 cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const Complex* r, int ldr, Complex* b, int ldb) {
     const Complex one = make_cuDoubleComplex(1.0, 0.0);
-    return cublasZtrsm(h, kRight, kUpper, CUBLAS_OP_N, kNonUnit, m, n, &one, r, ldr, b, ldb);
+    return cublasZtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
 }
 cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const cuComplex* r, int ldr, cuComplex* b, int ldb) {
     const cuComplex one = make_cuComplex(1.0f, 0.0f);
-    return cublasCtrsm(h, kRight, kUpper, CUBLAS_OP_N, kNonUnit, m, n, &one, r, ldr, b, ldb);
+    return cublasCtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
 }
 cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const double* r, int ldr, double* b, int ldb) {
     const double one = 1.0;
-    return cublasDtrsm(h, kRight, kUpper, CUBLAS_OP_N, kNonUnit, m, n, &one, r, ldr, b, ldb);
+    return cublasDtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
 }
 cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const float* r, int ldr, float* b, int ldb) {
     const float one = 1.0f;
-    return cublasStrsm(h, kRight, kUpper, CUBLAS_OP_N, kNonUnit, m, n, &one, r, ldr, b, ldb);
+    return cublasStrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
 }
 
 // the scalars of the kernels have the layout of those of the libraries

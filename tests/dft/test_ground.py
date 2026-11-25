@@ -97,6 +97,12 @@ def test_files_that_are_not_ground_states(tmp_path):
         ground.read(tmp_path / "part.npz")
     with pytest.raises(InvalidParameter, match="cannot write"):
         ground.write(tmp_path / "no" / "al.npz", made_up())
+    # a failure once the file is written leaves nothing beside the target
+    (tmp_path / "folder").mkdir()
+    before = sorted(p.name for p in tmp_path.iterdir())
+    with pytest.raises(InvalidParameter, match="cannot write"):
+        ground.write(tmp_path / "folder", made_up())
+    assert sorted(p.name for p in tmp_path.iterdir()) == before
 
 
 def test_a_computation_must_be_of_the_ground_state():

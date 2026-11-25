@@ -698,6 +698,11 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                     check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
                 } catch (...) {
                     wk->error = std::current_exception();
+                    // the work of its stream done before the thread and its
+                    // stream end, as without an error: a worker that failed
+                    // with work left on its stream (the first bands of the
+                    // atoms) left the run waiting for ever instead of raising
+                    static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
                 }
             });
         }

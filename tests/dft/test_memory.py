@@ -7,8 +7,8 @@
 reserved, now, at their peaks and at the end of each step of a run; a run
 gives back to the device what the pool holds beyond the use of its steps, so
 that a small run after work that took much holds the memory of the small one,
-and a failed run gives back all; and the DFT calculator reports them in
-last["gpu_memory"]."""
+and a failed run, on one host thread or several, raises and gives back all;
+and the DFT calculator reports them in last["gpu_memory"]."""
 
 import os
 
@@ -104,10 +104,13 @@ def test_a_run_gives_back_what_it_does_not_use():
     assert _dft.memory()["reserved"] <= int(again["memory"]["in_use"][-1]) + 64 * MIB
 
 
-def test_a_failed_run_gives_back_all():
+@pytest.mark.parametrize("threads", [1, 4])
+def test_a_failed_run_gives_back_all(threads):
+    # its bands fail after the first bands of the atoms, on one host thread
+    # or on several (which waited for ever before)
     hold_and_free(512)
     with pytest.raises(ValueError, match="max_iterations"):
-        silicon_run(davidson_iterations=0, kpoint_threads=1)
+        silicon_run(davidson_iterations=0, kpoint_threads=threads)
     m = _dft.memory()
     assert m["reserved"] <= m["in_use"] + 64 * MIB
 

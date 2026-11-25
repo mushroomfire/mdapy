@@ -12,6 +12,7 @@ of rock salt and CsCl, and its forces against its differences. Pseudopotentials
 of PseudoDojo are read from MDAPY_PSEUDO_DIR when it is set (test_upf.py reads
 public ones of each kind)."""
 
+import gc
 import math
 import os
 from pathlib import Path
@@ -185,6 +186,23 @@ def test_projector_tables_and_their_interpolation(ell):
         factor * between**ell * np.exp(-(between**2) / 2),
         atol=1e-8,
     )
+
+
+def test_the_tables_kept_while_the_pseudopotential_lives():
+    """The integrals of the tables of a pseudopotential are made once while it
+    lives, read only, the factor of each volume applied after them, and go
+    with it."""
+    pp = gaussian_pseudopotential(1)
+    first = radial.projector_table(pp, 3.0, 100.0)
+    kept = [k for k in radial._TABLES if k[0] == id(pp)]
+    assert len(kept) == 1 and not radial._TABLES[kept[0]].flags.writeable
+    second = radial.projector_table(pp, 3.0, 25.0)
+    assert [k for k in radial._TABLES if k[0] == id(pp)] == kept
+    np.testing.assert_allclose(second, 2.0 * first, rtol=1e-15)
+    key = id(pp)
+    del pp
+    gc.collect()
+    assert not [k for k in radial._TABLES if k[0] == key]
 
 
 def test_the_weights_of_simpson():

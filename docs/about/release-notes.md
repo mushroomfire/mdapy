@@ -60,6 +60,14 @@
   last bit at each run: its sums over the blocks of a kernel go in their order, and the host
   threads of the k-points add up the density of the same k-points in the same order. Two
   runs differed by up to 1.6e-12 hartree before.
+- The DFT no longer does on one core of the host what each step of its self-consistent
+  field repeats. Pulay's mixing of the densities runs on the GPU, where the densities stay;
+  it was 15 % of a step of Fe72 on a GH200. The plane waves of each k-point are found once.
+  The transforms of the pseudopotentials take every q at once and are kept while the
+  pseudopotential lives, so that molecular dynamics makes them once; those of an ultrasoft
+  or PAW pseudopotential took 6 to 7 s at each run before. On a GH200, Fe72 and Si64 at Gamma
+  run 15 % faster, Al4 with 112 k-points 35 %, Fe16 and Fe54 with PAW 33 %, and Al108 with
+  an ultrasoft pseudopotential 64 %.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

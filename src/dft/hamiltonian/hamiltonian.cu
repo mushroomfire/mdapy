@@ -540,7 +540,19 @@ void Hamiltonian::set_k(const Vec3& k) {
         throw std::invalid_argument("real bands are those of Gamma only");
     gamma_ = gamma_mode_;
     single_stale_ = true;
-    sphere_ = make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, gamma_);
+    // made once for each k-point: its plane waves sorted on the host took
+    // milliseconds, at each of the k-points of each step
+    const Sphere* known = nullptr;
+    for (const auto& [at, s] : spheres_)
+        if (at == k) {
+            known = &s;
+            break;
+        }
+    if (known == nullptr) {
+        spheres_.emplace_back(k, make_sphere(lattice_, has_basis_ ? &basis_ : nullptr, k, cutoff_, grid_, gamma_));
+        known = &spheres_.back().second;
+    }
+    sphere_ = *known;
     const std::size_t n = sphere_.size();
     kinetic_.assign(sphere_.kinetic.data(), n);
     box_.assign(sphere_.box.data(), n);

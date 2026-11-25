@@ -148,8 +148,8 @@ def test_the_info_of_a_result_goes_with_the_labels(tmp_path):
     write(tmp_path / "labels.xyz", labelled)
     assert plain(read(tmp_path / "labels.xyz").info["dft"]) == record
     # without info, as other calculators give it
-    plain = CalculatorResult(energy=-1.5).attach(system)
-    assert set(plain.info) == {"energy"}
+    bare = CalculatorResult(energy=-1.5).attach(system)
+    assert set(bare.info) == {"energy"}
 
 
 # -- on a GPU -----------------------------------------------------------------

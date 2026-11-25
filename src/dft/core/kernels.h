@@ -4,7 +4,8 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Whose kernels a calculation runs: MDAPY's own where it has them (today the
-// FFTs, dft/fft/box_fft.h), or the GPU libraries of the vendor throughout
+// FFTs, dft/fft/box_fft.h, and the dense linear algebra, dft/blas/blas.h), or
+// the GPU libraries of the vendor throughout
 // (cuFFT, cuBLAS and cuSOLVER of NVIDIA; hipFFT, hipBLAS and hipSOLVER of AMD).
 // What MDAPY has no kernel for runs in the libraries of the vendor with either.
 

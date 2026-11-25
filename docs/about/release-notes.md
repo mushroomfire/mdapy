@@ -4,7 +4,9 @@
 
 - `DFT(kernels="mdapy")`: the fast Fourier transforms of the DFT are MDAPY's own kernels
   on the GPU, for the grids and the transforms the plane waves take, in place of those
-  of cuFFT or hipFFT; `kernels="vendor"` runs the GPU libraries of the vendor throughout.
+  of cuFFT or hipFFT, and so is its dense linear algebra (the products of matrices and
+  the triangular solves of the solver and the projectors), in place of cuBLAS or
+  hipBLAS; `kernels="vendor"` runs the GPU libraries of the vendor throughout.
   The results agree to rounding, and `DFT.last["provenance"]` keeps the choice.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius

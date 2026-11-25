@@ -252,7 +252,8 @@ __global__ void mirror_kernel(int n, S* a) {
 constexpr int kStep = 128;    // threads of a block of the tridiagonalization
 constexpr int kFused = 1024;  // the largest matrix of which a step is one launch
 constexpr int kFusedBytes = 8192;  // and the most bytes of a column of it (512 complex numbers of double precision: a V100)
-constexpr int kPanelsFrom = 1024;  // the smallest matrix reduced in panels, complex numbers of double precision
+constexpr int kStepsComplex = 704;  // the largest of complex double of which all steps are one launch
+constexpr int kPanelsFrom = 1536;  // the smallest matrix reduced in panels in single precision on a GPU of little double precision
 constexpr int kFusedSingle = 256;  // the same in single precision on a GPU of little double precision
 
 constexpr int kGroups = 16;   // of the threads of a block, for its sums
@@ -1317,57 +1318,30 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
         const int limit = fused_limit_ >= 0 ? std::min(fused_limit_, kFused)
                           : full_double() ? std::min(kFused, static_cast<int>(kFusedBytes / sizeof(S)))
                           : sizeof(R) == sizeof(float) ? kFusedSingle : 0;
-        const bool fused = n <= limit;
-        if (!fused) held.resize(static_cast<std::size_t>(n));
         const std::size_t sums = (kStep + kGroups) * sizeof(S);
-        // panels from 1024 complex numbers of double precision and 1536 of the
-        // other types (the crossovers of a GH200 and a V100 lie around them); on
-        // a GPU of little double precision in single precision only (an RTX A2000)
+        // all steps in one launch up to 704 complex numbers of double precision
+        // and 1024 of the other types, on a GPU of full double precision that
+        // holds all their blocks at once (measured on a GH200; a V100 holds
+        // those of about 400 rows)
+        bool together = false;
+#if !defined(MDAPY_GPU_HIP)
+        const int most = std::min(sizeof(S) == 2 * sizeof(double) ? kStepsComplex : kFused,
+                                  fused_limit_ >= 0 ? fused_limit_ : kFused);
+        together = n > 2 && n <= most && (together_steps_ > 0 || (together_steps_ < 0 && full_double())) &&
+                   holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S));
+#endif
+        const bool fused = together || n <= limit;
+        if (!fused) held.resize(static_cast<std::size_t>(n));
+        // panels wherever a step is not one launch (measured on a GH200 and a
+        // V100); on a GPU of little double precision in single precision only,
+        // from 1536 (an RTX A2000)
         const int from = panels_from_ >= 0 ? panels_from_
-                         : sizeof(R) == sizeof(double) && !full_double() ? n + 1
-                         : sizeof(S) == 2 * sizeof(double) ? kPanelsFrom : kPanelsFrom + kPanelsFrom / 2;
+                         : full_double() ? 0
+                         : sizeof(R) == sizeof(double) ? n + 1 : kPanelsFrom;
         const bool panels = n >= from && !fused;
-        if (panels) {
-            DeviceArray<T> w(static_cast<std::size_t>(n) * kColumns), dots(2 * kColumns), sums(blocks(n, kRows));
-            const T one = unit(T{}, 1.0), minus = unit(T{}, -1.0);
-            DeviceArray<T> pairs(4 * static_cast<std::size_t>(n) * kColumns);
-            T* right = pairs.data() + 2 * static_cast<std::size_t>(n) * kColumns;
-            S* y = own(products.data());
-            // w of the reflector before the column j (which is past the panel
-            // when finish), and the column
-            const auto rows = [&](int j, int first, int finish) {
-                panel_rows_kernel<S><<<blocks(n - j, kRows), kRows * kLanes>>>(
-                    n, j, first, finish, matrix, own(reflectors.data()), own(w.data()), own(tau.data()), y,
-                    own(dots.data()), own(held.data()), own(sums.data()));
-            };
-            for (int first = 0; first < n; first += kColumns) {
-                const int width = std::min(kColumns, n - first);
-                for (int j = first; j < first + width; ++j) {
-                    rows(j, first, 0);
-                    panel_products_kernel<S><<<static_cast<unsigned>(std::max(n - 1 - j + 2 * (j - first), 1)), kStep>>>(
-                        n, j, first, j - first, static_cast<int>(blocks(n - j, kRows)), matrix, own(reflectors.data()),
-                        own(w.data()), own(held.data()), own(sums.data()), own(tau.data()), diagonal.data(),
-                        subdiagonal.data(), y, own(dots.data()));
-                }
-                launched("a panel of the tridiagonalization");
-                const int next = first + width, rest = n - next;
-                if (rest < 1) break;
-                rows(next, first, 1);
-                launched("the last column of a panel");
-                T* trailing = a + static_cast<std::size_t>(next) * n + next;
-                // v w^H + w v^H as one product, which passes the trailing matrix once
-                pair_kernel<S><<<blocks(static_cast<long long>(rest) * width), kThreads>>>(
-                    rest, width, n, own(reflectors.data()) + static_cast<std::size_t>(first) * n + next, n,
-                    own(w.data()) + next, own(pairs.data()), own(right));
-                launched("the two halves of the update of a panel");
-                blas_.gemm(Op::N, Op::C, rest, rest, 2 * width, minus, pairs.data(), rest, right, rest, one, trailing, n);
-            }
-        }
         int done = 0;  // the steps one launch took together
 #if !defined(MDAPY_GPU_HIP)
-        // on a GPU of full double precision, when it holds all their blocks
-        if (fused && n > 2 && (together_steps_ > 0 || (together_steps_ < 0 && full_double())) &&
-            holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S))) {
+        if (together) {
             const std::lock_guard<std::mutex> lock(steps_mutex);
             DeviceArray<int> arrived(static_cast<std::size_t>(n));
             arrived.zero();

@@ -546,6 +546,10 @@ void Hamiltonian::set_k(const Vec3& k) {
     MDAPY_SPAN("set_k");
     if (gamma_mode_ && (k[0] != 0.0 || k[1] != 0.0 || k[2] != 0.0))
         throw std::invalid_argument("real bands are those of Gamma only");
+    // the k-point it holds already: nothing to make again (a run at Gamma, or
+    // of one k-point, sets it twice a step)
+    if (k_set_ && k == k_) return;
+    k_set_ = false;
     gamma_ = gamma_mode_;
     single_stale_ = true;
     // made once for each k-point: its plane waves sorted on the host took
@@ -593,7 +597,11 @@ void Hamiltonian::set_k(const Vec3& k) {
         reciprocal_.dq = species_.front().dq;
         reciprocal_.points = species_.front().points;
     }
-    if (projectors_ == 0 || n == 0) return;
+    if (projectors_ == 0 || n == 0) {
+        k_ = k;
+        k_set_ = true;
+        return;
+    }
     std::vector<Column> columns;
     std::vector<std::int64_t> starts;  // of the tables of each species
     std::int64_t offset = 0;
@@ -632,6 +640,8 @@ void Hamiltonian::set_k(const Vec3& k) {
         n, static_cast<int>(columns.size()), m.data(), rc, cols.data(), tables_.data(), beta_.data());
     check_cuda(cudaGetLastError(), "the projectors");
     reciprocal_ = rc;
+    k_ = k;
+    k_set_ = true;
 }
 
 void Hamiltonian::atomic(Complex* out) const {

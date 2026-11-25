@@ -684,17 +684,25 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
     }
     // each task of tasks by one of the workers, f(worker, s, k); the work of
-    // this thread done first, the errors of the workers raised here
-    auto side_by_side = [&](const std::function<void(Worker&, std::size_t, std::size_t)>& f) {
+    // this thread done first, the errors of the workers raised here. The
+    // tasks go to the worker that is free (the bands, of which the k-points
+    // take different times) or, fixed, worker w takes the tasks w, w +
+    // workers, ... in their order (the density, which each worker adds up:
+    // the same sums in the same order at each run)
+    auto side_by_side = [&](const std::function<void(Worker&, std::size_t, std::size_t)>& f, bool fixed) {
         check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
         std::atomic<std::size_t> next{0};
         std::vector<std::thread> pool;
-        for (auto& worker : workers) {
-            Worker* wk = worker.get();
+        const std::size_t count = workers.size();
+        for (std::size_t w = 0; w < count; ++w) {
+            Worker* wk = workers[w].get();
             wk->error = nullptr;
-            pool.emplace_back([&, wk] {
+            pool.emplace_back([&, wk, w] {
                 try {
-                    for (std::size_t i = next++; i < tasks.size(); i = next++) f(*wk, tasks[i].first, tasks[i].second);
+                    if (fixed)
+                        for (std::size_t i = w; i < tasks.size(); i += count) f(*wk, tasks[i].first, tasks[i].second);
+                    else
+                        for (std::size_t i = next++; i < tasks.size(); i = next++) f(*wk, tasks[i].first, tasks[i].second);
                     check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
                 } catch (...) {
                     wk->error = std::current_exception();
@@ -795,7 +803,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                 wk.iterations += r.iterations;
                 std::copy(wk.values.begin(), wk.values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>(row * bands));
-            });
+            }, false);
             for (auto& worker : workers) step.davidson += worker->iterations;
         }
         for (std::size_t k = 0; k < nk && threads == 1; ++k) {
@@ -875,7 +883,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                 wk.h.add_density(psi[s * nk + k].data(), nb, wk.w.data(), wk.rho.data() + s * per);
                 if (ultrasoft || hubbard)
                     wk.h.add_becsum_device(psi[s * nk + k].data(), nb, wk.w.data(), wk.becsum[s].data());
-            });
+            }, true);
             DeviceArray<double>& target = two_grids ? rho_s : rho_out;
             for (auto& worker : workers) {
                 band += worker->band;

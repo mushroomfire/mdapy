@@ -100,7 +100,10 @@ energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
 what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
 the cutoff, the mesh, the smearing and its width, the functional, the spins, the
 grid and the bands. Labels of a set should share them. It also holds the
-`kernels`, which changes the results by rounding alone.
+`kernels`, which changes the results by rounding alone. With MDAPY's kernels
+the same computation on the same GPU gives the same numbers to the last bit at
+each run; the libraries of the vendor do not promise it when the k-points are
+solved side by side.
 
 The magnetic moments are those of the smooth density on the grid, with the
 augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center

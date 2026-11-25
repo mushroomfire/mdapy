@@ -548,16 +548,20 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     constexpr bool kTensorType = false;
 #endif
     bool tensor = false;
+    // the blocks a multiprocessor holds at once: one of 256 threads, more of 64 (0: not counted)
+    int per = Tiles<S>::threads > 64 ? 1 : 0;
     if constexpr (kTensorType) {
         tensor = tensor_;
-        if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk;
+        if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk, per = DmmaForm<S>::per;
     }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // A small result of long sums: segments of 512 terms or more, as many as
     // give 2048 blocks; of a result so small that these leave multiprocessors
     // idle, shorter segments, of 64 terms or more, as many as give each two
-    // blocks. Measured on a GH200, a V100 and an RTX A2000.
-    constexpr long long kWanted = 2048, kLeast = 512, kEach = 2, kShort = 64;
+    // blocks. The blocks run in waves of as many as the multiprocessors
+    // hold; where the waves are few, more segments fill the last of them.
+    // Measured on a GH200, a V100 and an RTX A2000.
+    constexpr long long kWanted = 2048, kLeast = 512, kEach = 2, kShort = 64, kFew = 8;
     if (batch == 1 && most_segments_ != 1 && tiles < kWanted && k >= 2 * kShort) {
         long long segments = (kWanted + tiles - 1) / tiles;
         if (segments > k / kLeast) segments = k / kLeast;
@@ -566,6 +570,14 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         if (tiles * segments < busy) {
             segments = (busy + tiles - 1) / tiles;
             if (segments > k / kShort) segments = k / kShort;
+        }
+        if (per > 0) {
+            const long long held = static_cast<long long>(per) * processors_;
+            const long long waves = (tiles * segments + held - 1) / held;
+            if (waves <= kFew && waves * held / tiles > segments) {
+                segments = waves * held / tiles;
+                if (segments > k / kShort) segments = k / kShort;
+            }
         }
         const long long most = most_segments_ > 0 ? most_segments_ : 256;
         if (segments > most) segments = most;

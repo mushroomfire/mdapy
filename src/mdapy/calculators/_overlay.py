@@ -104,8 +104,11 @@ class Overlay(Calculator):
                     "on the GPU the potentials of an Overlay need the same elements "
                     "in the same order"
                 )
+            # the list of the device reaches the largest cutoff of those that
+            # take it; D3 finds its pairs itself
             self.__gpu = _gpu.OnDevice(
-                _gpu.cuda().make_overlay([o.potential for o in on]), self.cutoff
+                _gpu.cuda().make_overlay([o.potential for o in on]),
+                max(o.cutoff for o in on),
             )
 
     @property

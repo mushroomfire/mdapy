@@ -163,12 +163,12 @@ def api() -> dict[str, tuple[str, list[str]]]:
 def write(path: Path) -> None:
     """Writes the API to a snapshot, a name to a line, tab-separated."""
     lines = ["\t".join([name, kind, *params]) for name, (kind, params) in api().items()]
-    path.write_text("\n".join(sorted(lines)) + "\n")
+    path.write_text("\n".join(sorted(lines)) + "\n", encoding="utf-8")
 
 
 def read(path: Path) -> dict[str, tuple[str, list[str]]]:
     found = {}
-    for line in path.read_text().splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         name, kind, *params = line.split("\t")
         found[name] = (kind, params)
     return found
@@ -339,7 +339,7 @@ def test_the_api_keeps_what_the_last_release_had():
 def test_additions_are_in_the_release_notes():
     path = snapshot()
     _, added = compare(read(path), api())
-    missing = unnamed(added, section(NOTES.read_text(), path.stem))
+    missing = unnamed(added, section(NOTES.read_text(encoding="utf-8"), path.stem))
     assert not missing, (
         f"name what {path.stem} did not have in the release notes:\n"
         + "\n".join(missing)
@@ -348,7 +348,7 @@ def test_additions_are_in_the_release_notes():
 
 def test_the_snapshot_is_sorted_and_complete():
     """A snapshot as write makes it, of names that each have a kind."""
-    text = snapshot().read_text()
+    text = snapshot().read_text(encoding="utf-8")
     lines = text.splitlines()
     assert lines == sorted(lines) and text.endswith("\n")
     kinds = {"module", "exception", "result", "class", "function", "constant",

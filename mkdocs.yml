@@ -283,6 +283,7 @@ nav:
           - Stillinger–Weber: user-guide/potentials/stillinger-weber.md
           - Pair potentials and ZBL: user-guide/potentials/pair-potentials.md
           - Overlaid potentials: user-guide/potentials/overlay.md
+          - DFT-D3 dispersion: user-guide/potentials/d3.md
           - NEP: user-guide/potentials/nep.md
           - LAMMPS: user-guide/potentials/lammps.md
           - VASP: user-guide/potentials/vasp.md

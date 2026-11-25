@@ -47,6 +47,10 @@
 
 // The value of the lane offset higher among the lanes of its group.
 #define MDAPY_SHUFFLE_DOWN(value, offset) __shfl_down((value), (offset), ::mdapy::cuda::kLanes)
+// The predicate of each lane of its group, a bit each, lane 0 the lowest: the
+// half of the ballot of the wavefront that holds the group.
+#define MDAPY_BALLOT(predicate) \
+    static_cast<unsigned>(__ballot(predicate) >> (threadIdx.x & 32u))
 // What the lanes of a group wrote to shared memory is there for the others:
 // HIP has no barrier of a wavefront, so that of the block.
 #define MDAPY_SYNC_LANES() __syncthreads()
@@ -59,6 +63,7 @@
 
 #define MDAPY_SHUFFLE_DOWN(value, offset) \
     __shfl_down_sync(0xffffffffu, (value), (offset), ::mdapy::cuda::kLanes)
+#define MDAPY_BALLOT(predicate) __ballot_sync(0xffffffffu, (predicate))
 #define MDAPY_SYNC_LANES() __syncwarp()
 
 #endif

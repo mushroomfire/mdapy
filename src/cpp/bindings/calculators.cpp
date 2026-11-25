@@ -24,6 +24,7 @@
 #include "bindings/control.h"
 #include "bindings/frames.h"
 #include "calculators/adp.h"
+#include "calculators/d3.h"
 #include "calculators/eam.h"
 #include "calculators/many_body.h"
 #include "calculators/meam.h"
@@ -500,6 +501,56 @@ nb::tuple compute_pair(const calculators::PairPotential& potential, Species spec
             calculators::compute_pair(potential, n, species.data(), positions.data(),
                                       matrix.data(), offsets.data(), neighbors.data(),
                                       shifts.data(), energies, forces, virials, control);
+        },
+        progress, cancel);
+    return nb::make_tuple(e, f, w);
+}
+
+using References = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+
+// damping: "bj" or "zero"; the tables of each species as make_d3_potential
+// takes them, reference_cn (species, 7), vdw (species, species).
+calculators::D3Potential make_d3(const std::string& damping, References references,
+                                 Flat reference_cn, Flat rcov, Flat r4r2, Flat vdw, Flat c6,
+                                 double s6, double s8, double s9, double a1, double a2,
+                                 double rs6, double rs8, double alpha, double hartree,
+                                 double cutoff, double cn_cutoff, double three_body_cutoff) {
+    calculators::D3Damping kind;
+    if (damping == "bj") {
+        kind = calculators::D3Damping::Rational;
+    } else if (damping == "zero") {
+        kind = calculators::D3Damping::Zero;
+    } else {
+        throw std::invalid_argument("unknown D3 damping");
+    }
+    const std::size_t t = references.shape(0);
+    if (t == 0 || reference_cn.shape(0) != t * calculators::kD3References ||
+        rcov.shape(0) != t || r4r2.shape(0) != t || vdw.shape(0) != t * t) {
+        throw std::invalid_argument("inconsistent D3 tables");
+    }
+    return calculators::make_d3_potential(
+        kind, static_cast<int>(t), references.data(), reference_cn.data(), rcov.data(),
+        r4r2.data(), vdw.data(), c6.data(), static_cast<std::int64_t>(c6.shape(0)), s6, s8, s9,
+        a1, a2, rs6, rs8, alpha, hartree, cutoff, cn_cutoff, three_body_cutoff);
+}
+
+nb::tuple compute_d3(const calculators::D3Potential& potential, Species species,
+                     Positions positions, Matrix matrix, Offsets offsets, Neighbors neighbors,
+                     Shifts shifts, nb::handle progress, const CancelToken* cancel, bool virial) {
+    check_input(potential.species, species, positions, offsets, neighbors, shifts);
+    const auto n = static_cast<std::int64_t>(species.shape(0));
+    double *energies, *forces, *virials = nullptr;
+    const std::size_t shape1[1] = {static_cast<std::size_t>(n)};
+    const std::size_t shape2[2] = {static_cast<std::size_t>(n), 3};
+    const std::size_t shape3[3] = {static_cast<std::size_t>(n), 3, 3};
+    nb::object e = new_array(1, shape1, energies);
+    nb::object f = new_array(2, shape2, forces);
+    nb::object w = virial ? new_array(3, shape3, virials) : nb::none();
+    run_released(
+        [&](const Control& control) {
+            calculators::compute_d3(potential, n, species.data(), positions.data(),
+                                    matrix.data(), offsets.data(), neighbors.data(),
+                                    shifts.data(), energies, forces, virials, control);
         },
         progress, cancel);
     return nb::make_tuple(e, f, w);
@@ -1089,6 +1140,18 @@ void bind_calculators(nb::module_& m) {
           nb::arg("shifts"), nb::arg("progress") = nb::none(),
           nb::arg("cancel").none() = nullptr,
           nb::arg("virial") = true);
+    nb::class_<calculators::D3Potential>(m, "D3Potential")
+        .def_ro("species", &calculators::D3Potential::species)
+        .def_ro("reach", &calculators::D3Potential::reach);
+    m.def("make_d3", &make_d3, nb::arg("damping"), nb::arg("references"),
+          nb::arg("reference_cn"), nb::arg("rcov"), nb::arg("r4r2"), nb::arg("vdw"),
+          nb::arg("c6"), nb::arg("s6"), nb::arg("s8"), nb::arg("s9"), nb::arg("a1"),
+          nb::arg("a2"), nb::arg("rs6"), nb::arg("rs8"), nb::arg("alpha"), nb::arg("hartree"), nb::arg("cutoff"),
+          nb::arg("cn_cutoff"), nb::arg("three_body_cutoff"));
+    m.def("compute_d3", &compute_d3, nb::arg("potential"), nb::arg("species"),
+          nb::arg("positions"), nb::arg("matrix"), nb::arg("offsets"), nb::arg("neighbors"),
+          nb::arg("shifts"), nb::arg("progress") = nb::none(),
+          nb::arg("cancel").none() = nullptr, nb::arg("virial") = true);
     nb::class_<calculators::EamPotential>(m, "EamPotential")
         .def_ro("elements", &calculators::EamPotential::elements)
         .def_ro("cutoff", &calculators::EamPotential::cutoff)

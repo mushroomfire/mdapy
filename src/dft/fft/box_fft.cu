@@ -69,6 +69,7 @@ struct AxisArgs {
     long long lines;    // contiguous: all the lines
     int window;         // strided: with window >= 0 only the points within window of 0 along the line are read, the
                         // others taken as zeros
+    int kept;           // strided: with kept >= 0 only the points within kept of 0 along the line are written
     Pass pass[kMaxPasses];
 };
 
@@ -436,7 +437,8 @@ __global__ void axis_kernel(const AxisArgs a, const Cx<R>* __restrict__ roots, c
         Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + first;
         for (unsigned e = threadIdx.x; e < n * lines; e += blockDim.x) {
             const unsigned c = e & mask, f = e >> a.log_c;
-            if (c < valid) to[f * a.stride + c] = shared[(static_cast<unsigned>(source[f]) << a.log_c) + c];
+            if (c < valid && (a.kept < 0 || f <= static_cast<unsigned>(a.kept) || f + static_cast<unsigned>(a.kept) >= n))
+                to[f * a.stride + c] = shared[(static_cast<unsigned>(source[f]) << a.log_c) + c];
         }
     } else if (Mode == kContiguous || Mode == kHalfInverse) {
         Cx<R>* to = reinterpret_cast<Cx<R>*>(out) + first * n;
@@ -813,6 +815,7 @@ struct BoxFft::Tables {
         a.inv_n = n > 1 ? inverse_of(n) : 0u;
         a.inv_half = a.half > 1 ? inverse_of(a.half) : 0u;
         a.window = -1;
+        a.kept = -1;
         for (std::size_t i = 0; i < passes.size(); ++i) a.pass[i] = passes[i];
         return a;
     }
@@ -934,11 +937,13 @@ int plane_threads(Kernel kernel, [[maybe_unused]] std::size_t bytes, int points,
 // The lines along an axis whose points are stride apart, columns of them side
 // by side in each of the planes.
 template <class R, int Sign>
-void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window) {
+void BoxFft::strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window,
+                     int kept) {
     if (!(axes_ & (1 << axis))) return;
     const Tables& t = *tables_[axis];
     AxisArgs a = t.args();
     a.window = window;
+    a.kept = kept;
     int threads = 0;
     const std::size_t line = static_cast<std::size_t>(t.n) * sizeof(Cx<R>);
     geometry(t.n, line, tuned_[sizeof(R) == 4][kStrided], narrow_ && sizeof(R) == 8 && t.n >= 64, a.log_c, threads);
@@ -1111,13 +1116,13 @@ void BoxFft::complex_window(R* boxes, int count, int sign, int window) {
         planes<R, 1>(boxes, count, window);
         strided<R, 1>(boxes, 0, count, n2 * n3, n2 * n3, window);
     } else {
-        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3);
+        strided<R, -1>(boxes, 0, count, n2 * n3, n2 * n3, -1, window);
         planes<R, -1>(boxes, count, window);
     }
 }
 
 template <class R>
-void BoxFft::real_forward(const R* values, R* spectrum, int count) {
+void BoxFft::real_forward(const R* values, R* spectrum, int count, int window) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
     if (!real_planes<R, -1>(values, spectrum, count)) {
@@ -1127,14 +1132,14 @@ void BoxFft::real_forward(const R* values, R* spectrum, int count) {
             contiguous<R, -1, kRealToComplex>(values, spectrum, count * n1 * n2);
         strided<R, -1>(spectrum, 1, count * n1, half, half);
     }
-    strided<R, -1>(spectrum, 0, count, n2 * half, n2 * half);
+    strided<R, -1>(spectrum, 0, count, n2 * half, n2 * half, -1, window);
 }
 
 template <class R>
-void BoxFft::real_inverse(R* spectrum, R* values, int count) {
+void BoxFft::real_inverse(R* spectrum, R* values, int count, int window) {
     if (count < 1) return;
     const long long n1 = grid_[0], n2 = grid_[1], half = grid_[2] / 2 + 1;
-    strided<R, 1>(spectrum, 0, count, n2 * half, n2 * half);
+    strided<R, 1>(spectrum, 0, count, n2 * half, n2 * half, window);
     if (real_planes<R, 1>(spectrum, values, count)) return;
     strided<R, 1>(spectrum, 1, count * n1, half, half);
     if (half_ != nullptr)
@@ -1147,9 +1152,17 @@ void BoxFft::forward(double* boxes, int count, int window) { complex_window(boxe
 void BoxFft::inverse(double* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
 void BoxFft::forward(float* boxes, int count, int window) { complex_window(boxes, count, -1, window); }
 void BoxFft::inverse(float* boxes, int count, int window) { complex_window(boxes, count, 1, window); }
-void BoxFft::forward(const double* values, double* spectrum, int count) { real_forward(values, spectrum, count); }
-void BoxFft::inverse(double* spectrum, double* values, int count) { real_inverse(spectrum, values, count); }
-void BoxFft::forward(const float* values, float* spectrum, int count) { real_forward(values, spectrum, count); }
-void BoxFft::inverse(float* spectrum, float* values, int count) { real_inverse(spectrum, values, count); }
+void BoxFft::forward(const double* values, double* spectrum, int count, int window) {
+    real_forward(values, spectrum, count, window);
+}
+void BoxFft::inverse(double* spectrum, double* values, int count, int window) {
+    real_inverse(spectrum, values, count, window);
+}
+void BoxFft::forward(const float* values, float* spectrum, int count, int window) {
+    real_forward(values, spectrum, count, window);
+}
+void BoxFft::inverse(float* spectrum, float* values, int count, int window) {
+    real_inverse(spectrum, values, count, window);
+}
 
 }  // namespace mdapy::dft

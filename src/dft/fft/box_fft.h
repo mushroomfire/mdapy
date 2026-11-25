@@ -52,11 +52,14 @@ public:
     void inverse(float* boxes, int count, int window = -1);
 
     // count real boxes of points() values to spectrum() complex components and
-    // back; inverse overwrites its spectrum.
-    void forward(const double* values, double* spectrum, int count);
-    void inverse(double* spectrum, double* values, int count);
-    void forward(const float* values, float* spectrum, int count);
-    void inverse(float* spectrum, float* values, int count);
+    // back; inverse overwrites its spectrum. With window >= 0, spectra of which
+    // only the planes of the first index within window of 0 matter: inverse
+    // reads those planes alone, the others taken as zeros, and forward writes
+    // those alone.
+    void forward(const double* values, double* spectrum, int count, int window = -1);
+    void inverse(double* spectrum, double* values, int count, int window = -1);
+    void forward(const float* values, float* spectrum, int count, int window = -1);
+    void inverse(float* spectrum, float* values, int count, int window = -1);
 
     // Lines per block (a power of two, as its logarithm) and threads per block
     // (a multiple of 64) of the kernels of a precision (0 double, 1 single) and
@@ -82,11 +85,12 @@ private:
     template <class R>
     bool plane_fits() const;
     template <class R>
-    void real_forward(const R* values, R* spectrum, int count);
+    void real_forward(const R* values, R* spectrum, int count, int window);
     template <class R>
-    void real_inverse(R* spectrum, R* values, int count);
+    void real_inverse(R* spectrum, R* values, int count, int window);
     template <class R, int Sign>
-    void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1);
+    void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1,
+                 int kept = -1);
     template <class R, int Sign, int Mode>
     void contiguous(const R* in, R* out, long long lines);
     template <class R, int Sign>

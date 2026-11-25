@@ -482,7 +482,7 @@ NB_MODULE(_dft, m) {
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
         const int w = fft.window_of(window);
-        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), count, boxes.data(), g, w);
+        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), nullptr, count, boxes.data(), g, w);
         fft.to_real(boxes.data(), count, w);
         std::complex<double>* out = nullptr;
         auto values = new_array<std::complex<double>>(
@@ -515,9 +515,10 @@ NB_MODULE(_dft, m) {
         return c;
     }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
-    // values on the grid, and back
+    // values on the grid, and back; window as to_real_space and to_coefficients
     m.def("to_real_space_gamma",
-          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels) {
+          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels,
+             int window) {
               const Int3 g = grid_of(grid);
               mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
               const std::size_t spectrum = fft.spectrum(), points = fft.points();
@@ -528,10 +529,11 @@ NB_MODULE(_dft, m) {
               DeviceArray<std::int64_t> places, partners;
               places.upload(box.data(), n);
               partners.upload(partner.data(), n);
-              mdapy::dft::scatter(coefficients.data(), n, places.data(), partners.data(), count,
-                                  spec.data(), spectrum);
+              const int w = fft.window_of(window);
+              mdapy::dft::scatter_window(coefficients.data(), n, places.data(), partners.data(), count, spec.data(),
+                                         Int3{g[0], g[1], g[2] / 2 + 1}, w);
               DeviceArray<double> values(count * points);
-              fft.to_real(spec.data(), values.data(), count);
+              fft.to_real(spec.data(), values.data(), count, w);
               double* out = nullptr;
               auto result = new_array<double>(
                   {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -540,8 +542,9 @@ NB_MODULE(_dft, m) {
               values.download(out, values.size());
               return result;
           },
-          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy");
-    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels) {
+          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy",
+          nb::arg("window") = -1);
+    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels, int window) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
@@ -551,7 +554,7 @@ NB_MODULE(_dft, m) {
         DeviceArray<double> values;
         values.upload(v.data(), v.size());
         DeviceArray<Complex> spec(count * spectrum), coefficients(count * n);
-        fft.to_reciprocal(values.data(), spec.data(), count);
+        fft.to_reciprocal(values.data(), spec.data(), count, fft.window_of(window));
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
         mdapy::dft::gather(spec.data(), spectrum, places.data(), n, count,
@@ -560,7 +563,7 @@ NB_MODULE(_dft, m) {
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy");
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // functions on a coarse grid carried to a fine one through their Fourier
     // components, (count, n1, n2, n3) complex values in and out
     m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine, const std::string& kernels) {

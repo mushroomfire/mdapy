@@ -162,6 +162,11 @@ public:
 private:
     // kinetic + mean + sum_ij d_ij Re(b_i conj(b_j)) of each plane wave, kinetic optional
     void diagonal_of(const double* kinetic, double mean, const Complex* d, double* out) const;
+    // the sizes of the spectra of the real boxes of the bands: n1, n2, n3 / 2 + 1
+    Int3 spectrum_grid() const noexcept {
+        const Int3& g = fft_.grid();
+        return {g[0], g[1], g[2] / 2 + 1};
+    }
     mutable DeviceArray<double> diagonal_partial_;  // (atoms, plane waves): the share of each atom
     int batch() const noexcept;  // bands per batch of FFTs
     void single();               // the single-precision copies, when stale

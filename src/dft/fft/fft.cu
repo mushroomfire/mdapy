@@ -149,27 +149,27 @@ void Fft::to_reciprocal(cuComplex* boxes, int count, int window) {
     check_cufft(cufftExecC2C(plan(CUFFT_C2C, count), boxes, boxes, CUFFT_FORWARD), "cufftExecC2C");
 }
 
-void Fft::to_real(cuComplex* spectrum, float* values, int count) {
+void Fft::to_real(cuComplex* spectrum, float* values, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->inverse(reals(spectrum), values, count);
+    if (own_) return own_->inverse(reals(spectrum), values, count, window);
     check_cufft(cufftExecC2R(plan(CUFFT_C2R, count), spectrum, values), "cufftExecC2R");
 }
 
-void Fft::to_reciprocal(const float* values, cuComplex* spectrum, int count) {
+void Fft::to_reciprocal(const float* values, cuComplex* spectrum, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(values, reals(spectrum), count);
+    if (own_) return own_->forward(values, reals(spectrum), count, window);
     check_cufft(cufftExecR2C(plan(CUFFT_R2C, count), const_cast<float*>(values), spectrum), "cufftExecR2C");
 }
 
-void Fft::to_real(Complex* spectrum, double* values, int count) {
+void Fft::to_real(Complex* spectrum, double* values, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->inverse(reals(spectrum), values, count);
+    if (own_) return own_->inverse(reals(spectrum), values, count, window);
     check_cufft(cufftExecZ2D(plan(CUFFT_Z2D, count), spectrum, values), "cufftExecZ2D");
 }
 
-void Fft::to_reciprocal(const double* values, Complex* spectrum, int count) {
+void Fft::to_reciprocal(const double* values, Complex* spectrum, int count, int window) {
     MDAPY_SPAN("fft");
-    if (own_) return own_->forward(values, reals(spectrum), count);
+    if (own_) return own_->forward(values, reals(spectrum), count, window);
     // cuFFT takes a pointer that it does not write for the real-to-complex input
     check_cufft(cufftExecD2Z(plan(CUFFT_D2Z, count), const_cast<double*>(values), spectrum),
                 "cufftExecD2Z");
@@ -219,23 +219,23 @@ void zero_window(T* boxes, int count, const Int3& grid, int window) {
 
 }  // namespace
 
-void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, int count, Complex* boxes,
-                    const Int3& grid, int window) {
+void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+                    int count, Complex* boxes, const Int3& grid, int window) {
     MDAPY_SPAN("scatter");
     zero_window(boxes, count, grid, window);
     if (n == 0 || count == 0) return;
     const std::size_t points = static_cast<std::size_t>(grid[0]) * grid[1] * grid[2];
-    scatter_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, nullptr, count, boxes, points);
+    scatter_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, partner, count, boxes, points);
     launched("scatter");
 }
 
-void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count,
-                    cuComplex* boxes, const Int3& grid, int window) {
+void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box,
+                    const std::int64_t* partner, int count, cuComplex* boxes, const Int3& grid, int window) {
     MDAPY_SPAN("scatter");
     zero_window(boxes, count, grid, window);
     if (n == 0 || count == 0) return;
     const std::size_t points = static_cast<std::size_t>(grid[0]) * grid[1] * grid[2];
-    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, nullptr, count, boxes, points);
+    scatter_single_kernel<<<blocks(n * count), kThreads>>>(coefficients, n, box, partner, count, boxes, points);
     launched("scatter");
 }
 

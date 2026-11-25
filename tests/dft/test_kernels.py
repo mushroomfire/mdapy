@@ -120,6 +120,33 @@ def test_the_real_transforms_agree(grid):
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
 
 
+@pytest.mark.parametrize(
+    "grid", [(27, 27, 27), (36, 30, 24), (48, 45, 75), (90, 90, 96)]
+)
+def test_the_real_transforms_of_the_planes_of_a_sphere(grid):
+    """The real transforms of Gamma with only the planes of the half sphere:
+    the values and the coefficients are those of the whole spectra to the last
+    bit, the planes beyond it neither read nor written."""
+    rng = np.random.default_rng(3)
+    cell = np.diag([9.0, 9.5, 10.0])
+    miller, box, partner = sphere_of(cell, 3.0, grid, half=True)
+    window = int(np.abs(np.asarray(miller)[:, 0]).max())
+    assert 2 * window + 1 < grid[0]
+    c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
+    c[:, 0] = c[:, 0].real
+    noise = rng.normal(size=(2, *grid))
+    for kernels in KERNELS:
+        args = (c, box, partner, list(grid))
+        np.testing.assert_array_equal(
+            _dft.to_real_space_gamma(*args, kernels=kernels, window=window),
+            _dft.to_real_space_gamma(*args, kernels=kernels),
+        )
+        np.testing.assert_array_equal(
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels, window=window),
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels),
+        )
+
+
 def columns(rng, rows, cols, dtype):
     """A matrix of noise stored by columns."""
     a = rng.uniform(-1, 1, (rows, cols))

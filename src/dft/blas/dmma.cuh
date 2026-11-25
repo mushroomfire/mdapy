@@ -72,6 +72,37 @@ __device__ __forceinline__ void mma_884(double& d0, double& d1, double a, double
 #endif
 }
 
+// d += a b of a 16 x 4 by 4 x 8 product (compute capability 9.0): a[g + 8 h, t]
+// in a_h, b[t, g], d[g + 8 h, 2 t + i] in d_(2 h + i)
+__device__ __forceinline__ void mma_1684(double* d, double a0, double a1, double b0) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+    asm volatile("mma.sync.aligned.m16n8k4.row.col.f64.f64.f64.f64 {%0, %1, %2, %3}, {%4, %5}, {%6}, {%0, %1, %2, %3};\n"
+                 : "+d"(d[0]), "+d"(d[1]), "+d"(d[2]), "+d"(d[3])
+                 : "d"(a0), "d"(a1), "d"(b0));
+#else
+    (void)d, (void)a0, (void)a1, (void)b0;
+#endif
+}
+
+// d += a b of a 16 x 8 by 8 x 8 product (compute capability 9.0): a[g + 8 h,
+// t + 4 w] in a_(h + 2 w), b[t + 4 w, g] in b_w, d as mma_1684
+__device__ __forceinline__ void mma_1688(double* d, const double* a, const double* b) {
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900
+    asm volatile(
+        "mma.sync.aligned.m16n8k8.row.col.f64.f64.f64.f64 {%0, %1, %2, %3}, {%4, %5, %6, %7}, {%8, %9}, {%0, %1, %2, "
+        "%3};\n"
+        : "+d"(d[0]), "+d"(d[1]), "+d"(d[2]), "+d"(d[3])
+        : "d"(a[0]), "d"(a[1]), "d"(a[2]), "d"(a[3]), "d"(b[0]), "d"(b[1]));
+#else
+    (void)d, (void)a, (void)b;
+#endif
+}
+
+// the instruction of the products on compute capability 9.0: 884, 1684 or 1688
+#ifndef MDAPY_DMMA_SHAPE
+#define MDAPY_DMMA_SHAPE 1688
+#endif
+
 template <class S, bool TransA, bool TransB>
 __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32) * 32)
     dmma_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,
@@ -155,6 +186,81 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
         commit_async();
         const double* sa = as + (chunk % kStages) * kParts * kSizeA;
         const double* sb = bs + (chunk % kStages) * kParts * kSizeB;
+#if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 900 && MDAPY_DMMA_SHAPE != 884
+        // the pairs of rows p = 2 h, 2 h + 1 of the accumulators are the halves
+        // of the 16 rows of the products of 16 x 8
+        constexpr int kSteps = MDAPY_DMMA_SHAPE == 1688 ? 8 : 4, kHalves = kSteps / 4;
+#pragma unroll
+        for (int t = 0; t < kBK; t += kSteps) {
+            // fa[h][part][4 w + 2 v + r]... in the order of the fragments: a[g + 8 v, t + 4 w]
+            double fa[2][kParts][2 * kHalves], fb[4][kParts][kHalves];
+#pragma unroll
+            for (int h = 0; h < 2; ++h)
+#pragma unroll
+                for (int w = 0; w < kHalves; ++w)
+#pragma unroll
+                    for (int v = 0; v < 2; ++v) {
+                        const unsigned i = wm + h * 16 + v * 8 + gi, k = t + w * 4 + ti;
+                        const unsigned place = TransA ? i * kPitchA + k : k * kPitchA + i;
+#pragma unroll
+                        for (int r = 0; r < kParts; ++r) fa[h][r][2 * w + v] = sa[r * kSizeA + place];
+                    }
+#pragma unroll
+            for (int q = 0; q < 4; ++q)
+#pragma unroll
+                for (int w = 0; w < kHalves; ++w) {
+                    const unsigned j = wn + q * 8 + gi, k = t + w * 4 + ti;
+                    const unsigned place = TransB ? k * kPitchB + j : j * kPitchB + k;
+#pragma unroll
+                    for (int r = 0; r < kParts; ++r) fb[q][r][w] = sb[r * kSizeB + place];
+                }
+            if constexpr (kParts == 2) {
+#pragma unroll
+                for (int h = 0; h < 2; ++h)
+#pragma unroll
+                    for (int e = 0; e < 2 * kHalves; ++e) fa[h][1][e] *= sign_a;
+#pragma unroll
+                for (int q = 0; q < 4; ++q)
+#pragma unroll
+                    for (int w = 0; w < kHalves; ++w) fb[q][1][w] *= sign_b;
+            }
+#pragma unroll
+            for (int h = 0; h < 2; ++h)
+#pragma unroll
+                for (int q = 0; q < 4; ++q) {
+                    // the accumulators of rows 2 h and 2 h + 1, in the order of the fragment of d
+                    double d[kParts][4];
+#pragma unroll
+                    for (int r = 0; r < kParts; ++r) {
+                        d[r][0] = acc[2 * h][q][r][0];
+                        d[r][1] = acc[2 * h][q][r][1];
+                        d[r][2] = acc[2 * h + 1][q][r][0];
+                        d[r][3] = acc[2 * h + 1][q][r][1];
+                    }
+                    auto mma = [&](double* to, const double* x, const double* y, double sign) {
+                        if constexpr (kSteps == 8) {
+                            const double xs[4] = {sign * x[0], sign * x[1], sign * x[2], sign * x[3]};
+                            mma_1688(to, xs, y);
+                        } else {
+                            mma_1684(to, sign * x[0], sign * x[1], y[0]);
+                        }
+                    };
+                    mma(d[0], fa[h][0], fb[q][0], 1.0);
+                    if constexpr (kParts == 2) {
+                        mma(d[0], fa[h][1], fb[q][1], -1.0);
+                        mma(d[1], fa[h][0], fb[q][1], 1.0);
+                        mma(d[1], fa[h][1], fb[q][0], 1.0);
+                    }
+#pragma unroll
+                    for (int r = 0; r < kParts; ++r) {
+                        acc[2 * h][q][r][0] = d[r][0];
+                        acc[2 * h][q][r][1] = d[r][1];
+                        acc[2 * h + 1][q][r][0] = d[r][2];
+                        acc[2 * h + 1][q][r][1] = d[r][3];
+                    }
+                }
+        }
+#else
 #pragma unroll
         for (int t = 0; t < kBK; t += 4) {
             double fa[4][kParts], fb[4][kParts];
@@ -191,6 +297,7 @@ __global__ void __launch_bounds__((DmmaForm<S>::bm / 32) * (DmmaForm<S>::bn / 32
                     }
                 }
         }
+#endif
     }
     wait_async<0>();
 

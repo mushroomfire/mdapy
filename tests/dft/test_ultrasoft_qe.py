@@ -9,7 +9,9 @@ against Quantum ESPRESSO run live, on one grid (ecutrho = 4 ecutwfc) and on two
 (8 ecutwfc): silicon, aluminium with a smearing, iron with spin, and tungsten
 of GBRV. The energy and its terms,
 the occupied eigenvalues, the Fermi level, the magnetization and the forces;
-the forces also against differences of the energy."""
+the forces also against differences of the energy. Nickel of GBRV at 106 % of
+its volume, whose moment is lost unless the first moments are held: the
+state of Quantum ESPRESSO, below the one without spin."""
 
 import numpy as np
 import pytest
@@ -92,6 +94,39 @@ def test_against_qe(case, dual):
     )
     assert r["fermi"] == pytest.approx(qe["fermi"], abs=eigen)
     np.testing.assert_allclose(r["forces"], qe["forces"], atol=1e-7)
+
+
+def test_held_moments_keep_the_moment_of_expanded_nickel():
+    # nickel of GBRV at 106 % of its volume: a magnetization mixed from the
+    # first steps falls to none, the state without spin; held while the total
+    # density settles, it is that of Quantum ESPRESSO
+    name = "gbrv/ni_pbe_v1.4.uspp.F.UPF"
+    files = {"Ni": espresso.pseudo(name)}
+    pp = read_upf(files["Ni"])
+    cell, positions, cutoff = fcc(3.52 * 1.06 ** (1 / 3)), [[0.0, 0.0, 0.0]], 22.5
+    kpoints, weights = _dft.monkhorst_pack([4, 4, 4], [0.0, 0.0, 0.0], True)
+    qe = espresso.run(
+        cell, positions, ["Ni"], files, cutoff, kpoints, weights, "fermi-dirac", 0.00225,
+        conv_thr=1e-12, magmoms=[0.7], beta=0.3, maxstep=400,
+        extra=f", ecutrho = {16 * cutoff:.10f}",
+    )  # fmt: skip
+    common = dict(
+        kgrid=(4, 4, 4), smearing="fermi-dirac", sigma=0.00225, grid=qe["grid"],
+        smooth_grid=qe["smooth_grid"], density_cutoff=8 * cutoff, beta=0.4,
+        magnetic_beta=1.0, stress=False, symmetry=False, **TIGHT,
+    )  # fmt: skip
+    held = scf.run(cell, positions, [0], [pp], cutoff, magmoms=[0.7], **common)
+    assert held["converged"] and held["held"].sum() >= 1
+    gamma = espresso.rounded_gamma(held, cell, positions, [0], [pp], 8 * cutoff)
+    assert held["energy"] + gamma == pytest.approx(qe["energy"], abs=1e-7)
+    assert held["magnetization"] == pytest.approx(qe["magnetization"], abs=1e-6)
+    assert held["absolute_magnetization"] == pytest.approx(
+        qe["absolute_magnetization"], abs=1e-4
+    )
+    assert held["magnetization"] > 0.5
+    # the state without spin lies well above
+    plain = scf.run(cell, positions, [0], [pp], cutoff, **common)
+    assert held["energy"] < plain["energy"] - 1e-3
 
 
 def test_forces_against_differences():

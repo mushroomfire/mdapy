@@ -8,11 +8,15 @@
 // ends, and adds the seconds between to the row of its name under the names
 // of the spans open around it on this thread ("davidson/apply/fft"). The
 // process prints the rows at its end, and mdapy_dft_profile(label) prints and
-// clears them before. Without the macro a span is nothing.
+// clears them before. MDAPY_SPANS(parts) declares spans one after the other in
+// a scope, MDAPY_SPAN_NEXT(parts, "name") ends the one open and opens the next,
+// and the last ends with the scope. Without the macro a span is nothing.
 
 #pragma once
 
 #ifdef MDAPY_DFT_PROFILE
+
+#include <optional>
 
 namespace mdapy::dft {
 
@@ -33,9 +37,13 @@ private:
 #define MDAPY_SPAN_JOIN2(a, b) a##b
 #define MDAPY_SPAN_JOIN(a, b) MDAPY_SPAN_JOIN2(a, b)
 #define MDAPY_SPAN(name) const ::mdapy::dft::Span MDAPY_SPAN_JOIN(mdapy_span_, __LINE__)(name)
+#define MDAPY_SPANS(parts) std::optional<::mdapy::dft::Span> parts
+#define MDAPY_SPAN_NEXT(parts, name) (parts.reset(), parts.emplace(name))
 
 #else
 
 #define MDAPY_SPAN(name)
+#define MDAPY_SPANS(parts)
+#define MDAPY_SPAN_NEXT(parts, name)
 
 #endif

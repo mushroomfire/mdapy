@@ -580,7 +580,12 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     // The small blocks for results that fill one of them at least, where they
     // leave a fifth fewer threads idle than the large ones; they read more of
     // the matrices, which real numbers, two reads a product, bear less: there
-    // only where it is a fifth more at most.
+    // only where it is a fifth more at most. Of complex numbers on NVIDIA GPUs
+    // also wherever the sums are short, which the large blocks, one a
+    // multiprocessor, wait on (measured on a V100: 17640 x 154 of 288 terms
+    // from 1.20 of cuBLAS to 1.11, 59000 x 692 of 692 from 1.17 to 1.13; the
+    // long sums of 692 x 692 at 1.09 with the large blocks, 1.15 with the
+    // small ones).
     bool small = false;
     if (!tensor && (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) && small_tiles_ != 0) {
         const int sm = SmallTiles<S>::side * SmallTiles<S>::mm, sn = SmallTiles<S>::side * SmallTiles<S>::mn;
@@ -588,8 +593,15 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         const auto count = [m, n](int tm, int tn) { return static_cast<double>((m + tm - 1) / tm) * ((n + tn - 1) / tn); };
         const double filled = count(kTM, kTN) * kTM * kTN / (count(sm, sn) * sm * sn);
         const double read = count(sm, sn) * (sm + sn) / (count(kTM, kTN) * (kTM + kTN));
+#if defined(MDAPY_GPU_HIP)
+        constexpr bool kShortSums = false;
+#else
+        constexpr bool kShortSums = std::is_same_v<S, Cx<double>>;
+#endif
+        constexpr int kShortSum = 2048;
         small = small_tiles_ > 0 ||
-                (m >= sm && n >= sn && filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2));
+                (m >= sm && n >= sn &&
+                 ((kShortSums && k <= kShortSum) || (filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2))));
         if (small) kTM = sm, kTN = sn, kDepth = SmallTiles<S>::depth, per = 0;
     }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);

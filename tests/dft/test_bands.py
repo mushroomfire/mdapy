@@ -20,9 +20,9 @@ from mdapy.calculators._dft import scf
 from mdapy.calculators._dft.upf import read_upf
 from mdapy.properties import _paths
 
-from dft import espresso
+from dft import espresso, gpu
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 

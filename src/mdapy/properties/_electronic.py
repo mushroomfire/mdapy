@@ -82,11 +82,11 @@ class ElectronicStructure:
                 f"the electronic structure needs the calculator DFT, not {calculator!r}"
             )
         self.__calculator = calculator
-        self.__ground = calculator._ground_state(system)
+        self.__fixed = calculator._fixed_density(system)
         self.system = system
-        self.fermi = float(self.__ground["fermi"])
-        self.spins = int(self.__ground["spins"])
-        self.bands = int(self.__ground["bands"])
+        self.fermi = float(self.__fixed["fermi"])
+        self.spins = int(self.__fixed["spins"])
+        self.bands = int(self.__fixed["bands"])
 
     def __repr__(self) -> str:
         atoms = f"{len(self.system)} atom" + ("s" if len(self.system) > 1 else "")
@@ -124,7 +124,7 @@ class ElectronicStructure:
             raise InvalidParameter("wave vectors must be (K, 3) or (3,)")
         if bands is not None and int(bands) < 1:
             raise InvalidParameter(f"bands must be at least 1, not {bands!r}")
-        e = self.__calculator._bands(self.__ground, k, bands) - self.fermi
+        e = self.__calculator._bands(self.__fixed, k, bands) - self.fermi
         return e[:, 0] if single else e
 
     def band_structure(
@@ -180,7 +180,7 @@ class ElectronicStructure:
         else:
             sections = _paths.given_path(path)
         k, distances, labels, _ = _paths.sample(
-            sections, points, self.__ground["reciprocal"]
+            sections, points, self.__fixed["reciprocal"]
         )
         return ElectronicBandStructure(
             k=k,

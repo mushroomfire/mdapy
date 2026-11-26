@@ -449,7 +449,8 @@ class DFT(Calculator):
         self.__writer: Any = None
         self.__calculations = 0
         self.__state = None
-        self.__ground: dict[str, Any] | None = None
+        # what a pass at the density of the last computation needs (_fixed_density)
+        self.__fixed: dict[str, Any] | None = None
         self.cutoff = 0.0
         self.elements = None
         self.last: dict[str, Any] = {}
@@ -603,6 +604,16 @@ class DFT(Calculator):
             self.__state.steps = 3 if self.restart == "second_order" else 1
         return self.__state
 
+    def __select_device(self) -> None:
+        # with MPI the ranks share the GPUs of their node in turn
+        if self.gpu is None:
+            return
+        _dft = loader.module()
+        count = _dft.device_count()
+        _dft.set_device(
+            self.gpu % count if self.comm is not None and count > 0 else self.gpu
+        )
+
     def __mesh(self, cell: np.ndarray) -> tuple[int, int, int]:
         if self.kpoints is not None:
             return self.kpoints
@@ -668,12 +679,7 @@ class DFT(Calculator):
         # the stress costs a pass over the bands; dynamics asks without it on
         # the steps that need no pressure
         stress = "virial" in wanted and WITHOUT_VIRIAL not in properties
-        if self.gpu is not None:
-            _dft = loader.module()
-            count = _dft.device_count()
-            _dft.set_device(
-                self.gpu % count if self.comm is not None and count > 0 else self.gpu
-            )
+        self.__select_device()
         if "element" not in system.table.columns:
             raise MissingProperty("DFT needs the element column")
         if not all(system.box.pbc):
@@ -828,7 +834,7 @@ class DFT(Calculator):
             },
         }
         # what a pass at this density on other k-points needs
-        self.__ground = {
+        self.__fixed = {
             "cell": cell / BOHR,
             "reciprocal": 2 * math.pi * np.linalg.inv(cell).T,
             "positions": fractional,
@@ -885,7 +891,7 @@ class DFT(Calculator):
             info={"dft": record},
         )
 
-    def _ground_state(self, system: System) -> dict[str, Any]:
+    def _fixed_density(self, system: System) -> dict[str, Any]:
         """The self-consistent state of a system, for the bands at its
         density.
 
@@ -914,7 +920,7 @@ class DFT(Calculator):
         if self.hubbard:
             raise InvalidParameter("the bands at a fixed density are not yet for DFT+U")
         self.compute(system)
-        return dict(self.__ground)
+        return dict(self.__fixed)
 
     def _bands(
         self,
@@ -930,7 +936,7 @@ class DFT(Calculator):
         Parameters
         ----------
         ground : dict
-            The state of ``_ground_state``.
+            The state of ``_fixed_density``.
         kpoints : numpy.ndarray
             (K, 3) float64 k-points in units of the reciprocal lattice
             vectors of the cell.
@@ -970,10 +976,7 @@ class DFT(Calculator):
         waves = volume * (2 * cutoff) ** 1.5 / (6 * math.pi**2)
         each = 16.0 * waves * solved * ground["spins"]
         step = max(1, int(memory // each))
-        if self.gpu is not None:
-            from mdapy_dft_cuda12 import _dft
-
-            _dft.set_device(self.gpu)
+        self.__select_device()
         parts = []
         for first in range(0, len(kpoints), step):
             r = scf.run(

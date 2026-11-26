@@ -27,9 +27,9 @@ from mdapy.properties.electronic import (
     electronic_structure,
 )
 
-from dft import espresso
+from dft import espresso, gpu
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 
@@ -125,7 +125,7 @@ def test_invariances(dft, structure, bands):
     assert one.shape == (1, structure.bands)
     np.testing.assert_allclose(one[0], e[0, 0, : structure.bands], atol=1e-7)
     # one k-point in each pass, as many as fit, and other numbers of bands
-    ground = dft._ground_state(silicon())
+    ground = dft._fixed_density(silicon())
     apart = dft._bands(ground, bands.k, 10, memory=1.0) - ground["fermi"]
     np.testing.assert_allclose(apart, bands.energies, atol=1e-7)
     fewer = structure.band_structure("fcc", points=3, bands=6)
@@ -180,7 +180,7 @@ def test_errors(dft, structure, folder, monkeypatch):
     with pytest.raises(InvalidParameter, match="wave vectors must be"):
         structure.energies([0.0, 0.0])
     with pytest.raises(InvalidParameter, match="kpoints must be"):
-        dft._bands(dft._ground_state(silicon()), np.zeros(3))
+        dft._bands(dft._fixed_density(silicon()), np.zeros(3))
     # a residual that no band reaches
     monkeypatch.setattr(module, "_BAND_TOLERANCE", 1e-18)
     with pytest.raises(CalculationFailed, match="bands did not converge"):

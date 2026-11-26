@@ -18,14 +18,50 @@ to a microhartree:
     polynomials of four points, as QE 7.6; their slopes in q are those of the
     interpolation, the exact derivatives of the values used.
 Every transform is per unit volume of the cell: 4 pi / Omega for the local
-parts, 4 pi / sqrt(Omega) for the projectors."""
+parts, 4 pi / sqrt(Omega) for the projectors.
+
+The integrals of the tables of a pseudopotential, which do not depend on the
+cell, are kept while the pseudopotential lives: a calculator reads its
+pseudopotentials once and runs an SCF at each step of molecular dynamics."""
 
 import math
+import threading
+import weakref
 
 import numpy as np
 
 DQ = 0.01  # 1/bohr, the step of the tables of the projectors
 _RCUT = 10.0  # bohr, the reach of the integrals of the local parts
+
+# (id of the pseudopotential, what, points) -> its table, without the factor of
+# the volume; the entries of a pseudopotential go with it
+_TABLES: dict[tuple, np.ndarray] = {}
+_WATCHED: set[int] = set()
+_LOCK = threading.Lock()
+
+
+def _forget(key: int) -> None:
+    with _LOCK:
+        for k in [k for k in _TABLES if k[0] == key]:
+            del _TABLES[k]
+        _WATCHED.discard(key)
+
+
+def _kept(pp, what: str, nq: int, make) -> np.ndarray:
+    """The table `what` of nq points of the pseudopotential pp, made by make()
+    the first time and kept, read only, while pp lives."""
+    key = (id(pp), what, nq)
+    with _LOCK:
+        table = _TABLES.get(key)
+    if table is None:
+        table = make()
+        table.flags.writeable = False
+        with _LOCK:
+            if id(pp) not in _WATCHED:
+                _WATCHED.add(id(pp))
+                weakref.finalize(pp, _forget, id(pp))
+            _TABLES[key] = table
+    return table
 
 
 def simpson(f: np.ndarray, rab: np.ndarray, n: int | None = None) -> float:
@@ -108,6 +144,27 @@ def bessel(l: int, x: np.ndarray) -> np.ndarray:  # noqa: E741
     return out
 
 
+_CHUNK = 256  # rows of q of a block of the transforms
+
+
+def transforms(
+    rows: np.ndarray, ells: list[int], r: np.ndarray, weights: np.ndarray, q: np.ndarray
+) -> np.ndarray:
+    """(len(rows), len(q)): sum_r weights(r) rows_i(r) j_l_i(q r) for each row
+    rows_i of values on the mesh r, with the spherical Bessel function of its
+    l_i: the Simpson integrals of the tables at every q at once, j_l(q r) made
+    once for each l, a block of q at a time."""
+    rows = np.asarray(rows, dtype=float)
+    out = np.empty((len(rows), len(q)))
+    for ell in sorted(set(ells)):
+        which = [i for i, e in enumerate(ells) if e == ell]
+        weighted = rows[which] * weights
+        for start in range(0, len(q), _CHUNK):
+            j = bessel(ell, np.multiply.outer(q[start : start + _CHUNK], r))
+            out[which, start : start + _CHUNK] = np.einsum("qr,kr->kq", j, weighted)
+    return out
+
+
 def _table_points(q: np.ndarray) -> int:
     """The points of a table every DQ that interpolates to the largest q."""
     largest = float(np.max(q)) if len(q) else 0.0
@@ -118,15 +175,21 @@ def local_table(pp, nq: int, volume: float) -> np.ndarray:
     """(nq,) the local potential without its long range, every DQ from 0:
     (4 pi / Omega) int (r V(r) + Z erf(r)) sin(qr)/q dr, at q = 0 the limit
     (4 pi / Omega) int r (r V(r) + Z erf(r)) dr."""
-    n = reach(pp.r)
-    r, rab, z = pp.r[:n], pp.rab[:n], pp.valence
-    base = r * pp.local[:n] + z * np.vectorize(math.erf)(r)
-    table = np.empty(nq)
-    table[0] = simpson(base * r, rab)
-    for i in range(1, nq):
-        g = i * DQ
-        table[i] = simpson(base * np.sin(g * r) / g, rab)
-    return 4 * math.pi / volume * table
+
+    def make():
+        n = reach(pp.r)
+        r, rab, z = pp.r[:n], pp.rab[:n], pp.valence
+        base = r * pp.local[:n] + z * np.vectorize(math.erf)(r)
+        weighted = base * simpson_weights(rab)
+        table = np.empty(nq)
+        table[0] = (weighted * r).sum()
+        for start in range(1, nq, _CHUNK):
+            g = DQ * np.arange(start, min(start + _CHUNK, nq))
+            sines = np.sin(np.multiply.outer(g, r))
+            table[start : start + len(g)] = np.einsum("qr,r->q", sines, weighted) / g
+        return table
+
+    return 4 * math.pi / volume * _kept(pp, "local", nq, make)
 
 
 def alpha(pp, volume: float) -> float:
@@ -170,13 +233,19 @@ def density_table(
     f: np.ndarray, pp, nq: int, volume: float, weight_r2: bool
 ) -> np.ndarray:
     """(nq,) int f(r) j0(qr) dr / Omega every DQ from 0, times r^2 4 pi when
-    weight_r2."""
-    n = reach(pp.r)
-    r, rab = pp.r[:n], pp.rab[:n]
-    g = f[:n] * (4 * math.pi * r * r if weight_r2 else 1.0)
-    return (
-        np.array([simpson(g * bessel(0, DQ * i * r), rab) for i in range(nq)]) / volume
-    )
+    weight_r2; kept for the densities of the pseudopotential, pp.atom and
+    pp.core."""
+
+    def make():
+        n = reach(pp.r)
+        r, rab = pp.r[:n], pp.rab[:n]
+        g = f[:n] * (4 * math.pi * r * r if weight_r2 else 1.0)
+        return transforms(g[None], [0], r, simpson_weights(rab), DQ * np.arange(nq))[0]
+
+    which = next((a for a in ("atom", "core") if getattr(pp, a, None) is f), None)
+    if which is None:
+        return make() / volume
+    return _kept(pp, f"density {which} {weight_r2}", nq, make) / volume
 
 
 def radial_density(
@@ -208,15 +277,18 @@ def augmentation_tables(pp, qmax: float, volume: float) -> tuple[list, np.ndarra
     Q^L_pq(r) j_L(qr) dr up to kkbeta, every DQ from 0 to qmax and three
     steps more."""
     nq = int(qmax / DQ) + 4
-    q = DQ * np.arange(nq)
-    n = pp.kkbeta
-    r, rab = pp.r[:n], pp.rab[:n]
     keys = sorted(pp.augmentation)
-    table = np.empty((len(keys), nq))
-    for i, (_, _, ell) in enumerate(keys):
-        f = pp.augmentation[keys[i]][:n]
-        table[i] = [simpson(f * bessel(ell, qi * r), rab) for qi in q]
-    return keys, 4 * math.pi / volume * table
+
+    def make():
+        n = pp.kkbeta
+        r, rab = pp.r[:n], pp.rab[:n]
+        if not keys:
+            return np.empty((0, nq))
+        rows = np.array([pp.augmentation[k][:n] for k in keys])
+        ells = [ell for _, _, ell in keys]
+        return transforms(rows, ells, r, simpson_weights(rab), DQ * np.arange(nq))
+
+    return keys, 4 * math.pi / volume * _kept(pp, "augmentation", nq, make)
 
 
 def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
@@ -225,14 +297,17 @@ def projector_table(pp, qmax: float, volume: float) -> np.ndarray:
     at least its augmentation points), every DQ from 0 to qmax and three steps
     more for the interpolation."""
     nq = int(qmax / DQ) + 4
-    q = DQ * np.arange(nq)
-    table = np.empty((len(pp.projectors), nq))
-    n = pp.kkbeta
-    r, rab = pp.r[:n], pp.rab[:n]
-    for i, p in enumerate(pp.projectors):
-        rb = p.r_beta[:n]
-        table[i] = [simpson(rb * r * bessel(p.angular, qi * r), rab) for qi in q]
-    return 4 * math.pi / math.sqrt(volume) * table
+
+    def make():
+        n = pp.kkbeta
+        r, rab = pp.r[:n], pp.rab[:n]
+        if not pp.projectors:
+            return np.empty((0, nq))
+        rows = np.array([p.r_beta[:n] * r for p in pp.projectors])
+        ells = [p.angular for p in pp.projectors]
+        return transforms(rows, ells, r, simpson_weights(rab), DQ * np.arange(nq))
+
+    return 4 * math.pi / math.sqrt(volume) * _kept(pp, "projectors", nq, make)
 
 
 def orbital_table(pp, qmax: float, volume: float) -> np.ndarray:
@@ -240,14 +315,17 @@ def orbital_table(pp, qmax: float, volume: float) -> np.ndarray:
     (4 pi / sqrt(Omega)) int r^2 chi(r) j_l(qr) dr up to the reach of the local
     parts, on the steps of projector_table; for the first bands."""
     nq = int(qmax / DQ) + 4
-    q = DQ * np.arange(nq)
-    n = reach(pp.r)
-    r, rab = pp.r[:n], pp.rab[:n]
-    table = np.empty((len(pp.orbitals), nq))
-    for i, o in enumerate(pp.orbitals):
-        rc = o.r_chi[:n]
-        table[i] = [simpson(rc * r * bessel(o.angular, qi * r), rab) for qi in q]
-    return 4 * math.pi / math.sqrt(volume) * table
+
+    def make():
+        n = reach(pp.r)
+        r, rab = pp.r[:n], pp.rab[:n]
+        if not pp.orbitals:
+            return np.empty((0, nq))
+        rows = np.array([o.r_chi[:n] * r for o in pp.orbitals])
+        ells = [o.angular for o in pp.orbitals]
+        return transforms(rows, ells, r, simpson_weights(rab), DQ * np.arange(nq))
+
+    return 4 * math.pi / math.sqrt(volume) * _kept(pp, "orbitals", nq, make)
 
 
 def interpolate(table: np.ndarray, q: np.ndarray) -> np.ndarray:

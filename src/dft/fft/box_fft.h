@@ -38,18 +38,30 @@ public:
     std::size_t points() const noexcept;    // n1 n2 n3
     std::size_t spectrum() const noexcept;  // n1 n2 (n3 / 2 + 1)
 
-    // count complex boxes in place: 2 points() reals each.
-    void forward(double* boxes, int count);
-    void inverse(double* boxes, int count);
-    void forward(float* boxes, int count);
-    void inverse(float* boxes, int count);
+    // count complex boxes in place: 2 points() reals each. With window >= 0,
+    // boxes of which only the planes of the first index within window of 0
+    // matter (0 to window and n1 - window to n1 - 1), as those of the sphere
+    // of the bands: inverse reads those planes alone, the others taken as
+    // zeros and never read, and forward writes those alone, the others left
+    // as the transform along the first axis made them; about a third less
+    // work and memory traffic with the sphere of the bands in a box of the
+    // density.
+    // forward with field multiplies the boxes by it first (points reals, the
+    // same for every box), on the way of the transform where it can.
+    void forward(double* boxes, int count, int window = -1, const double* field = nullptr);
+    void inverse(double* boxes, int count, int window = -1);
+    void forward(float* boxes, int count, int window = -1, const float* field = nullptr);
+    void inverse(float* boxes, int count, int window = -1);
 
     // count real boxes of points() values to spectrum() complex components and
-    // back; inverse overwrites its spectrum.
-    void forward(const double* values, double* spectrum, int count);
-    void inverse(double* spectrum, double* values, int count);
-    void forward(const float* values, float* spectrum, int count);
-    void inverse(float* spectrum, float* values, int count);
+    // back; inverse overwrites its spectrum. With window >= 0, spectra of which
+    // only the planes of the first index within window of 0 matter: inverse
+    // reads those planes alone, the others taken as zeros, and forward writes
+    // those alone.
+    void forward(const double* values, double* spectrum, int count, int window = -1);
+    void inverse(double* spectrum, double* values, int count, int window = -1);
+    void forward(const float* values, float* spectrum, int count, int window = -1);
+    void inverse(float* spectrum, float* values, int count, int window = -1);
 
     // Lines per block (a power of two, as its logarithm) and threads per block
     // (a multiple of 64) of the kernels of a precision (0 double, 1 single) and
@@ -61,21 +73,30 @@ public:
     // transformed; with 8 no pass is run (loads and stores alone), with 16 the
     // second and the third axis each in its own kernel. For measurements.
     void only_axes(int mask) { axes_ = mask; }
+    // The planes that take up to this many bytes of shared memory go through
+    // one kernel (never more than a block of the GPU can have). For
+    // measurements.
+    void set_plane_bytes(std::size_t bytes);
 
 private:
     struct Tables;
     template <class R>
     void complex_boxes(R* boxes, int count, int sign);
     template <class R>
-    void real_forward(const R* values, R* spectrum, int count);
+    void complex_window(R* boxes, int count, int sign, int window, const R* field);
     template <class R>
-    void real_inverse(R* spectrum, R* values, int count);
+    bool plane_fits() const;
+    template <class R>
+    void real_forward(const R* values, R* spectrum, int count, int window);
+    template <class R>
+    void real_inverse(R* spectrum, R* values, int count, int window);
     template <class R, int Sign>
-    void strided(R* boxes, int axis, long long planes, long long columns, long long stride);
+    void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1,
+                 int kept = -1, const R* field = nullptr, int window_planes = -1);
     template <class R, int Sign, int Mode>
-    void contiguous(const R* in, R* out, long long lines);
+    void contiguous(const R* in, R* out, long long lines, int window_planes = -1);
     template <class R, int Sign>
-    bool planes(R* boxes, long long count);
+    bool planes(R* boxes, long long count, int window = -1);
     template <class R, int Sign>
     bool real_planes(const R* in, R* out, long long count);
 
@@ -84,6 +105,10 @@ private:
     Tables* half_ = nullptr;                           // of half the third size, when it is even
     int tuned_[2][3][2] = {};
     int axes_ = 7;
+    std::size_t most_shared_ = 0;  // bytes of shared memory a block of this GPU can have
+    std::size_t plane_bytes_ = 0;  // the largest plane that goes through one kernel
+    bool narrow_ = false;          // a V100: smaller blocks of the lines of double precision
+    int threads_[2][2][2] = {};    // of the blocks of the planes, by precision, direction and complex or real; 0 not asked yet
 };
 
 }  // namespace mdapy::dft

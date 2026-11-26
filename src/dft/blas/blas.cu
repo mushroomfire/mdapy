@@ -1,0 +1,1124 @@
+// Copyright (c) 2022-2026, Yongchao Wu
+// This Source Code Form is subject to the terms of the Mozilla Public License,
+// v. 2.0. If a copy of the MPL was not distributed with this file, You can
+// obtain one at https://mozilla.org/MPL/2.0/.
+//
+// Nothing here depends on the size of a warp or of a wavefront, but the layout
+// in shared memory of the products, chosen for warps of 32, and the products
+// on the tensor cores of NVIDIA (dmma.cuh): the threads of a block (64 or 256)
+// share the work by their index and meet at barriers of the block.
+
+#include "dft/blas/blas.h"
+
+#include <cstdint>
+#include <cstdlib>
+#include <new>
+#include <stdexcept>
+#include <string>
+#include <type_traits>
+
+#ifdef MDAPY_DFT_BLAS_PROFILE
+#include <algorithm>
+#include <chrono>
+#include <cstdio>
+#include <map>
+#include <mutex>
+#include <tuple>
+#include <vector>
+#endif
+
+#if defined(__linux__)
+#include <dlfcn.h>
+#endif
+
+#include "dft/core/check.h"
+#include "dft/core/profile.h"
+
+namespace mdapy::dft {
+
+namespace {
+
+// ---------------------------------------------------------------- scalars
+
+// Those of double precision aligned as the complex numbers of the libraries,
+// so that one instruction reads a value from memory, not two (measured on a
+// V100: the products of 640 x 640 values of 31560 terms and of 32000 x 640 of
+// 640 from 1.21 and 1.25 of cuBLAS to 1.15 and 1.16 with the large blocks,
+// from 1.19 and 1.14 to 1.16 and 1.12 with the small ones).
+template <class R>
+struct alignas(sizeof(R) == 8 ? 16 : alignof(R)) Cx {
+    R x, y;
+};
+
+__device__ __forceinline__ float zero_of(float) { return 0.0f; }
+__device__ __forceinline__ double zero_of(double) { return 0.0; }
+template <class R>
+__device__ __forceinline__ Cx<R> zero_of(Cx<R>) {
+    return {static_cast<R>(0), static_cast<R>(0)};
+}
+
+__host__ __device__ __forceinline__ bool is_zero(float a) { return a == 0.0f; }
+__host__ __device__ __forceinline__ bool is_zero(double a) { return a == 0.0; }
+template <class R>
+__host__ __device__ __forceinline__ bool is_zero(Cx<R> a) {
+    return a.x == static_cast<R>(0) && a.y == static_cast<R>(0);
+}
+
+__device__ __forceinline__ float conj_of(float a) { return a; }
+__device__ __forceinline__ double conj_of(double a) { return a; }
+template <class R>
+__device__ __forceinline__ Cx<R> conj_of(Cx<R> a) {
+    return {a.x, -a.y};
+}
+
+__device__ __forceinline__ float sum(float a, float b) { return a + b; }
+__device__ __forceinline__ double sum(double a, double b) { return a + b; }
+template <class R>
+__device__ __forceinline__ Cx<R> sum(Cx<R> a, Cx<R> b) {
+    return {a.x + b.x, a.y + b.y};
+}
+
+__device__ __forceinline__ float product(float a, float b) { return a * b; }
+__device__ __forceinline__ double product(double a, double b) { return a * b; }
+template <class R>
+__device__ __forceinline__ Cx<R> product(Cx<R> a, Cx<R> b) {
+    return {a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x};
+}
+
+// s + a b
+__device__ __forceinline__ float plus(float s, float a, float b) { return s + a * b; }
+__device__ __forceinline__ double plus(double s, double a, double b) { return s + a * b; }
+template <class R>
+__device__ __forceinline__ Cx<R> plus(Cx<R> s, Cx<R> a, Cx<R> b) {
+    return {s.x + a.x * b.x - a.y * b.y, s.y + a.x * b.y + a.y * b.x};
+}
+
+// s - a b
+__device__ __forceinline__ float minus(float s, float a, float b) { return s - a * b; }
+__device__ __forceinline__ double minus(double s, double a, double b) { return s - a * b; }
+template <class R>
+__device__ __forceinline__ Cx<R> minus(Cx<R> s, Cx<R> a, Cx<R> b) {
+    return {s.x - a.x * b.x + a.y * b.y, s.y - a.x * b.y - a.y * b.x};
+}
+
+__device__ __forceinline__ float quotient(float a, float b) { return a / b; }
+__device__ __forceinline__ double quotient(double a, double b) { return a / b; }
+template <class R>
+__device__ __forceinline__ Cx<R> quotient(Cx<R> a, Cx<R> b) {
+    // scaled by the larger part of b, as Smith's division
+    const R size_x = b.x < static_cast<R>(0) ? -b.x : b.x, size_y = b.y < static_cast<R>(0) ? -b.y : b.y;
+    if (size_x >= size_y) {
+        const R t = b.y / b.x, d = b.x + b.y * t;
+        return {(a.x + a.y * t) / d, (a.y - a.x * t) / d};
+    }
+    const R t = b.x / b.y, d = b.x * t + b.y;
+    return {(a.x * t + a.y) / d, (a.y * t - a.x) / d};
+}
+
+// ---------------------------------------------------------------- product
+
+constexpr int kBlock = 64;     // threads of a block of a triangular solve
+constexpr int kThreads = 256;  // of the small routines
+
+// What a thread and a block of a product hold: each thread MM x MN values of
+// the result in registers, the block of SideM x SideN threads TM x TN = (SideM
+// MM) x (SideN MN) of them, from Depth terms of the sum in shared memory at a
+// time. A multiprocessor is to hold Fit blocks at least, which bounds the
+// registers of a thread; a thread reads Unit values of the matrices at a time;
+// with Trim a block of the last rows of the result sums only the rows it
+// holds. Real numbers take more values a thread than complex ones, which are
+// two each. Single precision measured on an RTX A2000, where every instruction
+// counts; double on a V100, where the memory does: larger blocks, which read
+// less of the matrices for a product, and fewer terms, for the registers
+// (tests/cpp/dft_blas_check.cu).
+template <int MM, int MN, int Depth, int SideM, int SideN = SideM, int Fit = 1, int Unit = 1, int Trim = 0>
+struct Form {
+    static constexpr int mm = MM, mn = MN, depth = Depth, side_m = SideM, threads = SideM * SideN;
+    static constexpr int tm = SideM * MM, tn = SideN * MN, fit = Fit, unit = Unit, trim = Trim;
+};
+template <class S>
+struct Tiles;
+template <>
+struct Tiles<float> : Form<8, 8, 16, 8> {};
+template <>
+struct Tiles<double> : Form<8, 8, 8, 16> {};
+template <>
+struct Tiles<Cx<float>> : Form<4, 4, 16, 8> {};
+template <>
+struct Tiles<Cx<double>> : Form<4, 4, 8, 16> {};
+// For the results of double precision that fill little of the last blocks
+// along an index: blocks of a quarter of the values, four to a multiprocessor
+// where the large ones are one, so that fewer threads stand idle (measured on
+// a V100: 154 x 154 complex values of long sums at 1.5 of cuBLAS with the
+// large blocks, of which three by three hold them with a third of their
+// threads idle).
+template <class S>
+struct SmallTiles : Tiles<S> {};
+template <>
+struct SmallTiles<double> : Form<8, 8, 8, 8> {};
+template <>
+struct SmallTiles<Cx<double>> : Form<4, 4, 8, 8> {};
+// For the V100 (compute capability 7.0), whose double precision is half as
+// fast as its single: blocks of 128 threads, two or three to a multiprocessor
+// (the P100, of the same double precision, has not the shared memory for as
+// many of the complex ones, and was not measured: it keeps the forms above).
+// There one warp keeps the double precision of a quarter of
+// a multiprocessor busy, and a block of 256 threads, the only one of its
+// multiprocessor, leaves it idle whenever it stands at its barrier or waits
+// for a chunk from memory: measured on a V100 with every chunk in the cache,
+// complex 640 x 640 of 31560 terms went from 1.23 of cuBLAS to 1.13 without
+// the reads of the chunks, 1.08 without their stores either and 1.03 without
+// the barrier, 32000 x 640 of 640 from 1.18 to 1.14, 1.09 and 1.04. Of two
+// blocks one sums while the other waits. The complex ones of two a
+// multiprocessor hold the 64 x 64 values of the large blocks, 8 x 4 a thread;
+// those of three 64 x 32, for narrow results; both trim their blocks of the
+// last rows. The real ones hold 128 x 64 and read two values an instruction,
+// from matrices whose columns all start on 16 bytes (the forms that trim, of
+// eight rows a thread and the registers they take, spill in their sums, and
+// those of three a multiprocessor too). Against cuBLAS on a V100: complex 640
+// x 640 of 31560 terms 1.15 with the large blocks, 1.07 with those of two a
+// multiprocessor, 1.09 with those of three; 1152 x 141 of 31560 1.17, 1.24
+// and 1.08; 141 x 141 of 31560 1.36, 1.20 and 1.04, 1.43 and 1.24 before they
+// trimmed; real 33372 x 1280 of 1280 1.20 and 1.14, 33372 x 195 of 390 1.18
+// and 1.04, 1.15 and 1.07 with one value an instruction.
+template <class S>
+struct PairTiles : Tiles<S> {};
+template <>
+struct PairTiles<Cx<double>> : Form<8, 4, 8, 8, 16, 2, 1, 1> {};
+template <>
+struct PairTiles<double> : Form<8, 8, 8, 16, 8, 2, 2> {};
+template <class S>
+struct TrioTiles : Tiles<S> {};
+template <>
+struct TrioTiles<Cx<double>> : Form<4, 4, 8, 16, 8, 3, 1, 1> {};
+// the forms by their numbers, those of Blas::set_small_tiles
+constexpr int kLarge = 0, kSmall = 1, kPair = 2, kTrio = 3, kForms = 4;
+// The pace of the full blocks of a form on a V100, against the fastest of its
+// type (complex 640 x 640 of 31560 terms and 32000 x 640 of 640: 1.15 and 1.16
+// of cuBLAS with the large blocks, 1.16 and 1.12 with the small ones, 1.07 and
+// 1.06 with those of two a multiprocessor, 1.09 and 1.07 with those of three;
+// real 1280 x 1280 of 33372 and 33372 x 1280 of 1280: 1.24 and 1.20, 2.06 and
+// 1.31, 1.17 and 1.14), and the bytes of the real matrices read along their
+// columns past which the large blocks are the fastest: see Blas::own_gemm.
+template <class S>
+constexpr double kPace[kForms] = {1.0, 1.0, 1.0, 1.0};
+template <>
+constexpr double kPace<Cx<double>>[kForms] = {0.93, 0.93, 1.0, 0.98};
+template <>
+constexpr double kPace<double>[kForms] = {0.95, 0.88, 1.0, 1.0};
+constexpr double kReach = 1.5e9;
+
+struct GemmArgs {
+    int m, n, k;
+    long long lda, ldb, ldc;
+    int conj_a, conj_b;
+    // split: block z sums the terms [z length, (z + 1) length) into
+    // partial + z m n, (m, n) with no gaps
+    int segments, length;
+    // not split: block z is product z of a batch
+    long long stride_a, stride_b, stride_c;
+    // the tiles of the rows of the result along the second index of the grid of blocks
+    int swap;
+};
+
+// See the top of blas.h. op(a)[i, t] is a[i + t lda], or a[t + i lda] with
+// TransA; op(b)[t, j] is b[t + j ldb], or b[j + t ldb] with TransB: each tile
+// is read along the columns of its matrix. Values outside the matrices are
+// zeros in shared memory, so that the sums take no bounds.
+//
+// The terms come in chunks of kDepth through two buffers in shared memory:
+// while a chunk is summed from one, the next goes to the other, a few values
+// between two terms, each read from memory before the sums of a term and
+// stored after them, so that the sums hide its wait; one barrier a chunk.
+//
+// In shared memory a row of a tile is padded, so that the stores of a warp,
+// which go along the terms for a matrix read along them, meet few conflicts of
+// banks. In double precision the rows of the threads alternate (thread u holds
+// the rows u, u + Side, ...): a warp reads the rows of a tile from shared
+// memory without conflicts and writes the result along its columns.
+//
+// The body of the kernels of a product: gemm_kernel, and gemm_fit_kernel for
+// the forms of which a multiprocessor is to hold several blocks.
+template <class S, bool TransA, bool TransB, class F>
+__device__ __forceinline__ void gemm_block(const GemmArgs& g, const S alpha, const S beta, const S* __restrict__ a,
+                                           const S* __restrict__ b, S* c, S* partial) {
+    constexpr int kMM = F::mm, kMN = F::mn, kDepth = F::depth;
+    constexpr int kSide = F::side_m, kTeam = F::threads;  // threads along the rows of the tile, and of the block
+    constexpr int kTM = F::tm, kTN = F::tn;  // values of the result of a block along each index
+    // values a load: two in the forms of real double precision for matrices
+    // whose columns all start on 16 bytes
+    constexpr int kUnit = F::unit;
+    static_assert(kUnit == 1 || (kUnit == 2 && std::is_same_v<S, double>), "two values a load of real numbers only");
+    // loads of a thread and a chunk
+    constexpr int kLoadsA = kTM * kDepth / (kTeam * kUnit), kLoadsB = kTN * kDepth / (kTeam * kUnit);
+    constexpr int kLoads = kLoadsA + kLoadsB;
+    constexpr int kPM = kTM + (sizeof(S) == 4 ? 4 : 2), kPN = kTN + (sizeof(S) == 4 ? 4 : 2);
+    constexpr bool kAlternate = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
+    __shared__ S as[2][kDepth * kPM], bs[2][kDepth * kPN];
+    const unsigned tid = threadIdx.x;
+    const unsigned i0 = (g.swap ? blockIdx.y : blockIdx.x) * kTM, j0 = (g.swap ? blockIdx.x : blockIdx.y) * kTN;
+    const unsigned z = blockIdx.z;
+    const unsigned m = static_cast<unsigned>(g.m), n = static_cast<unsigned>(g.n);
+    unsigned first = 0, last = static_cast<unsigned>(g.k);
+    if (g.segments > 1) {
+        first = z * static_cast<unsigned>(g.length);
+        last = first + static_cast<unsigned>(g.length) < last ? first + static_cast<unsigned>(g.length) : last;
+    } else {
+        a += z * g.stride_a;
+        b += z * g.stride_b;
+        c += z * g.stride_c;
+    }
+    // row p of the thread in the tile, and its first column
+    const unsigned ui = tid % kSide, tj = (tid / kSide) * kMN;
+    auto row = [ui](unsigned p) { return kAlternate ? ui + p * kSide : ui * kMM + p; };
+    const bool active = i0 + row(0) < m && j0 + tj < n;
+    const bool inside = i0 + kTM <= m && j0 + kTN <= n;
+    // Load q of a thread and a chunk, of a and then of b: from memory, and to
+    // a buffer. A value is first used in its store: until then the thread
+    // does not wait for it.
+    auto fetch = [&](int q, unsigned t0, bool whole) {
+#ifdef MDAPY_BLAS_SAME_CHUNK
+        // an experiment of tests/cpp/dft_blas_check.sh, not a product: every
+        // chunk reads the terms of the first, which stay in the cache, to
+        // tell the bandwidth from the arithmetic
+        const unsigned t0_read = first;
+#else
+        const unsigned t0_read = t0;
+#endif
+        if (q < kLoadsA) {
+            const unsigned e = tid + q * kTeam;
+            const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
+            const long long at = TransA ? (t0_read + t) + (i0 + i) * g.lda : (i0 + i) + (t0_read + t) * g.lda;
+            return whole || (i0 + i < m && t0 + t < last) ? a[at] : zero_of(S{});
+        }
+        const unsigned e = tid + (q - kLoadsA) * kTeam;
+        const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
+        const long long at = TransB ? (j0 + j) + (t0_read + t) * g.ldb : (t0_read + t) + (j0 + j) * g.ldb;
+        return whole || (j0 + j < n && t0 + t < last) ? b[at] : zero_of(S{});
+    };
+    auto store = [&](int q, unsigned buffer, S value) {
+        if (q < kLoadsA) {
+            const unsigned e = tid + q * kTeam;
+            const unsigned i = TransA ? e / kDepth : e % kTM, t = TransA ? e % kDepth : e / kTM;
+            as[buffer][t * kPM + i] = g.conj_a ? conj_of(value) : value;
+        } else {
+            const unsigned e = tid + (q - kLoadsA) * kTeam;
+            const unsigned j = TransB ? e % kTN : e / kDepth, t = TransB ? e / kTN : e % kDepth;
+            bs[buffer][t * kPN + j] = g.conj_b ? conj_of(value) : value;
+        }
+    };
+    // The same of two values a load, which follow each other along the column
+    // of their matrix: the terms of op(a) with TransA and of op(b) without
+    // TransB, the rows and the columns of the tile otherwise. A load whose
+    // values are all of the matrices is one instruction.
+    struct Two {
+        S first, second;
+    };
+    auto fetch_two = [&](int q, unsigned t0, bool whole) {
+#ifdef MDAPY_BLAS_SAME_CHUNK
+        const unsigned t0_read = first;
+#else
+        const unsigned t0_read = t0;
+#endif
+        const bool of_a = q < kLoadsA;
+        const unsigned e = tid + (of_a ? q : q - kLoadsA) * kTeam;
+        // along the terms or across them, the place of the first value, and whether each is of the matrices
+        const bool along = of_a ? TransA : !TransB;
+        const unsigned tiles = of_a ? kTM : kTN;
+        const unsigned t = along ? 2 * (e % (kDepth / 2)) : e / (tiles / 2);
+        const unsigned r = (of_a ? i0 : j0) + (along ? e / (kDepth / 2) : 2 * (e % (tiles / 2)));
+        const S* from = of_a ? a + (TransA ? (t0_read + t) + r * g.lda : r + (t0_read + t) * g.lda)
+                             : b + (TransB ? r + (t0_read + t) * g.ldb : (t0_read + t) + r * g.ldb);
+        if constexpr (std::is_same_v<S, double>) {
+            if (whole) {
+                const double2 both = *reinterpret_cast<const double2*>(from);
+                return Two{both.x, both.y};
+            }
+        }
+        const unsigned rows = of_a ? m : n;
+        const bool one = r < rows && t0 + t < last;
+        const bool two = along ? r < rows && t0 + t + 1 < last : r + 1 < rows && t0 + t < last;
+        return Two{one ? from[0] : zero_of(S{}), two ? from[1] : zero_of(S{})};
+    };
+    auto store_two = [&](int q, unsigned buffer, Two value) {
+        const bool of_a = q < kLoadsA;
+        const unsigned e = tid + (of_a ? q : q - kLoadsA) * kTeam;
+        const bool along = of_a ? TransA : !TransB;
+        const unsigned tiles = of_a ? kTM : kTN, padded = of_a ? kPM : kPN;
+        const unsigned t = along ? 2 * (e % (kDepth / 2)) : e / (tiles / 2);
+        const unsigned r = along ? e / (kDepth / 2) : 2 * (e % (tiles / 2));
+        S* to = (of_a ? as[buffer] : bs[buffer]) + t * padded + r;
+        const bool conj = of_a ? g.conj_a : g.conj_b;
+        to[0] = conj ? conj_of(value.first) : value.first;
+        to[along ? padded : 1] = conj ? conj_of(value.second) : value.second;
+    };
+    // either kind of load, by the form
+    auto load = [&](int q, unsigned t0, bool whole) {
+        if constexpr (kUnit == 2)
+            return fetch_two(q, t0, whole);
+        else
+            return fetch(q, t0, whole);
+    };
+    auto keep = [&](int q, unsigned buffer, const auto& value) {
+        if constexpr (kUnit == 2)
+            store_two(q, buffer, value);
+        else
+            store(q, buffer, value);
+    };
+    S acc[kMM * kMN];
+#pragma unroll
+    for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
+    // the chunk after the one in shared memory waits in registers
+    decltype(load(0, 0u, false)) stage[kLoads];
+    if (first < last) {
+#pragma unroll
+        for (int q = 0; q < kLoads; ++q) keep(q, 0, load(q, first, inside && first + kDepth <= last));
+        if (first + kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) stage[q] = load(q, first + kDepth, inside && first + 2 * kDepth <= last);
+        }
+    }
+    __syncthreads();
+    // A block of the last rows of the result, with a form that trims: where
+    // they are half the rows of its tile or fewer, or a quarter, every thread
+    // holds as many of its own rows only (they alternate), and sums no others;
+    // without, a thread of such a block sums all its rows, most of them zeros,
+    // and the block takes the time of a full one.
+    constexpr bool kTrim = F::trim && kAlternate && kMM % 4 == 0;
+    const unsigned trim = !kTrim || i0 + kTM / 2 < m ? 0 : i0 + kTM / 4 < m ? 1 : 2;
+    // the sums of a chunk into the first rows of a thread
+    auto sums = [&](unsigned buffer, auto rows) {
+        constexpr int kRows = decltype(rows)::value;
+#pragma unroll
+        for (int t = 0; t < kDepth; ++t) {
+            S x[kRows], y[kMN];
+#pragma unroll
+            for (int p = 0; p < kRows; ++p) x[p] = as[buffer][t * kPM + row(p)];
+#pragma unroll
+            for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + tj + q];
+#pragma unroll
+            for (int q = 0; q < kMN; ++q)
+#pragma unroll
+                for (int p = 0; p < kRows; ++p) acc[p + q * kMM] = plus(acc[p + q * kMM], x[p], y[q]);
+        }
+    };
+    unsigned buffer = 0;
+    for (unsigned t0 = first; t0 < last; t0 += kDepth, buffer ^= 1) {
+        if constexpr (kTrim) {
+            if (active) {
+                if (trim == 0)
+                    sums(buffer, std::integral_constant<int, kMM>{});
+                else if (trim == 1)
+                    sums(buffer, std::integral_constant<int, kMM / 2>{});
+                else
+                    sums(buffer, std::integral_constant<int, kMM / 4>{});
+            }
+        } else if (active) {
+#pragma unroll
+            for (int t = 0; t < kDepth; ++t) {
+                S x[kMM], y[kMN];
+#pragma unroll
+                for (int p = 0; p < kMM; ++p) x[p] = as[buffer][t * kPM + row(p)];
+#pragma unroll
+                for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + tj + q];
+#pragma unroll
+                for (int q = 0; q < kMN; ++q)
+#pragma unroll
+                    for (int p = 0; p < kMM; ++p) acc[p + q * kMM] = plus(acc[p + q * kMM], x[p], y[q]);
+            }
+        }
+        // the next chunk to the other buffer, which the sums before these read
+        if (t0 + kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) keep(q, buffer ^ 1, stage[q]);
+        }
+        if (t0 + 2 * kDepth < last) {
+#pragma unroll
+            for (int q = 0; q < kLoads; ++q) stage[q] = load(q, t0 + 2 * kDepth, inside && t0 + 3 * kDepth <= last);
+        }
+        __syncthreads();
+    }
+    if (!active) return;
+#pragma unroll
+    for (int q = 0; q < kMN; ++q)
+#pragma unroll
+        for (int p = 0; p < kMM; ++p) {
+            const unsigned i = i0 + row(p), j = j0 + tj + q;
+            if (i >= m || j >= n) continue;
+            if (g.segments > 1) {
+                partial[(static_cast<long long>(z) * n + j) * m + i] = acc[p + q * kMM];
+            } else {
+                S* to = c + i + j * g.ldc;
+                const S value = product(alpha, acc[p + q * kMM]);
+                *to = is_zero(beta) ? value : plus(value, beta, *to);
+            }
+        }
+}
+
+template <class S, bool TransA, bool TransB, class F>
+__global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
+                            const S* __restrict__ b, S* c, S* partial) {
+    gemm_block<S, TransA, TransB, F>(g, alpha, beta, a, b, c, partial);
+}
+
+#if !defined(MDAPY_GPU_HIP)
+// The same of a form of which a multiprocessor is to hold several blocks: the
+// compiler of NVIDIA bounds the registers of a thread by them (to that of AMD
+// the second number is another, the waves of a unit).
+template <class S, bool TransA, bool TransB, class F>
+__global__ void __launch_bounds__(F::threads, F::fit)
+gemm_fit_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,
+                S* partial) {
+    gemm_block<S, TransA, TransB, F>(g, alpha, beta, a, b, c, partial);
+}
+
+// the compute capability the kernels of this file were compiled for, as 900
+__global__ void built_kernel(int* built) {
+#if defined(__CUDA_ARCH__)
+    *built = __CUDA_ARCH__;
+#else
+    *built = 0;
+#endif
+}
+#endif
+
+
+// c = alpha (the sum of the partial results, in their order) + beta c
+template <class S>
+__global__ void gather_kernel(int m, int n, int segments, const S alpha, const S beta, const S* __restrict__ partial,
+                              S* c, long long ldc) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    const long long size = static_cast<long long>(m) * n;
+    if (e >= size) return;
+    // read eight at a time, added in their order
+    S total = zero_of(S{});
+    int s = 0;
+    for (; s + 8 <= segments; s += 8) {
+        S part[8];
+#pragma unroll
+        for (int u = 0; u < 8; ++u) part[u] = partial[(s + u) * size + e];
+#pragma unroll
+        for (int u = 0; u < 8; ++u) total = sum(total, part[u]);
+    }
+    for (; s < segments; ++s) total = sum(total, partial[s * size + e]);
+    S* to = c + e % m + (e / m) * ldc;
+    const S value = product(alpha, total);
+    *to = is_zero(beta) ? value : plus(value, beta, *to);
+}
+
+// ---------------------------------------------------------------- triangular solve
+
+constexpr int kSolve = 32;  // columns solved at a time, a row to a thread in registers
+
+// x <- x r^-1 of w <= kSolve columns of the rows of b, r (w, w) upper triangular:
+// x_j = (b_j - sum_(i < j) x_i r_ij) / r_jj
+template <class S>
+__global__ void solve_kernel(int rows, int w, const S* __restrict__ r, long long ldr, S* b, long long ldb) {
+    __shared__ S rs[kSolve * kSolve];
+#pragma unroll
+    for (int q = 0; q < kSolve * kSolve / kBlock; ++q) {
+        const unsigned e = threadIdx.x + q * kBlock, i = e % kSolve, j = e / kSolve;
+        if (i <= j && j < static_cast<unsigned>(w)) rs[e] = r[i + j * ldr];
+    }
+    __syncthreads();
+    const long long row = blockIdx.x * static_cast<long long>(kBlock) + threadIdx.x;
+    if (row >= rows) return;
+    S x[kSolve];
+#pragma unroll
+    for (int j = 0; j < kSolve; ++j)
+        if (j < w) x[j] = b[row + j * ldb];
+#pragma unroll
+    for (int j = 0; j < kSolve; ++j)
+        if (j < w) {
+            S value = x[j];
+#pragma unroll
+            for (int i = 0; i < j; ++i) value = minus(value, x[i], rs[i + j * kSolve]);
+            x[j] = quotient(value, rs[j + j * kSolve]);
+        }
+#pragma unroll
+    for (int j = 0; j < kSolve; ++j)
+        if (j < w) b[row + j * ldb] = x[j];
+}
+
+// ---------------------------------------------------------------- small routines
+
+template <class S>
+__global__ void copy_kernel(int n, const S* __restrict__ x, long long incx, S* __restrict__ y, long long incy) {
+    const long long i = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    if (i < n) y[i * incy] = x[i * incx];
+}
+
+template <class S>
+__global__ void scal_kernel(int n, const S alpha, S* x) {
+    const long long i = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    if (i < n) x[i] = product(alpha, x[i]);
+}
+
+template <class S>
+__global__ void ger_kernel(int m, int n, const S alpha, const S* __restrict__ x, long long incx,
+                           const S* __restrict__ y, long long incy, S* __restrict__ a, long long lda) {
+    const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
+    if (e >= static_cast<long long>(m) * n) return;
+    const long long i = e % m, j = e / m;
+    a[i + j * lda] = plus(a[i + j * lda], product(alpha, x[i * incx]), y[j * incy]);
+}
+
+unsigned blocks(long long work, int threads) {
+    return static_cast<unsigned>((work + threads - 1) / threads);
+}
+
+// ---------------------------------------------------------------- the vendor's
+
+void check_blas(cublasStatus_t status, const char* call) {
+    if (status == CUBLAS_STATUS_SUCCESS) return;
+    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
+    throw std::runtime_error(std::string(call) + " of the library of the vendor failed with status " +
+                             std::to_string(static_cast<int>(status)));
+}
+
+cublasOperation_t vendor_op(Op op) {
+    return op == Op::N ? CUBLAS_OP_N : op == Op::T ? CUBLAS_OP_T : CUBLAS_OP_C;
+}
+
+cublasStatus_t vendor_gemm(cublasHandle_t h, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k,
+                           Complex alpha, const Complex* a, int lda, const Complex* b, int ldb, Complex beta,
+                           Complex* c, int ldc) {
+    return cublasZgemm(h, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc);
+}
+cublasStatus_t vendor_gemm(cublasHandle_t h, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k,
+                           cuComplex alpha, const cuComplex* a, int lda, const cuComplex* b, int ldb, cuComplex beta,
+                           cuComplex* c, int ldc) {
+    return cublasCgemm(h, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc);
+}
+cublasStatus_t vendor_gemm(cublasHandle_t h, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k,
+                           double alpha, const double* a, int lda, const double* b, int ldb, double beta, double* c,
+                           int ldc) {
+    return cublasDgemm(h, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc);
+}
+cublasStatus_t vendor_gemm(cublasHandle_t h, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k,
+                           float alpha, const float* a, int lda, const float* b, int ldb, float beta, float* c,
+                           int ldc) {
+    return cublasSgemm(h, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc);
+}
+
+cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const Complex* r, int ldr, Complex* b, int ldb) {
+    const Complex one = make_cuDoubleComplex(1.0, 0.0);
+    return cublasZtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
+}
+cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const cuComplex* r, int ldr, cuComplex* b, int ldb) {
+    const cuComplex one = make_cuComplex(1.0f, 0.0f);
+    return cublasCtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
+}
+cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const double* r, int ldr, double* b, int ldb) {
+    const double one = 1.0;
+    return cublasDtrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
+}
+cublasStatus_t vendor_trsm(cublasHandle_t h, int m, int n, const float* r, int ldr, float* b, int ldb) {
+    const float one = 1.0f;
+    return cublasStrsm(h, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, m, n, &one, r, ldr, b, ldb);
+}
+
+// the scalars of the kernels have the layout of those of the libraries
+Cx<double> own(Complex a) { return {a.x, a.y}; }
+Cx<float> own(cuComplex a) { return {a.x, a.y}; }
+const Cx<double>* own(const Complex* p) { return reinterpret_cast<const Cx<double>*>(p); }
+Cx<double>* own(Complex* p) { return reinterpret_cast<Cx<double>*>(p); }
+const Cx<float>* own(const cuComplex* p) { return reinterpret_cast<const Cx<float>*>(p); }
+Cx<float>* own(cuComplex* p) { return reinterpret_cast<Cx<float>*>(p); }
+
+// plus or minus one
+float unit(float, int sign) { return static_cast<float>(sign); }
+double unit(double, int sign) { return static_cast<double>(sign); }
+template <class R>
+Cx<R> unit(Cx<R>, int sign) {
+    return {static_cast<R>(sign), static_cast<R>(0)};
+}
+
+template <class S>
+void launch_copy(int n, const S* x, int incx, S* y, int incy) {
+    if (n < 1) return;
+    copy_kernel<S><<<blocks(n, kThreads), kThreads>>>(n, x, incx, y, incy);
+    check_cuda(cudaGetLastError(), "a copy");
+}
+
+template <class S>
+void launch_scal(int n, S alpha, S* x) {
+    if (n < 1) return;
+    scal_kernel<S><<<blocks(n, kThreads), kThreads>>>(n, alpha, x);
+    check_cuda(cudaGetLastError(), "a scaling");
+}
+
+template <class S>
+void launch_ger(int m, int n, S alpha, const S* x, int incx, const S* y, int incy, S* a, int lda) {
+    if (m < 1 || n < 1) return;
+    ger_kernel<S><<<blocks(static_cast<long long>(m) * n, kThreads), kThreads>>>(m, n, alpha, x, incx, y, incy, a, lda);
+    check_cuda(cudaGetLastError(), "a rank-one update");
+}
+
+template <class S, bool TransA, bool TransB, class F>
+void launch_form(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
+#if !defined(MDAPY_GPU_HIP)
+    if constexpr (F::fit > 1)
+        gemm_fit_kernel<S, TransA, TransB, F><<<grid, F::threads>>>(g, alpha, beta, a, b, c, partial);
+    else
+#endif
+        gemm_kernel<S, TransA, TransB, F><<<grid, F::threads>>>(g, alpha, beta, a, b, c, partial);
+    check_cuda(cudaGetLastError(), "a product of matrices");
+}
+
+template <class S, bool TransA, bool TransB>
+void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial, int form) {
+    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
+        if (form == kSmall) return launch_form<S, TransA, TransB, SmallTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+        if (form == kPair) return launch_form<S, TransA, TransB, PairTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+    }
+    if constexpr (std::is_same_v<S, Cx<double>>) {
+        if (form == kTrio) return launch_form<S, TransA, TransB, TrioTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+    }
+    static_cast<void>(form);
+    launch_form<S, TransA, TransB, Tiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+}
+
+#include "dft/blas/dmma.cuh"
+
+}  // namespace
+
+Blas::Blas(Kernels kernels) : kernels_(kernels) {}
+
+// What the products ask of the GPU, found at the first one. The tensor cores
+// take the products of double precision on the GPUs of full double precision
+// (compute capability 8.0, 9.0 and 10.0: A100, H100 and GH200, B200), not on
+// the others, whose double precision is a small part of their single;
+// MDAPY_DFT_DMMA=0 turns them off, for comparisons. The kernels that run may
+// be those of an older capability than the GPU's, which decide. The V100
+// (compute capability 7.0), whose double precision is half as fast as its
+// single, takes portable products of its own forms.
+void Blas::look() {
+    if (processors_ > 0) return;
+    int device = 0;
+    check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+#if defined(MDAPY_GPU_HIP)
+    check_cuda(hipDeviceGetAttribute(&processors_, hipDeviceAttributeMultiprocessorCount, device), "the multiprocessors");
+#else
+    int major = 0, minor = 0, built = 0;
+    check_cuda(cudaDeviceGetAttribute(&processors_, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
+    check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device), "the capability");
+    check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device), "the capability");
+    partial_.reserve(1);
+    built_kernel<<<1, 1>>>(reinterpret_cast<int*>(partial_.data()));
+    check_cuda(cudaGetLastError(), "the capability of the kernels");
+    check_cuda(cudaMemcpy(&built, partial_.data(), sizeof(int), cudaMemcpyDeviceToHost), "the capability of the kernels");
+    const char* off = std::getenv("MDAPY_DFT_DMMA");
+    tensor_ = minor == 0 && (major == 8 || major == 9 || major == 10) && built >= 800 && !(off != nullptr && off[0] == '0');
+    maps_ = tensor_ && major >= 9 && built >= 900;
+    pair_forms_ = major == 7 && minor == 0;
+#endif
+    if (processors_ < 1) processors_ = 1;
+}
+
+// made at its first use: a calculation with MDAPY's kernels takes none
+cublasHandle_t Blas::vendor() {
+    if (vendor_ == nullptr) {
+        check_blas(cublasCreate(&vendor_), "cublasCreate");
+        check_blas(cublasSetStream(vendor_, cudaStreamPerThread), "cublasSetStream");
+    }
+    return vendor_;
+}
+
+Blas::~Blas() {
+    if (vendor_ != nullptr) cublasDestroy(vendor_);
+}
+
+// A grid of blocks has at most 65535 along its second and third index.
+template <class S>
+void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long long lda, long long stride_a,
+                    const S* b, long long ldb, S beta, S* c, long long ldc, long long stride_c, int batch) {
+    GemmArgs g{};
+    g.m = m;
+    g.n = n;
+    g.k = k;
+    g.lda = lda;
+    g.ldb = ldb;
+    g.ldc = ldc;
+    g.conj_a = ta == Op::C;
+    g.conj_b = tb == Op::C;
+    g.segments = 1;
+    g.length = k;
+    g.stride_a = stride_a;
+    g.stride_b = 0;
+    g.stride_c = stride_c;
+    look();
+    int kTM = Tiles<S>::tm, kTN = Tiles<S>::tn, kDepth = Tiles<S>::depth;
+#if !defined(MDAPY_GPU_HIP)
+    constexpr bool kTensorType = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
+#endif
+    bool tensor = false;
+    // the blocks a multiprocessor holds at once: one of 256 threads, more of 64 (0: not counted)
+    int per = Tiles<S>::threads > 64 ? 1 : 0;
+#if !defined(MDAPY_GPU_HIP)
+    if constexpr (kTensorType) {
+        tensor = tensor_;
+        if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk, per = DmmaForm<S>::per;
+    }
+#endif
+    // every column of both matrices starts on 16 bytes, as those of complex values do
+    const auto even = [](const void* p, long long ld) {
+        return reinterpret_cast<std::uintptr_t>(p) % 16 == 0 && ld % 2 == 0;
+    };
+    const bool wide =
+        !std::is_same_v<S, double> || (even(a, lda) && even(b, ldb) && (batch == 1 || stride_a % 2 == 0));
+    int form = kLarge;
+    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
+        // The forms of the portable products: what a block holds of the
+        // result, its terms a chunk, the blocks a multiprocessor holds at once
+        // (0: not counted), whether it trims its blocks of the last rows, and
+        // whether this product can take it: the blocks of two real values a
+        // load ask for columns on 16 bytes, those of three a multiprocessor
+        // are of complex numbers.
+        struct Held {
+            int tm, tn, depth, per;
+            bool trims, fits;
+        };
+        constexpr bool kComplex = std::is_same_v<S, Cx<double>>;
+        const Held held[kForms] = {
+            {Tiles<S>::tm, Tiles<S>::tn, Tiles<S>::depth, 1, false, true},
+            {SmallTiles<S>::tm, SmallTiles<S>::tn, SmallTiles<S>::depth, 0, false, true},
+            {PairTiles<S>::tm, PairTiles<S>::tn, PairTiles<S>::depth, PairTiles<S>::fit, PairTiles<S>::trim != 0, wide},
+            {TrioTiles<S>::tm, TrioTiles<S>::tn, TrioTiles<S>::depth, TrioTiles<S>::fit, TrioTiles<S>::trim != 0,
+             kComplex}};
+        // the blocks of a form
+        const auto count = [m, n](int tm, int tn) { return static_cast<double>((m + tm - 1) / tm) * ((n + tn - 1) / tn); };
+        if (tensor) {
+            // none of them
+        } else if (small_tiles_ >= 0) {
+            if (small_tiles_ < kForms && held[small_tiles_].fits) form = small_tiles_;
+        } else if (pair_forms_ && wide) {
+            // Where double precision is half as fast as single: the form whose
+            // blocks take the least time, each the values it holds over the
+            // pace of the full blocks of its form (kPace); a block of the last
+            // rows that a form trims to half of its rows counts as three
+            // quarters of a block, to a quarter as a half. A result that fills
+            // the larger blocks takes them, which read the least of the
+            // matrices; one whose last blocks would stand mostly idle the
+            // smaller ones. Measured on a V100, against cuBLAS, complex with
+            // the blocks of two and of three a multiprocessor and the small
+            // ones: 692 x 692 of 79405 terms 1.04, 1.07 and 1.22; 1152 x 141
+            // of 31560 1.24, 1.08 and 1.14; 141 x 141 of 31560 1.20, 1.04 and
+            // 1.11; 288 x 154 of 17640 1.35, 1.20 and 1.16; 31560 x 141 of
+            // 1152 1.24, 1.05 and 1.07; 31560 x 1 of 1152 2.31, 1.14 and 1.31
+            // (2.21 with the blocks of 256 threads).
+            constexpr int kOrder[kForms] = {kPair, kTrio, kLarge, kSmall};
+            double least = 0.0;
+            form = -1;
+            for (const int f : kOrder) {
+                const Held& h = held[f];
+                if (!h.fits) continue;
+                const int rest = m % h.tm;
+                const double last = rest == 0 ? 0.0 : !h.trims || 2 * rest > h.tm ? 1.0 : 4 * rest > h.tm ? 0.75 : 0.5;
+                const double cost = (m / h.tm + last) * ((n + h.tn - 1) / h.tn) * h.tm * h.tn / kPace<S>[f];
+                if (form < 0 || cost < least) least = cost, form = f;
+            }
+            // Real matrices read along their columns, a column a row or a
+            // column of the result (op(a) transposed, op(b) not): past kReach
+            // bytes of them the smaller blocks, which read more of them, fall
+            // behind the large ones (measured on a V100, m x 461 of 78996
+            // terms with the blocks of 256 threads and those of two a
+            // multiprocessor: 0.95 and 0.93 of cuBLAS for 922 rows, 0.9 GB;
+            // 0.94 and 0.97 for 1844, 1.5 GB; 0.93 and 1.06 for 2766, 2.0 GB;
+            // 0.86 and 1.07 for 4608, 3.2 GB). The complex ones do not: 2304 x
+            // 141 of 63000 terms, 2.5 GB, 1.06 with the blocks of three a
+            // multiprocessor and 1.23 with those of two.
+            if constexpr (std::is_same_v<S, double>) {
+                const double streamed = 8.0 * k * ((ta != Op::N ? m : 0) + (tb == Op::N ? n : 0));
+                if (streamed > kReach) form = kLarge;
+            }
+        } else {
+            // The small blocks for results that fill one of them at least, where they
+            // leave a fifth fewer threads idle than the large ones; they read more of
+            // the matrices, which real numbers, two reads a product, bear less: there
+            // only where it is a fifth more at most. Of complex numbers on NVIDIA GPUs
+            // also wherever the sums are short, which the large blocks, one a
+            // multiprocessor, wait on (measured on a V100, before it took the forms
+            // above: 17640 x 154 of 288 terms from 1.20 of cuBLAS to 1.11, 59000 x 692
+            // of 692 from 1.17 to 1.13; the long sums of 692 x 692 at 1.09 with the
+            // large blocks, 1.15 with the small ones).
+            const int sm = held[kSmall].tm, sn = held[kSmall].tn;
+            // the part of the large blocks the result fills, and what the small ones read
+            const double filled = count(kTM, kTN) * kTM * kTN / (count(sm, sn) * sm * sn);
+            const double read = count(sm, sn) * (sm + sn) / (count(kTM, kTN) * (kTM + kTN));
+#if defined(MDAPY_GPU_HIP)
+            constexpr bool kShortSums = false;
+#else
+            constexpr bool kShortSums = std::is_same_v<S, Cx<double>>;
+#endif
+            constexpr int kShortSum = 2048;
+            if (m >= sm && n >= sn &&
+                ((kShortSums && k <= kShortSum) || (filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2))))
+                form = kSmall;
+        }
+        if (!tensor) kTM = held[form].tm, kTN = held[form].tn, kDepth = held[form].depth, per = held[form].per;
+    }
+    const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
+    // A small result of long sums: segments of 512 terms or more, as many as
+    // give 2048 blocks; of a result so small that these leave multiprocessors
+    // idle, shorter segments, of 64 terms or more, as many as give each two
+    // blocks. The blocks run in waves of as many as the multiprocessors
+    // hold; where the waves are few, more segments fill the last of them.
+    // Measured on a GH200, a V100 and an RTX A2000.
+    constexpr long long kWanted = 2048, kLeast = 512, kEach = 2, kShort = 64, kFew = 8;
+    if (batch == 1 && most_segments_ != 1 && tiles < kWanted && k >= 2 * kShort) {
+        long long segments = (kWanted + tiles - 1) / tiles;
+        if (segments > k / kLeast) segments = k / kLeast;
+        if (segments < 1) segments = 1;
+        const long long busy = kEach * processors_;
+        if (tiles * segments < busy) {
+            segments = (busy + tiles - 1) / tiles;
+            if (segments > k / kShort) segments = k / kShort;
+        }
+        if (per > 0) {
+            const long long held = static_cast<long long>(per) * processors_;
+            const long long waves = (tiles * segments + held - 1) / held;
+            if (waves <= kFew && waves * held / tiles > segments) {
+                segments = waves * held / tiles;
+                if (segments > k / kShort) segments = k / kShort;
+            }
+        }
+        const long long most = most_segments_ > 0 ? most_segments_ : 256;
+        if (segments > most) segments = most;
+        if (segments > 1) {
+            long long length = (k + segments - 1) / segments;
+            length = kDepth * ((length + kDepth - 1) / kDepth);
+            g.length = static_cast<int>(length);
+            g.segments = static_cast<int>((k + length - 1) / length);
+        }
+    }
+    S* partial = nullptr;
+    if (g.segments > 1) {
+        const std::size_t values = static_cast<std::size_t>(g.segments) * m * n;
+        partial_.reserve(values * sizeof(S) / sizeof(double) + 1);
+        partial = reinterpret_cast<S*>(partial_.data());
+    }
+    dim3 grid(static_cast<unsigned>((m + kTM - 1) / kTM), static_cast<unsigned>((n + kTN - 1) / kTN),
+              static_cast<unsigned>(g.segments > 1 ? g.segments : batch));
+    // The blocks run in the order of the first index of their grid: along
+    // the index of fewer tiles, the blocks at work together share the most of
+    // the two matrices, which then come from the cache.
+    if (grid.y < grid.x && grid.x <= 65535) {
+        g.swap = 1;
+        grid = dim3(grid.y, grid.x, grid.z);
+    }
+    const bool trans_a = ta != Op::N, trans_b = tb != Op::N;
+#if !defined(MDAPY_GPU_HIP)
+    if constexpr (kTensorType) {
+        if (tensor) {
+            // copies of 16 bytes where every column starts on 16 bytes
+            const auto launch = [&](auto copy) {
+                constexpr int C = decltype(copy)::value;
+                bool& asked = asked_[std::is_same_v<S, double>][trans_a][trans_b][C];
+                if (trans_a && trans_b) return launch_dmma<S, true, true, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                if (trans_a) return launch_dmma<S, true, false, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                if (trans_b) return launch_dmma<S, false, true, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+                return launch_dmma<S, false, false, C>(g, grid, alpha, beta, a, b, c, partial, asked);
+            };
+            if (!(wide && batch == 1 && maps_ && launch(std::integral_constant<int, kCopyMaps>{}))) {
+                if (wide)
+                    launch(std::integral_constant<int, kCopy16>{});
+                else if constexpr (std::is_same_v<S, double>)
+                    launch(std::integral_constant<int, kCopy8>{});
+            }
+        }
+    }
+#endif
+    if (!tensor) {
+        if (trans_a && trans_b)
+            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial, form);
+        else if (trans_a)
+            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial, form);
+        else if (trans_b)
+            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial, form);
+        else
+            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial, form);
+    }
+    if (g.segments > 1) {
+        gather_kernel<S><<<blocks(static_cast<long long>(m) * n, kThreads), kThreads>>>(m, n, g.segments, alpha, beta,
+                                                                                       partial, c, ldc);
+        check_cuda(cudaGetLastError(), "the sum of the partial products");
+    }
+}
+
+// Blocked twice: kSolve columns are solved in registers and taken out of the
+// columns to their right by a product, at once only within their group of
+// kGroup columns; the columns beyond the group take the whole group in one
+// product, so that the thin products, which read and write all they update,
+// stay narrow (measured on a GH200: 692 columns of 59000 rows from 3.1 times
+// cuBLAS to 1.4).
+template <class S>
+void Blas::own_trsm(int m, int n, const S* r, int ldr, S* b, int ldb) {
+    constexpr int kGroup = 64;
+    const S one = unit(S{}, 1), minus_one = unit(S{}, -1);
+    for (int g0 = 0; g0 < n; g0 += kGroup) {
+        const int group = n - g0 < kGroup ? n - g0 : kGroup;
+        for (int j0 = g0; j0 < g0 + group; j0 += kSolve) {
+            const int w = g0 + group - j0 < kSolve ? g0 + group - j0 : kSolve;
+            S* columns = b + static_cast<long long>(j0) * ldb;
+            solve_kernel<S><<<blocks(m, kBlock), kBlock>>>(m, w, r + j0 + static_cast<long long>(j0) * ldr, ldr, columns,
+                                                           ldb);
+            check_cuda(cudaGetLastError(), "a triangular solve");
+            const int rest = g0 + group - j0 - w;
+            if (rest > 0)
+                own_gemm<S>(Op::N, Op::N, m, rest, w, minus_one, columns, ldb, 0,
+                            r + j0 + static_cast<long long>(j0 + w) * ldr, ldr, one,
+                            columns + static_cast<long long>(w) * ldb, ldb, 0, 1);
+        }
+        const int beyond = n - g0 - group;
+        if (beyond > 0)
+            own_gemm<S>(Op::N, Op::N, m, beyond, group, minus_one, b + static_cast<long long>(g0) * ldb, ldb, 0,
+                        r + g0 + static_cast<long long>(g0 + group) * ldr, ldr, one,
+                        b + static_cast<long long>(g0 + group) * ldb, ldb, 0, 1);
+    }
+}
+
+namespace {
+
+#ifdef MDAPY_DFT_BLAS_PROFILE
+// Built with -DMDAPY_DFT_BLAS_PROFILE, every product and solve waits for the
+// GPU before and after, and the process prints at its end the calls of each
+// shape and their seconds, the longest first: the shapes of a calculation.
+struct Probe {
+    using Key = std::tuple<std::string, int, int, int>;
+    struct Table {
+        std::mutex lock;
+        std::map<Key, std::pair<long long, double>> rows;
+        ~Table() {
+            std::vector<std::pair<double, Key>> order;
+            double total = 0.0;
+            for (const auto& [key, value] : rows) {
+                order.push_back({value.second, key});
+                total += value.second;
+            }
+            std::sort(order.rbegin(), order.rend());
+            std::fprintf(stderr, "BLAS %.3f s in all\n", total);
+            for (std::size_t i = 0; i < order.size() && i < 60; ++i) {
+                const Key& key = order[i].second;
+                std::fprintf(stderr, "BLAS %-10s %7d x %7d, %7d  calls %8lld  %9.3f s  %5.1f %%\n",
+                             std::get<0>(key).c_str(), std::get<1>(key), std::get<2>(key), std::get<3>(key),
+                             rows[key].first, order[i].first, 100.0 * order[i].first / total);
+            }
+        }
+    };
+    static Table& table() {
+        static Table t;
+        return t;
+    }
+    Key key;
+    std::chrono::steady_clock::time_point start;
+    Probe(const char* routine, Op ta, Op tb, int m, int n, int k)
+        : key(std::string(routine) + " " + "NTC"[static_cast<int>(ta)] + "NTC"[static_cast<int>(tb)], m, n, k) {
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
+        start = std::chrono::steady_clock::now();
+    }
+    ~Probe() {
+        static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
+        const double seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+        Table& t = table();
+        const std::lock_guard<std::mutex> guard(t.lock);
+        auto& row = t.rows[key];
+        ++row.first;
+        row.second += seconds;
+    }
+};
+#define MDAPY_PROBE(routine, ta, tb, m, n, k) const Probe probe(routine, ta, tb, m, n, k)
+#elif defined(MDAPY_DFT_PROFILE)
+#define MDAPY_PROBE(routine, ta, tb, m, n, k) MDAPY_SPAN(routine)
+#else
+#define MDAPY_PROBE(routine, ta, tb, m, n, k)
+#endif
+
+// whether the grid of a product fits (a tile has 32 columns or more): see own_gemm
+bool fits(int n, int batch) {
+    return n / 32 <= 65535 && batch <= 65535;
+}
+
+}  // namespace
+
+#define MDAPY_GEMM(T, CAST, NAME)                                                                                       \
+    void Blas::gemm(Op ta, Op tb, int m, int n, int k, T alpha, const T* a, int lda, const T* b, int ldb, T beta,   \
+                    T* c, int ldc) {                                                                                \
+        if (m < 1 || n < 1) return;                                                                                 \
+        MDAPY_PROBE(NAME "gemm", ta, tb, m, n, k);                                                                  \
+        if (kernels_ == Kernels::Mdapy && fits(n, 1))                                                               \
+            own_gemm(ta, tb, m, n, k, CAST(alpha), CAST(a), lda, 0, CAST(b), ldb, CAST(beta), CAST(c), ldc, 0, 1);  \
+        else                                                                                                        \
+            check_blas(vendor_gemm(vendor(), vendor_op(ta), vendor_op(tb), m, n, k, alpha, a, lda, b, ldb, beta, c,  \
+                                   ldc),                                                                            \
+                       "gemm");                                                                                     \
+    }                                                                                                               \
+    void Blas::trsm(int m, int n, const T* r, int ldr, T* b, int ldb) {                                             \
+        if (m < 1 || n < 1) return;                                                                                 \
+        MDAPY_PROBE(NAME "trsm", Op::N, Op::N, m, n, 0);                                                            \
+        if (kernels_ == Kernels::Mdapy)                                                                             \
+            own_trsm(m, n, CAST(r), ldr, CAST(b), ldb);                                                             \
+        else                                                                                                        \
+            check_blas(vendor_trsm(vendor(), m, n, r, ldr, b, ldb), "trsm");                                         \
+    }
+
+namespace {
+double own(double a) { return a; }
+float own(float a) { return a; }
+const double* own(const double* p) { return p; }
+double* own(double* p) { return p; }
+const float* own(const float* p) { return p; }
+float* own(float* p) { return p; }
+}  // namespace
+
+MDAPY_GEMM(Complex, own, "Z")
+MDAPY_GEMM(cuComplex, own, "C")
+MDAPY_GEMM(double, own, "D")
+MDAPY_GEMM(float, own, "S")
+#undef MDAPY_GEMM
+
+void Blas::gemm_batched(Op tb, int m, int n, int k, const double* a, int lda, long long stride_a, const double* b,
+                        int ldb, double beta, double* c, int ldc, long long stride_c, int batch) {
+    if (m < 1 || n < 1 || batch < 1) return;
+    MDAPY_PROBE("Dbatched", Op::N, tb, m, n, k);
+    if (kernels_ == Kernels::Mdapy && fits(n, batch)) {
+        own_gemm<double>(Op::N, tb, m, n, k, 1.0, a, lda, stride_a, b, ldb, beta, c, ldc, stride_c, batch);
+        return;
+    }
+    const double one = 1.0;
+    check_blas(cublasDgemmStridedBatched(vendor(), CUBLAS_OP_N, vendor_op(tb), m, n, k, &one, a, lda, stride_a, b, ldb,
+                                         0, &beta, c, ldc, stride_c, batch),
+               "gemmStridedBatched");
+}
+
+#define MDAPY_COPY(T, VENDOR)                                                      \
+    void Blas::copy(int n, const T* x, int incx, T* y, int incy) {                 \
+        if (kernels_ == Kernels::Mdapy)                                            \
+            launch_copy(n, own(x), incx, own(y), incy);                            \
+        else if (n > 0)                                                            \
+            check_blas(VENDOR(vendor(), n, x, incx, y, incy), "copy");              \
+    }
+MDAPY_COPY(Complex, cublasZcopy)
+MDAPY_COPY(cuComplex, cublasCcopy)
+MDAPY_COPY(double, cublasDcopy)
+MDAPY_COPY(float, cublasScopy)
+#undef MDAPY_COPY
+
+#define MDAPY_REAL(T, SCAL, GER)                                                                                   \
+    void Blas::scal(int n, T alpha, T* x) {                                                                        \
+        if (kernels_ == Kernels::Mdapy)                                                                            \
+            launch_scal(n, alpha, x);                                                                              \
+        else if (n > 0)                                                                                            \
+            check_blas(SCAL(vendor(), n, &alpha, x, 1), "scal");                                                    \
+    }                                                                                                              \
+    void Blas::ger(int m, int n, T alpha, const T* x, int incx, const T* y, int incy, T* a, int lda) {             \
+        if (kernels_ == Kernels::Mdapy)                                                                            \
+            launch_ger(m, n, alpha, x, incx, y, incy, a, lda);                                                     \
+        else if (m > 0 && n > 0)                                                                                   \
+            check_blas(GER(vendor(), m, n, &alpha, x, incx, y, incy, a, lda), "ger");                               \
+    }
+MDAPY_REAL(double, cublasDscal, cublasDger)
+MDAPY_REAL(float, cublasSscal, cublasSger)
+#undef MDAPY_REAL
+
+}  // namespace mdapy::dft

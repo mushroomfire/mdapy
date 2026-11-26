@@ -2,10 +2,12 @@
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
-"""The two kernels of the DFT: MDAPY's own kernels (the FFTs) against the GPU
-libraries of the vendor. The transforms agree to rounding on the grids of the
-DFT, and so do whole calculations: norm-conserving, ultrasoft and PAW
-pseudopotentials, k-points and the real bands of Gamma, spin, mixed precision.
+"""The two kernels of the DFT: MDAPY's own kernels (the FFTs and the linear
+algebra) against the GPU libraries of the vendor. The transforms agree to
+rounding on the grids of the DFT, the products and the triangular solves on
+the shapes of the solver and the projectors, and so do whole calculations:
+norm-conserving, ultrasoft and PAW pseudopotentials, k-points and the real
+bands of Gamma, spin, mixed precision.
 """
 
 import numpy as np
@@ -67,6 +69,43 @@ def test_the_transforms_agree(grid):
 
 
 @pytest.mark.parametrize(
+    "grid", [(27, 27, 27), (36, 30, 25), (45, 48, 80), (90, 90, 96)]
+)
+def test_the_transforms_of_the_planes_of_a_sphere(grid):
+    """The transforms of boxes of which only the planes of the sphere matter:
+    the values of the sphere are those of the whole boxes to the last bit (the
+    planes beyond it are never read), and its coefficients from noise those of
+    the whole boxes to rounding (the axes in another order), also with a plane
+    larger than a block (the last grid on GPUs of 100 kB of shared memory or
+    less), whose lines are transformed axis by axis. A field the forward transform takes
+    on its way gives the transform of the values times the field, to the last
+    bit."""
+    rng = np.random.default_rng(2)
+    cell = np.diag([9.0, 9.5, 10.0])
+    miller, box, _ = sphere_of(cell, 3.0, grid)
+    window = int(np.abs(np.asarray(miller)[:, 0]).max())
+    assert 2 * window + 1 < grid[0]
+    c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
+    for kernels in KERNELS:
+        whole = _dft.to_real_space(c, box, list(grid), kernels=kernels)
+        planes = _dft.to_real_space(c, box, list(grid), kernels=kernels, window=window)
+        np.testing.assert_array_equal(planes, whole)
+        noise = rng.normal(size=(2, *grid)) + 1j * rng.normal(size=(2, *grid))
+        whole = _dft.to_coefficients(noise, box, kernels=kernels)
+        planes = _dft.to_coefficients(noise, box, kernels=kernels, window=window)
+        assert np.abs(planes - whole).max() < 1e-13 * np.abs(whole).max()
+        # a field taken on the way of the transform: the values times it first
+        field = rng.uniform(-1.0, 1.0, size=grid)
+        for w in (-1, window):
+            np.testing.assert_array_equal(
+                _dft.to_coefficients(
+                    noise, box, kernels=kernels, window=w, field=field
+                ),
+                _dft.to_coefficients(noise * field, box, kernels=kernels, window=w),
+            )
+
+
+@pytest.mark.parametrize(
     "grid",
     [
         (27, 27, 27),
@@ -91,6 +130,359 @@ def test_the_real_transforms_agree(grid):
     noise = rng.normal(size=(2, *grid))
     back = [_dft.to_coefficients_gamma(noise, box, kernels=b) for b in KERNELS]
     assert np.abs(back[0] - back[1]).max() < 1e-13 * np.abs(back[1]).max()
+
+
+@pytest.mark.parametrize(
+    "grid", [(27, 27, 27), (36, 30, 24), (48, 45, 75), (90, 90, 96)]
+)
+def test_the_real_transforms_of_the_planes_of_a_sphere(grid):
+    """The real transforms of Gamma with only the planes of the half sphere:
+    the values and the coefficients are those of the whole spectra to the last
+    bit, the planes beyond it neither read nor written."""
+    rng = np.random.default_rng(3)
+    cell = np.diag([9.0, 9.5, 10.0])
+    miller, box, partner = sphere_of(cell, 3.0, grid, half=True)
+    window = int(np.abs(np.asarray(miller)[:, 0]).max())
+    assert 2 * window + 1 < grid[0]
+    c = rng.normal(size=(3, len(box))) + 1j * rng.normal(size=(3, len(box)))
+    c[:, 0] = c[:, 0].real
+    noise = rng.normal(size=(2, *grid))
+    for kernels in KERNELS:
+        args = (c, box, partner, list(grid))
+        np.testing.assert_array_equal(
+            _dft.to_real_space_gamma(*args, kernels=kernels, window=window),
+            _dft.to_real_space_gamma(*args, kernels=kernels),
+        )
+        np.testing.assert_array_equal(
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels, window=window),
+            _dft.to_coefficients_gamma(noise, box, kernels=kernels),
+        )
+
+
+def columns(rng, rows, cols, dtype):
+    """A matrix of noise stored by columns."""
+    a = rng.uniform(-1, 1, (rows, cols))
+    if np.issubdtype(dtype, np.complexfloating):
+        a = a + 1j * rng.uniform(-1, 1, (rows, cols))
+    return np.asfortranarray(a, dtype=dtype)
+
+
+def op(a, t):
+    return a if t == "N" else a.T if t == "T" else a.conj().T
+
+
+TYPES = [np.float64, np.float32, np.complex128, np.complex64]
+
+
+# (m, n, k) of c (m, n) = op(a) (m, k) op(b) (k, n): sizes off the tiles of 32,
+# the rotations of the bands (many rows), the inner products (long sums, split
+# along the sum) and the products with the projectors
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize(
+    "shape",
+    [
+        (1, 1, 1),
+        (33, 31, 17),
+        (100, 70, 130),
+        (6000, 40, 90),
+        (45, 37, 9000),
+        (130, 7, 20011),
+        (64, 64, 0),
+    ],
+)
+def test_the_products_agree(dtype, shape):
+    m, n, k = shape
+    rng = np.random.default_rng(5)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 5e-14
+    for ta in "NTC":
+        for tb in "NTC":
+            a = columns(rng, *((m, k) if ta == "N" else (k, m)), dtype)
+            b = columns(rng, *((k, n) if tb == "N" else (n, k)), dtype)
+            own, vendor = (_dft.product(a, b, ta, tb, kernels=x) for x in KERNELS)
+            assert own.shape == (m, n) and own.dtype == dtype
+            wide = (
+                np.complex128
+                if np.issubdtype(dtype, np.complexfloating)
+                else np.float64
+            )
+            exact = op(a.astype(wide), ta) @ op(b.astype(wide), tb)
+            scale = max(np.abs(exact).max(), 1.0)
+            assert np.abs(own - vendor).max() < limit * scale
+            assert np.abs(own - exact).max() < limit * scale
+    # the long sums are split, another order than the library's: other bits
+    if k > 5000:
+        assert not np.array_equal(own, vendor)
+
+
+@pytest.mark.parametrize("dtype", [np.float64, np.complex128])
+@pytest.mark.parametrize(
+    "shape",
+    [(1, 1, 1), (33, 31, 17), (100, 70, 130), (6000, 40, 90), (154, 154, 17640)],
+)
+def test_the_small_blocks_of_the_products(dtype, shape):
+    """The small blocks of the portable products of double precision, which
+    MDAPY takes where its large ones would stand idle on a small result, and
+    those of two and three to a multiprocessor, which it takes on the GPUs
+    whose double precision is half as fast as their single, give the products
+    of the large ones to rounding (GPUs with tensor cores use none of them)."""
+    m, n, k = shape
+    rng = np.random.default_rng(7)
+    for ta in "NTC":
+        for tb in "NTC":
+            a = columns(rng, *((m, k) if ta == "N" else (k, m)), dtype)
+            b = columns(rng, *((k, n) if tb == "N" else (n, k)), dtype)
+            small, large = (_dft.product(a, b, ta, tb, small_tiles=s) for s in (1, 0))
+            exact = op(a, ta) @ op(b, tb)
+            scale = max(np.abs(exact).max(), 1.0)
+            assert np.abs(small - exact).max() < 5e-14 * scale
+            assert np.abs(small - large).max() < 5e-14 * scale
+            for form in (2, 3):
+                other = _dft.product(a, b, ta, tb, small_tiles=form)
+                assert np.abs(other - exact).max() < 5e-14 * scale
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("shape", [(1, 1), (7, 5), (1000, 17), (3000, 100), (50, 333)])
+def test_the_triangular_solves_agree(dtype, shape):
+    """b r^-1 with r upper triangular and well conditioned, as the Cholesky
+    factor of the overlap of the bands is; the lower part of r is not read."""
+    m, n = shape
+    rng = np.random.default_rng(6)
+    single = dtype in (np.float32, np.complex64)
+    limit = 1e-4 if single else 1e-12
+    b = columns(rng, m, n, dtype)
+    r = columns(rng, n, n, dtype) * dtype(0.5 / np.sqrt(n))
+    r[np.diag_indices(n)] = 1.0 + 0.3 * np.sin(np.arange(n))
+    own, vendor = (_dft.solve_upper(b, r, kernels=x) for x in KERNELS)
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    upper = np.triu(r.astype(wide))
+    scale = max(np.abs(vendor).max(), 1.0)
+    assert np.abs(own - vendor).max() < limit * scale
+    assert np.abs(own.astype(wide) @ upper - b).max() < limit * scale
+
+
+def hermitian(rng, n, dtype, values=None):
+    """A Hermitian matrix of noise stored by columns, or the one of the
+    eigenvalues given in a basis of noise."""
+    a = columns(
+        rng,
+        n,
+        n,
+        np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64,
+    )
+    a = a + a.conj().T
+    if values is not None:
+        _, q = np.linalg.eigh(a)
+        a = (q * np.asarray(values, dtype=float)) @ q.conj().T
+        a = (a + a.conj().T) / 2
+    return np.asfortranarray(a, dtype=dtype)
+
+
+# the eigenvalues of each case, by its size: noise, all equal, a few values
+# many times each, close pairs, and a wide range
+SPECTRA = {
+    "noise": lambda n: None,
+    "equal": lambda n: np.full(n, 2.5),
+    "repeated": lambda n: np.arange(n) % 3 - 1.0,
+    "clustered": lambda n: (
+        np.repeat(np.arange((n + 1) // 2), 2)[:n] + 1e-9 * np.arange(n)
+    ),
+    "graded": lambda n: np.logspace(-8, 2, n),
+}
+
+
+# (n, the largest matrix MDAPY solves on the host, -1 for its default of 64):
+# on the host, and on the GPU, where 33 and 65 are just beyond a leaf of the
+# divide and conquer and a block of reflectors
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("spectrum", list(SPECTRA))
+@pytest.mark.parametrize(
+    "n, host", [(1, -1), (2, -1), (3, -1), (20, -1), (65, -1), (200, -1), (1, 0), (2, 0), (3, 0), (33, 0), (65, 0),
+                 (200, 0), (300, -1), (515, -1)]
+)  # fmt: skip
+def test_the_eigenpairs_agree(dtype, spectrum, n, host):
+    """Eigenvalues against the library of the vendor and NumPy; eigenvectors by
+    their residuals and their orthonormality, which degenerate eigenvalues
+    leave the only test. MDAPY's kernels both ways, as on a GPU of full double
+    precision (the scalar work of the merges on the GPU, a launch a step of
+    the tridiagonalization or one for all steps) and as on one without, with the
+    tridiagonalization in panels, which MDAPY takes for the large matrices."""
+    rng = np.random.default_rng(n)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 1e-12
+    a = hermitian(rng, n, dtype, SPECTRA[spectrum](n))
+    garbage = np.asfortranarray(
+        np.triu(a) + np.tril(columns(rng, n, n, dtype), -1)
+    )  # the lower part is not read
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    exact = np.linalg.eigvalsh(a.astype(wide))
+    scale = max(np.abs(exact).max(), 1.0)
+    for kernels, options in (
+        ("mdapy", dict(full_double=0)),
+        ("mdapy", dict(full_double=1, together_steps=0)),
+        ("mdapy", dict(full_double=1, together_steps=1)),
+        ("mdapy", dict(full_double=1, panels_from=0)),
+        ("vendor", {}),
+    ):
+        w, v = _dft.eigh(garbage, kernels=kernels, host_limit=host, **options)
+        assert v.dtype == dtype and w.dtype == np.float64
+        # ascending; the library of the vendor within rounding in a cluster
+        assert np.all(np.diff(w) >= (0 if kernels == "mdapy" else -limit * scale))
+        assert np.abs(w - exact).max() < limit * scale
+        v = v.astype(wide)
+        assert np.abs(a.astype(wide) @ v - v * w).max() < 20 * limit * scale
+        assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
+
+
+@pytest.mark.parametrize("dtype, n", [(np.complex128, 1100), (np.float64, 1600)])
+def test_the_eigenpairs_of_large_matrices(dtype, n):
+    """What MDAPY takes for the large matrices on a GPU of full double
+    precision: the tridiagonalization in panels (from 1024 complex numbers and
+    1536 real ones), leaves of 16 rows and blocks of 64 reflectors."""
+    rng = np.random.default_rng(n)
+    a = hermitian(rng, n, dtype, SPECTRA["clustered"](n))
+    exact = np.linalg.eigvalsh(a)
+    scale = max(np.abs(exact).max(), 1.0)
+    w, v = _dft.eigh(a, full_double=1)
+    assert np.all(np.diff(w) >= 0)
+    assert np.abs(w - exact).max() < 1e-12 * scale
+    assert np.abs(a @ v - v * w).max() < 1e-11 * scale
+    assert np.abs(v.conj().T @ v - np.eye(n)).max() < 1e-11
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("n", [70, 300])
+@pytest.mark.parametrize("held", [0, 24])
+def test_the_steps_in_one_launch(dtype, n, held):
+    """The tridiagonalization of a small matrix with all its steps in one
+    launch, whose blocks wait for one another, a block a column or a few
+    blocks each holding columns of the trailing matrix (never on AMD GPUs,
+    where the options change nothing): the same bits at every run, and the
+    eigenpairs of a launch a step within rounding."""
+    rng = np.random.default_rng(n)
+    a = hermitian(rng, n, dtype)
+    limit = 2e-5 if dtype in (np.float32, np.complex64) else 1e-12
+    w, v = _dft.eigh(a, full_double=1, together_steps=1, held_blocks=held)
+    again = _dft.eigh(a, full_double=1, together_steps=1, held_blocks=held)
+    assert np.array_equal(w, again[0]) and np.array_equal(v, again[1])
+    apart = _dft.eigh(a, full_double=1, together_steps=0)
+    scale = max(np.abs(w).max(), 1.0)
+    assert np.abs(w - apart[0]).max() < limit * scale
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    v = v.astype(wide)
+    assert np.abs(a.astype(wide) @ v - v * w).max() < 20 * limit * scale
+    assert np.abs(v.conj().T @ v - np.eye(n)).max() < 20 * limit
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize("spectrum", ["noise", "repeated", "clustered"])
+@pytest.mark.parametrize(
+    "n, count", [(70, 1), (70, 2), (200, 37), (200, 200), (515, 257)]
+)
+def test_the_lowest_eigenvectors(dtype, spectrum, n, count):
+    """The eigenvectors of the count lowest eigenvalues alone, as the
+    Rayleigh-Ritz of the bands asks for them: all eigenvalues, and the first
+    count columns by their residuals and their orthonormality, with every way
+    MDAPY's kernels have to the tridiagonal matrix."""
+    rng = np.random.default_rng(n + count)
+    single = dtype in (np.float32, np.complex64)
+    limit = 2e-5 if single else 1e-12
+    a = hermitian(rng, n, dtype, SPECTRA[spectrum](n))
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    exact = np.linalg.eigvalsh(a.astype(wide))
+    scale = max(np.abs(exact).max(), 1.0)
+    for options in (
+        dict(full_double=0),
+        dict(full_double=1),
+        dict(full_double=1, panels_from=0),
+    ):
+        w, v = _dft.eigh(a, count=count, **options)
+        assert v.shape == (n, n) and np.abs(w - exact).max() < limit * scale
+        v = v[:, :count].astype(wide)
+        assert np.abs(a.astype(wide) @ v - v * w[:count]).max() < 20 * limit * scale
+        assert np.abs(v.conj().T @ v - np.eye(count)).max() < 20 * limit
+
+
+@pytest.mark.parametrize("dtype", TYPES)
+@pytest.mark.parametrize(
+    "n, host",
+    [
+        (1, -1),
+        (2, -1),
+        (17, -1),
+        (64, -1),
+        (200, -1),
+        (1, 0),
+        (2, 0),
+        (64, 0),
+        (65, 0),
+        (200, 0),
+        (400, -1),
+    ],
+)
+def test_the_cholesky_factors_agree(dtype, n, host):
+    """a = r^H r with r upper triangular, the lower part of a not read; and the
+    pivot named when a is not positive definite. On the host, and on the GPU
+    (the limit 0) in blocks of 64 columns."""
+    rng = np.random.default_rng(n + 1)
+    single = dtype in (np.float32, np.complex64)
+    limit = 1e-4 if single else 1e-12
+    b = columns(rng, n + 3, n, dtype)
+    wide = np.complex128 if np.issubdtype(dtype, np.complexfloating) else np.float64
+    a = np.asfortranarray(
+        b.astype(wide).conj().T @ b.astype(wide) + 0.1 * np.eye(n), dtype=dtype
+    )
+    lower = np.tril(columns(rng, n, n, dtype), -1)
+    given = np.asfortranarray(np.triu(a) + lower)
+    factors = []
+    for kernels in KERNELS:
+        info, r = _dft.cholesky(given, kernels=kernels, host_limit=host)
+        assert info == 0 and r.dtype == dtype
+        u = np.triu(r).astype(wide)
+        assert np.all(np.diagonal(u).real > 0)
+        assert np.abs(u.conj().T @ u - a).max() < limit * np.abs(a).max()
+        factors.append(u)
+    assert np.abs(factors[0] - factors[1]).max() < limit * np.abs(factors[1]).max()
+    if n > 2:
+        bad = given.copy(order="F")
+        bad[n // 2, n // 2] = -1.0
+        assert [_dft.cholesky(bad, kernels=k, host_limit=host)[0] for k in KERNELS] == [
+            n // 2 + 1
+        ] * 2
+
+
+class Device:
+    """A GPU part of an API and a compute capability, for the choices by the GPU."""
+
+    def __init__(self, api, capability):
+        self.api = api
+        self.capability = capability
+
+    def device_capability(self):
+        return self.capability
+
+
+@pytest.mark.parametrize(
+    "api, capability, full",
+    [
+        ("CUDA", (7, 0), True),  # V100
+        ("CUDA", (8, 0), True),  # A100
+        ("CUDA", (9, 0), True),  # H100, GH200
+        ("CUDA", (8, 6), False),  # RTX 30 and the A-series
+        ("CUDA", (8, 9), False),  # RTX 40
+        ("CUDA", (7, 5), False),  # T4
+        ("HIP", (9, 0), True),  # the Instinct series, whatever HIP reports
+        ("HIP", (8, 6), True),
+    ],
+)
+def test_the_precision_by_the_gpu(monkeypatch, api, capability, full):
+    """precision="auto" is double on GPUs of full double precision and mixed
+    on the others; a choice given is kept."""
+    monkeypatch.setattr(scf.loader, "module", lambda: Device(api, capability))
+    assert scf.full_double() == full
+    assert scf.mixed_precision("auto") == (not full)
+    assert scf.mixed_precision("mixed") and not scf.mixed_precision("double")
 
 
 def test_a_backend_unknown_is_refused():
@@ -215,12 +607,23 @@ def test_the_calculator_keeps_its_backend():
     system = mdapy.System(fractions @ cell, mdapy.Box(cell), elements=["Al"] * 4)
     common = dict(pseudopotentials={"Al": espresso.pseudo("Al_std.upf")}, kpoints=(2, 2, 2), sigma=0.2,
                   functional="pbe_pw", tolerance=1e-10, symmetry=False)  # fmt: skip
-    own, vendor = DFT(300.0, **common), DFT(300.0, kernels="vendor", **common)
+    own, vendor = (
+        DFT(300.0, kernels="mdapy", **common),
+        DFT(300.0, kernels="vendor", **common),
+    )
     assert own.kernels == "mdapy" and vendor.kernels == "vendor"
+    # by default MDAPY's, which the provenance names
+    default = DFT(300.0, **common)
+    assert default.kernels == "mdapy"
+    default.compute(system, ("energy",))
+    assert default.last["provenance"]["kernels"] == "mdapy"
     first = own.compute(system, ("energy", "forces", "virial"))
     second = vendor.compute(system, ("energy", "forces", "virial"))
     assert own.last["provenance"]["kernels"] == "mdapy"
     assert vendor.last["provenance"]["kernels"] == "vendor"
+    # two runs stopped at 1e-10 eV are not at the same density: their forces
+    # are within about 1e-6 eV/Å of the converged ones, and of each other (the
+    # runs converged tightly, above, agree to 1e-9 hartree/bohr)
     assert first.energy == pytest.approx(second.energy, abs=1e-8)
-    np.testing.assert_allclose(first.forces, second.forces, atol=1e-7)
-    np.testing.assert_allclose(first.virial, second.virial, atol=1e-6)
+    np.testing.assert_allclose(first.forces, second.forces, atol=5e-6)
+    np.testing.assert_allclose(first.virial, second.virial, atol=2e-5)

@@ -20,22 +20,23 @@
 
 #include <cstddef>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 
 namespace mdapy::dft {
 
 // out (ka, kb, leading dimension ldo) = <a|b> of the ka columns of a and the
 // kb of b (n, .) over the whole sphere, plus scale times out
-void gamma_inner(cublasHandle_t blas, std::size_t n, const Complex* a, int ka, const Complex* b, int kb,
+void gamma_inner(Blas& blas, std::size_t n, const Complex* a, int ka, const Complex* b, int kb,
                  double* out, int ldo, double scale = 0.0);
 
 // out (n, m) = alpha a y + beta out, a (n, k) complex, y (k, m) real of
 // leading dimension ldy
-void gamma_combine(cublasHandle_t blas, std::size_t n, const Complex* a, int k, const double* y, int ldy, int m,
+void gamma_combine(Blas& blas, std::size_t n, const Complex* a, int k, const double* y, int ldy, int m,
                    double alpha, double beta, Complex* out);
 
 // out (n, m) = out r^-1, r (m, m) upper triangular, real
-void gamma_solve(cublasHandle_t blas, std::size_t n, int m, const double* r, Complex* out);
+void gamma_solve(Blas& blas, std::size_t n, int m, const double* r, Complex* out);
 
 // Im c_0 = 0 of each of count columns of n
 void gamma_clean(std::size_t n, int count, Complex* c);
@@ -44,11 +45,11 @@ void gamma_clean(std::size_t n, int count, Complex* c);
 void gamma_dots(std::size_t n, int count, const Complex* a, const Complex* b, double* out);
 
 // The same in single precision.
-void gamma_inner(cublasHandle_t blas, std::size_t n, const cuComplex* a, int ka, const cuComplex* b, int kb,
+void gamma_inner(Blas& blas, std::size_t n, const cuComplex* a, int ka, const cuComplex* b, int kb,
                  float* out, int ldo, float scale = 0.0f);
-void gamma_combine(cublasHandle_t blas, std::size_t n, const cuComplex* a, int k, const float* y, int ldy, int m,
+void gamma_combine(Blas& blas, std::size_t n, const cuComplex* a, int k, const float* y, int ldy, int m,
                    float alpha, float beta, cuComplex* out);
-void gamma_solve(cublasHandle_t blas, std::size_t n, int m, const float* r, cuComplex* out);
+void gamma_solve(Blas& blas, std::size_t n, int m, const float* r, cuComplex* out);
 void gamma_clean(std::size_t n, int count, cuComplex* c);
 void gamma_dots(std::size_t n, int count, const cuComplex* a, const cuComplex* b, double* out);
 

@@ -24,20 +24,6 @@ constexpr float kDependent = 1e-6f;
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_blas(cublasStatus_t status, const char* call) {
-    if (status == CUBLAS_STATUS_SUCCESS) return;
-    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuBLAS status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
-void check_solver(cusolverStatus_t status, const char* call) {
-    if (status == CUSOLVER_STATUS_SUCCESS) return;
-    if (status == CUSOLVER_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuSOLVER status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 void copy(cuComplex* to, const cuComplex* from, std::size_t count) {
     check_cuda(cudaMemcpy(to, from, count * sizeof(cuComplex), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
@@ -53,14 +39,14 @@ void copy_bytes(void* to, const void* from, std::size_t bytes) {
     check_cuda(cudaMemcpy(to, from, bytes, cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
 
-void sgemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, float alpha,
+void sgemm(Blas& blas, Op ta, Op tb, int m, int n, int k, float alpha,
            const float* a, int lda, const float* b, int ldb, float beta, float* c, int ldc) {
-    check_blas(cublasSgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasSgemm");
+    blas.gemm(ta, tb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-void gemm(cublasHandle_t blas, cublasOperation_t ta, cublasOperation_t tb, int m, int n, int k, const cuComplex& alpha,
+void gemm(Blas& blas, Op ta, Op tb, int m, int n, int k, const cuComplex& alpha,
           const cuComplex* a, int lda, const cuComplex* b, int ldb, const cuComplex& beta, cuComplex* c, int ldc) {
-    check_blas(cublasCgemm(blas, ta, tb, m, n, k, &alpha, a, lda, b, ldb, &beta, c, ldc), "cublasCgemm");
+    blas.gemm(ta, tb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
 __global__ void to_single(std::size_t n, const Complex* in, cuComplex* out) {
@@ -159,52 +145,13 @@ __global__ void gather_real_columns(std::size_t rows, int count, const int* inde
 
 }  // namespace
 
-DavidsonSingle::DavidsonSingle() {
-    check_blas(cublasCreate(&blas_), "cublasCreate");
-    check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
-    check_solver(cusolverDnCreate(&solver_), "cusolverDnCreate");
-    check_solver(cusolverDnSetStream(solver_, cudaStreamPerThread), "cusolverDnSetStream");
-    info_.resize(1);
-}
+DavidsonSingle::DavidsonSingle(Kernels kernels) : blas_(kernels), lapack_(kernels) {}
 
-DavidsonSingle::~DavidsonSingle() {
-    if (solver_ != nullptr) cusolverDnDestroy(solver_);
-    if (blas_ != nullptr) cublasDestroy(blas_);
-}
+DavidsonSingle::~DavidsonSingle() = default;
 
-void DavidsonSingle::eigh(cuComplex* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnCheevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnCheevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnCheevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n, values_.data(),
-                                  lapack_.data(), lwork, info_.data()),
-                 "cusolverDnCheevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnCheevd info " +
-                                 std::to_string(info) + ")");
-}
+void DavidsonSingle::eigh(cuComplex* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
-void DavidsonSingle::eigh_real(float* a, int n) {
-    values_.reserve(static_cast<std::size_t>(n));
-    int lwork = 0;
-    check_solver(cusolverDnSsyevd_bufferSize(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n,
-                                             values_.data(), &lwork),
-                 "cusolverDnSsyevd_bufferSize");
-    lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-    check_solver(cusolverDnSsyevd(solver_, CUSOLVER_EIG_MODE_VECTOR, CUBLAS_FILL_MODE_UPPER, n, a, n, values_.data(),
-                                  real(lapack_.data()), lwork, info_.data()),
-                 "cusolverDnSsyevd");
-    int info = 0;
-    info_.download(&info, 1);
-    if (info != 0)
-        throw std::runtime_error("the eigenvalues of a subspace did not converge (cusolverDnSsyevd info " +
-                                 std::to_string(info) + ")");
-}
+void DavidsonSingle::eigh_real(float* a, int n, int count) { lapack_.eigh(a, n, eigenvalues_, count); }
 
 cuComplex* DavidsonSingle::projection(cuComplex* p, std::size_t c) const {
     const std::size_t offset = static_cast<std::size_t>(projectors_) * c;
@@ -220,15 +167,15 @@ void DavidsonSingle::gram(Hamiltonian* h, const cuComplex* a, const cuComplex* p
         const int np = h->projectors();
         qp_.reserve(static_cast<std::size_t>(np) * kb);
         h->overlap_projections(pb, kb, qp_.data());
-        sgemm(blas_, CUBLAS_OP_T, CUBLAS_OP_N, ka, kb, np, 1.0f, real(pa), np, real(qp_.data()), np, 1.0f, o, ka);
+        sgemm(blas_, Op::T, Op::N, ka, kb, np, 1.0f, real(pa), np, real(qp_.data()), np, 1.0f, o, ka);
         return;
     }
-    gemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, rows, kOne, a, rows, b, rows, kZero, out, ka);
+    gemm(blas_, Op::C, Op::N, ka, kb, rows, kOne, a, rows, b, rows, kZero, out, ka);
     if (h == nullptr) return;
     const int np = h->projectors();
     qp_.reserve(static_cast<std::size_t>(np) * kb);
     h->overlap_projections(pb, kb, qp_.data());
-    gemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, ka, kb, np, kOne, pa, np, qp_.data(), np, kOne, out, ka);
+    gemm(blas_, Op::C, Op::N, ka, kb, np, kOne, pa, np, qp_.data(), np, kOne, out, ka);
 }
 
 int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuComplex* pv, int n, cuComplex* w,
@@ -275,44 +222,27 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
             const float* o = real(overlap_.data());
             gamma_combine(blas_, r, v, n, o, n, m, -1.0f, 1.0f, w);
             if (general)
-                sgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, n, -1.0f, real(pv), np, o, n, 1.0f, real(pw), np);
+                sgemm(blas_, Op::N, Op::N, np, m, n, -1.0f, real(pv), np, o, n, 1.0f, real(pw), np);
         } else if (n > 0) {  // w -= v (v^H S w), pw likewise
             gram(h, v, pv, n, w, pw, m, rows, overlap_.data());
-            gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, n, kMinus, v, rows, overlap_.data(), n, kOne, w, rows);
-            if (general) gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, n, kMinus, pv, np, overlap_.data(), n, kOne, pw, np);
+            gemm(blas_, Op::N, Op::N, rows, m, n, kMinus, v, rows, overlap_.data(), n, kOne, w, rows);
+            if (general) gemm(blas_, Op::N, Op::N, np, m, n, kMinus, pv, np, overlap_.data(), n, kOne, pw, np);
         }
         gram(h, w, pw, m, w, pw, m, rows, overlap_.data());
         // Cholesky QR while R is well conditioned
         const std::size_t mm = static_cast<std::size_t>(m) * m;
         chol_.reserve(mm);
         copy_bytes(chol_.data(), overlap_.data(), mm * (gamma_ ? sizeof(float) : sizeof(cuComplex)));
-        int lwork = 0;
-        if (gamma_) {
-            check_solver(cusolverDnSpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m, &lwork),
-                         "cusolverDnSpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnSpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, real(chol_.data()), m,
-                                          real(lapack_.data()), lwork, info_.data()),
-                         "cusolverDnSpotrf");
-        } else {
-            check_solver(cusolverDnCpotrf_bufferSize(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, &lwork),
-                         "cusolverDnCpotrf_bufferSize");
-            lapack_.reserve(static_cast<std::size_t>(std::max(lwork, 1)));
-            check_solver(cusolverDnCpotrf(solver_, CUBLAS_FILL_MODE_UPPER, m, chol_.data(), m, lapack_.data(), lwork,
-                                          info_.data()),
-                         "cusolverDnCpotrf");
-        }
-        int info = 0;
-        info_.download(&info, 1);
+        const int info = gamma_ ? lapack_.potrf(real(chol_.data()), m) : lapack_.potrf(chol_.data(), m);
         if (info == 0) {
             diagonal_r_.reserve(static_cast<std::size_t>(m));
             std::vector<float> d(static_cast<std::size_t>(m));
             if (gamma_) {
-                check_blas(cublasScopy(blas_, m, real(chol_.data()), m + 1, real(diagonal_r_.data()), 1), "cublasScopy");
+                blas_.copy(m, real(chol_.data()), m + 1, real(diagonal_r_.data()), 1);
                 check_cuda(cudaMemcpy(d.data(), diagonal_r_.data(), d.size() * sizeof(float), cudaMemcpyDeviceToHost),
                            "cudaMemcpy");
             } else {
-                check_blas(cublasCcopy(blas_, m, chol_.data(), m + 1, diagonal_r_.data(), 1), "cublasCcopy");
+                blas_.copy(m, chol_.data(), m + 1, diagonal_r_.data(), 1);
                 std::vector<cuComplex> z(static_cast<std::size_t>(m));
                 diagonal_r_.download(z.data(), z.size());
                 for (std::size_t i = 0; i < z.size(); ++i) d[i] = z[i].x;
@@ -328,19 +258,12 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
                 if (gamma_) {
                     gamma_solve(blas_, r, m, real(chol_.data()), w);
                     if (general) {
-                        const float one = 1.0f;
-                        check_blas(cublasStrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                               CUBLAS_DIAG_NON_UNIT, np, m, &one, real(chol_.data()), m, real(pw), np),
-                                   "cublasStrsm");
+                        blas_.trsm(np, m, real(chol_.data()), m, real(pw), np);
                     }
                 } else {
-                    check_blas(cublasCtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                           CUBLAS_DIAG_NON_UNIT, rows, m, &kOne, chol_.data(), m, w, rows),
-                               "cublasCtrsm");
+                    blas_.trsm(rows, m, chol_.data(), m, w, rows);
                     if (general)
-                        check_blas(cublasCtrsm(blas_, CUBLAS_SIDE_RIGHT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                                               CUBLAS_DIAG_NON_UNIT, np, m, &kOne, chol_.data(), m, pw, np),
-                                   "cublasCtrsm");
+                        blas_.trsm(np, m, chol_.data(), m, pw, np);
                 }
                 continue;
             }
@@ -351,7 +274,7 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
             eigh_real(real(overlap_.data()), m);
         else
             eigh(overlap_.data(), m);
-        values_.download(host.data(), host.size());
+        host.assign(eigenvalues_.begin(), eigenvalues_.end());
         const float largest = std::max(host.back(), 1e-30f);
         int first = 0;
         while (first < m && !(host[static_cast<std::size_t>(first)] > kDependent * largest)) ++first;
@@ -369,7 +292,7 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
                 check_cuda(cudaGetLastError(), "the orthonormal columns");
                 copy(w, work_.data(), r * kept);
             } else {
-                sgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, kept, m, 1.0f, real(pw), np, q, m, 0.0f, real(work_.data()),
+                sgemm(blas_, Op::N, Op::N, np, kept, m, 1.0f, real(pw), np, q, m, 0.0f, real(work_.data()),
                       np);
                 scale_real_columns<<<blocks(p * kept), kThreads>>>(p, kept, scale_.data(), real(work_.data()));
                 check_cuda(cudaGetLastError(), "the orthonormal columns");
@@ -380,7 +303,7 @@ int DavidsonSingle::orthonormalize(Hamiltonian* h, const cuComplex* v, const cuC
             cuComplex* target = part == 0 ? w : pw;
             const int length = part == 0 ? rows : np;
             const std::size_t l = static_cast<std::size_t>(length);
-            gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, length, kept, m, kOne, target, length,
+            gemm(blas_, Op::N, Op::N, length, kept, m, kOne, target, length,
                  overlap_.data() + static_cast<std::size_t>(first) * m, m, kZero, work_.data(), length);
             scale_columns<<<blocks(l * kept), kThreads>>>(l, kept, scale_.data(), work_.data());
             check_cuda(cudaGetLastError(), "the orthonormal columns");
@@ -455,7 +378,7 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                         columns, real(hsub_.data()) + ld * static_cast<std::size_t>(first), most);
             return;
         }
-        gemm(blas_, CUBLAS_OP_C, CUBLAS_OP_N, first + columns, columns, rows, kOne, basis_.data(), rows,
+        gemm(blas_, Op::C, Op::N, first + columns, columns, rows, kOne, basis_.data(), rows,
              hbasis_.data() + n * static_cast<std::size_t>(first), rows, kZero,
              hsub_.data() + ld * static_cast<std::size_t>(first), most);
     };
@@ -484,7 +407,7 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
             gamma_combine(blas_, n, hbasis_.data(), nbase, yr, nbase, m, 1.0f, 0.0f, hx);
             gamma_combine(blas_, n, basis_.data(), nbase, yr, nbase, m, 1.0f, 0.0f, sx);
             if (general) {
-                sgemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, nbase, 1.0f, real(pb), np, yr, nbase, 0.0f, real(px), np);
+                sgemm(blas_, Op::N, Op::N, np, m, nbase, 1.0f, real(pb), np, yr, nbase, 0.0f, real(px), np);
                 if (all) copy(x, sx, n * static_cast<std::size_t>(m));
                 h.add_overlap(px, m, sx);
             }
@@ -497,12 +420,12 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                 check_cuda(cudaGetLastError(), "the open eigenvectors");
                 y = picked_.data();
             }
-            gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, kOne, hbasis_.data(), rows, y, nbase, kZero, hx,
+            gemm(blas_, Op::N, Op::N, rows, m, nbase, kOne, hbasis_.data(), rows, y, nbase, kZero, hx,
                  rows);
-            gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, rows, m, nbase, kOne, basis_.data(), rows, y, nbase, kZero, sx,
+            gemm(blas_, Op::N, Op::N, rows, m, nbase, kOne, basis_.data(), rows, y, nbase, kZero, sx,
                  rows);
             if (general) {
-                gemm(blas_, CUBLAS_OP_N, CUBLAS_OP_N, np, m, nbase, kOne, pb, np, y, nbase, kZero, px, np);
+                gemm(blas_, Op::N, Op::N, np, m, nbase, kOne, pb, np, y, nbase, kZero, px, np);
                 if (all) copy(x, sx, n * static_cast<std::size_t>(m));
                 h.add_overlap(px, m, sx);
             }
@@ -551,12 +474,10 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                                 static_cast<std::size_t>(nbase), cudaMemcpyDeviceToDevice),
                    "cudaMemcpy2D");
         if (gamma_)
-            eigh_real(real(subspace_.data()), nbase);
+            eigh_real(real(subspace_.data()), nbase, count);
         else
-            eigh(subspace_.data(), nbase);
-        host.resize(static_cast<std::size_t>(nbase));
-        values_.download(host.data(), host.size());
-        lambda.assign(host.begin(), host.end());
+            eigh(subspace_.data(), nbase, count);
+        lambda = eigenvalues_;
         open.clear();
         for (int b = 0; b < count; ++b)
             if (!done[static_cast<std::size_t>(b)]) open.push_back(b);
@@ -599,8 +520,7 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                     std::vector<float> diag(bands);
                     for (std::size_t b = 0; b < bands; ++b) diag[b] = static_cast<float>(lambda[b]);
                     energies_.assign(diag.data(), bands);
-                    check_blas(cublasScopy(blas_, count, energies_.data(), 1, real(hsub_.data()), most + 1),
-                               "cublasScopy");
+                    blas_.copy(count, energies_.data(), 1, real(hsub_.data()), most + 1);
                 } else {
                     check_cuda(cudaMemset2D(hsub_.data(), ld * sizeof(cuComplex), 0, bands * sizeof(cuComplex), bands),
                                "cudaMemset2D");
@@ -608,7 +528,7 @@ DavidsonResult DavidsonSingle::solve(Hamiltonian& h, Complex* psi, int count, st
                     for (std::size_t b = 0; b < bands; ++b)
                         diag[b] = make_cuComplex(static_cast<float>(lambda[b]), 0.0f);
                     picked_.assign(diag.data(), bands);
-                    check_blas(cublasCcopy(blas_, count, picked_.data(), 1, hsub_.data(), most + 1), "cublasCcopy");
+                    blas_.copy(count, picked_.data(), 1, hsub_.data(), most + 1);
                 }
             }
         }

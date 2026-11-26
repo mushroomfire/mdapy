@@ -62,6 +62,35 @@ void copy_device(DeviceArray<double>& to, const DeviceArray<double>& from, std::
     check_cuda(cudaMemcpy(to.data(), from.data(), n * sizeof(double), cudaMemcpyDeviceToDevice), "cudaMemcpy");
 }
 
+void copy_device(DeviceArray<Complex>& to, const Complex* from, std::size_t n) {
+    to.resize(n);
+    check_cuda(cudaMemcpy(to.data(), from, n * sizeof(Complex), cudaMemcpyDeviceToDevice), "cudaMemcpy");
+}
+
+// the (up, down) components of the density on the sphere (n each) to (total,
+// magnetization), and back
+__global__ void to_total_kernel(std::size_t n, const Complex* __restrict__ spins, Complex* __restrict__ total) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    const Complex up = spins[g], down = spins[n + g];
+    total[g] = make_cuDoubleComplex(up.x + down.x, up.y + down.y);
+    total[n + g] = make_cuDoubleComplex(up.x - down.x, up.y - down.y);
+}
+
+__global__ void to_spins_kernel(std::size_t n, const Complex* __restrict__ total, Complex* __restrict__ spins) {
+    const std::size_t g = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (g >= n) return;
+    const Complex t = total[g], m = total[n + g];
+    spins[g] = make_cuDoubleComplex(0.5 * (t.x + m.x), 0.5 * (t.y + m.y));
+    spins[n + g] = make_cuDoubleComplex(0.5 * (t.x - m.x), 0.5 * (t.y - m.y));
+}
+
+// out = a + f b
+__global__ void step_along_kernel(std::size_t n, const Complex* a, double f, const Complex* b, Complex* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = make_cuDoubleComplex(a[i].x + f * b[i].x, a[i].y + f * b[i].y);
+}
+
 // seconds between laps, the GPU finished
 struct Clock {
     std::chrono::steady_clock::time_point last = std::chrono::steady_clock::now();
@@ -216,7 +245,11 @@ std::array<double, 2> extrapolation_coefficients(const std::vector<Vec3>& before
     return {(ac * bb - bc * ab) / det, (aa * bc - ab * ac) / det};
 }
 
-ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
+namespace {
+
+// The run itself; keep, the memory of the pool in use at the end of its last
+// step, which the next run of a like cell will want again.
+ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state, std::size_t& keep) {
     const std::size_t points =
         static_cast<std::size_t>(input.grid[0]) * input.grid[1] * input.grid[2];
     const std::size_t nk = input.kpoints.size();
@@ -300,7 +333,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // the bare D for each atom
     std::vector<SpeciesAugmentation> augmented = input.augmentation;
     augmented.resize(input.species.size());
-    Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented);
+    Augmentation aug(input.lattice, pot.sphere(), input.atoms, augmented, input.kernels);
     const bool ultrasoft = aug.any();
     // DFT+U: the block of the pseudo-orbital of each Hubbard atom, where it
     // starts among the projector functions of the atom, its l and U
@@ -454,7 +487,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         std::vector<SpeciesOneCenter> data = input.paw;
         data.resize(input.species.size());
         centers = std::make_unique<OneCenter>(std::move(data), kinds, widths, ns, options.functional,
-                                              options.xc_threshold);
+                                              options.xc_threshold, input.kernels);
         one = [&centers](const std::vector<std::vector<double>>& b, std::vector<std::vector<double>>& d) {
             return centers->compute(b, d);
         };
@@ -474,7 +507,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         }
     };
-    Davidson davidson;
+    Davidson davidson(input.kernels);
     // the bands of each spin and k-point, (s, k) at s nk + k, random at the
     // start and the same for both spins, so that a density without
     // magnetization keeps none
@@ -521,7 +554,6 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
     // density, and on the smooth one), and the work of its operator
     DeviceArray<double> ldos_r, ldos_s, ldos_v, ldos_out;
     DeviceArray<Complex> ldos_g;
-    std::vector<Complex> taken_in, delta;
     std::vector<std::vector<double>> taken_becsum, delta_becsum;
     double taken_energy = 0.0, taken_accuracy = 0.0, trial = 1.0, scale = 1.0;
     bool any_taken = false;
@@ -572,6 +604,22 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         components.upload(start.data(), start.size());
         pot.from_sphere(components.data(), rho_in.data(), ns);
     }
+    // the densities of the steps on the GPU, (total, magnetization) on the
+    // sphere: the input, the output, the input of the step (for the forces),
+    // and of adaptive damping the input taken and the step from it
+    DeviceArray<Complex> in_d, out_d(spins * ng), last_in_d, taken_in_d, delta_d;
+    in_d.upload(in_g.data(), in_g.size());
+    // the input density of the step from in_d, on the grid
+    const auto density_in = [&]() {
+        if (ns == 2) {
+            to_spins_kernel<<<blocks(ng), kThreads>>>(ng, in_d.data(), components.data());
+            check_cuda(cudaGetLastError(), "the spins of the density");
+        } else {
+            check_cuda(cudaMemcpy(components.data(), in_d.data(), ng * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
+        }
+        pot.from_sphere(components.data(), rho_in.data(), ns);
+    };
     const bool mixes_occupations = paw || hubbard;  // the occupations of the projectors mixed with the density
     if (mixes_occupations) {
         becsum_in = restart && state->becsum.size() == spins ? state->becsum : input.becsum;
@@ -662,7 +710,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         std::exception_ptr error;
         Worker(const Lattice& lattice, const Int3& grid, double cutoff, const std::vector<SpeciesProjectors>& species,
                const std::vector<Atom>& atoms, const Lattice* basis_, Kernels kernels)
-            : h(lattice, grid, cutoff, species, atoms, basis_, kernels) {}
+            : h(lattice, grid, cutoff, species, atoms, basis_, kernels), davidson(kernels) {}
     };
     std::vector<std::unique_ptr<Worker>> workers;
     std::vector<DeviceArray<double>> veff_spin;  // the effective potential of each spin on the grid of the bands
@@ -680,20 +728,33 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
     }
     // each task of tasks by one of the workers, f(worker, s, k); the work of
-    // this thread done first, the errors of the workers raised here
-    auto side_by_side = [&](const std::function<void(Worker&, std::size_t, std::size_t)>& f) {
+    // this thread done first, the errors of the workers raised here. The
+    // tasks go to the worker that is free (the bands, of which the k-points
+    // take different times) or, fixed, worker w takes the tasks w, w +
+    // workers, ... in their order (the density, which each worker adds up:
+    // the same sums in the same order at each run)
+    auto side_by_side = [&](const std::function<void(Worker&, std::size_t, std::size_t)>& f, bool fixed) {
         check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
         std::atomic<std::size_t> next{0};
         std::vector<std::thread> pool;
-        for (auto& worker : workers) {
-            Worker* wk = worker.get();
+        const std::size_t count = workers.size();
+        for (std::size_t w = 0; w < count; ++w) {
+            Worker* wk = workers[w].get();
             wk->error = nullptr;
-            pool.emplace_back([&, wk] {
+            pool.emplace_back([&, wk, w] {
                 try {
-                    for (std::size_t i = next++; i < tasks.size(); i = next++) f(*wk, tasks[i].first, tasks[i].second);
+                    if (fixed)
+                        for (std::size_t i = w; i < tasks.size(); i += count) f(*wk, tasks[i].first, tasks[i].second);
+                    else
+                        for (std::size_t i = next++; i < tasks.size(); i = next++) f(*wk, tasks[i].first, tasks[i].second);
                     check_cuda(cudaStreamSynchronize(cudaStreamPerThread), "cudaStreamSynchronize");
                 } catch (...) {
                     wk->error = std::current_exception();
+                    // the work of its stream done before the thread and its
+                    // stream end, as without an error: a worker that failed
+                    // with work left on its stream (the first bands of the
+                    // atoms) left the run waiting for ever instead of raising
+                    static_cast<void>(cudaStreamSynchronize(cudaStreamPerThread));
                 }
             });
         }
@@ -720,7 +781,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
         if (hubbard) result.hubbard = hubbard_of(becsum_in, true, &hubbard_vn);
         result.times.potentials += clock.lap();
-        last_in = in_g;
+        copy_device(last_in_d, in_d.data(), in_d.size());
         // the bands
         ScfStep step;
         step.tolerance = tolerance;
@@ -778,7 +839,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     }
                 }
                 const auto r = single_phase
-                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>()))
+                                   ? (wk.single ? *wk.single : *(wk.single = std::make_unique<DavidsonSingle>(input.kernels)))
                                          .solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
                                                      options.davidson_iterations, options.davidson_basis * nb)
                                    : wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
@@ -786,7 +847,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 wk.iterations += r.iterations;
                 std::copy(wk.values.begin(), wk.values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>(row * bands));
-            });
+            }, false);
             for (auto& worker : workers) step.davidson += worker->iterations;
         }
         for (std::size_t k = 0; k < nk && threads == 1; ++k) {
@@ -808,7 +869,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 if (iteration == 1 && !restart && h.atomic_functions() > 0) start_atomic(s * nk + k);
                 const auto r = single_phase
                                    ? (single_solver ? *single_solver
-                                                    : *(single_solver = std::make_unique<DavidsonSingle>()))
+                                                    : *(single_solver = std::make_unique<DavidsonSingle>(input.kernels)))
                                          .solve(h, psi[s * nk + k].data(), nb, values, limits,
                                                          options.davidson_iterations, options.davidson_basis * nb)
                                    : davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
@@ -866,7 +927,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 wk.h.add_density(psi[s * nk + k].data(), nb, wk.w.data(), wk.rho.data() + s * per);
                 if (ultrasoft || hubbard)
                     wk.h.add_becsum_device(psi[s * nk + k].data(), nb, wk.w.data(), wk.becsum[s].data());
-            });
+            }, true);
             DeviceArray<double>& target = two_grids ? rho_s : rho_out;
             for (auto& worker : workers) {
                 band += worker->band;
@@ -949,10 +1010,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         symmetrizer.density(components.data(), ns);
         if (ultrasoft || two_grids || symmetrizer.active()) pot.from_sphere(components.data(), rho_out.data(), ns);
-        components.download(out_g.data(), out_g.size());
-        if (ns == 2) to_total(out_g, ng);
+        if (ns == 2) {
+            to_total_kernel<<<blocks(ng), kThreads>>>(ng, components.data(), out_d.data());
+            check_cuda(cudaGetLastError(), "the total density");
+        } else {
+            check_cuda(cudaMemcpy(out_d.data(), components.data(), ng * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
+        }
         result.times.density += clock.lap();
-        const double accuracy = mixer.residual_energy(in_g, out_g) + (hubbard ? hubbard_residual(becsum_in, becsum) : 0.0);
+        const double accuracy =
+            mixer.residual_energy(in_d.data(), out_d.data()) + (hubbard ? hubbard_residual(becsum_in, becsum) : 0.0);
         if (!std::isfinite(energy) || !std::isfinite(accuracy))
             throw std::runtime_error("the energy or the density is not finite");
         step.energy = energy;
@@ -976,7 +1043,13 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             }
         }
         step.fermi = occ.fermi;
-        step.magnetization = ns == 2 ? out_g[ng].x * input.lattice.volume : 0.0;
+        step.magnetization = 0.0;
+        if (ns == 2) {  // the component G = 0 of the magnetization
+            Complex m0{};
+            check_cuda(cudaMemcpy(&m0, out_d.data() + ng, sizeof(Complex), cudaMemcpyDeviceToHost), "cudaMemcpy");
+            step.magnetization = m0.x * input.lattice.volume;
+        }
+        step.memory = pool_memory();
         result.steps.push_back(step);
         result.iterations = iteration;
         result.energy = energy;
@@ -1023,16 +1096,16 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 trial *= u;
                 ++trials;
                 result.steps.back().accepted = false;
-                for (std::size_t i = 0; i < in_g.size(); ++i)
-                    in_g[i] = make_cuDoubleComplex(taken_in[i].x + trial * delta[i].x, taken_in[i].y + trial * delta[i].y);
+                result.steps.back().single = single_phase;
+                if (input.on_step) input.on_step(result.steps.back(), iteration);
+                step_along_kernel<<<blocks(in_d.size()), kThreads>>>(in_d.size(), taken_in_d.data(), trial,
+                                                                    delta_d.data(), in_d.data());
+                check_cuda(cudaGetLastError(), "a trial of adaptive damping");
                 if (mixes_occupations)
                     for (std::size_t s = 0; s < spins; ++s)
                         for (std::size_t i = 0; i < becsum_in[s].size(); ++i)
                             becsum_in[s][i] = taken_becsum[s][i] + trial * delta_becsum[s][i];
-                std::vector<Complex> next = in_g;
-                if (ns == 2) to_spins(next, ng);
-                components.upload(next.data(), next.size());
-                pot.from_sphere(components.data(), rho_in.data(), ns);
+                density_in();
                 result.times.mixing += clock.lap();
                 continue;
             }
@@ -1045,6 +1118,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             mixer.set_scale(scale);
         }
         result.steps.back().single = single_phase;
+        if (input.on_step) input.on_step(result.steps.back(), iteration);
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
         if (single_phase) {
             // no end in single precision: the next steps in double once its
@@ -1148,7 +1222,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             copy_device(taken_out, rho_out, n);
             copy_device(taken_hxc, hxc, n);
             copy_device(taken_hxc_out, hxc_output, n);
-            taken_in = in_g;
+            copy_device(taken_in_d, in_d.data(), in_d.size());
             taken_becsum = becsum_in;
             taken_energy = step.output_energy;
             taken_accuracy = accuracy;
@@ -1172,7 +1246,7 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                     x_out[i] = becsum[0][i];
                 }
             }
-            in_g = mixer.mix(in_g, out_g, &x, &x_out);
+            mixer.mix(in_d.data(), out_d.data(), in_d.data(), &x, &x_out);
             for (std::size_t i = 0; i < n; ++i) {
                 if (ns == 2) {
                     becsum_in[0][i] = 0.5 * (x[i] + x[n + i]);
@@ -1182,21 +1256,19 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
                 }
             }
         } else {
-            in_g = mixer.mix(in_g, out_g);
+            mixer.mix(in_d.data(), out_d.data(), in_d.data());
         }
         if (adaptive) {  // the step of the mixing, of which the trials take a share
-            delta.resize(in_g.size());
-            for (std::size_t i = 0; i < in_g.size(); ++i)
-                delta[i] = make_cuDoubleComplex(in_g[i].x - taken_in[i].x, in_g[i].y - taken_in[i].y);
+            delta_d.resize(in_d.size());
+            step_along_kernel<<<blocks(in_d.size()), kThreads>>>(in_d.size(), in_d.data(), -1.0, taken_in_d.data(),
+                                                                delta_d.data());
+            check_cuda(cudaGetLastError(), "the step of adaptive damping");
             delta_becsum = becsum_in;
             for (std::size_t s = 0; s < delta_becsum.size(); ++s)
                 for (std::size_t i = 0; i < delta_becsum[s].size(); ++i) delta_becsum[s][i] -= taken_becsum[s][i];
         }
         result.times.mixing += clock.lap();
-        std::vector<Complex> next = in_g;
-        if (ns == 2) to_spins(next, ng);
-        components.upload(next.data(), next.size());
-        pot.from_sphere(components.data(), rho_in.data(), ns);
+        density_in();
         // the occupations and the tolerance of the next step
         held = occ.f;
         tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
@@ -1211,6 +1283,12 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
         }
     }
     clock.lap();
+    // the densities of the last step on the host: for the forces, the stress
+    // and the state of the next run
+    out_d.download(out_g.data(), out_g.size());
+    last_in.resize(last_in_d.size());
+    last_in_d.download(last_in.data(), last_in.size());
+    keep = result.steps.empty() ? 0 : result.steps.back().memory.in_use;
     // the forces: the local term of rho_out, the core charge in V_xc of the
     // last rho_in (V_Hxc of each spin, averaged, less V_H), the projectors
     {
@@ -1435,6 +1513,25 @@ ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* st
             result.absolute_magnetization += std::abs(m) * dv;
         }
     }
+    return result;
+}
+
+}  // namespace
+
+ScfResult run_scf(const ScfInput& input, const ScfOptions& options, ScfState* state) {
+    // the arrays of the run freed, the pool gives back to the device what it
+    // holds beyond the use of the run's steps (all it holds unused when the
+    // run fails), so that a process holds what its runs use and not the most
+    // they ever did
+    std::size_t keep = 0;
+    ScfResult result;
+    try {
+        result = run(input, options, state, keep);
+    } catch (...) {
+        give_back(0);
+        throw;
+    }
+    give_back(keep);
     return result;
 }
 

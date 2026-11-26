@@ -9,6 +9,8 @@
 // compiled as they are, their CUDA names those of HIP by the aliases of
 // cuda/portable.cuh and those below. Only what the DFT uses is named here. The
 // libraries of HIP take the arguments of those of CUDA, in the same order.
+// The three libraries are not linked, with CUDA or HIP: their functions are
+// those of the tables of src/dft/core/vendor.h, loaded at their first call.
 //
 // Streams: with CUDA the kernels, the copies and the libraries of a host
 // thread run on its own default stream (the build makes cudaStreamPerThread
@@ -40,6 +42,14 @@
 #define cudaDeviceGetDefaultMemPool hipDeviceGetDefaultMemPool
 #define cudaMemPoolSetAttribute hipMemPoolSetAttribute
 #define cudaMemPoolAttrReleaseThreshold hipMemPoolAttrReleaseThreshold
+#define cudaMemPoolGetAttribute hipMemPoolGetAttribute
+#define cudaMemPoolAttr hipMemPoolAttr
+#define cudaMemPoolAttrUsedMemCurrent hipMemPoolAttrUsedMemCurrent
+#define cudaMemPoolAttrUsedMemHigh hipMemPoolAttrUsedMemHigh
+#define cudaMemPoolAttrReservedMemCurrent hipMemPoolAttrReservedMemCurrent
+#define cudaMemPoolAttrReservedMemHigh hipMemPoolAttrReservedMemHigh
+#define cudaMemPoolTrimTo hipMemPoolTrimTo
+#define cudaMemGetInfo hipMemGetInfo
 #define cudaMemcpy2D hipMemcpy2D
 #define cudaMemset2D hipMemset2D
 #define cudaDeviceGetAttribute hipDeviceGetAttribute
@@ -145,3 +155,106 @@
 #include <cusolverDn.h>
 
 #endif
+
+#include "dft/core/vendor.h"
+
+// cuBLAS, cuFFT and cuSOLVER (hipBLAS, hipFFT and hipSOLVER with HIP) through the
+// tables of src/dft/core/vendor.h, loaded at their first call: the names the
+// DFT calls (with CUDA macros of the headers for the functions _v2, with HIP
+// those above) become those of the tables
+#undef cublasCreate
+#undef cublasDestroy
+#undef cublasSetStream
+#undef cublasScopy
+#undef cublasDcopy
+#undef cublasCcopy
+#undef cublasZcopy
+#undef cublasSscal
+#undef cublasDscal
+#undef cublasSger
+#undef cublasDger
+#undef cublasSgemm
+#undef cublasDgemm
+#undef cublasCgemm
+#undef cublasZgemm
+#undef cublasDgemmStridedBatched
+#undef cublasStrsm
+#undef cublasDtrsm
+#undef cublasCtrsm
+#undef cublasZtrsm
+#undef cufftPlanMany
+#undef cufftSetStream
+#undef cufftDestroy
+#undef cufftExecR2C
+#undef cufftExecC2R
+#undef cufftExecC2C
+#undef cufftExecD2Z
+#undef cufftExecZ2D
+#undef cufftExecZ2Z
+#undef cusolverDnCreate
+#undef cusolverDnDestroy
+#undef cusolverDnSetStream
+#undef cusolverDnSsyevd_bufferSize
+#undef cusolverDnDsyevd_bufferSize
+#undef cusolverDnCheevd_bufferSize
+#undef cusolverDnZheevd_bufferSize
+#undef cusolverDnSsyevd
+#undef cusolverDnDsyevd
+#undef cusolverDnCheevd
+#undef cusolverDnZheevd
+#undef cusolverDnSpotrf_bufferSize
+#undef cusolverDnDpotrf_bufferSize
+#undef cusolverDnCpotrf_bufferSize
+#undef cusolverDnZpotrf_bufferSize
+#undef cusolverDnSpotrf
+#undef cusolverDnDpotrf
+#undef cusolverDnCpotrf
+#undef cusolverDnZpotrf
+#define cublasCreate ::mdapy::dft::vendor::blas().create
+#define cublasDestroy ::mdapy::dft::vendor::blas().destroy
+#define cublasSetStream ::mdapy::dft::vendor::blas().set_stream
+#define cublasScopy ::mdapy::dft::vendor::blas().scopy
+#define cublasDcopy ::mdapy::dft::vendor::blas().dcopy
+#define cublasCcopy ::mdapy::dft::vendor::blas().ccopy
+#define cublasZcopy ::mdapy::dft::vendor::blas().zcopy
+#define cublasSscal ::mdapy::dft::vendor::blas().sscal
+#define cublasDscal ::mdapy::dft::vendor::blas().dscal
+#define cublasSger ::mdapy::dft::vendor::blas().sger
+#define cublasDger ::mdapy::dft::vendor::blas().dger
+#define cublasSgemm ::mdapy::dft::vendor::blas().sgemm
+#define cublasDgemm ::mdapy::dft::vendor::blas().dgemm
+#define cublasCgemm ::mdapy::dft::vendor::blas().cgemm
+#define cublasZgemm ::mdapy::dft::vendor::blas().zgemm
+#define cublasDgemmStridedBatched ::mdapy::dft::vendor::blas().dgemm_strided_batched
+#define cublasStrsm ::mdapy::dft::vendor::blas().strsm
+#define cublasDtrsm ::mdapy::dft::vendor::blas().dtrsm
+#define cublasCtrsm ::mdapy::dft::vendor::blas().ctrsm
+#define cublasZtrsm ::mdapy::dft::vendor::blas().ztrsm
+#define cufftPlanMany ::mdapy::dft::vendor::fft().plan_many
+#define cufftSetStream ::mdapy::dft::vendor::fft().set_stream
+#define cufftDestroy ::mdapy::dft::vendor::fft().destroy
+#define cufftExecR2C ::mdapy::dft::vendor::fft().exec_r2c
+#define cufftExecC2R ::mdapy::dft::vendor::fft().exec_c2r
+#define cufftExecC2C ::mdapy::dft::vendor::fft().exec_c2c
+#define cufftExecD2Z ::mdapy::dft::vendor::fft().exec_d2z
+#define cufftExecZ2D ::mdapy::dft::vendor::fft().exec_z2d
+#define cufftExecZ2Z ::mdapy::dft::vendor::fft().exec_z2z
+#define cusolverDnCreate ::mdapy::dft::vendor::solver().create
+#define cusolverDnDestroy ::mdapy::dft::vendor::solver().destroy
+#define cusolverDnSetStream ::mdapy::dft::vendor::solver().set_stream
+#define cusolverDnSsyevd_bufferSize ::mdapy::dft::vendor::solver().ssyevd_buffer_size
+#define cusolverDnDsyevd_bufferSize ::mdapy::dft::vendor::solver().dsyevd_buffer_size
+#define cusolverDnCheevd_bufferSize ::mdapy::dft::vendor::solver().cheevd_buffer_size
+#define cusolverDnZheevd_bufferSize ::mdapy::dft::vendor::solver().zheevd_buffer_size
+#define cusolverDnSsyevd ::mdapy::dft::vendor::solver().ssyevd
+#define cusolverDnDsyevd ::mdapy::dft::vendor::solver().dsyevd
+#define cusolverDnCheevd ::mdapy::dft::vendor::solver().cheevd
+#define cusolverDnZheevd ::mdapy::dft::vendor::solver().zheevd
+#define cusolverDnSpotrf_bufferSize ::mdapy::dft::vendor::solver().spotrf_buffer_size
+#define cusolverDnDpotrf_bufferSize ::mdapy::dft::vendor::solver().dpotrf_buffer_size
+#define cusolverDnCpotrf_bufferSize ::mdapy::dft::vendor::solver().cpotrf_buffer_size
+#define cusolverDnZpotrf_bufferSize ::mdapy::dft::vendor::solver().zpotrf_buffer_size
+#define cusolverDnSpotrf ::mdapy::dft::vendor::solver().spotrf
+#define cusolverDnDpotrf ::mdapy::dft::vendor::solver().dpotrf
+#define cusolverDnCpotrf ::mdapy::dft::vendor::solver().cpotrf
+#define cusolverDnZpotrf ::mdapy::dft::vendor::solver().zpotrf

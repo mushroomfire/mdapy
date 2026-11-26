@@ -196,14 +196,23 @@ def _hubbard_occupations(becsum, kinds, angular, hubbard_of, spins):
 _FULL_DOUBLE = {(6, 0), (7, 0), (8, 0), (9, 0), (10, 0)}
 
 
+def full_double() -> bool:
+    """Whether the double precision of the current GPU runs at half the rate
+    of its single: the NVIDIA GPUs of _FULL_DOUBLE, and the AMD GPUs HIP runs
+    on (the Instinct series), whatever capability HIP reports for them."""
+    _dft = loader.module()
+    if _dft.api == "HIP":
+        return True
+    return tuple(_dft.device_capability()) in _FULL_DOUBLE
+
+
 def mixed_precision(precision: str) -> bool:
     """Whether a run of this precision ("double", "mixed" or "auto") takes
     the single-precision steps on the current GPU: "auto" on GPUs whose double
     precision is a small part of their single."""
     if precision != "auto":
         return precision == "mixed"
-    _dft = loader.module()
-    return tuple(_dft.device_capability()) not in _FULL_DOUBLE
+    return not full_double()
 
 
 def run(
@@ -247,6 +256,7 @@ def run(
     hubbard=None,
     kpoint_threads: int = 0,
     start_density=None,
+    start_becsum=None,
     first_tolerance: float = 0.0,
     conditioning: float = 1e6,
     output_energies: bool = False,
@@ -255,6 +265,8 @@ def run(
     preconditioner: str = "kerker",
     precision: str = "double",
     kernels: str = "mdapy",
+    on_start=None,
+    on_step=None,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -301,7 +313,9 @@ def run(
     superposition of the free atoms as the first input density; with
     first_tolerance (hartree) the bands of the first step are solved to that
     residual norm, as a non-self-consistent pass at its potential needs, and
-    with first_held only the first first_held bands of each k-point, those
+    start_becsum, the occupations of the projectors (spins, pairs) as the
+    result's becsum, replaces the first ones of PAW or DFT+U; with
+    first_held only the first first_held bands of each k-point, those
     that may hold electrons; the others to the loose tolerance of empty bands.
     conditioning bounds the condition number of the residual differences
     that Pulay's mixing combines: directions of smaller singular values are
@@ -322,8 +336,16 @@ def run(
     real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
-    it has its own (the FFTs), "vendor": the GPU libraries of the vendor
-    throughout."""
+    it has its own (the FFTs, the dense linear algebra, the eigensolver and
+    the Cholesky factorization), "vendor": the GPU libraries of the vendor
+    throughout, loaded here (InvalidParameter if they cannot be); the result
+    holds it as kernels. on_start(setup), before the loop, gets a
+    dict of what the run takes: grid, smooth_grid, density_cutoff (hartree),
+    bands, kpoints (their number), operations, gamma, spins, electrons,
+    kernels and mixed (the precision); on_step(step, energy, accuracy,
+    magnetization, fermi, davidson, single, accepted), after each step, its
+    number from 1 and its values in hartree, as the result's histories
+    (a log of the run)."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
@@ -331,6 +353,8 @@ def run(
     if kernels not in ("mdapy", "vendor"):
         raise ValueError("kernels must be 'mdapy' or 'vendor'")
     _dft = loader.module()
+    if kernels == "vendor":
+        loader.vendor_libraries(_dft)
     cell = np.ascontiguousarray(cell, dtype=float)
     positions = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)
@@ -393,8 +417,6 @@ def run(
         density = np.stack([0.5 * (density + moment), 0.5 * (density - moment)])
     if start_density is not None:
         density = np.asarray(start_density, dtype=float)
-        if density.shape != ((spins,) if spins == 2 else ()) + tuple(grid):
-            raise ValueError("start_density on the grid of the run, with each spin")
     qmax = math.sqrt(2 * cutoff) + 1.0
     tables = [radial.projector_table(pp, qmax, volume) for pp in pseudos]
     # the pseudo-orbitals of the free atoms, for the first bands
@@ -478,6 +500,23 @@ def run(
         becsum = _hubbard_start(
             kinds, angular, hubbard_of, hubbard_electrons, spins, magmoms
         )
+    if start_becsum is not None:
+        start_becsum = np.asarray(start_becsum, dtype=float)
+        if becsum is None or start_becsum.shape != becsum.shape:
+            raise ValueError(
+                "start_becsum takes the occupations (spins, pairs) of PAW or DFT+U"
+            )
+        becsum = start_becsum
+    mixed = mixed_precision(precision)
+    if on_start is not None:
+        on_start({
+            "grid": grid, "smooth_grid": smooth_grid, "density_cutoff": density_cutoff,
+            "bands": bands, "kpoints": len(kpoints),
+            "operations": 1 if ops is None else len(ops), "gamma": bool(gamma),
+            "spins": spins, "electrons": electrons, "kernels": kernels, "mixed": mixed,
+        })  # fmt: skip
+    if density.shape != ((spins,) if spins == 2 else ()) + tuple(grid):
+        raise ValueError("start_density on the grid of the run, with each spin")
     result = _dft.scf(
         cell, list(grid), cutoff, density_cutoff, tables, angular, dij, radial.DQ,
         positions, kinds, kpoints, weights, local_f, core_f, local_s, core_s,
@@ -494,7 +533,7 @@ def run(
         None if ops is None else symmetries.payload(ops), bool(gamma), _pools(comm),
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
-        preconditioner == "ldos", mixed_precision(precision), kernels,
+        preconditioner == "ldos", mixed, kernels, on_step,
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(
@@ -516,6 +555,7 @@ def run(
             result["strain_derivative"] = symmetries.tensor(
                 ops, result["strain_derivative"]
             )
+    result["kernels"] = kernels
     result["net_force"] = forces.mean(axis=0)
     result["forces"] = forces - result["net_force"]
     result.update(

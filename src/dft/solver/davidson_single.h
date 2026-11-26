@@ -20,13 +20,15 @@
 
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 #include "dft/solver/davidson.h"
 
 namespace mdapy::dft {
 
 class DavidsonSingle {
 public:
-    DavidsonSingle();
+    // kernels: MDAPY's own linear algebra, or that of the library of the vendor
+    explicit DavidsonSingle(Kernels kernels = Kernels::Mdapy);
     ~DavidsonSingle();
     DavidsonSingle(const DavidsonSingle&) = delete;
     DavidsonSingle& operator=(const DavidsonSingle&) = delete;
@@ -37,8 +39,10 @@ public:
                          const std::vector<double>& tolerances, int max_iterations, int largest_basis);
 
 private:
-    void eigh(cuComplex* a, int n);  // eigenpairs into values_, vectors into a
-    void eigh_real(float* a, int n);  // the same of a real symmetric matrix, at Gamma
+    // eigenvalues into eigenvalues_, vectors into a (with count not negative
+    // the first count of them alone)
+    void eigh(cuComplex* a, int n, int count = -1);
+    void eigh_real(float* a, int n, int count = -1);  // the same of a real symmetric matrix, at Gamma
     // column c of the projections p, cuComplex or real
     cuComplex* projection(cuComplex* p, std::size_t c) const;
     // out (ka, kb) = a^H b + pa^H q pb (the second without h)
@@ -49,15 +53,16 @@ private:
     int orthonormalize(Hamiltonian* h, const cuComplex* v, const cuComplex* pv, int n, cuComplex* w, cuComplex* pw,
                        int m, int rows);
 
-    cublasHandle_t blas_ = nullptr;
-    cusolverDnHandle_t solver_ = nullptr;
+    Blas blas_;
+    Lapack lapack_;
+    std::vector<double> eigenvalues_;  // of the last eigh
     bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;
     DeviceArray<cuComplex> basis_, hbasis_, pbasis_, pvectors_, vectors_, residual_, subspace_, hsub_, overlap_,
-        chol_, work_, qp_, picked_, lapack_, diagonal_r_;
-    DeviceArray<float> values_, diagonal_, overlap_diagonal_, scale_, energies_;
+        chol_, work_, qp_, picked_, diagonal_r_;
+    DeviceArray<float> diagonal_, overlap_diagonal_, scale_, energies_;
     DeviceArray<double> sums_;
-    DeviceArray<int> index_, info_;
+    DeviceArray<int> index_;
 };
 
 }  // namespace mdapy::dft

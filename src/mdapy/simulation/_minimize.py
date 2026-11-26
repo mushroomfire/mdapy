@@ -20,7 +20,7 @@ from mdapy.core.system import System
 from mdapy.elements import atomic_masses
 from mdapy.errors import CalculationFailed, InvalidParameter, MissingProperty
 from mdapy.neighbor import NeighborList
-from mdapy.simulation._log import _Log, _machine, _on_gpu
+from mdapy.simulation._log import _apart, _Log, _machine, _on_gpu
 
 # Neighbors are searched this much farther than the cutoff of the calculator,
 # in Å, so that one search serves the steps until an atom has moved half as far.
@@ -454,6 +454,7 @@ def minimize(
 
     if save_every is not None:
         save()
+    _apart(log, calculator)
     writer = _Log(
         log, active=all(c is None or c.Get_rank() == 0 for c in (comm, lammps_comm))
     )

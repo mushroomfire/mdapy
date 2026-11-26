@@ -55,6 +55,8 @@
 
 namespace mdapy::dft {
 
+struct ScfStep;
+
 struct ScfInput {
     Lattice lattice;
     // the cell that chooses the plane waves, for differences at a fixed basis;
@@ -98,6 +100,9 @@ struct ScfInput {
     // D^1 - D~^1 of each spin, packed likewise; empty for none. becsum holds
     // the first occupations.
     std::function<double(const std::vector<std::vector<double>>&, std::vector<std::vector<double>>&)> onecenter;
+    // called on the thread of run_scf after each step, taken or tried back, with
+    // the step and its number from 1 (a log of the run); empty for none
+    std::function<void(const ScfStep&, int)> on_step;
     std::vector<std::vector<double>> becsum;
     // or the one-center data of each species (mesh 0 without PAW), for the
     // GPU's one-center terms when onecenter is empty
@@ -165,6 +170,7 @@ struct ScfStep {
     bool single = false;   // the bands of the step in single precision
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
+    PoolMemory memory;       // of the pool and the device at the end of the step
 };
 
 // seconds spent in each part of a run

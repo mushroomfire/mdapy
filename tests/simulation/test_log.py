@@ -187,3 +187,22 @@ def test_minimization(tmp_path):
     assert comments(stream.getvalue())[-1].startswith(
         "# stopped by the callback after 1"
     )
+
+
+def test_a_calculator_with_its_own_log(tmp_path):
+    # a calculator that writes a log of its own (the DFT does) cannot share
+    # its file with the run: their rows differ
+    potential = EAM.zhou(["Cu"])
+    potential.log = tmp_path / "dft.log"
+    for same in (tmp_path / "dft.log", str(tmp_path / "sub" / ".." / "dft.log")):
+        with pytest.raises(InvalidParameter, match="also the log of the calculator"):
+            MolecularDynamics(copper(), potential, log=same)
+        with pytest.raises(InvalidParameter, match="also the log of the calculator"):
+            minimize(copper(), potential, log=same)
+    # two files, or streams, are fine
+    stream = io.StringIO()
+    with MolecularDynamics(copper(), potential, log=tmp_path / "md.log") as md:
+        md.run(2, thermo=1)
+    potential.log = stream
+    minimize(copper(), potential, log=stream, max_steps=2)
+    assert stream.getvalue().startswith("# MDAPY ")

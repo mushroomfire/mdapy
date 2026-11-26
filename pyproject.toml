@@ -45,8 +45,8 @@ rocm6 = [
     "mdapy-rocm6==2.2.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
 ]
 # NVIDIA's cuBLAS, cuFFT and cuSOLVER (with cuSPARSE and nvJitLink) of CUDA 12,
-# for the DFT of mdapy-cuda12, which finds them where these packages put them;
-# with ROCm the DFT takes the libraries of the machine
+# for DFT(kernels="vendor") of mdapy-cuda12, which loads them where these
+# packages put them; with ROCm the DFT takes the libraries of the machine
 dft = [
     "nvidia-cublas-cu12>=12.1.3.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
     "nvidia-cufft-cu12>=11.0.2.54; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",

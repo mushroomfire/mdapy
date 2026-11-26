@@ -30,8 +30,10 @@
 
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 
 namespace mdapy::dft {
 
@@ -43,7 +45,8 @@ struct DavidsonResult {
 
 class Davidson {
 public:
-    Davidson();
+    // kernels: MDAPY's own linear algebra, or that of the library of the vendor
+    explicit Davidson(Kernels kernels = Kernels::Mdapy);
     ~Davidson();
     Davidson(const Davidson&) = delete;
     Davidson& operator=(const Davidson&) = delete;
@@ -70,26 +73,28 @@ private:
     // out (ka, kb) = a^H b, plus pa^H q pb with h
     void gram(Hamiltonian* h, const Complex* a, const Complex* pa, int ka, const Complex* b, const Complex* pb,
               int kb, int rows, Complex* out);
-    // the eigenvalues (ascending, into values_) and eigenvectors (into a) of
-    // the Hermitian n x n matrix a, of which the upper triangle is read
-    void eigh(Complex* a, int n);
+    // the eigenvalues (ascending, into eigenvalues_) and eigenvectors (into a) of
+    // the Hermitian n x n matrix a, of which the upper triangle is read; with
+    // count not negative only the first count eigenvectors are asked for
+    void eigh(Complex* a, int n, int count = -1);
     // the same of a real symmetric matrix, at Gamma
-    void eigh_real(double* a, int n);
+    void eigh_real(double* a, int n, int count = -1);
     // column c of the projections p, Complex or real
     Complex* projection(Complex* p, std::size_t c) const;
 
     bool gamma_ = false;  // real bands of Gamma
     int projectors_ = 0;
 
-    cublasHandle_t blas_ = nullptr;
-    cusolverDnHandle_t solver_ = nullptr;
-    DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_, lapack_;
+    Blas blas_;
+    Lapack lapack_;
+    std::vector<double> eigenvalues_;  // of the last eigh
+    DeviceArray<Complex> basis_, hbasis_, subspace_, vectors_, work_, residual_, overlap_;
     DeviceArray<Complex> hsub_, chol_, diagonal_r_;  // basis^H H basis; Cholesky factors
     DeviceArray<Complex> pbasis_, pvectors_, qp_;     // <beta|basis>, <beta|X>, q P, with an overlap
     DeviceArray<Complex> picked_;                     // the eigenvectors of the open bands
     DeviceArray<double> overlap_diagonal_;
-    DeviceArray<double> values_, sums_, energies_, scale_, diagonal_;
-    DeviceArray<int> info_, index_;
+    DeviceArray<double> sums_, energies_, scale_, diagonal_;
+    DeviceArray<int> index_;
 };
 
 }  // namespace mdapy::dft

@@ -21,13 +21,6 @@ constexpr std::size_t kBudget = std::size_t(1) << 26;  // doubles of work, half 
 
 unsigned blocks(std::size_t work) { return static_cast<unsigned>((work + kThreads - 1) / kThreads); }
 
-void check_blas(cublasStatus_t status, const char* call) {
-    if (status == CUBLAS_STATUS_SUCCESS) return;
-    if (status == CUBLAS_STATUS_ALLOC_FAILED) throw std::bad_alloc();
-    throw std::runtime_error(std::string(call) + " failed with cuBLAS status " +
-                             std::to_string(static_cast<int>(status)));
-}
-
 void launched(const char* what) { check_cuda(cudaGetLastError(), what); }
 
 // df/dr at point i of f on the mesh r: the parabola through i - 1, i and
@@ -312,13 +305,14 @@ __global__ void strengths_kernel(std::size_t total, int pairs, int l2, int radia
 }  // namespace
 
 OneCenter::OneCenter(std::vector<SpeciesOneCenter> species, std::vector<int> atom_species, std::vector<int> widths,
-                     int spins, Functional functional, double threshold)
+                     int spins, Functional functional, double threshold, Kernels kernels)
     : species_(std::move(species)),
       atom_species_(std::move(atom_species)),
       spins_(spins),
       functional_(functional),
       threshold_(threshold),
-      gga_(xc::gradient(functional)) {
+      gga_(xc::gradient(functional)),
+      blas_(kernels) {
     if (spins_ != 1 && spins_ != 2) throw std::invalid_argument("one or two spins");
     if (widths.size() != atom_species_.size()) throw std::invalid_argument("the width of each atom");
     offsets_.push_back(0);
@@ -369,23 +363,14 @@ OneCenter::OneCenter(std::vector<SpeciesOneCenter> species, std::vector<int> ato
         d.ell.assign(ell.data(), ell.size());
         d.ae_core.assign(sp.ae_core.data(), m);
         d.ps_core.assign(sp.ps_core.data(), m);
-        if (blas_ == nullptr) {
-            check_blas(cublasCreate(&blas_), "cublasCreate");
-            check_blas(cublasSetStream(blas_, cudaStreamPerThread), "cublasSetStream");
-        }
     }
 }
 
-OneCenter::~OneCenter() {
-    if (blas_ != nullptr) cublasDestroy(blas_);
-}
+OneCenter::~OneCenter() = default;
 
 void OneCenter::gemm(bool trans_b, int m, int n, int k, const double* a, int lda, long long stride_a,
                      const double* b, int ldb, double beta, double* c, int ldc, long long stride_c, int batch) {
-    const double one = 1.0;
-    check_blas(cublasDgemmStridedBatched(blas_, CUBLAS_OP_N, trans_b ? CUBLAS_OP_T : CUBLAS_OP_N, m, n, k, &one, a,
-                                         lda, stride_a, b, ldb, 0, &beta, c, ldc, stride_c, batch),
-               "cublasDgemmStridedBatched");
+    blas_.gemm_batched(trans_b ? Op::T : Op::N, m, n, k, a, lda, stride_a, b, ldb, beta, c, ldc, stride_c, batch);
 }
 
 double OneCenter::compute(const std::vector<std::vector<double>>& becsum, std::vector<std::vector<double>>& d,

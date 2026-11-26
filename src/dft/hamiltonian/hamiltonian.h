@@ -24,8 +24,10 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/lattice/lattice.h"
@@ -79,9 +81,16 @@ public:
     Hamiltonian& operator=(const Hamiltonian&) = delete;
 
     // Real bands of Gamma from the next set_k on, which then takes Gamma only.
-    void set_gamma(bool on) noexcept { gamma_mode_ = on; }
+    void set_gamma(bool on) noexcept {
+        if (on != gamma_mode_) {  // half spheres or whole ones: those kept are of the other kind
+            spheres_.clear();
+            k_set_ = false;
+        }
+        gamma_mode_ = on;
+    }
     // Whether the bands of the k-point are real.
     bool gamma() const noexcept { return gamma_; }
+    Kernels kernels() const noexcept { return blas_.kernels(); }
     // The plane waves of k (fractions of the reciprocal vectors) and their
     // projectors.
     void set_k(const Vec3& k);
@@ -157,6 +166,14 @@ public:
     void atomic(Complex* out) const;
 
 private:
+    // kinetic + mean + sum_ij d_ij Re(b_i conj(b_j)) of each plane wave, kinetic optional
+    void diagonal_of(const double* kinetic, double mean, const Complex* d, double* out) const;
+    // the sizes of the spectra of the real boxes of the bands: n1, n2, n3 / 2 + 1
+    Int3 spectrum_grid() const noexcept {
+        const Int3& g = fft_.grid();
+        return {g[0], g[1], g[2] / 2 + 1};
+    }
+    mutable DeviceArray<double> diagonal_partial_;  // (atoms, plane waves): the share of each atom
     int batch() const noexcept;  // bands per batch of FFTs
     void single();               // the single-precision copies, when stale
 
@@ -168,11 +185,18 @@ private:
     std::vector<SpeciesProjectors> species_;
     std::vector<Atom> atoms_;
     Fft fft_;
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     int projectors_ = 0;
 
     // of the k-point
     Sphere sphere_;
+    // the spheres of the k-points set so far: each is made once, and the
+    // steps of an SCF come back to the same k-points
+    std::vector<std::pair<Vec3, Sphere>> spheres_;
+    int window_ = -1;  // the largest |m| of the first Miller index of the sphere: the planes of its boxes that matter
+    // the k-point set last; while k_set_, what follows is of it
+    Vec3 k_{};
+    bool k_set_ = false;
     DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)

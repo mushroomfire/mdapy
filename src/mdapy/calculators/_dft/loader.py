@@ -16,18 +16,18 @@ from mdapy.errors import InvalidParameter
 
 _NO_GPU_PART = (
     "the DFT runs in the GPU part of MDAPY, which is not installed: on Linux "
-    'with an NVIDIA GPU, pip install "mdapy[cuda12,dft]"; for an AMD GPU, build '
+    'with an NVIDIA GPU, pip install "mdapy[cuda12]"; for an AMD GPU, build '
     "the package mdapy-rocm6 with ROCm, pip install ./rocm6 in a clone of MDAPY"
 )
-# what the module needs, by the API of the GPU part
+# why the module did not load, by the API of the GPU part: it names no library
+# of the vendor (it loads cuBLAS, cuFFT and cuSOLVER, or hipBLAS, hipFFT and
+# hipSOLVER, where they are asked for, vendor_libraries); with HIP it needs the
+# HIP runtime of ROCm, as the potentials of the GPU part do
 _LIBRARIES = {
-    "CUDA": (
-        "the DFT needs NVIDIA's cuBLAS, cuFFT and cuSOLVER of CUDA 12, which the "
-        'GPU part takes from their packages: pip install "mdapy[cuda12,dft]"'
-    ),
+    "CUDA": "the module _dft of the GPU part could not be loaded",
     "HIP": (
-        "the DFT needs hipBLAS, hipFFT and hipSOLVER of ROCm 6 on the machine, "
-        "as module load rocm gives them on a cluster"
+        "the module _dft of the GPU part could not be loaded: it needs the HIP "
+        "runtime of ROCm 6 on the machine, as module load rocm gives it on a cluster"
     ),
 }
 
@@ -63,3 +63,31 @@ def module() -> Any:
         ) from None
     except ImportError as error:
         raise InvalidParameter(f"{_LIBRARIES[api]} ({error})") from None
+
+
+def vendor_libraries(dft: Any) -> list:
+    """The libraries of the vendor loaded by the module _dft, for
+    ``kernels="vendor"``: NVIDIA's cuBLAS, cuFFT and cuSOLVER with CUDA,
+    hipBLAS, hipFFT and hipSOLVER of ROCm with HIP, loaded here if they were
+    not.
+
+    Parameters
+    ----------
+    dft : module
+        The module _dft, as module gives it.
+
+    Returns
+    -------
+    list of str
+        The files of the libraries loaded, and of those they need that the
+        module loaded the same way.
+
+    Raises
+    ------
+    InvalidParameter
+        If the libraries cannot be loaded, saying what to install.
+    """
+    try:
+        return list(dft.vendor_libraries())
+    except RuntimeError as error:
+        raise InvalidParameter(str(error)) from None

@@ -92,6 +92,7 @@ one name everywhere.
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | label | A reference energy, force or virial of a frame, usually from DFT, that a model is trained to predict. |
+| parameters of a computation | Every parameter a computation of DFT took, its defaults and `"auto"` resolved, with the SHA-256 of its pseudopotentials: `DFT.last["parameters"]`, kept with each label in `info["dft"]`. |
 | parity plot | The predictions of a model against the labels, one point each; on the diagonal where they agree. |
 | committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
 | model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
@@ -216,6 +217,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | device | where a calculator computes: `"cpu"`, or `"cuda"` on a GPU: NVIDIA's with CUDA, or AMD's with ROCm |
 | GPU part | the compiled code of MDAPY for the GPU, the package `mdapy-cuda12` (NVIDIA) or `mdapy-rocm6` (AMD), or built into MDAPY: the module `_cuda` or `_hip` of the potentials and molecular dynamics, and `_dft` of the plane-wave DFT, which with CUDA needs NVIDIA's cuBLAS, cuFFT and cuSOLVER, the extra `dft` |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
+| memory pool | of the DFT on the GPU: the memory that the stream-ordered allocator of CUDA or HIP reserves from the device for the arrays of the runs, and reuses from one array to the next; a run gives back to the device at its end what the pool holds beyond the use of its steps. `DFT.last["gpu_memory"]` holds what was `in_use` by the arrays, `reserved` by the pool and in use on the `device` |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
 | controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, `AdaptiveTimestep`, how long the steps are, `Switch`, the potential turned into another, `Wall`, flat walls that reflect the atoms, `Indenter`, indenters that push them, and `ElectronicStopping`, the friction of the electrons on the fast atoms, given by `controls` of `run` or `iterate` |
@@ -279,7 +281,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
 | preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level | `preconditioner`, `"kerker"` or `"ldos"` | `mixing_mode`, `imix` |
 | arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU | `precision`, `"double"`, `"mixed"` or `"auto"` | `fp32`, `single_precision` |
-| whose kernels DFT runs on the GPU: MDAPY's own where it has them, or the GPU libraries of the vendor throughout | `kernels`, `"mdapy"` or `"vendor"` | `backend`, `fft`, `library`, `use_cufft` |
+| whose kernels DFT runs on the GPU: MDAPY's own, or the GPU libraries of the vendor throughout | `kernels`, `"mdapy"` or `"vendor"` | `backend`, `fft`, `library`, `use_cufft` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |
@@ -334,7 +336,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | system whose atoms the frames of a trajectory move | `topology=` | `topology_file`, `data` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
-| a log of a run or a minimization, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo` | `logfile`, `log_file`, `verbose` |
+| a log of a run, a minimization or the self-consistent field of DFT, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo`, those of DFT are its steps | `logfile`, `log_file`, `verbose` |
 | convergence of a minimization or a band | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
 | the images of a band between its two states, and the constant of its springs (eV/Å²) | `images`, `spring` | `nimages`, `n_images`, `k`, `kspring` |
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |

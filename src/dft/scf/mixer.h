@@ -4,7 +4,7 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // Pulay's mixing of densities in reciprocal space (Kresse and Furthmueller,
-// Comput. Mater. Sci. 6, 15 (1996)), on the host. Each step takes the input
+// Comput. Mater. Sci. 6, 15 (1996)), on the GPU. Each step takes the input
 // density of the step and the output of its bands, as Fourier components on
 // the sphere of the density, channel by channel (the total density, then the
 // magnetization). The residuals R = out - in of the steps kept are combined to
@@ -21,6 +21,11 @@
 // Real components outside the metric can come along, as Quantum ESPRESSO
 // mixes the occupations of the projectors of PAW: the same g_i, and the share
 // beta of their residual, magnetic_beta in the second of two channels.
+//
+// The densities, the differences of the steps kept and the work stay on the
+// GPU; only the small least-squares problem of the g_i and the components that
+// come along are on the host. Every sum goes in an order that is always the
+// same, so that a run gives the same numbers each time.
 
 #pragma once
 
@@ -29,6 +34,8 @@
 #include <deque>
 #include <functional>
 #include <vector>
+
+#include "dft/core/device.h"
 
 namespace mdapy::dft {
 
@@ -56,36 +63,50 @@ public:
     Mixer(std::vector<double> g2, double volume, int channels, MixingOptions options);
 
     // The next input density from this step's input and output, (channels, n)
-    // each; with extra, the components that come along: their input, replaced
-    // by the next, and their output, (channels, count) each.
-    std::vector<cuDoubleComplex> mix(const std::vector<cuDoubleComplex>& in,
-                                     const std::vector<cuDoubleComplex>& out, std::vector<double>* extra = nullptr,
-                                     const std::vector<double>* extra_out = nullptr);
+    // each on the GPU, into next (which may be in); with extra, the components
+    // that come along, on the host: their input, replaced by the next, and
+    // their output, (channels, count) each.
+    void mix(const cuDoubleComplex* in, const cuDoubleComplex* out, cuDoubleComplex* next,
+             std::vector<double>* extra = nullptr, const std::vector<double>* extra_out = nullptr);
     // The Hartree energy of the residual of the total density, E_H[out - in],
     // the estimate of the error of the energy; with the magnetization, plus
     // 2 pi Omega sum_G |m_out - m_in|^2 times one bohr^2, the Hartree energy of
-    // a residual at the wavelength of one bohr.
-    double residual_energy(const std::vector<cuDoubleComplex>& in, const std::vector<cuDoubleComplex>& out) const;
+    // a residual at the wavelength of one bohr. in and out on the GPU.
+    double residual_energy(const cuDoubleComplex* in, const cuDoubleComplex* out);
     void reset();
     // a factor on the shares of the residuals (beta, magnetic_beta and the
     // preconditioner), 1 at the start: the damping of adaptive damping
     void set_scale(double factor);
     double scale() const noexcept { return scale_; }
     // P^-1 on the residual of the total density (its sphere, G = 0 first and
-    // zero), in place, in the place of Kerker's; none for Kerker's again
+    // zero, on the host), in place, in the place of Kerker's; none for
+    // Kerker's again
     void set_preconditioner(std::function<void(std::vector<cuDoubleComplex>&)> apply);
 
 private:
-    double dot(const std::vector<cuDoubleComplex>& a, const std::vector<cuDoubleComplex>& b) const;
+    // <a_i, b> in the metric for the count vectors a on the GPU, into out
+    void dots(const std::vector<const cuDoubleComplex*>& a, const cuDoubleComplex* b, double* out);
 
-    std::vector<double> g2_, metric_, precondition_;
+    std::vector<double> g2_;
     double volume_;
     int channels_;
     MixingOptions options_;
     std::size_t n_;
     double scale_ = 1.0;
     std::function<void(std::vector<cuDoubleComplex>&)> preconditioner_;
-    std::deque<std::vector<cuDoubleComplex>> inputs_, residuals_;
+    DeviceArray<double> g2_device_, metric_, precondition_;
+    // the input and the residual of the last step, the residual of this one,
+    // and the work of the combination
+    DeviceArray<cuDoubleComplex> last_input_, last_residual_, residual_, combined_, total_;
+    bool started_ = false;
+    // the differences of the steps kept, d rho_i and d R_i, in slots of which
+    // order_ lists the oldest first, with their products,
+    // products_[i][j] = <d R_i, d R_j> for j <= i in that order: a step adds
+    // one difference and its products with the others instead of all of them
+    std::vector<DeviceArray<cuDoubleComplex>> input_slots_, residual_slots_;
+    std::deque<int> order_;
+    std::deque<std::vector<double>> products_;
+    DeviceArray<double> partial_, sums_, coefficients_;
     std::deque<std::vector<double>> extra_inputs_, extra_residuals_;
 };
 

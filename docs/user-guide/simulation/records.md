@@ -78,7 +78,10 @@ GPU of a potential there, in their heading too.
 Lines that are not rows of numbers start with `#`, so that
 `numpy.loadtxt("md.log")` reads the rows of every run as one table. Under
 MPI the main process alone writes. Every run and `iterate` of the
-`MolecularDynamics` writes to the same log, which `close` closes.
+`MolecularDynamics` writes to the same log, which `close` closes. A calculator
+with a log of its own, as the [DFT](../potentials/dft.md#in-molecular-dynamics), writes
+it to another file: the same file for both raises `InvalidParameter`, their rows being
+different.
 
 ## Frames in files
 

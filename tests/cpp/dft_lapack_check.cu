@@ -12,7 +12,8 @@
 //       the environment variable FULL_DOUBLE (0 or 1) has the GPU taken as one of full double precision or not,
 //       PANELS_FROM sets the smallest matrix tridiagonalized in panels, REFLECTORS the
 //       reflectors of a block of the back-transformation, LEAF the rows of a leaf, BACK the
-//       largest matrix back-transformed in one launch (0: none),
+//       largest matrix back-transformed in one launch (0: none), HELD the blocks of the steps in one
+//       launch with the trailing matrix in shared memory (0: those steps without it),
 //       HOST_LIMIT the largest matrix MDAPY solves on the host, STEPS (0 or 1) whether the steps of
 //       the small tridiagonalizations go in one launch,
 //       WANTED the percent of the eigenvectors asked of MDAPY, the lowest (the vendor makes all)
@@ -106,6 +107,7 @@ void run(const char* name, int n, int repeats, int fused) {
     if (std::getenv("REFLECTORS") != nullptr) own.set_reflectors(std::atoi(std::getenv("REFLECTORS")));
     if (std::getenv("LEAF") != nullptr) own.set_leaf(std::atoi(std::getenv("LEAF")));
     if (std::getenv("BACK") != nullptr) own.set_back_limit(std::atoi(std::getenv("BACK")));
+    if (std::getenv("HELD") != nullptr) own.set_held_blocks(std::atoi(std::getenv("HELD")));
     if (std::getenv("PANELS_FROM") != nullptr) own.set_panels_from(std::atoi(std::getenv("PANELS_FROM")));
     if (std::getenv("FULL_DOUBLE") != nullptr) own.set_full_double(std::atoi(std::getenv("FULL_DOUBLE")));
     const int wanted = std::getenv("WANTED") != nullptr ? std::max(1, n * std::atoi(std::getenv("WANTED")) / 100) : n;

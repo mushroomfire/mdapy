@@ -92,6 +92,9 @@ public:
     // Whether the steps of the tridiagonalization of the small matrices go in
     // one launch (-1: MDAPY's choice; never on AMD GPUs).
     void set_together_steps(int mode) noexcept { together_steps_ = mode; }
+    // The blocks of those steps when the trailing matrix is in their shared
+    // memory (-1: one to a multiprocessor, 0: never so).
+    void set_held_blocks(int count) noexcept { held_blocks_ = count; }
 
 private:
     cusolverDnHandle_t vendor();
@@ -114,6 +117,7 @@ private:
     int fused_limit_ = -1;
     int panels_from_ = -1;
     int together_steps_ = -1;
+    int held_blocks_ = -1;
     int reflectors_ = 0;
     int back_limit_ = -1;
     int leaf_ = 0;

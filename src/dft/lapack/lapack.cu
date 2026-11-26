@@ -1347,76 +1347,72 @@ __global__ void rotate_kernel(int n, int offset, int size, int count, const int*
     }
 }
 
-// The upper triangle from the lower one, outside the diagonal blocks of
-// block columns: r_ij = conj(l_ji) where i is before the block of j.
 constexpr int kPanel = 64;          // columns of a block of the Cholesky factorization
 constexpr int kFactorThreads = 256;  // of the block that factors a diagonal block
 
-// the scalar of double precision of a scalar of the kernels, and the two ways
-template <class S>
-struct WideOf {
-    using type = double;
-};
-template <class R>
-struct WideOf<Cx<R>> {
-    using type = Cx<double>;
-};
-__device__ __forceinline__ double widened(float a) { return a; }
-__device__ __forceinline__ double widened(double a) { return a; }
-template <class R>
-__device__ __forceinline__ Cx<double> widened(Cx<R> a) {
-    return {a.x, a.y};
-}
-__device__ __forceinline__ void narrowed(double a, float& out) { out = static_cast<float>(a); }
-__device__ __forceinline__ void narrowed(double a, double& out) { out = a; }
-template <class R>
-__device__ __forceinline__ void narrowed(Cx<double> a, Cx<R>& out) {
-    out = {static_cast<R>(a.x), static_cast<R>(a.y)};
-}
-
 // The Cholesky factor r of a diagonal block of w <= kPanel columns, a = r^H r,
-// in place in its upper triangle (the lower one untouched), as the host does
-// it: in double precision, here by one block on its upper triangle packed in
-// shared memory, a row of r after the other. A pivot that is not positive
-// (or not a number) stops it with info = first + its column, from 1; a block
-// after one that stopped does nothing.
+// in place in its upper triangle (the lower one untouched), in the precision
+// of the matrix (as LAPACK's potrf), by one block: each thread holds
+// kFactorEach elements (i, j), i <= j, of the triangle in registers, and at
+// the step k the holders of the row k put it in one of two halves of shared
+// memory, which the steps take in turn, so that a step has one barrier; then
+// every element beyond the row takes conj(a_ki) a_kj / a_kk off. A pivot that
+// is not positive (or not a number) stops it with info = first + its column,
+// from 1; a block after one that stopped does nothing.
+constexpr int kFactorEach = (kPanel * (kPanel + 1) / 2 + kFactorThreads - 1) / kFactorThreads;
+__device__ __forceinline__ float scaled(float a, float s) { return a * s; }
+__device__ __forceinline__ double scaled(double a, double s) { return a * s; }
+template <class R>
+__device__ __forceinline__ Cx<R> scaled(Cx<R> a, R s) {
+    return {a.x * s, a.y * s};
+}
 template <class S>
-__global__ void factor_block_kernel(int w, S* corner, long long ld, int first, int* info) {
-    using W = typename WideOf<S>::type;
-    __shared__ W u[kPanel * (kPanel + 1) / 2];
+__global__ void __launch_bounds__(kFactorThreads) factor_block_kernel(int w, S* corner, long long ld, int first, int* info) {
+    using R = typename RealOf<S>::type;
+    __shared__ S rows[2][kPanel];
     if (*info != 0) return;
-    const auto at = [](int i, int j) { return j * (j + 1) / 2 + i; };  // i <= j
-    for (int e = threadIdx.x; e < w * w; e += blockDim.x) {
-        const int i = e % w, j = e / w;
-        if (i <= j) u[at(i, j)] = widened(corner[i + j * ld]);
+    const int t = static_cast<int>(threadIdx.x), elements = w * (w + 1) / 2;
+    S u[kFactorEach];
+    int ui[kFactorEach], uj[kFactorEach];
+#pragma unroll
+    for (int s = 0; s < kFactorEach; ++s) {
+        // the element e of the triangle packed by columns: e = j (j + 1) / 2 + i
+        const int e = t + s * kFactorThreads;
+        int j = static_cast<int>((sqrt(8.0 * e + 1.0) - 1.0) / 2.0);
+        while (j * (j + 1) / 2 > e) --j;
+        while ((j + 1) * (j + 2) / 2 <= e) ++j;
+        ui[s] = e < elements ? e - j * (j + 1) / 2 : w;  // w: none
+        uj[s] = j;
+        u[s] = e < elements ? corner[ui[s] + j * ld] : from_real(S{}, static_cast<R>(0));
     }
-    __syncthreads();
     for (int k = 0; k < w; ++k) {
-        // the same for every thread, after the barrier
-        const double pivot = re(u[at(k, k)]);
-        if (!(pivot > 0.0)) {
-            if (threadIdx.x == 0) *info = first + k + 1;
+        S* row = rows[k & 1];
+#pragma unroll
+        for (int s = 0; s < kFactorEach; ++s)
+            if (ui[s] == k) row[uj[s]] = u[s];
+        __syncthreads();
+        // the same for every thread
+        const R pivot = re(row[k]);
+        if (!(pivot > static_cast<R>(0))) {
+            if (t == 0) *info = first + k + 1;
             return;
         }
-        const double r = sqrt(pivot);
-        const W inverse_r = from_real(W{}, 1.0 / r);
-        for (int j = k + 1 + static_cast<int>(threadIdx.x); j < w; j += blockDim.x) u[at(k, j)] = mul(u[at(k, j)], inverse_r);
-        __syncthreads();
-        if (threadIdx.x == 0) u[at(k, k)] = from_real(W{}, r);
-        // u[i, j] -= conj(r[k, i]) r[k, j] for k < i <= j
-        const int m = w - k - 1;
-        for (int e = threadIdx.x; e < m * m; e += blockDim.x) {
-            const int i = k + 1 + e % m, j = k + 1 + e / m;
-            if (i <= j) u[at(i, j)] = sub(u[at(i, j)], mul(cj(u[at(k, i)]), u[at(k, j)]));
+        const R r = sqrt(pivot), over = static_cast<R>(1) / pivot, inverse_r = static_cast<R>(1) / r;
+#pragma unroll
+        for (int s = 0; s < kFactorEach; ++s) {
+            if (ui[s] == k)
+                u[s] = uj[s] == k ? from_real(S{}, r) : scaled(u[s], inverse_r);
+            else if (ui[s] > k && ui[s] < w)
+                u[s] = sub(u[s], scaled(mul(cj(row[ui[s]]), row[uj[s]]), over));
         }
-        __syncthreads();
     }
-    for (int e = threadIdx.x; e < w * w; e += blockDim.x) {
-        const int i = e % w, j = e / w;
-        if (i <= j) narrowed(u[at(i, j)], corner[i + j * ld]);
-    }
+#pragma unroll
+    for (int s = 0; s < kFactorEach; ++s)
+        if (ui[s] < w) corner[ui[s] + uj[s] * ld] = u[s];
 }
 
+// The upper triangle from the lower one, outside the diagonal blocks of
+// block columns: r_ij = conj(l_ji) where i is before the block of j.
 template <class S>
 __global__ void upper_from_lower_kernel(int n, int block, S* a) {
     const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;

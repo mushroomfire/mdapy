@@ -1683,10 +1683,17 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
 #if !defined(MDAPY_GPU_HIP)
         const int most = std::min(sizeof(S) == 2 * sizeof(double) ? kStepsComplex : kFused,
                                   fused_limit_ >= 0 ? fused_limit_ : kFused);
+        // a block a column where the GPU holds them all (fewer barriers wait on
+        // fewer blocks: on a V100 real 308 rows 1.28 ms to the 1.50 of blocks
+        // holding columns), else blocks holding the columns of the trailing
+        // matrix where these fit (on a V100 complex 576 rows from 7.3 ms in
+        // panels to 5.3, real 704 rows from 6.3 ms a launch a step to 4.9)
         const bool steps = n > 2 && (together_steps_ > 0 || (together_steps_ < 0 && full_double()));
-        if (steps && held_blocks_ != 0) held_count = held_blocks<S>(n, held_blocks_, held_bytes);
-        together = held_count > 0 ||
-                   (steps && n <= most && holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S)));
+        together = steps && held_blocks_ <= 0 && n <= most &&
+                   holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S));
+        if (steps && !together && held_blocks_ != 0 && n <= kFused)
+            held_count = held_blocks<S>(n, held_blocks_, held_bytes);
+        together = together || held_count > 0;
 #endif
         const bool fused = together || n <= limit;
         if (!fused) held.resize(static_cast<std::size_t>(n));

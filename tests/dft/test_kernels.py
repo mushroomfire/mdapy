@@ -349,16 +349,18 @@ def test_the_eigenpairs_of_large_matrices(dtype, n):
 
 @pytest.mark.parametrize("dtype", TYPES)
 @pytest.mark.parametrize("n", [70, 300])
-def test_the_steps_in_one_launch(dtype, n):
+@pytest.mark.parametrize("held", [0, 24])
+def test_the_steps_in_one_launch(dtype, n, held):
     """The tridiagonalization of a small matrix with all its steps in one
-    launch, whose blocks wait for one another (never on AMD GPUs, where the
-    option changes nothing): the same bits at every run, and the eigenpairs of
-    a launch a step within rounding."""
+    launch, whose blocks wait for one another, a block a column or a few
+    blocks each holding columns of the trailing matrix (never on AMD GPUs,
+    where the options change nothing): the same bits at every run, and the
+    eigenpairs of a launch a step within rounding."""
     rng = np.random.default_rng(n)
     a = hermitian(rng, n, dtype)
     limit = 2e-5 if dtype in (np.float32, np.complex64) else 1e-12
-    w, v = _dft.eigh(a, full_double=1, together_steps=1)
-    again = _dft.eigh(a, full_double=1, together_steps=1)
+    w, v = _dft.eigh(a, full_double=1, together_steps=1, held_blocks=held)
+    again = _dft.eigh(a, full_double=1, together_steps=1, held_blocks=held)
     assert np.array_equal(w, again[0]) and np.array_equal(v, again[1])
     apart = _dft.eigh(a, full_double=1, together_steps=0)
     scale = max(np.abs(w).max(), 1.0)

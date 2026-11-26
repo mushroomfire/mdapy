@@ -92,9 +92,9 @@ private:
     void real_inverse(R* spectrum, R* values, int count, int window);
     template <class R, int Sign>
     void strided(R* boxes, int axis, long long planes, long long columns, long long stride, int window = -1,
-                 int kept = -1, const R* field = nullptr);
+                 int kept = -1, const R* field = nullptr, int window_planes = -1);
     template <class R, int Sign, int Mode>
-    void contiguous(const R* in, R* out, long long lines);
+    void contiguous(const R* in, R* out, long long lines, int window_planes = -1);
     template <class R, int Sign>
     bool planes(R* boxes, long long count, int window = -1);
     template <class R, int Sign>

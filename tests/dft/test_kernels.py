@@ -75,8 +75,9 @@ def test_the_transforms_of_the_planes_of_a_sphere(grid):
     """The transforms of boxes of which only the planes of the sphere matter:
     the values of the sphere are those of the whole boxes to the last bit (the
     planes beyond it are never read), and its coefficients from noise those of
-    the whole boxes to rounding (the axes in another order); with a plane
-    larger than a block, the whole boxes. A field the forward transform takes
+    the whole boxes to rounding (the axes in another order), also with a plane
+    larger than a block (the last grid on GPUs of 100 kB of shared memory or
+    less), whose lines are transformed axis by axis. A field the forward transform takes
     on its way gives the transform of the values times the field, to the last
     bit."""
     rng = np.random.default_rng(2)

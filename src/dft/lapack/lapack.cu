@@ -1332,6 +1332,114 @@ __global__ void assemble_kernel(Level a, int columns, const R* __restrict__ q, c
 // A thread to each row of a block: its columns i and j (positions, count pairs
 // one after the other in columns) replaced by c q_i + s q_j and c q_j - s q_i,
 // in their order.
+// The eigenpairs of the leaves of the divide and conquer, a leaf of at most
+// kLeafRows rows to a block, by the implicit QL iteration of the host
+// (EISPACK's tql2): thread 0 finds the rotations of a sweep, which every
+// thread then applies to its row of the vectors in shared memory, in their
+// order, as LAPACK's steqr does; then the eigenvalues ascending (equal ones in
+// their order) with their vectors to the diagonal block of the leaf in q (n,
+// n, zeros elsewhere), and to out the eigenvalues, the first and the last row
+// of the vectors (n each), and 1 at 3 n where a leaf did not converge.
+constexpr int kLeafRows = 64;
+template <class R>
+__global__ void __launch_bounds__(kLeafRows)
+    leaves_kernel(int n, const int* __restrict__ leaves, const double* __restrict__ d_in,
+                  const double* __restrict__ e_in, R* __restrict__ q, double* __restrict__ out) {
+    __shared__ double d[kLeafRows], e[kLeafRows], cs[kLeafRows], ss[kLeafRows];
+    __shared__ double z[kLeafRows][kLeafRows + 1];
+    __shared__ int range[3];  // the rotations of a sweep from range[1] - 1 down to range[0], and whether one follows
+    const int offset = leaves[2 * blockIdx.x], rows = leaves[2 * blockIdx.x + 1], t = static_cast<int>(threadIdx.x);
+    if (t < rows) {
+        d[t] = d_in[offset + t];
+        e[t] = t + 1 < rows ? e_in[offset + t] : 0.0;
+        for (int j = 0; j < rows; ++j) z[t][j] = t == j ? 1.0 : 0.0;
+    }
+    __syncthreads();
+    const double eps = 2.220446049250313e-16;
+    int l = 0, m = 0, iterations = 0;
+    bool started = false;
+    double f = 0.0, tst1 = 0.0;
+    while (true) {
+        if (t == 0) {
+            bool sweep = false;
+            while (l < rows && !sweep) {
+                if (!started) {
+                    tst1 = fmax(tst1, fabs(d[l]) + fabs(e[l]));
+                    m = l;
+                    while (m < rows - 1 && fabs(e[m]) > eps * tst1) ++m;
+                    started = true;
+                    iterations = 0;
+                }
+                if (m == l || (iterations > 0 && !(fabs(e[l]) > eps * tst1))) {
+                    d[l] += f;
+                    e[l] = 0.0;
+                    ++l;
+                    started = false;
+                    continue;
+                }
+                if (++iterations > 60) {
+                    out[3 * n] = 1.0;
+                    l = rows;
+                    break;
+                }
+                double g = d[l];
+                double p = (d[l + 1] - g) / (2.0 * e[l]);
+                double r = hypot(p, 1.0);
+                if (p < 0.0) r = -r;
+                d[l] = e[l] / (p + r);
+                d[l + 1] = e[l] * (p + r);
+                const double dl1 = d[l + 1];
+                double h = g - d[l];
+                for (int i = l + 2; i < rows; ++i) d[i] -= h;
+                f += h;
+                p = d[m];
+                double c = 1.0, c2 = c, c3 = c, s = 0.0, s2 = 0.0;
+                const double el1 = e[l + 1];
+                for (int i = m - 1; i >= l; --i) {
+                    c3 = c2;
+                    c2 = c;
+                    s2 = s;
+                    g = c * e[i];
+                    h = c * p;
+                    r = hypot(p, e[i]);
+                    e[i + 1] = s * r;
+                    s = e[i] / r;
+                    c = p / r;
+                    p = c * d[i] - s * g;
+                    d[i + 1] = h + s * (c * g + s * d[i]);
+                    cs[i] = c;
+                    ss[i] = s;
+                }
+                p = -s * s2 * c3 * el1 * e[l] / dl1;
+                e[l] = s * p;
+                d[l] = c * p;
+                range[0] = l;
+                range[1] = m;
+                sweep = true;
+            }
+            range[2] = sweep ? 1 : 0;
+        }
+        __syncthreads();
+        if (range[2] == 0) break;
+        if (t < rows)
+            for (int i = range[1] - 1; i >= range[0]; --i) {
+                const double zi = z[t][i], zj = z[t][i + 1];
+                z[t][i + 1] = ss[i] * zi + cs[i] * zj;
+                z[t][i] = cs[i] * zi - ss[i] * zj;
+            }
+        __syncthreads();
+    }
+    if (t < rows) {
+        int rank = 0;
+        for (int i = 0; i < rows; ++i) rank += d[i] < d[t] || (d[i] == d[t] && i < t);
+        const int column = offset + rank;
+        for (int r = 0; r < rows; ++r) q[static_cast<long long>(column) * n + offset + r] = static_cast<R>(z[r][t]);
+        out[column] = d[t];
+        out[n + column] = z[0][t];
+        out[2 * n + column] = z[rows - 1][t];
+    }
+}
+
 template <class R>
 __global__ void rotate_kernel(int n, int offset, int size, int count, const int* __restrict__ columns,
                               const double* __restrict__ angles, R* q) {
@@ -1445,10 +1553,34 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
     for (double& x : cut_e) x /= scale;
     const host::Tree tree = host::cut(d, cut_e, leaf);
     // the leaves, and of every block the first and the last row of its vectors
-    std::vector<R> start(size, static_cast<R>(0));
-    std::vector<double> first(count), last(count), values, below, vectors;
-    {
+    std::vector<double> first(count), last(count);
+    int widest = 0;
+    for (std::size_t i = 1; i < tree.leaves.size(); i += 2) widest = std::max(widest, tree.leaves[i]);
+    if (widest <= kLeafRows) {
+        // on the GPU, a block a leaf
         MDAPY_SPAN("leaves");
+        DeviceArray<int> cuts;
+        cuts.upload(tree.leaves.data(), tree.leaves.size());
+        std::vector<double> both(d);
+        both.insert(both.end(), cut_e.begin(), cut_e.end());
+        DeviceArray<double> given_both, found(3 * count + 1);
+        given_both.upload(both.data(), both.size());
+        found.zero();
+        q.resize(size);
+        q.zero();
+        leaves_kernel<R><<<static_cast<unsigned>(tree.leaves.size() / 2), kLeafRows>>>(
+            n, cuts.data(), given_both.data(), given_both.data() + count, q.data(), found.data());
+        launched("the leaves of the divide and conquer");
+        std::vector<double> host_found(3 * count + 1);
+        found.download(host_found.data(), host_found.size());
+        if (host_found[3 * count] != 0.0) throw std::runtime_error("the eigenvalues of a subspace did not converge");
+        std::copy(host_found.begin(), host_found.begin() + n, d.begin());
+        std::copy(host_found.begin() + n, host_found.begin() + 2 * n, first.begin());
+        std::copy(host_found.begin() + 2 * n, host_found.begin() + 3 * n, last.begin());
+    } else {
+        MDAPY_SPAN("leaves");
+        std::vector<R> start(size, static_cast<R>(0));
+        std::vector<double> values, below, vectors;
         for (std::size_t i = 0; i < tree.leaves.size(); i += 2) {
             const int offset = tree.leaves[i], rows = tree.leaves[i + 1];
             values.assign(d.begin() + offset, d.begin() + offset + rows);

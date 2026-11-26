@@ -769,6 +769,127 @@ __global__ void block_factor_kernel(int count, const S* __restrict__ tau, const 
     }
 }
 
+// The sum of the values of a group of kLanes threads, in lane 0.
+template <class R>
+__device__ __forceinline__ R lanes_sum(R x) {
+#pragma unroll
+    for (int offset = ::mdapy::cuda::kLanes / 2; offset > 0; offset /= 2) x += MDAPY_SHUFFLE_DOWN(x, offset);
+    return x;
+}
+template <class R>
+__device__ __forceinline__ Cx<R> lanes_sum(Cx<R> x) {
+    return {lanes_sum(x.x), lanes_sum(x.y)};
+}
+
+constexpr int kBackThreads = 256;  // of a block of the back-transformation in one launch
+constexpr int kBackLimit = 2048;   // the largest matrix whose back-transformation is one launch
+constexpr int kBackGroups = kBackThreads / ::mdapy::cuda::kLanes;
+constexpr int kBackColumns = 2;    // columns of q to a block of it
+
+// z = h_0 h_1 ... h_(n - 2) q of a matrix of at most Rows kBackThreads rows,
+// in one launch: kBackColumns columns of q (n, wanted) to a block, their row i
+// in the registers of the thread i mod kBackThreads, and the reflectors one
+// after the other, the last first, each with one barrier. h_k z = z -
+// v tau_k (v^H z), v the column k of reflectors (zeros down to the
+// diagonal); the sums of the groups of lanes go to one of two halves of
+// shared memory, which the reflectors take in turn, and every thread adds
+// them in the same order. z to out (n, wanted).
+template <class S, int Rows>
+__global__ void __launch_bounds__(kBackThreads)
+    back_kernel(int n, int wanted, const typename RealOf<S>::type* __restrict__ q, const S* __restrict__ reflectors,
+                const S* __restrict__ tau, S* __restrict__ out) {
+    using R = typename RealOf<S>::type;
+    constexpr int kC = kBackColumns;
+    __shared__ S sums[2][kBackGroups][kC];
+    const int t = static_cast<int>(threadIdx.x), lane = t % ::mdapy::cuda::kLanes, group = t / ::mdapy::cuda::kLanes;
+    const int first = static_cast<int>(blockIdx.x) * kC;
+    const S zero = from_real(S{}, static_cast<R>(0));
+    S z[Rows][kC], v[Rows];
+#pragma unroll
+    for (int r = 0; r < Rows; ++r) {
+        const int i = t + r * kBackThreads;
+#pragma unroll
+        for (int c = 0; c < kC; ++c)
+            z[r][c] = i < n && first + c < wanted ? from_real(S{}, q[static_cast<long long>(first + c) * n + i]) : zero;
+    }
+    const auto load = [&](int k, S* to) {
+#pragma unroll
+        for (int r = 0; r < Rows; ++r) {
+            const int i = t + r * kBackThreads;
+            to[r] = i > k && i < n ? reflectors[static_cast<long long>(k) * n + i] : zero;
+        }
+    };
+    int k = n - 2;
+    S tau_k = k >= 0 ? tau[k] : zero;
+    if (k >= 0) load(k, v);
+    for (; k >= 0; --k) {
+        // the reflector before on its way while this one is applied
+        S next[Rows];
+        S tau_next = zero;
+        if (k > 0) {
+            load(k - 1, next);
+            tau_next = tau[k - 1];
+        }
+        // the rows below k alone, of which a group of lanes holds all or none but one
+        S d[kC];
+#pragma unroll
+        for (int c = 0; c < kC; ++c) d[c] = zero;
+#pragma unroll
+        for (int r = 0; r < Rows; ++r)
+            if (t + r * kBackThreads > k && t + r * kBackThreads < n)
+#pragma unroll
+                for (int c = 0; c < kC; ++c) d[c] = add(d[c], mul(cj(v[r]), z[r][c]));
+#pragma unroll
+        for (int c = 0; c < kC; ++c) d[c] = lanes_sum(d[c]);
+        S(*half)[kC] = sums[k & 1];
+        if (lane == 0)
+#pragma unroll
+            for (int c = 0; c < kC; ++c) half[group][c] = d[c];
+        __syncthreads();
+#pragma unroll
+        for (int c = 0; c < kC; ++c) {
+            S s = half[0][c];
+            for (int g = 1; g < kBackGroups; ++g) s = add(s, half[g][c]);
+            d[c] = mul(tau_k, s);
+        }
+#pragma unroll
+        for (int r = 0; r < Rows; ++r)
+            if (t + r * kBackThreads > k && t + r * kBackThreads < n)
+#pragma unroll
+                for (int c = 0; c < kC; ++c) z[r][c] = sub(z[r][c], mul(v[r], d[c]));
+        if (k > 0) {
+#pragma unroll
+            for (int r = 0; r < Rows; ++r) v[r] = next[r];
+            tau_k = tau_next;
+        }
+    }
+#pragma unroll
+    for (int r = 0; r < Rows; ++r) {
+        const int i = t + r * kBackThreads;
+#pragma unroll
+        for (int c = 0; c < kC; ++c)
+            if (i < n && first + c < wanted) out[static_cast<long long>(first + c) * n + i] = z[r][c];
+    }
+}
+
+// back_kernel of the rows of a matrix, false when it has too many
+template <class S>
+bool back_in_one(int n, int wanted, const typename RealOf<S>::type* q, const S* reflectors, const S* tau, S* out) {
+    const unsigned grid = static_cast<unsigned>((wanted + kBackColumns - 1) / kBackColumns);
+    if (n <= kBackThreads)
+        back_kernel<S, 1><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
+    else if (n <= 2 * kBackThreads)
+        back_kernel<S, 2><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
+    else if (n <= 4 * kBackThreads)
+        back_kernel<S, 4><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
+    else if (n <= 8 * kBackThreads)
+        back_kernel<S, 8><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
+    else
+        return false;
+    check_cuda(cudaGetLastError(), "the back-transformation in one launch");
+    return true;
+}
+
 // z (n, n) of the type of the matrix from the real q.
 template <class S>
 __global__ void widen_kernel(long long size, const typename RealOf<S>::type* __restrict__ q, S* __restrict__ z) {
@@ -1503,6 +1624,9 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
     // 1 - v t v^H with t upper triangular, t_ii = tau_i and
     // t[:i, i] = -tau_i t[:i, :i] (v^H v)[:i, i]
     MDAPY_SPAN("back");
+    // the small matrices in one launch, which waits on nothing but its barriers
+    const int one_launch = back_limit_ >= 0 ? back_limit_ : kBackLimit;
+    if (n <= one_launch && back_in_one<S>(n, wanted, q.data(), own(reflectors.data()), own(tau.data()), own(a))) return;
     // blocks of 32 reflectors; of 64 for the large matrices where double
     // precision is full (measured on a GH200 and a V100: 4 to 9 % from 1024)
     const bool large = n >= 1024 && full_double();

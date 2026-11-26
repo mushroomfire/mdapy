@@ -87,11 +87,13 @@
   the box does not fit the shared memory of a block (the large grids of a V100, those
   beyond 227 kB on a GH200): the lines of the planes of the sphere go axis by axis. The
   eigenvectors of the subspaces of up to 1024 rows come back from the tridiagonal matrix in
-  one launch, the Cholesky factorization of the Davidson solver no longer waits for the
-  host at each block, and the steps of a tridiagonalization too large for a block a column
-  keep the trailing matrix in the shared memory of the GPU. On a V100 Fe72 runs 16 %
-  faster, Si64 with k-points 20 %, Fe16 5 %; Fe72 and Si64 take the time of the vendor's,
-  against 1.18 and 1.19 times before.
+  one launch, the leaves of the divide and conquer are solved on the GPU, the Cholesky
+  factorization of the Davidson solver no longer waits for the host at each block, and the
+  steps of a tridiagonalization too large for a block a column keep the trailing matrix in
+  the shared memory of the GPU. On a GH200 Fe16 with k-points runs 9 % faster and Al32 10 %,
+  and the eigensolver takes 0.79 times the time of cuSOLVER's in Fe16, against 1.06; on a
+  V100 Fe72 runs 16 % faster, Si64 with k-points 20 %, Fe16 5 %, and Fe72 and Si64 take the
+  time of the vendor's, against 1.18 and 1.19 times before.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

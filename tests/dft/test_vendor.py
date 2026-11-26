@@ -46,10 +46,14 @@ print(json.dumps({"converged": bool(r["converged"]), "before": before, "after": 
 
 def test_the_libraries_of_the_vendor_load_where_asked_for():
     dft = gpu.device()
+    # the child sees the modules the tests see: without the site of Python too
+    # where they run without it (-S)
+    flags = ["-S"] if sys.flags.no_site else []
     out = subprocess.run(
-        [sys.executable, "-c", CHILD, str(espresso.pseudo("Al_std.upf"))],
-        capture_output=True, text=True, check=True, timeout=600,
+        [sys.executable, *flags, "-c", CHILD, str(espresso.pseudo("Al_std.upf"))],
+        capture_output=True, text=True, timeout=600,
     )  # fmt: skip
+    assert out.returncode == 0, out.stderr
     found = json.loads(out.stdout.strip().splitlines()[-1])
     assert found["converged"]
     assert found["before"] == []

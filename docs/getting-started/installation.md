@@ -7,7 +7,7 @@ depends on what it is used for, from the core alone to every feature on a GPU:
 |---|---|---|
 | Core | NumPy 2.3.1 or newer and polars 2, all that most of MDAPY needs | `pip install mdapy` |
 | Every feature | the core, with matplotlib, spglib and seekpath | `pip install "mdapy[full]"` |
-| On a GPU | the GPU part of MDAPY; for the DFT on NVIDIA GPUs, NVIDIA's libraries | `pip install "mdapy[full,cuda12]"`, `pip install "mdapy[full,cuda12,dft]"` |
+| On a GPU | the GPU part of MDAPY, with the DFT; NVIDIA's libraries only to compare the DFT with them | `pip install "mdapy[full,cuda12]"`, `pip install "mdapy[full,cuda12,dft]"` |
 | Exchange with other programs | ASE, OVITO, freud, pymatgen, LAMMPS, which their users have | as needed |
 | Special tools | FFmpeg for movies, mpi4py for several processes | as needed |
 | Building | a C++ compiler and CMake; the CUDA toolkit or ROCm for the GPU part | only when building from source |
@@ -65,7 +65,8 @@ pip install "mdapy[cuda12]"
 ```
 
 The package also holds MDAPY's [plane-wave DFT](../user-guide/potentials/dft.md), which
-needs NVIDIA's cuBLAS, cuFFT and cuSOLVER besides: `pip install "mdapy[cuda12,dft]"`, see
+runs on MDAPY's own kernels and needs nothing more; NVIDIA's cuBLAS, cuFFT and cuSOLVER
+only for `DFT(kernels="vendor")`, see
 [NVIDIA's libraries for the DFT](#nvidias-libraries-for-the-dft).
 
 Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
@@ -86,12 +87,14 @@ For an AMD GPU, MDAPY is built with ROCm 6 instead,
 ### NVIDIA's libraries for the DFT
 
 The [plane-wave DFT](../user-guide/potentials/dft.md) in the GPU part, the package
-`mdapy-cuda12`, computes with cuBLAS, cuFFT and cuSOLVER, libraries of CUDA 12 that the
-package does not hold. The extra `dft` installs them:
+`mdapy-cuda12`, computes with MDAPY's own kernels. With `DFT(kernels="vendor")` it takes
+NVIDIA's cuBLAS, cuFFT and cuSOLVER instead, libraries of CUDA 12 that the package does not
+hold, to compare the two, or for the FFT of a grid given whose sizes are not products of
+2, 3, 5 and 7. The extra `dft` installs them:
 
 | Extra | Installs | For |
 |---|---|---|
-| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, and the packages they depend on, as `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12` of cuSOLVER | the DFT on an NVIDIA GPU, on Linux on x86-64 and ARM |
+| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, and the packages they depend on, as `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12` of cuSOLVER | `DFT(kernels="vendor")` on an NVIDIA GPU, on Linux on x86-64 and ARM |
 
 ```bash
 pip install "mdapy[cuda12,dft]"
@@ -101,10 +104,11 @@ These are NVIDIA's own packages on PyPI, the libraries of CUDA as NVIDIA publish
 them, which a build of PyTorch for CUDA 12 installs too: beside it the DFT needs nothing
 more.
 They are large, about 1.6 GB to download and 2.3 GB installed.
-Only the DFT on an NVIDIA GPU needs them; potentials and molecular dynamics on the GPU
-use none of them and run without them. The GPU part looks for them where pip puts them,
-in the folder `nvidia` of the environment, after the folders of `LD_LIBRARY_PATH` and
-before those of the system. Without them, `DFT` raises an error that names the command
+Only `DFT(kernels="vendor")` needs them; the DFT with MDAPY's kernels, the default, and
+the potentials and molecular dynamics on the GPU run without them. The GPU part loads
+them when they are first asked for, from the folder `nvidia` of the environment where
+pip puts them, else as the system finds them (`LD_LIBRARY_PATH`, the folders of the
+system). Without them, `DFT(kernels="vendor")` raises an error that names the command
 above.
 
 On an AMD GPU the DFT of `mdapy-rocm6` takes hipBLAS, hipFFT and hipSOLVER of the ROCm

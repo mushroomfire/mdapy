@@ -11,11 +11,16 @@
   the triangular solves of the solver and the projectors), in place of cuBLAS or
   hipBLAS, and its Hermitian eigensolver and Cholesky factorization, in place of
   cuSOLVER or hipSOLVER;
-  `kernels="vendor"` runs the GPU libraries of the vendor throughout. The default,
-  `kernels="auto"`, takes the faster of the two today: MDAPY's on GPUs of little double
-  precision (cards for games and workstations), the vendor's on the others (V100, A100,
-  H100, GH200, AMD Instinct). The results agree to rounding, and
-  `DFT.last["provenance"]` keeps the kernels that ran.
+  `kernels="vendor"` runs the GPU libraries of the vendor throughout. MDAPY's kernels
+  are the default: a self-consistent field with them takes 0.64 to 0.88 times the time of
+  one with the vendor's on a GH200 and 0.82 to 1.04 on a V100. The results agree to
+  rounding, and `DFT.last["provenance"]` keeps the kernels that ran.
+- The DFT of `mdapy-cuda12` no longer links NVIDIA's cuBLAS, cuFFT and cuSOLVER: it loads
+  them at their first use, which only `kernels="vendor"` makes (and the FFT of a grid
+  given whose sizes are not products of 2, 3, 5 and 7), from NVIDIA's packages or the
+  system. `pip install "mdapy[cuda12]"` is all the DFT needs; the extra `dft`, about
+  2.3 GB of NVIDIA's libraries, only serves `kernels="vendor"`, which raises
+  `InvalidParameter` naming it when they are missing.
 - `DFT(log=...)`: every step of the self-consistent field of each computation, its free
   energy, change, residual, magnetization, Fermi level and iterations of the eigensolver,
   as rows that `numpy.loadtxt` reads, with the parameters of each computation as one line

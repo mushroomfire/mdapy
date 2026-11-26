@@ -346,6 +346,17 @@ NB_MODULE(_dft, m) {
     m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    // the libraries of the vendor loaded: with CUDA, cuBLAS, cuFFT and
+    // cuSOLVER (loaded here if they were not, RuntimeError saying what to
+    // install if they cannot be), the files of all of them; with HIP, which
+    // links those of ROCm, none
+    m.def("vendor_libraries", [] {
+#if defined(MDAPY_GPU_HIP)
+        return std::vector<std::string>{};
+#else
+        return mdapy::dft::vendor::load_all();
+#endif
+    });
     bind_blas<double, double>(m);
     bind_blas<float, float>(m);
     bind_blas<std::complex<double>, Complex>(m);

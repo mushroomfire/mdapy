@@ -32,18 +32,20 @@ write("train.xyz", frames)  # the energy, virial, forces and parameters of each 
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
 bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
-kernels="auto", comm=None, log=None, start=None)` computes the
+kernels="mdapy", comm=None, log=None, start=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
 hundred atoms, one at a time. It runs in the [GPU part](../simulation/gpu.md#installing-the-gpu-part)
-of MDAPY, the package `mdapy-cuda12` for GPUs from the V100 on, with NVIDIA's cuBLAS,
-cuFFT and cuSOLVER, which the extra `dft` installs from NVIDIA's packages (see
-[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)):
+of MDAPY, the package `mdapy-cuda12` for GPUs from the V100 on, on MDAPY's own kernels:
 
 ```bash
-pip install "mdapy[cuda12,dft]"
+pip install "mdapy[cuda12]"
 ```
+
+To compare them with NVIDIA's cuBLAS, cuFFT and cuSOLVER (`kernels="vendor"`), the extra
+`dft` installs those from NVIDIA's packages, `pip install "mdapy[cuda12,dft]"` (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)).
 
 For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
 6 into the package `mdapy-rocm6`, in a clone of MDAPY:
@@ -55,7 +57,8 @@ pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
 `gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
 ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
 the calculations of several threads take turns on the GPU instead of running at once.
-Without the GPU part or its libraries, `DFT` raises an error that says what to install.
+Without the GPU part, or the libraries of the vendor for `kernels="vendor"`, `DFT` raises
+an error that says what to install.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -82,7 +85,7 @@ Without the GPU part or its libraries, `DFT` raises an error that says what to i
 | `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
 | `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
 | `precision` | str | `"double"` | `"double"`, `"mixed"`, `"auto"` | `"mixed"`: the first steps of the self-consistent field in single precision, the last in double, for GPUs of little double precision (most cards for games and workstations); the label is that of double precision, `last["single_steps"]` the steps in single precision. `"auto"`: mixed on those GPUs, double on V100, A100, H100 and GH200. Mixed precision holds about a tenth more of the GPU's memory at its peak: a cell that only just fits in double runs with `"double"` |
-| `kernels` | str | `"auto"` | `"auto"`, `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY where it has its own, the fast Fourier transforms, the dense linear algebra (the products of matrices and the triangular solves), the Hermitian eigensolver and the Cholesky factorization, which is all the DFT takes from the libraries today; sizes of a grid given that are not products of 2, 3, 5 and 7 still go to the FFT of the vendor. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). `"auto"`: the faster of the two today, `"mdapy"` on GPUs whose double precision runs at a small part of the rate of single (most cards for games and workstations) and `"vendor"` on the others (V100, A100, H100, GH200, AMD Instinct). The results agree to rounding; `last["provenance"]` keeps which one ran |
+| `kernels` | str | `"mdapy"` | `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY, the fast Fourier transforms, the dense linear algebra (the products of matrices and the triangular solves), the Hermitian eigensolver and the Cholesky factorization, which is all the DFT takes from the libraries of the vendor, which it does not load; only sizes of a grid given that are not products of 2, 3, 5 and 7 go to the FFT of the vendor. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs, of the extra `dft`; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; `last["provenance"]` keeps which one ran |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
 | `log` | path or stream | `None` | | where every step of the self-consistent field of each computation is written, with the parameters it took ([below](#the-log-and-the-parameters-of-each-computation)) |
 | `start` | path | `None` | | a ground state that `save` wrote, which the first computation starts from ([below](#the-ground-state-in-a-file)) |

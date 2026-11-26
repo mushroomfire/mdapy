@@ -215,17 +215,6 @@ def mixed_precision(precision: str) -> bool:
     return not full_double()
 
 
-def kernels_of(kernels: str) -> str:
-    """The kernels of a run asked "mdapy", "vendor" or "auto": "auto" is
-    "vendor" on GPUs of full double precision, where the libraries of the
-    vendor are the faster ones today, and "mdapy" on the others."""
-    if kernels not in ("auto", "mdapy", "vendor"):
-        raise ValueError("kernels must be 'auto', 'mdapy' or 'vendor'")
-    if kernels != "auto":
-        return kernels
-    return "vendor" if full_double() else "mdapy"
-
-
 def run(
     cell,
     positions,
@@ -275,7 +264,7 @@ def run(
     first_held: int = 0,
     preconditioner: str = "kerker",
     precision: str = "double",
-    kernels: str = "auto",
+    kernels: str = "mdapy",
     on_start=None,
     on_step=None,
 ) -> dict:
@@ -348,9 +337,9 @@ def run(
     the steps in single precision); "auto": mixed on GPUs of little double
     precision (mixed_precision). kernels "mdapy": the kernels of MDAPY where
     it has its own (the FFTs, the dense linear algebra, the eigensolver and
-    the Cholesky factorization), "vendor": the GPU libraries
-    of the vendor throughout, "auto": by the GPU (kernels_of); the result
-    holds the one taken as kernels. on_start(setup), before the loop, gets a
+    the Cholesky factorization), "vendor": the GPU libraries of the vendor
+    throughout, loaded here (InvalidParameter if they cannot be); the result
+    holds it as kernels. on_start(setup), before the loop, gets a
     dict of what the run takes: grid, smooth_grid, density_cutoff (hartree),
     bands, kpoints (their number), operations, gamma, spins, electrons,
     kernels and mixed (the precision); on_step(step, energy, accuracy,
@@ -361,10 +350,11 @@ def run(
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
         raise ValueError("precision must be 'double', 'mixed' or 'auto'")
-    if kernels not in ("auto", "mdapy", "vendor"):
-        raise ValueError("kernels must be 'auto', 'mdapy' or 'vendor'")
+    if kernels not in ("mdapy", "vendor"):
+        raise ValueError("kernels must be 'mdapy' or 'vendor'")
     _dft = loader.module()
-    kernels = kernels_of(kernels)
+    if kernels == "vendor":
+        loader.vendor_libraries(_dft)
     cell = np.ascontiguousarray(cell, dtype=float)
     positions = np.ascontiguousarray(positions, dtype=float)
     kinds = np.ascontiguousarray(kinds, dtype=np.int32)

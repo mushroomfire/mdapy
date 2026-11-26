@@ -259,7 +259,7 @@ The rest are programs and conditions of the machine:
 | a LAMMPS built with MPI and the `REPLICA` package, started by `MDAPY_LAMMPS_NEB` with `{n}` for the number of processes, such as `mpirun -np {n} /path/to/lmp` | the nudged elastic band against LAMMPS's `neb`, which runs each image in a partition of its own |
 | Python 3.14 | files compressed with zstd |
 | a German or French locale | numbers under a locale with a decimal comma |
-| the GPU part with its DFT, `mdapy_cuda12._dft` built from `cuda12/` with NVIDIA's cuBLAS, cuFFT and cuSOLVER installed, and an NVIDIA GPU; or `mdapy_rocm6._dft` built from `rocm6/` with ROCm, and an AMD GPU ([below](#the-gpu-part)) | the plane-wave DFT |
+| the GPU part with its DFT, `mdapy_cuda12._dft` built from `cuda12/`, NVIDIA's cuBLAS, cuFFT and cuSOLVER installed (the tests compare MDAPY's kernels with them), and an NVIDIA GPU; or `mdapy_rocm6._dft` built from `rocm6/` with ROCm, and an AMD GPU ([below](#the-gpu-part)) | the plane-wave DFT |
 | `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
 | access to the network, once | the UPF files of the library of [Quantum ESPRESSO](https://pseudopotentials.quantum-espresso.org) and of [GBRV](https://www.physics.rutgers.edu/gbrv/), one of each kind the DFT reads, against their own numbers; `tests/dft/public.py` downloads them into the folder `MDAPY_TEST_CACHE` (default `~/.cache/mdapy/tests`) |
 | `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR`, with the ultrasoft and PAW files of [pslibrary](https://github.com/dalcorso/pslibrary) 1.0.0 for Al, Si, Fe and Ni made by `ld1.x` from its `us_ps_high.job` and `paw_ps_high.job` in its subfolder `pslibrary`, and the files of [SSSP](https://www.materialscloud.org/discover/sssp) 1.3 precision in its subfolder `sssp` | the DFT against Quantum ESPRESSO, run on the same input |
@@ -291,20 +291,20 @@ of the package's `pyproject.toml`:
 
 ```bash
 pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86 -Ccmake.define.MDAPY_WERROR=ON
-pip install nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12   # what _dft loads
+pip install nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12   # what _dft loads for kernels="vendor"
 pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a -Ccmake.define.MDAPY_WERROR=ON
 ```
 
 - Building `_dft` needs the development files of cuBLAS, cuFFT, cuSOLVER, cuSPARSE and
-  nvJitLink of the toolkit (`libcublas-dev-12-9` and the like), or hipBLAS, hipFFT and
-  hipSOLVER of ROCm. `-Ccmake.define.MDAPY_DFT=OFF` leaves the DFT out, for a quicker
+  nvJitLink of the toolkit (`libcublas-dev-12-9` and the like), for their headers and
+  sonames, or hipBLAS, hipFFT and hipSOLVER of ROCm. `-Ccmake.define.MDAPY_DFT=OFF` leaves the DFT out, for a quicker
   build of the rest; the two packages build it by default.
 - `_cuda` links the CUDA runtime statically and no other library of CUDA, so that
   molecular dynamics needs only the driver. `_dft` links the CUDA runtime statically
-  too, and cuBLAS, cuFFT and cuSOLVER, with cuBLASLt, cuSPARSE and nvJitLink, as shared
-  libraries, found through its RUNPATH in the folders `nvidia/<library>/lib` that NVIDIA's
-  packages install beside it. The wheels hold none of them: `auditwheel repair` excludes
-  them in `.github/workflows/publish.yml`.
+  too, and no other library: `src/dft/core/vendor.h` loads cuBLAS, cuFFT and cuSOLVER,
+  with cuBLASLt, cuSPARSE and nvJitLink, when `kernels="vendor"` first asks for them,
+  from the folders `nvidia/<library>/lib` that NVIDIA's packages install beside it, else
+  as the system finds them. The wheels hold none of them.
 - With ROCm both modules link the HIP runtime and the libraries of the machine.
 - `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_CUDA=ON` or `MDAPY_HIP=ON` builds the DFT
   into MDAPY itself, `mdapy._dft`.

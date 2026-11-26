@@ -6,7 +6,8 @@
 """Where the DFT finds its module _dft: in the GPU part that calculators on the
 GPU use, of the package mdapy-cuda12 or mdapy-rocm6 or built into MDAPY; and
 the errors where it cannot, with stand-ins for the packages and for modules
-whose libraries are missing."""
+whose libraries are missing, and where the libraries of the vendor cannot be
+loaded for kernels="vendor"."""
 
 import sys
 import types
@@ -18,7 +19,7 @@ from mdapy.calculators import DFT
 from mdapy.calculators._dft import loader
 from mdapy.errors import InvalidParameter
 
-CUBLAS = "libcublas.so.12: cannot open shared object file: No such file or directory"
+LIBSTDCXX = "version `GLIBCXX_3.4.32' not found (required by _dft.abi3.so)"
 HIPBLAS = "libhipblas.so.2: cannot open shared object file: No such file or directory"
 
 
@@ -67,7 +68,7 @@ def install(monkeypatch, name, part, dft):
 
 def test_without_a_gpu_part(monkeypatch, tmp_path):
     not_built_in(monkeypatch)
-    with pytest.raises(InvalidParameter, match=r'pip install "mdapy\[cuda12,dft\]"'):
+    with pytest.raises(InvalidParameter, match=r'pip install "mdapy\[cuda12\]"'):
         loader.module()
     # the calculator says so when it is made, after its parameters
     with pytest.raises(InvalidParameter, match="encut must be positive"):
@@ -81,14 +82,13 @@ def test_the_dft_of_mdapy_cuda12(monkeypatch, tmp_path):
     dft = types.ModuleType("mdapy_cuda12._dft")
     install(monkeypatch, "mdapy_cuda12", "_cuda", dft)
     assert loader.module() is dft
-    # NVIDIA's libraries missing: the extra that installs them
-    install(monkeypatch, "mdapy_cuda12", "_cuda", CUBLAS)
+    # a module that does not load, which names no library of NVIDIA
+    install(monkeypatch, "mdapy_cuda12", "_cuda", LIBSTDCXX)
     with pytest.raises(InvalidParameter) as error:
         DFT(600.0, pseudopotentials=tmp_path)
     message = str(error.value)
-    assert "NVIDIA's cuBLAS, cuFFT and cuSOLVER" in message
-    assert 'pip install "mdapy[cuda12,dft]"' in message
-    assert CUBLAS in message
+    assert "the module _dft of the GPU part could not be loaded" in message
+    assert LIBSTDCXX in message
     # built without the DFT
     install(monkeypatch, "mdapy_cuda12", "_cuda", None)
     with pytest.raises(
@@ -139,3 +139,20 @@ def test_another_error_of_import(monkeypatch):
     monkeypatch.setattr(sys, "meta_path", [Inner()] + sys.meta_path)
     with pytest.raises(ModuleNotFoundError, match="inner"):
         loader.module()
+
+
+def test_the_libraries_of_the_vendor(monkeypatch):
+    """vendor_libraries: the files the module loaded, or what to install as
+    InvalidParameter where it cannot load them."""
+    dft = types.ModuleType("mdapy_cuda12._dft")
+    dft.vendor_libraries = lambda: ["/nvidia/cublas/lib/libcublas.so.12"]
+    assert loader.vendor_libraries(dft) == ["/nvidia/cublas/lib/libcublas.so.12"]
+    missing = 'NVIDIA\'s cuBLAS, cuFFT and cuSOLVER ... pip install "mdapy[cuda12,dft]"'
+
+    def refuse():
+        raise RuntimeError(missing)
+
+    dft.vendor_libraries = refuse
+    with pytest.raises(InvalidParameter) as error:
+        loader.vendor_libraries(dft)
+    assert str(error.value) == missing

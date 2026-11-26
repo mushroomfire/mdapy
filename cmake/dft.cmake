@@ -11,15 +11,15 @@
 # nanobind. It is installed in the package MDAPY_DFT_PACKAGE: mdapy_cuda12 or
 # mdapy_rocm6 for the packages mdapy-cuda12 and mdapy-rocm6, or mdapy.
 #
-# MDAPY_DFT_API CUDA: with cuFFT, cuBLAS and cuSOLVER. The CUDA runtime is
-# linked statically, as in _cuda; the libraries are shared, found when the
-# module loads in the folders nvidia/<library>/lib that NVIDIA's packages
-# nvidia-cublas-cu12, nvidia-cufft-cu12 and nvidia-cusolver-cu12 install beside
-# the package (the extra dft of MDAPY), else where the system has them. The
-# module names cuBLASLt and what cuSOLVER needs, cuSPARSE and nvJitLink,
-# itself, so that the loader takes them from those folders too: NVIDIA's
-# libraries look for one another in their own folder only. The wheel holds
-# none of them.
+# MDAPY_DFT_API CUDA: the CUDA runtime linked statically, as in _cuda, and
+# NVIDIA's cuFFT, cuBLAS and cuSOLVER loaded at their first use, which MDAPY's
+# kernels do without (src/dft/core/vendor.h): the module names none of them,
+# and loads where they are missing. They are found in the folders
+# nvidia/<library>/lib that NVIDIA's packages nvidia-cublas-cu12,
+# nvidia-cufft-cu12 and nvidia-cusolver-cu12 install beside the package (the
+# extra dft of MDAPY), else where the system has them. Their headers come from
+# the toolkit, and their sonames from the files of the toolkit, as the build
+# finds them. The wheel holds none of them.
 #
 # MDAPY_DFT_API HIP: the same sources compiled as they are with HIP of ROCm for
 # AMD GPUs, their CUDA names those of HIP by src/dft/core/portable.h, with
@@ -60,6 +60,26 @@ elseif(MDAPY_DFT_API STREQUAL "CUDA")
     find_library(MDAPY_${library}_LIBRARY NAMES ${library} lib${library}.so.12 NAMES_PER_DIR
       HINTS "${CUDAToolkit_LIBRARY_DIR}" REQUIRED)
   endforeach()
+  # the soname of each library the module loads, from its file: the name up to
+  # its major version, as libcublas.so.12 of libcublas.so.12.9.1.4
+  set(MDAPY_DFT_SONAMES "")
+  foreach(pair "CUBLAS;${CUDA_cublas_LIBRARY}" "CUBLASLT;${CUDA_cublasLt_LIBRARY}" "CUFFT;${CUDA_cufft_LIBRARY}"
+               "CUSOLVER;${CUDA_cusolver_LIBRARY}" "CUSPARSE;${MDAPY_cusparse_LIBRARY}"
+               "NVJITLINK;${MDAPY_nvJitLink_LIBRARY}")
+    list(GET pair 0 name)
+    list(GET pair 1 file)
+    if(NOT EXISTS "${file}")
+      message(FATAL_ERROR "the DFT needs the library ${name} of the CUDA toolkit, not found")
+    endif()
+    get_filename_component(real "${file}" REALPATH)
+    get_filename_component(real "${real}" NAME)
+    string(REGEX MATCH "^lib[^.]+\\.so\\.[0-9]+" soname "${real}")
+    if(NOT soname)
+      message(FATAL_ERROR "no soname in the file ${real} of the library ${name}")
+    endif()
+    list(APPEND MDAPY_DFT_SONAMES "MDAPY_SONAME_${name}=\"${soname}\"")
+  endforeach()
+  message(STATUS "The DFT loads ${MDAPY_DFT_SONAMES}")
 else()
   message(FATAL_ERROR "MDAPY_DFT_API must be CUDA or HIP, not '${MDAPY_DFT_API}'")
 endif()
@@ -78,8 +98,12 @@ if(MDAPY_DFT_API STREQUAL "HIP")
   target_compile_definitions(mdapy_dft PUBLIC HIPBLAS_V2)
 else()
   set_target_properties(mdapy_dft PROPERTIES CUDA_VISIBILITY_PRESET hidden)
-  target_link_libraries(mdapy_dft PUBLIC CUDA::cudart_static CUDA::cufft CUDA::cublas
-    CUDA::cublasLt CUDA::cusolver "${MDAPY_cusparse_LIBRARY}" "${MDAPY_nvJitLink_LIBRARY}" ${CMAKE_DL_LIBS})
+  target_link_libraries(mdapy_dft PUBLIC CUDA::cudart_static ${CMAKE_DL_LIBS})
+  # the headers of the libraries loaded at their first use, not the libraries
+  target_include_directories(mdapy_dft SYSTEM PUBLIC $<TARGET_PROPERTY:CUDA::cublas,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:CUDA::cufft,INTERFACE_INCLUDE_DIRECTORIES>
+    $<TARGET_PROPERTY:CUDA::cusolver,INTERFACE_INCLUDE_DIRECTORIES>)
+  target_compile_definitions(mdapy_dft PUBLIC ${MDAPY_DFT_SONAMES})
   # the default stream of each host thread, so that runs on several threads (as
   # the SCFs of several configurations) overlap on the GPU instead of taking turns
   target_compile_definitions(mdapy_dft PUBLIC CUDA_API_PER_THREAD_DEFAULT_STREAM=1)
@@ -93,15 +117,6 @@ nanobind_add_module(_dft STABLE_ABI NB_STATIC NB_SUPPRESS_WARNINGS NOMINSIZE
   "${CMAKE_CURRENT_SOURCE_DIR}/src/dft/bindings.cpp")
 target_link_libraries(_dft PRIVATE mdapy_dft)
 target_compile_options(_dft PRIVATE -Wall -Wextra -Wpedantic -Wshadow)
-if(MDAPY_DFT_API STREQUAL "CUDA")
-  # every library named in the module, even those whose functions it does not
-  # call (cuBLASLt, cuSPARSE, nvJitLink); the folders of NVIDIA's packages as
-  # its RUNPATH, before the system's and after LD_LIBRARY_PATH
-  set(MDAPY_NVIDIA "$ORIGIN/../nvidia")
-  set_target_properties(_dft PROPERTIES BUILD_WITH_INSTALL_RPATH ON INSTALL_RPATH
-    "${MDAPY_NVIDIA}/cublas/lib:${MDAPY_NVIDIA}/cufft/lib:${MDAPY_NVIDIA}/cusolver/lib:${MDAPY_NVIDIA}/cusparse/lib:${MDAPY_NVIDIA}/nvjitlink/lib")
-  target_link_options(_dft PRIVATE "LINKER:--no-as-needed" "LINKER:--enable-new-dtags")
-endif()
 if(MDAPY_WERROR)
   target_compile_options(_dft PRIVATE -Werror)
   target_compile_options(mdapy_dft PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Werror>)

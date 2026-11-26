@@ -212,17 +212,16 @@ class DFT(Calculator):
         and workstations), double on the others (V100, A100, H100, GH200).
         Default ``"double"``.
     kernels : str, optional
-        Whose kernels run on the GPU. ``"mdapy"``: those of MDAPY where it
-        has its own (the fast Fourier transforms, the dense linear algebra,
-        the Hermitian eigensolver and the Cholesky factorization: all the DFT
-        takes from them today), the GPU libraries of the vendor for the rest. ``"vendor"``: the GPU
-        libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on
-        NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). ``"auto"``:
-        the faster of the two today, ``"mdapy"`` on GPUs whose double
-        precision runs at a small part of the rate of single (cards for games
-        and workstations), ``"vendor"`` on the others (V100, A100, H100,
-        GH200, AMD Instinct). The results agree to rounding. Default
-        ``"auto"``.
+        Whose kernels run on the GPU. ``"mdapy"``: those of MDAPY (the fast
+        Fourier transforms, the dense linear algebra, the Hermitian
+        eigensolver and the Cholesky factorization: all the DFT takes from
+        them), without the libraries of the vendor, which only the FFTs of a
+        grid given whose sizes are not products of 2, 3, 5 and 7 still take.
+        ``"vendor"``: the GPU libraries of the vendor throughout (cuFFT,
+        cuBLAS and cuSOLVER on NVIDIA GPUs, which
+        ``pip install "mdapy[cuda12,dft]"`` installs; hipFFT, hipBLAS and
+        hipSOLVER on AMD GPUs). The results agree to rounding. Default
+        ``"mdapy"``.
     comm : mpi4py communicator, optional
         Processes that compute each configuration together, one GPU each,
         sharing its k-points and spins: every process calls ``compute`` with
@@ -321,7 +320,7 @@ class DFT(Calculator):
         symmetry: bool | None = None,
         moment_radius: float | None = None,
         precision: str = "double",
-        kernels: str = "auto",
+        kernels: str = "mdapy",
         comm: Any = None,
         log: Any = None,
         start: str | os.PathLike | None = None,
@@ -401,8 +400,8 @@ class DFT(Calculator):
         if precision not in ("double", "mixed", "auto"):
             raise InvalidParameter("precision must be 'double', 'mixed' or 'auto'")
         self.precision = precision
-        if kernels not in ("auto", "mdapy", "vendor"):
-            raise InvalidParameter("kernels must be 'auto', 'mdapy' or 'vendor'")
+        if kernels not in ("mdapy", "vendor"):
+            raise InvalidParameter("kernels must be 'mdapy' or 'vendor'")
         self.kernels = kernels
         self.max_iterations = int(max_iterations)
         self.mixing = None if mixing is None else float(mixing)

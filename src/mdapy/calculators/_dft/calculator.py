@@ -11,6 +11,7 @@ import inspect
 import math
 import os
 import time
+import warnings
 from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 from typing import Any
@@ -37,6 +38,7 @@ SCF_UNITS = {
     "density_tolerance": HARTREE,
     "magnetic_kerker": 1.0 / BOHR,
     "first_tolerance": HARTREE,
+    "hold": HARTREE,
 }
 # hartree: the residual of the bands of the first step of a computation from a
 # ground state of a file, as the SCF takes it from the state of the one before
@@ -47,8 +49,12 @@ SCF_WITHOUT_UNITS = frozenset({
     "max_iterations", "davidson_iterations", "davidson_basis", "seed", "magnetic_beta",
     "stress", "correct_forces", "atomic_start", "kpoint_threads", "conditioning",
     "output_energies", "adaptive_damping", "first_held", "preconditioner", "precision",
-    "kernels",
+    "kernels", "hold_steps",
 })  # fmt: skip
+
+# Bohr magnetons of absolute magnetization for each atom started with a
+# moment, below which the moments of a computation count as lost
+_LOST_MOMENT = 0.05
 
 # the residual norm (hartree) of every band of a pass at a fixed density: the
 # error of an eigenvalue is its square over the gap to the bands not solved
@@ -137,7 +143,10 @@ class DFT(Calculator):
         The width of the smearing in eV. Default 0.1.
     magmoms : mapping or sequence of float64, optional
         The first magnetic moments in Bohr magnetons, by element or one per
-        atom; with them the spins are collinear. Default none: no spin.
+        atom; with them the spins are collinear. The magnetization stays
+        theirs for the first steps of a computation from the free atoms,
+        until the total density has settled (``last["held_steps"]``).
+        Default none: no spin.
     hubbard : mapping of str to (str, float64), optional
         DFT+U of Dudarev: for an element the label of one of the
         pseudo-orbitals of its file (such as ``"3d"``) and U in eV, on
@@ -257,8 +266,12 @@ class DFT(Calculator):
         spin), ``magnetic_moments`` ((N,) float64 Bohr magnetons, with spin:
         the magnetization density, spin up minus spin down of the density on
         the grid, integrated within a sphere of ``moment_radius`` around each
-        atom, in the order of the atoms) and ``moment_radius`` (Å, the radius
-        used), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
+        atom, in the order of the atoms), ``moment_radius`` (Å, the radius
+        used), ``held_steps`` (with spin, the first steps whose magnetization
+        stayed that of ``magmoms``) and ``moments_lost`` (with spin, whether
+        the moments it started with are gone: an absolute magnetization
+        below 0.05 Bohr magnetons for each atom started with a moment, which
+        also warns), with DFT+U ``hubbard_energy`` (eV) and ``hubbard_occupations``
         (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
         2l + 1) float64, a spin channel each), ``net_force`` (eV/Å, taken out
         of the forces), ``kpoints`` (the mesh), ``grid`` (the FFT grid),
@@ -659,7 +672,15 @@ class DFT(Calculator):
         -------
         CalculatorResult
             The energy in eV, the forces in eV/Å, and the virial in eV when
-            asked.
+            asked; its ``info`` holds the record of the computation as
+            ``dft`` and, with spin, ``magnetization`` and
+            ``absolute_magnetization`` in Bohr magnetons.
+
+        Warns
+        -----
+        UserWarning
+            If the moments the computation started with are gone at its end
+            (``last["moments_lost"]``).
 
         Raises
         ------
@@ -751,10 +772,11 @@ class DFT(Calculator):
                 )
 
         def on_step(
-            step, energy, accuracy, magnetization, fermi, davidson, single, accepted
-        ):
+            step, energy, accuracy, magnetization, absolute, fermi, davidson, single,
+            accepted, held,
+        ):  # fmt: skip
             writer.step(step, energy * HARTREE, accuracy * HARTREE, magnetization,
-                        fermi * HARTREE, davidson, single, accepted)  # fmt: skip
+                        absolute, fermi * HARTREE, davidson, single, accepted, held)  # fmt: skip
 
         began = time.perf_counter()
         try:
@@ -782,6 +804,14 @@ class DFT(Calculator):
         virial = None
         if stress:
             virial = -r["strain_derivative"] * HARTREE
+        # moments that were started and are gone: the state without spin
+        lost = False
+        if moments is not None:
+            magnetic = int(np.count_nonzero(moments))
+            lost = (
+                magnetic > 0
+                and float(r["absolute_magnetization"]) < _LOST_MOMENT * magnetic
+            )
         if writer.on:
             largest = float(np.linalg.norm(forces, axis=1).max())
             summary = (
@@ -797,6 +827,8 @@ class DFT(Calculator):
             if virial is not None:
                 pressure = np.trace(virial) / (3 * system.box.volume)
                 summary += f", pressure {pressure * units.EV_PER_A3_TO_GPA:.4f} GPa"
+            if lost:
+                summary += "; the moments it started with are gone"
             writer.end(summary)
         self.last = {
             "calculation": number,
@@ -858,6 +890,8 @@ class DFT(Calculator):
         if r["spins"] == 2:
             self.last["magnetization"] = float(r["magnetization"])
             self.last["absolute_magnetization"] = float(r["absolute_magnetization"])
+            self.last["held_steps"] = int(np.sum(r["held"]))
+            self.last["moments_lost"] = bool(lost)
             # the density is (up, down) in electrons per bohr^3 on the grid of
             # the atoms' cell; the grid sums to r["magnetization"]
             m = (r["density"][0] - r["density"][1]) / BOHR**3
@@ -884,12 +918,27 @@ class DFT(Calculator):
             self.__ground["becsum"] = np.asarray(r["becsum"], dtype=float)
         if "magnetic_moments" in self.last:
             self.__ground["magnetic_moments"] = self.last["magnetic_moments"]
+        info: dict[str, Any] = {"dft": record}
+        if r["spins"] == 2:
+            # with each label, to compare the magnetic states of a set
+            info["magnetization"] = self.last["magnetization"]
+            info["absolute_magnetization"] = self.last["absolute_magnetization"]
+        if lost:
+            warnings.warn(
+                f"the magnetic moments are gone: {magnetic} atoms started with moments "
+                f"and the cell ends with an absolute magnetization of "
+                f"{self.last['absolute_magnetization']:.4f} Bohr magnetons. This is the "
+                "state without spin: the ground state of a cell that is not magnetic, "
+                "otherwise a stationary state above it. If moments are expected, start "
+                "from larger ones or from another pattern of signs (magmoms)",
+                stacklevel=2,
+            )
         return CalculatorResult(
             energy=energy,
             forces=forces,
             virial=virial,
             volume=system.box.volume,
-            info={"dft": record},
+            info=info,
         )
 
     def _fixed_density(self, system: System) -> dict[str, Any]:

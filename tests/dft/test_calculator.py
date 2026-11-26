@@ -9,6 +9,7 @@ translations of the atoms change nothing but the directions of the forces; the
 mesh of kspacing as VASP's; spins from the first moments; its errors."""
 
 import os
+import warnings
 
 import numpy as np
 import pytest
@@ -105,22 +106,56 @@ def test_kspacing_as_vasp(folder):
     assert provenance["encut"] == 12 * HARTREE and provenance["spins"] == 1
 
 
-def test_spin(folder):
+def test_spin(folder, tmp_path):
     espresso.pseudo("Fe_std.upf")
     a = 2.87
     box = mdapy.Box(np.diag([a, a, a]))
     iron = mdapy.System(
         np.array([[0, 0, 0], [0.5, 0.5, 0.5]]) * a, box, elements=["Fe", "Fe"]
     )
-    dft = DFT(
-        16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2), magmoms={"Fe": 2.5}
-    )
-    result = dft.compute(iron)
+    log = tmp_path / "dft.log"
+    dft = DFT(16 * HARTREE, pseudopotentials=folder, kpoints=(2, 2, 2),
+              magmoms={"Fe": 2.5}, log=log)  # fmt: skip
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", UserWarning)
+        result = dft.compute(iron)
     assert dft.last["magnetization"] > 2.0 and dft.last["absolute_magnetization"] > 2.0
     np.testing.assert_allclose(result.forces, 0.0, atol=1e-4)
+    # the moments held for the first steps, and kept; the label carries them
+    held = dft.last["held_steps"]
+    assert 1 <= held <= 12 and dft.last["moments_lost"] is False
+    text = log.read_text(encoding="utf-8")
+    assert "calculation 1, step 1: the first moments held from here" in text
+    assert f"calculation 1, step {held + 1}: the moments free from here" in text
+    assert "are gone" not in text
+    assert result.info["magnetization"] == dft.last["magnetization"]
+    assert result.info["absolute_magnetization"] == dft.last["absolute_magnetization"]
+    labelled = result.attach(iron)
+    assert labelled.info["magnetization"] == dft.last["magnetization"]
     plain = calculator(folder)
-    plain.compute(silicon())
+    labels = plain.compute(silicon())
     assert "magnetization" not in plain.last and plain.last["iterations"] > 1
+    assert "held_steps" not in plain.last and "magnetization" not in labels.info
+
+
+def test_moments_that_are_lost(folder, tmp_path):
+    # silicon with fixed occupations has as many electrons of each spin: the
+    # moments it starts with are gone at the end
+    log = tmp_path / "dft.log"
+    dft = calculator(folder, magmoms={"Si": 0.5}, tolerance=1e-8, log=log)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        dft.compute(silicon())
+    messages = [str(w.message) for w in caught if w.category is UserWarning]
+    assert len(messages) == 1
+    assert messages[0].startswith("the magnetic moments are gone: 2 atoms started")
+    assert dft.last["moments_lost"] is True
+    assert dft.last["absolute_magnetization"] < 0.1
+    text = log.read_text(encoding="utf-8")
+    assert "; the moments it started with are gone" in text
+    # the row of a step holds the absolute magnetization after the total one
+    rows = np.loadtxt(log)
+    assert (rows[:, 6] >= np.abs(rows[:, 5]) - 1e-4).all() and rows[0, 6] > 0.0
 
 
 def test_magnetic_moments(folder):

@@ -72,7 +72,8 @@ public:
     // the estimate of the error of the energy; with the magnetization, plus
     // 2 pi Omega sum_G |m_out - m_in|^2 times one bohr^2, the Hartree energy of
     // a residual at the wavelength of one bohr. in and out on the GPU.
-    double residual_energy(const cuDoubleComplex* in, const cuDoubleComplex* out);
+    // With total_only, of the total density alone.
+    double residual_energy(const cuDoubleComplex* in, const cuDoubleComplex* out, bool total_only = false);
     void reset();
     // a factor on the shares of the residuals (beta, magnetic_beta and the
     // preconditioner), 1 at the start: the damping of adaptive damping

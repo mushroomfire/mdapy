@@ -57,6 +57,12 @@ __global__ void clamp_kernel(std::size_t n, double* x) {
     if (i < n && x[i] < 0.0) x[i] = 0.0;
 }
 
+// out = |a - b|
+__global__ void absolute_difference_kernel(std::size_t n, const double* a, const double* b, double* out) {
+    const std::size_t i = blockIdx.x * static_cast<std::size_t>(blockDim.x) + threadIdx.x;
+    if (i < n) out[i] = fabs(a[i] - b[i]);
+}
+
 void copy_device(DeviceArray<double>& to, const DeviceArray<double>& from, std::size_t n) {
     to.resize(n);
     check_cuda(cudaMemcpy(to.data(), from.data(), n * sizeof(double), cudaMemcpyDeviceToDevice), "cudaMemcpy");
@@ -553,6 +559,10 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
     // the local density of states of the preconditioner (on the grid of the
     // density, and on the smooth one), and the work of its operator
     DeviceArray<double> ldos_r, ldos_s, ldos_v, ldos_out;
+    DeviceArray<double> absolute_m;  // |m| of the output of a step on the grid
+    // the magnetization of the input held while the total density settles
+    // (ScfOptions::hold)
+    bool moments_held = ns == 2 && options.hold_steps > 0 && !restart && !adaptive;
     DeviceArray<Complex> ldos_g;
     std::vector<std::vector<double>> taken_becsum, delta_becsum;
     double taken_energy = 0.0, taken_accuracy = 0.0, trial = 1.0, scale = 1.0;
@@ -1056,6 +1066,12 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             Complex m0{};
             check_cuda(cudaMemcpy(&m0, out_d.data() + ng, sizeof(Complex), cudaMemcpyDeviceToHost), "cudaMemcpy");
             step.magnetization = m0.x * input.lattice.volume;
+            // and the integral of |m| over the cell, on the grid
+            absolute_m.resize(points);
+            absolute_difference_kernel<<<blocks(points), kThreads>>>(points, rho_out.data(), rho_out.data() + points,
+                                                                    absolute_m.data());
+            check_cuda(cudaGetLastError(), "the absolute magnetization");
+            step.absolute_magnetization = pot.integral(absolute_m.data(), nullptr, 1);
         }
         step.memory = pool_memory();
         result.steps.push_back(step);
@@ -1126,16 +1142,36 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             mixer.set_scale(scale);
         }
         result.steps.back().single = single_phase;
-        if (input.on_step) input.on_step(result.steps.back(), iteration);
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
+        // the magnetization of the input kept while the total density
+        // settles: the bands of the first steps, of superposed atoms and
+        // loosely solved, do not carry the moments they are given, and a
+        // magnetization mixed from them has lost the start. Held, a step
+        // mixes the total density alone, and the tolerance of the bands
+        // follows its residual.
+        bool holding = false;
+        double reached = accuracy;  // what the tolerance of the next bands follows
+        if (moments_held) {
+            const double charge = mixer.residual_energy(in_d.data(), out_d.data(), true);
+            if (iteration > options.hold_steps || charge < options.hold * static_cast<double>(input.atoms.size())) {
+                moments_held = false;
+                mixer.reset();  // its history holds no residual of the magnetization
+            } else {
+                holding = true;
+                done = false;
+                reached = charge;
+            }
+        }
+        result.steps.back().held = holding;
+        if (input.on_step) input.on_step(result.steps.back(), iteration);
         if (single_phase) {
             // no end in single precision: the next steps in double once its
             // residual is small enough, stalls, or the steps run out
             done = false;
-            single_accuracies.push_back(accuracy);
+            single_accuracies.push_back(reached);
             const std::size_t m = single_accuracies.size();
             const bool stalled = m >= 4 && !(single_accuracies[m - 1] < 0.5 * single_accuracies[m - 4]);
-            if (accuracy < options.density_tolerance || stalled || iteration >= options.max_iterations / 2) {
+            if (reached < options.density_tolerance || stalled || iteration >= options.max_iterations / 2) {
                 single_phase = false;
                 release_single();
                 if (std::getenv("MDAPY_DFT_KEEP_HISTORY") == nullptr) mixer.reset();
@@ -1238,6 +1274,9 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             trials = 0;
             trial = 1.0;
         }
+        if (holding)
+            check_cuda(cudaMemcpy(out_d.data() + ng, in_d.data() + ng, ng * sizeof(Complex), cudaMemcpyDeviceToDevice),
+                       "cudaMemcpy");
         // the next input density, and with PAW the occupations of (total,
         // magnetization) along
         if (mixes_occupations) {
@@ -1248,7 +1287,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                     x[i] = becsum_in[0][i] + becsum_in[1][i];
                     x[n + i] = becsum_in[0][i] - becsum_in[1][i];
                     x_out[i] = becsum[0][i] + becsum[1][i];
-                    x_out[n + i] = becsum[0][i] - becsum[1][i];
+                    x_out[n + i] = holding ? x[n + i] : becsum[0][i] - becsum[1][i];
                 } else {
                     x[i] = becsum_in[0][i];
                     x_out[i] = becsum[0][i];
@@ -1279,7 +1318,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         density_in();
         // the occupations and the tolerance of the next step
         held = occ.f;
-        tolerance = std::clamp(0.01 * std::sqrt(accuracy), 1e-9, tolerance);
+        tolerance = std::clamp(0.01 * std::sqrt(reached), 1e-9, tolerance);
         // single precision no further than its bands can go: the next step
         // in double once it asks for residuals below the floor; Pulay's
         // history of rounded densities then cleared (MDAPY_DFT_KEEP_HISTORY

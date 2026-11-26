@@ -269,6 +269,8 @@ def run(
     kernels: str = "mdapy",
     on_start=None,
     on_step=None,
+    hold: float = 1e-2,
+    hold_steps: int = 12,
 ) -> dict:
     """The ground state of a cell of rows cell (bohr), atoms at fractional
     positions of species kinds (indices of pseudos), plane waves to cutoff
@@ -352,9 +354,21 @@ def run(
     dict of what the run takes: grid, smooth_grid, density_cutoff (hartree),
     bands, kpoints (their number), operations, gamma, spins, electrons,
     kernels and mixed (the precision); on_step(step, energy, accuracy,
-    magnetization, fermi, davidson, single, accepted), after each step, its
-    number from 1 and its values in hartree, as the result's histories
-    (a log of the run)."""
+    magnetization, absolute_magnetization, fermi, davidson, single, accepted,
+    held), after each step, its number from 1 and its values in hartree, as
+    the result's histories (a log of the run). With spin the result holds
+    magnetizations and absolute_magnetizations, the integrals of m and of |m|
+    of the output density of each step over the cell, in Bohr magnetons.
+    With moments, from the free atoms, the magnetization of the input density
+    (and of the occupations of PAW and DFT+U) stays that of the first moments
+    while the total density settles: until the Hartree energy of the residual
+    of the total density is below hold (hartree per atom), for at most
+    hold_steps steps (0 for none); the bands of the first steps do not carry
+    the moments they are given, and mixing their magnetization loses the
+    start. The history of the mixing starts anew when the moments are let
+    go. Not from start_density or a state, nor with adaptive_damping or
+    moments that are all zero. The result holds held (1 for the steps whose
+    magnetization was not taken)."""
     if preconditioner not in ("kerker", "ldos"):
         raise ValueError("preconditioner must be 'kerker' or 'ldos'")
     if precision not in ("double", "mixed", "auto"):
@@ -528,6 +542,14 @@ def run(
             )
         becsum = start_becsum
     mixed = mixed_precision(precision)
+    if hold < 0 or hold_steps < 0:
+        raise ValueError("hold and hold_steps must be 0 or more")
+    holding = (
+        spins == 2
+        and start_density is None
+        and not adaptive_damping
+        and bool(np.any(magmoms != 0.0))
+    )
     if on_start is not None:
         on_start({
             "grid": grid, "smooth_grid": smooth_grid, "density_cutoff": density_cutoff,
@@ -554,6 +576,7 @@ def run(
         hubbard_of, int(kpoint_threads), float(first_tolerance), float(conditioning),
         bool(output_energies), bool(adaptive_damping), int(first_held),
         preconditioner == "ldos", mixed, kernels, on_step,
+        float(hold), int(hold_steps) if holding else 0,
     )  # fmt: skip
     if hubbard_of is not None:
         result["hubbard_occupations"] = _hubbard_occupations(

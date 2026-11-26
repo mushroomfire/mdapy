@@ -42,8 +42,33 @@ def comments(text):
 def steps(writer, energies, single=(), rejected=()):
     for i, e in enumerate(energies, 1):
         writer.step(
-            i, e, 10.0**-i, 0.5 * i, 7.25, 3 * i, i in single, i not in rejected
+            i,
+            e,
+            10.0**-i,
+            0.5 * i,
+            0.75 * i,
+            7.25,
+            3 * i,
+            i in single,
+            i not in rejected,
         )
+
+
+def test_the_steps_whose_moments_are_held(tmp_path):
+    path = tmp_path / "dft.log"
+    writer = logs.Writer(path, HEADING)
+    writer.start(1, "1 atom, Fe 1", {})
+    for i, held in enumerate([True, True, False, False], 1):
+        writer.step(i, -1.0, 0.1, 2.0, 2.5, 7.0, 3, False, True, held)
+    writer.end("converged in 4 steps, 1.00 s")
+    # the next computation, never held, says nothing of it
+    writer.start(2, "1 atom, Fe 1", {})
+    writer.step(1, -1.0, 0.1, 2.0, 2.5, 7.0, 3, False, True)
+    writer.end("converged in 1 steps, 1.00 s")
+    lines = comments(path.read_text(encoding="utf-8"))
+    assert lines.count("# calculation 1, step 1: the first moments held from here") == 1
+    assert lines.count("# calculation 1, step 3: the moments free from here") == 1
+    assert not any("calculation 2, step" in line for line in lines)
 
 
 def test_rows_read_back_as_one_table(tmp_path):
@@ -86,9 +111,12 @@ def test_rows_read_back_as_one_table(tmp_path):
     assert np.isnan(rows[0, 3]) and np.isnan(rows[3, 3])
     np.testing.assert_allclose(rows[[1, 2, 4], 3], [-0.25, -0.0625, -0.25])
     np.testing.assert_allclose(rows[:, 4], [0.1, 0.01, 0.001, 0.1, 0.01])
-    np.testing.assert_allclose(rows[:, 5:8], [[0.5, 7.25, 3], [1.0, 7.25, 6], [1.5, 7.25, 9],
-                                              [0.5, 7.25, 3], [1.0, 7.25, 6]])  # fmt: skip
-    assert (rows[:, 8] >= 0).all()
+    np.testing.assert_allclose(
+        rows[:, 5:9],
+        [[0.5, 0.75, 7.25, 3], [1.0, 1.5, 7.25, 6], [1.5, 2.25, 7.25, 9],
+         [0.5, 0.75, 7.25, 3], [1.0, 1.5, 7.25, 6]],
+    )  # fmt: skip
+    assert (rows[:, 9] >= 0).all()
 
 
 def test_new_parameters_are_written_again(tmp_path):

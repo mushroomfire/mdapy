@@ -143,6 +143,14 @@ struct ScfOptions {
     // the bands that may hold electrons in the first step, the others solved
     // to the loose tolerance of empty bands: 0 for all
     int first_held = 0;
+    // with spin, from the free atoms: the magnetization of the input density
+    // (and of the occupations that are mixed) kept as it starts while the
+    // total density settles, until the Hartree energy of the residual of the
+    // total density is below hold hartree an atom, for at most hold_steps
+    // steps; the history of the mixing then starts anew. 0 steps for none.
+    // Not from the state of a run before, nor with adaptive damping.
+    double hold = 0.0;
+    int hold_steps = 0;
     // the free energy of the output of each step as well (ScfStep::output_energy)
     bool output_energies = false;
     // the damping of each step adapted (Herbst and Levitt): steps tried and
@@ -160,6 +168,7 @@ struct ScfStep {
     double energy = 0.0;
     double accuracy = 0.0;  // E_H[rho_out - rho_in], plus the term of m with spin
     double magnetization = 0.0;  // int m of rho_out, Bohr magnetons
+    double absolute_magnetization = 0.0;  // int |m| of rho_out, Bohr magnetons
     double fermi = 0.0;
     double tolerance = 0.0;  // of the residuals of the bands
     // the Kohn-Sham free energy of the output density and occupations of the
@@ -168,6 +177,7 @@ struct ScfStep {
     double output_energy = 0.0;
     bool accepted = true;  // with adaptive damping, whether the step was taken
     bool single = false;   // the bands of the step in single precision
+    bool held = false;     // the magnetization of its output not taken (ScfOptions::hold)
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
     int unconverged = 0;     // bands left above their tolerance by Davidson, summed over the k-points

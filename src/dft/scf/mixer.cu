@@ -367,8 +367,8 @@ void Mixer::dots(const std::vector<const cuDoubleComplex*>& a, const cuDoubleCom
     }
 }
 
-double Mixer::residual_energy(const cuDoubleComplex* in, const cuDoubleComplex* out) {
-    const std::size_t size = n_ * channels_;
+double Mixer::residual_energy(const cuDoubleComplex* in, const cuDoubleComplex* out, bool total_only) {
+    const std::size_t size = total_only ? n_ : n_ * channels_;
     const unsigned grid = grid_of(size);
     partial_.reserve(grid);
     sums_.reserve(1);

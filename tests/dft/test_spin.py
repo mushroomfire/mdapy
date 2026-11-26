@@ -7,7 +7,10 @@
 bcc iron and fcc nickel, antiferromagnetic chromium. The energy (with the
 first-order effect of the rounded gamma of QE's spin-polarized PBE), the total
 and absolute magnetization, the Fermi level and the occupied eigenvalues.
-Without moments the spins give the paramagnetic result."""
+Without moments the spins give the paramagnetic result. The first moments
+held while the total density settles: for the first steps alone, never from
+a density given, with zero moments or with adaptive damping, and the same
+ground state with and without."""
 
 import numpy as np
 import pytest
@@ -64,6 +67,13 @@ def compare(cell, positions, symbols, magmoms):
     )
     # the magnetization of the last step is that of the result
     assert ours["magnetizations"][-1] == pytest.approx(ours["magnetization"], abs=1e-10)
+    absolute = ours["absolute_magnetizations"]
+    assert absolute[-1] == pytest.approx(ours["absolute_magnetization"], abs=1e-10)
+    assert (absolute >= np.abs(ours["magnetizations"]) - 1e-10).all()
+    # the moments held for the first steps, at most 12, and no step after
+    held = ours["held"]
+    count = int(held.sum())
+    assert 1 <= count <= 12 and held[:count].all() and not held[count:].any()
     return ours
 
 
@@ -96,6 +106,56 @@ def test_no_moments_is_paramagnetic():
     assert abs(two["magnetization"]) < 1e-12 and two["absolute_magnetization"] < 1e-12
     np.testing.assert_allclose(two["eigenvalues"][0], one["eigenvalues"], atol=1e-7)
     np.testing.assert_allclose(two["density"].sum(axis=0), one["density"], atol=1e-8)
+
+
+def iron(**options):
+    pp = read_upf(espresso.pseudo("Fe_std.upf"))
+    settings = dict(kgrid=(3, 3, 3), smearing="gaussian", sigma=0.01, functional="pbe_pw",
+                    magmoms=[2.5], density_tolerance=1e-12, energy_tolerance=1e-11,
+                    symmetry=False, stress=False)  # fmt: skip
+    settings.update(options)
+    return scf.run(bcc(2.87), [[0, 0, 0]], [0], [pp], 16.0, **settings)
+
+
+def test_held_moments_reach_the_same_ground_state():
+    free = iron(hold_steps=0)
+    assert free["converged"] and not free["held"].any()
+    # hold 0 never lets go before hold_steps: exactly three steps held
+    three = iron(hold=0.0, hold_steps=3)
+    assert three["converged"]
+    np.testing.assert_array_equal(three["held"][:4], [1, 1, 1, 0])
+    assert not three["held"][3:].any()
+    default = iron()
+    assert default["converged"] and 1 <= default["held"].sum() <= 12
+    for r in (three, default):
+        assert r["energy"] == pytest.approx(free["energy"], abs=1e-8)
+        assert r["magnetization"] == pytest.approx(free["magnetization"], abs=1e-5)
+        np.testing.assert_allclose(r["density"], free["density"], atol=1e-6)
+    # held, a step counts no residual of the magnetization as converged
+    short = iron(hold=0.0, hold_steps=3, max_iterations=3)
+    assert not short["converged"] and short["held"].all()
+    # a tolerance met at the first step lets go at once: the run without hold
+    loose = iron(hold=1e9)
+    assert not loose["held"].any()
+    np.testing.assert_array_equal(loose["energies"], free["energies"])
+
+
+def test_what_is_not_held():
+    ground = iron(hold_steps=0)
+    again = iron(start_density=ground["density"], first_tolerance=1e-4)
+    assert again["converged"] and not again["held"].any()
+    assert again["energy"] == pytest.approx(ground["energy"], abs=1e-8)
+    assert not iron(magmoms=[0.0], max_iterations=2)["held"].any()
+    damped = iron(adaptive_damping=True, max_iterations=3)
+    assert not damped["held"].any()
+    pp = read_upf(espresso.pseudo("Al_std.upf"))
+    plain = scf.run(fcc(4.05), [[0, 0, 0]], [0], [pp], 12.0, kgrid=(2, 2, 2),
+                    smearing="gaussian", sigma=0.01, symmetry=False, max_iterations=2)  # fmt: skip
+    assert "held" not in plain and not plain["absolute_magnetizations"].any()
+    with pytest.raises(ValueError, match="hold and hold_steps"):
+        iron(hold=-1.0)
+    with pytest.raises(ValueError, match="hold and hold_steps"):
+        iron(hold_steps=-1)
 
 
 def test_moments_that_do_not_fit():

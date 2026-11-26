@@ -24,6 +24,7 @@ COLUMNS = (
     ("change", "{:.2e}", 11),
     ("residual", "{:.2e}", 11),
     ("magnetization", "{:.4f}", 15),
+    ("absolute", "{:.4f}", 10),
     ("fermi", "{:.4f}", 11),
     ("davidson", "{:d}", 10),
 )
@@ -56,6 +57,7 @@ class Writer:
         self.__number = 0
         self.__previous = math.nan
         self.__single = False
+        self.__held = False
 
     @property
     def on(self) -> bool:
@@ -75,6 +77,7 @@ class Writer:
             self.__log.comment(*self.__heading)
         self.__count += 1
         self.__number, self.__previous, self.__single = number, math.nan, False
+        self.__held = False
         self.__log.comment("", f"calculation {number}: {description}")
         text = json.dumps(parameters, separators=(", ", ": "))
         if text != self.__parameters:
@@ -88,10 +91,12 @@ class Writer:
         energy: float,
         residual: float,
         magnetization: float,
+        absolute: float,
         fermi: float,
         davidson: int,
         single: bool,
         accepted: bool,
+        held: bool = False,
     ) -> None:
         """A row of a step, eV, Bohr magnetons and eV, with its events."""
         if self.__log is None:
@@ -102,9 +107,15 @@ class Writer:
         elif self.__single and not single:
             self.__log.comment(f"{where}: double precision from here")
         self.__single = bool(single)
+        if held and step == 1:
+            self.__log.comment(f"{where}: the first moments held from here")
+        elif self.__held and not held:
+            self.__log.comment(f"{where}: the moments free from here")
+        self.__held = bool(held)
         self.__log.row(
             self.__number, int(step), float(energy), float(energy) - self.__previous,
-            float(residual), float(magnetization), float(fermi), int(davidson),
+            float(residual), float(magnetization), float(absolute), float(fermi),
+            int(davidson),
         )  # fmt: skip
         if accepted:
             self.__previous = float(energy)

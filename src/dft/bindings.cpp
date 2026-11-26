@@ -836,7 +836,7 @@ NB_MODULE(_dft, m) {
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
            double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision,
-           const std::string& kernels, nb::object on_step) {
+           const std::string& kernels, nb::object on_step, double hold, int hold_steps) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
             in.kernels = mdapy::dft::kernels_of(kernels);
@@ -941,14 +941,16 @@ NB_MODULE(_dft, m) {
                 in.becsum = spins_of(nb::cast<Rows>(becsum));
             }
             if (!on_step.is_none()) {
-                // a callable of (step, energy, accuracy, magnetization, fermi,
-                // davidson, single, accepted) after each step, in hartree, run
-                // with the GIL; its errors come back as errors of the run
+                // a callable of (step, energy, accuracy, magnetization,
+                // absolute_magnetization, fermi, davidson, single, accepted,
+                // held) after each step, in hartree, run with the GIL; its
+                // errors come back as errors of the run
                 nb::object f = on_step;
                 in.on_step = [f](const mdapy::dft::ScfStep& s, int iteration) {
                     nb::gil_scoped_acquire gil;
                     try {
-                        f(iteration, s.energy, s.accuracy, s.magnetization, s.fermi, s.davidson, s.single, s.accepted);
+                        f(iteration, s.energy, s.accuracy, s.magnetization, s.absolute_magnetization, s.fermi, s.davidson,
+                          s.single, s.accepted, s.held);
                     } catch (nb::python_error& error) {
                         throw std::runtime_error(std::string("the log of a step: ") + error.what());
                     }
@@ -997,6 +999,9 @@ NB_MODULE(_dft, m) {
             opt.output_energies = output_energies;
             opt.adaptive_damping = adaptive_damping;
             opt.first_held = first_held;
+            if (hold < 0.0 || hold_steps < 0) throw std::invalid_argument("hold and hold_steps must be 0 or more");
+            opt.hold = hold;
+            opt.hold_steps = hold_steps;
             opt.mixing.ldos = ldos;
             opt.mixed_precision = mixed_precision;
             opt.energy_tolerance = energy_tolerance;
@@ -1018,8 +1023,8 @@ NB_MODULE(_dft, m) {
             }
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
-            std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
-            std::vector<int> accepted, single;
+            std::vector<double> energies, accuracy, fermi, tolerance, moments, absolute, output, dampings;
+            std::vector<int> accepted, single, held;
             std::vector<int> davidson, unconverged;
             std::vector<std::size_t> in_use, in_use_peak, reserved, reserved_peak, device_used;
             for (const auto& step : r.steps) {
@@ -1032,11 +1037,13 @@ NB_MODULE(_dft, m) {
                 output.push_back(step.output_energy);
                 accepted.push_back(step.accepted ? 1 : 0);
                 single.push_back(step.single ? 1 : 0);
+                held.push_back(step.held ? 1 : 0);
                 dampings.push_back(step.damping);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
                 tolerance.push_back(step.tolerance);
                 moments.push_back(step.magnetization);
+                absolute.push_back(step.absolute_magnetization);
                 davidson.push_back(step.davidson);
                 unconverged.push_back(step.unconverged);
             }
@@ -1077,6 +1084,8 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["unconverged"] = array_of(unconverged, {ns});
             out["magnetizations"] = array_of(moments, {ns});
+            out["absolute_magnetizations"] = array_of(absolute, {ns});
+            if (spins == 2) out["held"] = array_of(held, {ns});
             // of the pool and the device at the end of each step, bytes
             nb::dict memory;
             memory["in_use"] = array_of(in_use, {ns});
@@ -1125,7 +1134,8 @@ NB_MODULE(_dft, m) {
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
         nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
-        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy", nb::arg("on_step").none() = nb::none());
+        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy", nb::arg("on_step").none() = nb::none(),
+        nb::arg("hold") = 0.0, nb::arg("hold_steps") = 0);
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each

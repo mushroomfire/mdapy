@@ -782,7 +782,10 @@ __device__ __forceinline__ Cx<R> lanes_sum(Cx<R> x) {
 }
 
 constexpr int kBackThreads = 256;  // of a block of the back-transformation in one launch
-constexpr int kBackLimit = 2048;   // the largest matrix whose back-transformation is one launch
+// the largest matrix whose back-transformation is one launch (measured on a
+// V100: 308 complex numbers from 1.42 ms to 0.34, real 1.62 to 0.16, 1024
+// 4 % less; from 1384 complex numbers the blocks of reflectors are faster)
+constexpr int kBackLimit = 1024;
 constexpr int kBackGroups = kBackThreads / ::mdapy::cuda::kLanes;
 constexpr int kBackColumns = 2;    // columns of q to a block of it
 
@@ -882,8 +885,6 @@ bool back_in_one(int n, int wanted, const typename RealOf<S>::type* q, const S* 
         back_kernel<S, 2><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
     else if (n <= 4 * kBackThreads)
         back_kernel<S, 4><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
-    else if (n <= 8 * kBackThreads)
-        back_kernel<S, 8><<<grid, kBackThreads>>>(n, wanted, q, reflectors, tau, out);
     else
         return false;
     check_cuda(cudaGetLastError(), "the back-transformation in one launch");

@@ -1447,21 +1447,24 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
     // the leaves, and of every block the first and the last row of its vectors
     std::vector<R> start(size, static_cast<R>(0));
     std::vector<double> first(count), last(count), values, below, vectors;
-    for (std::size_t i = 0; i < tree.leaves.size(); i += 2) {
-        const int offset = tree.leaves[i], rows = tree.leaves[i + 1];
-        values.assign(d.begin() + offset, d.begin() + offset + rows);
-        below.assign(cut_e.begin() + offset, cut_e.begin() + offset + std::max(rows - 1, 0));
-        host::tridiagonal_ql(values, below, vectors);
-        std::copy(values.begin(), values.end(), d.begin() + offset);
-        for (int j = 0; j < rows; ++j) {
-            const double* column = vectors.data() + static_cast<std::size_t>(j) * rows;
-            for (int r = 0; r < rows; ++r)
-                start[static_cast<std::size_t>(offset + j) * count + offset + r] = static_cast<R>(column[r]);
-            first[static_cast<std::size_t>(offset + j)] = column[0];
-            last[static_cast<std::size_t>(offset + j)] = column[rows - 1];
+    {
+        MDAPY_SPAN("leaves");
+        for (std::size_t i = 0; i < tree.leaves.size(); i += 2) {
+            const int offset = tree.leaves[i], rows = tree.leaves[i + 1];
+            values.assign(d.begin() + offset, d.begin() + offset + rows);
+            below.assign(cut_e.begin() + offset, cut_e.begin() + offset + std::max(rows - 1, 0));
+            host::tridiagonal_ql(values, below, vectors);
+            std::copy(values.begin(), values.end(), d.begin() + offset);
+            for (int j = 0; j < rows; ++j) {
+                const double* column = vectors.data() + static_cast<std::size_t>(j) * rows;
+                for (int r = 0; r < rows; ++r)
+                    start[static_cast<std::size_t>(offset + j) * count + offset + r] = static_cast<R>(column[r]);
+                first[static_cast<std::size_t>(offset + j)] = column[0];
+                last[static_cast<std::size_t>(offset + j)] = column[rows - 1];
+            }
         }
+        q.upload(start.data(), size);
     }
-    q.upload(start.data(), size);
     if (tree.merges.empty()) {
         for (double& x : d) x *= scale;
         return;
@@ -1492,6 +1495,8 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
         host_columns.clear();
         turned.clear();
         const std::size_t begin = at;
+        MDAPY_SPANS(parts);
+        MDAPY_SPAN_NEXT(parts, "deflate");
         for (; at < tree.merges.size() && tree.merges[at].height == height; ++at) {
             const host::Merge& m = tree.merges[at];
             const std::size_t o = static_cast<std::size_t>(m.offset);
@@ -1535,6 +1540,7 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
                 }
             }
         }
+        MDAPY_SPAN_NEXT(parts, "merge");
         const std::size_t turns = host_columns.size();
         pack.resize(4 * count + turns + (4 * count + turns + 1) / 2);
         std::copy(host_numbers.begin(), host_numbers.end(), pack.begin());
@@ -1576,6 +1582,7 @@ void divide_and_conquer(std::vector<double>& d, const std::vector<double>& e, De
             results.data() + 2 * count);
         launched("the eigenvectors of the merges");
         std::swap(q, next);
+        MDAPY_SPAN_NEXT(parts, "results");
         results.download(host_results.data(), host_results.size());
         for (std::size_t i = begin; i < at; ++i) {
             const host::Merge& m = tree.merges[i];

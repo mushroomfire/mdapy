@@ -532,7 +532,8 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
 // adds their products p_j with the new one in one sum of the block. A step
 // reads from memory the column k, p of the step before and its reflector, not
 // the trailing matrix; one block to a multiprocessor.
-constexpr int kHeldMost = 16;  // columns a block holds at most
+constexpr int kHeldMost = 16;     // columns a block holds at most
+constexpr int kHeldLimit = 2048;  // the largest matrix tridiagonalized so
 constexpr int kHeldGroups = kStep / ::mdapy::cuda::kLanes;
 template <class S>
 __global__ void __launch_bounds__(kStep)
@@ -668,29 +669,36 @@ __global__ void __launch_bounds__(kStep)
 }
 
 // The blocks of tridiagonal_held_kernel for a matrix of n rows that the GPU
-// holds all at once, one to a multiprocessor (at most wanted when positive),
-// and the bytes of each; 0 blocks when they do not fit.
+// holds all at once, and the bytes of each: wanted when positive, else two to
+// a multiprocessor where they fit, else one (measured on a GH200: complex 704
+// rows 4.5 ms with two, 4.8 with one; real 1384 rows 10.2 and 11.7); 0 blocks
+// when none fit.
 template <class S>
 int held_blocks(int n, int wanted, std::size_t& bytes) {
-    int device = 0, processors = 0, cooperative = 0, most = 0, each = 0;
+    int device = 0, processors = 0, cooperative = 0, most = 0;
     check_cuda(cudaGetDevice(&device), "cudaGetDevice");
     check_cuda(cudaDeviceGetAttribute(&cooperative, cudaDevAttrCooperativeLaunch, device), "cooperative launches");
     if (cooperative == 0) return 0;
     check_cuda(cudaDeviceGetAttribute(&processors, cudaDevAttrMultiProcessorCount, device), "the multiprocessors");
     check_cuda(cudaDeviceGetAttribute(&most, cudaDevAttrMaxSharedMemoryPerBlockOptin, device), "the shared memory");
-    const int count = std::min(n - 1, wanted > 0 ? wanted : processors);
-    const int held = (n - 1 + count - 1) / count;
-    if (count < 1 || held > kHeldMost) return 0;
-    bytes = (kStep + kGroups + 2 * static_cast<std::size_t>(n) + static_cast<std::size_t>(held) * n +
-             (kHeldGroups + 2) * static_cast<std::size_t>(held)) *
-            sizeof(S);
-    if (bytes > static_cast<std::size_t>(most)) return 0;
-    check_cuda(cudaFuncSetAttribute(tridiagonal_held_kernel<S>, cudaFuncAttributeMaxDynamicSharedMemorySize,
-                                    static_cast<int>(bytes)),
-               "the shared memory of the steps");
-    check_cuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&each, tridiagonal_held_kernel<S>, kStep, bytes),
-               "the blocks of a multiprocessor");
-    return count <= each * processors ? count : 0;
+    for (const int asked : {wanted > 0 ? wanted : 2 * processors, wanted > 0 ? 0 : processors}) {
+        const int count = std::min(n - 1, asked);
+        if (count < 1) continue;
+        const int held = (n - 1 + count - 1) / count;
+        if (held > kHeldMost) continue;
+        bytes = (kStep + kGroups + 2 * static_cast<std::size_t>(n) + static_cast<std::size_t>(held) * n +
+                 (kHeldGroups + 2) * static_cast<std::size_t>(held)) *
+                sizeof(S);
+        if (bytes > static_cast<std::size_t>(most)) continue;
+        int each = 0;
+        check_cuda(cudaFuncSetAttribute(tridiagonal_held_kernel<S>, cudaFuncAttributeMaxDynamicSharedMemorySize,
+                                        static_cast<int>(bytes)),
+                   "the shared memory of the steps");
+        check_cuda(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&each, tridiagonal_held_kernel<S>, kStep, bytes),
+                   "the blocks of a multiprocessor");
+        if (count <= each * processors) return count;
+    }
+    return 0;
 }
 
 // One launch of tridiagonal_steps_kernel at a time in the process, of whatever
@@ -1841,11 +1849,13 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
         // fewer blocks: on a V100 real 308 rows 1.28 ms to the 1.50 of blocks
         // holding columns), else blocks holding the columns of the trailing
         // matrix where these fit (on a V100 complex 576 rows from 7.3 ms in
-        // panels to 5.3, real 704 rows from 6.3 ms a launch a step to 4.9)
+        // panels to 5.3, real 704 rows from 6.3 ms a launch a step to 4.9; on
+        // a GH200 complex 922 rows from 9.4 ms to 6.9, real 1384 from 13.4 to
+        // 10.2)
         const bool steps = n > 2 && (together_steps_ > 0 || (together_steps_ < 0 && full_double()));
         together = steps && held_blocks_ <= 0 && n <= most &&
                    holds_steps<S>(n, sums + 2 * static_cast<std::size_t>(n) * sizeof(S));
-        if (steps && !together && held_blocks_ != 0 && n <= kFused)
+        if (steps && !together && held_blocks_ != 0 && n <= kHeldLimit)
             held_count = held_blocks<S>(n, held_blocks_, held_bytes);
         together = together || held_count > 0;
 #endif

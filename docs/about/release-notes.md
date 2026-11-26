@@ -94,6 +94,17 @@
   and the eigensolver takes 0.79 times the time of cuSOLVER's in Fe16, against 1.06; on a
   V100 Fe72 runs 16 % faster, Si64 with k-points 20 %, Fe16 5 %, and Fe72 and Si64 take the
   time of the vendor's, against 1.18 and 1.19 times before.
+- On the V100, whose double precision is half as fast as its single, the products of
+  double precision of MDAPY's kernels take blocks of 128 threads, two or three to a
+  multiprocessor, so that one sums while another waits at its barrier or for its next
+  terms; a block of the last rows of a result sums only the rows it holds, and the complex
+  values are read 16 bytes an instruction, as the real ones of matrices whose columns start
+  on 16 bytes. The products of the self-consistent fields of Fe16 and Si64 with k-points
+  and of Al108, Al256 and Fe72 at Gamma take 0.85 to 1.25 times the time of cuBLAS's, two
+  in three of them 1.08 at most, against 0.87 to 1.44 and one in eight; those of one to
+  thirteen columns 1.0 to 1.5 times, against 1.6 to 2.3. A self-consistent field with
+  MDAPY's kernels takes 0.78 to 1.02 times the time of one with the vendor's, against 0.81
+  to 1.04: Fe72 runs 6 % faster, Si64 with k-points 7 %, Fe16 and Al108 4 %, Al256 2 %.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic

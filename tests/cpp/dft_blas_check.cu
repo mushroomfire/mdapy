@@ -13,8 +13,11 @@
 //   ./dft_blas_check time TYPE OPA OPB m n k [repeats]   one product; TYPE z c d s, OP N T C
 //   ./dft_blas_check solve TYPE m n [repeats]             one triangular solve of m rows and n columns
 //
-// The environment variable SMALL_TILES (0, 1) has the portable products of
-// double precision never or always take their small blocks.
+// The environment variable SMALL_TILES has the portable products of double
+// precision take one of their forms whatever the result and the GPU: the large
+// blocks (0), the small ones (1), those of two (2) or three (3) to a
+// multiprocessor. SEGMENTS has the timed products split their sums into at
+// most so many segments (1: not at all).
 //
 // Errors are the largest |ours - vendor's| over the largest |vendor's| of a result.
 
@@ -313,6 +316,7 @@ template <class T>
 void time_gemm(const char* type, Op ta, Op tb, int m, int n, int k, int repeats, const char* what = "") {
     Blas own(Kernels::Mdapy), vendor(Kernels::Vendor);
     if (std::getenv("SMALL_TILES") != nullptr) own.set_small_tiles(std::atoi(std::getenv("SMALL_TILES")));
+    if (std::getenv("SEGMENTS") != nullptr) own.set_segments(std::atoi(std::getenv("SEGMENTS")));
     const int ra = ta == Op::N ? m : k, ca = ta == Op::N ? k : m;
     const int rb = tb == Op::N ? k : n, cb = tb == Op::N ? n : k;
     Device<T> a(static_cast<std::size_t>(ra) * ca), b(static_cast<std::size_t>(rb) * cb), c(static_cast<std::size_t>(m) * n);

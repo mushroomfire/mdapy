@@ -10,12 +10,15 @@
 // the kernels of MDAPY they are its own; with those of the vendor, and for what
 // MDAPY has no kernel for, they are cuBLAS's (hipBLAS's on AMD GPUs).
 //
-// MDAPY's product computes a tile of the result per block (64 x 64 to 128 x
+// MDAPY's product computes a tile of the result per block (32 x 32 to 128 x
 // 128 values), each thread 8 x 8 real or 4 x 4 complex ones in registers, from
 // 8 or 16 columns of op(a) and rows of op(b) at a time in shared memory. On
 // the NVIDIA GPUs of full double precision (compute capability 8.0, 9.0 and
 // 10.0) the products of double precision run on the tensor cores instead
-// (dmma.cuh): the same sums in another order. A product whose result is small and
+// (dmma.cuh): the same sums in another order; on the V100 (7.0), whose double
+// precision is half as fast as its single, they take blocks of 128 threads,
+// two or three to a multiprocessor, of which one sums while another waits. A
+// product whose result is small and
 // whose sum is long (the inner products of the bands: a few hundred squared
 // values, each a sum over 1e4 to 1e5 plane waves) is split along the sum: each
 // block sums a segment into a partial result, and a second kernel adds the
@@ -87,8 +90,9 @@ public:
     // Products with a long sum are split into at most this many segments
     // (0: the default); 1 for none. For measurements and tests.
     void set_segments(int most) noexcept { most_segments_ = most; }
-    // The small blocks of the portable products of double precision: never
-    // (0), always (1), or where they fit the result better (-1, the default).
+    // The blocks of the portable products of double precision: the large ones
+    // (0), the small ones (1), those of two (2) or three (3) to a
+    // multiprocessor, or what fits the result and the GPU (-1, the default).
     // For measurements and tests.
     void set_small_tiles(int mode) noexcept { small_tiles_ = mode; }
 
@@ -114,6 +118,10 @@ private:
     // never with HIP
     [[maybe_unused]] bool tensor_ = false;
     [[maybe_unused]] bool maps_ = false;
+    // its double precision is half as fast as its single, without tensor cores
+    // for it, and a multiprocessor holds two or three blocks of the products
+    // made for it (compute capability 7.0); never with HIP
+    bool full_double_ = false;
     // the kernels of those products that were let take their shared memory, by
     // type, transpositions and way of copying
     [[maybe_unused]] bool asked_[2][2][2][3] = {};

@@ -2,9 +2,9 @@
 # HIP of ROCm 6 from the sources of MDAPY one directory up, those of
 # mdapy-cuda12. Users install it with pip install "mdapy[rocm6]", at the
 # version of MDAPY; MDAPY loads its module _hip for calculators given
-# device="cuda", and its module _dft for the plane-wave DFT, which needs hipBLAS,
-# hipFFT and hipSOLVER of ROCm on the machine. -Ccmake.define.MDAPY_DFT=OFF
-# builds _hip alone.
+# device="cuda", and its module _dft for the plane-wave DFT, which loads hipBLAS,
+# hipFFT and hipSOLVER of ROCm on the machine only for kernels="vendor".
+# -Ccmake.define.MDAPY_DFT=OFF builds _hip alone.
 
 [build-system]
 requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]

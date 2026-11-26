@@ -231,7 +231,7 @@ nb::ndarray<nb::numpy, H> columns_of(std::size_t rows, std::size_t columns, H*& 
 template <class H, class D>
 void bind_blas(nb::module_& m) {
     // op(a) op(b) of matrices stored by columns; small_tiles, when not negative,
-    // whether the portable products of double precision take their small blocks
+    // the blocks the portable products of double precision take (Blas::set_small_tiles)
     m.def(
         "product",
         [](Columns<H> a, Columns<H> b, const std::string& ta, const std::string& tb, const std::string& kernels,
@@ -246,7 +246,7 @@ void bind_blas(nb::module_& m) {
             da.upload(reinterpret_cast<const D*>(a.data()), a.size());
             db.upload(reinterpret_cast<const D*>(b.data()), b.size());
             mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
-            if (small_tiles >= 0) blas.set_small_tiles(small_tiles > 0 ? 1 : 0);
+            if (small_tiles >= 0) blas.set_small_tiles(small_tiles);
             D one{}, zero{};
             *reinterpret_cast<decltype(std::real(H{}))*>(&one) = 1;
             blas.gemm(oa, ob, rows, columns, k, one, da.data(), static_cast<int>(std::max<std::size_t>(a.shape(0), 1)),
@@ -346,6 +346,11 @@ NB_MODULE(_dft, m) {
     m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    // the libraries of the vendor, cuBLAS, cuFFT and cuSOLVER with CUDA,
+    // hipBLAS, hipFFT and hipSOLVER with HIP, loaded here if they were not
+    // (RuntimeError saying what to install if they cannot be): the files of
+    // all of them, and of those they need that were loaded the same way
+    m.def("vendor_libraries", [] { return mdapy::dft::vendor::load_all(); });
     bind_blas<double, double>(m);
     bind_blas<float, float>(m);
     bind_blas<std::complex<double>, Complex>(m);

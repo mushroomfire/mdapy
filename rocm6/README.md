@@ -13,6 +13,7 @@ MDAPY then runs its potentials and molecular dynamics on the GPU with `device="c
 the name of the GPU whoever made it.
 See [On the GPU](https://mushroomfire.github.io/mdapy/user-guide/simulation/gpu/).
 
-The package also holds MDAPY's plane-wave DFT, which needs hipBLAS, hipFFT and hipSOLVER
-of ROCm on the machine, as the rest of ROCm. See
+The package also holds MDAPY's plane-wave DFT, which runs on MDAPY's own kernels with the
+HIP runtime; `kernels="vendor"` loads hipBLAS, hipFFT and hipSOLVER of the ROCm on the
+machine. See
 [Plane-wave DFT](https://mushroomfire.github.io/mdapy/user-guide/potentials/dft/).

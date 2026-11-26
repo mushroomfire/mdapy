@@ -80,10 +80,10 @@ RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU
 or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
 into it, and newer drivers run it too.
 The package also holds the [plane-wave DFT](../potentials/dft.md), which computes with
-NVIDIA's cuBLAS, cuFFT and cuSOLVER: the extra `dft` installs them from NVIDIA's packages,
+MDAPY's own kernels. Only `DFT(kernels="vendor")` takes NVIDIA's cuBLAS, cuFFT and
+cuSOLVER, which the extra `dft` installs from NVIDIA's packages,
 `pip install "mdapy[cuda12,dft]"` (see
 [NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)).
-Everything else on this page runs without them.
 `mdapy.show_versions()` names the GPU part and the GPU it found, in its row
 `GPU part`. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
@@ -96,8 +96,9 @@ pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
 It is compiled for the GPU of the machine; `-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
 used before an installed `mdapy-cuda12`. On Linux, `-Ccmake.define.MDAPY_DFT=ON` builds
-the DFT into MDAPY too, as `mdapy._dft`, with cuBLAS, cuFFT and cuSOLVER of the toolkit
-for the build and those of the extra `dft` (or of `LD_LIBRARY_PATH`) for the run.
+the DFT into MDAPY too, as `mdapy._dft`, with the headers of cuBLAS, cuFFT and cuSOLVER
+of the toolkit for the build; `kernels="vendor"` loads those of the extra `dft`, or of
+the system, at its first use.
 
 ### AMD GPUs
 
@@ -123,9 +124,10 @@ The same GPU part with the [plane-wave DFT](../potentials/dft.md) is the package
 pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
 ```
 
-Its DFT takes hipBLAS, hipFFT and hipSOLVER of the machine's ROCm, for the build and
-the run alike; `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above builds the DFT
-into MDAPY itself instead.
+Its DFT is built with the headers of hipBLAS, hipFFT and hipSOLVER of the machine's
+ROCm and runs with the HIP runtime alone; `kernels="vendor"` loads those libraries of
+ROCm when first asked for. `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above
+builds the DFT into MDAPY itself instead.
 
 ## Potentials
 

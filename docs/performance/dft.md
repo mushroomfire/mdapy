@@ -119,7 +119,7 @@ pseudopotentials, every cell perturbed (each atom displaced by 0.05 Å, the box 
 by up to 1 %) so that time reversal alone reduces its k-points. "In use" is the peak of
 the arrays of the DFT, the high-water mark of its memory pool; "on the GPU" the peak of
 the memory in use on the device, polled every 0.2 s, with the CUDA context and the
-libraries. On the GH200, with the libraries of the vendor (`kernels="auto"`), the second
+libraries. On the GH200, with the libraries of the vendor (`kernels="vendor"`), the second
 of three cells in a row on one calculator:
 
 | Cell | k-points × spins | Bands | Grid | In use (GiB) | On the GPU (GiB) | Time (s) |

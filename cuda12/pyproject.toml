@@ -2,9 +2,9 @@
 # the sources of MDAPY one directory up, for the wheels of MDAPY, which hold
 # none. Users install it with pip install "mdapy[cuda12]", at the version of
 # MDAPY; MDAPY loads its module _cuda for calculators given device="cuda", and
-# its module _dft for the plane-wave DFT, which needs NVIDIA's cuBLAS, cuFFT and
-# cuSOLVER: pip install "mdapy[cuda12,dft]". -Ccmake.define.MDAPY_DFT=OFF
-# builds _cuda alone.
+# its module _dft for the plane-wave DFT, which loads NVIDIA's cuBLAS, cuFFT and
+# cuSOLVER only for kernels="vendor": pip install "mdapy[cuda12,dft]".
+# -Ccmake.define.MDAPY_DFT=OFF builds _cuda alone.
 
 [build-system]
 requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]

@@ -8,8 +8,8 @@ for Linux on x86-64 and ARM:
 MDAPY loads its module ``_cuda`` for calculators given ``device="cuda"``, and
 its module ``_dft`` for the plane-wave DFT. Install it with
 ``pip install "mdapy[cuda12]"``, at the version of MDAPY, and with
-``pip install "mdapy[cuda12,dft]"`` for the DFT, which needs NVIDIA's cuBLAS,
-cuFFT and cuSOLVER."""
+``pip install "mdapy[cuda12,dft]"`` for ``DFT(kernels="vendor")``, which takes
+NVIDIA's cuBLAS, cuFFT and cuSOLVER."""
 
 from mdapy_cuda12._version import __version__
 

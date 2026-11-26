@@ -4,8 +4,10 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The test of a built mdapy-rocm6 where there is no GPU: its modules load,
-_hip and _dft, and refuse to run without a device. Run it with python -I, so
-that the installed package is imported, not the sources beside it."""
+_hip and _dft, and refuse to run without a device; _dft names no library of
+ROCm but the HIP runtime, and loads hipBLAS, hipFFT and hipSOLVER of the ROCm
+of the machine when asked. Run it with python -I, so that the installed
+package is imported, not the sources beside it."""
 
 import mdapy_rocm6
 from mdapy_rocm6 import _dft, _hip
@@ -18,4 +20,7 @@ except RuntimeError as error:
 else:
     print(f"mdapy-rocm6 {mdapy_rocm6.__version__} on {name}")
 assert _dft.api == "HIP", _dft.api
+files = _dft.vendor_libraries()
+assert len(files) == 3, files
+print("the libraries of the vendor:", *files, sep="\n  ")
 print(f"its DFT: {_dft.device_count()} devices")

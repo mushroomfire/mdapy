@@ -222,9 +222,10 @@ def test_the_products_agree(dtype, shape):
 )
 def test_the_small_blocks_of_the_products(dtype, shape):
     """The small blocks of the portable products of double precision, which
-    MDAPY takes where its large ones would stand idle on a small result, give
-    the products of the large ones to rounding (GPUs with tensor cores use
-    neither)."""
+    MDAPY takes where its large ones would stand idle on a small result, and
+    those of two and three to a multiprocessor, which it takes on the GPUs
+    whose double precision is half as fast as their single, give the products
+    of the large ones to rounding (GPUs with tensor cores use none of them)."""
     m, n, k = shape
     rng = np.random.default_rng(7)
     for ta in "NTC":
@@ -236,6 +237,9 @@ def test_the_small_blocks_of_the_products(dtype, shape):
             scale = max(np.abs(exact).max(), 1.0)
             assert np.abs(small - exact).max() < 5e-14 * scale
             assert np.abs(small - large).max() < 5e-14 * scale
+            for form in (2, 3):
+                other = _dft.product(a, b, ta, tb, small_tiles=form)
+                assert np.abs(other - exact).max() < 5e-14 * scale
 
 
 @pytest.mark.parametrize("dtype", TYPES)
@@ -472,17 +476,13 @@ class Device:
         ("HIP", (8, 6), True),
     ],
 )
-def test_the_kernels_by_the_gpu(monkeypatch, api, capability, full):
-    """kernels="auto" is the vendor's on GPUs of full double precision and
-    MDAPY's on the others, as precision="auto" is double and mixed; a choice
-    given is kept."""
+def test_the_precision_by_the_gpu(monkeypatch, api, capability, full):
+    """precision="auto" is double on GPUs of full double precision and mixed
+    on the others; a choice given is kept."""
     monkeypatch.setattr(scf.loader, "module", lambda: Device(api, capability))
     assert scf.full_double() == full
-    assert scf.kernels_of("auto") == ("vendor" if full else "mdapy")
     assert scf.mixed_precision("auto") == (not full)
-    assert scf.kernels_of("mdapy") == "mdapy" and scf.kernels_of("vendor") == "vendor"
-    with pytest.raises(ValueError, match="kernels"):
-        scf.kernels_of("other")
+    assert scf.mixed_precision("mixed") and not scf.mixed_precision("double")
 
 
 def test_a_backend_unknown_is_refused():
@@ -612,11 +612,11 @@ def test_the_calculator_keeps_its_backend():
         DFT(300.0, kernels="vendor", **common),
     )
     assert own.kernels == "mdapy" and vendor.kernels == "vendor"
-    # by default the kernels of the GPU, which the provenance names
-    auto = DFT(300.0, **common)
-    assert auto.kernels == "auto"
-    auto.compute(system, ("energy",))
-    assert auto.last["provenance"]["kernels"] == scf.kernels_of("auto")
+    # by default MDAPY's, which the provenance names
+    default = DFT(300.0, **common)
+    assert default.kernels == "mdapy"
+    default.compute(system, ("energy",))
+    assert default.last["provenance"]["kernels"] == "mdapy"
     first = own.compute(system, ("energy", "forces", "virial"))
     second = vendor.compute(system, ("energy", "forces", "virial"))
     assert own.last["provenance"]["kernels"] == "mdapy"

@@ -40,8 +40,13 @@ namespace {
 
 // ---------------------------------------------------------------- scalars
 
+// Those of double precision aligned as the complex numbers of the libraries,
+// so that one instruction reads a value from memory, not two (measured on a
+// V100: the products of 640 x 640 values of 31560 terms and of 32000 x 640 of
+// 640 from 1.21 and 1.25 of cuBLAS to 1.15 and 1.16 with the large blocks,
+// from 1.19 and 1.14 to 1.16 and 1.12 with the small ones).
 template <class R>
-struct Cx {
+struct alignas(sizeof(R) == 8 ? 16 : alignof(R)) Cx {
     R x, y;
 };
 
@@ -116,16 +121,20 @@ constexpr int kBlock = 64;     // threads of a block of a triangular solve
 constexpr int kThreads = 256;  // of the small routines
 
 // What a thread and a block of a product hold: each thread MM x MN values of
-// the result in registers, the block of Side x Side threads (Side MM) x
-// (Side MN) of them, from Depth terms of the sum in shared memory at a time.
-// Real numbers take more values a thread than complex ones, which are two
-// each. Single precision measured on an RTX A2000, where every instruction
+// the result in registers, the block of SideM x SideN threads TM x TN = (SideM
+// MM) x (SideN MN) of them, from Depth terms of the sum in shared memory at a
+// time. A multiprocessor is to hold Fit blocks at least, which bounds the
+// registers of a thread; a thread reads Unit values of the matrices at a time;
+// with Trim a block of the last rows of the result sums only the rows it
+// holds. Real numbers take more values a thread than complex ones, which are
+// two each. Single precision measured on an RTX A2000, where every instruction
 // counts; double on a V100, where the memory does: larger blocks, which read
 // less of the matrices for a product, and fewer terms, for the registers
 // (tests/cpp/dft_blas_check.cu).
-template <int MM, int MN, int Depth, int Side>
+template <int MM, int MN, int Depth, int SideM, int SideN = SideM, int Fit = 1, int Unit = 1, int Trim = 0>
 struct Form {
-    static constexpr int mm = MM, mn = MN, depth = Depth, side = Side, threads = Side * Side;
+    static constexpr int mm = MM, mn = MN, depth = Depth, side_m = SideM, threads = SideM * SideN;
+    static constexpr int tm = SideM * MM, tn = SideN * MN, fit = Fit, unit = Unit, trim = Trim;
 };
 template <class S>
 struct Tiles;
@@ -149,6 +158,55 @@ template <>
 struct SmallTiles<double> : Form<8, 8, 8, 8> {};
 template <>
 struct SmallTiles<Cx<double>> : Form<4, 4, 8, 8> {};
+// For the V100 (compute capability 7.0), whose double precision is half as
+// fast as its single: blocks of 128 threads, two or three to a multiprocessor
+// (the P100, of the same double precision, has not the shared memory for as
+// many of the complex ones, and was not measured: it keeps the forms above).
+// There one warp keeps the double precision of a quarter of
+// a multiprocessor busy, and a block of 256 threads, the only one of its
+// multiprocessor, leaves it idle whenever it stands at its barrier or waits
+// for a chunk from memory: measured on a V100 with every chunk in the cache,
+// complex 640 x 640 of 31560 terms went from 1.23 of cuBLAS to 1.13 without
+// the reads of the chunks, 1.08 without their stores either and 1.03 without
+// the barrier, 32000 x 640 of 640 from 1.18 to 1.14, 1.09 and 1.04. Of two
+// blocks one sums while the other waits. The complex ones of two a
+// multiprocessor hold the 64 x 64 values of the large blocks, 8 x 4 a thread;
+// those of three 64 x 32, for narrow results; both trim their blocks of the
+// last rows. The real ones hold 128 x 64 and read two values an instruction,
+// from matrices whose columns all start on 16 bytes (the forms that trim, of
+// eight rows a thread and the registers they take, spill in their sums, and
+// those of three a multiprocessor too). Against cuBLAS on a V100: complex 640
+// x 640 of 31560 terms 1.15 with the large blocks, 1.07 with those of two a
+// multiprocessor, 1.09 with those of three; 1152 x 141 of 31560 1.17, 1.24
+// and 1.08; 141 x 141 of 31560 1.36, 1.20 and 1.04, 1.43 and 1.24 before they
+// trimmed; real 33372 x 1280 of 1280 1.20 and 1.14, 33372 x 195 of 390 1.18
+// and 1.04, 1.15 and 1.07 with one value an instruction.
+template <class S>
+struct PairTiles : Tiles<S> {};
+template <>
+struct PairTiles<Cx<double>> : Form<8, 4, 8, 8, 16, 2, 1, 1> {};
+template <>
+struct PairTiles<double> : Form<8, 8, 8, 16, 8, 2, 2> {};
+template <class S>
+struct TrioTiles : Tiles<S> {};
+template <>
+struct TrioTiles<Cx<double>> : Form<4, 4, 8, 16, 8, 3, 1, 1> {};
+// the forms by their numbers, those of Blas::set_small_tiles
+constexpr int kLarge = 0, kSmall = 1, kPair = 2, kTrio = 3, kForms = 4;
+// The pace of the full blocks of a form on a V100, against the fastest of its
+// type (complex 640 x 640 of 31560 terms and 32000 x 640 of 640: 1.15 and 1.16
+// of cuBLAS with the large blocks, 1.16 and 1.12 with the small ones, 1.07 and
+// 1.06 with those of two a multiprocessor, 1.09 and 1.07 with those of three;
+// real 1280 x 1280 of 33372 and 33372 x 1280 of 1280: 1.24 and 1.20, 2.06 and
+// 1.31, 1.17 and 1.14), and the bytes of the real matrices read along their
+// columns past which the large blocks are the fastest: see Blas::own_gemm.
+template <class S>
+constexpr double kPace[kForms] = {1.0, 1.0, 1.0, 1.0};
+template <>
+constexpr double kPace<Cx<double>>[kForms] = {0.93, 0.93, 1.0, 0.98};
+template <>
+constexpr double kPace<double>[kForms] = {0.95, 0.88, 1.0, 1.0};
+constexpr double kReach = 1.5e9;
 
 struct GemmArgs {
     int m, n, k;
@@ -178,13 +236,21 @@ struct GemmArgs {
 // banks. In double precision the rows of the threads alternate (thread u holds
 // the rows u, u + Side, ...): a warp reads the rows of a tile from shared
 // memory without conflicts and writes the result along its columns.
+//
+// The body of the kernels of a product: gemm_kernel, and gemm_fit_kernel for
+// the forms of which a multiprocessor is to hold several blocks.
 template <class S, bool TransA, bool TransB, class F>
-__global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
-                            const S* __restrict__ b, S* c, S* partial) {
+__device__ __forceinline__ void gemm_block(const GemmArgs& g, const S alpha, const S beta, const S* __restrict__ a,
+                                           const S* __restrict__ b, S* c, S* partial) {
     constexpr int kMM = F::mm, kMN = F::mn, kDepth = F::depth;
-    constexpr int kSide = F::side, kTeam = F::threads;  // threads of the block
-    constexpr int kTM = kSide * kMM, kTN = kSide * kMN;  // values of the result of a block along each index
-    constexpr int kLoadsA = kTM * kDepth / kTeam, kLoadsB = kTN * kDepth / kTeam;  // of a thread and a chunk
+    constexpr int kSide = F::side_m, kTeam = F::threads;  // threads along the rows of the tile, and of the block
+    constexpr int kTM = F::tm, kTN = F::tn;  // values of the result of a block along each index
+    // values a load: two in the forms of real double precision for matrices
+    // whose columns all start on 16 bytes
+    constexpr int kUnit = F::unit;
+    static_assert(kUnit == 1 || (kUnit == 2 && std::is_same_v<S, double>), "two values a load of real numbers only");
+    // loads of a thread and a chunk
+    constexpr int kLoadsA = kTM * kDepth / (kTeam * kUnit), kLoadsB = kTN * kDepth / (kTeam * kUnit);
     constexpr int kLoads = kLoadsA + kLoadsB;
     constexpr int kPM = kTM + (sizeof(S) == 4 ? 4 : 2), kPN = kTN + (sizeof(S) == 4 ? 4 : 2);
     constexpr bool kAlternate = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
@@ -241,23 +307,113 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
             bs[buffer][t * kPN + j] = g.conj_b ? conj_of(value) : value;
         }
     };
+    // The same of two values a load, which follow each other along the column
+    // of their matrix: the terms of op(a) with TransA and of op(b) without
+    // TransB, the rows and the columns of the tile otherwise. A load whose
+    // values are all of the matrices is one instruction.
+    struct Two {
+        S first, second;
+    };
+    auto fetch_two = [&](int q, unsigned t0, bool whole) {
+#ifdef MDAPY_BLAS_SAME_CHUNK
+        const unsigned t0_read = first;
+#else
+        const unsigned t0_read = t0;
+#endif
+        const bool of_a = q < kLoadsA;
+        const unsigned e = tid + (of_a ? q : q - kLoadsA) * kTeam;
+        // along the terms or across them, the place of the first value, and whether each is of the matrices
+        const bool along = of_a ? TransA : !TransB;
+        const unsigned tiles = of_a ? kTM : kTN;
+        const unsigned t = along ? 2 * (e % (kDepth / 2)) : e / (tiles / 2);
+        const unsigned r = (of_a ? i0 : j0) + (along ? e / (kDepth / 2) : 2 * (e % (tiles / 2)));
+        const S* from = of_a ? a + (TransA ? (t0_read + t) + r * g.lda : r + (t0_read + t) * g.lda)
+                             : b + (TransB ? r + (t0_read + t) * g.ldb : (t0_read + t) + r * g.ldb);
+        if constexpr (std::is_same_v<S, double>) {
+            if (whole) {
+                const double2 both = *reinterpret_cast<const double2*>(from);
+                return Two{both.x, both.y};
+            }
+        }
+        const unsigned rows = of_a ? m : n;
+        const bool one = r < rows && t0 + t < last;
+        const bool two = along ? r < rows && t0 + t + 1 < last : r + 1 < rows && t0 + t < last;
+        return Two{one ? from[0] : zero_of(S{}), two ? from[1] : zero_of(S{})};
+    };
+    auto store_two = [&](int q, unsigned buffer, Two value) {
+        const bool of_a = q < kLoadsA;
+        const unsigned e = tid + (of_a ? q : q - kLoadsA) * kTeam;
+        const bool along = of_a ? TransA : !TransB;
+        const unsigned tiles = of_a ? kTM : kTN, padded = of_a ? kPM : kPN;
+        const unsigned t = along ? 2 * (e % (kDepth / 2)) : e / (tiles / 2);
+        const unsigned r = along ? e / (kDepth / 2) : 2 * (e % (tiles / 2));
+        S* to = (of_a ? as[buffer] : bs[buffer]) + t * padded + r;
+        const bool conj = of_a ? g.conj_a : g.conj_b;
+        to[0] = conj ? conj_of(value.first) : value.first;
+        to[along ? padded : 1] = conj ? conj_of(value.second) : value.second;
+    };
+    // either kind of load, by the form
+    auto load = [&](int q, unsigned t0, bool whole) {
+        if constexpr (kUnit == 2)
+            return fetch_two(q, t0, whole);
+        else
+            return fetch(q, t0, whole);
+    };
+    auto keep = [&](int q, unsigned buffer, const auto& value) {
+        if constexpr (kUnit == 2)
+            store_two(q, buffer, value);
+        else
+            store(q, buffer, value);
+    };
     S acc[kMM * kMN];
 #pragma unroll
     for (int e = 0; e < kMM * kMN; ++e) acc[e] = zero_of(S{});
     // the chunk after the one in shared memory waits in registers
-    S stage[kLoads];
+    decltype(load(0, 0u, false)) stage[kLoads];
     if (first < last) {
 #pragma unroll
-        for (int q = 0; q < kLoads; ++q) store(q, 0, fetch(q, first, inside && first + kDepth <= last));
+        for (int q = 0; q < kLoads; ++q) keep(q, 0, load(q, first, inside && first + kDepth <= last));
         if (first + kDepth < last) {
 #pragma unroll
-            for (int q = 0; q < kLoads; ++q) stage[q] = fetch(q, first + kDepth, inside && first + 2 * kDepth <= last);
+            for (int q = 0; q < kLoads; ++q) stage[q] = load(q, first + kDepth, inside && first + 2 * kDepth <= last);
         }
     }
     __syncthreads();
+    // A block of the last rows of the result, with a form that trims: where
+    // they are half the rows of its tile or fewer, or a quarter, every thread
+    // holds as many of its own rows only (they alternate), and sums no others;
+    // without, a thread of such a block sums all its rows, most of them zeros,
+    // and the block takes the time of a full one.
+    constexpr bool kTrim = F::trim && kAlternate && kMM % 4 == 0;
+    const unsigned trim = !kTrim || i0 + kTM / 2 < m ? 0 : i0 + kTM / 4 < m ? 1 : 2;
+    // the sums of a chunk into the first rows of a thread
+    auto sums = [&](unsigned buffer, auto rows) {
+        constexpr int kRows = decltype(rows)::value;
+#pragma unroll
+        for (int t = 0; t < kDepth; ++t) {
+            S x[kRows], y[kMN];
+#pragma unroll
+            for (int p = 0; p < kRows; ++p) x[p] = as[buffer][t * kPM + row(p)];
+#pragma unroll
+            for (int q = 0; q < kMN; ++q) y[q] = bs[buffer][t * kPN + tj + q];
+#pragma unroll
+            for (int q = 0; q < kMN; ++q)
+#pragma unroll
+                for (int p = 0; p < kRows; ++p) acc[p + q * kMM] = plus(acc[p + q * kMM], x[p], y[q]);
+        }
+    };
     unsigned buffer = 0;
     for (unsigned t0 = first; t0 < last; t0 += kDepth, buffer ^= 1) {
-        if (active) {
+        if constexpr (kTrim) {
+            if (active) {
+                if (trim == 0)
+                    sums(buffer, std::integral_constant<int, kMM>{});
+                else if (trim == 1)
+                    sums(buffer, std::integral_constant<int, kMM / 2>{});
+                else
+                    sums(buffer, std::integral_constant<int, kMM / 4>{});
+            }
+        } else if (active) {
 #pragma unroll
             for (int t = 0; t < kDepth; ++t) {
                 S x[kMM], y[kMN];
@@ -274,11 +430,11 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         // the next chunk to the other buffer, which the sums before these read
         if (t0 + kDepth < last) {
 #pragma unroll
-            for (int q = 0; q < kLoads; ++q) store(q, buffer ^ 1, stage[q]);
+            for (int q = 0; q < kLoads; ++q) keep(q, buffer ^ 1, stage[q]);
         }
         if (t0 + 2 * kDepth < last) {
 #pragma unroll
-            for (int q = 0; q < kLoads; ++q) stage[q] = fetch(q, t0 + 2 * kDepth, inside && t0 + 3 * kDepth <= last);
+            for (int q = 0; q < kLoads; ++q) stage[q] = load(q, t0 + 2 * kDepth, inside && t0 + 3 * kDepth <= last);
         }
         __syncthreads();
     }
@@ -299,7 +455,23 @@ __global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const
         }
 }
 
+template <class S, bool TransA, bool TransB, class F>
+__global__ void gemm_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a,
+                            const S* __restrict__ b, S* c, S* partial) {
+    gemm_block<S, TransA, TransB, F>(g, alpha, beta, a, b, c, partial);
+}
+
 #if !defined(MDAPY_GPU_HIP)
+// The same of a form of which a multiprocessor is to hold several blocks: the
+// compiler of NVIDIA bounds the registers of a thread by them (to that of AMD
+// the second number is another, the waves of a unit).
+template <class S, bool TransA, bool TransB, class F>
+__global__ void __launch_bounds__(F::threads, F::fit)
+gemm_fit_kernel(const GemmArgs g, const S alpha, const S beta, const S* __restrict__ a, const S* __restrict__ b, S* c,
+                S* partial) {
+    gemm_block<S, TransA, TransB, F>(g, alpha, beta, a, b, c, partial);
+}
+
 // the compute capability the kernels of this file were compiled for, as 900
 __global__ void built_kernel(int* built) {
 #if defined(__CUDA_ARCH__)
@@ -483,19 +655,28 @@ void launch_ger(int m, int n, S alpha, const S* x, int incx, const S* y, int inc
     check_cuda(cudaGetLastError(), "a rank-one update");
 }
 
-template <class S, bool TransA, bool TransB>
-void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial, bool small) {
-    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
-        if (small) {
-            gemm_kernel<S, TransA, TransB, SmallTiles<S>><<<grid, SmallTiles<S>::threads>>>(g, alpha, beta, a, b, c,
-                                                                                         partial);
-            check_cuda(cudaGetLastError(), "a product of matrices");
-            return;
-        }
-    }
-    static_cast<void>(small);
-    gemm_kernel<S, TransA, TransB, Tiles<S>><<<grid, Tiles<S>::threads>>>(g, alpha, beta, a, b, c, partial);
+template <class S, bool TransA, bool TransB, class F>
+void launch_form(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial) {
+#if !defined(MDAPY_GPU_HIP)
+    if constexpr (F::fit > 1)
+        gemm_fit_kernel<S, TransA, TransB, F><<<grid, F::threads>>>(g, alpha, beta, a, b, c, partial);
+    else
+#endif
+        gemm_kernel<S, TransA, TransB, F><<<grid, F::threads>>>(g, alpha, beta, a, b, c, partial);
     check_cuda(cudaGetLastError(), "a product of matrices");
+}
+
+template <class S, bool TransA, bool TransB>
+void launch_gemm(const GemmArgs& g, dim3 grid, S alpha, S beta, const S* a, const S* b, S* c, S* partial, int form) {
+    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
+        if (form == kSmall) return launch_form<S, TransA, TransB, SmallTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+        if (form == kPair) return launch_form<S, TransA, TransB, PairTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+    }
+    if constexpr (std::is_same_v<S, Cx<double>>) {
+        if (form == kTrio) return launch_form<S, TransA, TransB, TrioTiles<S>>(g, grid, alpha, beta, a, b, c, partial);
+    }
+    static_cast<void>(form);
+    launch_form<S, TransA, TransB, Tiles<S>>(g, grid, alpha, beta, a, b, c, partial);
 }
 
 #include "dft/blas/dmma.cuh"
@@ -509,7 +690,9 @@ Blas::Blas(Kernels kernels) : kernels_(kernels) {}
 // (compute capability 8.0, 9.0 and 10.0: A100, H100 and GH200, B200), not on
 // the others, whose double precision is a small part of their single;
 // MDAPY_DFT_DMMA=0 turns them off, for comparisons. The kernels that run may
-// be those of an older capability than the GPU's, which decide.
+// be those of an older capability than the GPU's, which decide. The V100
+// (compute capability 7.0), whose double precision is half as fast as its
+// single, takes portable products of its own forms.
 void Blas::look() {
     if (processors_ > 0) return;
     int device = 0;
@@ -528,6 +711,7 @@ void Blas::look() {
     const char* off = std::getenv("MDAPY_DFT_DMMA");
     tensor_ = minor == 0 && (major == 8 || major == 9 || major == 10) && built >= 800 && !(off != nullptr && off[0] == '0');
     maps_ = tensor_ && major >= 9 && built >= 900;
+    pair_forms_ = major == 7 && minor == 0;
 #endif
     if (processors_ < 1) processors_ = 1;
 }
@@ -564,7 +748,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
     g.stride_b = 0;
     g.stride_c = stride_c;
     look();
-    int kTM = Tiles<S>::side * Tiles<S>::mm, kTN = Tiles<S>::side * Tiles<S>::mn, kDepth = Tiles<S>::depth;
+    int kTM = Tiles<S>::tm, kTN = Tiles<S>::tn, kDepth = Tiles<S>::depth;
 #if !defined(MDAPY_GPU_HIP)
     constexpr bool kTensorType = std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>;
 #endif
@@ -577,32 +761,102 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
         if (tensor) kTM = DmmaForm<S>::bm, kTN = DmmaForm<S>::bn, kDepth = DmmaForm<S>::bk, per = DmmaForm<S>::per;
     }
 #endif
-    // The small blocks for results that fill one of them at least, where they
-    // leave a fifth fewer threads idle than the large ones; they read more of
-    // the matrices, which real numbers, two reads a product, bear less: there
-    // only where it is a fifth more at most. Of complex numbers on NVIDIA GPUs
-    // also wherever the sums are short, which the large blocks, one a
-    // multiprocessor, wait on (measured on a V100: 17640 x 154 of 288 terms
-    // from 1.20 of cuBLAS to 1.11, 59000 x 692 of 692 from 1.17 to 1.13; the
-    // long sums of 692 x 692 at 1.09 with the large blocks, 1.15 with the
-    // small ones).
-    bool small = false;
-    if (!tensor && (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) && small_tiles_ != 0) {
-        const int sm = SmallTiles<S>::side * SmallTiles<S>::mm, sn = SmallTiles<S>::side * SmallTiles<S>::mn;
-        // the blocks of a form, the part of them the result fills, and what they read
+    // every column of both matrices starts on 16 bytes, as those of complex values do
+    const auto even = [](const void* p, long long ld) {
+        return reinterpret_cast<std::uintptr_t>(p) % 16 == 0 && ld % 2 == 0;
+    };
+    const bool wide =
+        !std::is_same_v<S, double> || (even(a, lda) && even(b, ldb) && (batch == 1 || stride_a % 2 == 0));
+    int form = kLarge;
+    if constexpr (std::is_same_v<S, double> || std::is_same_v<S, Cx<double>>) {
+        // The forms of the portable products: what a block holds of the
+        // result, its terms a chunk, the blocks a multiprocessor holds at once
+        // (0: not counted), whether it trims its blocks of the last rows, and
+        // whether this product can take it: the blocks of two real values a
+        // load ask for columns on 16 bytes, those of three a multiprocessor
+        // are of complex numbers.
+        struct Held {
+            int tm, tn, depth, per;
+            bool trims, fits;
+        };
+        constexpr bool kComplex = std::is_same_v<S, Cx<double>>;
+        const Held held[kForms] = {
+            {Tiles<S>::tm, Tiles<S>::tn, Tiles<S>::depth, 1, false, true},
+            {SmallTiles<S>::tm, SmallTiles<S>::tn, SmallTiles<S>::depth, 0, false, true},
+            {PairTiles<S>::tm, PairTiles<S>::tn, PairTiles<S>::depth, PairTiles<S>::fit, PairTiles<S>::trim != 0, wide},
+            {TrioTiles<S>::tm, TrioTiles<S>::tn, TrioTiles<S>::depth, TrioTiles<S>::fit, TrioTiles<S>::trim != 0,
+             kComplex}};
+        // the blocks of a form
         const auto count = [m, n](int tm, int tn) { return static_cast<double>((m + tm - 1) / tm) * ((n + tn - 1) / tn); };
-        const double filled = count(kTM, kTN) * kTM * kTN / (count(sm, sn) * sm * sn);
-        const double read = count(sm, sn) * (sm + sn) / (count(kTM, kTN) * (kTM + kTN));
+        if (tensor) {
+            // none of them
+        } else if (small_tiles_ >= 0) {
+            if (small_tiles_ < kForms && held[small_tiles_].fits) form = small_tiles_;
+        } else if (pair_forms_ && wide) {
+            // Where double precision is half as fast as single: the form whose
+            // blocks take the least time, each the values it holds over the
+            // pace of the full blocks of its form (kPace); a block of the last
+            // rows that a form trims to half of its rows counts as three
+            // quarters of a block, to a quarter as a half. A result that fills
+            // the larger blocks takes them, which read the least of the
+            // matrices; one whose last blocks would stand mostly idle the
+            // smaller ones. Measured on a V100, against cuBLAS, complex with
+            // the blocks of two and of three a multiprocessor and the small
+            // ones: 692 x 692 of 79405 terms 1.04, 1.07 and 1.22; 1152 x 141
+            // of 31560 1.24, 1.08 and 1.14; 141 x 141 of 31560 1.20, 1.04 and
+            // 1.11; 288 x 154 of 17640 1.35, 1.20 and 1.16; 31560 x 141 of
+            // 1152 1.24, 1.05 and 1.07; 31560 x 1 of 1152 2.31, 1.14 and 1.31
+            // (2.21 with the blocks of 256 threads).
+            constexpr int kOrder[kForms] = {kPair, kTrio, kLarge, kSmall};
+            double least = 0.0;
+            form = -1;
+            for (const int f : kOrder) {
+                const Held& h = held[f];
+                if (!h.fits) continue;
+                const int rest = m % h.tm;
+                const double last = rest == 0 ? 0.0 : !h.trims || 2 * rest > h.tm ? 1.0 : 4 * rest > h.tm ? 0.75 : 0.5;
+                const double cost = (m / h.tm + last) * ((n + h.tn - 1) / h.tn) * h.tm * h.tn / kPace<S>[f];
+                if (form < 0 || cost < least) least = cost, form = f;
+            }
+            // Real matrices read along their columns, a column a row or a
+            // column of the result (op(a) transposed, op(b) not): past kReach
+            // bytes of them the smaller blocks, which read more of them, fall
+            // behind the large ones (measured on a V100, m x 461 of 78996
+            // terms with the blocks of 256 threads and those of two a
+            // multiprocessor: 0.95 and 0.93 of cuBLAS for 922 rows, 0.9 GB;
+            // 0.94 and 0.97 for 1844, 1.5 GB; 0.93 and 1.06 for 2766, 2.0 GB;
+            // 0.86 and 1.07 for 4608, 3.2 GB). The complex ones do not: 2304 x
+            // 141 of 63000 terms, 2.5 GB, 1.06 with the blocks of three a
+            // multiprocessor and 1.23 with those of two.
+            if constexpr (std::is_same_v<S, double>) {
+                const double streamed = 8.0 * k * ((ta != Op::N ? m : 0) + (tb == Op::N ? n : 0));
+                if (streamed > kReach) form = kLarge;
+            }
+        } else {
+            // The small blocks for results that fill one of them at least, where they
+            // leave a fifth fewer threads idle than the large ones; they read more of
+            // the matrices, which real numbers, two reads a product, bear less: there
+            // only where it is a fifth more at most. Of complex numbers on NVIDIA GPUs
+            // also wherever the sums are short, which the large blocks, one a
+            // multiprocessor, wait on (measured on a V100, before it took the forms
+            // above: 17640 x 154 of 288 terms from 1.20 of cuBLAS to 1.11, 59000 x 692
+            // of 692 from 1.17 to 1.13; the long sums of 692 x 692 at 1.09 with the
+            // large blocks, 1.15 with the small ones).
+            const int sm = held[kSmall].tm, sn = held[kSmall].tn;
+            // the part of the large blocks the result fills, and what the small ones read
+            const double filled = count(kTM, kTN) * kTM * kTN / (count(sm, sn) * sm * sn);
+            const double read = count(sm, sn) * (sm + sn) / (count(kTM, kTN) * (kTM + kTN));
 #if defined(MDAPY_GPU_HIP)
-        constexpr bool kShortSums = false;
+            constexpr bool kShortSums = false;
 #else
-        constexpr bool kShortSums = std::is_same_v<S, Cx<double>>;
+            constexpr bool kShortSums = std::is_same_v<S, Cx<double>>;
 #endif
-        constexpr int kShortSum = 2048;
-        small = small_tiles_ > 0 ||
-                (m >= sm && n >= sn &&
-                 ((kShortSums && k <= kShortSum) || (filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2))));
-        if (small) kTM = sm, kTN = sn, kDepth = SmallTiles<S>::depth, per = 0;
+            constexpr int kShortSum = 2048;
+            if (m >= sm && n >= sn &&
+                ((kShortSums && k <= kShortSum) || (filled > 1.2 && (!std::is_same_v<S, double> || read <= 1.2))))
+                form = kSmall;
+        }
+        if (!tensor) kTM = held[form].tm, kTN = held[form].tn, kDepth = held[form].depth, per = held[form].per;
     }
     const long long tiles = static_cast<long long>((m + kTM - 1) / kTM) * ((n + kTN - 1) / kTN);
     // A small result of long sums: segments of 512 terms or more, as many as
@@ -657,12 +911,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
 #if !defined(MDAPY_GPU_HIP)
     if constexpr (kTensorType) {
         if (tensor) {
-            // copies of 16 bytes where every column starts on 16 bytes, as those of complex values do
-            const auto even = [](const void* p, long long ld) {
-                return reinterpret_cast<std::uintptr_t>(p) % 16 == 0 && ld % 2 == 0;
-            };
-            const bool wide = !std::is_same_v<S, double> ||
-                              (even(a, lda) && even(b, ldb) && (batch == 1 || stride_a % 2 == 0));
+            // copies of 16 bytes where every column starts on 16 bytes
             const auto launch = [&](auto copy) {
                 constexpr int C = decltype(copy)::value;
                 bool& asked = asked_[std::is_same_v<S, double>][trans_a][trans_b][C];
@@ -682,13 +931,13 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
 #endif
     if (!tensor) {
         if (trans_a && trans_b)
-            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial, small);
+            launch_gemm<S, true, true>(g, grid, alpha, beta, a, b, c, partial, form);
         else if (trans_a)
-            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial, small);
+            launch_gemm<S, true, false>(g, grid, alpha, beta, a, b, c, partial, form);
         else if (trans_b)
-            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial, small);
+            launch_gemm<S, false, true>(g, grid, alpha, beta, a, b, c, partial, form);
         else
-            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial, small);
+            launch_gemm<S, false, false>(g, grid, alpha, beta, a, b, c, partial, form);
     }
     if (g.segments > 1) {
         gather_kernel<S><<<blocks(static_cast<long long>(m) * n, kThreads), kThreads>>>(m, n, g.segments, alpha, beta,

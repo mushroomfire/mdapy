@@ -292,6 +292,20 @@ __device__ __forceinline__ Cx<R> lanes_sum(Cx<R> x) {
     return {lanes_sum(x.x), lanes_sum(x.y)};
 }
 
+// The same by shuffles: the lanes of each group, then the groups in their
+// order, with one barrier; partial holds a value a group. The barriers around
+// a call keep the next from writing partial before every thread has read it.
+template <class S>
+__device__ __forceinline__ S lanes_block_sum(S* partial, S value) {
+    constexpr int kGroupsOfLanes = kStep / ::mdapy::cuda::kLanes;
+    value = lanes_sum(value);
+    if (threadIdx.x % ::mdapy::cuda::kLanes == 0) partial[threadIdx.x / ::mdapy::cuda::kLanes] = value;
+    __syncthreads();
+    S total = partial[0];
+    for (int g = 1; g < kGroupsOfLanes; ++g) total = add(total, partial[g]);
+    return total;
+}
+
 // Step k of the tridiagonalization. The reflector k, h = 1 - tau v v^H with
 // v_(k + 1) = 1 and h^H x = beta e_1 (LAPACK's larfg), is that of the column k
 // below the diagonal; it is kept as the column k of reflectors (zeros down to
@@ -442,7 +456,7 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
                 w[i - k] = scaled;
                 sum = add(sum, mul(cj(scaled), before[i]));
             }
-            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, block_sum(partial, sum)));
+            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, lanes_block_sum(partial, sum)));
             for (int i = k + t; i < n; i += kStep) w[i - k] = add(w[i - k], mul(half, before[i]));
             __syncthreads();
         }
@@ -457,7 +471,7 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
                 if (i > k + 1) tail += re(x) * re(x) + im(x) * im(x);
             }
         }
-        tail = re(block_sum(partial, from_real(S{}, tail)));
+        tail = re(lanes_block_sum(partial, from_real(S{}, tail)));
         const S alpha = v[0];
         S reflection = from_real(S{}, static_cast<R>(0)), scale = from_real(S{}, static_cast<R>(1));
         R beta = re(alpha);
@@ -491,7 +505,7 @@ __global__ void tridiagonal_steps_kernel(int n, int first, int last, S* a, S* re
             }
             sum = add(sum, mul(cj(x), v[i - k - 1]));
         }
-        sum = block_sum(partial, sum);
+        sum = lanes_block_sum(partial, sum);
         if (t == 0) {
             p_out[j] = sum;
             // done with the step; a block that goes on waits for the n - 1 - k of it
@@ -561,7 +575,7 @@ __global__ void __launch_bounds__(kStep)
                 w[i - k] = scaled;
                 sum = add(sum, mul(cj(scaled), before[i]));
             }
-            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, block_sum(partial, sum)));
+            const S half = mul(from_real(S{}, static_cast<R>(-0.5)), mul(factor, lanes_block_sum(partial, sum)));
             for (int i = k + t; i < n; i += kStep) w[i - k] = add(w[i - k], mul(half, before[i]));
             __syncthreads();
         }
@@ -576,7 +590,7 @@ __global__ void __launch_bounds__(kStep)
                 if (i > k + 1) tail += re(x) * re(x) + im(x) * im(x);
             }
         }
-        tail = re(block_sum(partial, from_real(S{}, tail)));
+        tail = re(lanes_block_sum(partial, from_real(S{}, tail)));
         const S alpha = v[0];
         S reflection = zero, scale = from_real(S{}, static_cast<R>(1));
         R beta = re(alpha);

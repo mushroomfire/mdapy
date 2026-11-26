@@ -11166,7 +11166,10 @@ GPU of a potential there, in their heading too.
 Lines that are not rows of numbers start with <code>#</code>, so that
 <code>numpy.loadtxt("md.log")</code> reads the rows of every run as one table. Under
 MPI the main process alone writes. Every run and <code>iterate</code> of the
-<code>MolecularDynamics</code> writes to the same log, which <code>close</code> closes.</p>
+<code>MolecularDynamics</code> writes to the same log, which <code>close</code> closes. A calculator
+with a log of its own, as the <a href="../../potentials/dft/#in-molecular-dynamics">DFT</a>, writes
+it to another file: the same file for both raises <code>InvalidParameter</code>, their rows being
+different.</p>
 <h2 id="frames-in-files">Frames in files<a class="headerlink" href="#frames-in-files" title="Permanent link">&para;</a></h2>
 <p>The frames that <code>save_every</code> keeps stay in memory as long as the
 <code>MolecularDynamics</code> or its <code>frames</code> do, about 60 bytes per atom each: a

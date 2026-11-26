@@ -5954,10 +5954,71 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-log-and-the-parameters-of-each-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The log and the parameters of each computation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The log and the parameters of each computation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-each-label-keeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each label keeps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ground-state-in-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ground state in a file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#many-gpus" class="md-nav__link">
     <span class="md-ellipsis">
       
         Many GPUs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-of-the-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory of the GPU
       
     </span>
   </a>
@@ -10943,10 +11004,71 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#the-log-and-the-parameters-of-each-computation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The log and the parameters of each computation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The log and the parameters of each computation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-each-label-keeps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What each label keeps
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-ground-state-in-a-file" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The ground state in a file
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#in-molecular-dynamics" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        In molecular dynamics
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#many-gpus" class="md-nav__link">
     <span class="md-ellipsis">
       
         Many GPUs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-of-the-gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory of the GPU
       
     </span>
   </a>
@@ -11015,50 +11137,51 @@ from source) per configuration, and its speed is still being worked on. Its resu
 input, as <a href="#how-the-results-compare-with-quantum-espresso">below</a>.</p>
 </div>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span><span class="p">,</span> <span class="n">write</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="mf">600.0</span><span class="p">,</span>  <span class="c1"># eV, the cutoff of the plane waves</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">pseudopotentials</span><span class="o">=</span><span class="s2">"pseudo-dojo/nc-sr-04_pbe_standard"</span><span class="p">,</span>  <span class="c1"># Al.upf, Ni.upf, ...</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>  <span class="c1"># 1/Å</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">smearing</span><span class="o">=</span><span class="s2">"marzari-vanderbilt"</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>  <span class="c1"># eV</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">},</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="p">)</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"structures"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.xyz"</span><span class="p">)):</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">system</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="n">write</span><span class="p">(</span><span class="s2">"train.xyz"</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>  <span class="c1"># energy, virial and forces of each frame</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="c1"># the settings that make these labels comparable with others</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="n">Path</span><span class="p">(</span><span class="s2">"train.json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">last</span><span class="p">[</span><span class="s2">"provenance"</span><span class="p">],</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span><span class="p">,</span> <span class="n">write</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="mf">600.0</span><span class="p">,</span>  <span class="c1"># eV, the cutoff of the plane waves</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">pseudopotentials</span><span class="o">=</span><span class="s2">"pseudo-dojo/nc-sr-04_pbe_standard"</span><span class="p">,</span>  <span class="c1"># Al.upf, Ni.upf, ...</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span>  <span class="c1"># 1/Å</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">smearing</span><span class="o">=</span><span class="s2">"marzari-vanderbilt"</span><span class="p">,</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span>  <span class="c1"># eV</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">0.6</span><span class="p">},</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="n">frames</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="s2">"structures"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.xyz"</span><span class="p">)):</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">system</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">write</span><span class="p">(</span><span class="s2">"train.xyz"</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>  <span class="c1"># the energy, virial, forces and parameters of each frame</span>
 </code></pre></div>
 <p><code>DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
 bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
-kernels="mdapy", comm=None)</code> computes the
+kernels="mdapy", comm=None, log=None, start=None)</code> computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a <a href="../calculators/">calculator</a> of
 MDAPY. It suits the labels of training sets: configurations of up to a few
 hundred atoms, one at a time. It runs in the <a href="../../simulation/gpu/#installing-the-gpu-part">GPU part</a>
-of MDAPY, the package <code>mdapy-cuda12</code> for GPUs from the V100 on, with NVIDIA's cuBLAS,
-cuFFT and cuSOLVER, which the extra <code>dft</code> installs from NVIDIA's packages (see
-<a href="../../../getting-started/installation/#nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT</a>):</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12,dft]"</span>
+of MDAPY, the package <code>mdapy-cuda12</code> for GPUs from the V100 on, on MDAPY's own kernels:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s2">"mdapy[cuda12]"</span>
 </code></pre></div>
+<p>To compare them with NVIDIA's cuBLAS, cuFFT and cuSOLVER (<code>kernels="vendor"</code>), the extra
+<code>dft</code> installs those from NVIDIA's packages, <code>pip install "mdapy[cuda12,dft]"</code> (see
+<a href="../../../getting-started/installation/#nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT</a>).</p>
 <p>For an AMD GPU the same sources are compiled with HIP of <a href="https://rocm.docs.amd.com">ROCm</a>
 6 into the package <code>mdapy-rocm6</code>, in a clone of MDAPY:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span>./rocm6<span class="w"> </span>-Ccmake.define.CMAKE_HIP_ARCHITECTURES<span class="o">=</span>gfx90a
 </code></pre></div>
 <p><code>gfx90a</code> names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
-ROCm, and the run their libraries, as <code>module load rocm</code> gives them on a cluster. There
-the calculations of several threads take turns on the GPU instead of running at once.
-Without the GPU part or its libraries, <code>DFT</code> raises an error that says what to install.</p>
+ROCm, the run the HIP runtime, as <code>module load rocm</code> gives it on a cluster, and
+<code>kernels="vendor"</code> the libraries of ROCm too, which it loads from the folders of
+<code>LD_LIBRARY_PATH</code>, <code>$ROCM_PATH/lib</code> or <code>/opt/rocm/lib</code>. There the calculations of several
+threads take turns on the GPU instead of running at once.
+Without the GPU part, or the libraries of the vendor for <code>kernels="vendor"</code>, <code>DFT</code> raises
+an error that says what to install.</p>
 <table>
 <thead>
 <tr>
@@ -11236,7 +11359,7 @@ Without the GPU part or its libraries, <code>DFT</code> raises an error that say
 <td>str</td>
 <td><code>"mdapy"</code></td>
 <td><code>"mdapy"</code>, <code>"vendor"</code></td>
-<td>Whose kernels run on the GPU. <code>"mdapy"</code>: those of MDAPY where it has its own, today the fast Fourier transforms, and the GPU libraries of the vendor for the rest. <code>"vendor"</code>: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; <code>last["provenance"]</code> keeps which one ran</td>
+<td>Whose kernels run on the GPU. <code>"mdapy"</code>: those of MDAPY, the fast Fourier transforms, the dense linear algebra (the products of matrices and the triangular solves), the Hermitian eigensolver and the Cholesky factorization, which is all the DFT takes from the libraries of the vendor, which it does not load; only sizes of a grid given that are not products of 2, 3, 5 and 7 go to the FFT of the vendor. <code>"vendor"</code>: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs, of the extra <code>dft</code>; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; <code>last["provenance"]</code> keeps which one ran</td>
 </tr>
 <tr>
 <td><code>comm</code></td>
@@ -11244,6 +11367,20 @@ Without the GPU part or its libraries, <code>DFT</code> raises an error that say
 <td><code>None</code></td>
 <td></td>
 <td>processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls <code>compute</code> with the same system and gets the whole result; without <code>gpu</code> each takes the GPU of its rank on its machine</td>
+</tr>
+<tr>
+<td><code>log</code></td>
+<td>path or stream</td>
+<td><code>None</code></td>
+<td></td>
+<td>where every step of the self-consistent field of each computation is written, with the parameters it took (<a href="#the-log-and-the-parameters-of-each-computation">below</a>)</td>
+</tr>
+<tr>
+<td><code>start</code></td>
+<td>path</td>
+<td><code>None</code></td>
+<td></td>
+<td>a ground state that <code>save</code> wrote, which the first computation starts from (<a href="#the-ground-state-in-a-file">below</a>)</td>
 </tr>
 </tbody>
 </table>
@@ -11265,7 +11402,15 @@ Without the GPU part or its libraries, <code>DFT</code> raises an error that say
 </tr>
 <tr>
 <td><code>last</code></td>
-<td>of the last computation: <code>iterations</code>, <code>restarted</code>, <code>fermi</code> (eV), <code>magnetization</code> and <code>absolute_magnetization</code> (Bohr magnetons, with spin), <code>magnetic_moments</code> ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of <code>moment_radius</code> around each atom, in the order of the atoms) and <code>moment_radius</code> (Å, the radius used), <code>net_force</code> (eV/Å), <code>kpoints</code>, <code>grid</code>, <code>provenance</code></td>
+<td>of the last computation: <code>iterations</code>, <code>restarted</code>, <code>fermi</code> (eV), <code>magnetization</code> and <code>absolute_magnetization</code> (Bohr magnetons, with spin), <code>magnetic_moments</code> ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of <code>moment_radius</code> around each atom, in the order of the atoms) and <code>moment_radius</code> (Å, the radius used), <code>net_force</code> (eV/Å), <code>kpoints</code>, <code>grid</code>, <code>gpu_memory</code> (the <a href="#memory-of-the-gpu">memory of the GPU</a> in MiB), <code>provenance</code>, <code>calculation</code> (its number among the computations of the calculator) and <code>parameters</code> (every parameter it took, <a href="#the-log-and-the-parameters-of-each-computation">below</a>)</td>
+</tr>
+<tr>
+<td><code>log</code>, <code>start</code></td>
+<td>the log and the ground state given</td>
+</tr>
+<tr>
+<td><code>save(path)</code></td>
+<td>writes the ground state of the last computation (<a href="#the-ground-state-in-a-file">below</a>)</td>
 </tr>
 </tbody>
 </table>
@@ -11274,66 +11419,432 @@ energy is the free energy of the smearing, VASP's TOTEN. <code>provenance</code>
 what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
 the cutoff, the mesh, the smearing and its width, the functional, the spins, the
 grid and the bands. Labels of a set should share them. It also holds the
-<code>kernels</code>, which changes the results by rounding alone.</p>
+<code>kernels</code>, which changes the results by rounding alone. With MDAPY's kernels
+the same computation on the same GPU gives the same numbers to the last bit at
+each run; the libraries of the vendor do not promise it when the k-points are
+solved side by side.</p>
 <p>The magnetic moments are those of the smooth density on the grid, with the
 augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center
 corrections of PAW, within spheres that do not overlap: they depend on the radius, and
 their sum is less than <code>magnetization</code>, which counts the whole cell. Compare them across
 labels of a set only with the same <code>moment_radius</code>.</p>
+<h2 id="the-log-and-the-parameters-of-each-computation">The log and the parameters of each computation<a class="headerlink" href="#the-log-and-the-parameters-of-each-computation" title="Permanent link">&para;</a></h2>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span><span class="p">,</span> <span class="n">write</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">300.0</span><span class="p">,</span> <span class="n">kpoints</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="s2">"dft.log"</span><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="n">system</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="s2">"al4.xyz"</span><span class="p">)</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">write</span><span class="p">(</span><span class="s2">"labels.xyz"</span><span class="p">,</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a># MDAPY 2.2.0, DFT, 2026-11-25 13:15:35
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a># engine: MDAPY on NVIDIA RTX A2000 12GB, compute capability 8.6
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a># machine: 12th Gen Intel(R) Core(TM) i5-12600K, 16 logical CPUs, 16 usable, 31.0 GB of memory
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>#
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a># calculation 1: 4 atoms, Al 4; mesh 2 2 2, 6 k-points, 8 operations, 10 bands, grid 24 24 24
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a># parameters: {"mdapy": "2.2.0", "arguments": {"encut": 300.0, "ecutrho": 1200.0, "kpoints": [2, 2, 2], "kspacing": 0.25, "smearing": "gaussian", "sigma": 0.2, "magmoms": null, "hubbard": {}, "functional": "pbe_pw", "tolerance": 1e-06, "max_iterations": 100, "mixing": 0.7, "magnetic_mixing": 1.0, "kerker": 1.5, "preconditioner": "kerker", "bands": 10, "seed": 0, "restart": false, "symmetry": true, "moment_radius": null, "precision": "double", "kernels": "mdapy"}, "pseudopotentials": {"Al": {"file": "Al_std.upf", "sha256": "b02eaa07c5d98f5eeae1bec4155854a7a94ea3635ca6b42e914f3f7ebd6912fb"}}, "internal": {"offset": [0.0, 0.0, 0.0], "minimum": 0.0, "history": 8, "metric_weight": 20.0, "davidson_iterations": 100, "davidson_basis": 2, "correct_forces": true, "magnetic_kerker": 0.0, "atomic_start": true, "kpoint_threads": 0, "first_tolerance": 0.0, "conditioning": 1000000.0, "output_energies": false, "adaptive_damping": false, "first_held": 0}, "environment": {}, "gpu": "NVIDIA RTX A2000 12GB", "processes": 1}
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a># calculation  step         free_energy     change   residual  magnetization      fermi  davidson      wall
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>            1     1       -250.09668526        nan   4.48e-01         0.0000     8.0558        39      0.11
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>            1     2       -250.00546055   9.12e-02   8.03e-02         0.0000     8.0607        30      0.16
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>            1     3       -249.97892058   2.65e-02   8.11e-05         0.0000     8.0699        22      0.21
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>            1     4       -249.97899110  -7.05e-05   4.58e-07         0.0000     8.0696        38      0.25
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>            1     5       -249.97899131  -2.10e-07   2.63e-08         0.0000     8.0696        36      0.29
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a># calculation 1: converged in 5 steps, 0.86 s; energy -249.978991 eV, largest force 0.184590 eV/Å, pressure -4.4583 GPa
+</code></pre></div>
+<p><code>log</code> takes a path, or a stream such as <code>sys.stdout</code>. The first computation of a
+calculator writes the file anew, and the next ones add to it. The heading names MDAPY,
+the GPU and the machine. Each computation then writes:</p>
+<ul>
+<li>a line with its atoms, the mesh and its irreducible k-points, the operations of the
+  symmetry, the bands and the FFT grid;</li>
+<li>its parameters as one line of JSON, when they differ from the last ones written;</li>
+<li>a row for every step of the self-consistent field, the steps in single precision of
+  <code>precision="mixed"</code> marked where they begin and end;</li>
+<li>its end: the steps, the seconds, the energy, the largest force and, with the virial,
+  the pressure; or, if it stopped, where and why.</li>
+</ul>
+<p>Lines that are not rows start with <code>#</code>, so that <code>numpy.loadtxt("dft.log")</code> reads the rows
+of every computation as one table; its first column tells them apart.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Unit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>calculation</code></td>
+<td></td>
+<td>the number of the computation among those of the calculator, <code>last["calculation"]</code></td>
+</tr>
+<tr>
+<td><code>step</code></td>
+<td></td>
+<td>the step of the self-consistent field, from 1</td>
+</tr>
+<tr>
+<td><code>free_energy</code></td>
+<td>eV</td>
+<td>the free energy of the step, of its input density (Harris–Foulkes); that of the last step is the label</td>
+</tr>
+<tr>
+<td><code>change</code></td>
+<td>eV</td>
+<td>from the step before, <code>nan</code> for the first</td>
+</tr>
+<tr>
+<td><code>residual</code></td>
+<td>eV</td>
+<td>the Hartree energy of the change of the density, which <code>tolerance</code> bounds</td>
+</tr>
+<tr>
+<td><code>magnetization</code></td>
+<td>Bohr magneton</td>
+<td>the moment of the cell, 0 without spin</td>
+</tr>
+<tr>
+<td><code>fermi</code></td>
+<td>eV</td>
+<td>the Fermi level</td>
+</tr>
+<tr>
+<td><code>davidson</code></td>
+<td></td>
+<td>the iterations of the eigensolver, summed over the k-points and spins</td>
+</tr>
+<tr>
+<td><code>wall</code></td>
+<td>s</td>
+<td>the seconds since the self-consistent field began</td>
+</tr>
+</tbody>
+</table>
+<p>The log costs the run nothing it does not already have. The numbers of a step are those
+the self-consistent field tests its convergence with, already on the processor, so
+nothing more comes from the GPU. Without a log, no step is reported. Under MPI the first
+process writes; threads that share a GPU give each calculator its own file.</p>
+<h3 id="what-each-label-keeps">What each label keeps<a class="headerlink" href="#what-each-label-keeps" title="Permanent link">&para;</a></h3>
+<p>Each computation keeps every parameter it took in <code>last["parameters"]</code>, its defaults and
+<code>"auto"</code> resolved: the mixing, <code>ecutrho</code>, the mesh, the bands, the symmetry, the precision
+and the kernels, as they ran. Its result keeps them in <code>info["dft"]</code>, which <code>attach</code> puts
+into the frame and <code>write</code> into each frame of an extended XYZ file. A label so says how it
+was computed, with or without a log. A later version of MDAPY, whose defaults may change,
+computes it again from them:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="n">frame</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="s2">"labels.xyz"</span><span class="p">)</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">record</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"dft"</span><span class="p">]</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">again</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="n">pseudopotentials</span><span class="o">=</span><span class="s2">"pseudo-dojo"</span><span class="p">,</span> <span class="o">**</span><span class="n">record</span><span class="p">[</span><span class="s2">"arguments"</span><span class="p">])</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="nb">print</span><span class="p">(</span><span class="n">again</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span><span class="o">.</span><span class="n">energy</span><span class="p">,</span> <span class="n">frame</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">"energy"</span><span class="p">])</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mdapy</code></td>
+<td>the version of MDAPY</td>
+</tr>
+<tr>
+<td><code>arguments</code></td>
+<td>the arguments of <code>DFT</code> that give the same computation: those of the table above but <code>pseudopotentials</code>, <code>gpu</code>, <code>comm</code>, <code>log</code> and <code>start</code></td>
+</tr>
+<tr>
+<td><code>pseudopotentials</code></td>
+<td>of each element, the name of its file and its SHA-256: another file of the same name is another pseudopotential</td>
+</tr>
+<tr>
+<td><code>internal</code></td>
+<td>the settings of the self-consistent field that <code>DFT</code> does not take, such as the 8 steps of the history of Pulay's mixing, by their names inside, in eV and Å as the rest</td>
+</tr>
+<tr>
+<td><code>environment</code></td>
+<td>the variables <code>MDAPY_DFT_*</code> that were set</td>
+</tr>
+<tr>
+<td><code>gpu</code>, <code>processes</code></td>
+<td>the GPU, and the processes of <code>comm</code></td>
+</tr>
+</tbody>
+</table>
+<p>The record gives the same computation, not the same digits: another GPU, or other
+kernels, add in another order, and the results agree to the tolerance.</p>
+<h3 id="the-ground-state-in-a-file">The ground state in a file<a class="headerlink" href="#the-ground-state-in-a-file" title="Permanent link">&para;</a></h3>
+<p><code>save</code> writes the ground state of the last computation, and <code>start</code> takes it up again:
+the first computation then starts from its density, and from the occupations of the
+projectors of PAW or DFT+U, in place of those of the free atoms, as to compute the same
+structure with another tolerance or more steps of the self-consistent field. Its first
+step solves the bands tightly in that potential, and it converges in a few steps: 4 atoms
+of aluminium in 3 instead of 7, PAW silicon in 4 instead of 10.</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">system</span> <span class="o">=</span> <span class="n">read</span><span class="p">(</span><span class="s2">"al32.xyz"</span><span class="p">)</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">500.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="n">dft</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="s2">"al32.npz"</span><span class="p">)</span>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="n">tighter</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">500.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-9</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="s2">"al32.npz"</span><span class="p">)</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="n">result</span> <span class="o">=</span> <span class="n">tighter</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>  <span class="c1"># in a few steps</span>
+</code></pre></div>
+<p>The file is NumPy's <code>.npz</code>, which <code>numpy.load(path)</code> reads without pickles. The file
+is written whole or not at all, by the first process under MPI. It holds:</p>
+<table>
+<thead>
+<tr>
+<th>Array</th>
+<th>Shape</th>
+<th>Unit</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>format</code>, <code>version</code></td>
+<td></td>
+<td></td>
+<td><code>"MDAPY DFT ground state"</code> and 1, the version of the file</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td></td>
+<td></td>
+<td>the record of the computation, as <code>last["parameters"]</code>, as JSON</td>
+</tr>
+<tr>
+<td><code>elements</code></td>
+<td>(N,) str</td>
+<td></td>
+<td>the atoms</td>
+</tr>
+<tr>
+<td><code>cell</code>, <code>positions</code></td>
+<td>(3, 3), (N, 3) float64</td>
+<td>Å</td>
+<td>the rows of the cell, and the atoms as given</td>
+</tr>
+<tr>
+<td><code>energy</code>, <code>fermi</code></td>
+<td>float64</td>
+<td>eV</td>
+<td>the free energy and the Fermi level</td>
+</tr>
+<tr>
+<td><code>forces</code></td>
+<td>(N, 3) float64</td>
+<td>eV/Å</td>
+<td>the forces</td>
+</tr>
+<tr>
+<td><code>density</code></td>
+<td>(spins, n1, n2, n3) float64</td>
+<td>electrons/Å³</td>
+<td>on the FFT grid of the density, with the augmentation charges; with spin, up then down</td>
+</tr>
+<tr>
+<td><code>kpoints</code>, <code>weights</code></td>
+<td>(K, 3), (K,) float64</td>
+<td></td>
+<td>the irreducible k-points in fractions of the reciprocal vectors, and their weights, adding to 1</td>
+</tr>
+<tr>
+<td><code>eigenvalues</code></td>
+<td>(spins, K, bands) float64</td>
+<td>eV</td>
+<td>the bands</td>
+</tr>
+<tr>
+<td><code>occupations</code></td>
+<td>(spins, K, bands) float64</td>
+<td></td>
+<td>of each band, from 0 to 1 (Methfessel–Paxton and Marzari–Vanderbilt a little beyond); a band holds 2 electrons without spin, 1 with</td>
+</tr>
+<tr>
+<td><code>becsum</code></td>
+<td>(spins, pairs) float64</td>
+<td></td>
+<td>with PAW or DFT+U, the occupations of the projectors</td>
+</tr>
+<tr>
+<td><code>magnetic_moments</code></td>
+<td>(N,) float64</td>
+<td>Bohr magneton</td>
+<td>with spin, as <code>last["magnetic_moments"]</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>spins</code> is 1 without spin and 2 with. The wave functions are not kept: the density
+takes a computation back to its ground state in a few steps.</p>
+<p>A computation started from a file must be of its elements, in the same order, its cell
+and atoms to 1e-6 Å (an atom moved by a vector of the cell is the same), and its
+pseudopotentials by their SHA-256; and, as the density is on its grid, of its cutoffs,
+symmetry and spin. <code>InvalidParameter</code> says which differs. <code>save</code> before a computation
+raises <code>InvalidParameter</code>, as does a file that is not a ground state or one of a later
+version.</p>
+<h3 id="in-molecular-dynamics">In molecular dynamics<a class="headerlink" href="#in-molecular-dynamics" title="Permanent link">&para;</a></h3>
+<p>The DFT's log and that of the dynamics go to two files:</p>
+<!-- skip-test -->
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.simulation</span><span class="w"> </span><span class="kn">import</span> <span class="n">MolecularDynamics</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">500.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span> <span class="n">restart</span><span class="o">=</span><span class="s2">"second_order"</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="s2">"dft.log"</span><span class="p">)</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="k">with</span> <span class="n">MolecularDynamics</span><span class="p">(</span><span class="n">read</span><span class="p">(</span><span class="s2">"al32.xyz"</span><span class="p">),</span> <span class="n">dft</span><span class="p">,</span> <span class="n">timestep</span><span class="o">=</span><span class="mf">0.002</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="s2">"md.log"</span><span class="p">)</span> <span class="k">as</span> <span class="n">md</span><span class="p">:</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>    <span class="n">md</span><span class="o">.</span><span class="n">velocities</span><span class="p">(</span><span class="mi">300</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>    <span class="n">md</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">ensemble</span><span class="o">=</span><span class="s2">"nvt"</span><span class="p">,</span> <span class="n">temperature</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">thermo</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+</code></pre></div>
+<p><code>md.log</code> holds a row every 10 steps of the dynamics; <code>dft.log</code> holds every step of the
+self-consistent field of each of them. The same file for both raises
+<code>InvalidParameter</code>. A thousand steps of about ten steps of the self-consistent field each
+make some 10 000 rows, about 1.5 MB.</p>
 <h2 id="many-gpus">Many GPUs<a class="headerlink" href="#many-gpus" title="Permanent link">&para;</a></h2>
 <p>A configuration runs on one GPU. Many configurations, as the labels of a
 training set, share the GPUs of a machine as processes of their own, one GPU
 each, started by <code>mpirun</code>:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
-<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span><span class="p">,</span> <span class="n">write</span>
-<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>
-<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="n">rank</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">(),</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_size</span><span class="p">()</span>
-<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">gpu</span><span class="o">=</span><span class="n">rank</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># 4 GPUs on each machine</span>
-<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="n">mine</span> <span class="o">=</span> <span class="p">[</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s2">"structures/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.xyz"</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">size</span><span class="p">)]</span>
-<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="n">labelled</span> <span class="o">=</span> <span class="p">[</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">mine</span><span class="p">]</span>
-<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train-</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.xyz"</span><span class="p">,</span> <span class="n">labelled</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span><span class="p">,</span> <span class="n">write</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">rank</span><span class="p">,</span> <span class="n">size</span> <span class="o">=</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">(),</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_size</span><span class="p">()</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">gpu</span><span class="o">=</span><span class="n">rank</span> <span class="o">%</span> <span class="mi">4</span><span class="p">)</span>  <span class="c1"># 4 GPUs on each machine</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="n">mine</span> <span class="o">=</span> <span class="p">[</span><span class="n">read</span><span class="p">(</span><span class="sa">f</span><span class="s2">"structures/</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">.xyz"</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">rank</span><span class="p">,</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">size</span><span class="p">)]</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="n">labelled</span> <span class="o">=</span> <span class="p">[</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">mine</span><span class="p">]</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"train-</span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2">.xyz"</span><span class="p">,</span> <span class="n">labelled</span><span class="p">)</span>
 </code></pre></div>
 <p>A small cell leaves most of a GPU idle. Its k-points are solved side by side on threads
 of the processor by themselves, and several configurations share one GPU from threads of
 one process, each with a calculator of its own:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span><span class="p">,</span> <span class="n">write</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">structures</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"structures.xyz"</span><span class="p">))</span>
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">label</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    <span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">part</span><span class="p">]</span>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="p">[</span><span class="n">structures</span><span class="p">[</span><span class="n">i</span><span class="p">::</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]))</span>
-<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="n">write</span><span class="p">(</span><span class="s2">"train.xyz"</span><span class="p">,</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">part</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">concurrent.futures</span><span class="w"> </span><span class="kn">import</span> <span class="n">ThreadPoolExecutor</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_trajectory</span><span class="p">,</span> <span class="n">write</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="n">structures</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">read_trajectory</span><span class="p">(</span><span class="s2">"structures.xyz"</span><span class="p">))</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">label</span><span class="p">(</span><span class="n">part</span><span class="p">):</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    <span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">part</span><span class="p">]</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="k">with</span> <span class="n">ThreadPoolExecutor</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="n">parts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pool</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="p">[</span><span class="n">structures</span><span class="p">[</span><span class="n">i</span><span class="p">::</span><span class="mi">4</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]))</span>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="n">write</span><span class="p">(</span><span class="s2">"train.xyz"</span><span class="p">,</span> <span class="p">[</span><span class="n">s</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">part</span><span class="p">])</span>
 </code></pre></div>
 <p>Four to eight threads fill a GPU with cells of a few dozen atoms; a cell of hundreds of
-atoms fills it alone.</p>
+atoms fills it alone. Configurations side by side hold the sum of their
+<a href="#memory-of-the-gpu">memory</a>.</p>
 <p>One configuration of many k-points or of two spins can also run on several GPUs:
 with <code>comm</code>, the processes share its pairs of spin and k-point, each GPU holding
 the bands of its own, and every process gets the whole result. This pays when a
 configuration has at least as many such pairs as GPUs.</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kpoints</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Fe"</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">},</span> <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">)</span>
-<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">read</span><span class="p">(</span><span class="s2">"fe54.xyz"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
-<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">energy</span><span class="p">)</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mpi4py</span><span class="w"> </span><span class="kn">import</span> <span class="n">MPI</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">read</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">kpoints</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Fe"</span><span class="p">:</span> <span class="mf">2.5</span><span class="p">},</span> <span class="n">comm</span><span class="o">=</span><span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="p">)</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">read</span><span class="p">(</span><span class="s2">"fe54.xyz"</span><span class="p">),</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="k">if</span> <span class="n">MPI</span><span class="o">.</span><span class="n">COMM_WORLD</span><span class="o">.</span><span class="n">Get_rank</span><span class="p">()</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">energy</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="memory-of-the-gpu">Memory of the GPU<a class="headerlink" href="#memory-of-the-gpu" title="Permanent link">&para;</a></h2>
+<p>A configuration holds on the GPU the bands of each of its k-points and spins, n plane
+waves by the bands in complex numbers of 16 bytes, with n about <span class="arithmatex">\(\Omega\,(2E)^{3/2}/6\pi^2\)</span>
+for a cell of Ω bohr³ and <code>encut</code> E in hartree (half of that at Γ alone, where the bands
+are real); they take most of its memory when it has many k-points. Besides them it
+holds the projectors of the atoms, the basis of the eigensolver (twice the bands), the
+boxes of the Fourier transforms (256 MiB at most) and the densities and potentials on
+the grid. The CUDA context takes 0.3 to 0.6 GiB more, and the libraries of the vendor
+(<code>kernels="vendor"</code>) about 0.4 GiB for each host thread that solves k-points on an H100
+or GH200 (0.05 GiB on a V100): small cells of many k-points run eight. Measured on a
+GH200 with the libraries of the vendor in double precision, for cells perturbed as those
+of a training set, so that time reversal alone reduces their k-points:</p>
+<table>
+<thead>
+<tr>
+<th>Cell</th>
+<th>Cutoff, kspacing</th>
+<th>k-points × spins</th>
+<th style="text-align: right;">Bands</th>
+<th style="text-align: right;">In use (GiB)</th>
+<th style="text-align: right;">On the GPU (GiB)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Al4, fcc</td>
+<td>600 eV, 0.15 1/Å</td>
+<td>666 × 1</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">0.4</td>
+<td style="text-align: right;">4.4</td>
+</tr>
+<tr>
+<td>Al32</td>
+<td>600 eV, 0.15 1/Å</td>
+<td>112 × 1</td>
+<td style="text-align: right;">58</td>
+<td style="text-align: right;">2.4</td>
+<td style="text-align: right;">3.5</td>
+</tr>
+<tr>
+<td>Al108</td>
+<td>600 eV, Γ</td>
+<td>1 × 1</td>
+<td style="text-align: right;">195</td>
+<td style="text-align: right;">2.6</td>
+<td style="text-align: right;">3.6</td>
+</tr>
+<tr>
+<td>Al108</td>
+<td>600 eV, 0.15 1/Å</td>
+<td>36 × 1</td>
+<td style="text-align: right;">195</td>
+<td style="text-align: right;">10.3</td>
+<td style="text-align: right;">11.4</td>
+</tr>
+<tr>
+<td>Fe16, bcc, 3 μB</td>
+<td>900 eV, 0.2 1/Å</td>
+<td>112 × 2</td>
+<td style="text-align: right;">154</td>
+<td style="text-align: right;">6.4</td>
+<td style="text-align: right;">7.8</td>
+</tr>
+<tr>
+<td>Fe54, bcc, 3 μB</td>
+<td>900 eV, 0.2 1/Å</td>
+<td>36 × 2</td>
+<td style="text-align: right;">519</td>
+<td style="text-align: right;">25.0</td>
+<td style="text-align: right;">26.8</td>
+</tr>
+</tbody>
+</table>
+<p>"In use" is the peak of the arrays of the DFT, "on the GPU" that of the device, with the
+context and the libraries. Mixed precision holds 5 to 10 % more. Configurations side by
+side hold the sum of theirs: eight Al32 at once hold 19.2 GiB and fit a V100 of 32 GB,
+sixteen do not. A run keeps what it uses in a memory pool and gives back to the device,
+at its end, what the pool holds beyond the use of its steps: a process holds the memory
+of its last runs, not the most it ever took. <code>last["gpu_memory"]</code> holds the largest at
+the end of the steps, in MiB: <code>in_use</code> by the arrays of the DFT and <code>reserved</code> by its
+pool, of the whole process, the configurations of its threads together, and <code>device</code>
+in use on the GPU, by the CUDA context, the libraries and other processes too. See
+<a href="../../../performance/dft/#memory">the measurements</a>.</p>
 <h2 id="what-it-computes">What it computes<a class="headerlink" href="#what-it-computes" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>Plane waves</strong> of kinetic energy up to <code>encut</code> at each k-point of the mesh;
@@ -11425,17 +11936,17 @@ and magnetic alloys converge better with the preconditioner of the local density
 of states, which screens the metal and not the vacuum, and keeps the moments of a
 magnet from wandering among nearby orders or falling to none:</p>
 <!-- skip-test -->
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CalculationFailed</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cr"</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">},</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s2">"ldos"</span><span class="p">)</span>
-<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
-<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="k">except</span> <span class="n">CalculationFailed</span><span class="p">:</span>  <span class="c1"># slower still: a smaller share of the residual, more steps</span>
-<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>    <span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cr"</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">},</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s2">"ldos"</span><span class="p">,</span>
-<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>              <span class="n">mixing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
-<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
-<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">last</span><span class="p">[</span><span class="s2">"iterations"</span><span class="p">],</span> <span class="n">dft</span><span class="o">.</span><span class="n">last</span><span class="p">[</span><span class="s2">"magnetization"</span><span class="p">])</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.calculators</span><span class="w"> </span><span class="kn">import</span> <span class="n">DFT</span>
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">mdapy.errors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CalculationFailed</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cr"</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">},</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s2">"ldos"</span><span class="p">)</span>
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="k">except</span> <span class="n">CalculationFailed</span><span class="p">:</span>  <span class="c1"># slower still: a smaller share of the residual, more steps</span>
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">dft</span> <span class="o">=</span> <span class="n">DFT</span><span class="p">(</span><span class="mf">600.0</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="p">{</span><span class="s2">"Cr"</span><span class="p">:</span> <span class="o">-</span><span class="mf">2.0</span><span class="p">,</span> <span class="s2">"Co"</span><span class="p">:</span> <span class="mf">3.0</span><span class="p">,</span> <span class="s2">"Ni"</span><span class="p">:</span> <span class="mf">1.2</span><span class="p">},</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s2">"ldos"</span><span class="p">,</span>
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>              <span class="n">mixing</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">200</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span>
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="nb">print</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">last</span><span class="p">[</span><span class="s2">"iterations"</span><span class="p">],</span> <span class="n">dft</span><span class="o">.</span><span class="n">last</span><span class="p">[</span><span class="s2">"magnetization"</span><span class="p">])</span>
 </code></pre></div>
 <p>A magnet can converge to more than one state, and the first moments choose among them.
 Cells of four atoms of Co2CrNi, started with −1, 1.5 and 0.6 Bohr magnetons on Cr, Co

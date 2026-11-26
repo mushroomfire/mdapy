@@ -10178,6 +10178,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#mdapy.calculators.DFT.save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.calculators.DFT.compute" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -11760,6 +11771,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#mdapy.calculators.DFT.save" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#mdapy.calculators.DFT.compute" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -12092,7 +12114,7 @@ fit the system.</p>
   </span>
 
 <a href="#mdapy.calculators.CalculatorResult" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CalculatorResult</span><span class="p">(</span><span class="n">energy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atomic_energies</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">forces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">virial</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atomic_virials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">volume</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CalculatorResult</span><span class="p">(</span><span class="n">energy</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atomic_energies</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">forces</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">virial</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">atomic_virials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">volume</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">info</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -12185,6 +12207,18 @@ fit the system.</p>
               </div>
             </td>
           </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.CalculatorResult.info">info</span></code></td>
+            <td>
+                  <code><span title="dict">dict</span> or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>What the calculator keeps with its labels, such as the parameters of
+a DFT under <code>dft</code>.</p>
+              </div>
+            </td>
+          </tr>
       </tbody>
     </table>
 
@@ -12268,7 +12302,8 @@ fit the system.</p>
 
         <p>The system with these values as columns and information.</p>
 <p><code>forces</code>, <code>atomic_energies</code> and <code>atomic_virials</code> become
-columns; <code>energy</code> and <code>virial</code> become entries of <code>info</code>.</p>
+columns; <code>energy</code>, <code>virial</code> and the entries of <code>info</code> become
+entries of the system's <code>info</code>.</p>
 
 
     </div>
@@ -16233,7 +16268,7 @@ order.</p>
 
 
 <a href="#mdapy.calculators.DFT" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DFT</span><span class="p">(</span><span class="n">encut</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ecutrho</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pseudopotentials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kpoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">smearing</span><span class="o">=</span><span class="s1">'gaussian'</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hubbard</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">functional</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-06</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mixing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">magnetic_mixing</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">kerker</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s1">'kerker'</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">gpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">restart</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">moment_radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="s1">'double'</span><span class="p">,</span> <span class="n">kernels</span><span class="o">=</span><span class="s1">'mdapy'</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DFT</span><span class="p">(</span><span class="n">encut</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">ecutrho</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">pseudopotentials</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kpoints</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kspacing</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">smearing</span><span class="o">=</span><span class="s1">'gaussian'</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">magmoms</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">hubbard</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">functional</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">tolerance</span><span class="o">=</span><span class="mf">1e-06</span><span class="p">,</span> <span class="n">max_iterations</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">mixing</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">magnetic_mixing</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">kerker</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">preconditioner</span><span class="o">=</span><span class="s1">'kerker'</span><span class="p">,</span> <span class="n">bands</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">gpu</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">restart</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">symmetry</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">moment_radius</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="s1">'double'</span><span class="p">,</span> <span class="n">kernels</span><span class="o">=</span><span class="s1">'mdapy'</span><span class="p">,</span> <span class="n">comm</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -16692,11 +16727,15 @@ Default <code>"double"</code>.</p>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Whose kernels run on the GPU. <code>"mdapy"</code>: those of MDAPY where it
-has its own (today the fast Fourier transforms), the GPU libraries of
-the vendor for the rest. <code>"vendor"</code>: the GPU libraries of the vendor
-throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs; hipFFT, hipBLAS
-and hipSOLVER on AMD GPUs). The results agree to rounding. Default
+                <p>Whose kernels run on the GPU. <code>"mdapy"</code>: those of MDAPY (the fast
+Fourier transforms, the dense linear algebra, the Hermitian
+eigensolver and the Cholesky factorization: all the DFT takes from
+them), without the libraries of the vendor, which only the FFTs of a
+grid given whose sizes are not products of 2, 3, 5 and 7 still take.
+<code>"vendor"</code>: the GPU libraries of the vendor throughout (cuFFT,
+cuBLAS and cuSOLVER on NVIDIA GPUs, which
+<code>pip install "mdapy[cuda12,dft]"</code> installs; hipFFT, hipBLAS and
+hipSOLVER on AMD GPUs). The results agree to rounding. Default
 <code>"mdapy"</code>.</p>
               </div>
             </td>
@@ -16718,6 +16757,45 @@ sharing its k-points and spins: every process calls <code>compute</code> with
 the same system and gets the whole result. Without <code>gpu</code>, each takes
 the GPU of its rank among the processes of its node. Default none: one
 process.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>log</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or path - like or stream</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Where every step of the self-consistent field of each computation is
+written, with the parameters the computation took: a file, written
+anew by the first computation of this calculator and added to by the
+next, or a stream such as <code>sys.stdout</code>. Under MPI the first process
+writes it. Default none.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>start</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or path - like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>A ground state that <code>save</code> wrote: the first computation starts from
+its density (and the occupations of PAW or DFT+U) in place of those
+of the free atoms. It must be of the same elements, cell, positions,
+pseudopotentials and grid. Default none.</p>
               </div>
             </td>
             <td>
@@ -16769,10 +16847,40 @@ used), with DFT+U <code>hubbard_energy</code> (eV) and <code>hubbard_occupations
 (the occupations of the orbitals of each Hubbard atom, (spins, 2l + 1,
 2l + 1) float64, a spin channel each), <code>net_force</code> (eV/Å, taken out
 of the forces), <code>kpoints</code> (the mesh), <code>grid</code> (the FFT grid),
-<code>single_steps</code> (the steps in single precision) and
+<code>single_steps</code> (the steps in single precision), <code>gpu_memory</code>
+(MiB, float64, the largest at the end of the steps: <code>in_use</code> by the
+arrays of the DFT and <code>reserved</code> by its memory pool, of the whole
+process, the runs of its threads together, and <code>device</code> in use on
+the GPU, by the CUDA context, the libraries and other processes too),
 <code>provenance</code>: what makes the labels of a set comparable, the SHA-256
 of each pseudopotential, the cutoff, the mesh, the smearing and its
-width, the functional, the spins, the grid, the bands and U.</p>
+width, the functional, the spins, the grid, the bands and U,
+<code>calculation</code> (its number among the computations of this
+calculator, as the log counts them) and <code>parameters</code>: every
+parameter the computation took, defaults and <code>"auto"</code> resolved, as
+the result's <code>info</code> keeps it under <code>dft</code> (see the guide).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.DFT.log">log</span></code></td>
+            <td>
+                  <code><span title="str">str</span> or path - like or stream or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The log.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><span title="mdapy.calculators.DFT.start">start</span></code></td>
+            <td>
+                  <code><span title="str">str</span> or path - like or None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The ground state the first computation starts from.</p>
               </div>
             </td>
           </tr>
@@ -16830,6 +16938,83 @@ or if the libraries of the DFT are missing.</p>
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="mdapy.calculators.DFT.save" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">save</span>
+
+
+<a href="#mdapy.calculators.DFT.save" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Writes the ground state of the last computation.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>path</code>
+            </td>
+            <td>
+                  <code><span title="str">str</span> or path - like</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>The file, written whole or not at all, in NumPy's <code>.npz</code>: the
+parameters, the structure, the energy, the forces, the density,
+the occupations of PAW or DFT+U, the k-points and the bands
+(see the guide). Under MPI the first process writes it.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="InvalidParameter (mdapy.errors.InvalidParameter)" href="../utilities/#mdapy.errors.InvalidParameter">InvalidParameter</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Before a computation, or if the file cannot be written.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    </div>
+
+</div>
 
 <div class="doc doc-object doc-function">
 

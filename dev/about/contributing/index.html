@@ -11531,7 +11531,7 @@ its Python module installed from the wheel that the build leaves:</p>
 <td>numbers under a locale with a decimal comma</td>
 </tr>
 <tr>
-<td>the GPU part with its DFT, <code>mdapy_cuda12._dft</code> built from <code>cuda12/</code> with NVIDIA's cuBLAS, cuFFT and cuSOLVER installed, and an NVIDIA GPU; or <code>mdapy_rocm6._dft</code> built from <code>rocm6/</code> with ROCm, and an AMD GPU (<a href="#the-gpu-part">below</a>)</td>
+<td>the GPU part with its DFT, <code>mdapy_cuda12._dft</code> built from <code>cuda12/</code>, NVIDIA's cuBLAS, cuFFT and cuSOLVER installed (the tests compare MDAPY's kernels with them), and an NVIDIA GPU; or <code>mdapy_rocm6._dft</code> built from <code>rocm6/</code> with ROCm, and an AMD GPU (<a href="#the-gpu-part">below</a>)</td>
 <td>the plane-wave DFT</td>
 </tr>
 <tr>
@@ -11575,21 +11575,23 @@ holds two modules, <code>_cuda</code> (or <code>_hip</code>) for the potentials 
 <code>_dft</code> for the plane-wave DFT. For tests, one architecture builds faster than the list
 of the package's <code>pyproject.toml</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>./cuda12<span class="w"> </span>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES<span class="o">=</span><span class="m">86</span><span class="w"> </span>-Ccmake.define.MDAPY_WERROR<span class="o">=</span>ON
-<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span>nvidia-cublas-cu12<span class="w"> </span>nvidia-cufft-cu12<span class="w"> </span>nvidia-cusolver-cu12<span class="w">   </span><span class="c1"># what _dft loads</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span>nvidia-cublas-cu12<span class="w"> </span>nvidia-cufft-cu12<span class="w"> </span>nvidia-cusolver-cu12<span class="w">   </span><span class="c1"># what _dft loads for kernels="vendor"</span>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>pip<span class="w"> </span>install<span class="w"> </span>./rocm6<span class="w"> </span>-Ccmake.define.CMAKE_HIP_ARCHITECTURES<span class="o">=</span>gfx90a<span class="w"> </span>-Ccmake.define.MDAPY_WERROR<span class="o">=</span>ON
 </code></pre></div>
 <ul>
 <li>Building <code>_dft</code> needs the development files of cuBLAS, cuFFT, cuSOLVER, cuSPARSE and
-  nvJitLink of the toolkit (<code>libcublas-dev-12-9</code> and the like), or hipBLAS, hipFFT and
-  hipSOLVER of ROCm. <code>-Ccmake.define.MDAPY_DFT=OFF</code> leaves the DFT out, for a quicker
+  nvJitLink of the toolkit (<code>libcublas-dev-12-9</code> and the like), for their headers and
+  sonames, or hipBLAS, hipFFT and hipSOLVER of ROCm. <code>-Ccmake.define.MDAPY_DFT=OFF</code> leaves the DFT out, for a quicker
   build of the rest; the two packages build it by default.</li>
 <li><code>_cuda</code> links the CUDA runtime statically and no other library of CUDA, so that
   molecular dynamics needs only the driver. <code>_dft</code> links the CUDA runtime statically
-  too, and cuBLAS, cuFFT and cuSOLVER, with cuBLASLt, cuSPARSE and nvJitLink, as shared
-  libraries, found through its RUNPATH in the folders <code>nvidia/&lt;library&gt;/lib</code> that NVIDIA's
-  packages install beside it. The wheels hold none of them: <code>auditwheel repair</code> excludes
-  them in <code>.github/workflows/publish.yml</code>.</li>
-<li>With ROCm both modules link the HIP runtime and the libraries of the machine.</li>
+  too, and no other library: <code>src/dft/core/vendor.h</code> loads cuBLAS, cuFFT and cuSOLVER,
+  with cuBLASLt, cuSPARSE and nvJitLink, when <code>kernels="vendor"</code> first asks for them,
+  from the folders <code>nvidia/&lt;library&gt;/lib</code> that NVIDIA's packages install beside it, else
+  as the system finds them. The wheels hold none of them.</li>
+<li>With ROCm both modules link the HIP runtime of the machine, and <code>_dft</code> loads hipBLAS,
+  hipFFT and hipSOLVER in the same way as cuBLAS, cuFFT and cuSOLVER, from the folders of
+  <code>LD_LIBRARY_PATH</code>, <code>$ROCM_PATH/lib</code> or <code>/opt/rocm/lib</code>.</li>
 <li><code>-Ccmake.define.MDAPY_DFT=ON</code> beside <code>MDAPY_CUDA=ON</code> or <code>MDAPY_HIP=ON</code> builds the DFT
   into MDAPY itself, <code>mdapy._dft</code>.</li>
 <li>MDAPY finds <code>_dft</code> in the GPU part that its calculators use

@@ -11361,6 +11361,10 @@ one name everywhere.</p>
 <td>A reference energy, force or virial of a frame, usually from DFT, that a model is trained to predict.</td>
 </tr>
 <tr>
+<td>parameters of a computation</td>
+<td>Every parameter a computation of DFT took, its defaults and <code>"auto"</code> resolved, with the SHA-256 of its pseudopotentials: <code>DFT.last["parameters"]</code>, kept with each label in <code>info["dft"]</code>.</td>
+</tr>
+<tr>
 <td>parity plot</td>
 <td>The predictions of a model against the labels, one point each; on the diagonal where they agree.</td>
 </tr>
@@ -11909,6 +11913,10 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td>on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double</td>
 </tr>
 <tr>
+<td>memory pool</td>
+<td>of the DFT on the GPU: the memory that the stream-ordered allocator of CUDA or HIP reserves from the device for the arrays of the runs, and reuses from one array to the next; a run gives back to the device at its end what the pool holds beyond the use of its steps. <code>DFT.last["gpu_memory"]</code> holds what was <code>in_use</code> by the arrays, <code>reserved</code> by the pool and in use on the <code>device</code></td>
+</tr>
+<tr>
 <td><code>iterate</code></td>
 <td>of <code>MolecularDynamics</code>: a run that gives the atoms every <code>save_every</code> steps as it reaches them and keeps none, going on as they are read</td>
 </tr>
@@ -12162,7 +12170,7 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td><code>fp32</code>, <code>single_precision</code></td>
 </tr>
 <tr>
-<td>whose kernels DFT runs on the GPU: MDAPY's own where it has them, or the GPU libraries of the vendor throughout</td>
+<td>whose kernels DFT runs on the GPU: MDAPY's own, or the GPU libraries of the vendor throughout</td>
 <td><code>kernels</code>, <code>"mdapy"</code> or <code>"vendor"</code></td>
 <td><code>backend</code>, <code>fft</code>, <code>library</code>, <code>use_cufft</code></td>
 </tr>
@@ -12437,8 +12445,8 @@ column of fixed-size arrays of length 3 and use the plural name.</p>
 <td><code>dump_freq</code>, <code>interval</code></td>
 </tr>
 <tr>
-<td>a log of a run or a minimization, and the interval of its rows</td>
-<td><code>log</code> (a path or a stream), <code>log_every</code>; the rows of molecular dynamics follow <code>thermo</code></td>
+<td>a log of a run, a minimization or the self-consistent field of DFT, and the interval of its rows</td>
+<td><code>log</code> (a path or a stream), <code>log_every</code>; the rows of molecular dynamics follow <code>thermo</code>, those of DFT are its steps</td>
 <td><code>logfile</code>, <code>log_file</code>, <code>verbose</code></td>
 </tr>
 <tr>

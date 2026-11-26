@@ -11131,10 +11131,10 @@ RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU
 or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
 into it, and newer drivers run it too.
 The package also holds the <a href="../../potentials/dft/">plane-wave DFT</a>, which computes with
-NVIDIA's cuBLAS, cuFFT and cuSOLVER: the extra <code>dft</code> installs them from NVIDIA's packages,
+MDAPY's own kernels. Only <code>DFT(kernels="vendor")</code> takes NVIDIA's cuBLAS, cuFFT and
+cuSOLVER, which the extra <code>dft</code> installs from NVIDIA's packages,
 <code>pip install "mdapy[cuda12,dft]"</code> (see
 <a href="../../../getting-started/installation/#nvidias-libraries-for-the-dft">NVIDIA's libraries for the DFT</a>).
-Everything else on this page runs without them.
 <code>mdapy.show_versions()</code> names the GPU part and the GPU it found, in its row
 <code>GPU part</code>. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
@@ -11144,8 +11144,9 @@ and 13.5), which puts the GPU part in MDAPY itself, as the module <code>mdapy._c
 <p>It is compiled for the GPU of the machine; <code>-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"</code>
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
 used before an installed <code>mdapy-cuda12</code>. On Linux, <code>-Ccmake.define.MDAPY_DFT=ON</code> builds
-the DFT into MDAPY too, as <code>mdapy._dft</code>, with cuBLAS, cuFFT and cuSOLVER of the toolkit
-for the build and those of the extra <code>dft</code> (or of <code>LD_LIBRARY_PATH</code>) for the run.</p>
+the DFT into MDAPY too, as <code>mdapy._dft</code>, with the headers of cuBLAS, cuFFT and cuSOLVER
+of the toolkit for the build; <code>kernels="vendor"</code> loads those of the extra <code>dft</code>, or of
+the system, at its first use.</p>
 <h3 id="amd-gpus">AMD GPUs<a class="headerlink" href="#amd-gpus" title="Permanent link">&para;</a></h3>
 <p>On an AMD GPU the same kernels run through HIP of <a href="https://rocm.docs.amd.com">ROCm</a>:
 MDAPY is built from its source with ROCm 6, which puts the GPU part in MDAPY itself, as
@@ -11162,9 +11163,10 @@ ROCm 6.3.4, against the processor as on NVIDIA GPUs.</p>
 <code>mdapy-rocm6</code>, built in a clone of MDAPY from its folder <code>rocm6</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span>./rocm6<span class="w"> </span>-Ccmake.define.CMAKE_HIP_ARCHITECTURES<span class="o">=</span>gfx90a
 </code></pre></div>
-<p>Its DFT takes hipBLAS, hipFFT and hipSOLVER of the machine's ROCm, for the build and
-the run alike; <code>-Ccmake.define.MDAPY_DFT=ON</code> beside <code>MDAPY_HIP=ON</code> above builds the DFT
-into MDAPY itself instead.</p>
+<p>Its DFT is built with the headers of hipBLAS, hipFFT and hipSOLVER of the machine's
+ROCm and runs with the HIP runtime alone; <code>kernels="vendor"</code> loads those libraries of
+ROCm when first asked for. <code>-Ccmake.define.MDAPY_DFT=ON</code> beside <code>MDAPY_HIP=ON</code> above
+builds the DFT into MDAPY itself instead.</p>
 <h2 id="potentials">Potentials<a class="headerlink" href="#potentials" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

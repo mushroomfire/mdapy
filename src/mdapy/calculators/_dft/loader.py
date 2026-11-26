@@ -19,14 +19,15 @@ _NO_GPU_PART = (
     'with an NVIDIA GPU, pip install "mdapy[cuda12]"; for an AMD GPU, build '
     "the package mdapy-rocm6 with ROCm, pip install ./rocm6 in a clone of MDAPY"
 )
-# why the module did not load, by the API of the GPU part: with CUDA it names
-# no library of NVIDIA (it loads cuBLAS, cuFFT and cuSOLVER where they are
-# asked for, vendor_libraries), with HIP it links those of ROCm
+# why the module did not load, by the API of the GPU part: it names no library
+# of the vendor (it loads cuBLAS, cuFFT and cuSOLVER, or hipBLAS, hipFFT and
+# hipSOLVER, where they are asked for, vendor_libraries); with HIP it needs the
+# HIP runtime of ROCm, as the potentials of the GPU part do
 _LIBRARIES = {
     "CUDA": "the module _dft of the GPU part could not be loaded",
     "HIP": (
-        "the DFT needs hipBLAS, hipFFT and hipSOLVER of ROCm 6 on the machine, "
-        "as module load rocm gives them on a cluster"
+        "the module _dft of the GPU part could not be loaded: it needs the HIP "
+        "runtime of ROCm 6 on the machine, as module load rocm gives it on a cluster"
     ),
 }
 
@@ -66,8 +67,9 @@ def module() -> Any:
 
 def vendor_libraries(dft: Any) -> list:
     """The libraries of the vendor loaded by the module _dft, for
-    ``kernels="vendor"``: with CUDA NVIDIA's cuBLAS, cuFFT and cuSOLVER, loaded
-    here if they were not.
+    ``kernels="vendor"``: NVIDIA's cuBLAS, cuFFT and cuSOLVER with CUDA,
+    hipBLAS, hipFFT and hipSOLVER of ROCm with HIP, loaded here if they were
+    not.
 
     Parameters
     ----------
@@ -77,8 +79,8 @@ def vendor_libraries(dft: Any) -> list:
     Returns
     -------
     list of str
-        The files of the libraries loaded; none with HIP, whose libraries are
-        linked.
+        The files of the libraries loaded, and of those they need that the
+        module loaded the same way.
 
     Raises
     ------

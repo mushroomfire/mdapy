@@ -305,7 +305,9 @@ pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a -Ccmake.define
   with cuBLASLt, cuSPARSE and nvJitLink, when `kernels="vendor"` first asks for them,
   from the folders `nvidia/<library>/lib` that NVIDIA's packages install beside it, else
   as the system finds them. The wheels hold none of them.
-- With ROCm both modules link the HIP runtime and the libraries of the machine.
+- With ROCm both modules link the HIP runtime of the machine, and `_dft` loads hipBLAS,
+  hipFFT and hipSOLVER in the same way as cuBLAS, cuFFT and cuSOLVER, from the folders of
+  `LD_LIBRARY_PATH`, `$ROCM_PATH/lib` or `/opt/rocm/lib`.
 - `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_CUDA=ON` or `MDAPY_HIP=ON` builds the DFT
   into MDAPY itself, `mdapy._dft`.
 - MDAPY finds `_dft` in the GPU part that its calculators use

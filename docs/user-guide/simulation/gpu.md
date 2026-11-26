@@ -124,9 +124,10 @@ The same GPU part with the [plane-wave DFT](../potentials/dft.md) is the package
 pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
 ```
 
-Its DFT takes hipBLAS, hipFFT and hipSOLVER of the machine's ROCm, for the build and
-the run alike; `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above builds the DFT
-into MDAPY itself instead.
+Its DFT is built with the headers of hipBLAS, hipFFT and hipSOLVER of the machine's
+ROCm and runs with the HIP runtime alone; `kernels="vendor"` loads those libraries of
+ROCm when first asked for. `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above
+builds the DFT into MDAPY itself instead.
 
 ## Potentials
 

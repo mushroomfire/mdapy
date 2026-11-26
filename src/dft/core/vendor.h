@@ -3,31 +3,39 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// NVIDIA's cuBLAS, cuFFT and cuSOLVER, which MDAPY's kernels do without,
-// loaded (dlopen) at their first use: the module names none of them and loads
-// without them. Each library is found in the folder nvidia/<package>/lib that
-// NVIDIA's package of it installs beside the package of the module (the
-// extra dft of MDAPY), else where the loader of the system finds it
-// (LD_LIBRARY_PATH, the folders of the system). The libraries cuSOLVER needs,
-// cuBLAS, cuBLASLt, cuSPARSE and nvJitLink, are loaded before it the same way:
-// NVIDIA's libraries look for one another in their own folder only, and the
-// loader takes a library already loaded for one of the same soname. Each
+// The GPU libraries of the vendor, which MDAPY's kernels do without, loaded
+// (dlopen) at their first use: the module names none of them and loads
+// without them. With CUDA, NVIDIA's cuBLAS, cuFFT and cuSOLVER, each found in
+// the folder nvidia/<package>/lib that NVIDIA's package of it installs beside
+// the package of the module (the extra dft of MDAPY), else where the loader of
+// the system finds it (LD_LIBRARY_PATH, the folders of the system), else in
+// the folder the build found it in; the libraries cuSOLVER needs, cuBLAS,
+// cuBLASLt, cuSPARSE and nvJitLink, are loaded before it the same way, as
+// NVIDIA's libraries look for one another in their own folder only and the
+// loader takes a library already loaded for one of the same soname. With HIP,
+// hipBLAS, hipFFT and hipSOLVER of ROCm, found as the loader of the system
+// finds them (module load rocm puts their folder in LD_LIBRARY_PATH), else in
+// $ROCM_PATH/lib, /opt/rocm/lib or the folder the build found them in; they
+// find rocBLAS, rocFFT, rocSOLVER and rocSPARSE in their own folder. Each
 // library is a table of the functions the DFT calls, loaded once by the first
-// thread that asks, whose names src/dft/core/portable.h gives the calls. The
-// sonames are those of the toolkit the module was built with, which the build
-// gives (MDAPY_SONAME_*); those of CUDA 12 without it. With HIP the libraries
-// of ROCm are linked, and none of this is compiled.
+// thread that asks; the tables are declared by the names of CUDA, which
+// src/dft/core/portable.h makes those of HIP with HIP, and portable.h, which
+// includes this file after those names, makes the calls of the DFT those of
+// the tables. The sonames and the folder are those of the toolkit the module
+// was built with, which the build gives (MDAPY_SONAME_*, MDAPY_VENDOR_FOLDER),
+// those of CUDA 12 and ROCm 6 without them.
 
 #pragma once
 
 #if !defined(MDAPY_GPU_HIP)
-
 #include <cublas_v2.h>
 #include <cufft.h>
 #include <cusolverDn.h>
+#endif
 #include <dlfcn.h>
 #include <link.h>
 
+#include <cstdlib>
 #include <cstring>
 #include <mutex>
 #include <stdexcept>
@@ -42,10 +50,18 @@
 #define MDAPY_SONAME_CUSPARSE "libcusparse.so.12"
 #define MDAPY_SONAME_NVJITLINK "libnvJitLink.so.12"
 #endif
+#ifndef MDAPY_SONAME_HIPBLAS
+#define MDAPY_SONAME_HIPBLAS "libhipblas.so.2"
+#define MDAPY_SONAME_HIPFFT "libhipfft.so.0"
+#define MDAPY_SONAME_HIPSOLVER "libhipsolver.so.0"
+#endif
+#ifndef MDAPY_VENDOR_FOLDER
+#define MDAPY_VENDOR_FOLDER ""
+#endif
 
 namespace mdapy::dft::vendor {
 
-struct Cublas {
+struct Blas {
     decltype(&cublasCreate) create;
     decltype(&cublasDestroy) destroy;
     decltype(&cublasSetStream) set_stream;
@@ -68,7 +84,7 @@ struct Cublas {
     decltype(&cublasZtrsm) ztrsm;
 };
 
-struct Cufft {
+struct Fft {
     decltype(&cufftPlanMany) plan_many;
     decltype(&cufftSetStream) set_stream;
     decltype(&cufftDestroy) destroy;
@@ -80,7 +96,7 @@ struct Cufft {
     decltype(&cufftExecZ2Z) exec_z2z;
 };
 
-struct Cusolver {
+struct Solver {
     decltype(&cusolverDnCreate) create;
     decltype(&cusolverDnDestroy) destroy;
     decltype(&cusolverDnSetStream) set_stream;
@@ -117,7 +133,7 @@ inline std::string folder() {
     return slash == std::string::npos ? std::string(".") : file.substr(0, slash);
 }
 
-// The libraries loaded, by their files, and the messages of those that were not.
+// The files of the libraries loaded.
 struct Opened {
     std::mutex mutex;
     std::vector<std::string> files;
@@ -127,21 +143,18 @@ inline Opened& opened() {
     return state;
 }
 
-// A library by its soname, from nvidia/<package>/lib beside the package of
-// the module, else as the loader finds it; why not in why.
-inline void* open(const char* package, const char* soname, std::string& why) {
-    const std::string base = folder();
+// A library by its soname from the folders where it lies, in their order (an
+// empty one: as the loader finds it), its file kept; why not in why.
+inline void* open(const char* soname, const std::vector<std::string>& folders, std::string& why) {
     void* handle = nullptr;
-    if (!base.empty()) {
-        const std::string file = base + "/../nvidia/" + package + "/lib/" + soname;
+    for (const std::string& where : folders) {
+        const std::string file = where.empty() ? std::string(soname) : where + "/" + soname;
         handle = dlopen(file.c_str(), RTLD_NOW | RTLD_LOCAL);
-    }
-    if (handle == nullptr) handle = dlopen(soname, RTLD_NOW | RTLD_LOCAL);
-    if (handle == nullptr) {
+        if (handle != nullptr) break;
         const char* error = dlerror();
-        why = error != nullptr ? error : soname;
-        return nullptr;
+        if (where.empty() || why.empty()) why = error != nullptr ? error : soname;
     }
+    if (handle == nullptr) return nullptr;
     link_map* map = nullptr;
     if (dlinfo(handle, RTLD_DI_LINKMAP, &map) == 0 && map != nullptr && map->l_name != nullptr) {
         Opened& state = opened();
@@ -149,6 +162,23 @@ inline void* open(const char* package, const char* soname, std::string& why) {
         state.files.emplace_back(map->l_name);
     }
     return handle;
+}
+
+// The folders where a library of the vendor lies, in the order they are tried.
+inline std::vector<std::string> folders_of([[maybe_unused]] const char* package) {
+    std::vector<std::string> folders;
+#if defined(MDAPY_GPU_HIP)
+    folders.emplace_back();
+    if (const char* rocm = std::getenv("ROCM_PATH"); rocm != nullptr && rocm[0] != '\0')
+        folders.emplace_back(std::string(rocm) + "/lib");
+    folders.emplace_back("/opt/rocm/lib");
+#else
+    const std::string base = folder();
+    if (!base.empty()) folders.emplace_back(base + "/../nvidia/" + package + "/lib");
+    folders.emplace_back();
+#endif
+    if (MDAPY_VENDOR_FOLDER[0] != '\0') folders.emplace_back(MDAPY_VENDOR_FOLDER);
+    return folders;
 }
 
 // The function of that name in a library, whose type F is that of its
@@ -163,9 +193,15 @@ void find(void* handle, const char* library, const char* name, F& to) {
 
 // what to do when a library is missing
 inline std::string missing(const std::string& why) {
+#if defined(MDAPY_GPU_HIP)
+    return "hipBLAS, hipFFT and hipSOLVER of ROCm, which DFT(kernels=\"vendor\") takes (and the FFT of a grid "
+           "whose sizes are not products of 2, 3, 5 and 7), could not be loaded (" +
+           why + "): module load rocm, or ROCM_PATH the folder of ROCm, or DFT(kernels=\"mdapy\")";
+#else
     return "NVIDIA's cuBLAS, cuFFT and cuSOLVER, which DFT(kernels=\"vendor\") takes (and the FFT of a grid "
            "whose sizes are not products of 2, 3, 5 and 7), could not be loaded (" +
            why + "): pip install \"mdapy[cuda12,dft]\", or DFT(kernels=\"mdapy\")";
+#endif
 }
 
 // A table loaded once, its error kept and thrown at each ask.
@@ -185,26 +221,39 @@ const Table& loaded(Load load) {
     return table;
 }
 
-// the name of the symbol of a function, after the macros of the headers (cublasZgemm is cublasZgemm_v2)
+// the name of the symbol of a function, after the macros of the headers
+// (cublasZgemm is cublasZgemm_v2; with HIP hipblasZgemm, hipblasZgemm_v2)
 #define MDAPY_VENDOR_SYMBOL(name) MDAPY_VENDOR_SYMBOL_OF(name)
 #define MDAPY_VENDOR_SYMBOL_OF(name) #name
 #define MDAPY_VENDOR_FIND(field, name) find(handle, library, MDAPY_VENDOR_SYMBOL(name), table.field)
 
 inline void* open_or_throw(const char* package, const char* soname) {
     std::string why;
-    void* handle = open(package, soname, why);
+    void* handle = open(soname, folders_of(package), why);
     if (handle == nullptr) throw std::runtime_error(missing(why));
     return handle;
 }
 
 }  // namespace detail
 
-inline const Cublas& cublas() {
-    return detail::loaded<Cublas>([](Cublas& table) {
+#if defined(MDAPY_GPU_HIP)
+#define MDAPY_SONAME_BLAS MDAPY_SONAME_HIPBLAS
+#define MDAPY_SONAME_FFT MDAPY_SONAME_HIPFFT
+#define MDAPY_SONAME_SOLVER MDAPY_SONAME_HIPSOLVER
+#else
+#define MDAPY_SONAME_BLAS MDAPY_SONAME_CUBLAS
+#define MDAPY_SONAME_FFT MDAPY_SONAME_CUFFT
+#define MDAPY_SONAME_SOLVER MDAPY_SONAME_CUSOLVER
+#endif
+
+inline const Blas& blas() {
+    return detail::loaded<Blas>([](Blas& table) {
         using namespace detail;
+#if !defined(MDAPY_GPU_HIP)
         open_or_throw("cublas", MDAPY_SONAME_CUBLASLT);
-        void* handle = open_or_throw("cublas", MDAPY_SONAME_CUBLAS);
-        const char* library = MDAPY_SONAME_CUBLAS;
+#endif
+        void* handle = open_or_throw("cublas", MDAPY_SONAME_BLAS);
+        const char* library = MDAPY_SONAME_BLAS;
         MDAPY_VENDOR_FIND(create, cublasCreate);
         MDAPY_VENDOR_FIND(destroy, cublasDestroy);
         MDAPY_VENDOR_FIND(set_stream, cublasSetStream);
@@ -228,11 +277,11 @@ inline const Cublas& cublas() {
     });
 }
 
-inline const Cufft& cufft() {
-    return detail::loaded<Cufft>([](Cufft& table) {
+inline const Fft& fft() {
+    return detail::loaded<Fft>([](Fft& table) {
         using namespace detail;
-        void* handle = open_or_throw("cufft", MDAPY_SONAME_CUFFT);
-        const char* library = MDAPY_SONAME_CUFFT;
+        void* handle = open_or_throw("cufft", MDAPY_SONAME_FFT);
+        const char* library = MDAPY_SONAME_FFT;
         MDAPY_VENDOR_FIND(plan_many, cufftPlanMany);
         MDAPY_VENDOR_FIND(set_stream, cufftSetStream);
         MDAPY_VENDOR_FIND(destroy, cufftDestroy);
@@ -245,15 +294,17 @@ inline const Cufft& cufft() {
     });
 }
 
-inline const Cusolver& cusolver() {
-    return detail::loaded<Cusolver>([](Cusolver& table) {
+inline const Solver& solver() {
+    return detail::loaded<Solver>([](Solver& table) {
         using namespace detail;
+#if !defined(MDAPY_GPU_HIP)
         // what cuSOLVER needs, first
         open_or_throw("nvjitlink", MDAPY_SONAME_NVJITLINK);
         open_or_throw("cusparse", MDAPY_SONAME_CUSPARSE);
-        cublas();
-        void* handle = open_or_throw("cusolver", MDAPY_SONAME_CUSOLVER);
-        const char* library = MDAPY_SONAME_CUSOLVER;
+        blas();
+#endif
+        void* handle = open_or_throw("cusolver", MDAPY_SONAME_SOLVER);
+        const char* library = MDAPY_SONAME_SOLVER;
         MDAPY_VENDOR_FIND(create, cusolverDnCreate);
         MDAPY_VENDOR_FIND(destroy, cusolverDnDestroy);
         MDAPY_VENDOR_FIND(set_stream, cusolverDnSetStream);
@@ -282,14 +333,12 @@ inline const Cusolver& cusolver() {
 // own libraries too); std::runtime_error saying what to install when one
 // cannot be.
 inline std::vector<std::string> load_all() {
-    cublas();
-    cufft();
-    cusolver();
+    blas();
+    fft();
+    solver();
     detail::Opened& state = detail::opened();
     const std::lock_guard<std::mutex> lock(state.mutex);
     return state.files;
 }
 
 }  // namespace mdapy::dft::vendor
-
-#endif

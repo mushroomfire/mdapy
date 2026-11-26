@@ -20,7 +20,7 @@ from mdapy.calculators._dft import loader
 from mdapy.errors import InvalidParameter
 
 LIBSTDCXX = "version `GLIBCXX_3.4.32' not found (required by _dft.abi3.so)"
-HIPBLAS = "libhipblas.so.2: cannot open shared object file: No such file or directory"
+AMDHIP = "libamdhip64.so.6: cannot open shared object file: No such file or directory"
 
 
 class Unloadable:
@@ -102,12 +102,12 @@ def test_the_dft_of_mdapy_rocm6(monkeypatch):
     dft = types.ModuleType("mdapy_rocm6._dft")
     install(monkeypatch, "mdapy_rocm6", "_hip", dft)
     assert loader.module() is dft
-    install(monkeypatch, "mdapy_rocm6", "_hip", HIPBLAS)
+    install(monkeypatch, "mdapy_rocm6", "_hip", AMDHIP)
     with pytest.raises(InvalidParameter) as error:
         loader.module()
     message = str(error.value)
-    assert "hipBLAS, hipFFT and hipSOLVER of ROCm" in message
-    assert HIPBLAS in message
+    assert "the HIP runtime of ROCm 6" in message
+    assert AMDHIP in message
     assert "nvidia" not in message.lower()
 
 

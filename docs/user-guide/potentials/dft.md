@@ -55,8 +55,10 @@ pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
 ```
 
 `gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
-ROCm, and the run their libraries, as `module load rocm` gives them on a cluster. There
-the calculations of several threads take turns on the GPU instead of running at once.
+ROCm, the run the HIP runtime, as `module load rocm` gives it on a cluster, and
+`kernels="vendor"` the libraries of ROCm too, which it loads from the folders of
+`LD_LIBRARY_PATH`, `$ROCM_PATH/lib` or `/opt/rocm/lib`. There the calculations of several
+threads take turns on the GPU instead of running at once.
 Without the GPU part, or the libraries of the vendor for `kernels="vendor"`, `DFT` raises
 an error that says what to install.
 

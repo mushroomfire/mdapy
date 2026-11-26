@@ -111,8 +111,9 @@ pip puts them, else as the system finds them (`LD_LIBRARY_PATH`, the folders of 
 system). Without them, `DFT(kernels="vendor")` raises an error that names the command
 above.
 
-On an AMD GPU the DFT of `mdapy-rocm6` takes hipBLAS, hipFFT and hipSOLVER of the ROCm
-installed on the machine, as its potentials take the HIP runtime of ROCm: nothing comes
+On an AMD GPU the DFT of `mdapy-rocm6` runs on MDAPY's kernels with the HIP runtime of the
+ROCm installed on the machine, as its potentials do; `kernels="vendor"` loads hipBLAS,
+hipFFT and hipSOLVER of that ROCm in the same way, when first asked for. Nothing comes
 from pip.
 
 ## Exchange with other programs

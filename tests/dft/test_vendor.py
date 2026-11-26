@@ -3,16 +3,16 @@
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
 # obtain one at https://mozilla.org/MPL/2.0/.
 
-"""NVIDIA's cuBLAS, cuFFT and cuSOLVER where they are asked for: with CUDA the
+"""The libraries of the vendor where they are asked for, NVIDIA's cuBLAS, cuFFT
+and cuSOLVER with CUDA, hipBLAS, hipFFT and hipSOLVER of ROCm with HIP: the
 module _dft names none of them, a computation with MDAPY's kernels runs
 without loading them, and kernels="vendor" loads them (with cuSOLVER's own
-libraries). In a process of its own, as the other tests load them."""
+libraries, or those of ROCm they need). In a process of its own, as the other
+tests load them."""
 
 import json
 import subprocess
 import sys
-
-import pytest
 
 from dft import espresso, gpu
 
@@ -28,7 +28,8 @@ def loaded():
     found = set()
     with open("/proc/self/maps") as maps:
         for line in maps:
-            name = re.search(r"lib(cublasLt|cublas|cufft|cusolver|cusparse|nvJitLink)\.so", line)
+            name = re.search(r"lib(cublasLt|cublas|cufft|cusolver|cusparse|nvJitLink|hipblas|hipfft|hipsolver"
+                             r"|rocblas|rocfft|rocsolver|rocsparse)\.so", line)
             if name:
                 found.add(name.group(1))
     return sorted(found)
@@ -45,8 +46,6 @@ print(json.dumps({"converged": bool(r["converged"]), "before": before, "after": 
 
 def test_the_libraries_of_the_vendor_load_where_asked_for():
     dft = gpu.device()
-    if dft.api != "CUDA":
-        pytest.skip("with HIP the libraries of ROCm are linked")
     out = subprocess.run(
         [sys.executable, "-c", CHILD, str(espresso.pseudo("Al_std.upf"))],
         capture_output=True, text=True, check=True, timeout=600,
@@ -54,8 +53,13 @@ def test_the_libraries_of_the_vendor_load_where_asked_for():
     found = json.loads(out.stdout.strip().splitlines()[-1])
     assert found["converged"]
     assert found["before"] == []
-    names = ["cublas", "cublasLt", "cufft", "cusolver", "cusparse", "nvJitLink"]
-    assert found["after"] == sorted(names)
-    assert len(found["files"]) == len(names)
+    if dft.api == "CUDA":
+        names = ["cublas", "cublasLt", "cufft", "cusolver", "cusparse", "nvJitLink"]
+        assert found["after"] == sorted(names)
+        assert len(found["files"]) == len(names)
+    else:  # ROCm's own libraries come with them
+        rocm = {"hipblas", "hipfft", "hipsolver", "rocblas", "rocfft", "rocsolver"}
+        assert rocm <= set(found["after"])
+        assert len(found["files"]) == 3
     # the same files again, which stay loaded
     assert dft.vendor_libraries() == dft.vendor_libraries()

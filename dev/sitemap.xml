@@ -309,6 +309,10 @@
          <lastmod>2026-11-26</lastmod>
     </url>
     <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/electronic/</loc>
+         <lastmod>2026-11-26</lastmod>
+    </url>
+    <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/reference/api/properties/phonons/</loc>
          <lastmod>2026-11-26</lastmod>
     </url>
@@ -738,6 +742,10 @@
     </url>
     <url>
          <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/properties/elastic-constants/</loc>
+         <lastmod>2026-11-26</lastmod>
+    </url>
+    <url>
+         <loc>https://mushroomfire.github.io/mdapy/dev/user-guide/properties/electronic-structure/</loc>
          <lastmod>2026-11-26</lastmod>
     </url>
     <url>

@@ -7248,6 +7248,8 @@
       
         
       
+        
+      
     
     
     
@@ -7606,6 +7608,34 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../properties/electronic-structure/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Electronic structure
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
     
     
       
@@ -7630,10 +7660,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_3" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_4" >
         
           
-          <label class="md-nav__link" for="__nav_5_5_3" id="__nav_5_5_3_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_4" id="__nav_5_5_4_label" tabindex="0">
             
   
   
@@ -7651,8 +7681,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5_3">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_4">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7812,10 +7842,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_4" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_5" >
         
           
-          <label class="md-nav__link" for="__nav_5_5_4" id="__nav_5_5_4_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_5" id="__nav_5_5_5_label" tabindex="0">
             
   
   
@@ -7833,8 +7863,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_4_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5_4">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -7996,10 +8026,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_5" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_5_6" >
         
           
-          <label class="md-nav__link" for="__nav_5_5_5" id="__nav_5_5_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5_5_6" id="__nav_5_5_6_label" tabindex="0">
             
   
   
@@ -8017,8 +8047,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_5_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_5_5_5">
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_5_5_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5_5_6">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -9934,6 +9964,8 @@
       
         
       
+        
+      
     
     
     
@@ -10022,6 +10054,34 @@
     
   
     Elastic constants
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../reference/api/properties/electronic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Electronic structure
   
 
     
@@ -11156,6 +11216,8 @@ input, as <a href="#how-the-results-compare-with-quantum-espresso">below</a>.</p
 <a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">frames</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">dft</span><span class="o">.</span><span class="n">compute</span><span class="p">(</span><span class="n">system</span><span class="p">,</span> <span class="p">(</span><span class="s2">"energy"</span><span class="p">,</span> <span class="s2">"forces"</span><span class="p">,</span> <span class="s2">"virial"</span><span class="p">))</span><span class="o">.</span><span class="n">attach</span><span class="p">(</span><span class="n">system</span><span class="p">))</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="n">write</span><span class="p">(</span><span class="s2">"train.xyz"</span><span class="p">,</span> <span class="n">frames</span><span class="p">)</span>  <span class="c1"># the energy, virial, forces and parameters of each frame</span>
 </code></pre></div>
+<p>The bands of a crystal at any wave vectors and its density of states follow from its
+self-consistent field, as the <a href="../../properties/electronic-structure/">electronic structure</a>.</p>
 <p><code>DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",

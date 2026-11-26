@@ -192,6 +192,11 @@ column of fixed-size arrays of length 3 and use the plural name.
 | `gibbs_energy` | Gibbs energy per atom (eV), with the static energy, the free energy of the vibrations and the pressure times the volume |
 | `free_energy` | Helmholtz free energy (eV); of the vibrations in `ThermalProperties`, with the zero-point energy |
 | mode Grüneisen parameter | −(V/ω) dω/dV of a mode, from `Phonons.gruneisen` |
+| electronic structure | the self-consistent field of a crystal by `DFT`, kept so that the energies of the electrons at any wave vectors follow in its potential: `ElectronicStructure`, from `electronic_structure` |
+| Fermi level | the chemical potential of the electrons of the self-consistent field (eV), which its occupations fill up to; with fixed occupations, its highest occupied level: `fermi` |
+| electronic band structure | the energies of the electrons along a path through the Brillouin zone, in eV relative to the Fermi level, (S, P, B) with S the spins: `ElectronicBandStructure` |
+| electronic density of states | states per eV of the cell at each energy relative to the Fermi level, (S, F), from the energies on a mesh by the linear tetrahedron method or Gaussians: `ElectronicDOS` |
+| linear tetrahedron method | a sum over a mesh of wave vectors with each cell cut into six tetrahedra and the energies, or frequencies, linear inside each |
 | thermal displacements | ⟨u<sub>α</sub>u<sub>β</sub>⟩ (Å²) of each atom of a crystal by its vibrations, with the zero point motion, (T, n, 3, 3), from `Phonons.thermal_displacements` |
 | heat flux | the energy carried through a unit area per unit time by the atoms, (eV Å/ps) times the volume as LAMMPS's `compute heat/flux` gives it; the Green–Kubo conductivity integrates its correlation |
 | `kappa` | thermal conductivity (W/(m K)), (T, 3, 3), of the phonons in the relaxation-time approximation, from `thermal_conductivity` |

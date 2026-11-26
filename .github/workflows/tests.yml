@@ -285,11 +285,12 @@ jobs:
           import json, sys
           # The compute path of the DFT runs only in the GPU part on a GPU,
           # which this runner lacks: the coverage of these files is measured
-          # on a machine with a GPU (pytest --cov tests/dft), and the rule
-          # leaves them out here.
+          # on a machine with a GPU (pytest --cov tests/dft tests/properties),
+          # and the rule leaves them out here.
           gpu = {
               "src/mdapy/calculators/_dft/calculator.py",
               "src/mdapy/calculators/_dft/scf.py",
+              "src/mdapy/properties/_electronic.py",
           }
           files = json.load(open("coverage.json"))["files"]
           if gpu - files.keys():

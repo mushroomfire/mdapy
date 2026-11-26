@@ -1020,7 +1020,7 @@ NB_MODULE(_dft, m) {
                               ns_ = static_cast<std::size_t>(spins);
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
             std::vector<int> accepted, single;
-            std::vector<int> davidson;
+            std::vector<int> davidson, unconverged;
             std::vector<std::size_t> in_use, in_use_peak, reserved, reserved_peak, device_used;
             for (const auto& step : r.steps) {
                 in_use.push_back(step.memory.in_use);
@@ -1038,6 +1038,7 @@ NB_MODULE(_dft, m) {
                 tolerance.push_back(step.tolerance);
                 moments.push_back(step.magnetization);
                 davidson.push_back(step.davidson);
+                unconverged.push_back(step.unconverged);
             }
             const std::size_t ns = r.steps.size();
             nb::dict out;
@@ -1074,6 +1075,7 @@ NB_MODULE(_dft, m) {
             out["fermi_levels"] = array_of(fermi, {ns});
             out["tolerances"] = array_of(tolerance, {ns});
             out["davidson"] = array_of(davidson, {ns});
+            out["unconverged"] = array_of(unconverged, {ns});
             out["magnetizations"] = array_of(moments, {ns});
             // of the pool and the device at the end of each step, bytes
             nb::dict memory;

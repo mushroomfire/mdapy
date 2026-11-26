@@ -228,6 +228,41 @@ def test_phonons():
     assert len(plot.phonon_dos(dos, projected=True).get_legend().get_texts()) == 2
 
 
+@pytest.mark.parametrize("spins", [1, 2])
+def test_electronic_structure(spins):
+    # the results as the DFT gives them, without the DFT
+    from mdapy.properties import _paths
+    from mdapy.properties.electronic import ElectronicBandStructure, ElectronicDOS
+
+    cell = 1.8 * (1 - np.eye(3))
+    sections = _paths.standard_path(cell, cell, "fcc")
+    k, distances, labels, _ = _paths.sample(
+        sections, 5, 2 * np.pi * np.linalg.inv(cell).T
+    )
+    energies = np.sort(np.random.default_rng(0).normal(size=(spins, len(k), 4)), axis=2)
+    bands = ElectronicBandStructure(k, distances, energies, 7.5, labels)
+    ax = plot.electronic_bands(bands)
+    # a line for each band of each spin on each of the six straight pieces,
+    # with the marks of the seven points and of the Fermi level
+    assert len(ax.lines) == spins * 4 * 6 + 7 + 1
+    assert [t.get_text() for t in ax.get_xticklabels()] == [x for _, x in bands.labels]
+    assert (ax.get_legend() is not None) == (spins == 2)
+    if spins == 2:
+        assert [t.get_text() for t in ax.get_legend().get_texts()] == ["up", "down"]
+    one = plot.electronic_bands(bands, color="k")
+    assert all(line.get_color() == "k" for line in one.lines[: spins * 24])
+    grid = np.linspace(-5.0, 3.0, 50)
+    dos = ElectronicDOS(
+        grid, np.abs(np.sin(grid))[None].repeat(spins, 0), 7.5, np.full(3, 4)
+    )
+    ax = plot.electronic_dos(dos)
+    assert len(ax.lines) == {1: 2, 2: 4}[spins]
+    # with spin the down to the left, each named on its side
+    if spins == 2:
+        np.testing.assert_array_equal(ax.lines[1].get_xdata(), -dos.dos[1])
+        assert [t.get_text() for t in ax.texts] == ["up", "down"]
+
+
 @pytest.mark.parametrize("mode", [True, False])
 def test_style_keeps_interactive_mode(mode):
     """A notebook turns interactive mode on when its first figure loads the

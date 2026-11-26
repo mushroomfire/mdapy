@@ -263,6 +263,8 @@ def run(
     adaptive_damping: bool = False,
     first_held: int = 0,
     preconditioner: str = "kerker",
+    kpoints=None,
+    weights=None,
     precision: str = "double",
     kernels: str = "mdapy",
     on_start=None,
@@ -331,7 +333,14 @@ def run(
     DFT+U. preconditioner, of the residual of the total density: "kerker"
     (with kerker) or "ldos", from the local density of states at the Fermi
     level of each step (Herbst and Levitt, J. Phys.: Condens. Matter 33,
-    085503 (2021)), for cells of metal and vacuum or insulator. precision
+    085503 (2021)), for cells of metal and vacuum or insulator. kpoints (K, 3),
+    fractions of the reciprocal vectors, replace the mesh of kgrid and offset
+    and are taken as they are, none reduced or added (the symmetry, when on,
+    still acts on the density), with weights (K,) that add up to one, equal
+    ones by default: with max_iterations 1, start_density and
+    first_tolerance (and start_becsum with PAW), the bands at those k-points
+    in the potential of that density. The result holds unconverged, the bands that Davidson left
+    above their tolerance at each step, summed over the k-points. precision
     "mixed": the first steps in single precision (complex bands, and the
     real ones of gamma), then double precision to the end; the result holds single (1 for
     the steps in single precision); "auto": mixed on GPUs of little double
@@ -465,7 +474,18 @@ def run(
         np.ascontiguousarray(positions @ cell),
         np.ascontiguousarray(charges, dtype=float),
     )
-    if ops is None:
+    if kpoints is not None:
+        kpoints = np.ascontiguousarray(kpoints, dtype=float)
+        if kpoints.ndim != 2 or kpoints.shape[1] != 3 or len(kpoints) == 0:
+            raise ValueError("kpoints are (K, 3)")
+        if weights is None:
+            weights = np.full(len(kpoints), 1.0 / len(kpoints))
+        weights = np.ascontiguousarray(weights, dtype=float)
+        if weights.shape != (len(kpoints),) or abs(weights.sum() - 1.0) > 1e-9:
+            raise ValueError("a weight for every k-point, adding up to one")
+    elif weights is not None:
+        raise ValueError("weights come with kpoints")
+    elif ops is None:
         kpoints, weights = _dft.monkhorst_pack(list(kgrid), list(offset), True)
     else:
         full, _ = _dft.monkhorst_pack(list(kgrid), list(offset), False)

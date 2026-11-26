@@ -50,6 +50,10 @@ SCF_WITHOUT_UNITS = frozenset({
     "kernels",
 })  # fmt: skip
 
+# the residual norm (hartree) of every band of a pass at a fixed density: the
+# error of an eigenvalue is its square over the gap to the bands not solved
+_BAND_TOLERANCE = 1e-6
+
 _SMEARINGS = (
     "fixed",
     "gaussian",
@@ -445,6 +449,8 @@ class DFT(Calculator):
         self.__writer: Any = None
         self.__calculations = 0
         self.__state = None
+        # what a pass at the density of the last computation needs (_fixed_density)
+        self.__fixed: dict[str, Any] | None = None
         self.cutoff = 0.0
         self.elements = None
         self.last: dict[str, Any] = {}
@@ -598,6 +604,16 @@ class DFT(Calculator):
             self.__state.steps = 3 if self.restart == "second_order" else 1
         return self.__state
 
+    def __select_device(self) -> None:
+        # with MPI the ranks share the GPUs of their node in turn
+        if self.gpu is None:
+            return
+        _dft = loader.module()
+        count = _dft.device_count()
+        _dft.set_device(
+            self.gpu % count if self.comm is not None and count > 0 else self.gpu
+        )
+
     def __mesh(self, cell: np.ndarray) -> tuple[int, int, int]:
         if self.kpoints is not None:
             return self.kpoints
@@ -663,12 +679,7 @@ class DFT(Calculator):
         # the stress costs a pass over the bands; dynamics asks without it on
         # the steps that need no pressure
         stress = "virial" in wanted and WITHOUT_VIRIAL not in properties
-        if self.gpu is not None:
-            _dft = loader.module()
-            count = _dft.device_count()
-            _dft.set_device(
-                self.gpu % count if self.comm is not None and count > 0 else self.gpu
-            )
+        self.__select_device()
         if "element" not in system.table.columns:
             raise MissingProperty("DFT needs the element column")
         if not all(system.box.pbc):
@@ -822,6 +833,25 @@ class DFT(Calculator):
                 )
             },
         }
+        # what a pass at this density on other k-points needs
+        self.__fixed = {
+            "cell": cell / BOHR,
+            "reciprocal": 2 * math.pi * np.linalg.inv(cell).T,
+            "positions": fractional,
+            "kinds": kinds,
+            "pseudos": pseudos,
+            "moments": moments,
+            "density": r["density"],
+            "becsum": r.get("becsum")
+            if any(pp.paw is not None for pp in pseudos)
+            else None,
+            "grid": tuple(r["grid"]),
+            "smooth_grid": tuple(r["smooth_grid"]),
+            "spins": int(r["spins"]),
+            "bands": int(r["bands"]),
+            "fermi": float(r["fermi"]) * HARTREE,
+            "symmetric": int(r["operations"]) > 1,
+        }
         if "hubbard_energy" in r:
             self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE
             self.last["hubbard_occupations"] = r["hubbard_occupations"]
@@ -861,3 +891,114 @@ class DFT(Calculator):
             volume=system.box.volume,
             info={"dft": record},
         )
+
+    def _fixed_density(self, system: System) -> dict[str, Any]:
+        """The self-consistent state of a system, for the bands at its
+        density.
+
+        Parameters
+        ----------
+        system : System
+            As for ``compute``.
+
+        Returns
+        -------
+        dict
+            What ``_bands`` takes: the density and the cell it belongs to,
+            with ``fermi`` (float64, eV), ``spins`` and ``bands`` (int32),
+            ``reciprocal``, the (3, 3) float64 reciprocal lattice vectors in
+            1/Å, and ``symmetric`` (bool), whether the field used operations
+            of the crystal besides the identity.
+
+        Raises
+        ------
+        InvalidParameter
+            With DFT+U, or with a communicator of several processes.
+        """
+        if self.comm is not None and self.comm.Get_size() > 1:
+            raise InvalidParameter(
+                "the bands at a fixed density run in one process, not yet with comm"
+            )
+        if self.hubbard:
+            raise InvalidParameter("the bands at a fixed density are not yet for DFT+U")
+        self.compute(system)
+        return dict(self.__fixed)
+
+    def _bands(
+        self,
+        ground: dict[str, Any],
+        kpoints: np.ndarray,
+        bands: int | None = None,
+        *,
+        memory: float = 1.0e9,
+    ) -> np.ndarray:
+        """The eigenvalues at any k-points in the potential of a
+        self-consistent density, every band converged, in double precision.
+
+        Parameters
+        ----------
+        ground : dict
+            The state of ``_fixed_density``.
+        kpoints : numpy.ndarray
+            (K, 3) float64 k-points in units of the reciprocal lattice
+            vectors of the cell.
+        bands : int32, optional
+            Number of bands at each k-point. Default that of the
+            self-consistent field.
+        memory : float64, optional
+            Bytes that the bands of the k-points solved together may take on
+            the GPU; more k-points go in several passes. Default 1e9.
+
+        Returns
+        -------
+        numpy.ndarray
+            (S, K, B) float64 eigenvalues in eV, ascending at each k-point,
+            S = 2 (up, down) with spin, else 1.
+
+        Raises
+        ------
+        InvalidParameter
+            For k-points that are not (K, 3) or bands that are not positive.
+        CalculationFailed
+            If a band does not converge.
+        """
+        from mdapy.calculators._dft import scf
+
+        kpoints = np.ascontiguousarray(kpoints, dtype=float)
+        if kpoints.ndim != 2 or kpoints.shape[1] != 3 or len(kpoints) == 0:
+            raise InvalidParameter("kpoints must be (K, 3)")
+        count = ground["bands"] if bands is None else int(bands)
+        if count < 1:
+            raise InvalidParameter(f"bands must be at least 1, not {bands!r}")
+        cutoff = self.encut / HARTREE
+        # bands above those asked for, which converge last, are solved loosely
+        # and dropped
+        solved = count + max(4, math.ceil(0.1 * count))
+        volume = abs(np.linalg.det(ground["cell"]))
+        waves = volume * (2 * cutoff) ** 1.5 / (6 * math.pi**2)
+        each = 16.0 * waves * solved * ground["spins"]
+        step = max(1, int(memory // each))
+        self.__select_device()
+        parts = []
+        for first in range(0, len(kpoints), step):
+            r = scf.run(
+                ground["cell"], ground["positions"], ground["kinds"], ground["pseudos"],
+                cutoff,
+                density_cutoff=None if self.ecutrho is None else self.ecutrho / HARTREE,
+                kpoints=kpoints[first : first + step],
+                smearing=self.smearing, sigma=self.sigma / HARTREE, bands=solved,
+                grid=ground["grid"], smooth_grid=ground["smooth_grid"],
+                max_iterations=1, davidson_iterations=300, seed=self.seed,
+                functional=self.functional, magmoms=ground["moments"], stress=False,
+                symmetry=False, gamma=False, start_density=ground["density"],
+                start_becsum=ground["becsum"], first_tolerance=_BAND_TOLERANCE,
+                first_held=count,
+            )  # fmt: skip
+            if int(r["unconverged"][0]) > 0:
+                raise CalculationFailed(
+                    f"{int(r['unconverged'][0])} bands did not converge at the k-points "
+                    f"{first} to {min(first + step, len(kpoints)) - 1}"
+                )
+            e = np.asarray(r["eigenvalues"]) * HARTREE
+            parts.append(e.reshape(ground["spins"], -1, solved)[:, :, :count])
+        return np.concatenate(parts, axis=1)

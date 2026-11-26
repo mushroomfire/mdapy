@@ -28,6 +28,9 @@ for path in sorted(Path("structures").glob("*.xyz")):
 write("train.xyz", frames)  # the energy, virial, forces and parameters of each frame
 ```
 
+The bands of a crystal at any wave vectors and its density of states follow from its
+self-consistent field, as the [electronic structure](../properties/electronic-structure.md).
+
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",

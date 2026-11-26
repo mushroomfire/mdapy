@@ -327,6 +327,7 @@ nav:
               - At finite temperature: user-guide/properties/thermal-elastic.md
               - From molecular dynamics: user-guide/properties/md-elastic.md
               - Sheets: user-guide/properties/sheets.md
+          - Electronic structure: user-guide/properties/electronic-structure.md
           - Phonons:
               - Phonons: user-guide/properties/phonons.md
               - Force constants: user-guide/properties/force-constants.md
@@ -395,6 +396,7 @@ nav:
           - Properties:
               - Defects: reference/api/properties/defects.md
               - Elastic constants: reference/api/properties/elastic.md
+              - Electronic structure: reference/api/properties/electronic.md
               - Phonons: reference/api/properties/phonons.md
               - Transport: reference/api/properties/transport.md
               - Thermodynamics: reference/api/properties/thermodynamics.md

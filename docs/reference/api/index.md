@@ -33,6 +33,7 @@ import mdapy as mp
 
 - [Defects](properties/defects.md): `mdapy.properties.defects`
 - [Elastic constants](properties/elastic.md): `mdapy.properties.elastic`
+- [Electronic structure](properties/electronic.md): `mdapy.properties.electronic`
 - [Phonons](properties/phonons.md): `mdapy.properties.phonons`
 - [Transport](properties/transport.md): `mdapy.properties.transport`
 - [Thermodynamics](properties/thermodynamics.md): `mdapy.properties.thermodynamics`

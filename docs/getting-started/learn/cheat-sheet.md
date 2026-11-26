@@ -137,6 +137,7 @@ calculator. See
 Of a relaxed crystal, `relaxed = minimize(crystal, potential, cell="full").system`, and its
 primitive cell, `cell = primitive_cell(relaxed)`. See
 [Elastic constants](../../user-guide/properties/elastic-constants.md),
+[Electronic structure](../../user-guide/properties/electronic-structure.md),
 [Phonons](../../user-guide/properties/phonons.md),
 [Force constants](../../user-guide/properties/force-constants.md),
 [Quasi-harmonic approximation](../../user-guide/properties/quasi-harmonic.md) and
@@ -149,6 +150,8 @@ primitive cell, `cell = primitive_cell(relaxed)`. See
 | a modulus along a direction | `result.young_modulus([1, 1, 1])`, `result.poisson_ratio([1, 0, 0], [0, 1, 0])` |
 | it along every direction | `plot.elastic_surface(result)` |
 | elastic constants at a temperature | `md_elastic_constants(relaxed, lammps, 300.0)` |
+| the bands of the electrons | `structure = electronic_structure(cell, dft)`, then `plot.electronic_bands(structure.band_structure("fcc"))` |
+| their density of states | `plot.electronic_dos(structure.dos())`, states per eV of the cell |
 | phonons | `result = phonons(cell, potential)`, then `result.frequencies([0.5, 0.5, 0.5])` in THz |
 | their bands and density of states | `plot.band_structure(result.band_structure("fcc"))`, `plot.phonon_dos(result.dos(20))` |
 | their free energy | `result.thermal([100, 300, 600])` |
@@ -204,6 +207,7 @@ See [Perturbed structures](../../user-guide/mlip/perturbation.md),
 | `mdapy.simulation` | `MolecularDynamics`, `minimize`, `thermal_velocities`; the controls in `mdapy.simulation.controls` |
 | `mdapy.properties.defects` | `vacancy_formation_energy`, `surface_energy`, `stacking_fault_energy`, `stacking_fault_free_energy` |
 | `mdapy.properties.elastic` | `elastic_constants`, `thermal_elastic_constants`, `md_elastic_constants` |
+| `mdapy.properties.electronic` | `electronic_structure` |
 | `mdapy.properties.phonons` | `phonons`, `force_constants`, `thermal_phonons`, `bond_stiffness` and others |
 | `mdapy.properties.transport` | `thermal_conductivity`, `green_kubo`, `hnemd`, `nemd` |
 | `mdapy.properties.thermodynamics` | `quasi_harmonic`, `free_energy`, `melting_point`, phase diagrams |

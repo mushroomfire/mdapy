@@ -705,7 +705,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         DeviceArray<double> rho;
         std::vector<DeviceArray<double>> becsum;
         std::vector<double> values, limits, w;
-        int iterations = 0;
+        int iterations = 0, unconverged = 0;
         double band = 0.0;
         std::exception_ptr error;
         Worker(const Lattice& lattice, const Int3& grid, double cutoff, const std::vector<SpeciesProjectors>& species,
@@ -799,7 +799,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                                "cudaMemcpy");
                 }
             }
-            for (auto& worker : workers) worker->iterations = 0;
+            for (auto& worker : workers) worker->iterations = worker->unconverged = 0;
             side_by_side([&](Worker& wk, std::size_t s, std::size_t k) {
                 wk.h.set_k(input.kpoints[k]);
                 wk.h.set_potential(veff_spin[s].data());
@@ -845,10 +845,14 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                                    : wk.davidson.solve(wk.h, psi[row].data(), nb, wk.values, wk.limits,
                                                        options.davidson_iterations, options.davidson_basis * nb);
                 wk.iterations += r.iterations;
+                wk.unconverged += nb - r.converged;
                 std::copy(wk.values.begin(), wk.values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>(row * bands));
             }, false);
-            for (auto& worker : workers) step.davidson += worker->iterations;
+            for (auto& worker : workers) {
+                step.davidson += worker->iterations;
+                step.unconverged += worker->unconverged;
+            }
         }
         for (std::size_t k = 0; k < nk && threads == 1; ++k) {
             if (!any_mine(k)) continue;
@@ -875,6 +879,7 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
                                    : davidson.solve(h, psi[s * nk + k].data(), nb, values, limits,
                                                     options.davidson_iterations, options.davidson_basis * nb);
                 step.davidson += r.iterations;
+                step.unconverged += nb - r.converged;
                 std::copy(values.begin(), values.end(),
                           eigenvalues.begin() + static_cast<std::ptrdiff_t>((s * nk + k) * bands));
             }
@@ -888,6 +893,9 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
             double count = step.davidson;
             sum(&count, 1);
             step.davidson = static_cast<int>(std::lround(count));
+            count = step.unconverged;
+            sum(&count, 1);
+            step.unconverged = static_cast<int>(std::lround(count));
         }
         result.times.bands += clock.lap();
         const Occupation occ =

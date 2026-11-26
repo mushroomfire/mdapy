@@ -40,8 +40,13 @@ namespace {
 
 // ---------------------------------------------------------------- scalars
 
+// Those of double precision aligned as the complex numbers of the libraries,
+// so that one instruction reads a value from memory, not two (measured on a
+// V100: the products of 640 x 640 values of 31560 terms and of 32000 x 640 of
+// 640 from 1.21 and 1.25 of cuBLAS to 1.15 and 1.16 with the large blocks,
+// from 1.19 and 1.14 to 1.16 and 1.12 with the small ones).
 template <class R>
-struct Cx {
+struct alignas(sizeof(R) == 8 ? 16 : alignof(R)) Cx {
     R x, y;
 };
 

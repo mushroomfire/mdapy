@@ -47,7 +47,7 @@ SCF_WITHOUT_UNITS = frozenset({
     "max_iterations", "davidson_iterations", "davidson_basis", "seed", "magnetic_beta",
     "stress", "correct_forces", "atomic_start", "kpoint_threads", "conditioning",
     "output_energies", "adaptive_damping", "first_held", "preconditioner", "precision",
-    "kernels", "kpoints", "weights", "start_becsum",
+    "kernels",
 })  # fmt: skip
 
 # the residual norm (hartree) of every band of a pass at a fixed density: the

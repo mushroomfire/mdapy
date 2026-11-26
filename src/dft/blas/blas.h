@@ -118,10 +118,11 @@ private:
     // never with HIP
     [[maybe_unused]] bool tensor_ = false;
     [[maybe_unused]] bool maps_ = false;
-    // its double precision is half as fast as its single, without tensor cores
-    // for it, and a multiprocessor holds two or three blocks of the products
-    // made for it (compute capability 7.0); never with HIP
-    bool full_double_ = false;
+    // the products of double precision take the forms of two or three blocks a
+    // multiprocessor: a GPU whose double precision is half as fast as its
+    // single, without tensor cores for it (compute capability 7.0, the V100);
+    // never with HIP
+    bool pair_forms_ = false;
     // the kernels of those products that were let take their shared memory, by
     // type, transpositions and way of copying
     [[maybe_unused]] bool asked_[2][2][2][3] = {};

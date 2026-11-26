@@ -711,7 +711,7 @@ void Blas::look() {
     const char* off = std::getenv("MDAPY_DFT_DMMA");
     tensor_ = minor == 0 && (major == 8 || major == 9 || major == 10) && built >= 800 && !(off != nullptr && off[0] == '0');
     maps_ = tensor_ && major >= 9 && built >= 900;
-    full_double_ = major == 7 && minor == 0;
+    pair_forms_ = major == 7 && minor == 0;
 #endif
     if (processors_ < 1) processors_ = 1;
 }
@@ -792,7 +792,7 @@ void Blas::own_gemm(Op ta, Op tb, int m, int n, int k, S alpha, const S* a, long
             // none of them
         } else if (small_tiles_ >= 0) {
             if (small_tiles_ < kForms && held[small_tiles_].fits) form = small_tiles_;
-        } else if (full_double_ && wide) {
+        } else if (pair_forms_ && wide) {
             // Where double precision is half as fast as single: the form whose
             // blocks take the least time, each the values it holds over the
             // pace of the full blocks of its form (kPace); a block of the last

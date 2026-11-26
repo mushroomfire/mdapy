@@ -1678,8 +1678,9 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
         // holds all their blocks at once (measured on a GH200; a V100 holds
         // those of about 400 rows)
         bool together = false;
-        int held_count = 0;  // the blocks of the steps in one launch with the trailing matrix in shared memory
-        std::size_t held_bytes = 0;
+        // the blocks of the steps in one launch with the trailing matrix in shared memory (never with HIP)
+        [[maybe_unused]] int held_count = 0;
+        [[maybe_unused]] std::size_t held_bytes = 0;
 #if !defined(MDAPY_GPU_HIP)
         const int most = std::min(sizeof(S) == 2 * sizeof(double) ? kStepsComplex : kFused,
                                   fused_limit_ >= 0 ? fused_limit_ : kFused);

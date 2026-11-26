@@ -2,6 +2,14 @@
 
 ## 2.3.0 (not released)
 
+- `mdapy.properties.electronic.electronic_structure(system, dft)`: the self-consistent
+  field of a crystal by `DFT` once, then the energies of the electrons at any wave
+  vectors in its potential (`energies`), band structures along the paths of the phonons
+  (`band_structure`) and densities of states by the linear tetrahedron method or with
+  Gaussians (`dos`), relative to the Fermi level and with spin; `plot.electronic_bands`
+  and `plot.electronic_dos` draw them. The bands agree with those of Quantum ESPRESSO's
+  `calculation = "bands"`, the densities with its `dos.x`. See
+  [Electronic structure](../user-guide/properties/electronic-structure.md).
 - `pip install "mdapy[full]"` installs matplotlib, spglib and seekpath, the optional
   packages MDAPY's own features use, so that every feature works; the extras `plot` and
   `symmetry` still work.

@@ -850,6 +850,7 @@ class DFT(Calculator):
             "spins": int(r["spins"]),
             "bands": int(r["bands"]),
             "fermi": float(r["fermi"]) * HARTREE,
+            "symmetric": int(r["operations"]) > 1,
         }
         if "hubbard_energy" in r:
             self.last["hubbard_energy"] = float(r["hubbard_energy"]) * HARTREE
@@ -904,9 +905,10 @@ class DFT(Calculator):
         -------
         dict
             What ``_bands`` takes: the density and the cell it belongs to,
-            with ``fermi`` (float64, eV), ``spins`` and ``bands`` (int32) and
+            with ``fermi`` (float64, eV), ``spins`` and ``bands`` (int32),
             ``reciprocal``, the (3, 3) float64 reciprocal lattice vectors in
-            1/Å.
+            1/Å, and ``symmetric`` (bool), whether the field used operations
+            of the crystal besides the identity.
 
         Raises
         ------

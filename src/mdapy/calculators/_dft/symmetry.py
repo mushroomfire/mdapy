@@ -130,6 +130,16 @@ def irreducible(
     """The irreducible k-points (fractions of the reciprocal vectors) of a
     full mesh kpoints (K, 3), each the first of its star under R^T and -1
     met in the mesh, and their weights adding up to one."""
+    owner = stars(kpoints, rotations)
+    first = np.unique(owner)
+    weights = np.array([(owner == i).sum() for i in first], dtype=float)
+    return np.asarray(kpoints, dtype=float)[first], weights / weights.sum()
+
+
+def stars(kpoints: np.ndarray, rotations: np.ndarray) -> np.ndarray:
+    """Of each k-point of a full mesh kpoints (K, 3), fractions of the
+    reciprocal vectors, the index of the first of its star under R^T and -1
+    met in the mesh, (K,) int64."""
     kpoints = np.asarray(kpoints, dtype=float)
 
     def key(k):
@@ -149,9 +159,7 @@ def irreducible(
                 j = where.get(key(sign * (r.T @ k)))
                 if j is not None and owner[j] < 0:
                     owner[j] = i
-    first = np.unique(owner)
-    weights = np.array([(owner == i).sum() for i in first], dtype=float)
-    return kpoints[first], weights / weights.sum()
+    return owner
 
 
 def harmonics(cartesian: np.ndarray, lmax: int = 3) -> list[list[np.ndarray]]:

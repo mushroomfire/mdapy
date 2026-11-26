@@ -4,19 +4,21 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The electronic structure from the DFT calculator: the bands along a path
-through the Brillouin zone.
+through the Brillouin zone and the density of states.
 
 >>> from mdapy.properties.electronic import electronic_structure
 """
 
 from mdapy.properties._electronic import (
     ElectronicBandStructure,
+    ElectronicDOS,
     ElectronicStructure,
     electronic_structure,
 )
 
 __all__ = [
     "ElectronicBandStructure",
+    "ElectronicDOS",
     "ElectronicStructure",
     "electronic_structure",
 ]

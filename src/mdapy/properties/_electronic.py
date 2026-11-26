@@ -4,9 +4,10 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The electronic structure of a crystal from the DFT calculator: the bands
-along a path through the Brillouin zone, at the density of the
-self-consistent field."""
+along a path through the Brillouin zone and the density of states, at the
+density of the self-consistent field."""
 
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -17,7 +18,24 @@ from mdapy.calculators._base import Calculator
 from mdapy.core.system import System
 from mdapy.errors import InvalidParameter
 from mdapy.properties import _paths
-from mdapy.properties._phonons import _kinds, _read_only, primitive_cell
+from mdapy.properties._phonons import (
+    _kinds,
+    _mesh,
+    _read_only,
+    _repeat,
+    _tetrahedra,
+    _tetrahedron_density,
+    primitive_cell,
+)
+
+# the largest distance in 1/Å (with 2 pi) between neighbours of the default
+# mesh of the density of states along each reciprocal lattice vector
+_SPACING = 0.15
+# number of energies of the density of states by default
+_ENERGIES = 1001
+# the largest number of pairs of a tetrahedron and an energy inside it at a
+# time
+_PAIRS = 1 << 21
 
 
 @dataclass(frozen=True)
@@ -51,6 +69,35 @@ class ElectronicBandStructure:
 
     def __post_init__(self):
         _read_only(self.k, self.distances, self.energies)
+
+
+@dataclass(frozen=True)
+class ElectronicDOS:
+    """The electronic density of states of the cell.
+
+    Attributes
+    ----------
+    energies : numpy.ndarray
+        (F,) float64 energies in eV relative to ``fermi``.
+    dos : numpy.ndarray
+        (S, F) float64 states per eV of the cell; S = 2 with spin, up then
+        down, else 1 with both spins together. Below the Fermi level it
+        integrates to the number of electrons, to the accuracy of the mesh.
+    fermi : float64
+        The Fermi level of the self-consistent field in eV; with fixed
+        occupations its highest occupied level.
+    mesh : numpy.ndarray
+        (3,) int32 number of wave vectors along each reciprocal lattice
+        vector.
+    """
+
+    energies: np.ndarray
+    dos: np.ndarray
+    fermi: float
+    mesh: np.ndarray
+
+    def __post_init__(self):
+        _read_only(self.energies, self.dos, self.mesh)
 
 
 class ElectronicStructure:
@@ -190,6 +237,133 @@ class ElectronicStructure:
             labels=labels,
         )
 
+    def dos(
+        self,
+        mesh: int | ArrayLike | None = None,
+        *,
+        energies: ArrayLike | None = None,
+        sigma: float | None = None,
+        bands: int | None = None,
+    ) -> ElectronicDOS:
+        """The electronic density of states, from the energies on a mesh of
+        wave vectors, by the linear tetrahedron method or with Gaussians.
+
+        Parameters
+        ----------
+        mesh : int32 or array_like, optional
+            Number of wave vectors along each reciprocal lattice vector, of
+            a mesh through Γ. Default the fewest that leave at most
+            0.15 1/Å between neighbours along each.
+        energies : array_like of float64, optional
+            The energies in eV relative to the Fermi level at which to give
+            the density. Default 1001 from 0.5 eV (and 3 sigma) below the
+            lowest band to the lowest energy of the highest band, above which
+            states are missing.
+        sigma : float64, optional
+            Width in eV of a Gaussian for each state; by default the linear
+            tetrahedron method.
+        bands : int32, optional
+            Number of bands, from the lowest. Default that of the
+            self-consistent field.
+
+        Returns
+        -------
+        ElectronicDOS
+            The energies relative to the Fermi level, the density of states
+            of the cell, the Fermi level and the mesh.
+
+        Raises
+        ------
+        InvalidParameter
+            For a mesh that is not one or three positive integers, or a
+            sigma or bands that are not positive.
+        CalculationFailed
+            If a band does not converge.
+        """
+        from mdapy.calculators._dft import symmetry as symmetries
+
+        if sigma is not None and not sigma > 0:
+            raise InvalidParameter(f"sigma must be positive, not {sigma!r}")
+        fixed = self.__fixed
+        reciprocal = fixed["reciprocal"]
+        if mesh is None:
+            lengths = np.linalg.norm(reciprocal, axis=1)
+            counts = np.maximum(1, np.ceil(lengths / _SPACING - 1e-9)).astype(int)
+        else:
+            counts = _repeat(mesh, "mesh")
+        k = _mesh(counts)
+        # the wave vectors that the operations of the field, or -1, relate
+        # have the same energies: those of one of each star are solved
+        rotations = np.eye(3, dtype=np.int32)[None]
+        if fixed["symmetric"]:
+            rotations = symmetries.operations(
+                fixed["cell"], fixed["positions"], fixed["kinds"], fixed["moments"]
+            ).rotations
+        first, where = np.unique(symmetries.stars(k, rotations), return_inverse=True)
+        e = self.energies(k[first], bands=bands)
+        if energies is None:
+            margin = 0.5 + (0.0 if sigma is None else 3 * sigma)
+            grid = np.linspace(e.min() - margin, e[..., -1].min(), _ENERGIES)
+        else:
+            grid = np.asarray(energies, dtype=float).reshape(-1)
+        if sigma is None:
+            dos = _tetrahedron_sum(e[:, where], counts, reciprocal, grid)
+        else:
+            dos = _gaussian_sum(e, np.bincount(where) / len(k), grid, float(sigma))
+        # without spin each state holds two electrons
+        return ElectronicDOS(
+            energies=grid,
+            dos=dos * (2 / self.spins),
+            fermi=self.fermi,
+            mesh=counts.astype(np.int32),
+        )
+
+
+def _tetrahedron_sum(
+    energies: np.ndarray, counts: np.ndarray, reciprocal: np.ndarray, grid: np.ndarray
+) -> np.ndarray:
+    """(S, F) density of states of energies (S, K, B) on the mesh of counts
+    (in the order of _mesh) at the energies grid (F,), ascending: of each
+    band the mean of those of the tetrahedra of the mesh, summed over the
+    bands; each band integrates to 1."""
+    tetrahedra = _tetrahedra(counts, reciprocal)
+    out = np.zeros((len(energies), len(grid)))
+    # the energies of the grid inside each tetrahedron alone, at most about
+    # _PAIRS pairs at a time
+    for s, values in enumerate(energies):
+        corners = np.sort(values[tetrahedra], axis=1).transpose(0, 2, 1).reshape(-1, 4)
+        low = np.searchsorted(grid, corners[:, 0], side="right")
+        width = np.maximum(np.searchsorted(grid, corners[:, 3], side="left") - low, 0)
+        ends = np.cumsum(width)
+        if len(ends) == 0 or ends[-1] == 0:
+            continue
+        cuts = np.searchsorted(ends, np.arange(_PAIRS, ends[-1], _PAIRS), side="right")
+        bounds = np.unique(np.concatenate([[0], cuts, [len(corners)]]))
+        for start, stop in zip(bounds[:-1], bounds[1:]):
+            w = width[start:stop]
+            row = np.repeat(np.arange(start, stop), w)
+            offset = np.arange(len(row)) - np.repeat(np.cumsum(w) - w, w)
+            index = low[row] + offset
+            value = _tetrahedron_density(
+                *(corners[row, j] for j in range(4)), grid[index]
+            )
+            out[s] += np.bincount(index, weights=value, minlength=len(grid))
+    return out / len(tetrahedra)
+
+
+def _gaussian_sum(
+    energies: np.ndarray, weights: np.ndarray, grid: np.ndarray, sigma: float
+) -> np.ndarray:
+    """(S, F) density of states of energies (S, K, B) at wave vectors of
+    weights (K,) adding up to one, at the energies grid (F,): a Gaussian of
+    width sigma for each state, summed over the bands."""
+    out = np.zeros((len(energies), len(grid)))
+    for s, values in enumerate(energies):
+        for k, w in enumerate(weights):
+            x = (grid[None, :] - values[k][:, None]) / sigma
+            out[s] += w * np.exp(-0.5 * x * x).sum(axis=0)
+    return out / (sigma * math.sqrt(2 * math.pi))
+
 
 def electronic_structure(system: System, calculator: Calculator) -> ElectronicStructure:
     """The electronic structure of a crystal: its self-consistent field, of
@@ -205,7 +379,8 @@ def electronic_structure(system: System, calculator: Calculator) -> ElectronicSt
     Returns
     -------
     ElectronicStructure
-        The state of the self-consistent field, with ``band_structure``.
+        The state of the self-consistent field, with ``band_structure``
+        and ``dos``.
 
     Raises
     ------

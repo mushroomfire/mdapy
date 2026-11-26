@@ -44,14 +44,18 @@ def pseudo(name: str) -> Path:
 
 @functools.lru_cache(maxsize=None)
 def _run(
-    text: str, folder: str, threads: int = 4, bands: str | None = None
-) -> tuple[str, str] | tuple[str, str, str]:
+    text: str, folder: str, threads: int = 4, bands: str | None = None,
+    dos: tuple[str, ...] = (),
+) -> tuple:  # fmt: skip
     """pw.x of an input: its output and its XML data file; with bands, the
     input of a second run in the same folder (the bands at the density of the
-    first), also the XML of that one."""
+    first), also the XML of that one; with dos, inputs of dos.x run after the
+    second, which write dos0.dat, dos1.dat, ..., also the texts of those."""
     exe = shutil.which("pw.x")
     if exe is None:
         pytest.skip("no pw.x")
+    if dos and shutil.which("dos.x") is None:
+        pytest.skip("no dos.x")
     with tempfile.TemporaryDirectory() as work:
         Path(work, "pw.in").write_text(text)
         out = subprocess.run(
@@ -62,24 +66,45 @@ def _run(
             raise RuntimeError("pw.x did not converge:\n" + out[-3000:])
         xml = Path(work, "tmp", "pwscf.save", "data-file-schema.xml").read_text()
         if bands is not None:
-            Path(work, "bands.in").write_text(bands)
-            second = subprocess.run(
-                [exe, "-in", "bands.in"], cwd=work, capture_output=True, text=True,
-                env={**os.environ, "OMP_NUM_THREADS": str(threads)}, check=False, timeout=1800,
-            ).stdout  # fmt: skip
+
+            def again(given):
+                Path(work, "bands.in").write_text(given)
+                return subprocess.run(
+                    [exe, "-in", "bands.in"], cwd=work, capture_output=True, text=True,
+                    env={**os.environ, "OMP_NUM_THREADS": str(threads)}, check=False,
+                    timeout=1800,
+                ).stdout  # fmt: skip
+
+            second = again(bands)
+            if "S matrix not positive definite" in second:
+                # the Davidson of pw.x 7.6 loses the overlap of the semicore
+                # states of PAW iron now and then, with threads: cg instead
+                second = again(
+                    bands.replace("diago_full_acc = .true.,",
+                                  "diago_full_acc = .true., diagonalization = 'cg',")
+                )  # fmt: skip
             if "JOB DONE" not in second or "not converged" in second:
                 raise RuntimeError("the bands of pw.x:\n" + second[-3000:])
-            return (
-                out,
-                xml,
-                Path(work, "tmp", "pwscf.save", "data-file-schema.xml").read_text(),
-            )
+            found = Path(work, "tmp", "pwscf.save", "data-file-schema.xml").read_text()
+            if not dos:
+                return out, xml, found
+            texts = []
+            for i, settings in enumerate(dos):
+                Path(work, f"dos{i}.in").write_text(settings)
+                subprocess.run(
+                    [shutil.which("dos.x"), "-in", f"dos{i}.in"], cwd=work, capture_output=True,
+                    text=True, env={**os.environ, "OMP_NUM_THREADS": str(threads)}, check=True,
+                    timeout=1800,
+                )  # fmt: skip
+                texts.append(Path(work, f"dos{i}.dat").read_text())
+            return out, xml, found, tuple(texts)
     return out, xml
 
 
 def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fixed",
         sigma=0.0, conv_thr=1e-12, extra="", magmoms=None, beta=0.7, maxstep=100,
-        symmetric=False, threads=4, hubbard=None, band_kpoints=None, band_count=None):  # fmt: skip
+        symmetric=False, threads=4, hubbard=None, band_kpoints=None, band_count=None,
+        dos_mesh=None, dos_inputs=()):  # fmt: skip
     """pw.x of a cell (rows, bohr), fractional positions, symbols and their UPF
     files (by element), a cutoff of the bands in hartree, k-points (fractions
     of the reciprocal vectors) and weights; sigma in hartree; with magmoms (Bohr
@@ -91,7 +116,14 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
     the density of the first: band_count bands at each of them, every one
     converged (diago_full_acc; equal k-points run once), as band_eigenvalues
     ((2,) P, band_count),
-    hartree, from its XML data file."""
+    hartree, from its XML data file. With dos_mesh (3,), instead a second run
+    calculation = "nscf" on that mesh through Γ, every k-point of it
+    (without symmetry), band_count bands each, as mesh_eigenvalues ((2,) K,
+    band_count) in the order of the indices of the third vector first, and
+    dos.x after it with each of dos_inputs, the settings of its namelist
+    &dos besides outdir and fildos: the columns of each output (energy in eV,
+    the density of states, up and down with spin, in states per eV, and
+    their integral) as dos, a list of (F, 3 or 4) arrays."""
     from mdapy.calculators._dft.upf import read_upf
 
     folder = str(Path(next(iter(files.values()))).parent)
@@ -154,6 +186,9 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
                 orbital, u = hubbard[el]
                 lines.append(f"U {label}-{orbital.lower()} {u / EV:.12f}")
     text = "\n".join(lines) + "\n"
+    if dos_mesh is not None:
+        return _mesh_run(lines, text, folder, threads, len(cart), cell, alat,
+                         dos_mesh, band_count, dos_inputs, hubbard)  # fmt: skip
     if band_kpoints is None:
         out, xml = _run(text, folder, threads)
         return parse(out, xml, len(cart))
@@ -180,6 +215,44 @@ def run(cell, positions, symbols, files, cutoff, kpoints, weights, smearing="fix
     result = parse(out, xml, len(cart))
     found = eigenvalues(xml_bands, len(path))[0]
     result["band_eigenvalues"] = np.take(found, where.reshape(-1), axis=-2)
+    return result
+
+
+def _mesh_run(
+    lines, text, folder, threads, nk, cell, alat, mesh, count, inputs, hubbard
+):
+    """The field of the input text, then pw.x's nscf on a mesh and dos.x
+    (run's dos_mesh)."""
+    first = lines.index("K_POINTS tpiba")
+    second = [
+        line.replace('calculation = "scf"', 'calculation = "nscf"')
+        .replace("tprnfor = .true., tstress = .true.", "")
+        .replace("ibrav = 0,", f"ibrav = 0, nbnd = {int(count)},")
+        .replace("conv_thr =", "diago_full_acc = .true., conv_thr =")
+        for line in lines[:first]
+    ]
+    second += ["K_POINTS automatic", " ".join(str(int(n)) for n in mesh) + " 0 0 0"]
+    if hubbard:
+        second += lines[lines.index("HUBBARD (atomic)") :]
+    dos = tuple(
+        f"&dos\n  outdir = './tmp', fildos = 'dos{i}.dat', {settings}\n/\n"
+        for i, settings in enumerate(inputs)
+    )
+    out, xml, found, texts = _run(text, folder, threads, "\n".join(second) + "\n", dos)
+    result = parse(out, xml, nk)
+    counts = np.asarray(mesh, dtype=int)
+    eigen = eigenvalues(found, int(counts.prod()))[0]
+    # the k-points of QE (2 pi / alat) as fractions of the reciprocal vectors,
+    # and their places in the mesh
+    bs = ElementTree.fromstring(found).find("output/band_structure")
+    k = np.array([[float(x) for x in ks.find("k_point").text.split()]
+                  for ks in bs.findall("ks_energies")])  # fmt: skip
+    steps = np.round(k @ np.asarray(cell).T / alat * counts).astype(int) % counts
+    place = (steps[:, 0] * counts[1] + steps[:, 1]) * counts[2] + steps[:, 2]
+    assert sorted(place) == list(range(len(place)))
+    order = np.argsort(place)
+    result["mesh_eigenvalues"] = np.take(eigen, order, axis=-2)
+    result["dos"] = [np.loadtxt(t.splitlines(), comments="#") for t in texts]
     return result
 
 

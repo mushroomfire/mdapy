@@ -440,6 +440,12 @@ elastic properties and intrinsic strength of monolayer graphene, *Science* **321
 [doi:10.1126/science.1157996](https://doi.org/10.1126/science.1157996)
 { #lee2008 }
 
+**Lehmann and Taut (1972).** G. Lehmann and M. Taut, On the numerical
+calculation of the density of states and related properties, *Phys. Status
+Solidi B* **54**, 469 (1972).
+[doi:10.1002/pssb.2220540211](https://doi.org/10.1002/pssb.2220540211)
+{ #lehmann1972 }
+
 **Lejaeghere et al. (2016).** K. Lejaeghere et al., Reproducibility in
 density functional theory calculations of solids, *Science* **351**, aad3000
 (2016). [doi:10.1126/science.aad3000](https://doi.org/10.1126/science.aad3000)

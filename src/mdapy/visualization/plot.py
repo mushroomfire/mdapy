@@ -645,6 +645,94 @@ def phonon_dos(result: Any, *, ax: Any = None, projected: bool = False) -> Any:
     return ax
 
 
+def electronic_bands(result: Any, *, ax: Any = None, color: str | None = None) -> Any:
+    """The energies of the electrons of a
+    ``mdapy.properties.electronic.ElectronicBandStructure`` along its path,
+    relative to the Fermi level, with the special points marked and labeled;
+    with spin, up in solid lines and down in dashed ones.
+
+    Parameters
+    ----------
+    result : ElectronicBandStructure
+        The band structure.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+    color : str, optional
+        One color for every band; by default blue, and orange-red for the
+        spin down.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    # a line for each straight piece, so that breaks of the path stay open
+    distances = result.distances
+    breaks = np.flatnonzero(np.diff(distances) == 0) + 1
+    spins = len(result.energies)
+    for s, energies in enumerate(result.energies):
+        options = {
+            "color": color or COLORS[3 if s else 0],
+            "lw": 0.8,
+            "ls": "--" if s else "-",
+        }
+        label = ("up", "down")[s] if spins == 2 else None
+        for band in energies.T:
+            for piece_d, piece_e in zip(
+                np.split(distances, breaks), np.split(band, breaks)
+            ):
+                ax.plot(piece_d, piece_e, label=label, **options)
+                label = None
+    for x, _ in result.labels:
+        ax.axvline(x, color="0.75", lw=0.5, zorder=0)
+    ax.axhline(0.0, color="0.5", lw=0.5, ls=":", zorder=0)
+    ax.set_xticks([x for x, _ in result.labels], [name for _, name in result.labels])
+    ax.set_xlim(distances[0], distances[-1])
+    ax.set_ylabel("$E - E_F$ (eV)")
+    if spins == 2:
+        # above the axes, clear of the bands
+        ax.legend(
+            loc="lower right", bbox_to_anchor=(1.0, 1.0), ncols=2, borderaxespad=0.2
+        )
+    return ax
+
+
+def electronic_dos(result: Any, *, ax: Any = None) -> Any:
+    """The electronic density of states of a
+    ``mdapy.properties.electronic.ElectronicDOS``, energies relative to the
+    Fermi level upward, to put beside a band structure; with spin, up to the
+    right and down to the left, each named in its upper corner.
+
+    Parameters
+    ----------
+    result : ElectronicDOS
+        The density of states.
+    ax : matplotlib.axes.Axes, optional
+        The axes.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes.
+    """
+    ax = _axes(ax)
+    if len(result.dos) == 1:
+        ax.plot(result.dos[0], result.energies, color="k", lw=1.0)
+        ax.set_xlim(0, None)
+    else:
+        ax.plot(result.dos[0], result.energies, color=COLORS[0], lw=0.8)
+        ax.plot(-result.dos[1], result.energies, color=COLORS[3], lw=0.8, ls="--")
+        ax.axvline(0.0, color="0.75", lw=0.5, zorder=0)
+        # each spin named in the corner of its side
+        for x, name, color in ((0.98, "up", COLORS[0]), (0.02, "down", COLORS[3])):
+            ax.text(x, 0.98, name, color=color, ha="right" if x > 0.5 else "left",
+                    va="top", transform=ax.transAxes)  # fmt: skip
+    ax.axhline(0.0, color="0.5", lw=0.5, ls=":", zorder=0)
+    ax.set_xlabel("DOS (states/eV)")
+    return ax
+
+
 def structure_counts(result: Any, *, ax: Any = None) -> Any:
     """The number of atoms of each type of a structure identification, in
     the colors of the types."""

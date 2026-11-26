@@ -657,8 +657,13 @@ def _tetrahedron_dos(corners: np.ndarray, grid: np.ndarray) -> np.ndarray:
     """(T, F) density of states of each tetrahedron of a band, with the
     (T, 4) values at its corners, each integrating to 1."""
     e = np.sort(corners, axis=1)
-    e1, e2, e3, e4 = (e[:, k : k + 1] for k in range(4))
-    x = grid[None, :]
+    return _tetrahedron_density(*(e[:, k : k + 1] for k in range(4)), grid[None, :])
+
+
+def _tetrahedron_density(e1, e2, e3, e4, x):
+    """The density of states at x of tetrahedra with the ascending values
+    e1 <= e2 <= e3 <= e4 at their corners, each integrating to 1; the
+    arrays broadcast together."""
 
     def safe(value):
         return np.where(value == 0, 1.0, value)

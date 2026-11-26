@@ -1056,6 +1056,74 @@ __global__ void rotate_kernel(int n, int offset, int size, int count, const int*
 
 // The upper triangle from the lower one, outside the diagonal blocks of
 // block columns: r_ij = conj(l_ji) where i is before the block of j.
+constexpr int kPanel = 64;          // columns of a block of the Cholesky factorization
+constexpr int kFactorThreads = 256;  // of the block that factors a diagonal block
+
+// the scalar of double precision of a scalar of the kernels, and the two ways
+template <class S>
+struct WideOf {
+    using type = double;
+};
+template <class R>
+struct WideOf<Cx<R>> {
+    using type = Cx<double>;
+};
+__device__ __forceinline__ double widened(float a) { return a; }
+__device__ __forceinline__ double widened(double a) { return a; }
+template <class R>
+__device__ __forceinline__ Cx<double> widened(Cx<R> a) {
+    return {a.x, a.y};
+}
+__device__ __forceinline__ void narrowed(double a, float& out) { out = static_cast<float>(a); }
+__device__ __forceinline__ void narrowed(double a, double& out) { out = a; }
+template <class R>
+__device__ __forceinline__ void narrowed(Cx<double> a, Cx<R>& out) {
+    out = {static_cast<R>(a.x), static_cast<R>(a.y)};
+}
+
+// The Cholesky factor r of a diagonal block of w <= kPanel columns, a = r^H r,
+// in place in its upper triangle (the lower one untouched), as the host does
+// it: in double precision, here by one block on its upper triangle packed in
+// shared memory, a row of r after the other. A pivot that is not positive
+// (or not a number) stops it with info = first + its column, from 1; a block
+// after one that stopped does nothing.
+template <class S>
+__global__ void factor_block_kernel(int w, S* corner, long long ld, int first, int* info) {
+    using W = typename WideOf<S>::type;
+    __shared__ W u[kPanel * (kPanel + 1) / 2];
+    if (*info != 0) return;
+    const auto at = [](int i, int j) { return j * (j + 1) / 2 + i; };  // i <= j
+    for (int e = threadIdx.x; e < w * w; e += blockDim.x) {
+        const int i = e % w, j = e / w;
+        if (i <= j) u[at(i, j)] = widened(corner[i + j * ld]);
+    }
+    __syncthreads();
+    for (int k = 0; k < w; ++k) {
+        // the same for every thread, after the barrier
+        const double pivot = re(u[at(k, k)]);
+        if (!(pivot > 0.0)) {
+            if (threadIdx.x == 0) *info = first + k + 1;
+            return;
+        }
+        const double r = sqrt(pivot);
+        const W inverse_r = from_real(W{}, 1.0 / r);
+        for (int j = k + 1 + static_cast<int>(threadIdx.x); j < w; j += blockDim.x) u[at(k, j)] = mul(u[at(k, j)], inverse_r);
+        __syncthreads();
+        if (threadIdx.x == 0) u[at(k, k)] = from_real(W{}, r);
+        // u[i, j] -= conj(r[k, i]) r[k, j] for k < i <= j
+        const int m = w - k - 1;
+        for (int e = threadIdx.x; e < m * m; e += blockDim.x) {
+            const int i = k + 1 + e % m, j = k + 1 + e / m;
+            if (i <= j) u[at(i, j)] = sub(u[at(i, j)], mul(cj(u[at(k, i)]), u[at(k, j)]));
+        }
+        __syncthreads();
+    }
+    for (int e = threadIdx.x; e < w * w; e += blockDim.x) {
+        const int i = e % w, j = e / w;
+        if (i <= j) narrowed(u[at(i, j)], corner[i + j * ld]);
+    }
+}
+
 template <class S>
 __global__ void upper_from_lower_kernel(int n, int block, S* a) {
     const long long e = blockIdx.x * static_cast<long long>(blockDim.x) + threadIdx.x;
@@ -1238,22 +1306,11 @@ Cx<double>* own(Complex* p) { return reinterpret_cast<Cx<double>*>(p); }
 Cx<float>* own(cuComplex* p) { return reinterpret_cast<Cx<float>*>(p); }
 double* own(double* p) { return p; }
 float* own(float* p) { return p; }
-std::complex<double> host_of(Complex x) { return {x.x, x.y}; }
-std::complex<double> host_of(cuComplex x) { return {x.x, x.y}; }
-std::complex<double> host_of(double x) { return x; }
-std::complex<double> host_of(float x) { return x; }
-void device_of(const std::complex<double>& x, Complex& out) { out = make_cuDoubleComplex(x.real(), x.imag()); }
-void device_of(const std::complex<double>& x, cuComplex& out) {
-    out = make_cuComplex(static_cast<float>(x.real()), static_cast<float>(x.imag()));
-}
-void device_of(const std::complex<double>& x, double& out) { out = x.real(); }
-void device_of(const std::complex<double>& x, float& out) { out = static_cast<float>(x.real()); }
 Complex unit(Complex, double x) { return make_cuDoubleComplex(x, 0.0); }
 cuComplex unit(cuComplex, double x) { return make_cuComplex(static_cast<float>(x), 0.0f); }
 double unit(double, double x) { return x; }
 float unit(float, double x) { return static_cast<float>(x); }
 
-constexpr int kPanel = 64;       // columns of a block of the Cholesky factorization
 
 }  // namespace
 
@@ -1473,30 +1530,21 @@ void Lapack::device_eigh(T* a, int n, std::vector<double>& values, int wanted) {
 }
 
 // Blocks of kPanel columns on the lower triangle, a = l l^H: the diagonal
-// block on the host (r of its upper triangle, l = r^H), the panel below it
+// block factored (r of its upper triangle, l = r^H), the panel below it
 // l_21 = a_21 r^-1, the trailing matrix less l_21 l_21^H; r = l^H at the end.
+// All on the GPU, which the host waits for once, for info.
 template <class T>
 int Lapack::device_potrf(T* a, int n) {
     using S = std::remove_pointer_t<decltype(own(a))>;
     const std::size_t size = static_cast<std::size_t>(n) * n;
-    const std::size_t ld = static_cast<std::size_t>(n) * sizeof(T);
     mirror_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, own(a));
     launched("the lower triangle of a matrix");
-    std::vector<T> block(static_cast<std::size_t>(kPanel) * kPanel);
-    std::vector<std::complex<double>> wide_block(block.size());
+    info_.zero();
     for (int first = 0; first < n; first += kPanel) {
         const int width = std::min(kPanel, n - first), below = n - first - width;
         T* corner = a + static_cast<std::size_t>(first) * n + first;
-        const std::size_t bytes = static_cast<std::size_t>(width) * sizeof(T);
-        check_cuda(cudaMemcpy2D(block.data(), bytes, corner, ld, bytes, static_cast<std::size_t>(width), cudaMemcpyDeviceToHost),
-                   "cudaMemcpy2D from the GPU");
-        const std::size_t count = static_cast<std::size_t>(width) * width;
-        for (std::size_t i = 0; i < count; ++i) wide_block[i] = host_of(block[i]);
-        const int info = host::potrf(wide_block.data(), width);
-        if (info != 0) return first + info;
-        for (std::size_t i = 0; i < count; ++i) device_of(wide_block[i], block[i]);
-        check_cuda(cudaMemcpy2D(corner, ld, block.data(), bytes, bytes, static_cast<std::size_t>(width), cudaMemcpyHostToDevice),
-                   "cudaMemcpy2D to the GPU");
+        factor_block_kernel<S><<<1, kFactorThreads>>>(width, own(corner), n, first, info_.data());
+        launched("the factor of a diagonal block");
         if (below == 0) break;
         T* panel = corner + width;
         blas_.trsm(below, width, corner, n, panel, n);
@@ -1505,7 +1553,9 @@ int Lapack::device_potrf(T* a, int n) {
     }
     upper_from_lower_kernel<S><<<blocks(static_cast<long long>(size)), kThreads>>>(n, kPanel, own(a));
     launched("the upper triangle of a factor");
-    return 0;
+    int info = 0;
+    info_.download(&info, 1);
+    return info;
 }
 
 template <class T>

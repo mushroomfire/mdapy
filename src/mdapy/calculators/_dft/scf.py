@@ -363,9 +363,9 @@ def run(
     (and of the occupations of PAW and DFT+U) stays that of the first moments
     while the total density settles: until the Hartree energy of the residual
     of the total density is below hold (hartree per atom), for at most
-    hold_steps steps (0 for none); the bands of the first steps do not carry
-    the moments they are given, and mixing their magnetization loses the
-    start. The history of the mixing starts anew when the moments are let
+    hold_steps steps (0 for none); in the potential of superposed atoms the
+    bands do not carry the moments they are given, and mixing their
+    magnetization loses the start. The history of the mixing starts anew when the moments are let
     go. Not from start_density or a state, nor with adaptive_damping or
     moments that are all zero. The result holds held (1 for the steps whose
     magnetization was not taken)."""

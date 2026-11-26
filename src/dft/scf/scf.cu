@@ -1144,11 +1144,11 @@ ScfResult run(const ScfInput& input, const ScfOptions& options, ScfState* state,
         result.steps.back().single = single_phase;
         bool done = accuracy < options.density_tolerance && std::abs(energy - previous) < options.energy_tolerance;
         // the magnetization of the input kept while the total density
-        // settles: the bands of the first steps, of superposed atoms and
-        // loosely solved, do not carry the moments they are given, and a
-        // magnetization mixed from them has lost the start. Held, a step
-        // mixes the total density alone, and the tolerance of the bands
-        // follows its residual.
+        // settles: in the potential of superposed atoms the bands do not
+        // carry the moments they are given, however tightly they are solved,
+        // and a magnetization mixed from them has lost the start. Held, a
+        // step mixes the total density alone, and the tolerance of the
+        // bands follows its residual.
         bool holding = false;
         double reached = accuracy;  // what the tolerance of the next bands follows
         if (moments_held) {

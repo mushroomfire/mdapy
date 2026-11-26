@@ -111,5 +111,5 @@ they run.
 atoms. The other pages each describe one
 feature. The examples run whole studies in MDAPY:
 [a copper cluster melting](../../examples/cluster-melting.md),
-[a collision cascade in tungsten](../../examples/radiation-cascade.md) and
+[radiation damage in tungsten and MoNbTaVW](../../examples/radiation-cascade.md) and
 [shock and spall in copper](../../examples/shock.md).

@@ -8,7 +8,7 @@
 // the list comes out in the same order every time; each atom then looks at
 // the atoms of its cell and the cells around it.
 
-#include <cub/cub.cuh>
+#include "cuda/primitives.cuh"
 
 #include <algorithm>
 #include <cmath>

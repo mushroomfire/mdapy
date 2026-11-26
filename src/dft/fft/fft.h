@@ -3,7 +3,7 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// Batched 3D FFTs of cuFFT on boxes of n1 x n2 x n3 points, the third index the
+// Batched 3D FFTs, MDAPY's own or those of cuFFT, on boxes of n1 x n2 x n3 points, the third index the
 // fastest, and the maps between the coefficients of a sphere of plane waves and
 // a box. The conventions:
 //   to_real:        f(r_j) = sum_G c_G exp(+i G.r_j), unnormalized;
@@ -17,21 +17,28 @@
 
 #pragma once
 
-#include <cufft.h>
+#include "dft/core/portable.h"
 
 #include <cstddef>
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <utility>
 
+#include "dft/core/kernels.h"
 #include "dft/core/device.h"
 #include "dft/lattice/lattice.h"
 
 namespace mdapy::dft {
 
+class BoxFft;
+
 class Fft {
 public:
-    explicit Fft(const Int3& grid);
+    // With Kernels::Mdapy the transforms are MDAPY's own (BoxFft) when every
+    // size is a product of 2, 3, 5 and 7, as the grids of the DFT are; other
+    // sizes, and Kernels::Vendor take those of the library of the vendor.
+    explicit Fft(const Int3& grid, Kernels kernels = Kernels::Mdapy);
     ~Fft();
     Fft(const Fft&) = delete;
     Fft& operator=(const Fft&) = delete;
@@ -40,19 +47,37 @@ public:
     std::size_t points() const noexcept;    // n1 n2 n3
     std::size_t spectrum() const noexcept;  // n1 n2 (n3 / 2 + 1), of a real box
 
-    // Complex boxes, in place.
-    void to_real(Complex* boxes, int count);
-    void to_reciprocal(Complex* boxes, int count);
+    // Complex boxes, in place. With window >= 0, boxes of which only the
+    // planes of the first index within window of 0 matter, as those of the
+    // sphere of the bands (see BoxFft): to_real reads those planes alone and
+    // to_reciprocal writes those alone. window_of(w) is the window the
+    // transforms take: w with MDAPY's kernels, -1 (whole boxes) with the
+    // library of the vendor.
+    // With field (points reals, the same for every box), to_reciprocal
+    // transforms the boxes times it: the local potential of the bands, taken
+    // on the way of MDAPY's transform.
+    void to_real(Complex* boxes, int count, int window = -1);
+    void to_reciprocal(Complex* boxes, int count, int window = -1, const double* field = nullptr);
+    int window_of(int window) const noexcept { return own_ ? window : -1; }
     // Real boxes, out of place; to_real overwrites its spectrum, as cuFFT's
-    // complex-to-real transforms do.
-    void to_real(Complex* spectrum, double* values, int count);
-    void to_reciprocal(const double* values, Complex* spectrum, int count);
+    // complex-to-real transforms do. A window as for the complex boxes, on
+    // the planes of the spectra.
+    void to_real(Complex* spectrum, double* values, int count, int window = -1);
+    void to_reciprocal(const double* values, Complex* spectrum, int count, int window = -1);
+    // Complex boxes of single precision, in place, for the bands of the
+    // single-precision steps.
+    void to_real(cuComplex* boxes, int count, int window = -1);
+    void to_reciprocal(cuComplex* boxes, int count, int window = -1, const float* field = nullptr);
+    // Real boxes of single precision, out of place, as those of double.
+    void to_real(cuComplex* spectrum, float* values, int count, int window = -1);
+    void to_reciprocal(const float* values, cuComplex* spectrum, int count, int window = -1);
 
 private:
     cufftHandle plan(cufftType type, int count);
 
     Int3 grid_;
     std::map<std::pair<int, int>, cufftHandle> plans_;  // (type, count) -> plan
+    std::unique_ptr<BoxFft> own_;  // MDAPY's own transforms, when they are the ones used
 };
 
 // The coefficients of count bands of a sphere of n plane waves placed in their
@@ -70,6 +95,23 @@ void gather(const Complex* boxes, std::size_t points, const std::int64_t* box, s
 // The same, added to what the coefficients hold: c[b n + g] += scale boxes[...].
 void gather_add(const Complex* boxes, std::size_t points, const std::int64_t* box, std::size_t n,
                 int count, double scale, Complex* coefficients);
+
+// scatter of boxes of the sizes grid (the spectra of real boxes, with partner)
+// for a transform with a window (see Fft): with window >= 0 only the planes of
+// the first index within window of 0 are zeroed first, the planes the
+// transform reads; with window < 0 all.
+void scatter_window(const Complex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+                    int count, Complex* boxes, const Int3& grid, int window);
+void scatter_window(const cuComplex* coefficients, std::size_t n, const std::int64_t* box,
+                    const std::int64_t* partner, int count, cuComplex* boxes, const Int3& grid, int window);
+
+// The same of single-precision coefficients and boxes.
+void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, int count, cuComplex* boxes,
+             std::size_t points);
+void scatter(const cuComplex* coefficients, std::size_t n, const std::int64_t* box, const std::int64_t* partner,
+             int count, cuComplex* boxes, std::size_t points);
+void gather_add(const cuComplex* boxes, std::size_t points, const std::int64_t* box, std::size_t n, int count,
+                float scale, cuComplex* coefficients);
 
 // The Fourier components of a coarse box carried to a fine box and back, for
 // densities and potentials: to_fine places each component of |m_i| < n_i / 2 of

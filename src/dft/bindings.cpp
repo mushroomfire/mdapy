@@ -3,13 +3,15 @@
 // v. 2.0. If a copy of the MPL was not distributed with this file, You can
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
-// mdapy_dft_cuda12._dft: the plane-wave DFT of MDAPY on the GPU. Built only with
-// the CUDA toolkit (CMake option MDAPY_DFT_ONLY). For now its pieces alone,
-// numpy arrays in and out, in hartree atomic units.
+// _dft: the plane-wave DFT of MDAPY on the GPU, in the GPU part beside _cuda or
+// _hip (mdapy_cuda12._dft, mdapy_rocm6._dft; CMake option MDAPY_DFT, built with
+// CUDA or with HIP of ROCm). Its pieces, numpy arrays in and out, in hartree
+// atomic units.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
 #include <nanobind/stl/array.h>
+#include <nanobind/stl/optional.h>
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/tuple.h>
 #include <nanobind/stl/vector.h>
@@ -21,13 +23,16 @@
 #include <cstring>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
-#include <cuda_runtime_api.h>
+#include "dft/core/portable.h"
 
+#include "dft/blas/blas.h"
 #include "dft/core/check.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/hamiltonian/hamiltonian.h"
+#include "dft/lapack/lapack.h"
 #include "dft/lattice/lattice.h"
 #include "dft/scf/augmentation.h"
 #include "dft/scf/occupations.h"
@@ -36,6 +41,7 @@
 #include "dft/scf/scf.h"
 #include "dft/scf/structure.h"
 #include "dft/solver/davidson.h"
+#include "dft/solver/davidson_single.h"
 #include "dft/xc/xc.h"
 
 namespace nb = nanobind;
@@ -200,17 +206,186 @@ nb::object array_of(const std::vector<T>& values, std::initializer_list<std::siz
     return nb::object(result.cast());
 }
 
+mdapy::dft::Op op_of(const std::string& name) {
+    if (name == "N") return mdapy::dft::Op::N;
+    if (name == "T") return mdapy::dft::Op::T;
+    if (name == "C") return mdapy::dft::Op::C;
+    throw std::invalid_argument("a matrix is taken as it is (N), transposed (T) or conjugate transposed (C)");
+}
+
+// The linear algebra of the DFT on matrices of the host stored by columns, for
+// the tests: H the scalars of the host (float64, float32, complex128,
+// complex64), D those of the GPU with the same layout.
+template <class H>
+using Columns = nb::ndarray<const H, nb::ndim<2>, nb::f_contig, nb::device::cpu>;
+
+template <class H>
+nb::ndarray<nb::numpy, H> columns_of(std::size_t rows, std::size_t columns, H*& data) {
+    data = new H[std::max<std::size_t>(rows * columns, 1)];
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<H*>(p); });
+    const std::size_t shape[2] = {rows, columns};
+    const std::int64_t strides[2] = {1, static_cast<std::int64_t>(rows)};
+    return nb::ndarray<nb::numpy, H>(data, 2, shape, owner, strides);
+}
+
+template <class H, class D>
+void bind_blas(nb::module_& m) {
+    // op(a) op(b) of matrices stored by columns; small_tiles, when not negative,
+    // the blocks the portable products of double precision take (Blas::set_small_tiles)
+    m.def(
+        "product",
+        [](Columns<H> a, Columns<H> b, const std::string& ta, const std::string& tb, const std::string& kernels,
+           int small_tiles) {
+            const mdapy::dft::Op oa = op_of(ta), ob = op_of(tb);
+            const int rows = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(0) : a.shape(1));
+            const int k = static_cast<int>(oa == mdapy::dft::Op::N ? a.shape(1) : a.shape(0));
+            const int kb = static_cast<int>(ob == mdapy::dft::Op::N ? b.shape(0) : b.shape(1));
+            const int columns = static_cast<int>(ob == mdapy::dft::Op::N ? b.shape(1) : b.shape(0));
+            if (k != kb) throw std::invalid_argument("the columns of op(a) are the rows of op(b)");
+            DeviceArray<D> da, db, dc(static_cast<std::size_t>(rows) * columns);
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            db.upload(reinterpret_cast<const D*>(b.data()), b.size());
+            mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
+            if (small_tiles >= 0) blas.set_small_tiles(small_tiles);
+            D one{}, zero{};
+            *reinterpret_cast<decltype(std::real(H{}))*>(&one) = 1;
+            blas.gemm(oa, ob, rows, columns, k, one, da.data(), static_cast<int>(std::max<std::size_t>(a.shape(0), 1)),
+                      db.data(), static_cast<int>(std::max<std::size_t>(b.shape(0), 1)), zero, dc.data(),
+                      std::max(rows, 1));
+            H* out = nullptr;
+            auto c = columns_of<H>(static_cast<std::size_t>(rows), static_cast<std::size_t>(columns), out);
+            dc.download(reinterpret_cast<D*>(out), dc.size());
+            return c;
+        },
+        nb::arg("a").noconvert(), nb::arg("b").noconvert(), nb::arg("ta") = "N", nb::arg("tb") = "N",
+        nb::arg("kernels") = "mdapy", nb::arg("small_tiles") = -1);
+    // b r^-1 of b (m, n) and the upper triangle of r (n, n)
+    m.def(
+        "solve_upper",
+        [](Columns<H> b, Columns<H> r, const std::string& kernels) {
+            const int rows = static_cast<int>(b.shape(0)), n = static_cast<int>(b.shape(1));
+            if (r.shape(0) != b.shape(1) || r.shape(1) != b.shape(1))
+                throw std::invalid_argument("r is square, of the columns of b");
+            DeviceArray<D> db, dr;
+            db.upload(reinterpret_cast<const D*>(b.data()), b.size());
+            dr.upload(reinterpret_cast<const D*>(r.data()), r.size());
+            mdapy::dft::Blas blas(mdapy::dft::kernels_of(kernels));
+            blas.trsm(rows, n, dr.data(), std::max(n, 1), db.data(), std::max(rows, 1));
+            H* out = nullptr;
+            auto x = columns_of<H>(b.shape(0), b.shape(1), out);
+            db.download(reinterpret_cast<D*>(out), db.size());
+            return x;
+        },
+        nb::arg("b").noconvert(), nb::arg("r").noconvert(), nb::arg("kernels") = "mdapy");
+    // the eigenvalues (ascending) and the eigenvectors (the columns) of a
+    // Hermitian matrix, of which the upper triangle is read; host_limit, when
+    // not negative, is the largest matrix MDAPY's kernels take on the host;
+    // full_double, when not negative, whether they take the GPU as one of
+    // full double precision; panels_from, when not negative, the smallest
+    // matrix they tridiagonalize in panels, none of them with one launch a step;
+    // together_steps, when not negative, whether the steps of the small
+    // matrices go in one launch; held_blocks, when positive, the blocks of that
+    // launch with the trailing matrix in their shared memory, 0 never so;
+    // count, when not negative, the eigenvectors asked for, the lowest: the
+    // other columns hold nothing of use
+    m.def(
+        "eigh",
+        [](Columns<H> a, const std::string& kernels, int host_limit, int full_double, int panels_from,
+           int together_steps, int held_blocks, int count) {
+            const int n = static_cast<int>(a.shape(0));
+            if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
+            DeviceArray<D> da;
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
+            if (host_limit >= 0) lapack.set_host_limit(host_limit);
+            if (full_double >= 0) lapack.set_full_double(full_double > 0 ? 1 : 0);
+            if (panels_from >= 0) {
+                lapack.set_fused_limit(0);
+                lapack.set_panels_from(panels_from);
+            }
+            if (together_steps >= 0) lapack.set_together_steps(together_steps);
+            if (held_blocks >= 0) lapack.set_held_blocks(held_blocks);
+            std::vector<double> values;
+            lapack.eigh(da.data(), n, values, count);
+            H* out = nullptr;
+            auto vectors = columns_of<H>(a.shape(0), a.shape(0), out);
+            da.download(reinterpret_cast<D*>(out), da.size());
+            double* w = nullptr;
+            auto eigenvalues = new_array<double>({values.size()}, w);
+            std::copy(values.begin(), values.end(), w);
+            return nb::make_tuple(eigenvalues, vectors);
+        },
+        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1,
+        nb::arg("full_double") = -1, nb::arg("panels_from") = -1, nb::arg("together_steps") = -1,
+        nb::arg("held_blocks") = -1, nb::arg("count") = -1);
+    // (info, r): the upper triangle of r is the Cholesky factor of a = r^H r, of
+    // which the upper triangle is read; info is not zero when a is not positive
+    // definite
+    m.def(
+        "cholesky",
+        [](Columns<H> a, const std::string& kernels, int host_limit) {
+            const int n = static_cast<int>(a.shape(0));
+            if (a.shape(1) != a.shape(0)) throw std::invalid_argument("a square matrix");
+            DeviceArray<D> da;
+            da.upload(reinterpret_cast<const D*>(a.data()), a.size());
+            mdapy::dft::Lapack lapack(mdapy::dft::kernels_of(kernels));
+            if (host_limit >= 0) lapack.set_host_limit(host_limit);
+            const int info = lapack.potrf(da.data(), n);
+            H* out = nullptr;
+            auto r = columns_of<H>(a.shape(0), a.shape(0), out);
+            da.download(reinterpret_cast<D*>(out), da.size());
+            return nb::make_tuple(info, r);
+        },
+        nb::arg("a").noconvert(), nb::arg("kernels") = "mdapy", nb::arg("host_limit") = -1);
+}
+
 }  // namespace
 
 NB_MODULE(_dft, m) {
+    // the runtime of the device this module was built with: "CUDA" or "HIP"
+    m.attr("api") = MDAPY_GPU_API;
     m.def("device_name", [] { return std::string(mdapy::dft::device_name()); });
     m.def("device_count", &mdapy::dft::device_count);
+    // the libraries of the vendor, cuBLAS, cuFFT and cuSOLVER with CUDA,
+    // hipBLAS, hipFFT and hipSOLVER with HIP, loaded here if they were not
+    // (RuntimeError saying what to install if they cannot be): the files of
+    // all of them, and of those they need that were loaded the same way
+    m.def("vendor_libraries", [] { return mdapy::dft::vendor::load_all(); });
+    bind_blas<double, double>(m);
+    bind_blas<float, float>(m);
+    bind_blas<std::complex<double>, Complex>(m);
+    bind_blas<std::complex<float>, cuComplex>(m);
+    // (major, minor) of the compute capability of the current device
+    m.def("device_capability", [] {
+        int device = 0, major = 0, minor = 0;
+        mdapy::dft::check_cuda(cudaGetDevice(&device), "cudaGetDevice");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, device),
+                               "cudaDeviceGetAttribute");
+        mdapy::dft::check_cuda(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, device),
+                               "cudaDeviceGetAttribute");
+        return nb::make_tuple(major, minor);
+    });
     m.def("set_device", [](int index) {
         if (index < 0 || index >= mdapy::dft::device_count())
             throw std::invalid_argument("no GPU " + std::to_string(index) + " of the " +
                                         std::to_string(mdapy::dft::device_count()) + " this process sees");
         mdapy::dft::check_cuda(cudaSetDevice(index), "cudaSetDevice");
     });
+    // the memory of the stream-ordered pool of the current device (bytes): in
+    // use and reserved, now and at their peaks since reset_memory_peaks, and
+    // the free and total memory of the device
+    m.def("memory", [] {
+        const mdapy::dft::PoolMemory p = mdapy::dft::pool_memory();
+        nb::dict out;
+        out["in_use"] = p.in_use;
+        out["in_use_peak"] = p.in_use_peak;
+        out["reserved"] = p.reserved;
+        out["reserved_peak"] = p.reserved_peak;
+        out["free"] = p.free;
+        out["total"] = p.total;
+        return out;
+    });
+    m.def("reset_memory_peaks", &mdapy::dft::reset_pool_peaks);
 
     m.def("reciprocal", [](Matrix a) {
         const Lattice lattice = lattice_of(a);
@@ -307,20 +482,23 @@ NB_MODULE(_dft, m) {
     });
 
     // the bands of coefficients (count, n) of a sphere to their values on the
-    // grid (count, n1, n2, n3), on the GPU
-    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid) {
+    // grid (count, n1, n2, n3), on the GPU; with window >= 0, the transform of
+    // the planes of the first index within window of 0 (see Fft)
+    m.def("to_real_space", [](Coefficients c, Index box, std::array<int, 3> grid, const std::string& kernels,
+                              int window) {
         const Int3 g = grid_of(grid);
         const std::size_t points = points_of(g);
         const int count = static_cast<int>(c.shape(0));
         const std::size_t n = c.shape(1);
         if (box.shape(0) != n) throw std::invalid_argument("one place in the box per plane wave");
-        mdapy::dft::Fft fft(g);
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         DeviceArray<Complex> coefficients, boxes(count * points);
         coefficients.upload(as_device(c.data()), c.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        mdapy::dft::scatter(coefficients.data(), n, places.data(), nullptr, count, boxes.data(), points);
-        fft.to_real(boxes.data(), count);
+        const int w = fft.window_of(window);
+        mdapy::dft::scatter_window(coefficients.data(), n, places.data(), nullptr, count, boxes.data(), g, w);
+        fft.to_real(boxes.data(), count, w);
         std::complex<double>* out = nullptr;
         auto values = new_array<std::complex<double>>(
             {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -328,34 +506,44 @@ NB_MODULE(_dft, m) {
             out);
         boxes.download(reinterpret_cast<Complex*>(out), boxes.size());
         return values;
-    });
+    }, nb::arg("c"), nb::arg("box"), nb::arg("grid"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // the values (count, n1, n2, n3) on the grid to the coefficients of a sphere,
-    // divided by the points of the grid: the inverse of to_real_space
-    m.def("to_coefficients", [](ComplexBoxes v, Index box) {
+    // divided by the points of the grid: the inverse of to_real_space; with
+    // window >= 0, of a sphere within window of 0 along the first index; with
+    // field (n1, n2, n3), of the values times it
+    m.def("to_coefficients", [](ComplexBoxes v, Index box, const std::string& kernels, int window,
+                                std::optional<Grid3> field) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
         const std::size_t points = points_of(g);
         const int count = static_cast<int>(v.shape(0));
         const std::size_t n = box.shape(0);
-        mdapy::dft::Fft fft(g);
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         DeviceArray<Complex> boxes, coefficients(count * n);
         boxes.upload(as_device(v.data()), v.size());
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
-        fft.to_reciprocal(boxes.data(), count);
+        DeviceArray<double> f;
+        if (field) {
+            if (field->size() != points) throw std::invalid_argument("a field of the grid of the values");
+            f.upload(field->data(), points);
+        }
+        fft.to_reciprocal(boxes.data(), count, fft.window_of(window), field ? f.data() : nullptr);
         mdapy::dft::gather(boxes.data(), points, places.data(), n, count,
                            1.0 / static_cast<double>(points), coefficients.data());
         std::complex<double>* out = nullptr;
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    });
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1,
+       nb::arg("field").none() = nb::none());
     // real wavefunctions of Gamma: the coefficients of a half sphere to real
-    // values on the grid, and back
+    // values on the grid, and back; window as to_real_space and to_coefficients
     m.def("to_real_space_gamma",
-          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid) {
+          [](Coefficients c, Index box, Index partner, std::array<int, 3> grid, const std::string& kernels,
+             int window) {
               const Int3 g = grid_of(grid);
-              mdapy::dft::Fft fft(g);
+              mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
               const std::size_t spectrum = fft.spectrum(), points = fft.points();
               const int count = static_cast<int>(c.shape(0));
               const std::size_t n = c.shape(1);
@@ -364,10 +552,11 @@ NB_MODULE(_dft, m) {
               DeviceArray<std::int64_t> places, partners;
               places.upload(box.data(), n);
               partners.upload(partner.data(), n);
-              mdapy::dft::scatter(coefficients.data(), n, places.data(), partners.data(), count,
-                                  spec.data(), spectrum);
+              const int w = fft.window_of(window);
+              mdapy::dft::scatter_window(coefficients.data(), n, places.data(), partners.data(), count, spec.data(),
+                                         Int3{g[0], g[1], g[2] / 2 + 1}, w);
               DeviceArray<double> values(count * points);
-              fft.to_real(spec.data(), values.data(), count);
+              fft.to_real(spec.data(), values.data(), count, w);
               double* out = nullptr;
               auto result = new_array<double>(
                   {static_cast<std::size_t>(count), static_cast<std::size_t>(g[0]),
@@ -375,18 +564,20 @@ NB_MODULE(_dft, m) {
                   out);
               values.download(out, values.size());
               return result;
-          });
-    m.def("to_coefficients_gamma", [](RealBoxes v, Index box) {
+          },
+          nb::arg("c"), nb::arg("box"), nb::arg("partner"), nb::arg("grid"), nb::arg("kernels") = "mdapy",
+          nb::arg("window") = -1);
+    m.def("to_coefficients_gamma", [](RealBoxes v, Index box, const std::string& kernels, int window) {
         const Int3 g{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                      static_cast<int>(v.shape(3))};
-        mdapy::dft::Fft fft(g);
+        mdapy::dft::Fft fft(g, mdapy::dft::kernels_of(kernels));
         const std::size_t spectrum = fft.spectrum(), points = fft.points();
         const int count = static_cast<int>(v.shape(0));
         const std::size_t n = box.shape(0);
         DeviceArray<double> values;
         values.upload(v.data(), v.size());
         DeviceArray<Complex> spec(count * spectrum), coefficients(count * n);
-        fft.to_reciprocal(values.data(), spec.data(), count);
+        fft.to_reciprocal(values.data(), spec.data(), count, fft.window_of(window));
         DeviceArray<std::int64_t> places;
         places.upload(box.data(), n);
         mdapy::dft::gather(spec.data(), spectrum, places.data(), n, count,
@@ -395,15 +586,15 @@ NB_MODULE(_dft, m) {
         auto c = new_array<std::complex<double>>({static_cast<std::size_t>(count), n}, out);
         coefficients.download(reinterpret_cast<Complex*>(out), coefficients.size());
         return c;
-    });
+    }, nb::arg("v"), nb::arg("box"), nb::arg("kernels") = "mdapy", nb::arg("window") = -1);
     // functions on a coarse grid carried to a fine one through their Fourier
     // components, (count, n1, n2, n3) complex values in and out
-    m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine) {
+    m.def("to_fine_grid", [](ComplexBoxes v, std::array<int, 3> fine, const std::string& kernels) {
         const Int3 coarse{static_cast<int>(v.shape(1)), static_cast<int>(v.shape(2)),
                           static_cast<int>(v.shape(3))};
         const Int3 f = grid_of(fine);
         const int count = static_cast<int>(v.shape(0));
-        mdapy::dft::Fft small(coarse), large(f);
+        mdapy::dft::Fft small(coarse, mdapy::dft::kernels_of(kernels)), large(f, mdapy::dft::kernels_of(kernels));
         mdapy::dft::Transfer transfer(coarse, f);
         DeviceArray<Complex> a, b(count * large.points());
         a.upload(as_device(v.data()), v.size());
@@ -420,7 +611,7 @@ NB_MODULE(_dft, m) {
         const double scale = 1.0 / static_cast<double>(small.points());
         for (std::size_t i = 0; i < b.size(); ++i) out[i] *= scale;
         return result;
-    });
+    }, nb::arg("v"), nb::arg("fine"), nb::arg("kernels") = "mdapy");
 
     // the exchange-correlation functional at points: rho (n, 2) the spin
     // densities, sigma (n, 3) the products of their gradients; the energy per
@@ -456,14 +647,16 @@ NB_MODULE(_dft, m) {
         .def("__init__",
              [](mdapy::dft::Hamiltonian* self, Matrix a, std::array<int, 3> grid, double cutoff,
                 nb::list tables, nb::list angular, nb::list dij, double dq, Rows positions,
-                Kinds species, bool gamma) {
+                Kinds species, bool gamma, const std::string& kernels) {
                  new (self) mdapy::dft::Hamiltonian(lattice_of(a), grid_of(grid), cutoff,
                                                     species_of(tables, angular, dij, dq),
-                                                    atoms_of(positions, species));
+                                                    atoms_of(positions, species), nullptr,
+                                                    mdapy::dft::kernels_of(kernels));
                  self->set_gamma(gamma);
              },
              nb::arg("a"), nb::arg("grid"), nb::arg("cutoff"), nb::arg("tables"), nb::arg("angular"), nb::arg("dij"),
-             nb::arg("dq"), nb::arg("positions"), nb::arg("species"), nb::arg("gamma") = false)
+             nb::arg("dq"), nb::arg("positions"), nb::arg("species"), nb::arg("gamma") = false,
+             nb::arg("kernels") = "mdapy")
         .def_prop_ro("gamma", &mdapy::dft::Hamiltonian::gamma)
         .def("set_k", [](mdapy::dft::Hamiltonian& h, std::array<double, 3> k) {
             h.set_k(Vec3{k[0], k[1], k[2]});
@@ -543,11 +736,12 @@ NB_MODULE(_dft, m) {
     m.def(
         "potentials",
         [](Matrix a, double cutoff, const std::string& name, Spins rho, nb::object core,
-           double threshold) {
+           double threshold, const std::string& kernels) {
             const Int3 g{static_cast<int>(rho.shape(1)), static_cast<int>(rho.shape(2)),
                          static_cast<int>(rho.shape(3))};
             const int spins = static_cast<int>(rho.shape(0));
-            mdapy::dft::Potentials pot(lattice_of(a), g, cutoff, functional_of(name), spins, threshold);
+            mdapy::dft::Potentials pot(lattice_of(a), g, cutoff, functional_of(name), spins, threshold, nullptr,
+                                       mdapy::dft::kernels_of(kernels));
             if (!core.is_none()) pot.set_core(nb::cast<Grid3>(core).data());
             DeviceArray<double> r, hxc(rho.size());
             r.upload(rho.data(), rho.size());
@@ -560,25 +754,35 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(result, nb::make_tuple(e.hartree, e.xc, e.hxc_density));
         },
         nb::arg("a"), nb::arg("cutoff"), nb::arg("functional"), nb::arg("rho"),
-        nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10);
+        nb::arg("core") = nb::none(), nb::arg("threshold") = 1e-10, nb::arg("kernels") = "mdapy");
 
     // the lowest eigenpairs of a Hamiltonian by block Davidson from the guess
     // psi (bands, plane waves): eigenvalues, eigenvectors (bands, plane waves),
-    // iterations, converged bands and the largest residual norm
+    // iterations, converged bands and the largest residual norm; with single,
+    // by the solver of single precision
     m.def(
         "davidson",
         [](mdapy::dft::Hamiltonian& h, Coefficients psi, double tolerance, int tight, double loose_tolerance,
-           int max_iterations, int largest_basis) {
+           int max_iterations, int largest_basis, bool single) {
             const int count = static_cast<int>(psi.shape(0));
             const std::size_t n = psi.shape(1);
             if (n != h.plane_waves()) throw std::invalid_argument("psi is (bands, plane waves)");
             DeviceArray<Complex> a;
             a.upload(as_device(psi.data()), psi.size());
-            mdapy::dft::Davidson solver;
             std::vector<double> e;
-            const auto r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight,
-                                        loose_tolerance, max_iterations,
-                                        largest_basis > 0 ? largest_basis : 4 * count);
+            mdapy::dft::DavidsonResult r;
+            const int basis = largest_basis > 0 ? largest_basis : 4 * count;
+            if (single) {
+                std::vector<double> tolerances(static_cast<std::size_t>(std::max(count, 0)));
+                for (int b = 0; b < count; ++b)
+                    tolerances[static_cast<std::size_t>(b)] = b < tight || tight < 0 ? tolerance : loose_tolerance;
+                mdapy::dft::DavidsonSingle solver(h.kernels());
+                r = solver.solve(h, a.data(), count, e, tolerances, max_iterations, basis);
+            } else {
+                mdapy::dft::Davidson solver(h.kernels());
+                r = solver.solve(h, a.data(), count, e, tolerance, tight < 0 ? count : tight, loose_tolerance,
+                                 max_iterations, basis);
+            }
             double* values = nullptr;
             auto eigenvalues = new_array<double>({static_cast<std::size_t>(count)}, values);
             std::copy(e.begin(), e.end(), values);
@@ -588,7 +792,8 @@ NB_MODULE(_dft, m) {
             return nb::make_tuple(eigenvalues, vectors, r.iterations, r.converged, r.residual);
         },
         nb::arg("h"), nb::arg("psi"), nb::arg("tolerance") = 1e-8, nb::arg("tight") = -1,
-        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0);
+        nb::arg("loose_tolerance") = 1e-4, nb::arg("max_iterations") = 100, nb::arg("largest_basis") = 0,
+        nb::arg("single") = false);
 
     // the occupations of eigenvalues (k-points, bands): f, the Fermi level,
     // -TS and the lowest empty level
@@ -630,9 +835,11 @@ NB_MODULE(_dft, m) {
            nb::object state, double magnetic_kerker, nb::object augmentation, nb::object smooth_grid,
            nb::object onecenter, nb::object becsum, nb::object paw, nb::object orbitals, nb::object symmetry,
            bool gamma, nb::object pools, nb::object hubbard, int kpoint_threads, double first_tolerance,
-           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos) {
+           double conditioning, bool output_energies, bool adaptive_damping, int first_held, bool ldos, bool mixed_precision,
+           const std::string& kernels, nb::object on_step) {
             mdapy::dft::ScfInput in;
             in.gamma = gamma;
+            in.kernels = mdapy::dft::kernels_of(kernels);
             if (!pools.is_none()) {
                 // (rank, ranks, allreduce): allreduce(x) returns the sum over
                 // the pools of the 1-D float64 array x, run with the GIL; its
@@ -733,6 +940,20 @@ NB_MODULE(_dft, m) {
                 if (becsum.is_none()) throw std::invalid_argument("PAW and DFT+U need the first occupations becsum");
                 in.becsum = spins_of(nb::cast<Rows>(becsum));
             }
+            if (!on_step.is_none()) {
+                // a callable of (step, energy, accuracy, magnetization, fermi,
+                // davidson, single, accepted) after each step, in hartree, run
+                // with the GIL; its errors come back as errors of the run
+                nb::object f = on_step;
+                in.on_step = [f](const mdapy::dft::ScfStep& s, int iteration) {
+                    nb::gil_scoped_acquire gil;
+                    try {
+                        f(iteration, s.energy, s.accuracy, s.magnetization, s.fermi, s.davidson, s.single, s.accepted);
+                    } catch (nb::python_error& error) {
+                        throw std::runtime_error(std::string("the log of a step: ") + error.what());
+                    }
+                };
+            }
             if (!onecenter.is_none()) {
                 // a callable of becsum (spins, pairs) giving (E^1, D (spins, pairs)),
                 // run with the GIL; its errors come back as errors of the run
@@ -777,6 +998,7 @@ NB_MODULE(_dft, m) {
             opt.adaptive_damping = adaptive_damping;
             opt.first_held = first_held;
             opt.mixing.ldos = ldos;
+            opt.mixed_precision = mixed_precision;
             opt.energy_tolerance = energy_tolerance;
             opt.density_tolerance = density_tolerance;
             opt.max_iterations = max_iterations;
@@ -797,12 +1019,19 @@ NB_MODULE(_dft, m) {
             const std::size_t nk = in.kpoints.size(), nbands = static_cast<std::size_t>(bands),
                               ns_ = static_cast<std::size_t>(spins);
             std::vector<double> energies, accuracy, fermi, tolerance, moments, output, dampings;
-            std::vector<int> accepted;
+            std::vector<int> accepted, single;
             std::vector<int> davidson, unconverged;
+            std::vector<std::size_t> in_use, in_use_peak, reserved, reserved_peak, device_used;
             for (const auto& step : r.steps) {
+                in_use.push_back(step.memory.in_use);
+                in_use_peak.push_back(step.memory.in_use_peak);
+                reserved.push_back(step.memory.reserved);
+                reserved_peak.push_back(step.memory.reserved_peak);
+                device_used.push_back(step.memory.total - step.memory.free);
                 energies.push_back(step.energy);
                 output.push_back(step.output_energy);
                 accepted.push_back(step.accepted ? 1 : 0);
+                single.push_back(step.single ? 1 : 0);
                 dampings.push_back(step.damping);
                 accuracy.push_back(step.accuracy);
                 fermi.push_back(step.fermi);
@@ -848,7 +1077,16 @@ NB_MODULE(_dft, m) {
             out["davidson"] = array_of(davidson, {ns});
             out["unconverged"] = array_of(unconverged, {ns});
             out["magnetizations"] = array_of(moments, {ns});
+            // of the pool and the device at the end of each step, bytes
+            nb::dict memory;
+            memory["in_use"] = array_of(in_use, {ns});
+            memory["in_use_peak"] = array_of(in_use_peak, {ns});
+            memory["reserved"] = array_of(reserved, {ns});
+            memory["reserved_peak"] = array_of(reserved_peak, {ns});
+            memory["device_used"] = array_of(device_used, {ns});
+            out["memory"] = memory;
             if (output_energies || adaptive_damping) out["output_energies"] = array_of(output, {ns});
+            if (mixed_precision) out["single"] = array_of(single, {ns});
             if (adaptive_damping) {
                 out["accepted"] = array_of(accepted, {ns});
                 out["dampings"] = array_of(dampings, {ns});
@@ -886,7 +1124,8 @@ NB_MODULE(_dft, m) {
         nb::arg("gamma") = false, nb::arg("pools").none() = nb::none(), nb::arg("hubbard").none() = nb::none(),
         nb::arg("kpoint_threads") = 0, nb::arg("first_tolerance") = 0.0,
         nb::arg("conditioning") = 1e6, nb::arg("output_energies") = false,
-        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false);
+        nb::arg("adaptive_damping") = false, nb::arg("first_held") = 0, nb::arg("ldos") = false,
+        nb::arg("mixed_precision") = false, nb::arg("kernels") = "mdapy", nb::arg("on_step").none() = nb::none());
 
     // the one-center terms of PAW, for the tests: the data of each species
     // (paw.onecenter or None), the species and projector functions of each
@@ -895,14 +1134,15 @@ NB_MODULE(_dft, m) {
     nb::class_<mdapy::dft::OneCenter>(m, "OneCenter")
         .def("__init__",
              [](mdapy::dft::OneCenter* self, nb::list species, std::vector<int> kinds, std::vector<int> widths,
-                int spins, const std::string& functional, double threshold) {
+                int spins, const std::string& functional, double threshold, const std::string& kernels) {
                  std::vector<mdapy::dft::SpeciesOneCenter> all;
                  for (nb::handle item : species) all.push_back(paw_of(item));
                  new (self) mdapy::dft::OneCenter(std::move(all), std::move(kinds), std::move(widths), spins,
-                                                  functional_of(functional), threshold);
+                                                  functional_of(functional), threshold,
+                                                  mdapy::dft::kernels_of(kernels));
              },
              nb::arg("species"), nb::arg("kinds"), nb::arg("widths"), nb::arg("spins"), nb::arg("functional"),
-             nb::arg("threshold") = 1e-10)
+             nb::arg("threshold") = 1e-10, nb::arg("kernels") = "mdapy")
         .def("compute", [](mdapy::dft::OneCenter& x, Rows becsum) {
             std::vector<std::vector<double>> d;
             mdapy::dft::OneCenterEnergies parts;
@@ -929,12 +1169,15 @@ NB_MODULE(_dft, m) {
     nb::class_<mdapy::dft::Augmentation>(m, "Augmentation")
         .def("__init__",
              [](mdapy::dft::Augmentation* self, Matrix a, double cutoff, std::array<int, 3> grid, Rows positions,
-                Kinds species, nb::list kinds) {
+                Kinds species, nb::list kinds, const std::string& kernels) {
                  std::vector<mdapy::dft::SpeciesAugmentation> all;
                  for (std::size_t s = 0; s < nb::len(kinds); ++s) all.push_back(augmentation_of(kinds[s]));
                  const auto sphere = mdapy::dft::make_sphere(lattice_of(a), Vec3{0.0, 0.0, 0.0}, cutoff, grid_of(grid), false);
-                 new (self) mdapy::dft::Augmentation(lattice_of(a), sphere, atoms_of(positions, species), std::move(all));
-             })
+                 new (self) mdapy::dft::Augmentation(lattice_of(a), sphere, atoms_of(positions, species), std::move(all),
+                                                     mdapy::dft::kernels_of(kernels));
+             },
+             nb::arg("a"), nb::arg("cutoff"), nb::arg("grid"), nb::arg("positions"), nb::arg("species"),
+             nb::arg("kinds"), nb::arg("kernels") = "mdapy")
         .def("overlaps", [](const mdapy::dft::Augmentation& x, int s) {
             const auto q = x.overlaps(s);
             return array_of(q, {q.size()});

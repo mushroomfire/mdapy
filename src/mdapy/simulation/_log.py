@@ -46,6 +46,22 @@ def _on_gpu(calculator: Any) -> str | None:
     )
 
 
+def _apart(log: Any, calculator: Any) -> None:
+    """Raises if the log of a run is the file the calculator writes its own
+    log to, such as that of a DFT: their rows differ, and the file would not
+    read back as one table."""
+    other = getattr(calculator, "log", None)
+    paths = (str, os.PathLike)
+    if (
+        isinstance(log, paths)
+        and isinstance(other, paths)
+        and os.path.realpath(log) == os.path.realpath(other)
+    ):
+        raise InvalidParameter(
+            f"{os.fspath(log)!r} is also the log of the calculator: give them two files"
+        )
+
+
 class _Log:
     """Where the lines go: a file of a path, opened here, overwritten (or
     added to, for a run continued from a restart) and closed by close; or a

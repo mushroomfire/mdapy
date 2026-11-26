@@ -2,9 +2,10 @@
 
 # On the GPU
 
-<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, with the GPU part of MDAPY: see [Installing the GPU part](#installing-the-gpu-part)</p>
+<p class="runs-on" markdown>**Runs on** an NVIDIA GPU, or an AMD GPU with ROCm, with the GPU part of MDAPY: see [Installing the GPU part](#installing-the-gpu-part)</p>
 
-The potentials of MDAPY compute on an NVIDIA GPU with CUDA, and
+The potentials of MDAPY compute on an NVIDIA GPU with CUDA, or on an
+[AMD GPU](#amd-gpus) with ROCm, and
 [molecular dynamics](running.md) with them runs there whole, for systems of
 hundreds of thousands to millions of atoms: `device="cuda"` puts a potential on the
 GPU, and `MolecularDynamics` runs on the GPU with a potential that is there.
@@ -78,6 +79,11 @@ It runs on NVIDIA GPUs from the V100 on (compute capability 7.0: V100, T4, A100,
 RTX 20, 30, 40 and 50 series, L40, H100, GH200, B200) with the driver of the GPU, 525
 or newer, whatever CUDA toolkit the machine has, if any: the CUDA runtime is linked
 into it, and newer drivers run it too.
+The package also holds the [plane-wave DFT](../potentials/dft.md), which computes with
+MDAPY's own kernels. Only `DFT(kernels="vendor")` takes NVIDIA's cuBLAS, cuFFT and
+cuSOLVER, which the extra `dft` installs from NVIDIA's packages,
+`pip install "mdapy[cuda12,dft]"` (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)).
 `mdapy.show_versions()` names the GPU part and the GPU it found, in its row
 `GPU part`. Where there is no such package, on Windows or on the Jetson boards,
 MDAPY is built from its source with the CUDA toolkit (tested with CUDA 12.6, 12.9
@@ -89,7 +95,39 @@ pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
 
 It is compiled for the GPU of the machine; `-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`
 compiles it for others, such as those of a cluster. A GPU part built into MDAPY is
-used before an installed `mdapy-cuda12`.
+used before an installed `mdapy-cuda12`. On Linux, `-Ccmake.define.MDAPY_DFT=ON` builds
+the DFT into MDAPY too, as `mdapy._dft`, with the headers of cuBLAS, cuFFT and cuSOLVER
+of the toolkit for the build; `kernels="vendor"` loads those of the extra `dft`, or of
+the system, at its first use.
+
+### AMD GPUs
+
+On an AMD GPU the same kernels run through HIP of [ROCm](https://rocm.docs.amd.com):
+MDAPY is built from its source with ROCm 6, which puts the GPU part in MDAPY itself, as
+the module `mdapy._hip`, compiled for the GPUs `CMAKE_HIP_ARCHITECTURES` names, here
+the Instinct MI200 series:
+
+```bash
+pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_HIP=ON -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+The build needs CMake 3.21 or newer, the clang of ROCm (`HIPCXX`) and its hipCUB,
+rocPRIM and rocThrust, and the run its HIP runtime, as `module load rocm` gives them
+on a cluster. The device keeps its name: `device="cuda"` is the GPU, whoever made it,
+and everything on this page holds for both. It is tested on the Instinct MI250X with
+ROCm 6.3.4, against the processor as on NVIDIA GPUs.
+
+The same GPU part with the [plane-wave DFT](../potentials/dft.md) is the package
+`mdapy-rocm6`, built in a clone of MDAPY from its folder `rocm6`:
+
+```bash
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+Its DFT is built with the headers of hipBLAS, hipFFT and hipSOLVER of the machine's
+ROCm and runs with the HIP runtime alone; `kernels="vendor"` loads those libraries of
+ROCm when first asked for. `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_HIP=ON` above
+builds the DFT into MDAPY itself instead.
 
 ## Potentials
 
@@ -104,7 +142,7 @@ used before an installed `mdapy-cuda12`.
 
 | Parameter | Type | Default | Meaning |
 |---|---|---|---|
-| `device` | str | `"cpu"` | `"cpu"`, or `"cuda"` to compute on the GPU |
+| `device` | str | `"cpu"` | `"cpu"`, or `"cuda"` to compute on the GPU, NVIDIA's or AMD's |
 | `precision` | str | `"mixed"` on the GPU | `"mixed"`: the distance and the terms of each pair in single precision, the positions, the velocities and every sum in double, as the GPU package of LAMMPS in mixed precision; or `"double"` throughout. The processor computes in double precision only |
 
 `compute` of a potential on the GPU copies the atoms there, builds a

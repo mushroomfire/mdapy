@@ -21,6 +21,8 @@ from xml.etree import ElementTree
 import numpy as np
 import pytest
 
+from mdapy.calculators._dft import loader
+
 RY = 0.5  # hartree
 EV = 1 / 27.211386245988  # hartree
 
@@ -300,10 +302,9 @@ def rounded_gamma(result, cell, positions, kinds, pseudos, density_cutoff) -> fl
     moves by this difference to first order."""
     import math
 
-    from mdapy_dft_cuda12 import _dft
-
     from mdapy.calculators._dft import scf
 
+    _dft = loader.module()
     grid = result["grid"]
     miller, _, _, _ = _dft.sphere(cell, [0.0, 0.0, 0.0], density_cutoff, grid)
     _, core_g, _, _ = scf.radial_parts(

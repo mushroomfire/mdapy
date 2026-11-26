@@ -11,7 +11,7 @@ import math
 
 import numpy as np
 
-from mdapy.calculators._dft import radial
+from mdapy.calculators._dft import loader, radial
 
 BOHR = 0.529177210903
 
@@ -72,8 +72,7 @@ class Gaussians:
 def setup(k, cutoff=3.0, potential=1.0, nonlocal_=1.0):
     """The Hamiltonian of k and its parts, of a cutoff in hartree; potential
     and nonlocal_ scale the local potential and D (0 for free electrons)."""
-    from mdapy_dft_cuda12 import _dft
-
+    _dft = loader.module()
     half = 5.431 / 2 / BOHR
     a = np.array([[0, half, half], [half, 0, half], [half, half, 0]])
     grid = _dft.fft_grid(a, 4 * cutoff)

@@ -13,7 +13,9 @@ import math
 import numpy as np
 import pytest
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+from dft import gpu
+
+_dft = gpu.module()
 
 SMEARINGS = ["gaussian", "fermi-dirac", "methfessel-paxton", "marzari-vanderbilt"]
 U = np.linspace(-40, 40, 80001)  # the tails of Fermi-Dirac reach far

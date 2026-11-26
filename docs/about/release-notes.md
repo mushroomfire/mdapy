@@ -2,6 +2,116 @@
 
 ## 2.3.0 (not released)
 
+- `pip install "mdapy[full]"` installs matplotlib, spglib and seekpath, the optional
+  packages MDAPY's own features use, so that every feature works; the extras `plot` and
+  `symmetry` still work.
+- `DFT(kernels="mdapy")`: the fast Fourier transforms of the DFT are MDAPY's own kernels
+  on the GPU, for the grids and the transforms the plane waves take, in place of those
+  of cuFFT or hipFFT, and so are its dense linear algebra (the products of matrices and
+  the triangular solves of the solver and the projectors), in place of cuBLAS or
+  hipBLAS, and its Hermitian eigensolver and Cholesky factorization, in place of
+  cuSOLVER or hipSOLVER;
+  `kernels="vendor"` runs the GPU libraries of the vendor throughout. MDAPY's kernels
+  are the default: a self-consistent field with them takes 0.64 to 0.88 times the time of
+  one with the vendor's on a GH200 and 0.82 to 1.04 on a V100. The results agree to
+  rounding, and `DFT.last["provenance"]` keeps the kernels that ran.
+- The DFT no longer links the libraries of the vendor, NVIDIA's cuBLAS, cuFFT and
+  cuSOLVER in `mdapy-cuda12`, hipBLAS, hipFFT and hipSOLVER of ROCm in `mdapy-rocm6`: it
+  loads them at their first use, which only `kernels="vendor"` makes (and the FFT of a
+  grid given whose sizes are not products of 2, 3, 5 and 7), from NVIDIA's packages or
+  the system, and from the folders of ROCm. `pip install "mdapy[cuda12]"` is all the DFT
+  needs; the extra `dft`, about 2.3 GB of NVIDIA's libraries, only serves
+  `kernels="vendor"`, which raises `InvalidParameter` naming it when they are missing.
+  With ROCm the DFT needs only the HIP runtime.
+- `DFT(log=...)`: every step of the self-consistent field of each computation, its free
+  energy, change, residual, magnetization, Fermi level and iterations of the eigensolver,
+  as rows that `numpy.loadtxt` reads, with the parameters of each computation as one line
+  of JSON; nothing more is copied from the GPU, and nothing is reported without a log. A
+  run's log and that of its calculator cannot share a file. See
+  [the log](../user-guide/potentials/dft.md#the-log-and-the-parameters-of-each-computation).
+- `DFT.save(path)` and `DFT(start=path)`: the ground state of a computation in a file of
+  NumPy's `.npz`, its structure, energy, forces, density, occupations of PAW or DFT+U,
+  k-points and bands with the parameters of the computation, and a computation started
+  from its density, which checks that the structure, the pseudopotentials and the grid
+  are those of the file. See
+  [the ground state in a file](../user-guide/potentials/dft.md#the-ground-state-in-a-file).
+- `DFT.last["parameters"]`: every parameter a computation took, its defaults and
+  `"auto"` resolved, the pseudopotentials by SHA-256, and the settings of the
+  self-consistent field that `DFT` does not take; `DFT(**parameters["arguments"])` gives
+  the computation again. `CalculatorResult.info` holds it under `dft`, and `attach` adds
+  `info` to the frame's, so that each label keeps how it was computed.
+- The DFT gives back the memory of the GPU at the end of each run: its memory pool kept
+  what the arrays freed, for the next ones, until the process ended, so that a process
+  that once ran a large configuration, or many side by side, went on holding their
+  memory (105 GiB of a GH200 during an Al108 that needs 11.4 GiB, after sixteen Fe16 at
+  once). A run now keeps no more than its steps used. `DFT.last["gpu_memory"]` holds
+  the memory in use by the DFT, reserved by its pool and in use on the GPU, in MiB; see
+  [Memory of the GPU](../user-guide/potentials/dft.md#memory-of-the-gpu).
+- The DFT raises the error of a configuration whose bands fail on the host threads of
+  its k-points, as on one thread; after the first bands of the atoms it waited for ever.
+- `DFT(kernels="mdapy")` takes the FP64 tensor cores of the A100, H100, GH200 and B200 for
+  its products of double precision, and copies their tiles whole on Hopper; on the GH200 its
+  products of real numbers run as fast as cuBLAS's and those of complex numbers at about 0.9
+  of their speed, against a fifth before. Its products on the other GPUs, and with HIP, go
+  through two buffers without conflicts of banks: about 0.8 of cuBLAS on the V100, against a
+  half before, and faster than cuBLAS in double precision on cards of little double precision.
+  The results are those of the vendor's to rounding.
+- The eigensolver of `DFT(kernels="mdapy")` keeps pace with cuSOLVER's on the subspaces of
+  the Davidson solver: a step of the tridiagonalization is one launch, the merges of a
+  height of the divide and conquer go together, with their secular equations on the GPUs
+  of full double precision, and the transforms take the shared memory the GPU gives (227 kB
+  on the GH200). A self-consistent field with MDAPY's kernels takes 0.64 to 1.05 times the
+  time of one with the vendor's on a GH200 and 0.71 to 1.21 on a V100, against 1.00 to 1.52
+  and 0.82 to 1.38 before.
+- With MDAPY's kernels the same DFT computation on the same GPU gives the same numbers to the
+  last bit at each run: its sums over the blocks of a kernel go in their order, and the host
+  threads of the k-points add up the density of the same k-points in the same order. Two
+  runs differed by up to 1.6e-12 hartree before.
+- The DFT no longer does on one core of the host what each step of its self-consistent
+  field repeats. Pulay's mixing of the densities runs on the GPU, where the densities stay;
+  it was 15 % of a step of Fe72 on a GH200. The plane waves of each k-point are found once.
+  The transforms of the pseudopotentials take every q at once and are kept while the
+  pseudopotential lives, so that molecular dynamics makes them once; those of an ultrasoft
+  or PAW pseudopotential took 6 to 7 s at each run before. On a GH200, Fe72 and Si64 at Gamma
+  run 15 % faster, Al4 with 112 k-points 35 %, Fe16 and Fe54 with PAW 33 %, and Al108 with
+  an ultrasoft pseudopotential 64 %.
+- MDAPY's transforms of the complex bands skip the planes of the box that the sphere of the
+  bands misses, about half of them, and the diagonal of the preconditioner of the Davidson
+  solver takes the whole GPU: Fe72 and Si64 at Gamma run 12 % faster on a GH200, Fe16, Si64
+  and Al32 with k-points 8 to 9 %. With MDAPY's kernels the cases of the GH200 take 0.51 to
+  1.00 times the time of the vendor's.
+- The eigensolver of MDAPY's kernels makes only the eigenvectors the Davidson solver takes,
+  multiplies each block of reflectors only into the rows it reaches, takes a column of a
+  panel in two launches and the update of a panel as one product, and on the GPUs of full
+  double precision runs every step of a small tridiagonalization in one cooperative launch:
+  on a GH200 it takes 0.78 to 0.92 times the time of cuSOLVER from 154 to 512 rows and 1.15
+  to 1.33 beyond, against 1.3 to 1.6 before. The real transforms of Gamma read and write
+  only the planes of the sphere too, the local potential of the complex bands is taken on
+  the way of the forward transform, and a k-point set again is not made again. With these,
+  the cases of the GH200 take 0.53 to 0.95 times the time of the vendor's: Al108 at Gamma
+  9 % less than before them, Fe16 with k-points 8 %.
+- MDAPY's transforms skip the planes the sphere of the bands misses also where a plane of
+  the box does not fit the shared memory of a block (the large grids of a V100, those
+  beyond 227 kB on a GH200): the lines of the planes of the sphere go axis by axis. The
+  eigenvectors of the subspaces of up to 1024 rows come back from the tridiagonal matrix in
+  one launch, the leaves of the divide and conquer are solved on the GPU, the Cholesky
+  factorization of the Davidson solver no longer waits for the host at each block, and the
+  steps of a tridiagonalization too large for a block a column keep the trailing matrix in
+  the shared memory of the GPU. On a GH200 Fe16 with k-points runs 9 % faster and Al32 10 %,
+  and the eigensolver takes 0.79 times the time of cuSOLVER's in Fe16, against 1.06; on a
+  V100 Fe72 runs 16 % faster, Si64 with k-points 20 %, Fe16 5 %, and Fe72 and Si64 take the
+  time of the vendor's, against 1.18 and 1.19 times before.
+- On the V100, whose double precision is half as fast as its single, the products of
+  double precision of MDAPY's kernels take blocks of 128 threads, two or three to a
+  multiprocessor, so that one sums while another waits at its barrier or for its next
+  terms; a block of the last rows of a result sums only the rows it holds, and the complex
+  values are read 16 bytes an instruction, as the real ones of matrices whose columns start
+  on 16 bytes. The products of the self-consistent fields of Fe16 and Si64 with k-points
+  and of Al108, Al256 and Fe72 at Gamma take 0.85 to 1.25 times the time of cuBLAS's, two
+  in three of them 1.08 at most, against 0.87 to 1.44 and one in eight; those of one to
+  thirteen columns 1.0 to 1.5 times, against 1.6 to 2.3. A self-consistent field with
+  MDAPY's kernels takes 0.78 to 1.02 times the time of one with the vendor's, against 0.81
+  to 1.04: Fe72 runs 6 % faster, Si64 with k-points 7 %, Fe16 and Al108 4 %, Al256 2 %.
 - `DFT.last["magnetic_moments"]`: with spin, the magnetic moment of each atom in Bohr
   magnetons, the magnetization density integrated within a sphere around it, of radius
   `moment_radius` (by default half the shortest distance between two atoms, periodic
@@ -9,6 +119,28 @@
 - `DFT(restart="second_order")`: the density of each step of molecular dynamics is
   extrapolated from the last three steps (Arias, Payne and Joannopoulos), not only
   moved with the free atoms, which takes fewer iterations; `restart=True` is as before.
+- The GPU part of MDAPY runs on AMD GPUs: the kernels of the potentials and of
+  molecular dynamics, written for CUDA, compile as they are with HIP of ROCm 6
+  (`-Ccmake.define.MDAPY_HIP=ON`, the module `mdapy._hip`), and `device="cuda"` uses
+  whichever GPU part is there. On the Instinct MI250X they give the results of the
+  processor as on NVIDIA GPUs. See [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
+- `mdapy.calculators.D3`, the dispersion correction DFT-D3 of Grimme et al., native on
+  the processor and the GPU: Becke–Johnson and zero damping, the parameters of twelve
+  functionals or numbers given, the three-body term, the elements H to Lr. Added to
+  another potential with `Overlay`, in single points and in molecular dynamics. Its
+  results are those of s-dftd3 1.7.0 to rounding with the same constants, and those of
+  LAMMPS's `pair_style dispersion/d3` to the rounding of its tables; on the GPU it finds
+  its pairs itself, for any box. See [DFT-D3 dispersion](../user-guide/potentials/d3.md).
+- The example [Radiation damage in tungsten and MoNbTaVW](../examples/radiation-cascade.md)
+  replaces the collision cascade in tungsten: with the machine-learned potential of Liu
+  et al. (2025), the threshold displacement energies of Mo, Nb, Ta, V and W and of each
+  element in the alloy over all directions, their Figures 3 and 4, and the Frenkel pairs
+  of cascades of 1 to 10 keV against the NRT and arc-dpa models; the four scripts that
+  ran them.
+- The example [Isotopes of lithium hydride](../examples/lih-isotopes.md): path integrals
+  of 40 beads give the lattice of ⁶LiH, ⁷LiH, ⁶LiD, ⁷LiD and ⁷LiT at room temperature,
+  a = A μ^−1/2 + B with A = 0.0495 Å against 0.054 Å measured, where classical nuclei
+  give the same lattice for all five.
 - MDAPY's own dynamics on the processor, `minimize` and `neb` give MDAPY's potentials
   their neighbor list with the skin as it is between two builds, instead of the pairs
   within the cutoff at each step, and they pass over the pairs beyond their cutoffs: the
@@ -78,8 +210,12 @@
   records the centroid-virial and primitive kinetic energies and the centroid-virial
   pressure, `md.beads` the atoms at each bead. Harmonic oscillators give the energies
   of the finite ring polymer in closed form, and neon at 20 K the averages of LAMMPS's
-  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. See
-  [Path integrals](../user-guide/simulation/pimd.md).
+  `fix pimd/langevin`; under `mpirun` the beads are shared among the processes. At a
+  pressure, `ensemble="npt"` with `barostat="iso"`, the barostat of Bussi,
+  Zykova-Timan and Parrinello scales the centroids and the box by the centroid-virial
+  pressure, as LAMMPS's `barostat BZP`: neon at 20 K and zero pressure takes the volume
+  of LAMMPS, 5763 ± 7 against 5759 ± 7 Å³, and heavy atoms that of the classical
+  crystal. See [Path integrals](../user-guide/simulation/pimd.md).
 - The dynamics on the processor computes the virial only at the steps that need the
   pressure, and the kernels of EAM, ADP and the pair potentials leave it out then;
   EAM's densities skip their derivatives and pairs that cross no boundary their
@@ -116,21 +252,28 @@
   mass_numbers)`, the coherent scattering lengths of the elements and their isotopes of
   Rauch and Waschkowski (2003).
 - `mdapy.calculators.DFT(encut)`: MDAPY's own plane-wave density functional theory on an
-  NVIDIA GPU, in the package `mdapy-dft-cuda12`. It gives energies, forces and virials
+  NVIDIA GPU, in the GPU part `mdapy-cuda12`, or on an AMD GPU in `mdapy-rocm6`, built from
+  source with HIP of ROCm 6. It gives energies, forces and virials
   of periodic cells with norm-conserving, ultrasoft and PAW pseudopotentials (UPF 2, and UPF
   1 such as GBRV's: every file of SSSP 1.3), LDA, PBE and PBEsol,
   collinear spin and smearings, DFT+U of Dudarev on norm-conserving
   pseudopotentials (`hubbard`), the symmetry of crystals (by spglib), real bands at
   Gamma, the k-points and spins of one configuration shared by several GPUs
   (`comm`), the k-points of a small cell solved side by side on one GPU and calculations
-  in several threads of one process at once, for labelling training sets; the
-  preconditioner of the local density of states (`preconditioner="ldos"`) for slabs,
-  surfaces and magnetic alloys. The FFT grids
+  in several threads of one process at once, and mixed precision (`precision="mixed"`,
+  single precision in the first steps) for GPUs of little double precision, for
+  labelling training sets; the preconditioner of the local density of states
+  (`preconditioner="ldos"`) for slabs, surfaces and magnetic alloys. The FFT grids
   are those of Quantum ESPRESSO (factors 2, 3 and 5, multiples of the denominators of
   the fractional translations). The energies, forces,
   stresses, eigenvalues and magnetizations agree with Quantum ESPRESSO run on the
   same input; the functional of the pseudopotentials is taken as Quantum ESPRESSO takes
   it. Under development.
+- The extra `dft`, `pip install "mdapy[cuda12,dft]"`: NVIDIA's cuBLAS, cuFFT and cuSOLVER
+  from NVIDIA's packages, which the DFT in `mdapy-cuda12` loads from where pip puts them;
+  the package holds none of them, and its potentials and molecular dynamics need none.
+  With ROCm the DFT of `mdapy-rocm6` takes the libraries of the machine.
+  `-Ccmake.define.MDAPY_DFT=OFF` builds either package without the DFT.
 - The example [A potential from MDAPY's DFT](../examples/dft-potential.md): generated cells
   of aluminium labelled by MDAPY's DFT, a NEP model trained on them, and its equation of
   state, vacancy, surface and phonons against the DFT's; the elastic constants of

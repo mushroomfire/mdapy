@@ -1,23 +1,149 @@
 # Installation
 
-MDAPY needs Python 3.11 or newer, and on macOS, macOS 14 or newer. Its only
-required dependencies are NumPy 2.3.1 or newer and polars 2.
+MDAPY needs Python 3.11 or newer, and on macOS, macOS 14 or newer. What else it needs
+depends on what it is used for, from the core alone to every feature on a GPU:
 
-## From PyPI
+| Level | What | Install |
+|---|---|---|
+| Core | NumPy 2.3.1 or newer and polars 2, all that most of MDAPY needs | `pip install mdapy` |
+| Every feature | the core, with matplotlib, spglib and seekpath | `pip install "mdapy[full]"` |
+| On a GPU | the GPU part of MDAPY, with the DFT; NVIDIA's libraries only to compare the DFT with them | `pip install "mdapy[full,cuda12]"`, `pip install "mdapy[full,cuda12,dft]"` |
+| Exchange with other programs | ASE, OVITO, freud, pymatgen, LAMMPS, which their users have | as needed |
+| Special tools | FFmpeg for movies, mpi4py for several processes | as needed |
+| Building | a C++ compiler and CMake; the CUDA toolkit or ROCm for the GPU part | only when building from source |
+
+## The core
 
 ```bash
 pip install mdapy
 ```
 
-This is the usual way. PyPI holds built packages for Linux on x86-64 and on ARM,
-macOS on Apple silicon and Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip`
-builds MDAPY from its source archive, which needs [the tools below](#what-a-build-needs).
+PyPI holds built packages for Linux on x86-64 and on ARM, macOS on Apple silicon and
+Windows on x86-64, so nothing has to be compiled. Elsewhere, `pip` builds MDAPY from its
+source archive, which needs [the tools below](#what-a-build-needs). These systems are the
+ones officially supported. On others, such as macOS on an Intel processor, MDAPY built
+from source should work as well, but no package is built for them and no test runs on
+them.
 
-These systems are the ones officially supported. On others, such as macOS on an Intel
-processor, MDAPY built from source should work as well, but no package is built for them
-and no test runs on them.
+## Every feature
 
-## From a source archive
+```bash
+pip install "mdapy[full]"
+```
+
+adds the three packages MDAPY's own features use beyond the core. Without them the rest
+works, and these parts raise an error that names the package to install.
+
+| Package | For |
+|---|---|
+| matplotlib | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
+| spglib | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; the k-points of the [DFT](../user-guide/potentials/dft.md) reduced by symmetry |
+| seekpath | `band_structure("auto")`, the standard path of any crystal; it installs spglib too |
+
+The extras `plot` and `symmetry` of earlier versions still work.
+
+## On a GPU
+
+### Pictures on the GPU
+
+[Pictures](../user-guide/visualization/rendering.md#on-the-gpu) are traced on the GPU
+with Metal on macOS and Direct3D 12 on Windows, in every build, and with Vulkan
+on Linux when the build finds Vulkan's headers: install them before MDAPY, as
+`libvulkan-dev` on Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. MDAPY opens the
+Vulkan loader, `libvulkan.so.1`, only for a picture on the GPU; the loader
+and the driver come with the graphics drivers. Without the headers, or
+without a GPU, pictures are traced on the processor.
+
+### Potentials, dynamics and DFT on an NVIDIA GPU
+
+[Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
+need the GPU part of MDAPY, the package `mdapy-cuda12` on Linux on x86-64 and ARM, for
+NVIDIA GPUs from the V100 on with a driver of version 525 or newer:
+
+```bash
+pip install "mdapy[cuda12]"
+```
+
+The package also holds MDAPY's [plane-wave DFT](../user-guide/potentials/dft.md), which
+runs on MDAPY's own kernels and needs nothing more; NVIDIA's cuBLAS, cuFFT and cuSOLVER
+only for `DFT(kernels="vendor")`, see
+[NVIDIA's libraries for the DFT](#nvidias-libraries-for-the-dft).
+
+Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
+part in MDAPY itself:
+
+```bash
+pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
+```
+
+The build compiles for the GPU of the machine, or for those of
+`-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`, and links the CUDA runtime
+into MDAPY, so that running it needs only the driver of the GPU. See
+[Installing the GPU part](../user-guide/simulation/gpu.md#installing-the-gpu-part).
+
+For an AMD GPU, MDAPY is built with ROCm 6 instead,
+`-Ccmake.define.MDAPY_HIP=ON`: see [AMD GPUs](../user-guide/simulation/gpu.md#amd-gpus).
+
+### NVIDIA's libraries for the DFT
+
+The [plane-wave DFT](../user-guide/potentials/dft.md) in the GPU part, the package
+`mdapy-cuda12`, computes with MDAPY's own kernels. With `DFT(kernels="vendor")` it takes
+NVIDIA's cuBLAS, cuFFT and cuSOLVER instead, libraries of CUDA 12 that the package does not
+hold, to compare the two, or for the FFT of a grid given whose sizes are not products of
+2, 3, 5 and 7. The extra `dft` installs them:
+
+| Extra | Installs | For |
+|---|---|---|
+| `dft` | `nvidia-cublas-cu12`, `nvidia-cufft-cu12` and `nvidia-cusolver-cu12`, and the packages they depend on, as `nvidia-cusparse-cu12` and `nvidia-nvjitlink-cu12` of cuSOLVER | `DFT(kernels="vendor")` on an NVIDIA GPU, on Linux on x86-64 and ARM |
+
+```bash
+pip install "mdapy[cuda12,dft]"
+```
+
+These are NVIDIA's own packages on PyPI, the libraries of CUDA as NVIDIA publishes
+them, which a build of PyTorch for CUDA 12 installs too: beside it the DFT needs nothing
+more.
+They are large, about 1.6 GB to download and 2.3 GB installed.
+Only `DFT(kernels="vendor")` needs them; the DFT with MDAPY's kernels, the default, and
+the potentials and molecular dynamics on the GPU run without them. The GPU part loads
+them when they are first asked for, from the folder `nvidia` of the environment where
+pip puts them, else as the system finds them (`LD_LIBRARY_PATH`, the folders of the
+system). Without them, `DFT(kernels="vendor")` raises an error that names the command
+above.
+
+On an AMD GPU the DFT of `mdapy-rocm6` runs on MDAPY's kernels with the HIP runtime of the
+ROCm installed on the machine, as its potentials do; `kernels="vendor"` loads hipBLAS,
+hipFFT and hipSOLVER of that ROCm in the same way, when first asked for. Nothing comes
+from pip.
+
+## Exchange with other programs
+
+Exchanging data with other programs needs them, and whoever exchanges has them:
+
+| Package | Install | For |
+|---|---|---|
+| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and MDAPY |
+| freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
+| pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
+| OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
+| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/potentials/lammps.md), [molecular dynamics](../user-guide/simulation/running.md) and [elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md) |
+
+Extras combine, as `pip install "mdapy[full,ase]"`. OVITO's package from PyPI warns in a
+conda environment, where conda's own is preferred, so it is not an extra; nor is LAMMPS,
+whose Python module comes with a build of LAMMPS with the packages of styles each user
+needs.
+
+## Special tools
+
+| Tool | For | Without it |
+|---|---|---|
+| [FFmpeg](https://ffmpeg.org), the program | [movies](../user-guide/visualization/movies.md) made from pictures | pictures alone |
+| [mpi4py](https://mpi4py.readthedocs.io), with the MPI of the machine | molecular dynamics on many processes, the DFT on several GPUs | everything in one process |
+
+mpi4py is not an extra: on a cluster it has to be built with the cluster's own MPI, which
+knows its network.
+
+## Building from source
 
 Build the source archive on PyPI, instead of taking a built package:
 
@@ -25,15 +151,8 @@ Build the source archive on PyPI, instead of taking a built package:
 pip install --no-binary mdapy mdapy
 ```
 
-or a source archive you have downloaded:
-
-```bash
-pip install mdapy-*.tar.gz
-```
-
-## From git
-
-For the newest code, directly:
+or a source archive you have downloaded, `pip install mdapy-*.tar.gz`. For the newest code,
+directly from git:
 
 ```bash
 pip install "git+https://github.com/mushroomfire/mdapy.git"
@@ -47,7 +166,7 @@ cd mdapy
 pip install .
 ```
 
-## What a build needs
+### What a build needs
 
 Installing from a source archive or from git compiles MDAPY, which needs:
 
@@ -60,7 +179,7 @@ Installing from a source archive or from git compiles MDAPY, which needs:
 
 No OpenMP library and no other third-party code is needed.
 
-## An old Linux
+### An old Linux
 
 The built packages on PyPI need glibc 2.27 or newer, about as those of NumPy do: Ubuntu 18.04,
 RHEL 8 or newer. `mdapy.show_versions()` or `ldd --version` tells which glibc a machine has.
@@ -77,39 +196,7 @@ conda install -c conda-forge compilers numpy polars
 pip install mdapy
 ```
 
-## Pictures on the GPU
-
-[Pictures](../user-guide/visualization/rendering.md#on-the-gpu) are traced on the GPU
-with Metal on macOS and Direct3D 12 on Windows, in every build, and with Vulkan
-on Linux when the build finds Vulkan's headers: install them before MDAPY, as
-`libvulkan-dev` on Debian and Ubuntu or `vulkan-headers` on Fedora and RHEL. MDAPY opens the
-Vulkan loader, `libvulkan.so.1`, only for a picture on the GPU; the loader
-and the driver come with the graphics drivers. Without the headers, or
-without a GPU, pictures are traced on the processor.
-
-## Potentials and dynamics on an NVIDIA GPU
-
-[Potentials and molecular dynamics on the GPU](../user-guide/simulation/gpu.md)
-need the GPU part of MDAPY, the package `mdapy-cuda12` on Linux on x86-64 and ARM, for
-NVIDIA GPUs from the V100 on with a driver of version 525 or newer:
-
-```bash
-pip install "mdapy[cuda12]"
-```
-
-Elsewhere MDAPY is built from its source with the CUDA toolkit, which puts the GPU
-part in MDAPY itself:
-
-```bash
-pip install mdapy --no-binary mdapy -Ccmake.define.MDAPY_CUDA=ON
-```
-
-The build compiles for the GPU of the machine, or for those of
-`-Ccmake.define.CMAKE_CUDA_ARCHITECTURES="80;86;90"`, and links the CUDA runtime
-into MDAPY, so that running it needs only the driver of the GPU. See
-[Installing the GPU part](../user-guide/simulation/gpu.md#installing-the-gpu-part).
-
-## 64-bit atom indices
+### 64-bit atom indices
 
 Atom indices in results such as neighbor lists are 32-bit integers, enough
 for 2,147,483,647 atoms and half the memory of 64-bit ones. For larger
@@ -133,27 +220,6 @@ of polars too, which polars then takes by itself:
 pip install "polars[rt64]"
 python -c "import polars; print(polars.get_index_type())"   # UInt64
 ```
-
-## Optional dependencies
-
-MDAPY needs only NumPy and polars. Other packages, when installed, switch on
-the parts of MDAPY that use them; without them the rest works, and these
-parts raise an error that names the package to install.
-
-| Package | Install | For |
-|---|---|---|
-| matplotlib | `pip install "mdapy[plot]"` | the plots of [`mdapy.visualization.plot`](../user-guide/visualization/plots.md) |
-| spglib, seekpath | `pip install "mdapy[symmetry]"` | the [space group](../user-guide/analysis/space-group.md); phonons and elastic constants from fewer computations; `band_structure("auto")` |
-| ASE | `pip install "mdapy[ase]"` | [`to_ase`, `from_ase`](../user-guide/interop/ase.md), and [calculators](../user-guide/interop/ase-calculators.md) between ASE and MDAPY |
-| freud | `pip install "mdapy[freud]"` | [`to_freud`, `from_freud`](../user-guide/interop/freud.md) |
-| pymatgen | `pip install "mdapy[pymatgen]"` | [`to_pymatgen`, `from_pymatgen`](../user-guide/interop/pymatgen.md) |
-| OVITO | `pip install ovito` | [`to_ovito`, `from_ovito`](../user-guide/interop/ovito.md) |
-| LAMMPS | its Python module, built with LAMMPS | the [LAMMPS calculator](../user-guide/potentials/lammps.md), [molecular dynamics](../user-guide/simulation/running.md) and [elastic constants from molecular dynamics](../user-guide/properties/md-elastic.md) |
-
-Extras combine: `pip install "mdapy[plot,symmetry,ase]"`. OVITO's package
-from PyPI warns in a conda environment, where conda's own is preferred, so
-it is not an extra; nor is LAMMPS, whose Python module comes with a build
-of LAMMPS with the packages of styles each user needs.
 
 ## Tests and documentation
 

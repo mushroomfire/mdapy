@@ -55,6 +55,8 @@
 
 namespace mdapy::dft {
 
+struct ScfStep;
+
 struct ScfInput {
     Lattice lattice;
     // the cell that chooses the plane waves, for differences at a fixed basis;
@@ -70,6 +72,8 @@ struct ScfInput {
     std::vector<Vec3> kpoints;  // fractions of the reciprocal vectors
     std::vector<double> weights;  // adding up to one
     bool gamma = false;           // real bands of the one k-point Gamma
+    // MDAPY's own kernels where it has them, or the GPU libraries of the vendor
+    Kernels kernels = Kernels::Mdapy;
     // Pools of processes (one GPU each): the pairs (spin, k-point) p = s nk + k
     // with p % ranks == rank are this one's; allreduce sums count doubles over
     // the pools in place (the densities, the occupations of the projectors,
@@ -96,6 +100,9 @@ struct ScfInput {
     // D^1 - D~^1 of each spin, packed likewise; empty for none. becsum holds
     // the first occupations.
     std::function<double(const std::vector<std::vector<double>>&, std::vector<std::vector<double>>&)> onecenter;
+    // called on the thread of run_scf after each step, taken or tried back, with
+    // the step and its number from 1 (a log of the run); empty for none
+    std::function<void(const ScfStep&, int)> on_step;
     std::vector<std::vector<double>> becsum;
     // or the one-center data of each species (mesh 0 without PAW), for the
     // GPU's one-center terms when onecenter is empty
@@ -141,6 +148,10 @@ struct ScfOptions {
     // the damping of each step adapted (Herbst and Levitt): steps tried and
     // taken back; with the output energies, not with DFT+U
     bool adaptive_damping = false;
+    // the first steps in single precision (dft/solver/davidson_single.h),
+    // the real bands of Gamma too, until the residual of the density is below
+    // density_tolerance or stalls; the run then ends in double precision
+    bool mixed_precision = false;
     double xc_threshold = 1e-10;
     unsigned long long seed = 0;
 };
@@ -156,9 +167,11 @@ struct ScfStep {
     // input; with output_energies, and not with DFT+U (NaN then)
     double output_energy = 0.0;
     bool accepted = true;  // with adaptive damping, whether the step was taken
+    bool single = false;   // the bands of the step in single precision
     double damping = 1.0;  // the factor on the step of the mixing it tried, times the scale of the mixing
     int davidson = 0;        // iterations of Davidson, summed over the k-points
     int unconverged = 0;     // bands left above their tolerance by Davidson, summed over the k-points
+    PoolMemory memory;       // of the pool and the device at the end of the step
 };
 
 // seconds spent in each part of a run

@@ -161,6 +161,59 @@ python benchmarks/dft_verification.py figure verification oxides.png oxides --hi
 The 288 structures of the elements took 36 GPU-hours, mostly on V100 GPUs, 1 to 22
 minutes each; the 294 oxides 73 GPU-hours.
 
+### With SSSP
+
+The same protocol with the pseudopotentials of SSSP 1.3 precision
+([Prandini et al. 2018](../../reference/references.md#prandini2018)), norm-conserving,
+ultrasoft and PAW of several libraries, at the cutoffs SSSP recommends (the highest of
+the elements of a structure), against the paper's Quantum ESPRESSO on the same files:
+the 256 structures of 64 elements apart from the lanthanides:
+
+| Structure | ν against Quantum ESPRESSO, median | largest | ν against all-electron, median | of Quantum ESPRESSO |
+|---|---:|---:|---:|---:|
+| FCC | 0.00002 | 0.054 | 0.079 | 0.079 |
+| BCC | 0.00002 | 0.106 | 0.067 | 0.067 |
+| SC | 0.00002 | 0.078 | 0.071 | 0.071 |
+| Diamond | 0.00002 | 0.079 | 0.082 | 0.086 |
+
+248 of them agree to ν < 0.01. Where MDAPY and the paper differ by more, Quantum
+ESPRESSO 7.6 run here on the same input decides: the same files, cutoffs, meshes and
+smearing, the seven volumes of each structure. That is iridium and lanthanum in all four
+structures:
+
+| Structure | ν against the paper | ν of pw.x 7.6 against the paper | ν of pw.x 7.6 against MDAPY |
+|---|---:|---:|---:|
+| Ir FCC | 0.030 | 0.030 | 0.0000 |
+| Ir BCC | 0.106 | 0.106 | 0.0000 |
+| Ir SC | 0.047 | 0.047 | 0.0000 |
+| Ir Diamond | 0.072 | 0.072 | 0.0000 |
+| La FCC | 0.054 | 0.054 | 0.0000 |
+| La BCC | 0.037 | 0.037 | 0.0000 |
+| La SC | 0.078 | 0.078 | 0.0000 |
+| La Diamond | 0.079 | 0.079 | 0.0000 |
+
+pw.x gives MDAPY's equation of state in each, its energies within 0.0002 meV per atom at
+every volume, and lies as far from the paper as MDAPY does: the paper's runs of these two
+elements differ in a setting not identified here.
+
+The 56 structures of the lanthanides from cerium to lutetium, for which SSSP takes the
+atompaw PAW datasets of the Wentzcovitch group with the 4f shell in the valence, lie
+0.006 to 1.12 in ν from the paper's Quantum ESPRESSO, 0.20 in the median, and both codes
+lie far from the all-electron results (ν 3.8 in the median for each). pw.x 7.6 on
+MDAPY's input decides here too: its equations of state lie within ν 0.0015 of MDAPY's
+in all 56 (0.0001 in the median), its energies within 0.0006 meV per atom at every
+volume, and as far from the paper's as MDAPY's. The paper's runs of the lanthanides
+differ in a setting not identified here, and they are left out of the table above.
+
+```bash
+python benchmarks/dft_verification.py run verification Fe BCC --library sssp
+python benchmarks/dft_verification.py report verification table.md --library sssp
+# the second check: pw.x on MDAPY's input, verification/pwx/Ir-BCC/v0.in to v6.in
+python benchmarks/dft_verification_pwx.py inputs verification Ir-BCC
+pw.x -nk 8 -in v0.in > v0.out  # in verification/pwx/Ir-BCC, for each of the seven
+python benchmarks/dft_verification_pwx.py report verification Ir-BCC
+```
+
 ## Magnetic elements
 
 The protocol above is without spin. The Delta project

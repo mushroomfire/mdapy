@@ -13,7 +13,9 @@ option(MDAPY_D3D12 "Pictures traced on the GPU with Direct3D 12 (Windows only)" 
 option(MDAPY_CUDA "The GPU side with CUDA, mdapy._cuda (needs the CUDA toolkit)" OFF)
 option(MDAPY_CUDA_ONLY "The GPU side alone, mdapy_cuda12._cuda, for the package mdapy-cuda12" OFF)
 option(MDAPY_CUDA_LINEINFO "The lines of the sources in the GPU kernels, for profilers" ON)
-option(MDAPY_DFT_ONLY "The plane-wave DFT on the GPU alone, mdapy_dft_cuda12._dft, for the package mdapy-dft-cuda12" OFF)
+option(MDAPY_HIP "The GPU side with HIP for AMD GPUs, mdapy._hip (needs ROCm)" OFF)
+option(MDAPY_HIP_ONLY "The GPU side alone, mdapy_rocm6._hip, for the package mdapy-rocm6" OFF)
+option(MDAPY_DFT "The plane-wave DFT beside the GPU side, the module _dft (needs cuBLAS, cuFFT and cuSOLVER, or hipBLAS, hipFFT and hipSOLVER); on in mdapy-cuda12 and mdapy-rocm6" OFF)
 set(MDAPY_SANITIZE "" CACHE STRING
   "Sanitizer build: 'address' (AddressSanitizer + UndefinedBehaviorSanitizer) or 'thread' (ThreadSanitizer)")
 
@@ -27,19 +29,28 @@ find_package(Python 3.11 REQUIRED
 find_package(nanobind CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
-# The package mdapy-dft-cuda12 (dft-cuda12/pyproject.toml): the plane-wave DFT of
-# MDAPY on the GPU, alone.
-if(MDAPY_DFT_ONLY)
-  set(MDAPY_DFT_PACKAGE mdapy_dft_cuda12)
-  include(cmake/dft.cmake)
-  return()
-endif()
-
 # The package mdapy-cuda12 (cuda12/pyproject.toml): the GPU side alone, for the
-# wheels of MDAPY, which hold none.
+# wheels of MDAPY, which hold none, and with MDAPY_DFT the plane-wave DFT,
+# cmake/dft.cmake, in the same package.
 if(MDAPY_CUDA_ONLY)
   set(MDAPY_CUDA_PACKAGE mdapy_cuda12)
   include(cmake/cuda.cmake)
+  if(MDAPY_DFT)
+    set(MDAPY_DFT_PACKAGE mdapy_cuda12)
+    set(MDAPY_DFT_API CUDA)
+    include(cmake/dft.cmake)
+  endif()
+  return()
+endif()
+# The package mdapy-rocm6 (rocm6/pyproject.toml): the same for AMD GPUs.
+if(MDAPY_HIP_ONLY)
+  set(MDAPY_HIP_PACKAGE mdapy_rocm6)
+  include(cmake/hip.cmake)
+  if(MDAPY_DFT)
+    set(MDAPY_DFT_PACKAGE mdapy_rocm6)
+    set(MDAPY_DFT_API HIP)
+    include(cmake/dft.cmake)
+  endif()
   return()
 endif()
 
@@ -152,4 +163,23 @@ install(TARGETS _core LIBRARY DESTINATION mdapy)
 if(MDAPY_CUDA)
   set(MDAPY_CUDA_PACKAGE mdapy)
   include(cmake/cuda.cmake)
+endif()
+
+# The GPU side with HIP for AMD GPUs, cmake/hip.cmake, in mdapy itself.
+if(MDAPY_HIP)
+  set(MDAPY_HIP_PACKAGE mdapy)
+  include(cmake/hip.cmake)
+endif()
+
+# The plane-wave DFT beside the GPU side, cmake/dft.cmake, in mdapy itself.
+if(MDAPY_DFT)
+  if(MDAPY_CUDA)
+    set(MDAPY_DFT_API CUDA)
+  elseif(MDAPY_HIP)
+    set(MDAPY_DFT_API HIP)
+  else()
+    message(FATAL_ERROR "MDAPY_DFT needs the GPU side: MDAPY_CUDA or MDAPY_HIP")
+  endif()
+  set(MDAPY_DFT_PACKAGE mdapy)
+  include(cmake/dft.cmake)
 endif()

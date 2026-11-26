@@ -4,12 +4,15 @@
 # obtain one at https://mozilla.org/MPL/2.0/.
 
 """The parts of the plane-wave DFT on the processor: UPF files read, in
-hartree; Simpson's rule and the spherical Bessel functions; the transforms of
-the projectors and the local potential against analytic ones, and the
+hartree; Simpson's rule, its weights and the spherical Bessel functions; the
+transforms of the projectors, the pseudo-orbitals, the augmentation charges,
+the densities and the local potential against analytic ones, and the
 interpolation of their tables; the Ewald sum against the Madelung constants
 of rock salt and CsCl, and its forces against its differences. Pseudopotentials
-of PseudoDojo are read from MDAPY_PSEUDO_DIR when it is set."""
+of PseudoDojo are read from MDAPY_PSEUDO_DIR when it is set (test_upf.py reads
+public ones of each kind)."""
 
+import gc
 import math
 import os
 from pathlib import Path
@@ -21,6 +24,8 @@ from mdapy.calculators._dft import radial
 from mdapy.calculators._dft.ewald import ewald
 from mdapy.calculators._dft.upf import read_upf
 from mdapy.errors import InvalidParameter
+
+from dft import gpu
 
 BOHR = 0.529177210903  # Å
 
@@ -181,6 +186,90 @@ def test_projector_tables_and_their_interpolation(ell):
         factor * between**ell * np.exp(-(between**2) / 2),
         atol=1e-8,
     )
+
+
+def test_the_tables_kept_while_the_pseudopotential_lives():
+    """The integrals of the tables of a pseudopotential are made once while it
+    lives, read only, the factor of each volume applied after them, and go
+    with it."""
+    pp = gaussian_pseudopotential(1)
+    first = radial.projector_table(pp, 3.0, 100.0)
+    kept = [k for k in radial._TABLES if k[0] == id(pp)]
+    assert len(kept) == 1 and not radial._TABLES[kept[0]].flags.writeable
+    second = radial.projector_table(pp, 3.0, 25.0)
+    assert [k for k in radial._TABLES if k[0] == id(pp)] == kept
+    np.testing.assert_allclose(second, 2.0 * first, rtol=1e-15)
+    key = id(pp)
+    del pp
+    gc.collect()
+    assert not [k for k in radial._TABLES if k[0] == key]
+
+
+def test_the_weights_of_simpson():
+    """(f w).sum() is Simpson's rule of f over the first n points, odd or
+    even, on a mesh of any weights; nothing below three points."""
+    rng = np.random.default_rng(12)
+    rab = rng.uniform(0.5, 2.0, 41)
+    f = rng.normal(size=41)
+    for n in (None, 41, 40, 7, 6, 3):
+        w = radial.simpson_weights(rab, n)
+        assert (f * w).sum() == pytest.approx(radial.simpson(f, rab, n), rel=1e-13)
+        if n is not None:
+            assert not w[n:].any()
+    assert not radial.simpson_weights(rab, 2).any()
+
+
+def gaussian_tables(ell):
+    """A pseudopotential on 0.01 bohr to 16 of a pseudo-orbital r chi(r) =
+    r^(l+1) exp(-r^2 / 2) and the augmentation charge r^2 Q^L(r) = r^(L+2)
+    exp(-r^2) of a pair of projectors of l and L - l."""
+    r = 0.01 * np.arange(1601)
+    orbital = type(
+        "O", (), {"angular": ell, "r_chi": r ** (ell + 1) * np.exp(-r * r / 2)}
+    )
+    return type("P", (), {
+        "r": r, "rab": np.full(1601, 0.01), "kkbeta": 1601, "orbitals": (orbital,),
+        "augmentation": {(0, 1, ell): r ** (ell + 2) * np.exp(-r * r),
+                         (0, 0, 0): r**2 * np.exp(-r * r)},
+    })  # fmt: skip
+
+
+@pytest.mark.parametrize("ell", [0, 1, 2, 3, 4])
+def test_the_tables_of_orbitals_and_augmentation_charges(ell):
+    """(4 pi / sqrt(Omega)) sqrt(pi / 2) q^l exp(-q^2 / 2) of the orbital, and
+    (4 pi / Omega) int r^(L+2) exp(-r^2) j_L(qr) dr = (4 pi / Omega) sqrt(pi)
+    q^L exp(-q^2 / 4) / 2^(L+2) of the charge, every DQ to qmax and three
+    steps more."""
+    volume = 300.0
+    pp = gaussian_tables(ell)
+    orbitals = radial.orbital_table(pp, 5.0, volume)
+    q = radial.DQ * np.arange(orbitals.shape[1])
+    assert orbitals.shape == (1, int(5.0 / radial.DQ) + 4)
+    factor = 4 * math.pi / math.sqrt(volume) * math.sqrt(math.pi / 2)
+    np.testing.assert_allclose(orbitals[0], factor * q**ell * np.exp(-q * q / 2), rtol=0, atol=1e-8)  # fmt: skip
+    keys, tables = radial.augmentation_tables(pp, 5.0, volume)
+    assert keys == sorted(pp.augmentation) and tables.shape == (2, orbitals.shape[1])
+    for key, table in zip(keys, tables):
+        big = key[2]
+        exact = 4 * math.pi / volume * math.sqrt(math.pi) * q**big * np.exp(-q * q / 4) / 2 ** (big + 2)  # fmt: skip
+        np.testing.assert_allclose(table, exact, rtol=0, atol=1e-9)
+
+
+def test_the_transforms_of_densities():
+    """A Gaussian density, given as rho or as 4 pi r^2 rho: pi^(3/2)
+    exp(-q^2 / 4) / Omega, between the points of its table too."""
+
+    class P:
+        r = 0.01 * np.arange(1201)
+        rab = np.full(1201, 0.01)
+
+    volume = 250.0
+    q = np.array([0.0, 0.0137, 0.5, 1.2345, 3.3321])
+    exact = math.pi**1.5 * np.exp(-q * q / 4) / volume
+    rho = np.exp(-P.r * P.r)
+    np.testing.assert_allclose(radial.radial_density(rho, P, q, volume, True), exact, rtol=0, atol=1e-10)  # fmt: skip
+    charge = 4 * math.pi * P.r**2 * rho
+    np.testing.assert_allclose(radial.radial_density(charge, P, q, volume, False), exact, rtol=0, atol=1e-10)  # fmt: skip
 
 
 def test_the_local_potential_of_a_bare_erf():
@@ -385,7 +474,7 @@ def test_functional_of_headers():
 def test_ewald_of_the_extension():
     """The Ewald sum of the extension, whose split grows with the atoms,
     against the NumPy one: a small triclinic cell and 64 atoms."""
-    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+    _dft = gpu.module()
     rng = np.random.default_rng(11)
     for count, cell in [
         (4, np.array([[6.0, 0.3, 0.0], [0.5, 7.0, 0.2], [0.0, -0.4, 6.5]])),
@@ -403,9 +492,7 @@ def test_ewald_of_the_extension():
 def test_first_density_on_the_gpu(tmp_path):
     """The density and magnetization of the free atoms on the sphere, summed
     over the atoms on the GPU, against NumPy."""
-    _dft = pytest.importorskip("mdapy_dft_cuda12._dft")
-    if _dft.device_count() == 0:
-        pytest.skip("no GPU")
+    _dft = gpu.device()
     from mdapy.calculators._dft import scf
 
     cell = np.array([[7.0, 0.2, 0.0], [0.0, 6.5, 0.3], [0.4, 0.0, 8.0]])

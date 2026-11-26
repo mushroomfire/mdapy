@@ -25,11 +25,17 @@ _OPTIONAL = (
     "lammps",
     "matplotlib",
     "mdapy-cuda12",
+    "mdapy-rocm6",
+    "nvidia-cublas-cu12",
+    "nvidia-cufft-cu12",
+    "nvidia-cusolver-cu12",
     "ovito",
     "pymatgen-core",
     "seekpath",
     "spglib",
 )
+# the column of the names: the longest, nvidia-cusolver-cu12, and a space
+_WIDTH = 21
 
 
 def _installed(package: str) -> str:
@@ -60,11 +66,12 @@ def _gpu_part() -> str:
 
     try:
         found = _gpu.module()
-    except InvalidParameter as error:  # another version of mdapy-cuda12
+    except InvalidParameter as error:  # a package of another version
         return str(error)
     if found is None:
         return "none"
-    where = "built with MDAPY" if found.__name__ == "mdapy._cuda" else "mdapy-cuda12"
+    package = found.__name__.split(".")[0]
+    where = "built with MDAPY" if package == "mdapy" else package.replace("_", "-")
     try:
         device = found.device_name()
     except RuntimeError as error:
@@ -110,6 +117,7 @@ def show_versions(file: TextIO | None = None) -> None:
         tuple((package, _installed(package)) for package in _OPTIONAL),
     )
     text = "\n\n".join(
-        "\n".join(f"{name:<15}{value}" for name, value in block) for block in blocks
+        "\n".join(f"{name:<{_WIDTH}}{value}" for name, value in block)
+        for block in blocks
     )
     print(text, file=file)

@@ -11,9 +11,10 @@ bands come back orthonormal with small residuals; its errors."""
 import numpy as np
 import pytest
 
+from dft import gpu
 from dft.hamiltonians import reference, setup
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 

@@ -1,7 +1,10 @@
 # The package mdapy-cuda12: the GPU part of MDAPY alone, built with CUDA 12 from
 # the sources of MDAPY one directory up, for the wheels of MDAPY, which hold
 # none. Users install it with pip install "mdapy[cuda12]", at the version of
-# MDAPY; MDAPY loads it for calculators given device="cuda".
+# MDAPY; MDAPY loads its module _cuda for calculators given device="cuda", and
+# its module _dft for the plane-wave DFT, which loads NVIDIA's cuBLAS, cuFFT and
+# cuSOLVER only for kernels="vendor": pip install "mdapy[cuda12,dft]".
+# -Ccmake.define.MDAPY_DFT=OFF builds _cuda alone.
 
 [build-system]
 requires = ["scikit-build-core>=0.10", "nanobind>=2.4"]
@@ -43,6 +46,7 @@ cmake.build-type = "Release"
 
 [tool.scikit-build.cmake.define]
 MDAPY_CUDA_ONLY = "ON"
+MDAPY_DFT = "ON"
 MDAPY_CUDA_LINEINFO = "OFF"
 # the machine code of the V100, T4, A100, RTX 30 and A-series, RTX 40 and L40,
 # H100, B200 and RTX 50, and the PTX of the last for GPUs to come

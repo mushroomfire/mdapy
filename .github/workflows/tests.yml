@@ -81,6 +81,11 @@ jobs:
       - name: Versions
         shell: bash
         run: python -c "import numpy, polars; print('NumPy', numpy.__version__, 'polars', polars.__version__)"
+      # the public pseudopotentials of the tests of the DFT, downloaded once
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mdapy/tests
+          key: dft-pseudopotentials-${{ runner.os }}-${{ hashFiles('tests/dft/public.py') }}
       - name: Test
         shell: bash
         run: pytest -q -n auto
@@ -144,8 +149,12 @@ jobs:
           mpirun --oversubscribe -np 4 python tests/mpi/check_comm.py
 
   # The GPU part, mdapy-cuda12, compiled for one architecture with CUDA 12.9 and
-  # GCC, warnings as errors. The runner has no GPU: the module is only loaded.
-  # Its tests run on a machine with a GPU.
+  # GCC, warnings as errors: the module _cuda and the DFT, _dft, which needs the
+  # development files of cuBLAS, cuFFT and cuSOLVER (and cuSPARSE and nvJitLink,
+  # which cuSOLVER needs) to build, for their headers and sonames. The runner has
+  # no GPU: the modules are only loaded, and _dft loads the libraries of NVIDIA's
+  # packages that the extra dft installs, or says that they are missing. Their
+  # tests run on a machine with a GPU.
   cuda:
     name: build — CUDA 12
     runs-on: ubuntu-24.04
@@ -159,12 +168,30 @@ jobs:
           wget -q https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update -q
-          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9
+          sudo apt-get install -y -q cuda-nvcc-12-9 cuda-cudart-dev-12-9 cuda-cccl-12-9 \
+            libcublas-dev-12-9 libcufft-dev-12-9 libcusolver-dev-12-9 libcusparse-dev-12-9 libnvjitlink-dev-12-9
           echo /usr/local/cuda-12.9/bin >> "$GITHUB_PATH"
       - name: Build mdapy-cuda12 for one architecture
         run: pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86-real -Ccmake.define.MDAPY_WERROR=ON
-      - name: Load it
-        run: python -I cuda12/check_import.py
+      # neither module names a library of CUDA: molecular dynamics and the DFT
+      # with MDAPY's kernels need only the driver
+      - name: The libraries the modules name
+        run: |
+          site=$(python -I -c "import mdapy_cuda12, os; print(os.path.dirname(mdapy_cuda12.__file__))")
+          for module in _cuda _dft; do
+            readelf -d "$site"/$module*.so | grep NEEDED
+            if readelf -d "$site"/$module*.so | grep -E "NEEDED.*(cudart|cublas|cufft|cusolver|cusparse|nvJitLink)"; then
+              echo "$module names a library of CUDA"; exit 1
+            fi
+          done
+      # NVIDIA's libraries of the toolkit of the system, or none
+      - name: Load it without NVIDIA's packages
+        run: python -I cuda12/check_import.py any
+      # NVIDIA's packages, as the extra dft of MDAPY gives them
+      - name: NVIDIA's cuBLAS, cuFFT and cuSOLVER
+        run: pip install "nvidia-cublas-cu12>=12.1.3.1" "nvidia-cufft-cu12>=11.0.2.54" "nvidia-cusolver-cu12>=11.4.5.107"
+      - name: Load it with them
+        run: python -I cuda12/check_import.py nvidia
 
   coverage:
     name: coverage
@@ -210,6 +237,8 @@ jobs:
       # freud at its reference version for the comparisons with it, and
       # pymatgen for the conversions
       - run: pip install freud-analysis==3.6.1 pymatgen-core
+      # s-dftd3 at its reference version for the comparisons of D3
+      - run: pip install dftd3==1.7.0
       # phonopy for the comparisons of phonons, phono3py for those of the
       # thermal conductivity (pinned together: a newer phono3py upgrades
       # phonopy), seekpath for the paths
@@ -236,6 +265,11 @@ jobs:
       - run: echo "$PWD/atomsk-bin" >> "$GITHUB_PATH"
       - run: atomsk --version | grep -q "Beta 0.13.1"
       - run: python -c "import ovito; assert ovito.version_string == '3.17.1'"
+      # the public pseudopotentials of the tests of the DFT, downloaded once
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mdapy/tests
+          key: dft-pseudopotentials-${{ runner.os }}-${{ hashFiles('tests/dft/public.py') }}
       - name: Test with coverage (total >= 90 %)
         run: pytest -q -n auto --cov --cov-report=term --cov-report=json --cov-report=xml
       - name: Report the coverage to Codecov
@@ -249,12 +283,22 @@ jobs:
         shell: python
         run: |
           import json, sys
+          # The compute path of the DFT runs only in the GPU part on a GPU,
+          # which this runner lacks: the coverage of these files is measured
+          # on a machine with a GPU (pytest --cov tests/dft), and the rule
+          # leaves them out here.
+          gpu = {
+              "src/mdapy/calculators/_dft/calculator.py",
+              "src/mdapy/calculators/_dft/scf.py",
+          }
           files = json.load(open("coverage.json"))["files"]
+          if gpu - files.keys():
+              sys.exit("not in the report: " + ", ".join(sorted(gpu - files.keys())))
           low = []
           for path, data in sorted(files.items()):
               percent = data["summary"]["percent_covered"]
-              print(f"{percent:6.1f}%  {path}")
-              if percent < 95.0:
+              print(f"{percent:6.1f}%  {path}" + ("  (on a GPU)" if path in gpu else ""))
+              if percent < 95.0 and path not in gpu:
                   low.append(path)
           if low:
               sys.exit("below 95 %: " + ", ".join(low))

@@ -7,7 +7,9 @@
 k-points of a run solved on several host threads (norm-conserving silicon,
 ultrasoft aluminium, PAW iron with spin) give the energy, the forces, the
 stress and the eigenvalues of one thread; two runs of other cells on two
-Python threads at once give those of the same runs one after the other."""
+Python threads at once give those of the same runs one after the other. With
+MDAPY's kernels the sums go in an order that is always the same, on one host
+thread or on several: two runs give the same numbers to the last bit."""
 
 import threading
 
@@ -17,9 +19,9 @@ import pytest
 from mdapy.calculators._dft import scf
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso
+from dft import espresso, gpu
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 
@@ -70,6 +72,19 @@ def test_kpoints_on_threads(case):
     np.testing.assert_allclose(four["eigenvalues"], one["eigenvalues"], atol=1e-9)
     if "becsum" in one:
         np.testing.assert_allclose(four["becsum"], one["becsum"], atol=1e-9)
+
+
+@pytest.mark.parametrize("case", list(CASES))
+@pytest.mark.parametrize("threads", [1, 4])
+def test_the_same_numbers_at_each_run(case, threads):
+    first, second = (
+        run(case, kpoint_threads=threads, kernels="mdapy") for _ in range(2)
+    )
+    assert first["converged"] and first["iterations"] == second["iterations"]
+    assert second["energy"] == first["energy"]
+    for key in ("forces", "strain_derivative", "eigenvalues", "becsum"):
+        if key in first:
+            np.testing.assert_array_equal(second[key], first[key])
 
 
 def test_runs_on_threads():

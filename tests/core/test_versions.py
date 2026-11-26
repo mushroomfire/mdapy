@@ -26,7 +26,7 @@ def report() -> dict[str, str]:
     stream = io.StringIO()
     mp.show_versions(file=stream)
     return {
-        line[:15].strip(): line[15:] for line in stream.getvalue().splitlines() if line
+        line[:21].strip(): line[21:] for line in stream.getvalue().splitlines() if line
     }
 
 
@@ -99,7 +99,7 @@ def test_the_processor_and_the_memory_are_those_of_the_system():
 
 def test_it_prints_to_the_standard_output(capsys):
     assert mp.show_versions() is None
-    assert capsys.readouterr().out.startswith(f"MDAPY          {mp.__version__}\n")
+    assert capsys.readouterr().out.startswith(f"{'MDAPY':<21}{mp.__version__}\n")
 
 
 def test_it_tells_what_is_missing(monkeypatch):

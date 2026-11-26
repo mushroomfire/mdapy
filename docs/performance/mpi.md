@@ -1,25 +1,26 @@
 # Molecular dynamics on many processes
 
 MDAPY and LAMMPS run the same molecular dynamics at constant energy, split among 4 to 40
-processes of one thread each with MPI, with the five potentials of the
+processes of one thread each with MPI, with six potentials of the
 [GPU benchmarks](gpu.md): copper with the EAM of Zhou et al. and with a Morse potential
-at 600 K, argon with Lennard-Jones at 60 K, and silicon with Stillinger–Weber and
-Tersoff at 1000 K, each at about 250 000 and 2 million atoms: MDAPY's own dynamics
-[on many processes](../user-guide/simulation/processes.md), and LAMMPS through MDAPY's
-[LAMMPS calculator](../user-guide/potentials/lammps.md). Both read the same files: the
-`eam/alloy` file written by `EAM.zhou(["Cu"]).write(path)`, and the `Si.sw` and
-`Si.tersoff` of LAMMPS. Each run takes 100 steps after 20, of 2 fs for copper, 5 fs for
-argon and 1 fs for silicon, and the time of a step is the time of the 100 over 100;
-`benchmarks/processes.py` runs them.
+at 600 K, nickel with ADP at 600 K, argon with Lennard-Jones at 60 K, and silicon with
+Stillinger–Weber and Tersoff at 1000 K, each at about 250 000 and 2 million atoms:
+MDAPY's own dynamics [on many processes](../user-guide/simulation/processes.md), and
+LAMMPS through MDAPY's [LAMMPS calculator](../user-guide/potentials/lammps.md). Both read
+the same files: the `eam/alloy` file written by `EAM.zhou(["Cu"]).write(path)`, and the
+`Ni.adp`, `Si.sw` and `Si.tersoff` of LAMMPS. Each run takes 50 steps after 20, of 2 fs
+for copper and nickel, 5 fs for argon and 1 fs for silicon, and the time of a step is the
+time of the 50 over 50; `benchmarks/processes.py` runs them.
 
 ## Results
 
-A node of the Triton cluster of Aalto University: two Intel Xeon Gold 6230, 40 cores,
-OpenMPI 4.1.6 and GCC 12.3.0, the processes started by `srun --mpi=pmix`. MDAPY 2.3 in
+A node of the Triton cluster of Aalto University: two Intel Xeon Gold 6230, 40 cores
+(two Gold 6248 for ADP), OpenMPI 4.1.6 and GCC 12.3.0, the processes started by
+`srun --mpi=pmix`; MDAPY and LAMMPS ran each case on the same node. MDAPY 2.3 in
 development, built with `pip install .`; LAMMPS stable_30Sep2026 with MPI and the
 MANYBODY package, with its defaults: `newton on`, a skin of 2 Å. MDAPY's skin is 1 Å.
 
-![The speed of MDAPY over that of LAMMPS on 4 to 40 processes, for five potentials](images/mpi.png)
+![The speed of MDAPY over that of LAMMPS on 4 to 40 processes, for six potentials](images/mpi.png)
 
 *The speed of MDAPY over that of LAMMPS, the time of a step of LAMMPS over that of
 MDAPY: above 1 MDAPY is the faster.*
@@ -27,9 +28,9 @@ MDAPY: above 1 MDAPY is the faster.*
 ### What they show
 
 - On 4 to 40 processes MDAPY runs at 0.90 to 1.28 times the speed of LAMMPS: 0.90 to
-  1.13 with EAM, 0.98 to 1.11 with Stillinger–Weber and Tersoff, 0.98 to 1.23 with
-  Lennard-Jones and 1.06 to 1.28 with Morse. Its slowest case is EAM on 2 048 000 atoms,
-  at 0.91 and 0.90 of LAMMPS on 4 and 40 processes.
+  1.13 with EAM, 1.02 to 1.11 with ADP, 0.98 to 1.11 with Stillinger–Weber and Tersoff,
+  0.98 to 1.23 with Lennard-Jones and 1.06 to 1.28 with Morse. Its slowest case is EAM
+  on 2 048 000 atoms, at 0.91 and 0.90 of LAMMPS on 4 and 40 processes.
 - Each process of one thread computes each pair of atoms and each term of three bodies
   once, as LAMMPS does with `newton on`, the pairs across the faces of its brick shared
   half and half with the processes beside it. On one process MDAPY computes each pair
@@ -71,3 +72,9 @@ The time of a step in ms.
 | Tersoff (Si) | 2 097 152 | 4 | 849.3 | 912.3 | 1.07 |
 | Tersoff (Si) | 2 097 152 | 16 | 235.0 | 255.3 | 1.09 |
 | Tersoff (Si) | 2 097 152 | 40 | 120.5 | 133.0 | 1.10 |
+| ADP (Ni) | 256 000 | 4 | 196.3 | 212.1 | 1.08 |
+| ADP (Ni) | 256 000 | 16 | 58.4 | 61.9 | 1.06 |
+| ADP (Ni) | 256 000 | 40 | 30.8 | 31.5 | 1.02 |
+| ADP (Ni) | 2 048 000 | 4 | 1548.3 | 1626.2 | 1.05 |
+| ADP (Ni) | 2 048 000 | 16 | 442.3 | 493.0 | 1.11 |
+| ADP (Ni) | 2 048 000 | 40 | 230.5 | 235.1 | 1.02 |

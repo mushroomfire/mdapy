@@ -152,20 +152,35 @@ def test_no_device(monkeypatch):
     assert _gpu.cuda() is found
 
 
-def plugin(version: str, found: bool = True) -> types.ModuleType:
-    """A stand-in for the package mdapy-cuda12 of a version."""
-    package = types.ModuleType("mdapy_cuda12")
+def plugin(
+    version: str, found: bool = True, name: str = "mdapy_cuda12", part: str = "_cuda"
+) -> types.ModuleType:
+    """A stand-in for the package mdapy-cuda12 of a version, or for
+    mdapy-rocm6 with its module _hip."""
+    package = types.ModuleType(name)
     package.__version__ = version
-    package._cuda = stand_in(found=found)
-    package._cuda.__name__ = "mdapy_cuda12._cuda"
+    module = stand_in(found=found)
+    module.__name__ = f"{name}.{part}"
+    if not found:
+        module.device_count = lambda: 0
+    setattr(package, part, module)
     return package
+
+
+def not_built_in(monkeypatch):
+    """An MDAPY built without a GPU part."""
+    import mdapy
+
+    for part in ("_cuda", "_hip"):
+        monkeypatch.setitem(sys.modules, f"mdapy.{part}", None)
+        monkeypatch.delattr(mdapy, part, raising=False)
 
 
 def test_the_gpu_part_of_mdapy_cuda12(monkeypatch):
     import mdapy
 
-    monkeypatch.setitem(sys.modules, "mdapy._cuda", None)  # not built in
-    monkeypatch.delattr(mdapy, "_cuda", raising=False)
+    not_built_in(monkeypatch)
+    monkeypatch.setitem(sys.modules, "mdapy_rocm6", None)
     package = plugin(mdapy.__version__)
     monkeypatch.setitem(sys.modules, "mdapy_cuda12", package)
     monkeypatch.setitem(sys.modules, "mdapy_cuda12._cuda", package._cuda)
@@ -195,6 +210,44 @@ def test_the_gpu_part_of_mdapy_cuda12(monkeypatch):
     assert mdapy.core.versions._gpu_part() == "none"
 
 
+def test_the_gpu_part_of_mdapy_rocm6(monkeypatch):
+    """The package for AMD GPUs alone, then beside mdapy-cuda12: of the two,
+    the first that sees a device."""
+    import mdapy
+
+    not_built_in(monkeypatch)
+
+    def install(package):
+        name = package.__name__
+        part = _gpu.PACKAGES[name.replace("_", "-")]
+        monkeypatch.setitem(sys.modules, name, package)
+        monkeypatch.setitem(sys.modules, f"{name}.{part}", getattr(package, part))
+
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", None)
+    amd = plugin(mdapy.__version__, name="mdapy_rocm6", part="_hip")
+    install(amd)
+    assert _gpu.module() is amd._hip
+    assert _gpu.cuda() is amd._hip
+    assert EAM.zhou(["Cu"], device="cuda").device == "cuda"
+    assert mdapy.core.versions._gpu_part().startswith("mdapy-rocm6; ")
+    # both packages: mdapy-cuda12 without a device, then with one, then neither
+    nvidia = plugin(mdapy.__version__, found=False)
+    install(nvidia)
+    assert _gpu.module() is amd._hip
+    install(plugin(mdapy.__version__))
+    assert _gpu.module() is sys.modules["mdapy_cuda12._cuda"]
+    install(nvidia)
+    install(plugin(mdapy.__version__, found=False, name="mdapy_rocm6", part="_hip"))
+    assert _gpu.module() is nvidia._cuda
+    # of another version of MDAPY
+    monkeypatch.setitem(sys.modules, "mdapy_cuda12", None)
+    install(plugin("1.0.0", name="mdapy_rocm6", part="_hip"))
+    with pytest.raises(
+        InvalidParameter, match=r'mdapy-rocm6 1\.0\.0 is not .* "mdapy\[rocm6\]"'
+    ):
+        _gpu.module()
+
+
 def test_the_gpu_part_built_with_mdapy(monkeypatch):
     import mdapy
 
@@ -203,4 +256,12 @@ def test_the_gpu_part_built_with_mdapy(monkeypatch):
     monkeypatch.setitem(sys.modules, "mdapy._cuda", found)
     monkeypatch.setattr(mdapy, "_cuda", found, raising=False)
     assert _gpu.module() is found
+    assert mdapy.core.versions._gpu_part().startswith("built with MDAPY; ")
+    # with ROCm, the module is mdapy._hip
+    not_built_in(monkeypatch)
+    amd = stand_in()
+    amd.__name__ = "mdapy._hip"
+    monkeypatch.setitem(sys.modules, "mdapy._hip", amd)
+    monkeypatch.setattr(mdapy, "_hip", amd, raising=False)
+    assert _gpu.module() is amd
     assert mdapy.core.versions._gpu_part().startswith("built with MDAPY; ")

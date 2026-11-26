@@ -35,11 +35,22 @@ territories, *Dalton Trans.* **42**, 8617 (2013).
 [doi:10.1039/C3DT50599E](https://doi.org/10.1039/C3DT50599E)
 { #alvarez2013 }
 
+**Anderson et al. (1970).** J. L. Anderson, J. Nasise, K. Phillipson and F. E. Pretzel,
+Isotopic effects on the thermal expansion of lithium hydride, *J. Phys. Chem. Solids*
+**31**, 613 (1970).
+[doi:10.1016/0022-3697(70)90195-2](https://doi.org/10.1016/0022-3697(70)90195-2)
+{ #anderson1970 }
+
 **Arias, Payne and Joannopoulos (1992).** T. A. Arias, M. C. Payne and J. D. Joannopoulos,
 Ab initio molecular-dynamics techniques extended to large-length-scale systems,
 *Phys. Rev. B* **45**, 1538 (1992).
 [doi:10.1103/PhysRevB.45.1538](https://doi.org/10.1103/PhysRevB.45.1538)
 { #arias1992 }
+
+**Axilrod and Teller (1943).** B. M. Axilrod and E. Teller, Interaction of the van
+der Waals type between three atoms, *J. Chem. Phys.* **11**, 299 (1943).
+[doi:10.1063/1.1723844](https://doi.org/10.1063/1.1723844)
+{ #axilrod1943 }
 
 **Bartók, Kondor and Csányi (2013).** A. P. Bartók, R. Kondor and G. Csányi,
 On representing chemical environments, *Phys. Rev. B* **87**, 184115 (2013).
@@ -100,6 +111,12 @@ data: Materials Cloud Archive
 (CC BY 4.0)
 { #bosoni2024 }
 
+**Brandenburg et al. (2016).** J. G. Brandenburg, J. E. Bates, J. Sun and J. P.
+Perdew, Benchmark tests of a strongly constrained semilocal functional with a
+long-range dispersion correction, *Phys. Rev. B* **94**, 115144 (2016).
+[doi:10.1103/PhysRevB.94.115144](https://doi.org/10.1103/PhysRevB.94.115144)
+{ #brandenburg2016 }
+
 **Bulatov and Cai (2006).** V. Bulatov and W. Cai, *Computer Simulations of
 Dislocations* (Oxford University Press, Oxford, 2006).
 [doi:10.1093/oso/9780198526148.001.0001](https://doi.org/10.1093/oso/9780198526148.001.0001)
@@ -109,6 +126,12 @@ Dislocations* (Oxford University Press, Oxford, 2006).
 using Langevin dynamics, *Phys. Rev. E* **75**, 056707 (2007).
 [doi:10.1103/PhysRevE.75.056707](https://doi.org/10.1103/PhysRevE.75.056707)
 { #bussi2007 }
+
+**Bussi, Zykova-Timan and Parrinello (2009).** G. Bussi, T. Zykova-Timan and M.
+Parrinello, Isothermal-isobaric molecular dynamics using stochastic velocity
+rescaling, *J. Chem. Phys.* **130**, 074101 (2009).
+[doi:10.1063/1.3073889](https://doi.org/10.1063/1.3073889)
+{ #bussi2009 }
 
 **Calandrini et al. (2011).** V. Calandrini, E. Pellegrini, P. Calligari,
 K. Hinsen and G. R. Kneller, nMoldyn - Interfacing spectroscopic
@@ -169,6 +192,13 @@ stability of nickel oxide: An LSDA+U study, *Phys. Rev. B* **57**, 1505 (1998).
 Three-dimensional alpha shapes, *ACM Trans. Graph.* **13**, 43 (1994).
 [doi:10.1145/174462.156635](https://doi.org/10.1145/174462.156635)
 { #edelsbrunner1994 }
+
+**Ehlert et al. (2021).** S. Ehlert, U. Huniar, J. Ning, J. W. Furness, J. Sun,
+A. D. Kaplan, J. P. Perdew and J. G. Brandenburg, r²SCAN-D4: Dispersion corrected
+meta-generalized gradient approximation for general chemical applications, *J. Chem.
+Phys.* **154**, 061101 (2021).
+[doi:10.1063/5.0041008](https://doi.org/10.1063/5.0041008)
+{ #ehlert2021 }
 
 **Evans (1982).** D. J. Evans, Homogeneous NEMD algorithm for thermal
 conductivity: application of non-canonical linear response theory,
@@ -260,6 +290,24 @@ calculate the free energy of arbitrary solids. Application to the fcc and hcp ph
 of hard spheres, *J. Chem. Phys.* **81**, 3188 (1984).
 [doi:10.1063/1.448024](https://doi.org/10.1063/1.448024)
 { #frenkel1984 }
+
+**Goerigk and Grimme (2011).** L. Goerigk and S. Grimme, A thorough benchmark of
+density functional methods for general main group thermochemistry, kinetics, and
+noncovalent interactions, *Phys. Chem. Chem. Phys.* **13**, 6670 (2011).
+[doi:10.1039/C0CP02984J](https://doi.org/10.1039/C0CP02984J)
+{ #goerigk2011 }
+
+**Grimme et al. (2010).** S. Grimme, J. Antony, S. Ehrlich and H. Krieg, A
+consistent and accurate ab initio parametrization of density functional dispersion
+correction (DFT-D) for the 94 elements H-Pu, *J. Chem. Phys.* **132**, 154104 (2010).
+[doi:10.1063/1.3382344](https://doi.org/10.1063/1.3382344)
+{ #grimme2010 }
+
+**Grimme, Ehrlich and Goerigk (2011).** S. Grimme, S. Ehrlich and L. Goerigk,
+Effect of the damping function in dispersion corrected density functional theory, *J.
+Comput. Chem.* **32**, 1456 (2011).
+[doi:10.1002/jcc.21759](https://doi.org/10.1002/jcc.21759)
+{ #grimme2011 }
 
 **Hill (1952).** R. Hill, The elastic behaviour of a crystalline aggregate,
 *Proc. Phys. Soc. A* **65**, 349 (1952).
@@ -419,6 +467,12 @@ thermal transport in carbon nanotubes and graphene, *Phys. Rev. B* **81**, 20544
 [doi:10.1103/PhysRevB.81.205441](https://doi.org/10.1103/PhysRevB.81.205441)
 { #lindsay2010 }
 
+**Liu et al. (2025).** J. Liu, J. Byggmästar, Z. Fan, B. Bai, P. Qian and Y. Su,
+Utilizing a machine-learned potential to explore enhanced radiation tolerance in the
+MoNbTaVW high-entropy alloy, *J. Nucl. Mater.* **616**, 156004 (2025).
+[doi:10.1016/j.jnucmat.2025.156004](https://doi.org/10.1016/j.jnucmat.2025.156004)
+{ #liu2025 }
+
 **Lorch (1969).** E. Lorch, Neutron diffraction by germania, silica and
 radiation-damaged silica glasses, *J. Phys. C: Solid State Phys.* **2**, 229 (1969).
 [doi:10.1088/0022-3719/2/2/305](https://doi.org/10.1088/0022-3719/2/2/305)
@@ -429,6 +483,10 @@ and H. Jónsson, Global transition path search for dislocation formation in Ge
 on Si(001), *Comput. Phys. Commun.* **205**, 13 (2016).
 [doi:10.1016/j.cpc.2016.04.001](https://doi.org/10.1016/j.cpc.2016.04.001)
 { #maras2016 }
+
+**Marsh (1980).** S. P. Marsh (editor), *LASL Shock Hugoniot Data* (University of
+California Press, Berkeley, 1980).
+{ #marsh1980 }
 
 **Martyna et al. (1994).** G. J. Martyna, D. J. Tobias and M. L. Klein,
 Constant pressure molecular dynamics algorithms, *J. Chem. Phys.* **101**, 4177
@@ -466,6 +524,11 @@ first-principles calculations and atomistic simulations, *Acta Mater.* **53**,
 [doi:10.1016/j.actamat.2005.05.001](https://doi.org/10.1016/j.actamat.2005.05.001)
 { #mishin2005 }
 
+**Moellmann and Grimme (2014).** J. Moellmann and S. Grimme, DFT-D3 study of
+some molecular crystals, *J. Phys. Chem. C* **118**, 7615 (2014).
+[doi:10.1021/jp501237c](https://doi.org/10.1021/jp501237c)
+{ #moellmann2014 }
+
 **Morris et al. (1994).** J. R. Morris, C. Z. Wang, K. M. Ho and C. T. Chan, Melting
 line of aluminum from simulations of coexisting phases, *Phys. Rev. B* **49**, 3109
 (1994).
@@ -499,6 +562,20 @@ cascades in elemental semiconductors and fcc metals, *Phys. Rev. B* **57**,
 7556 (1998).
 [doi:10.1103/PhysRevB.57.7556](https://doi.org/10.1103/PhysRevB.57.7556)
 { #nordlund1998 }
+
+**Nordlund et al. (2018).** K. Nordlund, S. J. Zinkle, A. E. Sand, F. Granberg,
+R. S. Averback, R. Stoller, T. Suzudo, L. Malerba, F. Banhart, W. J. Weber, F.
+Willaime, S. L. Dudarev and D. Simeone, Improving atomic displacement and replacement
+calculations with physically realistic damage models, *Nat. Commun.* **9**, 1084
+(2018).
+[doi:10.1038/s41467-018-03415-5](https://doi.org/10.1038/s41467-018-03415-5)
+{ #nordlund2018 }
+
+**Norgett, Robinson and Torrens (1975).** M. J. Norgett, M. T. Robinson and I. M.
+Torrens, A proposed method of calculating displacement dose rates, *Nucl. Eng. Des.*
+**33**, 50 (1975).
+[doi:10.1016/0029-5493(75)90035-7](https://doi.org/10.1016/0029-5493(75)90035-7)
+{ #norgett1975 }
 
 **Nye (1985).** J. F. Nye, *Physical Properties of Crystals: Their Representation by
 Tensors and Matrices* (Oxford University Press, Oxford, 1985).
@@ -547,6 +624,11 @@ N. Marzari, Precision and efficiency in solid-state pseudopotential calculations
 *npj Comput. Mater.* **4**, 72 (2018).
 [doi:10.1038/s41524-018-0127-2](https://doi.org/10.1038/s41524-018-0127-2)
 { #prandini2018 }
+
+**Pyykkö and Atsumi (2009).** P. Pyykkö and M. Atsumi, Molecular single-bond
+covalent radii for elements 1–118, *Chem. Eur. J.* **15**, 186 (2009).
+[doi:10.1002/chem.200800987](https://doi.org/10.1002/chem.200800987)
+{ #pyykko2009 }
 
 **Ranganathan and Ostoja-Starzewski (2008).** S. I. Ranganathan and M.
 Ostoja-Starzewski, Universal elastic anisotropy index, *Phys. Rev. Lett.* **101**,
@@ -777,6 +859,13 @@ total-energy calculations, *Phys. Rev. B* **50**, 4954 (1994).
 [doi:10.1103/PhysRevB.50.4954](https://doi.org/10.1103/PhysRevB.50.4954)
 { #white1994 }
 
+**Wittmann et al. (2024).** L. Wittmann, I. Gordiy, M. Friede, B. Helmich-Paris,
+S. Grimme, A. Hansen and M. Bursch, Extension of the D3 and D4 London dispersion
+corrections to the full actinides series, *Phys. Chem. Chem. Phys.* **26**, 21379
+(2024).
+[doi:10.1039/D4CP01514B](https://doi.org/10.1039/D4CP01514B)
+{ #wittmann2024 }
+
 **Wu and Shao (2023).** Y.-C. Wu and J.-L. Shao, mdapy: A flexible and
 efficient analysis software for molecular dynamics simulations, *Comput.
 Phys. Commun.* **290**, 108764 (2023).
@@ -805,6 +894,14 @@ ultra-efficient and accurate training of neuroevolution potentials (2026).
 model across elements, temperatures and pressures (2024).
 [arXiv:2405.04967](https://arxiv.org/abs/2405.04967)
 { #yang2024 }
+
+**Ying et al. (2025).** P. Ying, W. Zhou, L. Svensson, E. Berger, E. Fransson, F.
+Eriksson, K. Xu, T. Liang, J. Xu, B. Song, S. Chen, P. Erhart and Z. Fan, Highly
+efficient path-integral molecular dynamics simulations with GPUMD using neuroevolution
+potentials: Case studies on thermal properties of materials, *J. Chem. Phys.* **162**,
+064109 (2025).
+[doi:10.1063/5.0241006](https://doi.org/10.1063/5.0241006)
+{ #ying2025 }
 
 **Zhang et al. (2018).** X. Zhang, B. Grabowski, F. Körmann, A. V. Ruban, Y. Gong, R. C.
 Reed, T. Hickel and J. Neugebauer, Temperature dependence of the stacking-fault Gibbs

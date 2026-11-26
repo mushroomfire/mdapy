@@ -156,6 +156,10 @@ Coverage thresholds:
 
 - **Total:** at least 90 %, enforced by `pytest --cov`.
 - **Per file:** at least 95 %, checked in CI from the JSON coverage report.
+  The compute path of the DFT, `src/mdapy/calculators/_dft/calculator.py` and
+  `scf.py`, runs only in the GPU part on a GPU, which CI lacks: its coverage
+  is measured on a machine with one, `pytest --cov tests/dft`, and CI leaves
+  these two files out of the rule.
 
 ```bash
 pytest --cov --cov-report=term
@@ -194,7 +198,7 @@ the skipped tests and why. A complete run needs the following.
 pip install -e ".[dev]"
 pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
     symfc==1.7.3 seekpath==2.2.2 dscribe==2.1.2 quests==2026.2.22 pymatgen-core networkx \
-    torch torchnep
+    torch torchnep dftd3==1.7.0
 ```
 
 | Package | Tested with it |
@@ -210,6 +214,7 @@ pip install ovito==3.17.1 freud-analysis==3.6.1 phonopy==4.8.6 phono3py==4.8.2 \
 | [NetworkX](https://networkx.org) | rings, against a brute-force search |
 | [SciPy](https://scipy.org), installed with ASE | splines and curve fits, against SciPy |
 | [torchnep](https://github.com/mushroomfire/torchnep), with [PyTorch](https://pytorch.org) | the files of training and of predictions |
+| [dftd3](https://dftd3.readthedocs.io), the Python package of s-dftd3 | DFT-D3, against s-dftd3 |
 
 [LAMMPS](https://www.lammps.org) stable_30Sep2026 is built from source, with
 its Python module installed from the wheel that the build leaves:
@@ -254,8 +259,9 @@ The rest are programs and conditions of the machine:
 | a LAMMPS built with MPI and the `REPLICA` package, started by `MDAPY_LAMMPS_NEB` with `{n}` for the number of processes, such as `mpirun -np {n} /path/to/lmp` | the nudged elastic band against LAMMPS's `neb`, which runs each image in a partition of its own |
 | Python 3.14 | files compressed with zstd |
 | a German or French locale | numbers under a locale with a decimal comma |
-| `mdapy_dft_cuda12`, the package of MDAPY's DFT built from `dft-cuda12/` with the CUDA toolkit, and an NVIDIA GPU | the plane-wave DFT |
+| the GPU part with its DFT, `mdapy_cuda12._dft` built from `cuda12/`, NVIDIA's cuBLAS, cuFFT and cuSOLVER installed (the tests compare MDAPY's kernels with them), and an NVIDIA GPU; or `mdapy_rocm6._dft` built from `rocm6/` with ROCm, and an AMD GPU ([below](#the-gpu-part)) | the plane-wave DFT |
 | `pylibxc`, the Python module of [libxc](https://libxc.gitlab.io), a CPU build | the functionals of the DFT, against libxc |
+| access to the network, once | the UPF files of the library of [Quantum ESPRESSO](https://pseudopotentials.quantum-espresso.org) and of [GBRV](https://www.physics.rutgers.edu/gbrv/), one of each kind the DFT reads, against their own numbers; `tests/dft/public.py` downloads them into the folder `MDAPY_TEST_CACHE` (default `~/.cache/mdapy/tests`) |
 | `pw.x` of [Quantum ESPRESSO](https://www.quantum-espresso.org) 7.6 on the `PATH`, and the [PseudoDojo](http://www.pseudo-dojo.org) norm-conserving pseudopotentials (PBE, standard) in the folder `MDAPY_PSEUDO_DIR`, with the ultrasoft and PAW files of [pslibrary](https://github.com/dalcorso/pslibrary) 1.0.0 for Al, Si, Fe and Ni made by `ld1.x` from its `us_ps_high.job` and `paw_ps_high.job` in its subfolder `pslibrary`, and the files of [SSSP](https://www.materialscloud.org/discover/sssp) 1.3 precision in its subfolder `sssp` | the DFT against Quantum ESPRESSO, run on the same input |
 | [mpi4py](https://mpi4py.readthedocs.io), with `mpirun` | the DFT on several processes sharing the k-points of one configuration |
 
@@ -274,6 +280,39 @@ The rest are programs and conditions of the machine:
 - `tests/cpp/thread_checks.cpp` checks the thread pool and the parallel
   kernels without Python; CI runs it under ThreadSanitizer. New parallel
   kernels get a check there.
+
+### The GPU part
+
+The GPU part is a package of its own, built from the same sources: `mdapy-cuda12`
+from `cuda12/` with the CUDA toolkit, and `mdapy-rocm6` from `rocm6/` with ROCm 6. Each
+holds two modules, `_cuda` (or `_hip`) for the potentials and molecular dynamics, and
+`_dft` for the plane-wave DFT. For tests, one architecture builds faster than the list
+of the package's `pyproject.toml`:
+
+```bash
+pip install ./cuda12 -Ccmake.define.CMAKE_CUDA_ARCHITECTURES=86 -Ccmake.define.MDAPY_WERROR=ON
+pip install nvidia-cublas-cu12 nvidia-cufft-cu12 nvidia-cusolver-cu12   # what _dft loads for kernels="vendor"
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a -Ccmake.define.MDAPY_WERROR=ON
+```
+
+- Building `_dft` needs the development files of cuBLAS, cuFFT, cuSOLVER, cuSPARSE and
+  nvJitLink of the toolkit (`libcublas-dev-12-9` and the like), for their headers and
+  sonames, or hipBLAS, hipFFT and hipSOLVER of ROCm. `-Ccmake.define.MDAPY_DFT=OFF` leaves the DFT out, for a quicker
+  build of the rest; the two packages build it by default.
+- `_cuda` links the CUDA runtime statically and no other library of CUDA, so that
+  molecular dynamics needs only the driver. `_dft` links the CUDA runtime statically
+  too, and no other library: `src/dft/core/vendor.h` loads cuBLAS, cuFFT and cuSOLVER,
+  with cuBLASLt, cuSPARSE and nvJitLink, when `kernels="vendor"` first asks for them,
+  from the folders `nvidia/<library>/lib` that NVIDIA's packages install beside it, else
+  as the system finds them. The wheels hold none of them.
+- With ROCm both modules link the HIP runtime of the machine, and `_dft` loads hipBLAS,
+  hipFFT and hipSOLVER in the same way as cuBLAS, cuFFT and cuSOLVER, from the folders of
+  `LD_LIBRARY_PATH`, `$ROCM_PATH/lib` or `/opt/rocm/lib`.
+- `-Ccmake.define.MDAPY_DFT=ON` beside `MDAPY_CUDA=ON` or `MDAPY_HIP=ON` builds the DFT
+  into MDAPY itself, `mdapy._dft`.
+- MDAPY finds `_dft` in the GPU part that its calculators use
+  (`src/mdapy/calculators/_dft/loader.py`, on `_gpu.py`), and the tests of the DFT take it
+  from there (`tests/dft/gpu.py`), skipped without it.
 
 ## Style
 

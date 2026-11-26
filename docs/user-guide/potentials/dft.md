@@ -2,13 +2,12 @@
 
 !!! warning "Under development"
     MDAPY's density functional theory is new. It takes norm-conserving,
-    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU per
-    configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
+    ultrasoft and PAW pseudopotentials, runs on one NVIDIA GPU (or AMD GPU, built
+    from source) per configuration, and its speed is still being worked on. Its results are those of Quantum ESPRESSO on the same
     input, as [below](#how-the-results-compare-with-quantum-espresso).
 
 <!-- skip-test -->
 ```python
-import json
 from pathlib import Path
 
 from mdapy.calculators import DFT
@@ -26,21 +25,42 @@ frames = []
 for path in sorted(Path("structures").glob("*.xyz")):
     system = read(path)
     frames.append(dft.compute(system, ("energy", "forces", "virial")).attach(system))
-write("train.xyz", frames)  # energy, virial and forces of each frame
-# the settings that make these labels comparable with others
-Path("train.json").write_text(json.dumps(dft.last["provenance"], indent=1))
+write("train.xyz", frames)  # the energy, virial, forces and parameters of each frame
 ```
 
 `DFT(encut, *, ecutrho=None, pseudopotentials=None, kpoints=None, kspacing=0.25,
 smearing="gaussian", sigma=0.1, magmoms=None, hubbard=None, functional=None, tolerance=1e-6,
 max_iterations=100, mixing=None, magnetic_mixing=1.0, kerker=1.5, preconditioner="kerker",
-bands=None, seed=0,
-gpu=None, restart=False, symmetry=None, comm=None)` computes the
+bands=None, seed=0, gpu=None, restart=False, symmetry=None, precision="double",
+kernels="mdapy", comm=None, log=None, start=None)` computes the
 energies, forces and virials of periodic cells by Kohn–Sham density functional
 theory in plane waves, on an NVIDIA GPU, as a [calculator](calculators.md) of
 MDAPY. It suits the labels of training sets: configurations of up to a few
-hundred atoms, one at a time. It needs the package `mdapy-dft-cuda12`, built with
-CUDA 12 for GPUs from the V100 on.
+hundred atoms, one at a time. It runs in the [GPU part](../simulation/gpu.md#installing-the-gpu-part)
+of MDAPY, the package `mdapy-cuda12` for GPUs from the V100 on, on MDAPY's own kernels:
+
+```bash
+pip install "mdapy[cuda12]"
+```
+
+To compare them with NVIDIA's cuBLAS, cuFFT and cuSOLVER (`kernels="vendor"`), the extra
+`dft` installs those from NVIDIA's packages, `pip install "mdapy[cuda12,dft]"` (see
+[NVIDIA's libraries for the DFT](../../getting-started/installation.md#nvidias-libraries-for-the-dft)).
+
+For an AMD GPU the same sources are compiled with HIP of [ROCm](https://rocm.docs.amd.com)
+6 into the package `mdapy-rocm6`, in a clone of MDAPY:
+
+```bash
+pip install ./rocm6 -Ccmake.define.CMAKE_HIP_ARCHITECTURES=gfx90a
+```
+
+`gfx90a` names the MI200 series. The build needs HIP, hipBLAS, hipFFT and hipSOLVER of
+ROCm, the run the HIP runtime, as `module load rocm` gives it on a cluster, and
+`kernels="vendor"` the libraries of ROCm too, which it loads from the folders of
+`LD_LIBRARY_PATH`, `$ROCM_PATH/lib` or `/opt/rocm/lib`. There the calculations of several
+threads take turns on the GPU instead of running at once.
+Without the GPU part, or the libraries of the vendor for `kernels="vendor"`, `DFT` raises
+an error that says what to install.
 
 | Name | Type | Default | Unit | Meaning |
 |---|---|---|---|---|
@@ -66,25 +86,199 @@ CUDA 12 for GPUs from the V100 on.
 | `gpu` | int32 | `None` | | the GPU of this process, by its index among those it sees; by default the first |
 | `restart` | bool or str | `False` | `True`, `"atomic"`, `"second_order"` | start each computation from the bands and the density of the last, as the steps of a relaxation or of molecular dynamics may; `"second_order"` extrapolates the density from the last three computations ([Arias et al. 1992](../../reference/references.md#arias1992)), fewer iterations along molecular dynamics; labels of a training set should start cold |
 | `moment_radius` | float64 | `None` | Å | with spin, the radius of the spheres within which the magnetic moment of each atom is integrated; by default half the shortest distance between two atoms of the cell, their periodic images included, the same for all atoms, so that the spheres do not overlap |
+| `precision` | str | `"double"` | `"double"`, `"mixed"`, `"auto"` | `"mixed"`: the first steps of the self-consistent field in single precision, the last in double, for GPUs of little double precision (most cards for games and workstations); the label is that of double precision, `last["single_steps"]` the steps in single precision. `"auto"`: mixed on those GPUs, double on V100, A100, H100 and GH200. Mixed precision holds about a tenth more of the GPU's memory at its peak: a cell that only just fits in double runs with `"double"` |
+| `kernels` | str | `"mdapy"` | `"mdapy"`, `"vendor"` | Whose kernels run on the GPU. `"mdapy"`: those of MDAPY, the fast Fourier transforms, the dense linear algebra (the products of matrices and the triangular solves), the Hermitian eigensolver and the Cholesky factorization, which is all the DFT takes from the libraries of the vendor, which it does not load; only sizes of a grid given that are not products of 2, 3, 5 and 7 go to the FFT of the vendor. `"vendor"`: the GPU libraries of the vendor throughout (cuFFT, cuBLAS and cuSOLVER on NVIDIA GPUs, of the extra `dft`; hipFFT, hipBLAS and hipSOLVER on AMD GPUs). The results agree to rounding; `last["provenance"]` keeps which one ran |
 | `comm` | mpi4py communicator | `None` | | processes that compute each configuration together, one GPU each, sharing its k-points and spins; every process calls `compute` with the same system and gets the whole result; without `gpu` each takes the GPU of its rank on its machine |
+| `log` | path or stream | `None` | | where every step of the self-consistent field of each computation is written, with the parameters it took ([below](#the-log-and-the-parameters-of-each-computation)) |
+| `start` | path | `None` | | a ground state that `save` wrote, which the first computation starts from ([below](#the-ground-state-in-a-file)) |
 
 | Attribute or method | Meaning |
 |---|---|
 | `cutoff` | 0: the calculator needs no neighbor list |
 | `compute(system, properties, *, neighbors=None)` | the free energy in eV, the forces in eV/Å and, when asked, the virial in eV; `neighbors` is not used |
-| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `provenance` |
+| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `gpu_memory` (the [memory of the GPU](#memory-of-the-gpu) in MiB), `provenance`, `calculation` (its number among the computations of the calculator) and `parameters` (every parameter it took, [below](#the-log-and-the-parameters-of-each-computation)) |
+| `log`, `start` | the log and the ground state given |
+| `save(path)` | writes the ground state of the last computation ([below](#the-ground-state-in-a-file)) |
 
 The system must be periodic along a, b and c and have an `element` column. The
 energy is the free energy of the smearing, VASP's TOTEN. `provenance` holds
 what makes the labels of a set comparable: the SHA-256 of each pseudopotential,
 the cutoff, the mesh, the smearing and its width, the functional, the spins, the
-grid and the bands. Labels of a set should share them.
+grid and the bands. Labels of a set should share them. It also holds the
+`kernels`, which changes the results by rounding alone. With MDAPY's kernels
+the same computation on the same GPU gives the same numbers to the last bit at
+each run; the libraries of the vendor do not promise it when the k-points are
+solved side by side.
 
 The magnetic moments are those of the smooth density on the grid, with the
 augmentation charges of ultrasoft and PAW pseudopotentials but not the one-center
 corrections of PAW, within spheres that do not overlap: they depend on the radius, and
 their sum is less than `magnetization`, which counts the whole cell. Compare them across
 labels of a set only with the same `moment_radius`.
+
+## The log and the parameters of each computation
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.io import read, write
+
+dft = DFT(300.0, kpoints=(2, 2, 2), sigma=0.2, log="dft.log")
+system = read("al4.xyz")
+write("labels.xyz", dft.compute(system, ("energy", "forces", "virial")).attach(system))
+```
+
+```text
+# MDAPY 2.2.0, DFT, 2026-11-25 13:15:35
+# engine: MDAPY on NVIDIA RTX A2000 12GB, compute capability 8.6
+# machine: 12th Gen Intel(R) Core(TM) i5-12600K, 16 logical CPUs, 16 usable, 31.0 GB of memory
+#
+# calculation 1: 4 atoms, Al 4; mesh 2 2 2, 6 k-points, 8 operations, 10 bands, grid 24 24 24
+# parameters: {"mdapy": "2.2.0", "arguments": {"encut": 300.0, "ecutrho": 1200.0, "kpoints": [2, 2, 2], "kspacing": 0.25, "smearing": "gaussian", "sigma": 0.2, "magmoms": null, "hubbard": {}, "functional": "pbe_pw", "tolerance": 1e-06, "max_iterations": 100, "mixing": 0.7, "magnetic_mixing": 1.0, "kerker": 1.5, "preconditioner": "kerker", "bands": 10, "seed": 0, "restart": false, "symmetry": true, "moment_radius": null, "precision": "double", "kernels": "mdapy"}, "pseudopotentials": {"Al": {"file": "Al_std.upf", "sha256": "b02eaa07c5d98f5eeae1bec4155854a7a94ea3635ca6b42e914f3f7ebd6912fb"}}, "internal": {"offset": [0.0, 0.0, 0.0], "minimum": 0.0, "history": 8, "metric_weight": 20.0, "davidson_iterations": 100, "davidson_basis": 2, "correct_forces": true, "magnetic_kerker": 0.0, "atomic_start": true, "kpoint_threads": 0, "first_tolerance": 0.0, "conditioning": 1000000.0, "output_energies": false, "adaptive_damping": false, "first_held": 0}, "environment": {}, "gpu": "NVIDIA RTX A2000 12GB", "processes": 1}
+# calculation  step         free_energy     change   residual  magnetization      fermi  davidson      wall
+            1     1       -250.09668526        nan   4.48e-01         0.0000     8.0558        39      0.11
+            1     2       -250.00546055   9.12e-02   8.03e-02         0.0000     8.0607        30      0.16
+            1     3       -249.97892058   2.65e-02   8.11e-05         0.0000     8.0699        22      0.21
+            1     4       -249.97899110  -7.05e-05   4.58e-07         0.0000     8.0696        38      0.25
+            1     5       -249.97899131  -2.10e-07   2.63e-08         0.0000     8.0696        36      0.29
+# calculation 1: converged in 5 steps, 0.86 s; energy -249.978991 eV, largest force 0.184590 eV/Å, pressure -4.4583 GPa
+```
+
+`log` takes a path, or a stream such as `sys.stdout`. The first computation of a
+calculator writes the file anew, and the next ones add to it. The heading names MDAPY,
+the GPU and the machine. Each computation then writes:
+
+- a line with its atoms, the mesh and its irreducible k-points, the operations of the
+  symmetry, the bands and the FFT grid;
+- its parameters as one line of JSON, when they differ from the last ones written;
+- a row for every step of the self-consistent field, the steps in single precision of
+  `precision="mixed"` marked where they begin and end;
+- its end: the steps, the seconds, the energy, the largest force and, with the virial,
+  the pressure; or, if it stopped, where and why.
+
+Lines that are not rows start with `#`, so that `numpy.loadtxt("dft.log")` reads the rows
+of every computation as one table; its first column tells them apart.
+
+| Column | Unit | Meaning |
+|---|---|---|
+| `calculation` | | the number of the computation among those of the calculator, `last["calculation"]` |
+| `step` | | the step of the self-consistent field, from 1 |
+| `free_energy` | eV | the free energy of the step, of its input density (Harris–Foulkes); that of the last step is the label |
+| `change` | eV | from the step before, `nan` for the first |
+| `residual` | eV | the Hartree energy of the change of the density, which `tolerance` bounds |
+| `magnetization` | Bohr magneton | the moment of the cell, 0 without spin |
+| `fermi` | eV | the Fermi level |
+| `davidson` | | the iterations of the eigensolver, summed over the k-points and spins |
+| `wall` | s | the seconds since the self-consistent field began |
+
+The log costs the run nothing it does not already have. The numbers of a step are those
+the self-consistent field tests its convergence with, already on the processor, so
+nothing more comes from the GPU. Without a log, no step is reported. Under MPI the first
+process writes; threads that share a GPU give each calculator its own file.
+
+### What each label keeps
+
+Each computation keeps every parameter it took in `last["parameters"]`, its defaults and
+`"auto"` resolved: the mixing, `ecutrho`, the mesh, the bands, the symmetry, the precision
+and the kernels, as they ran. Its result keeps them in `info["dft"]`, which `attach` puts
+into the frame and `write` into each frame of an extended XYZ file. A label so says how it
+was computed, with or without a log. A later version of MDAPY, whose defaults may change,
+computes it again from them:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.io import read
+
+frame = read("labels.xyz")
+record = frame.info["dft"]
+again = DFT(pseudopotentials="pseudo-dojo", **record["arguments"])
+print(again.compute(frame).energy, frame.info["energy"])
+```
+
+| Key | Meaning |
+|---|---|
+| `mdapy` | the version of MDAPY |
+| `arguments` | the arguments of `DFT` that give the same computation: those of the table above but `pseudopotentials`, `gpu`, `comm`, `log` and `start` |
+| `pseudopotentials` | of each element, the name of its file and its SHA-256: another file of the same name is another pseudopotential |
+| `internal` | the settings of the self-consistent field that `DFT` does not take, such as the 8 steps of the history of Pulay's mixing, by their names inside, in eV and Å as the rest |
+| `environment` | the variables `MDAPY_DFT_*` that were set |
+| `gpu`, `processes` | the GPU, and the processes of `comm` |
+
+The record gives the same computation, not the same digits: another GPU, or other
+kernels, add in another order, and the results agree to the tolerance.
+
+### The ground state in a file
+
+`save` writes the ground state of the last computation, and `start` takes it up again:
+the first computation then starts from its density, and from the occupations of the
+projectors of PAW or DFT+U, in place of those of the free atoms, as to compute the same
+structure with another tolerance or more steps of the self-consistent field. Its first
+step solves the bands tightly in that potential, and it converges in a few steps: 4 atoms
+of aluminium in 3 instead of 7, PAW silicon in 4 instead of 10.
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.io import read
+
+system = read("al32.xyz")
+dft = DFT(500.0, kspacing=0.2)
+dft.compute(system)
+dft.save("al32.npz")
+
+tighter = DFT(500.0, kspacing=0.2, tolerance=1e-9, start="al32.npz")
+result = tighter.compute(system)  # in a few steps
+```
+
+The file is NumPy's `.npz`, which `numpy.load(path)` reads without pickles. The file
+is written whole or not at all, by the first process under MPI. It holds:
+
+| Array | Shape | Unit | Meaning |
+|---|---|---|---|
+| `format`, `version` | | | `"MDAPY DFT ground state"` and 1, the version of the file |
+| `parameters` | | | the record of the computation, as `last["parameters"]`, as JSON |
+| `elements` | (N,) str | | the atoms |
+| `cell`, `positions` | (3, 3), (N, 3) float64 | Å | the rows of the cell, and the atoms as given |
+| `energy`, `fermi` | float64 | eV | the free energy and the Fermi level |
+| `forces` | (N, 3) float64 | eV/Å | the forces |
+| `density` | (spins, n1, n2, n3) float64 | electrons/Å³ | on the FFT grid of the density, with the augmentation charges; with spin, up then down |
+| `kpoints`, `weights` | (K, 3), (K,) float64 | | the irreducible k-points in fractions of the reciprocal vectors, and their weights, adding to 1 |
+| `eigenvalues` | (spins, K, bands) float64 | eV | the bands |
+| `occupations` | (spins, K, bands) float64 | | of each band, from 0 to 1 (Methfessel–Paxton and Marzari–Vanderbilt a little beyond); a band holds 2 electrons without spin, 1 with |
+| `becsum` | (spins, pairs) float64 | | with PAW or DFT+U, the occupations of the projectors |
+| `magnetic_moments` | (N,) float64 | Bohr magneton | with spin, as `last["magnetic_moments"]` |
+
+`spins` is 1 without spin and 2 with. The wave functions are not kept: the density
+takes a computation back to its ground state in a few steps.
+
+A computation started from a file must be of its elements, in the same order, its cell
+and atoms to 1e-6 Å (an atom moved by a vector of the cell is the same), and its
+pseudopotentials by their SHA-256; and, as the density is on its grid, of its cutoffs,
+symmetry and spin. `InvalidParameter` says which differs. `save` before a computation
+raises `InvalidParameter`, as does a file that is not a ground state or one of a later
+version.
+
+### In molecular dynamics
+
+The DFT's log and that of the dynamics go to two files:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+from mdapy.io import read
+from mdapy.simulation import MolecularDynamics
+
+dft = DFT(500.0, kspacing=0.3, restart="second_order", log="dft.log")
+with MolecularDynamics(read("al32.xyz"), dft, timestep=0.002, log="md.log") as md:
+    md.velocities(300, seed=1)
+    md.run(1000, ensemble="nvt", temperature=300, thermo=10)
+```
+
+`md.log` holds a row every 10 steps of the dynamics; `dft.log` holds every step of the
+self-consistent field of each of them. The same file for both raises
+`InvalidParameter`. A thousand steps of about ten steps of the self-consistent field each
+make some 10 000 rows, about 1.5 MB.
 
 ## Many GPUs
 
@@ -131,7 +325,8 @@ write("train.xyz", [s for part in parts for s in part])
 ```
 
 Four to eight threads fill a GPU with cells of a few dozen atoms; a cell of hundreds of
-atoms fills it alone.
+atoms fills it alone. Configurations side by side hold the sum of their
+[memory](#memory-of-the-gpu).
 
 One configuration of many k-points or of two spins can also run on several GPUs:
 with `comm`, the processes share its pairs of spin and k-point, each GPU holding
@@ -150,6 +345,40 @@ result = dft.compute(read("fe54.xyz"), ("energy", "forces", "virial"))
 if MPI.COMM_WORLD.Get_rank() == 0:
     print(result.energy)
 ```
+
+## Memory of the GPU
+
+A configuration holds on the GPU the bands of each of its k-points and spins, n plane
+waves by the bands in complex numbers of 16 bytes, with n about $\Omega\,(2E)^{3/2}/6\pi^2$
+for a cell of Ω bohr³ and `encut` E in hartree (half of that at Γ alone, where the bands
+are real); they take most of its memory when it has many k-points. Besides them it
+holds the projectors of the atoms, the basis of the eigensolver (twice the bands), the
+boxes of the Fourier transforms (256 MiB at most) and the densities and potentials on
+the grid. The CUDA context takes 0.3 to 0.6 GiB more, and the libraries of the vendor
+(`kernels="vendor"`) about 0.4 GiB for each host thread that solves k-points on an H100
+or GH200 (0.05 GiB on a V100): small cells of many k-points run eight. Measured on a
+GH200 with the libraries of the vendor in double precision, for cells perturbed as those
+of a training set, so that time reversal alone reduces their k-points:
+
+| Cell | Cutoff, kspacing | k-points × spins | Bands | In use (GiB) | On the GPU (GiB) |
+|---|---|---|---:|---:|---:|
+| Al4, fcc | 600 eV, 0.15 1/Å | 666 × 1 | 10 | 0.4 | 4.4 |
+| Al32 | 600 eV, 0.15 1/Å | 112 × 1 | 58 | 2.4 | 3.5 |
+| Al108 | 600 eV, Γ | 1 × 1 | 195 | 2.6 | 3.6 |
+| Al108 | 600 eV, 0.15 1/Å | 36 × 1 | 195 | 10.3 | 11.4 |
+| Fe16, bcc, 3 μB | 900 eV, 0.2 1/Å | 112 × 2 | 154 | 6.4 | 7.8 |
+| Fe54, bcc, 3 μB | 900 eV, 0.2 1/Å | 36 × 2 | 519 | 25.0 | 26.8 |
+
+"In use" is the peak of the arrays of the DFT, "on the GPU" that of the device, with the
+context and the libraries. Mixed precision holds 5 to 10 % more. Configurations side by
+side hold the sum of theirs: eight Al32 at once hold 19.2 GiB and fit a V100 of 32 GB,
+sixteen do not. A run keeps what it uses in a memory pool and gives back to the device,
+at its end, what the pool holds beyond the use of its steps: a process holds the memory
+of its last runs, not the most it ever took. `last["gpu_memory"]` holds the largest at
+the end of the steps, in MiB: `in_use` by the arrays of the DFT and `reserved` by its
+pool, of the whole process, the configurations of its threads together, and `device`
+in use on the GPU, by the CUDA context, the libraries and other processes too. See
+[the measurements](../../performance/dft.md#memory).
 
 ## What it computes
 

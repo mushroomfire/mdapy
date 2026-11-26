@@ -24,10 +24,11 @@
 
 #pragma once
 
-#include <cublas_v2.h>
+#include "dft/core/portable.h"
 
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/xc/xc.h"
 
@@ -62,7 +63,7 @@ public:
     // species by index, mesh 0 without PAW; the species of each atom and the
     // projector functions of each atom, whose pairs pack becsum and D
     OneCenter(std::vector<SpeciesOneCenter> species, std::vector<int> atom_species, std::vector<int> widths,
-              int spins, Functional functional, double threshold);
+              int spins, Functional functional, double threshold, Kernels kernels = Kernels::Mdapy);
     ~OneCenter();
     OneCenter(const OneCenter&) = delete;
     OneCenter& operator=(const OneCenter&) = delete;
@@ -90,7 +91,7 @@ private:
     Functional functional_;
     double threshold_;
     bool gga_;
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     std::vector<Device> device_;
     DeviceArray<double> bec_, cq_, rho_lm_, vh_, scratch_, eh_, n_rad_, gr_, gp_, gt_, rho_xc_, sigma_, f_, v_,
         vs_, exc_, v_rad_, v_lm_, h_, hlm_, div_, div_lm_, integral_, d_;

@@ -205,8 +205,8 @@ def test_errors():
         scf.run(*arguments, **settings, kpoints=path, weights=np.ones(len(path)))
     with pytest.raises(ValueError, match="weights come with kpoints"):
         scf.run(*arguments, **settings, weights=[1.0])
-    with pytest.raises(ValueError, match="start_becsum is for PAW"):
+    with pytest.raises(ValueError, match="start_becsum takes the occupations"):
         scf.run(*arguments, **settings, start_becsum=np.zeros((1, 3)))
     arguments, settings, r, _, _, _ = cached("Si-paw")
-    with pytest.raises(ValueError, match="start_becsum is"):
+    with pytest.raises(ValueError, match="start_becsum takes the occupations"):
         scf.run(*arguments, **settings, start_becsum=r["becsum"][:, :-1])

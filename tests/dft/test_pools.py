@@ -23,7 +23,7 @@ import pytest
 from mdapy.calculators._dft import scf
 from mdapy.calculators._dft.upf import read_upf
 
-from dft import espresso
+from dft import espresso, gpu
 
 BOHR = 0.529177210903
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":  # under mpirun: the results of rank 0
     sys.exit(0)
 
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 if _dft.device_count() == 0:
     pytest.skip("no GPU", allow_module_level=True)
 

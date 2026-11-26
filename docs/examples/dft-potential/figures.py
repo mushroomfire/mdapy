@@ -7,8 +7,10 @@
 dft_training.py and kconv.py in FOLDER: the training of the model of seed 0
 (torchnep's loss curves and the energies, forces and stresses of the training
 frames and of the tenth held out against the DFT); the equations of state and the phonons of
-the DFT and of the two models; and the elastic constants of the DFT against
-the mesh of k-points.
+the DFT and of the two models; the elastic constants of the DFT against
+the mesh of k-points; and far from the crystal, the stacking fault and the
+compression of the DFT and of the models and their Hugoniots against that
+measured.
 
     python figures.py FOLDER IMAGES
 """
@@ -36,6 +38,14 @@ style = {
     "nep_1": ("C1", "--"),
 }
 props = {k: json.loads((folder / f"properties-{k}.json").read_text()) for k in who}
+# the Hugoniot of aluminium 1100 measured: its density (g/cm³), the shock and the
+# particle velocities (km/s); Marsh (ed.), LASL Shock Hugoniot Data (1980), p. 165
+ALUMINIUM_1100 = np.array([
+    (2.713, 5.934, 0.426), (2.713, 5.804, 0.428), (2.713, 6.254, 0.526), (2.713, 6.132, 0.537),
+    (2.706, 6.347, 0.804), (2.713, 6.558, 0.884), (2.713, 6.624, 0.890), (2.706, 6.862, 1.164),
+    (2.713, 7.054, 1.197), (2.713, 6.979, 1.214), (2.713, 7.187, 1.327), (2.706, 7.348, 1.448),
+    (2.713, 7.534, 1.600), (2.706, 7.489, 1.606), (2.713, 7.785, 1.812),
+])  # fmt: skip
 
 NEPPlotter().dashboard(
     str(folder / "nep_0"), out=str(images / "dft-potential-training.png")
@@ -72,6 +82,23 @@ with plot.style():
         for key, color in [("C11", "C0"), ("C12", "C1"), ("C44", "C2")]:
             ax.plot(n, [rows[m][key] for m in n], line, marker="o", ms=3, c=color, lw=0.9,
                     label=f"{key}, {smearing}")  # fmt: skip
+    # the mesh of the labels, 11 k-points along each axis of the cubic cell, and twice as
+    # dense: the elastic constants of the DFT in the properties above (stars; C11 the
+    # larger, as it nearly equals C12 on the labels' mesh); at the right, the models'
+    for k, mesh in (("dft", 11), ("dft-fine", 22)):
+        c = np.asarray(props[k]["elastic_GPa"])
+        for value, color, size in zip((c[0, 0], c[0, 1], c[3, 3]), ("C0", "C1", "C2"), (12, 7, 7)):  # fmt: skip
+            ax.plot(mesh, value, "*", ms=size, c=color, mec="k", mew=0.4, zorder=3)
+        ax.axvline(mesh, c="0.55", lw=0.7, ls=":", zorder=0)
+    for k in ("nep_0", "nep_1"):
+        c = np.asarray(props[k]["elastic_GPa"])
+        for value, color in zip((c[0, 0], c[0, 1], c[3, 3]), ("C0", "C1", "C2")):
+            ax.plot(35, value, "D", ms=4, c=color, mec="k", mew=0.4, zorder=3)
+    ax.text(11.4, 4, "labels", fontsize=6, color="0.3")
+    ax.text(22.4, 4, "twice as dense", fontsize=6, color="0.3")
+    ax.text(35, 4, "NEP", fontsize=6, color="0.3", ha="center")
+    ax.set_xlim(6.5, 36.5)
+    ax.set_xticks([10, 15, 20, 25, 30])  # no tick under the models
     ax.set(
         xlabel="k-points along each axis of the cubic cell",
         ylabel="elastic constant (GPa)",
@@ -79,3 +106,36 @@ with plot.style():
     ax.set_ylim(0, 215)
     ax.legend(fontsize=5.5, ncols=2, loc="upper center")
     plot.save(fig, str(images / "dft-potential-kpoints"), formats=("png",))
+
+    # far from the crystal: the stacking fault, the compression and the Hugoniot
+    fig, (fault, pv, shock) = plot.figure("double", 52, nrows=1, ncols=3)
+    for k in ("dft", "nep_0", "nep_1"):
+        color, line = style[k]
+        p = props[k]
+        fault.plot(p["gsfe_fraction"], 1e3 * np.asarray(p["gsfe_J_m2"]), line, marker="o", ms=2.5, c=color,
+                   lw=0.9, label=who[k])  # fmt: skip
+        pv.plot(p["compression_ratios"], p["compression_GPa"], line, c=color, lw=0.9, label=f"{who[k]}, 0 K")  # fmt: skip
+        if "hugoniot" in p:
+            h = p["hugoniot"]
+            pv.plot([r["volume_ratio"] for r in h], [r["pressure_GPa"] for r in h], "s", ms=3, c=color,
+                    mfc="none", label=f"{who[k]}, Hugoniot")  # fmt: skip
+            shock.plot([r["particle_velocity_km_s"] for r in h], [r["shock_velocity_km_s"] for r in h], "s",
+                       ms=3, c=color, mfc="none", label=who[k])  # fmt: skip
+    rho0, us, up = ALUMINIUM_1100.T
+    pv.plot(1 - up / us, rho0 * us * up, "o", ms=2.5, c="0.4", label="experiment")
+    shock.plot(up, us, "o", ms=2.5, c="0.4", label="experiment")
+    u = np.linspace(0, 2.25, 10)
+    shock.plot(u, 5.392 + 1.341 * u, "-", c="0.75", lw=0.8, zorder=0, label="its fit")
+    fault.set(
+        xlabel=r"slip along [11$\bar{2}$], of a√6/2",
+        ylabel="energy (mJ/m²)",
+        xlim=(0, 1),
+    )
+    fault.legend(fontsize=5.5)
+    pv.set(xlabel=r"$V\,/\,V_0$", ylabel="pressure (GPa)")
+    pv.legend(fontsize=5)
+    shock.set(xlabel="particle velocity (km/s)", ylabel="shock velocity (km/s)")
+    shock.legend(fontsize=5.5)
+    for ax, label in zip((fault, pv, shock), "abc"):
+        plot.panel_label(ax, label)
+    plot.save(fig, str(images / "dft-potential-far"), formats=("png",))

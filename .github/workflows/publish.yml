@@ -49,10 +49,14 @@ jobs:
 
   # The GPU part, the package mdapy-cuda12 (cuda12/), built with CUDA 12.9 and
   # GCC 14 in the manylinux container for the GPUs of cuda12/pyproject.toml, on
-  # x86-64 and on ARM (NVIDIA's sbsa, as the GH200). The runners have no GPU:
-  # the test is that the module loads and refuses to run without a device. The
-  # GPU tests run on the built wheels on machines with a GPU before the tag (a
-  # dispatch with publish=false builds them).
+  # x86-64 and on ARM (NVIDIA's sbsa, as the GH200): its modules _cuda and _dft,
+  # the DFT, which builds with the headers of cuBLAS, cuFFT and cuSOLVER (and
+  # cuSPARSE and nvJitLink, which cuSOLVER needs). The wheel holds none of
+  # these, and names none: _dft loads them at run time for kernels="vendor",
+  # from NVIDIA's packages, which the extra dft of MDAPY installs. The runners
+  # have no GPU: the test is that both modules load and refuse to run without
+  # a device, and that _dft loads NVIDIA's packages. The GPU tests run on the built wheels on machines
+  # with a GPU before the tag (a dispatch with publish=false builds them).
   cuda-wheels:
     name: wheels — CUDA 12, Linux ${{ matrix.archs }}
     runs-on: ${{ matrix.os }}
@@ -75,13 +79,16 @@ jobs:
             dnf install -y dnf-plugins-core &&
             dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/$([ "$(uname -m)" = aarch64 ] && echo sbsa || echo x86_64)/cuda-rhel8.repo &&
             dnf install -y cuda-nvcc-12-9 cuda-cudart-devel-12-9 cuda-cccl-12-9 gcc-toolset-14-gcc-c++
+            libcublas-devel-12-9 libcufft-devel-12-9 libcusolver-devel-12-9 libcusparse-devel-12-9 libnvjitlink-devel-12-9
           CIBW_ENVIRONMENT_LINUX: >-
             PATH=/usr/local/cuda-12.9/bin:$PATH
             CUDACXX=/usr/local/cuda-12.9/bin/nvcc
             CC=/opt/rh/gcc-toolset-14/root/usr/bin/gcc
             CXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
             CUDAHOSTCXX=/opt/rh/gcc-toolset-14/root/usr/bin/g++
-          CIBW_TEST_COMMAND: python -I {package}/check_import.py
+          CIBW_TEST_REQUIRES: >-
+            nvidia-cublas-cu12>=12.1.3.1 nvidia-cufft-cu12>=11.0.2.54 nvidia-cusolver-cu12>=11.4.5.107
+          CIBW_TEST_COMMAND: python -I {package}/check_import.py nvidia
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-cuda12-${{ matrix.archs }}

@@ -19,11 +19,12 @@
 
 #pragma once
 
-#include <cublas_v2.h>
+#include "dft/core/portable.h"
 
 #include <array>
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/hamiltonian/hamiltonian.h"
 #include "dft/lattice/lattice.h"
@@ -47,7 +48,7 @@ struct SpeciesAugmentation {
 class Augmentation {
 public:
     Augmentation(const Lattice& lattice, const Sphere& sphere, const std::vector<Atom>& atoms,
-                 std::vector<SpeciesAugmentation> species);
+                 std::vector<SpeciesAugmentation> species, Kernels kernels = Kernels::Mdapy);
     ~Augmentation();
     Augmentation(const Augmentation&) = delete;
     Augmentation& operator=(const Augmentation&) = delete;
@@ -84,7 +85,7 @@ private:
     std::vector<std::vector<int>> members_;  // the atoms of each species
     std::vector<std::vector<std::size_t>> offsets_;  // where the pairs of each atom start in becsum
     bool any_ = false;
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     DeviceArray<double> g_;  // (n, 3) Cartesian G
     DeviceArray<int> miller_;
     struct Device {

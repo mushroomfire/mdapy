@@ -19,13 +19,15 @@
 
 #pragma once
 
-#include <cublas_v2.h>
+#include "dft/core/portable.h"
 
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
+#include "dft/blas/blas.h"
 #include "dft/core/device.h"
 #include "dft/fft/fft.h"
 #include "dft/lattice/lattice.h"
@@ -73,15 +75,22 @@ public:
     // set of Miller indices as the cell strains; the lattice itself by default
     Hamiltonian(const Lattice& lattice, const Int3& grid, double cutoff,
                 std::vector<SpeciesProjectors> species, std::vector<Atom> atoms,
-                const Lattice* basis = nullptr);
+                const Lattice* basis = nullptr, Kernels kernels = Kernels::Mdapy);
     ~Hamiltonian();
     Hamiltonian(const Hamiltonian&) = delete;
     Hamiltonian& operator=(const Hamiltonian&) = delete;
 
     // Real bands of Gamma from the next set_k on, which then takes Gamma only.
-    void set_gamma(bool on) noexcept { gamma_mode_ = on; }
+    void set_gamma(bool on) noexcept {
+        if (on != gamma_mode_) {  // half spheres or whole ones: those kept are of the other kind
+            spheres_.clear();
+            k_set_ = false;
+        }
+        gamma_mode_ = on;
+    }
     // Whether the bands of the k-point are real.
     bool gamma() const noexcept { return gamma_; }
+    Kernels kernels() const noexcept { return blas_.kernels(); }
     // The plane waves of k (fractions of the reciprocal vectors) and their
     // projectors.
     void set_k(const Vec3& k);
@@ -102,6 +111,17 @@ public:
     void add_nonlocal(const Complex* p, int count, Complex* hpsi);
     void add_overlap(const Complex* p, int count, Complex* spsi);
     void overlap_projections(const Complex* p, int count, Complex* out);
+    // The same in single precision, for the bands of the single-precision
+    // steps: the potential, the projectors and their strengths and overlaps
+    // those set, rounded when they change. With the real bands of Gamma, real
+    // transforms on the half sphere and real projections, (projectors, count)
+    // floats at the start of a buffer of cuComplex.
+    void apply(const cuComplex* psi, cuComplex* hpsi, int count);
+    void project(const cuComplex* psi, int count, cuComplex* p);
+    void apply_local(const cuComplex* psi, cuComplex* hpsi, int count);
+    void add_nonlocal(const cuComplex* p, int count, cuComplex* hpsi);
+    void add_overlap(const cuComplex* p, int count, cuComplex* spsi);
+    void overlap_projections(const cuComplex* p, int count, cuComplex* out);
     // The strengths D and the overlaps q of the projectors of each atom, in the
     // order of the atoms a block (width, width) row by row, width its
     // projector functions; they replace those of the species.
@@ -146,7 +166,16 @@ public:
     void atomic(Complex* out) const;
 
 private:
+    // kinetic + mean + sum_ij d_ij Re(b_i conj(b_j)) of each plane wave, kinetic optional
+    void diagonal_of(const double* kinetic, double mean, const Complex* d, double* out) const;
+    // the sizes of the spectra of the real boxes of the bands: n1, n2, n3 / 2 + 1
+    Int3 spectrum_grid() const noexcept {
+        const Int3& g = fft_.grid();
+        return {g[0], g[1], g[2] / 2 + 1};
+    }
+    mutable DeviceArray<double> diagonal_partial_;  // (atoms, plane waves): the share of each atom
     int batch() const noexcept;  // bands per batch of FFTs
+    void single();               // the single-precision copies, when stale
 
     Lattice lattice_;
     bool has_basis_ = false;
@@ -156,11 +185,18 @@ private:
     std::vector<SpeciesProjectors> species_;
     std::vector<Atom> atoms_;
     Fft fft_;
-    cublasHandle_t blas_ = nullptr;
+    Blas blas_;
     int projectors_ = 0;
 
     // of the k-point
     Sphere sphere_;
+    // the spheres of the k-points set so far: each is made once, and the
+    // steps of an SCF come back to the same k-points
+    std::vector<std::pair<Vec3, Sphere>> spheres_;
+    int window_ = -1;  // the largest |m| of the first Miller index of the sphere: the planes of its boxes that matter
+    // the k-point set last; while k_set_, what follows is of it
+    Vec3 k_{};
+    bool k_set_ = false;
     DeviceArray<double> kinetic_, q_;  // |k+G|^2 / 2 and the Cartesian k+G (n, 3)
     DeviceArray<std::int64_t> box_;
     DeviceArray<Complex> beta_;     // (plane waves, projectors)
@@ -188,6 +224,11 @@ private:
     DeviceArray<detail::ProjectorColumn> columns_;
     detail::ReciprocalCell reciprocal_{};
     DeviceArray<std::size_t> becsum_offsets_;  // where the pairs of each atom start
+    // single precision: what single() rounds, and its work arrays
+    bool single_stale_ = true;
+    DeviceArray<float> kinetic_f_, potential_f_;
+    DeviceArray<float> dreal_f_, qreal_f_, values_f_;  // of Gamma, as dreal_, qreal_ and values_
+    DeviceArray<cuComplex> beta_f_, dmatrix_f_, qmatrix_f_, boxes_f_, projections_f_, scaled_f_;
 };
 
 }  // namespace mdapy::dft

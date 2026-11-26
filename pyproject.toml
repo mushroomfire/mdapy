@@ -26,6 +26,9 @@ classifiers = [
 ]
 
 [project.optional-dependencies]
+# what MDAPY's own features use beyond NumPy and polars; plot and symmetry are kept
+# for the install commands written before full
+full = ["matplotlib>=3.8", "spglib>=2.5", "seekpath>=2.1"]
 plot = ["matplotlib>=3.8"]
 ase = ["ase>=3.22"]
 symmetry = ["spglib>=2.5", "seekpath>=2.1"]
@@ -35,6 +38,19 @@ pymatgen = ["pymatgen-core>=2026.2.24"]
 # for Linux on x86-64 and ARM, elsewhere MDAPY is built with the CUDA toolkit
 cuda12 = [
     "mdapy-cuda12==2.2.0; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+]
+# the same for AMD GPUs, the package mdapy-rocm6 (rocm6/), which needs the
+# runtime of ROCm 6 on the machine
+rocm6 = [
+    "mdapy-rocm6==2.2.0; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
+# NVIDIA's cuBLAS, cuFFT and cuSOLVER (with cuSPARSE and nvJitLink) of CUDA 12,
+# for DFT(kernels="vendor") of mdapy-cuda12, which loads them where these
+# packages put them; with ROCm the DFT takes the libraries of the machine
+dft = [
+    "nvidia-cublas-cu12>=12.1.3.1; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+    "nvidia-cufft-cu12>=11.0.2.54; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
+    "nvidia-cusolver-cu12>=11.4.5.107; sys_platform == 'linux' and (platform_machine == 'x86_64' or platform_machine == 'aarch64')",
 ]
 dev = [
     "pytest>=8",

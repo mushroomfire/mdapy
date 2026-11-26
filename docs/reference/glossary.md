@@ -92,6 +92,7 @@ one name everywhere.
 | structure descriptor | The mean of the descriptors of the atoms of a frame, one point per frame. |
 | farthest point sampling | Choosing points one by one, each the farthest from those chosen before. |
 | label | A reference energy, force or virial of a frame, usually from DFT, that a model is trained to predict. |
+| parameters of a computation | Every parameter a computation of DFT took, its defaults and `"auto"` resolved, with the SHA-256 of its pseudopotentials: `DFT.last["parameters"]`, kept with each label in `info["dft"]`. |
 | parity plot | The predictions of a model against the labels, one point each; on the diagonal where they agree. |
 | committee | Several models of one system, such as models trained with other seeds; the spread of their predictions marks where they were not trained enough. |
 | model deviation | The largest over the atoms of a frame of the spread of the forces of a committee, as DP-GEN chooses frames by it. |
@@ -213,8 +214,10 @@ column of fixed-size arrays of length 3 and use the plural name.
 | ensemble | what a run of molecular dynamics keeps: `"nve"`, `"nvt"`, `"npt"`, `"nph"`, or for a shock `"nphug"` or `"msst"`; see [Ensembles](../user-guide/simulation/ensembles.md) |
 | thermostat | of molecular dynamics: `"nose-hoover"`, a chain of three Nosé–Hoover thermostats, or `"langevin"`, friction and random forces on every atom |
 | MDAPY's own dynamics | molecular dynamics that `MolecularDynamics` runs in MDAPY with any calculator but a LAMMPS one: the same equations and steps as LAMMPS's fixes `nve`, `nvt`, `npt` and `nph`, for small systems |
-| device | where a calculator computes: `"cpu"`, or `"cuda"` on an NVIDIA GPU |
+| device | where a calculator computes: `"cpu"`, or `"cuda"` on a GPU: NVIDIA's with CUDA, or AMD's with ROCm |
+| GPU part | the compiled code of MDAPY for the GPU, the package `mdapy-cuda12` (NVIDIA) or `mdapy-rocm6` (AMD), or built into MDAPY: the module `_cuda` or `_hip` of the potentials and molecular dynamics, and `_dft` of the plane-wave DFT, which with CUDA needs NVIDIA's cuBLAS, cuFFT and cuSOLVER, the extra `dft` |
 | mixed precision | on the GPU, the distance and the terms of each pair in single precision, the positions, the velocities and the sums in double |
+| memory pool | of the DFT on the GPU: the memory that the stream-ordered allocator of CUDA or HIP reserves from the device for the arrays of the runs, and reuses from one array to the next; a run gives back to the device at its end what the pool holds beyond the use of its steps. `DFT.last["gpu_memory"]` holds what was `in_use` by the arrays, `reserved` by the pool and in use on the `device` |
 | `iterate` | of `MolecularDynamics`: a run that gives the atoms every `save_every` steps as it reaches them and keeps none, going on as they are read |
 | group | of molecular dynamics: an (N,) bool mask over the atoms of the system, on which a control acts |
 | controls | of a run of molecular dynamics: `Hold`, `Move`, `AddForce` and `Langevin`, what is done to groups of atoms during the run, `Deform`, what is done to the box, `AdaptiveTimestep`, how long the steps are, `Switch`, the potential turned into another, `Wall`, flat walls that reflect the atoms, `Indenter`, indenters that push them, and `ElectronicStopping`, the friction of the electrons on the fast atoms, given by `controls` of `run` or `iterate` |
@@ -223,8 +226,12 @@ column of fixed-size arrays of length 3 and use the plural name.
 | electronic stopping | of `ElectronicStopping`: the energy a fast atom loses to the electrons it passes through, as a friction F = −S_e(E) v/|v| on the atoms of a kinetic energy E above a threshold, S_e the stopping power in eV/Å, from a table of each element as LAMMPS's `fix electron/stopping`; `electronic_loss` is the energy the electrons took |
 | ZBL | the universal screened repulsion of two nuclei of Ziegler, Biersack and Littmark, Z_i Z_j e²/r φ(r/a); `ZBL` switches it off between `inner` and `cutoff`, as LAMMPS's `pair_style zbl` |
 | overlay | of `Overlay`: calculators added together, their energies, forces and virials summed, as LAMMPS's `pair_style hybrid/overlay` |
+| DFT-D3, `D3` | the dispersion correction of Grimme et al. (2010): pairs −s6 C6/r⁶ − s8 C8/r⁸, damped at short distances, with C6 interpolated from reference systems by the coordination number of each atom, and optionally the three-body term of Axilrod, Teller and Muto |
+| damping (of D3) | how D3 takes away its pairs at short distances: Becke–Johnson (`"bj"`, rational) replaces rⁿ by rⁿ + R0ⁿ, so that a pair levels off; zero damping (`"zero"`) multiplies each term by 1/(1 + 6 (r/s_r R0)^−α), so that it goes to zero |
+| coordination number (of D3) | the number of neighbors of an atom counted by 1/(1 + e^(−16 ((R_cov,i + R_cov,j)/r − 1))) over the atoms within `cn_cutoff`, which picks the C6 of its reference systems |
 | beads, ring polymer | of path-integral molecular dynamics: each atom a ring of P beads joined by springs of frequency P k_B T/ħ, each feeling the whole potential, whose averages are those of quantum nuclei as P grows; `beads` of `MolecularDynamics` |
 | centroid | the mean place of the beads of an atom; `md.system` gives the centroids |
+| BZP barostat | the Langevin barostat of Bussi, Zykova-Timan and Parrinello: the rate of the box, of a mass set by `barostat_damping`, pushed by the pressure and damped with noise; with beads it scales the centroids and the box by the centroid-virial pressure, as LAMMPS's `fix pimd/langevin` with `barostat BZP` |
 | centroid-virial estimator | the kinetic energy of quantum nuclei from the forces on the beads and their distances from the centroids, 3Nk_BT/2 − Σ(q−q_c)·F/2P; `kinetic_energy` of path integrals |
 | primary knock-on atom, PKA | the atom a neutron or an ion strikes first, which starts a cascade of collisions in the crystal |
 | indenter | of `Indenter`: a sphere, a cylinder or the region beyond a plane that pushes the atoms inside it out with a force K d², d how far inside, as LAMMPS's `fix indent`; the force of the atoms on it is the load of an indentation |
@@ -273,6 +280,8 @@ column of fixed-size arrays of length 3 and use the plural name.
 | smearing of the occupations of DFT and its width (eV) | `smearing`, `sigma` | `ismear`, `degauss` |
 | DFT+U of Dudarev: the pseudo-orbital and U (eV) of each element | `hubbard`, dict of str to (str, float64) | `ldau`, `hubbard_u`, `U` |
 | preconditioner of the mixing of the density of DFT: Kerker's, or of the local density of states at the Fermi level | `preconditioner`, `"kerker"` or `"ldos"` | `mixing_mode`, `imix` |
+| arithmetic of the self-consistent field of DFT: double, single then double, or by the GPU | `precision`, `"double"`, `"mixed"` or `"auto"` | `fp32`, `single_precision` |
+| whose kernels DFT runs on the GPU: MDAPY's own, or the GPU libraries of the vendor throughout | `kernels`, `"mdapy"` or `"vendor"` | `backend`, `fft`, `library`, `use_cufft` |
 | number of nearest neighbors | `num_neighbors` | `k`, `N`, `nnn` |
 | number of atoms of a box that is built | `num_atoms` | `atoms`, `natoms` |
 | number of atoms of each cluster, grain or ring | `sizes` | `size`, `cluster_size` |
@@ -327,7 +336,7 @@ column of fixed-size arrays of length 3 and use the plural name.
 | system whose atoms the frames of a trajectory move | `topology=` | `topology_file`, `data` |
 | progress callback, cancellation | `progress=`, `cancel=` (keyword-only) | |
 | interval between kept frames | `save_every` | `dump_freq`, `interval` |
-| a log of a run or a minimization, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo` | `logfile`, `log_file`, `verbose` |
+| a log of a run, a minimization or the self-consistent field of DFT, and the interval of its rows | `log` (a path or a stream), `log_every`; the rows of molecular dynamics follow `thermo`, those of DFT are its steps | `logfile`, `log_file`, `verbose` |
 | convergence of a minimization or a band | `max_force` (eV/Å), `max_stress` (GPa) | `fmax`, `ftol`, `etol` |
 | the images of a band between its two states, and the constant of its springs (eV/Å²) | `images`, `spring` | `nimages`, `n_images`, `k`, `kspring` |
 | how the box may relax | `cell` (`None`, `"isotropic"`, `"axes"`, `"full"`) | `relax_box`, `box_relax` |

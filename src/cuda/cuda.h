@@ -5,7 +5,8 @@
 //
 // MDAPY on an NVIDIA GPU with CUDA: atoms, a neighbor list and potentials
 // held on the device. This header has no CUDA syntax, so that the bindings
-// compile with the host compiler; the kernels are in the .cu files.
+// compile with the host compiler; the kernels are in the .cu files. The same
+// sources compile with HIP for AMD GPUs: see portable.cuh.
 
 #pragma once
 
@@ -17,6 +18,7 @@
 #include <vector>
 
 #include "calculators/adp.h"
+#include "calculators/d3.h"
 #include "calculators/eam.h"
 #include "calculators/meam.h"
 #include "calculators/nep.h"
@@ -438,6 +440,9 @@ std::unique_ptr<Potential> make_eam(const calculators::EamPotential& potential,
                                     Precision precision);
 std::unique_ptr<Potential> make_pair(const calculators::PairPotential& potential,
                                      Precision precision);
+// D3, which finds its pairs itself (calculators/d3.h)
+std::unique_ptr<Potential> make_d3(const calculators::D3Potential& potential,
+                                   Precision precision);
 std::unique_ptr<Potential> make_adp(const calculators::AdpPotential& potential,
                                     Precision precision);
 std::unique_ptr<Potential> make_stillinger_weber(

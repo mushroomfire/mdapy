@@ -6,9 +6,11 @@ in MDAPY: structures of aluminium generated as in
 [plane-wave DFT](../user-guide/potentials/dft.md) on the GPU, a NEP model trained on them
 with [torchnep](https://github.com/mushroomfire/torchnep)
 ([Wu et al. 2026](../reference/references.md#wu2026torchnep)), and the model's properties
-against those of the DFT itself: the equation of state, the vacancy, a surface and the
-phonons. The elastic constants of aluminium need far more k-points than labels do; the
-last section shows how many.
+against those of the DFT itself: the equation of state, the elastic constants, the
+vacancy, a surface and the phonons near the crystal; the stacking fault and the
+compression to 70 % of the volume far from it, and the Hugoniot against experiment. The
+elastic constants of aluminium need far more k-points than labels do; the last section
+shows how many.
 
 <!-- needs: torchnep -->
 
@@ -20,14 +22,17 @@ The "generated + crystals" set of that page: two thirds of the atoms from
 perturbed crystals span volumes from 85 to 115 % with strains of 5 %; the equilibrium
 itself, where the equation of state, the vacancy and the phonons are measured, takes
 48 more cells of fcc near it: cells of 4 and of 32 atoms in turn, volumes from 90 to
-110 %, strains up to 2 % and atoms displaced by 0.03 Å, 864 atoms. For the test, 91
-cells of 1201 atoms from another generation and other crystals:
+110 %, strains up to 2 % and atoms displaced by 0.03 Å, 864 atoms; and 24 cells of hcp
+alike, of 2 and of 16 atoms, 216 atoms, for the difference of the two packings that a
+stacking fault is made of. For the test, 91 cells of 1201 atoms from another generation
+and other crystals:
 
 <!-- skip-test -->
 ```python
 generated = generate_structures("Al", volume=(8.3, 33.2), seed=0).structures
 write("train.xyz", mixed([generated, crystals(50, 4800)], [2, 1], 4800))
 write("near.xyz", near(51, 48))
+write("near-hcp.xyz", near(52, 24, "hcp"))
 other = generate_structures("Al", volume=(8.3, 33.2), seed=7).structures
 write("test.xyz", mixed([other, crystals(57, 1200)], [2, 1], 1200))
 ```
@@ -36,9 +41,13 @@ write("test.xyz", mixed([other, crystals(57, 1200)], [2, 1], 1200))
 
 <!-- skip-test -->
 ```python
-def near(seed, cells):
+def near(seed, cells, kind="fcc"):
     rng = np.random.default_rng(seed)
-    unit = build_crystal("fcc", 4.04, elements="Al")
+    unit = (
+        build_crystal("fcc", 4.04, elements="Al")
+        if kind == "fcc"
+        else build_crystal("hcp", 4.04 / np.sqrt(2), elements="Al")
+    )
     frames = []
     for k in range(cells):
         crystal = unit if k % 2 == 0 else replicate(unit, (2, 2, 2))
@@ -62,7 +71,7 @@ from mdapy.io import read_trajectory, write
 
 dft = DFT(600.0, pseudopotentials={"Al": "Al.upf"}, kspacing=0.15,
           smearing="marzari-vanderbilt", sigma=0.25)  # fmt: skip
-for name in ("train", "near", "test"):
+for name in ("train", "near", "near-hcp", "test"):
     frames = [dft.compute(f, ("energy", "forces", "virial")).attach(f)
               for f in read_trajectory(f"{name}.xyz")]  # fmt: skip
     write(f"{name}-dft.xyz", frames)
@@ -71,7 +80,8 @@ for name in ("train", "near", "test"):
 Each cell starts cold. The 611 cells took 6.3 GPU-hours on two A100 and two H100 GPUs,
 37 s each on average: the small cells of many k-points take as long as the large ones of
 few. Every one converged, in 5 to 35 steps of the self-consistent field, 7 in the median.
-The 48 cells near the crystal took 41 minutes on two V100 GPUs, in 5 to 8 steps.
+The 48 cells of fcc near the crystal took 41 minutes on two V100 GPUs, in 5 to 8 steps;
+the 24 of hcp 1.8 hours on an RTX A2000, in 5 to 8 steps.
 
 ## The model
 
@@ -96,8 +106,20 @@ cohesive energy of experiment is 3.39 eV), and the training cells lie between �
 7.08 eV per atom, numbers of the size a network starts from. Differences of energy, and
 so every property below, are the same either way.
 
-The cells within 0.5 eV per atom of the lowest count three times; a tenth of the
-training cells, held out, chooses the best epoch, and the test cells are not seen:
+Of the 592 training cells, 196 lie within 2 eV per atom of the lowest: the crystals and
+the generated cells close to them. The others are dimers and small clusters in vacuum,
+near the free atom and 3 to 5 eV per atom above the crystal, and compressions to half
+its volume, 5 to 10 eV above. The solid in molecular dynamics stays far below them: even
+on the Hugoniot at 50 GPa it is 0.7 eV per atom above its minimum. Counted alike, those
+cells lead the fit, and differences of tens of meV per atom near the crystal are lost:
+hcp came out 1 to 19 meV per atom below fcc, against 30 above in the DFT, and the
+stacking fault negative. Left out, they are never seen, and the model fails on every cell
+of their kind: its energies over all the test cells were 0.6 to 1 eV per atom off.
+Weighted, the cells within 2 eV per atom lead and the others stay in. The weight was
+chosen on the intrinsic stacking fault (below; 143 mJ/m² in the DFT) of models trained
+with weights of 5, 10, 20 and 50: 14, 57 to 77 (three seeds), 77 to 91 (three) and
+79 mJ/m². It rises up to a weight of about 20 and no further. A tenth of the training
+cells, held out, chooses the best epoch, and the test cells are not seen:
 
 <!-- skip-test -->
 ```python
@@ -108,7 +130,7 @@ from torchnep import train_nep
 NEP_IN = """type       1 Al
 version    4
 cutoff     6 4
-n_max      6 6
+n_max      8 8
 basis_size 8 8
 l_max      4 2 0
 neuron     50
@@ -118,10 +140,11 @@ lr         0.01
 stage2     1
 """
 frames = [f.with_info(energy=f.info["energy"] - len(f) * e_atom)
-          for name in ("train", "near") for f in read_trajectory(f"{name}-dft.xyz")]  # fmt: skip
-energies = [f.info["energy"] / len(f) for f in frames]
-low = min(energies) + 0.5
-frames = [f.with_info(weight=3.0) if e < low else f for f, e in zip(frames, energies)]
+          for name in ("train", "near", "near-hcp")
+          for f in read_trajectory(f"{name}-dft.xyz")]  # fmt: skip
+lowest = min(f.info["energy"] / len(f) for f in frames)
+frames = [f.with_info(weight=20.0) if f.info["energy"] / len(f) < lowest + 2.0 else f
+          for f in frames]  # fmt: skip
 Path("nep").mkdir(exist_ok=True)
 write("nep/train.xyz", frames)
 batch = round(150 * len(frames) / sum(len(f) for f in frames))
@@ -131,17 +154,16 @@ train_nep(
 )
 ```
 
-Two models, of the seeds 0 and 1, trained in 359 and 309 s on an RTX A2000. Their errors on the
-91 test cells:
+Two models, of the seeds 0 and 1, trained in 312 and 381 s on an RTX A2000. Their errors
+on the 91 test cells and on the 25 of them within 2 eV per atom of the lowest:
 
-| Model | Energy (meV/atom) | Forces (eV/Å) | Virial (meV/atom) | Energy, the 13 cells within 0.5 eV/atom of the lowest |
-|---|---:|---:|---:|---:|
-| seed 0 | 33 | 0.151 | 113 | 12 |
-| seed 1 | 31 | 0.155 | 111 | 14 |
+| Model | Energy (meV/atom) | Forces (eV/Å) | Virial (meV/atom) | Energy, the 25 | Forces, the 25 |
+|---|---:|---:|---:|---:|---:|
+| seed 0 | 29 | 0.156 | 120 | 10.7 | 0.035 |
+| seed 1 | 29 | 0.168 | 113 | 13.6 | 0.036 |
 
 The test cells are generated ones, as the training cells: their energies lie 3.4 eV per
-atom above the lowest in the median, up to 7.2, and their forces reach 24 eV/Å. Near the
-crystal the errors are smaller, as the properties below show.
+atom above the lowest in the median, up to 7.2, and their forces reach 24 eV/Å.
 
 torchnep draws the training from the files it writes:
 
@@ -187,12 +209,12 @@ for calculator in (dft, NEP("nep/nep_best.txt")):
 
 | | DFT | DFT, k-points twice as dense | NEP, seed 0 | NEP, seed 1 |
 |---|---:|---:|---:|---:|
-| a0 (Å) | 4.038 | 4.036 | 4.038 | 4.041 |
-| B0 (GPa) | 78.4 | 77.5 | 82.6 | 79.5 |
-| vacancy (eV) | 0.669 | 0.656 | 0.738 | 0.717 |
-| (100) surface (J/m²) | 1.006 | 1.008 | 0.976 | 0.918 |
-| X, TA and LA (THz) | 5.81, 9.61 | 5.84, 9.66 | 5.70, 9.18 | 5.66, 9.07 |
-| L, TA and LA (THz) | 4.16, 9.61 | 4.18, 9.65 | 4.39, 9.80 | 4.45, 9.75 |
+| a0 (Å) | 4.038 | 4.036 | 4.034 | 4.036 |
+| B0 (GPa) | 78.4 | 77.5 | 78.9 | 80.1 |
+| vacancy (eV) | 0.669 | 0.656 | 0.663 | 0.732 |
+| (100) surface (J/m²) | 1.006 | 1.008 | 0.925 | 1.036 |
+| X, TA and LA (THz) | 5.81, 9.61 | 5.84, 9.66 | 5.96, 9.38 | 5.83, 9.31 |
+| L, TA and LA (THz) | 4.16, 9.61 | 4.18, 9.65 | 4.63, 9.70 | 4.40, 9.84 |
 
 The figure, from the values these functions return (kept by
 [`dft_training.py`](dft-potential/dft_training.py) in `properties-WHO.json`):
@@ -242,14 +264,72 @@ fig.savefig("properties.png", dpi=300)
 *a: the equation of state, the energy per atom against the volume per atom from 94 to
 106 %. b: the phonons along the high-symmetry path of fcc.*
 
-- **The equation of state** of the models lies within 0.003 Å of the DFT in a0 and
-  4 GPa in B0, the model of seed 1 within 1 GPa; the DFT with k-points twice as dense
-  moves a0 by 0.002 Å and B0 by 0.9 GPa: the labels are converged enough for it.
-- **The vacancy** comes out 0.05 and 0.07 eV high; **the (100) surface** 0.03 and
-  0.09 J/m² low.
-- **The phonons** agree along the path within 0.3 THz in the root mean square; the
-  largest differences, 0.5 to 0.6 THz, are the longitudinal branch at X, low in both
-  models, and the lowest branch at W, high in the model of seed 0.
+- **The equation of state** of the models lies within 0.004 Å of the DFT in a0 and
+  1.7 GPa in B0; the DFT with k-points twice as dense moves a0 by 0.002 Å and B0 by
+  0.9 GPa: the labels are converged enough for it.
+- **The vacancy** comes out 0.006 eV low and 0.06 eV high; **the (100) surface**
+  0.08 J/m² low and 0.03 high.
+- **The phonons** agree along the path within 0.22 and 0.19 THz in the root mean square;
+  the largest differences, 0.5 to 0.6 THz, are the lowest branch at W, high in the model
+  of seed 0, and the longitudinal one between Γ and X, low in that of seed 1.
+
+## Far from the crystal
+
+The generalized stacking fault, (111) planes slipped along [11̄2] in a slab of 12 layers,
+each point relaxed normal to the planes; the cold crystal compressed to 70 % of its
+volume; and the Hugoniot, the states a shock reaches from the crystal at 300 K, by
+molecular dynamics of 2048 atoms with the [Hugoniostat](../user-guide/simulation/hugoniostat.md)
+([Ravelo et al. 2004](../reference/references.md#ravelo2004)), its barostat alike along
+every axis, 20 ps at each pressure and the last 10 averaged:
+
+<!-- skip-test -->
+```python
+from mdapy.properties.defects import stacking_fault_energy
+from mdapy.simulation import MolecularDynamics
+
+layers = build_crystal("fcc", a0, elements="Al",
+                       orientation=[(1, 1, -2), (-1, 1, 0), (1, 1, 1)], repeat=(1, 1, 4))  # fmt: skip
+curve = stacking_fault_energy(
+    layers, calculator, [a0 * np.sqrt(6) / 2, 0, 0], points=13, max_force=0.01
+)
+nep = NEP("nep/nep_best.txt")
+crystal = build_crystal("fcc", a0, elements="Al", repeat=8)
+with MolecularDynamics(crystal, nep, timestep=0.001) as md:
+    md.velocities(600, seed=1)
+    md.run(10000, ensemble="npt", temperature=300, pressure=0.0, barostat="iso")
+    warm = md.system
+    md.run(0)
+    ambient = md.thermo[-1]
+reference = (ambient["total_energy"][0], ambient["volume"][0], 0.0)
+for pressure in (10.0, 20.0, 30.0, 40.0, 50.0):
+    with MolecularDynamics(warm, nep, timestep=0.001) as md:
+        md.run(20000, ensemble="nphug", pressure=pressure, barostat="iso",
+               hugoniot=reference, thermostat_damping=0.1, barostat_damping=1.0)  # fmt: skip
+        late = md.thermo.filter(md.thermo["time"] >= 10.0)
+```
+
+![The stacking fault, the compression and the Hugoniot of the DFT, of the two models and of experiment](images/dft-potential-far.png)
+
+*a: the generalized stacking fault on (111) along [11̄2]. b: the pressure against the
+volume, of the cold crystal and on the Hugoniot, with the measured Hugoniot of aluminium
+1100 ([Marsh 1980](../reference/references.md#marsh1980)). c: the shock velocity
+against the particle velocity, the measured ones with the linear fit of their table.*
+
+- **The stacking fault** of the DFT has its unstable maximum at 175 mJ/m² and the
+  intrinsic fault at 143; the models have 139 and 131, and 77 and 82, half the DFT's
+  intrinsic fault. Its energy is that of hcp against fcc, 29.6 meV per atom above in the
+  DFT and 17 and 18 in the models: near the crystal the models put fcc 2 to 6 meV per
+  atom too high and hcp 8 to 11 too low, errors of the size of their errors there, and
+  no cell of training holds a fault. The maximum of the slip, 502 mJ/m², they give
+  within 16.
+- **The cold compression** to 70 % of the volume takes 60.7 GPa in the DFT and 61.2 and
+  59.7 in the models; at 80 %, 28.5 against 29.8 and 29.5.
+- **The Hugoniot** of the models follows the measured one of aluminium 1100: from 10 to
+  50 GPa their shock velocities lie 0.2 to 1.4 % below the linear fit of the
+  measurements, and the shocked crystal reaches 1300 K at 50 GPa. The measurements go up
+  to 1.8 km/s of particle velocity, about 33 GPa; at 40 and 50 GPa the models are
+  compared with the fit continued. At 300 K the crystal of the models is 1.7 % less dense
+  than the alloy (2.665 and 2.668 g/cm³ against 2.713).
 
 ## Elastic constants and k-points
 
@@ -260,10 +340,23 @@ cubic cell, the DFT gives C11, C12 and C44 of 79, 78 and 28 GPa; with the mesh t
 dense 103, 66 and 31. On meshes from 8 to 32 k-points along each axis of the cubic cell
 of four atoms ([`kconv.py`](dft-potential/kconv.py)):
 
-![C11, C12 and C44 of the DFT against the mesh of k-points, with two smearings](images/dft-potential-kpoints.png)
+![C11, C12 and C44 of the DFT against the mesh of k-points, with two smearings](images/dft-potential-kpoints.png){ width="60%" }
 
 *The elastic constants of the DFT jump with the mesh up to about 20 k-points along each
-axis and settle from 24, at 114, 58 and 33 GPa with 32, the two smearings alike.*
+axis and settle from 24, at 114, 58 and 33 GPa with 32, the two smearings alike. Stars:
+the DFT on the mesh of the labels, 11 k-points along each axis, and on one twice as
+dense; diamonds, at the right: the two models.*
+
+| | C11 (GPa) | C12 (GPa) | C44 (GPa) |
+|---|---:|---:|---:|
+| DFT, the labels' mesh (11³ on the cubic cell) | 79 | 78 | 28 |
+| DFT, k-points twice as dense (22³) | 103 | 66 | 31 |
+| DFT, 24³ | 117 | 57 | 32 |
+| DFT, 32³ | 114 | 58 | 33 |
+| NEP, seed 0 | 117 | 59 | 32 |
+| NEP, seed 1 | 118 | 61 | 35 |
+
+*The DFT with the smearing of Marzari and Vanderbilt of 0.25 eV, as the labels.*
 
 The phonons depend on the mesh far less: with k-points twice as dense they move by
 0.5 % (the table above), where C11 moves by a quarter. A strain of 1 % shifts the energy
@@ -287,9 +380,17 @@ Fermi–Dirac, −TS of about 1 meV per atom or less, or an extrapolation to σ 
 cold smearing the bias is small even where −TS is not. Here MV of 0.25 eV gives the
 same elastic constants as a Gaussian of 0.1 eV on the dense meshes.
 
-The models give 122 and 121 GPa for C11, 64 and 59 for C12, and 32 and 35 for C44:
-close to the converged DFT, which no label computed. That they agree is luck as much as
-learning: the elastic constants of the labels' DFT are not those values. Quantum
+The models give the elastic constants of the converged DFT, though the DFT of their
+labels gives others. They do not learn its finite differences: on the labels' mesh the
+energy of each cell carries an error of the k-points that jumps from cell to cell as
+bands cross the Fermi level, steps as large as the elastic energy of a strain of 1 %.
+The model is a smooth function of the atoms fitted to hundreds of cells strained by up to
+5 %; it cannot follow those steps and averages them out, keeping the smooth curvature
+under them. Fitted to fewer cells, models follow the labels more closely: trained on the
+196 cells within 2 eV per atom of the lowest alone, they gave C11 of 89 to 99 GPa. What
+the fit averages out is the scatter of the labels, not their bias: an error the same in
+every cell, of the pseudopotential, the functional or the smearing, the model learns as
+it is. Quantum
 ESPRESSO on the same cell, pseudopotential, mesh and Gaussian smearing gives C11 of
 156.8 and 123.4 GPa with 16 and 24 k-points along each axis, where MDAPY gives 157.0 and
 123.7: the jumps are aluminium's, not the code's.
@@ -300,10 +401,11 @@ ESPRESSO on the same cell, pseudopotential, mesh and Gaussian smearing gives C11
 ```bash
 python dft_training.py sets
 python dft_training.py atom
-python dft_training.py label train 0 4  # and 1 4, 2 4, 3 4: on four GPUs; then near and test
+python dft_training.py label train 0 4  # and 1 4, 2 4, 3 4: on four GPUs; then near, near-hcp and test
 python dft_training.py train 0        # and 1
 python dft_training.py errors
 python dft_training.py properties dft  # and dft-fine, nep_0, nep_1
+python dft_training.py hugoniot 0     # and 1
 python kconv.py 8 12 16 20 24 28 32  # Gaussian 0.1 eV
 SMEARING=marzari-vanderbilt SIGMA=0.25 python kconv.py 8 10 12 14 16 20 24 32
 python figures.py . images
@@ -313,8 +415,9 @@ The scripts: [`dft_training.py`](dft-potential/dft_training.py),
 [`kconv.py`](dft-potential/kconv.py) and [`figures.py`](dft-potential/figures.py).
 
 The properties of the DFT took 34 minutes on an H100 with the labels' mesh and two hours
-on an A100 with the mesh twice as dense, the vacancy of 107 atoms most of them; those of
-a model, a second.
+on an A100 with the mesh twice as dense, the vacancy of 107 atoms most of them, and its
+stacking fault 4.4 hours on a V100; those of a model, a second, and its Hugoniot of five
+points 27 minutes on the RTX A2000.
 
 ## See also
 

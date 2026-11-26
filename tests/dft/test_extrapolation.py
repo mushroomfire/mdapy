@@ -18,9 +18,9 @@ from mdapy.calculators import DFT
 from mdapy.calculators._dft.calculator import HARTREE
 from mdapy.errors import InvalidParameter
 
-from dft import espresso
+from dft import espresso, gpu
 
-_dft = pytest.importorskip("mdapy_dft_cuda12._dft")
+_dft = gpu.module()
 
 CELL = 5.431 * np.eye(3)
 DIAMOND = (

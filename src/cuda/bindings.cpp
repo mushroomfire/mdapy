@@ -4,7 +4,8 @@
 // obtain one at https://mozilla.org/MPL/2.0/.
 //
 // mdapy._cuda: the atoms, neighbor lists and potentials of MDAPY on an NVIDIA
-// GPU. Built only with the CUDA toolkit (CMake option MDAPY_CUDA).
+// GPU. Built only with the CUDA toolkit (CMake option MDAPY_CUDA). With HIP
+// for AMD GPUs (CMake option MDAPY_HIP) the same module is named _hip.
 
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
@@ -75,7 +76,11 @@ Precision precision_of(const std::string& name) {
 
 }  // namespace
 
-NB_MODULE(_cuda, m) {
+#ifndef MDAPY_GPU_MODULE
+#define MDAPY_GPU_MODULE _cuda
+#endif
+
+NB_MODULE(MDAPY_GPU_MODULE, m) {
     nb::exception<mdapy::cuda::NotFinite>(m, "NotFinite");
     m.def("device_name", &mdapy::cuda::device_name);
     m.def("device_count", &mdapy::cuda::device_count);
@@ -769,4 +774,36 @@ NB_MODULE(_cuda, m) {
         },
         nb::arg("style"), nb::arg("species"), nb::arg("cutsq"), nb::arg("offset"),
         nb::arg("coefficients"), nb::arg("precision"));
+    using References = nb::ndarray<const std::int32_t, nb::ndim<1>, nb::c_contig, nb::device::cpu>;
+    m.def(
+        "make_d3",
+        [](const std::string& damping, References references, Flat reference_cn, Flat rcov,
+           Flat r4r2, Flat vdw, Flat c6, double s6, double s8, double s9, double a1, double a2,
+           double rs6, double rs8, double alpha, double hartree, double cutoff,
+           double cn_cutoff, double three_body_cutoff, const std::string& precision) {
+            mdapy::calculators::D3Damping kind;
+            if (damping == "bj") {
+                kind = mdapy::calculators::D3Damping::Rational;
+            } else if (damping == "zero") {
+                kind = mdapy::calculators::D3Damping::Zero;
+            } else {
+                throw std::invalid_argument("unknown D3 damping");
+            }
+            const std::size_t t = references.shape(0);
+            if (t == 0 || reference_cn.shape(0) != t * mdapy::calculators::kD3References ||
+                rcov.shape(0) != t || r4r2.shape(0) != t || vdw.shape(0) != t * t) {
+                throw std::invalid_argument("inconsistent D3 tables");
+            }
+            const auto potential = mdapy::calculators::make_d3_potential(
+                kind, static_cast<int>(t), references.data(), reference_cn.data(),
+                rcov.data(), r4r2.data(), vdw.data(), c6.data(),
+                static_cast<std::int64_t>(c6.shape(0)), s6, s8, s9, a1, a2, rs6, rs8, alpha,
+                hartree, cutoff, cn_cutoff, three_body_cutoff);
+            return mdapy::cuda::make_d3(potential, precision_of(precision));
+        },
+        nb::arg("damping"), nb::arg("references"), nb::arg("reference_cn"), nb::arg("rcov"),
+        nb::arg("r4r2"), nb::arg("vdw"), nb::arg("c6"), nb::arg("s6"), nb::arg("s8"),
+        nb::arg("s9"), nb::arg("a1"), nb::arg("a2"), nb::arg("rs6"), nb::arg("rs8"),
+        nb::arg("alpha"), nb::arg("hartree"), nb::arg("cutoff"), nb::arg("cn_cutoff"),
+        nb::arg("three_body_cutoff"), nb::arg("precision"));
 }

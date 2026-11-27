@@ -74,7 +74,7 @@ an error that says what to install.
 | `kspacing` | float64 | 0.25 | 1/Å | without `kpoints`, the largest spacing of the mesh, 2π included, as VASP's KSPACING |
 | `smearing` | str | `"gaussian"` | | `"gaussian"`, `"fermi-dirac"`, `"methfessel-paxton"` (first order), `"marzari-vanderbilt"`, or `"fixed"` for insulators |
 | `sigma` | float64 | 0.1 | eV | the width of the smearing |
-| `magmoms` | mapping or (N,) float64 | `None` | Bohr magneton | the first magnetic moments, by element or one per atom; with them the spins are collinear |
+| `magmoms` | mapping or (N,) float64 | `None` | Bohr magneton | the first magnetic moments, by element or one per atom; with them the spins are collinear, and the magnetization stays theirs for the first steps, while the density settles ([below](#the-first-moments-and-the-magnetic-state)) |
 | `hubbard` | mapping of str to (str, float64) | `None` | eV | DFT+U: for an element the label of one of its pseudo-orbitals, such as `"3d"`, and U |
 | `functional` | str | that of the pseudopotentials, as Quantum ESPRESSO takes it | | `"pbe"`, `"pbe_pw"`, `"pbesol"`, `"pbesol_pw"`, `"lda_pw"` or `"lda_pw_mod"` |
 | `tolerance` | float64 | 1e-6 | eV | the self-consistent field stops when the energy changes by less and the Hartree energy of the change of the density is below it |
@@ -99,7 +99,7 @@ an error that says what to install.
 |---|---|
 | `cutoff` | 0: the calculator needs no neighbor list |
 | `compute(system, properties, *, neighbors=None)` | the free energy in eV, the forces in eV/Å and, when asked, the virial in eV; `neighbors` is not used |
-| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `net_force` (eV/Å), `kpoints`, `grid`, `gpu_memory` (the [memory of the GPU](#memory-of-the-gpu) in MiB), `provenance`, `calculation` (its number among the computations of the calculator) and `parameters` (every parameter it took, [below](#the-log-and-the-parameters-of-each-computation)) |
+| `last` | of the last computation: `iterations`, `restarted`, `fermi` (eV), `magnetization` and `absolute_magnetization` (Bohr magnetons, with spin), `magnetic_moments` ((N,) float64 Bohr magnetons, with spin: the magnetization density, spin up minus spin down, integrated within a sphere of `moment_radius` around each atom, in the order of the atoms) and `moment_radius` (Å, the radius used), `held_steps` (with spin, the first steps whose magnetization stayed that of `magmoms`) and `moments_lost` (with spin, whether the moments it started with are gone, [below](#the-first-moments-and-the-magnetic-state)), `net_force` (eV/Å), `kpoints`, `grid`, `gpu_memory` (the [memory of the GPU](#memory-of-the-gpu) in MiB), `provenance`, `calculation` (its number among the computations of the calculator) and `parameters` (every parameter it took, [below](#the-log-and-the-parameters-of-each-computation)) |
 | `log`, `start` | the log and the ground state given |
 | `save(path)` | writes the ground state of the last computation ([below](#the-ground-state-in-a-file)) |
 
@@ -137,13 +137,13 @@ write("labels.xyz", dft.compute(system, ("energy", "forces", "virial")).attach(s
 # machine: 12th Gen Intel(R) Core(TM) i5-12600K, 16 logical CPUs, 16 usable, 31.0 GB of memory
 #
 # calculation 1: 4 atoms, Al 4; mesh 2 2 2, 6 k-points, 8 operations, 10 bands, grid 24 24 24
-# parameters: {"mdapy": "2.2.0", "arguments": {"encut": 300.0, "ecutrho": 1200.0, "kpoints": [2, 2, 2], "kspacing": 0.25, "smearing": "gaussian", "sigma": 0.2, "magmoms": null, "hubbard": {}, "functional": "pbe_pw", "tolerance": 1e-06, "max_iterations": 100, "mixing": 0.7, "magnetic_mixing": 1.0, "kerker": 1.5, "preconditioner": "kerker", "bands": 10, "seed": 0, "restart": false, "symmetry": true, "moment_radius": null, "precision": "double", "kernels": "mdapy"}, "pseudopotentials": {"Al": {"file": "Al_std.upf", "sha256": "b02eaa07c5d98f5eeae1bec4155854a7a94ea3635ca6b42e914f3f7ebd6912fb"}}, "internal": {"offset": [0.0, 0.0, 0.0], "minimum": 0.0, "history": 8, "metric_weight": 20.0, "davidson_iterations": 100, "davidson_basis": 2, "correct_forces": true, "magnetic_kerker": 0.0, "atomic_start": true, "kpoint_threads": 0, "first_tolerance": 0.0, "conditioning": 1000000.0, "output_energies": false, "adaptive_damping": false, "first_held": 0}, "environment": {}, "gpu": "NVIDIA RTX A2000 12GB", "processes": 1}
-# calculation  step         free_energy     change   residual  magnetization      fermi  davidson      wall
-            1     1       -250.09668526        nan   4.48e-01         0.0000     8.0558        39      0.11
-            1     2       -250.00546055   9.12e-02   8.03e-02         0.0000     8.0607        30      0.16
-            1     3       -249.97892058   2.65e-02   8.11e-05         0.0000     8.0699        22      0.21
-            1     4       -249.97899110  -7.05e-05   4.58e-07         0.0000     8.0696        38      0.25
-            1     5       -249.97899131  -2.10e-07   2.63e-08         0.0000     8.0696        36      0.29
+# parameters: {"mdapy": "2.2.0", "arguments": {"encut": 300.0, "ecutrho": 1200.0, "kpoints": [2, 2, 2], "kspacing": 0.25, "smearing": "gaussian", "sigma": 0.2, "magmoms": null, "hubbard": {}, "functional": "pbe_pw", "tolerance": 1e-06, "max_iterations": 100, "mixing": 0.7, "magnetic_mixing": 1.0, "kerker": 1.5, "preconditioner": "kerker", "bands": 10, "seed": 0, "restart": false, "symmetry": true, "moment_radius": null, "precision": "double", "kernels": "mdapy"}, "pseudopotentials": {"Al": {"file": "Al_std.upf", "sha256": "b02eaa07c5d98f5eeae1bec4155854a7a94ea3635ca6b42e914f3f7ebd6912fb"}}, "internal": {"offset": [0.0, 0.0, 0.0], "minimum": 0.0, "history": 8, "metric_weight": 20.0, "davidson_iterations": 100, "davidson_basis": 2, "correct_forces": true, "magnetic_kerker": 0.0, "atomic_start": true, "kpoint_threads": 0, "first_tolerance": 0.0, "conditioning": 1000000.0, "output_energies": false, "adaptive_damping": false, "first_held": 0, "hold": 0.27211386245988, "hold_steps": 12}, "environment": {}, "gpu": "NVIDIA RTX A2000 12GB", "processes": 1}
+# calculation  step         free_energy     change   residual  magnetization  absolute      fermi  davidson      wall
+            1     1       -250.09668526        nan   4.48e-01         0.0000    0.0000     8.0558        39      0.11
+            1     2       -250.00546055   9.12e-02   8.03e-02         0.0000    0.0000     8.0607        30      0.16
+            1     3       -249.97892058   2.65e-02   8.11e-05         0.0000    0.0000     8.0699        22      0.21
+            1     4       -249.97899110  -7.05e-05   4.58e-07         0.0000    0.0000     8.0696        38      0.25
+            1     5       -249.97899131  -2.10e-07   2.63e-08         0.0000    0.0000     8.0696        36      0.29
 # calculation 1: converged in 5 steps, 0.86 s; energy -249.978991 eV, largest force 0.184590 eV/Å, pressure -4.4583 GPa
 ```
 
@@ -155,7 +155,8 @@ the GPU and the machine. Each computation then writes:
   symmetry, the bands and the FFT grid;
 - its parameters as one line of JSON, when they differ from the last ones written;
 - a row for every step of the self-consistent field, the steps in single precision of
-  `precision="mixed"` marked where they begin and end;
+  `precision="mixed"` marked where they begin and end, and with spin the steps whose
+  magnetization stays that of `magmoms`;
 - its end: the steps, the seconds, the energy, the largest force and, with the virial,
   the pressure; or, if it stopped, where and why.
 
@@ -170,12 +171,13 @@ of every computation as one table; its first column tells them apart.
 | `change` | eV | from the step before, `nan` for the first |
 | `residual` | eV | the Hartree energy of the change of the density, which `tolerance` bounds |
 | `magnetization` | Bohr magneton | the moment of the cell, 0 without spin |
+| `absolute` | Bohr magneton | the integral of the absolute magnetization over the cell, which also counts moments that cancel; 0 without spin |
 | `fermi` | eV | the Fermi level |
 | `davidson` | | the iterations of the eigensolver, summed over the k-points and spins |
 | `wall` | s | the seconds since the self-consistent field began |
 
 The log costs the run nothing it does not already have. The numbers of a step are those
-the self-consistent field tests its convergence with, already on the processor, so
+the self-consistent field keeps of each step, already on the processor, so
 nothing more comes from the GPU. Without a log, no step is reported. Under MPI the first
 process writes; threads that share a GPU give each calculator its own file.
 
@@ -185,8 +187,10 @@ Each computation keeps every parameter it took in `last["parameters"]`, its defa
 `"auto"` resolved: the mixing, `ecutrho`, the mesh, the bands, the symmetry, the precision
 and the kernels, as they ran. Its result keeps them in `info["dft"]`, which `attach` puts
 into the frame and `write` into each frame of an extended XYZ file. A label so says how it
-was computed, with or without a log. A later version of MDAPY, whose defaults may change,
-computes it again from them:
+was computed, with or without a log. With spin the result also keeps `magnetization` and
+`absolute_magnetization` in its `info`, so that the magnetic states of the labels of a set
+can be compared from the file. A later version of MDAPY, whose defaults may change,
+computes a label again from its record:
 
 <!-- skip-test -->
 ```python
@@ -471,36 +475,82 @@ when the self-consistent field does not converge, with its last energies.
 
 ## When the self-consistent field does not converge
 
-The defaults suit bulk cells. Cells of metal and vacuum, surfaces, vacancies,
-and magnetic alloys converge better with the preconditioner of the local density
-of states, which screens the metal and not the vacuum, and keeps the moments of a
-magnet from wandering among nearby orders or falling to none:
+The defaults suit bulk cells. Cells of metal and vacuum, surfaces and vacancies converge
+better with the preconditioner of the local density of states, which screens the metal and
+not the vacuum:
 
 <!-- skip-test -->
 ```python
 from mdapy.calculators import DFT
 from mdapy.errors import CalculationFailed
 
-dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos")
+dft = DFT(600.0, preconditioner="ldos")
 try:
-    result = dft.compute(cell, ("energy", "forces", "virial"))
+    result = dft.compute(slab, ("energy", "forces", "virial"))
 except CalculationFailed:  # slower still: a smaller share of the residual, more steps
-    dft = DFT(600.0, magmoms={"Cr": -2.0, "Co": 3.0, "Ni": 1.2}, preconditioner="ldos",
-              mixing=0.2, max_iterations=200)  # fmt: skip
-    result = dft.compute(cell, ("energy", "forces", "virial"))
-print(dft.last["iterations"], dft.last["magnetization"])
+    dft = DFT(600.0, preconditioner="ldos", mixing=0.2, max_iterations=200)
+    result = dft.compute(slab, ("energy", "forces", "virial"))
+print(dft.last["iterations"])
 ```
 
-A magnet can converge to more than one state, and the first moments choose among them.
-Cells of four atoms of Co2CrNi, started with −1, 1.5 and 0.6 Bohr magnetons on Cr, Co
-and Ni, ended in 6 of 20 cells in states of smaller moments, or none, 50 to 110 meV per
-atom above a ferrimagnetic one; started with twice those moments, as above, all reached
-it, in fewer steps. In these cells it made no difference whether the first moment sat
-over the valence or in the d shell; its size did. Start each atom at or above the moment it is expected
-to carry, its high-spin moment when unsure. A state of small moments, once converged,
-holds: restarted with its magnetization doubled, it came back. Compare
-`last["magnetization"]` and `last["absolute_magnetization"]` across the labels of a set,
-and start them alike.
+## The first moments and the magnetic state
+
+A magnet has more than one self-consistent state: moments of other sizes and signs, and
+always the state without moments. `magmoms` chooses among them, by the signs and the sizes
+of the moments the atoms start with. Give each atom about the moment it is expected to
+carry, with its sign:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+
+dft = DFT(600.0, magmoms={"Cr": -1.0, "Co": 1.5, "Ni": 0.6})
+result = dft.compute(cell, ("energy", "forces", "virial"))
+print(dft.last["magnetization"], dft.last["absolute_magnetization"])
+print(dft.last["magnetic_moments"], dft.last["held_steps"])
+```
+
+For the first steps the magnetization stays that of `magmoms`, and the total density alone
+is mixed: until the Hartree energy of the residual of the total density is below 0.27 eV
+per atom, 12 steps at most. `last["held_steps"]` counts these steps, and the log marks
+where they begin and end. In the potential of superposed free atoms, which the first
+step has, the bands do not carry the moments they are given, however tightly they are
+solved. In a cell of Co2CrNi started as above, with 3.6 Bohr magnetons on Co and Ni and −1
+on Cr, the first step returns 0.6 and −0.5, the second 2.2 and −0.1, and the steps after,
+as the density settles, 2.0 and −1.2: near the 2.1 and −2.2 of the ferrimagnet the cell
+converges to. A magnetization mixed from the first steps has lost its start before the
+density is right, and the run ends where those steps left it, in a state of smaller
+moments or none, tens of meV per atom too high. A computation from a ground state
+(`restart`, `start`) holds nothing: its magnetization is that of its state.
+
+What tells a wrong state:
+
+- A computation whose moments are gone at its end warns, and `last["moments_lost"]` is
+  `True`: the absolute magnetization is below 0.05 Bohr magnetons for each atom that
+  started with a moment. That is the state without spin, the ground state of a cell that
+  is not magnetic and otherwise a stationary state above it.
+- `last["magnetic_moments"]` gives the moment of each atom, and the log the magnetization
+  and the absolute magnetization of every step. With each label, `info["magnetization"]`
+  and `info["absolute_magnetization"]` go into the file: compare them across the labels of
+  a set, and start the cells of a set alike.
+- Two patterns of signs are two states, whatever the sizes. Where the order is not known,
+  as for atoms of chromium, manganese or fcc iron that neighbour each other, compute the
+  patterns and keep the lowest:
+
+<!-- skip-test -->
+```python
+from mdapy.calculators import DFT
+
+patterns = {
+    "ferrimagnetic": {"Cr": -1.0, "Co": 1.5, "Ni": 0.6},
+    "ferromagnetic": {"Cr": 1.0, "Co": 1.5, "Ni": 0.6},
+}
+states = {}
+for name, magmoms in patterns.items():
+    dft = DFT(600.0, magmoms=magmoms)
+    states[name] = (dft.compute(cell).energy, dft.last["magnetic_moments"])
+lowest = min(states, key=lambda name: states[name][0])
+```
 
 ## How the results compare with Quantum ESPRESSO
 

@@ -2,6 +2,16 @@
 
 ## 2.3.0 (not released)
 
+- `DFT` with `magmoms`: the magnetization stays that of the first moments for the first
+  steps of a computation from the free atoms, while the total density alone is mixed,
+  until the Hartree energy of its residual is below 0.27 eV per atom (12 steps at most;
+  `last["held_steps"]`, and the log marks them). The bands of the first steps do not
+  carry the moments they are given, and a magnetization mixed from them ended in states
+  of smaller moments or none: MAGNETIC_NUMBERS. A computation whose moments are gone at
+  its end warns and sets `last["moments_lost"]`; the log has a column `absolute`, the
+  absolute magnetization of each step; with spin a result keeps `magnetization` and
+  `absolute_magnetization` in its `info`, with each label. See
+  [The first moments and the magnetic state](../user-guide/potentials/dft.md#the-first-moments-and-the-magnetic-state).
 - `mdapy.properties.electronic.electronic_structure(system, dft)`: the self-consistent
   field of a crystal by `DFT` once, then the energies of the electrons at any wave
   vectors in its potential (`energies`), band structures along the paths of the phonons
